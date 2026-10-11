@@ -462,6 +462,109 @@ export function linearWorld(signIn = fakeSignIn()) {
   };
 }
 
+/** GitHub's REST API in githubWorld. */
+export const TEST_GITHUB = 'https://api.github.com';
+
+/** An issue as GitHub's REST API answers it, in repo `repo`; `pr` makes it a pull request. */
+export const githubIssueObject = (
+  repo: string,
+  number: number,
+  title: string,
+  more: {
+    state?: 'open' | 'closed';
+    body?: string;
+    assignees?: string[];
+    labels?: string[];
+    milestone?: { number: number; title: string };
+    pr?: boolean;
+  } = {},
+) => ({
+  number,
+  title,
+  body: more.body ?? '',
+  state: more.state ?? 'open',
+  html_url: `https://github.com/${repo}/${more.pr ? 'pull' : 'issues'}/${number}`,
+  user: { id: 7002, login: 'mira-keel' },
+  assignees: (more.assignees ?? []).map((login) => ({ id: GITHUB_PEOPLE[login] ?? 7999, login })),
+  labels: (more.labels ?? []).map((name) => ({ name, color: 'd73a4a' })),
+  milestone: more.milestone ?? null,
+  created_at: '2026-09-20T10:00:00Z',
+  updated_at: '2026-09-24T12:00:00Z',
+  ...(more.pr
+    ? { pull_request: { url: `https://api.github.com/repos/${repo}/pulls/${number}` } }
+    : {}),
+});
+
+/** The invented GitHub people githubWorld knows, by login. */
+const GITHUB_PEOPLE: Record<string, number> = { 'rowan-tide': 7001, 'mira-keel': 7002 };
+
+/**
+ * GitHub and the broker in memory (brokerWorld): 8-hour access tokens that refresh, as a GitHub
+ * App's user tokens do. Rowan Tide (rowan-tide) signed in; Mesa's GitHub App is installed on the
+ * invented org harbor-co with the repos `serveRepos` names (none at first).
+ */
+export function githubWorld(signIn = fakeSignIn()) {
+  const world = brokerWorld('github', signIn, { expiresIn: 28800 });
+  const { serve } = world;
+  serve(`${TEST_GITHUB}/user`, {
+    id: 7001,
+    login: 'rowan-tide',
+    name: 'Rowan Tide',
+    email: 'rowan@example.test',
+  });
+  const page = (path: string, body: unknown) =>
+    serve(`${TEST_GITHUB}${path}${path.includes('?') ? '&' : '?'}per_page=100&page=1`, body);
+  const serveRepos = (repos: string[]) => {
+    page('/user/installations', {
+      total_count: repos.length ? 1 : 0,
+      installations: repos.length ? [{ id: 41, account: { login: 'harbor-co' } }] : [],
+    });
+    page('/user/installations/41/repositories', {
+      total_count: repos.length,
+      repositories: repos.map((full_name) => ({
+        full_name,
+        private: true,
+        html_url: `https://github.com/${full_name}`,
+      })),
+    });
+  };
+  serveRepos([]);
+  return {
+    ...world,
+    serveRepos,
+    /** Repo `repo` exists, with `labels` and open `milestones`. */
+    serveRepo: (
+      repo: string,
+      labels: { name: string; color: string }[] = [],
+      milestones: { number: number; title: string }[] = [],
+    ) => {
+      serve(`${TEST_GITHUB}/repos/${repo}`, { full_name: repo });
+      page(`/repos/${repo}/labels`, labels);
+      page(`/repos/${repo}/milestones?state=open`, milestones);
+      page(`/repos/${repo}/milestones?state=all`, milestones);
+    },
+    /** What GitHub lists for `repo`'s issues with `query` (state, assignee, labels, milestone). */
+    serveIssues: (repo: string, query: string, issues: unknown[]) =>
+      serve(`${TEST_GITHUB}/repos/${repo}/issues?${query}&per_page=100&page=1`, issues),
+    /** One issue (githubIssueObject) and its comments, oldest first. */
+    serveIssue: (
+      repo: string,
+      issue: ReturnType<typeof githubIssueObject>,
+      comments: { by: string; body: string }[] = [],
+    ) => {
+      serve(`${TEST_GITHUB}/repos/${repo}/issues/${issue.number}`, issue);
+      page(
+        `/repos/${repo}/issues/${issue.number}/comments`,
+        comments.map((c, at) => ({
+          user: { id: GITHUB_PEOPLE[c.by] ?? 7999, login: c.by },
+          created_at: `2026-09-2${at}T10:00:00Z`,
+          body: c.body,
+        })),
+      );
+    },
+  };
+}
+
 /**
  * The agent of an import-notes run in fakeTmux (`onOpen`): for each `<snapshot>=<note>` argument
  * of its prompt it returns `write(note, snapshot)` as that note, in Claude's result. A window that

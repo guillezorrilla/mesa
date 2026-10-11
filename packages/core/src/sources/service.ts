@@ -1,4 +1,7 @@
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import type { MesaContext } from '../context.js';
+import { lockedBy, withLock } from '../lib/lock-file.js';
 import { authorizedFetch, notConnectedError, type SourceDeps } from './authorized-fetch.js';
 import { brokerUrl } from './broker.js';
 import { type BrowseQuery, browseNode } from './browse.js';
@@ -27,6 +30,19 @@ export function sourcesService(ctx: MesaContext) {
     sleep: ctx.sleep,
     broker: brokerUrl(ctx.env),
     connections: connectionStore(ctx.secretStore, ctx.profile),
+    serialise: (source, fn) => {
+      const lock = join(ctx.paths.root, `${source}-refresh.lock`);
+      mkdirSync(ctx.paths.root, { recursive: true });
+      // A refresh is one broker round trip: wait up to about 15 s for another.
+      return withLock(
+        ctx,
+        lock,
+        fn,
+        () => lockedBy(`${source}'s sign-in`, lock, 'refresh'),
+        300,
+        50,
+      );
+    },
   };
   const row = async (id: SourceId): Promise<SourceRow> => {
     const label = SOURCES[id].label;

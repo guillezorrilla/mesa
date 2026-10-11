@@ -164,6 +164,7 @@ export { type BrowseChild, type BrowseResult, DESCENDANTS_CAP } from './sources/
 export { type CallbackListen, loopbackListener } from './sources/callback-listener.js';
 export type { Account, Site } from './sources/connection.js';
 export { siteNames } from './sources/describe.js';
+export type { GithubRepo } from './sources/github-repos.js';
 export type { ImportedItem, ImportResult, RefreshOptions } from './sources/import.js';
 export type { ImportProgress } from './sources/import-progress.js';
 export type { ImportListRow } from './sources/import-service.js';
@@ -173,7 +174,14 @@ export type { Board, Filter } from './sources/jira-tickets.js';
 export type { SourceRow } from './sources/service.js';
 export type { SourceId } from './sources/sources.js';
 export type { TicketDefaults } from './tickets/defaults.js';
-export type { ProviderId, TicketView, ViewInput } from './tickets/providers.js';
+export type { GithubDetail } from './tickets/github-provider.js';
+export {
+  type ProviderId,
+  providerOf,
+  type TicketView,
+  type ViewInput,
+  type ViewQuery,
+} from './tickets/providers.js';
 export type { FollowedView, Ticket } from './tickets/service.js';
 export { TICKET_STARTS, type TicketStart } from './tickets/ticket-start.js';
 export { UPDATE_CHANNELS, type UpdateChannel } from './update/feeds.js';

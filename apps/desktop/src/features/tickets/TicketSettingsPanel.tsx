@@ -1,13 +1,17 @@
-import type { TicketDefaults } from '@mesa/core';
+import type { ProviderId, TicketDefaults } from '@mesa/core';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Switch } from '@/components/ui/switch';
 import { PromptField } from '@/features/prompts/PromptField';
+import { TrackerIcon } from './TrackerIcon';
+import { TRACKERS } from './trackers';
 import { useTicketSettings } from './useTicketSettings';
 
 /**
  * The gear's settings for this project's ticket sessions: the prompt (its own, or the default
- * all projects share), Write notes, Assign to me, and where a session starts.
+ * all projects share), Write notes, Assign to me, and where a session starts; then where the
+ * project tracks work, with Change, and anything more its tracker shows there.
  */
 export function TicketSettingsPanel(props: {
   project: string;
@@ -15,8 +19,13 @@ export function TicketSettingsPanel(props: {
   /** The prompt in force: the project's own, else the profile's. */
   prompt: string | null;
   defaults: TicketDefaults;
+  tracker: ProviderId;
+  /** How many of its tracker's views (or repos) the project follows. */
+  following: number;
   onChanged: () => void;
+  onSwitch: () => void;
 }) {
+  const { name, unit, Settings } = TRACKERS[props.tracker];
   const {
     saving: acting,
     setDefault,
@@ -81,6 +90,20 @@ export function TicketSettingsPanel(props: {
           />
         </div>
       ))}
+      <div className="flex items-center gap-2.5 border-t pt-3.5">
+        <TrackerIcon tracker={props.tracker} />
+        <span className="grid flex-1 text-sm">
+          Tracks work in {name}
+          <span className="text-xs text-muted-foreground">
+            {props.following} followed {unit}
+            {props.following === 1 ? '' : 's'}
+          </span>
+        </span>
+        <Button variant="outline" size="sm" onClick={props.onSwitch}>
+          Change
+        </Button>
+      </div>
+      {Settings && <Settings project={props.project} />}
     </div>
   );
 }

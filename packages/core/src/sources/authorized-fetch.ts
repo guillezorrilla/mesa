@@ -15,6 +15,11 @@ export type SourceDeps = {
   sleep: (ms: number) => Promise<void>;
   broker: string;
   connections: ConnectionStore;
+  /**
+   * Runs `fn` alone among every call, in any process of the profile, refreshing `source`'s
+   * token: a refresh token rotates on use, so two refreshes at once leave one of them refused.
+   */
+  serialise: <T>(source: SourceId, fn: () => Promise<T>) => Promise<T>;
 };
 
 /** A token this close to its expiry is refreshed before it is used. */
@@ -62,12 +67,15 @@ const outOfReach = async (response: Response) =>
   response.status === 401 && /team not authorized/i.test(await response.clone().text());
 
 /**
- * A source asking Mesa to wait: a 429, a 503 that says for how long, or Linear's GraphQL answer, a
- * 400 whose error code is RATELIMITED.
+ * A source asking Mesa to wait: a 429, a 503 that says for how long, GitHub's 403 with no requests
+ * left or a Retry-After, or Linear's GraphQL answer, a 400 whose error code is RATELIMITED.
  */
 const limited = async (response: Response) =>
   response.status === 429 ||
   (response.status === 503 && response.headers.has('retry-after')) ||
+  (response.status === 403 &&
+    (response.headers.get('x-ratelimit-remaining') === '0' ||
+      response.headers.has('retry-after'))) ||
   (response.status === 400 && /"RATELIMITED"/.test(await response.clone().text()));
 
 /**
@@ -109,29 +117,32 @@ export function authorizedFetch(deps: SourceDeps, source: SourceId): Http {
     return reconnectError(source);
   };
   const refresh = (connection: Connection) => {
-    refreshing ??= (async () => {
-      // Another call may have refreshed since this one read: its refresh token was rotated away.
-      const stored = await deps.connections.read(source);
-      if (stored?.status === 'connected' && stored.accessToken !== connection.accessToken)
-        return stored;
-      // A source that gives no refresh token (ClickUp) answers 401 only once the token is revoked.
-      if (!connection.refreshToken) throw await needsReconnect(connection);
-      const tokens = await brokerToken(deps, source, {
-        grant_type: 'refresh_token',
-        refresh_token: connection.refreshToken,
+    refreshing ??= deps
+      .serialise(source, async () => {
+        // Another call or process may have refreshed since this one read: its refresh token was
+        // rotated away, so this one takes the stored token, or the refusal it ended in.
+        const stored = (await deps.connections.read(source)) ?? connection;
+        if (stored.status === 'needs-reconnect') throw reconnectError(source);
+        if (stored.accessToken !== connection.accessToken) return stored;
+        // A source that gives no refresh token (ClickUp) answers 401 only once the token is revoked.
+        if (!stored.refreshToken) throw await needsReconnect(stored);
+        const tokens = await brokerToken(deps, source, {
+          grant_type: 'refresh_token',
+          refresh_token: stored.refreshToken,
+        });
+        if (!tokens) throw await needsReconnect(stored);
+        const next: Connection = {
+          ...stored,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken ?? stored.refreshToken,
+          expiresAt: tokens.expiresAt,
+        };
+        await deps.connections.write(source, next);
+        return next;
+      })
+      .finally(() => {
+        refreshing = undefined;
       });
-      if (!tokens) throw await needsReconnect(connection);
-      const next: Connection = {
-        ...connection,
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken ?? connection.refreshToken,
-        expiresAt: tokens.expiresAt,
-      };
-      await deps.connections.write(source, next);
-      return next;
-    })().finally(() => {
-      refreshing = undefined;
-    });
     return refreshing;
   };
   return async (url, init) => {

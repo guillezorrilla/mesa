@@ -8,17 +8,20 @@ const { site } = VIEW_FLAGS;
 export const ticketsShow = defineCommand({
   name: 'tickets show',
   summary:
-    'Show one ticket, by id (jira:LC-12) or Jira key: its fields, description, comments and sessions',
+    'Show one ticket, by id (jira:LC-12, github:owner/repo#12) or Jira key: its fields, description, comments and sessions',
   args: ['key'],
   flags: { site },
   example: 'mesa tickets show LC-12',
   run: async ({ mesa, args, flags }) => {
     const data = await mesa.tickets.show(args.key, flags.site);
+    const assignees = 'assignees' in data ? data.assignees : data.assignee ? [data.assignee] : [];
     const facts = [
       data.status,
-      data.priority,
-      data.assignee ? `${data.assignee.name}${data.mine ? ' (you)' : ''}` : 'Unassigned',
-      ...data.labels,
+      'priority' in data ? data.priority : undefined,
+      assignees.length
+        ? `${assignees.map((a) => a.name).join(', ')}${data.mine ? ' (you)' : ''}`
+        : 'Unassigned',
+      ...data.labels.map((label) => (typeof label === 'string' ? label : label.name)),
     ].filter(Boolean);
     const running = data.sessions.map((s) => `Live in ${s.project} (${s.id})`);
     const comments = data.comments.map((c) => `${c.author}, ${c.created}:\n${c.markdown}`);

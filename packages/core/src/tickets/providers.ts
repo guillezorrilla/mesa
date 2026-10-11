@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { MesaError } from '../lib/result.js';
 import type { SourceId } from '../sources/sources.js';
+import { githubProvider } from './github-provider.js';
+import { describeGithubView, type GithubViewInput, GithubViewSchema } from './github-view.js';
 import { jiraProvider } from './jira-provider.js';
 import { describeJiraView, type JiraViewInput, JiraViewSchema } from './jira-view.js';
 import type { ProviderDeps } from './provider.js';
@@ -12,6 +14,12 @@ import type { ProviderDeps } from './provider.js';
  */
 export const PROVIDERS = {
   jira: { name: 'Jira', source: 'atlassian', describe: describeJiraView, connect: jiraProvider },
+  github: {
+    name: 'GitHub Issues',
+    source: 'github',
+    describe: describeGithubView,
+    connect: githubProvider,
+  },
 } as const satisfies Record<
   string,
   {
@@ -30,7 +38,7 @@ export const providerName = (id: ProviderId): string => PROVIDERS[id].name;
 /** A view of any provider as tickets.yaml keeps it; one written before providers reads as Jira's. */
 export const TicketViewSchema = z.preprocess(
   (v) => (v && typeof v === 'object' && !('provider' in v) ? { ...v, provider: 'jira' } : v),
-  z.discriminatedUnion('provider', [JiraViewSchema]),
+  z.discriminatedUnion('provider', [JiraViewSchema, GithubViewSchema]),
 );
 export type TicketView = z.infer<typeof TicketViewSchema>;
 
@@ -52,7 +60,7 @@ export function providerOf(id: string): ProviderId {
   return found;
 }
 
-/** A ticket's id across providers: the provider, a colon, its own key, such as jira:LC-12. */
+/** A ticket's id across providers: the provider, a colon, its own key, such as jira:LC-12 or github:owner/repo#12. */
 export const ticketId = (provider: ProviderId, key: string) => `${provider}:${key}`;
 
 /** `input` as a provider and its key: a ticket id such as jira:LC-12, or a bare Jira key. */
@@ -62,5 +70,15 @@ export function ticketRef(input: string): { provider: ProviderId; key: string } 
   return provider ? { provider, key: input.slice(at + 1) } : { provider: 'jira', key: input };
 }
 
-/** What `mesa tickets views add` takes: a view of any provider, before its provider checks it. */
-export type ViewInput = JiraViewInput;
+/**
+ * What `mesa tickets views add` takes: a view of any provider, before its provider checks it;
+ * one naming no provider is Jira's.
+ */
+export type ViewInput = JiraViewInput | GithubViewInput;
+
+/** A view's query without its name, as the Follow dialog's live count takes it (per provider). */
+export type ViewQuery = ViewInput extends infer V
+  ? V extends unknown
+    ? Omit<V, 'name'>
+    : never
+  : never;

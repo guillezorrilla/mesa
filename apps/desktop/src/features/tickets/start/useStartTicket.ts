@@ -1,7 +1,7 @@
 import { branchOf, type TicketStart } from '@mesa/core/browser';
 import { useState } from 'react';
 import { useRun } from '@/lib/useCommand';
-import { placeOf, type StartOptions } from './startOptions';
+import { placeOf, type StartOptions, type StartTicket } from './startOptions';
 import { STARTS } from './starts';
 
 export type StartStep = { label: string; state: 'todo' | 'now' | 'done' | 'failed' };
@@ -17,15 +17,15 @@ export function useStartTicket(project: string) {
   const [steps, setSteps] = useState<StartStep[]>();
   const [session, setSession] = useState<string>();
   const startTicket = async (
-    ticket: { key: string; url: string },
+    ticket: Pick<StartTicket, 'key' | 'id' | 'label' | 'several' | 'url'>,
     options: StartOptions,
     kind: TicketStart,
   ) => {
     const plan: { label: string; run: () => Promise<unknown> }[] = [];
     if (options.assign)
       plan.push({
-        label: `Assign ${ticket.key} to you`,
-        run: () => run('tickets.assign', { key: ticket.key }),
+        label: ticket.several ? `Add you to ${ticket.label}` : `Assign ${ticket.label} to you`,
+        run: () => run('tickets.assign', { id: ticket.id }),
       });
     plan.push({
       label: options.notes ? 'Import the ticket and write its notes' : 'Import the ticket',

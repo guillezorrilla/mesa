@@ -322,6 +322,18 @@ test('a rate-limited call waits as Retry-After asks and tries again, three times
   await expect(mesa.sources.browse('atlassian', 'jira:cloud-1')).rejects.toMatchObject({
     message: 'Jira projects answered HTTP 503',
   });
+
+  // GitHub's limit is a 403 with no requests left, waiting until its reset.
+  const limit = [
+    { status: 403, headers: { 'x-ratelimit-remaining': '0', 'retry-after': '5' }, body: {} },
+    { body: { startAt: 0, isLast: true, values: [{ key: 'LC', name: 'Lantern Cove' }] } },
+  ];
+  world.routes[`GET ${url}`] = () => limit.shift() ?? { status: 500, body: {} };
+  sleeps.length = 0;
+  expect(titles((await mesa.sources.browse('atlassian', 'jira:cloud-1')).children)).toEqual([
+    'Lantern Cove',
+  ]);
+  expect(sleeps).toEqual([5000]);
 });
 
 test('a revoked connection asks to reconnect, naming the source in its details', async () => {

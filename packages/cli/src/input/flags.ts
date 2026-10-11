@@ -1,4 +1,11 @@
-import { MesaError, TERMINAL_APPS, TICKET_STARTS, type TicketStart } from '@mesa/core';
+import {
+  MesaError,
+  providerOf,
+  TERMINAL_APPS,
+  TICKET_STARTS,
+  type TicketStart,
+  type ViewQuery,
+} from '@mesa/core';
 
 // What a command is given, checked and parsed into what core takes, before core sees it.
 
@@ -96,38 +103,75 @@ export const SEARCH_FLAG = {
 
 /** The flags that name a view's query: `views add` and `preview` take them. */
 export const VIEW_FLAGS = {
+  provider: { type: 'string', description: 'jira (default) or github' },
   board: { type: 'string', description: "A board's id: the view reads its sprint" },
   sprint: { type: 'string', description: 'current (default) or next, with --board' },
   filter: { type: 'string', description: "A saved filter's id" },
   jql: { type: 'string', description: 'A JQL query' },
+  repo: {
+    type: 'string',
+    description: "GitHub: the repo, owner/repo (default: --project's origin remote)",
+  },
+  project: { type: 'string', description: 'GitHub: the project whose origin remote is the repo' },
+  label: { type: 'string', description: 'GitHub: issues with these labels, comma-separated' },
+  milestone: { type: 'string', description: "GitHub: a milestone's title or number, or none" },
   everyone: { type: 'boolean', description: "Every assignee's tickets, not only yours" },
-  'show-done': { type: 'boolean', description: 'Done tickets too' },
+  'show-done': { type: 'boolean', description: 'Done (closed) tickets too' },
   site: { type: 'string', description: 'The Atlassian site, when the connection reaches several' },
 } as const;
 
-/** The view query VIEW_FLAGS name, checked. */
-export function viewOf(flags: {
-  board?: string | undefined;
-  sprint?: string | undefined;
-  filter?: string | undefined;
-  jql?: string | undefined;
+type ViewFlags = { [K in keyof typeof VIEW_FLAGS]?: string | boolean | undefined } & {
   everyone?: boolean | undefined;
   'show-done'?: boolean | undefined;
-  site?: string | undefined;
-}) {
-  const board = flags.board === undefined ? undefined : Number(flags.board);
-  if (board !== undefined && !(Number.isInteger(board) && board > 0))
-    throw new MesaError('usage', '--board takes a board id; see mesa tickets boards');
-  if (flags.sprint !== undefined && flags.sprint !== 'current' && flags.sprint !== 'next')
-    throw new MesaError('usage', '--sprint is current or next');
-  return {
-    ...(board !== undefined ? { board } : {}),
-    ...(flags.sprint ? { sprint: flags.sprint as 'current' | 'next' } : {}),
-    ...(flags.filter !== undefined ? { filter: flags.filter } : {}),
-    ...(flags.jql !== undefined ? { jql: flags.jql } : {}),
+};
+
+/** The view query VIEW_FLAGS name, checked: Jira's, or GitHub's with --provider github. */
+export function viewOf(flags: ViewFlags): ViewQuery {
+  const text = (name: keyof typeof VIEW_FLAGS) => {
+    const value = flags[name];
+    return typeof value === 'string' ? value : undefined;
+  };
+  const narrowing = {
     ...(flags.everyone ? { everyone: true } : {}),
     ...(flags['show-done'] ? { showDone: true } : {}),
-    ...(flags.site ? { site: flags.site } : {}),
+  };
+  const provider = providerOf(text('provider') ?? 'jira');
+  const only = (names: (keyof typeof VIEW_FLAGS)[], owner: string) => {
+    const given = names.filter((name) => text(name) !== undefined);
+    if (given.length)
+      throw new MesaError('usage', `${given.map((n) => `--${n}`).join(', ')}: ${owner}'s only`);
+  };
+  if (provider === 'github') {
+    only(['board', 'sprint', 'filter', 'jql', 'site'], 'Jira');
+    const labels = text('label')
+      ?.split(',')
+      .map((l) => l.trim())
+      .filter(Boolean);
+    const [repo, project, milestone] = [text('repo'), text('project'), text('milestone')];
+    return {
+      provider,
+      ...(repo ? { repo } : {}),
+      ...(project ? { project } : {}),
+      ...(labels?.length ? { labels } : {}),
+      ...(milestone ? { milestone } : {}),
+      ...narrowing,
+    };
+  }
+  only(['repo', 'project', 'label', 'milestone'], 'GitHub (--provider github)');
+  const board = text('board') === undefined ? undefined : Number(text('board'));
+  if (board !== undefined && !(Number.isInteger(board) && board > 0))
+    throw new MesaError('usage', '--board takes a board id; see mesa tickets boards');
+  const sprint = text('sprint');
+  if (sprint !== undefined && sprint !== 'current' && sprint !== 'next')
+    throw new MesaError('usage', '--sprint is current or next');
+  const [filter, jql, site] = [text('filter'), text('jql'), text('site')];
+  return {
+    ...(board !== undefined ? { board } : {}),
+    ...(sprint ? { sprint: sprint as 'current' | 'next' } : {}),
+    ...(filter !== undefined ? { filter } : {}),
+    ...(jql !== undefined ? { jql } : {}),
+    ...narrowing,
+    ...(site ? { site } : {}),
   };
 }
 

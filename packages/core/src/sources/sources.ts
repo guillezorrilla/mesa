@@ -6,6 +6,8 @@ import type { SourceTree } from './browse.js';
 import { clickupAccount, clickupSites } from './clickup.js';
 import { clickupTree } from './clickup-tree.js';
 import type { Account, Site } from './connection.js';
+import { githubAccount, githubSites } from './github.js';
+import { githubTree } from './github-tree.js';
 import { linearAccount, linearSites } from './linear.js';
 import { linearTree } from './linear-tree.js';
 import { notionAccount, notionSites } from './notion.js';
@@ -40,6 +42,12 @@ export const SOURCES = {
     account: linearAccount,
     sites: linearSites,
     tree: linearTree,
+  },
+  github: {
+    label: 'GitHub',
+    account: githubAccount,
+    sites: githubSites,
+    tree: githubTree,
   },
 } satisfies Record<
   string,

@@ -1,6 +1,8 @@
 import {
   atlassianWorld,
   clickupWorld,
+  githubIssueObject,
+  githubWorld,
   linearWorld,
   notionPageObject,
   notionWorld,
@@ -16,6 +18,7 @@ const SITES = [{ id: 'cloud-1', name: 'lantern-cove', url: 'https://lantern-cove
 const NOTION = { id: 'notion', label: 'Notion', connected: false, status: 'disconnected' };
 const CLICKUP = { id: 'clickup', label: 'ClickUp', connected: false, status: 'disconnected' };
 const LINEAR = { id: 'linear', label: 'Linear', connected: false, status: 'disconnected' };
+const GITHUB = { id: 'github', label: 'GitHub', connected: false, status: 'disconnected' };
 
 test('sources connect, list, and disconnect print their JSON, and disconnect leaves a receipt', async () => {
   const world = atlassianWorld();
@@ -28,6 +31,7 @@ test('sources connect, list, and disconnect print their JSON, and disconnect lea
       NOTION,
       CLICKUP,
       LINEAR,
+      GITHUB,
     ],
   });
   const connected = await cli.mesa('sources', 'connect', 'atlassian', '--json');
@@ -42,10 +46,10 @@ test('sources connect, list, and disconnect print their JSON, and disconnect lea
   };
   expect(connected.json.data).toMatchObject({ ...row, receipt: { id: expect.any(String) } });
   expect((await cli.mesa('sources', 'list', '--json')).json.data).toEqual({
-    sources: [row, NOTION, CLICKUP, LINEAR],
+    sources: [row, NOTION, CLICKUP, LINEAR, GITHUB],
   });
   expect((await cli.mesa('sources', 'list')).stdout).toBe(
-    'atlassian  connected     Rowan Tide  lantern-cove\nnotion     disconnected\nclickup    disconnected\nlinear     disconnected\n',
+    'atlassian  connected     Rowan Tide  lantern-cove\nnotion     disconnected\nclickup    disconnected\nlinear     disconnected\ngithub     disconnected\n',
   );
   const gone = await cli.mesa('sources', 'disconnect', 'atlassian', '--json');
   expect(gone.json.data).toMatchObject({
@@ -69,7 +73,7 @@ test('an unknown source is a usage error', async () => {
   expect(out.code).toBe(2);
   expect(out.json.error).toEqual({
     code: 'usage',
-    message: 'unknown source asana; one of atlassian, notion, clickup, linear',
+    message: 'unknown source asana; one of atlassian, notion, clickup, linear, github',
   });
 });
 
@@ -225,6 +229,48 @@ test('Linear connects, browses from its workspace, and a pasted issue link impor
       title: 'HAR-12: Chart the spring tide',
       url: link,
       snapshot: 'raw/linear/HAR-12/2026-09-24T1200.md',
+    },
+  ]);
+});
+
+test('GitHub connects as its account, browses the repos its app reads, and a pasted issue key imports', async () => {
+  const world = githubWorld();
+  cli.deps = world.deps;
+  await cli.withProject();
+  const connected = await cli.mesa('sources', 'connect', 'github', '--json');
+  expect(connected.json.data).toMatchObject({
+    id: 'github',
+    status: 'connected',
+    account: { name: 'Rowan Tide' },
+    sites: [{ id: 'rowan-tide', name: 'rowan-tide' }],
+  });
+  // Signed in, but the app reaches no repo yet: the list says so and where to install it.
+  expect((await cli.mesa('tickets', 'repos')).stdout).toBe(
+    'Mesa can read no repos yet.\nMore: https://github.com/apps/mesa-for-tickets/installations/new\n',
+  );
+  world.serveRepos(['harbor-co/harbor-api']);
+  const root = await cli.mesa('sources', 'browse', 'github', '--json');
+  expect(root.json.data.children).toMatchObject([
+    { id: 'repo:harbor-co/harbor-api', kind: 'repo', importable: false },
+  ]);
+
+  const issue = githubIssueObject('harbor-co/harbor-api', 412, 'Tide chart shows UTC');
+  world.serveIssue('harbor-co/harbor-api', issue);
+  const out = await cli.mesa(
+    'import',
+    'harbor-co/harbor-api#412',
+    '--project',
+    'lantern-cove',
+    '--no-notes',
+    '--json',
+  );
+  expect(out.json.data.items).toEqual([
+    {
+      source: 'github',
+      id: 'harbor-co/harbor-api/412',
+      title: 'harbor-co/harbor-api#412: Tide chart shows UTC',
+      url: 'https://github.com/harbor-co/harbor-api/issues/412',
+      snapshot: 'raw/github/harbor-co/harbor-api/412/2026-09-24T1200.md',
     },
   ]);
 });

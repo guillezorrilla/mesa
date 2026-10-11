@@ -17,6 +17,7 @@ import { jiraAccess } from './jira-access.js';
 import { type JiraView, type JiraViewInput, JiraViewSchema } from './jira-view.js';
 import { baseJql, viewJql } from './jql.js';
 import { categoryOf, type ProviderDeps, parseWith, type TicketProvider } from './provider.js';
+import type { TicketView, ViewInput } from './providers.js';
 
 /** A Jira issue key: a project key, a dash, a number. */
 const KEY = /^[A-Za-z][A-Za-z0-9_]*-\d+$/;
@@ -57,12 +58,12 @@ export function jiraProvider(deps: ProviderDeps) {
     return site;
   };
 
-  const row: TicketProvider<JiraViewInput, JiraView, JiraIssue & { site: string }> = {
+  const row: TicketProvider<ViewInput, TicketView, JiraIssue & { site: string }> = {
     /**
      * `input` on its site. Checking it reads the board's sprints (a kanban board has none) and
      * keeps the board's and the saved filter's names to show them.
      */
-    view: async (input, check) => {
+    view: async (input: JiraViewInput, check: boolean) => {
       const { site: siteName, provider: _, ...rest } = input;
       const site = await jira.siteOf(siteName);
       const sprint = rest.board !== undefined ? { sprint: rest.sprint ?? 'current' } : {};
@@ -83,7 +84,7 @@ export function jiraProvider(deps: ProviderDeps) {
         view.filterName = (await filter(get(), site, view.filter)).name;
       return view;
     },
-    read: async (view) => {
+    read: async (view: JiraView) => {
       const site = await siteOfView(view);
       const resolved = await resolve(view, site);
       const found = resolved.jql ? await searchTickets(get(), site, resolved.jql) : [];

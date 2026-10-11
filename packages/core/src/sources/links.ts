@@ -4,6 +4,7 @@ import { issueUrl, pageUrl } from './atlassian.js';
 import { notConnectedError } from './authorized-fetch.js';
 import { CLICKUP_HOSTS, clickupLink, clickupRef } from './clickup.js';
 import type { Site } from './connection.js';
+import { GITHUB_HOSTS, githubIssueLink, githubRef, parseGithubKey } from './github.js';
 import type { ItemRef } from './items.js';
 import { LINEAR_HOSTS, LINEAR_WEB, linearLink, linearRef } from './linear.js';
 import { NOTION_HOSTS, NOTION_ID, notionId, notionUrl } from './notion.js';
@@ -11,8 +12,9 @@ import type { SourceId } from './sources.js';
 
 // What a pasted link is (CONTEXT.md, Import): a Jira issue (its URL, or a bare key), a Confluence
 // page, a Notion page or database row, a ClickUp task or Doc page, a Linear issue, project or
-// document, or any other public web page. An Atlassian link resolves through the connected site its
-// host names, whose cloud id the API calls take; a Linear link must name the connected workspace.
+// document, a GitHub issue (its URL with GitHub connected, or its key owner/repo#123), or any other
+// public web page. An Atlassian link resolves through the connected site its host names, whose
+// cloud id the API calls take; a Linear link must name the connected workspace.
 
 const KEY = /^[A-Z][A-Z0-9_]+-\d+$/;
 const ISSUE = /^\/browse\/([A-Z][A-Z0-9_]+-\d+)\/?$/;
@@ -46,6 +48,11 @@ export function resolveLink(link: string, sites: Partial<Record<SourceId, Site[]
     }
     return jiraRef(only, text);
   }
+  const key = parseGithubKey(text);
+  if (key) {
+    if (!sites.github) throw notConnectedError('github');
+    return githubRef(key);
+  }
   let url: URL;
   try {
     url = new URL(text);
@@ -66,6 +73,9 @@ export function resolveLink(link: string, sites: Partial<Record<SourceId, Site[]
     );
   }
   if (LINEAR_HOSTS.includes(url.host)) return linearRefIn(url, text, sites.linear);
+  // Without GitHub connected, an issue link stays the public web page it imported as before.
+  const issue = sites.github && GITHUB_HOSTS.includes(url.host) && githubIssueLink(url);
+  if (issue) return githubRef(issue);
   const site = atlassian.find((s) => new URL(s.url).host === url.host);
   if (!site) {
     if (!url.host.endsWith('.atlassian.net')) {
@@ -77,8 +87,8 @@ export function resolveLink(link: string, sites: Partial<Record<SourceId, Site[]
       `${url.host} is not one of the connected Atlassian sites (${atlassian.map((s) => s.name).join(', ')}): reconnect with mesa sources connect atlassian and choose it`,
     );
   }
-  const issue = ISSUE.exec(url.pathname)?.[1];
-  if (issue) return jiraRef(site, issue);
+  const jira = ISSUE.exec(url.pathname)?.[1];
+  if (jira) return jiraRef(site, jira);
   const page = PAGE.exec(url.pathname);
   if (page?.[1] && page[2]) {
     return {

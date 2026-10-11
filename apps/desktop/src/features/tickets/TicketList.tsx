@@ -6,6 +6,19 @@ import { AssigneeAvatar } from './AssigneeAvatar';
 import { LiveDot } from './LiveDot';
 import { CATEGORIES, StatusIcon } from './StatusIcon';
 
+/** A row's assignees: up to two avatars, overlapping, or the unassigned one. */
+function Assignees({ ticket }: { ticket: Ticket }) {
+  const names = ticket.assignees?.map((a) => a.name) ?? [ticket.assignee];
+  if (names.length < 2) return <AssigneeAvatar name={names[0]} />;
+  return (
+    <span className="inline-flex">
+      {names.slice(0, 2).map((name, at) => (
+        <AssigneeAvatar key={name} name={name} className={cn(at > 0 && '-ml-1 ring-2 ring-card')} />
+      ))}
+    </span>
+  );
+}
+
 /** `tickets` in the list's order: by status group (CATEGORIES), Jira's order within one. */
 function inListOrder(tickets: readonly Ticket[], collapsed: ReadonlySet<string>) {
   return CATEGORIES.flatMap(([category]) =>
@@ -23,6 +36,10 @@ const groupOf = (ticket: Ticket) =>
  */
 export function TicketList(props: {
   tickets: readonly Ticket[];
+  /** The tracker's own names for the status groups (GitHub's Open and Closed). */
+  groups?: Partial<Record<Ticket['category'], string>> | undefined;
+  /** A key as the row shows it (GitHub's #12). */
+  shortKey?: (key: string) => string;
   selected: string | undefined;
   onSelect: (key: string) => void;
 }) {
@@ -70,7 +87,7 @@ export function TicketList(props: {
                 aria-hidden
                 className={cn('size-3 transition-transform', !open && '-rotate-90')}
               />
-              {label}
+              {props.groups?.[category] ?? label}
               <span className="text-muted-foreground/70 tabular-nums">{rows.length}</span>
             </button>
             {open &&
@@ -87,12 +104,12 @@ export function TicketList(props: {
                 >
                   <StatusIcon category={ticket.category} />
                   <span className="w-[4.5rem] truncate font-mono text-xs text-muted-foreground">
-                    {ticket.key}
+                    {props.shortKey?.(ticket.key) ?? ticket.key}
                   </span>
                   <span className="truncate">{ticket.summary}</span>
                   <span className="flex items-center gap-2">
                     {ticket.sessions.length > 0 && <LiveDot />}
-                    <AssigneeAvatar name={ticket.assignee} />
+                    <Assignees ticket={ticket} />
                   </span>
                 </button>
               ))}

@@ -43,6 +43,7 @@ export function StartPreviewPanel(props: {
           {ticketStartPreview(props.previewed, {
             project: props.project,
             key: ticket.key,
+            provider: ticket.provider,
             summary: ticket.summary,
             url: ticket.url,
             notes: props.notes,

@@ -61,7 +61,7 @@ export function StartSheet(props: {
   const set = props.onChange;
   return (
     <div className="@container grid gap-5 border-t bg-card px-6 py-5" data-testid="start-sheet">
-      <h3 className="text-[15px] font-semibold">Start a session on {ticket.key}</h3>
+      <h3 className="text-[15px] font-semibold">Start a session on {ticket.label}</h3>
       <div className="grid gap-4 @lg:grid-cols-2">
         <Field
           label="Runs in"
@@ -99,8 +99,12 @@ export function StartSheet(props: {
         {!ticket.mine && (
           <Toggle
             id="start-assign"
-            label={`Assign ${ticket.key} to me`}
-            hint={ticket.assignee ? `Now assigned to ${ticket.assignee}` : 'Unassigned in Jira'}
+            label={ticket.several ? `Add me to ${ticket.label}` : `Assign ${ticket.label} to me`}
+            hint={
+              ticket.assignee
+                ? `Now assigned to ${ticket.assignee}`
+                : `Unassigned in ${ticket.trackerName}`
+            }
             checked={options.assign}
             onChange={(assign) => set({ assign })}
           />

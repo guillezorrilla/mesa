@@ -23,6 +23,8 @@ type Editing = { view: string; text: string };
 export function ManageViewsDialog(props: {
   project: string;
   views: FollowedView[];
+  /** What the tracker calls a followed view: view, or repo. */
+  unit?: string;
   onChanged: () => void;
   onRenamed: (from: string, to: string) => void;
   onClose: () => void;
@@ -30,6 +32,8 @@ export function ManageViewsDialog(props: {
   const run = useRun();
   const { acting, act } = useAct();
   const [editing, setEditing] = useState<Editing>();
+  const { unit = 'view' } = props;
+  const Unit = `${unit[0]?.toUpperCase()}${unit.slice(1)}`;
   const edited = editing !== undefined && editing.text.trim() !== editing.view;
   const unfollow = (view: string) =>
     void act(async () => {
@@ -61,9 +65,11 @@ export function ManageViewsDialog(props: {
         }}
       >
         <DialogHeader>
-          <DialogTitle>Views in {props.project}</DialogTitle>
+          <DialogTitle>
+            {Unit}s in {props.project}
+          </DialogTitle>
           <DialogDescription>
-            Renaming changes the view in every project. Unfollowing keeps it for your other
+            Renaming changes the {unit} in every project. Unfollowing keeps it for your other
             projects.
           </DialogDescription>
         </DialogHeader>
@@ -102,7 +108,7 @@ export function ManageViewsDialog(props: {
             </li>
           ))}
           {!props.views.length && (
-            <li className="px-3 py-2.5 text-sm text-muted-foreground">No views followed.</li>
+            <li className="px-3 py-2.5 text-sm text-muted-foreground">No {unit}s followed.</li>
           )}
         </ul>
       </DialogContent>

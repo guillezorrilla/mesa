@@ -43,7 +43,7 @@ export function TicketStartPanel(props: {
   if (steps)
     return (
       <StartProgress
-        ticketKey={ticket.key}
+        ticketKey={ticket.label}
         steps={steps}
         session={session}
         onBack={reset}
@@ -63,7 +63,7 @@ export function TicketStartPanel(props: {
     );
   return (
     <StartBar
-      ticketKey={ticket.key}
+      ticketKey={ticket.label}
       options={options}
       onStart={start}
       onCustomize={() => setCustomizing(true)}

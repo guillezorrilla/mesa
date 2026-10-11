@@ -3,8 +3,10 @@ import { MesaError } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
 import type { SavedPrompt } from '../prompts/prompts.js';
 import { notConnectedError } from '../sources/authorized-fetch.js';
+import { itemIdOfKey } from '../sources/items.js';
 import type { SourceId } from '../sources/sources.js';
 import { liveSessions } from './live.js';
+import { originRepo } from './project-repo.js';
 import type { ProviderDeps, ProviderTicket } from './provider.js';
 import {
   connectProviders,
@@ -14,11 +16,12 @@ import {
   providerOf,
   ticketId,
   type ViewInput,
+  type ViewQuery,
 } from './providers.js';
 import { ticketActions } from './ticket.js';
 import { followedViews, ticketViews, trackerOf } from './views.js';
 
-export type TicketsDeps = Omit<ProviderDeps, 'fields'> & {
+export type TicketsDeps = Omit<ProviderDeps, 'fields' | 'origin'> & {
   /** The profile's Saved prompts, which a ticket prompt names. */
   prompts: () => SavedPrompt[];
 };
@@ -59,8 +62,12 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
   const store = ticketViews(ctx);
   /** The fields every ticket panel shows after its own. */
   const shown = () => store.read().fields;
-  const rows = connectProviders({ ...deps, fields: shown });
-  const { jira } = rows;
+  const rows = connectProviders({
+    ...deps,
+    fields: shown,
+    origin: (project) => originRepo(ctx, project),
+  });
+  const { jira, github } = rows;
 
   const savedPrompt = (name: string) => {
     const saved = deps.prompts().find((p) => same(p.name, name));
@@ -92,13 +99,13 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
       return { ...added, describe: describeView(added) };
     },
     /** How many tickets `input` lists now, without saving it: the Follow dialog's live count. */
-    preview: async (input: Omit<ViewInput, 'name'>) => {
+    preview: async (input: ViewQuery) => {
       const row = rows[input.provider ?? 'jira'];
       const view = await row.view({ ...input, name: 'preview' }, false);
       const read = await row.read(view);
       return {
         describe: describeView(view),
-        // ponytail: Jira's word for the query sent, which its dialog shows under Advanced.
+        // ponytail: Jira's word for the query sent (GitHub's request too), shown under Advanced.
         jql: read.query ?? null,
         count: read.tickets.length,
         more: read.more ?? false,
@@ -138,6 +145,8 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
     },
     boards: jira.boards,
     filters: jira.filters,
+    repos: github.repos,
+    repo: github.repo,
     /** The site's Jira fields a ticket panel can show, whose name holds `search`, and the ones it shows. */
     fields: async (search?: string, siteName?: string) => ({
       ...(await jira.fields(search, siteName)),
@@ -225,9 +234,12 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
               ...ticket,
               id,
               provider: tracker,
-              mine: myId !== undefined && ticket.assigneeId === myId,
+              mine:
+                myId !== undefined &&
+                (ticket.assigneeId === myId ||
+                  Boolean(ticket.assignees?.some((a) => a.id === myId))),
               views: [view.name],
-              sessions: live.get(id) ?? [],
+              sessions: live.get(ticketId(tracker, itemIdOfKey(ticket.key))) ?? [],
             });
         }
         const { sprints, note } = read.value;

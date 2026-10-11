@@ -1,9 +1,10 @@
 import type { MesaContext } from '../context.js';
+import { itemIdOfKey } from '../sources/items.js';
 import { liveSessions } from './live.js';
 import { type connectProviders, PROVIDERS, ticketId, ticketRef } from './providers.js';
 
 /**
- * One ticket of the Tickets tab, by its id (jira:LC-12) or a bare Jira key: its whole panel,
+ * One ticket of the Tickets tab, by its id (jira:LC-12, github:owner/repo#12) or a bare Jira key: its whole panel,
  * read through its provider's row, and assigning it to the person.
  */
 export function ticketActions(ctx: MesaContext, rows: ReturnType<typeof connectProviders>) {
@@ -19,7 +20,8 @@ export function ticketActions(ctx: MesaContext, rows: ReturnType<typeof connectP
       const { provider, row, key } = of(input);
       const id = ticketId(provider, key);
       const detail = await row.show(key, where);
-      return { ...detail, id, provider, sessions: liveSessions(ctx).get(id) ?? [] };
+      const sessions = liveSessions(ctx).get(ticketId(provider, itemIdOfKey(key))) ?? [];
+      return { ...detail, id, provider, sessions };
     },
     /** Assigns the ticket to the signed-in person: Mesa's one write to its provider, with a receipt. */
     assign: async (input: string, where?: string) => {
