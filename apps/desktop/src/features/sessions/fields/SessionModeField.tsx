@@ -4,7 +4,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 export function SessionModeField({ agent }: { agent: Agent }) {
   if (!supportsPlanStart(agent)) return null;
   return (
-    <div className="w-auto">
+    <div>
       <NativeSelect
         size="sm"
         name="mode"

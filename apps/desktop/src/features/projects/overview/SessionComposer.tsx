@@ -1,7 +1,7 @@
 import type { Agent, ProjectRow } from '@mesa/core';
 import { supportsAgentCapability, supportsPlanStart } from '@mesa/core/browser';
 import { Play, X } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Kbd } from '@/components/Kbd';
 import { Badge } from '@/components/ui/badge';
@@ -14,9 +14,13 @@ import { AdditionalProjectsField } from '@/features/sessions/fields/AdditionalPr
 import { AgentField } from '@/features/sessions/fields/AgentField';
 import { BackgroundField } from '@/features/sessions/fields/BackgroundField';
 import { SessionModeField } from '@/features/sessions/fields/SessionModeField';
+import { pressed } from '@/lib/shortcutKeys';
 import { useCommand } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
+import { useFoldOnLeave } from './useFoldOnLeave';
 import type { OverviewState } from './useOverviewState';
+
+const START_SHORTCUT = 'Mod+Enter';
 
 /** What a session starts with: its agent, mode, goal, and the branch of its own worktree. */
 export type SessionStartInput = {
@@ -38,7 +42,7 @@ export type SessionStartInput = {
  * projects it also works in, and where the session starts, in the main checkout or its own
  * worktree on a new branch (always, with another project, on a branch Mesa names unless given).
  * A click or focus elsewhere in the window, or Esc, folds it back to one line with every choice
- * kept; switching apps leaves it open. Mod+Enter starts the session.
+ * kept, and switching apps leaves it open (useFoldOnLeave). Mod+Enter starts the session.
  * Filled in from an imported item, it names the item, and the session keeps it, until cleared.
  */
 export function SessionComposer(props: {
@@ -62,36 +66,15 @@ export function SessionComposer(props: {
   useEffect(() => {
     if (draft) goalBox.current?.focus();
   }, [draft]);
-  // Folds on a click or focus outside it. A Radix menu (Add project) portals its content out of
-  // the form, so that counts as inside; switching apps moves no focus in the page, so it stays.
-  const busy = props.busy;
-  useEffect(() => {
-    if (!composerOpen) return;
-    const outside = (event: Event) => {
-      const target = event.target as Element;
-      if (busy || formRef.current?.contains(target)) return;
-      if (target.closest?.('[data-radix-popper-content-wrapper]')) return;
-      setComposerOpen(false);
-    };
-    document.addEventListener('pointerdown', outside, true);
-    document.addEventListener('focusin', outside);
-    return () => {
-      document.removeEventListener('pointerdown', outside, true);
-      document.removeEventListener('focusin', outside);
-    };
-  }, [composerOpen, busy, setComposerOpen]);
+  const fold = useCallback(() => setComposerOpen(false), [setComposerOpen]);
+  useFoldOnLeave(formRef, composerOpen, fold, props.busy);
+  const canStart = project.exists && !props.busy;
   return (
     <form
       ref={formRef}
       data-testid="project-session-form"
       data-open={composerOpen}
       className="rounded-xl border bg-card/45 px-4 py-3 transition-[border-color,box-shadow] focus-within:border-ring/60 focus-within:ring-[3px] focus-within:ring-ring/20 motion-reduce:transition-none"
-      onKeyDown={(event) => {
-        if (event.key !== 'Escape' || !composerOpen) return;
-        event.preventDefault();
-        setComposerOpen(false);
-        (document.activeElement as HTMLElement | null)?.blur();
-      }}
       onSubmit={(event) => {
         event.preventDefault();
         const form = event.currentTarget;
@@ -138,7 +121,7 @@ export function SessionComposer(props: {
         placeholder="What are we shipping? Describe your goal or paste a ticket URL..."
         onFocus={() => setComposerOpen(true)}
         onKeyDown={(event) => {
-          if (event.key !== 'Enter' || !(event.metaKey || event.ctrlKey)) return;
+          if (!canStart || !pressed(event, START_SHORTCUT)) return;
           event.preventDefault();
           event.currentTarget.form?.requestSubmit();
         }}
@@ -146,7 +129,6 @@ export function SessionComposer(props: {
       {/* Kept mounted while folded, so the mode, background, and branch picked stay. */}
       <div
         inert={!composerOpen}
-        aria-hidden={!composerOpen}
         className={cn(
           'grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none',
           composerOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
@@ -164,6 +146,7 @@ export function SessionComposer(props: {
               value={chosen}
               onChange={setChosen}
             />
+            {/* NativeSelect fills its parent; this keeps it as wide as its text in the row. */}
             <div>
               <NativeSelect
                 id="session-location"
@@ -193,14 +176,9 @@ export function SessionComposer(props: {
                 />
               </>
             )}
-            <Button
-              className="ml-auto"
-              size="sm"
-              type="submit"
-              disabled={!project.exists || props.busy}
-            >
+            <Button className="ml-auto" size="sm" type="submit" disabled={!canStart}>
               <Play aria-hidden /> Start session
-              <Kbd shortcut="Mod+Enter" className="ml-1 [&>kbd]:bg-transparent" />
+              <Kbd shortcut={START_SHORTCUT} className="ml-1 [&>kbd]:bg-transparent" />
             </Button>
           </div>
         </div>

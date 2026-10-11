@@ -182,6 +182,10 @@ test('the composer folds on a click outside or Esc, not on its menu, and keeps w
   await click(byTestId('session-with-trigger')[0]);
   await click(byTestId('session-with-option-tide-pool')[0]);
   expect(open()).toBe(true);
+  // Esc in the menu closes only the menu.
+  await press(byTestId('session-with-option-tide-pool')[0], 'Escape');
+  expect(byTestId('session-with-option-tide-pool')).toHaveLength(0);
+  expect(open()).toBe(true);
   await click(document.querySelector<HTMLElement>('nav button') ?? undefined);
   expect(open()).toBe(false);
   await act(async () => goal.focus());
