@@ -3,6 +3,7 @@ import { supportsAgentCapability, supportsPlanStart } from '@mesa/core/browser';
 import { Play, X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { IconButton } from '@/components/IconButton';
+import { Kbd } from '@/components/Kbd';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,7 @@ import { AgentField } from '@/features/sessions/fields/AgentField';
 import { BackgroundField } from '@/features/sessions/fields/BackgroundField';
 import { SessionModeField } from '@/features/sessions/fields/SessionModeField';
 import { useCommand } from '@/lib/useCommand';
+import { cn } from '@/lib/utils';
 import type { OverviewState } from './useOverviewState';
 
 /** What a session starts with: its agent, mode, goal, and the branch of its own worktree. */
@@ -35,6 +37,8 @@ export type SessionStartInput = {
  * The project's goal box: one line until focused, then the agent, mode, background, other
  * projects it also works in, and where the session starts, in the main checkout or its own
  * worktree on a new branch (always, with another project, on a branch Mesa names unless given).
+ * A click or focus elsewhere in the window, or Esc, folds it back to one line with every choice
+ * kept; switching apps leaves it open. Mod+Enter starts the session.
  * Filled in from an imported item, it names the item, and the session keeps it, until cleared.
  */
 export function SessionComposer(props: {
@@ -53,14 +57,41 @@ export function SessionComposer(props: {
   const extra = supportsAgentCapability(selectedAgent, 'addDir') ? chosen : [];
   const where = extra.length ? 'worktree' : location;
   const goalBox = useRef<HTMLTextAreaElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   // Focused when an item fills it in, which opens the composer.
   useEffect(() => {
     if (draft) goalBox.current?.focus();
   }, [draft]);
+  // Folds on a click or focus outside it. A Radix menu (Add project) portals its content out of
+  // the form, so that counts as inside; switching apps moves no focus in the page, so it stays.
+  const busy = props.busy;
+  useEffect(() => {
+    if (!composerOpen) return;
+    const outside = (event: Event) => {
+      const target = event.target as Element;
+      if (busy || formRef.current?.contains(target)) return;
+      if (target.closest?.('[data-radix-popper-content-wrapper]')) return;
+      setComposerOpen(false);
+    };
+    document.addEventListener('pointerdown', outside, true);
+    document.addEventListener('focusin', outside);
+    return () => {
+      document.removeEventListener('pointerdown', outside, true);
+      document.removeEventListener('focusin', outside);
+    };
+  }, [composerOpen, busy, setComposerOpen]);
   return (
     <form
+      ref={formRef}
       data-testid="project-session-form"
-      className="rounded-xl border bg-card/45 p-4 focus-within:border-ring"
+      data-open={composerOpen}
+      className="rounded-xl border bg-card/45 px-4 py-3 transition-[border-color,box-shadow] focus-within:border-ring/60 focus-within:ring-[3px] focus-within:ring-ring/20 motion-reduce:transition-none"
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape' || !composerOpen) return;
+        event.preventDefault();
+        setComposerOpen(false);
+        (document.activeElement as HTMLElement | null)?.blur();
+      }}
       onSubmit={(event) => {
         event.preventDefault();
         const form = event.currentTarget;
@@ -103,55 +134,77 @@ export function SessionComposer(props: {
         name="goal"
         data-testid="project-goal"
         rows={composerOpen ? (draft ? 6 : 3) : 1}
-        className="min-h-12 resize-none border-0 bg-transparent px-1 shadow-none focus-visible:ring-0 dark:bg-transparent"
+        className="min-h-9 resize-none border-0 bg-transparent px-1 shadow-none focus-visible:ring-0 dark:bg-transparent"
         placeholder="What are we shipping? Describe your goal or paste a ticket URL..."
         onFocus={() => setComposerOpen(true)}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' || !(event.metaKey || event.ctrlKey)) return;
+          event.preventDefault();
+          event.currentTarget.form?.requestSubmit();
+        }}
       />
-      {composerOpen && (
-        <div className="mt-3 flex flex-wrap items-end gap-3 border-t pt-3">
-          <AgentField defaultValue={project.agent ?? undefined} onValueChange={setSelectedAgent} />
-          <SessionModeField agent={selectedAgent} />
-          <BackgroundField agent={selectedAgent} />
-          <AdditionalProjectsField
-            agent={selectedAgent}
-            project={project.name}
-            projects={projects}
-            value={chosen}
-            onChange={setChosen}
-          />
-          <div className="grid gap-1">
-            <Label htmlFor="session-location" className="text-xs">
-              Start in
-            </Label>
-            <NativeSelect
-              id="session-location"
-              value={where}
-              disabled={extra.length > 0}
-              onChange={(event) => setLocation(event.target.value as 'main' | 'worktree')}
-            >
-              <NativeSelectOption value="main">Main checkout</NativeSelectOption>
-              <NativeSelectOption value="worktree">Own worktree</NativeSelectOption>
-            </NativeSelect>
-          </div>
-          {where === 'worktree' && (
-            <div className="grid gap-1">
-              <Label htmlFor="project-branch" className="text-xs">
-                Branch
-              </Label>
-              <Input
-                id="project-branch"
-                name="branch"
-                data-testid="project-branch"
-                required={!extra.length}
-                placeholder={extra.length ? 'Mesa names one' : 'feature/my-work'}
-              />
+      {/* Kept mounted while folded, so the mode, background, and branch picked stay. */}
+      <div
+        inert={!composerOpen}
+        aria-hidden={!composerOpen}
+        className={cn(
+          'grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none',
+          composerOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="flex flex-wrap items-center gap-2 pt-3">
+            <AgentField defaultValue={selectedAgent} onValueChange={setSelectedAgent} />
+            <SessionModeField agent={selectedAgent} />
+            <BackgroundField agent={selectedAgent} />
+            <AdditionalProjectsField
+              agent={selectedAgent}
+              project={project.name}
+              projects={projects}
+              value={chosen}
+              onChange={setChosen}
+            />
+            <div>
+              <NativeSelect
+                id="session-location"
+                size="sm"
+                aria-label="Start in"
+                className="text-xs"
+                value={where}
+                disabled={extra.length > 0}
+                onChange={(event) => setLocation(event.target.value as 'main' | 'worktree')}
+              >
+                <NativeSelectOption value="main">Main checkout</NativeSelectOption>
+                <NativeSelectOption value="worktree">Own worktree</NativeSelectOption>
+              </NativeSelect>
             </div>
-          )}
-          <Button className="ml-auto" type="submit" disabled={!project.exists || props.busy}>
-            <Play aria-hidden /> Start session
-          </Button>
+            {where === 'worktree' && (
+              <>
+                <Label htmlFor="project-branch" className="sr-only">
+                  Branch
+                </Label>
+                <Input
+                  id="project-branch"
+                  name="branch"
+                  data-testid="project-branch"
+                  className="h-8 w-48 text-xs md:text-xs"
+                  required={!extra.length}
+                  placeholder={extra.length ? 'Mesa names one' : 'feature/my-work'}
+                />
+              </>
+            )}
+            <Button
+              className="ml-auto"
+              size="sm"
+              type="submit"
+              disabled={!project.exists || props.busy}
+            >
+              <Play aria-hidden /> Start session
+              <Kbd shortcut="Mod+Enter" className="ml-1 [&>kbd]:bg-transparent" />
+            </Button>
+          </div>
         </div>
-      )}
+      </div>
     </form>
   );
 }

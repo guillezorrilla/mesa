@@ -1,9 +1,7 @@
 import { AGENT_LABELS, AGENT_NAMES, type Agent, DEFAULT_AGENT } from '@mesa/core/browser';
-import { useId } from 'react';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { RadioGroup as RadioGroupPrimitive } from 'radix-ui';
 
-/** The agent a new session gets, as the form's `agent`. */
+/** The agent a new session gets, as the form's `agent`: one pill of segments, arrows move it. */
 export function AgentField({
   defaultValue = DEFAULT_AGENT,
   onValueChange,
@@ -11,25 +9,23 @@ export function AgentField({
   defaultValue?: string;
   onValueChange?: (agent: Agent) => void;
 }) {
-  const id = useId();
   return (
-    <fieldset className="grid gap-2">
-      <legend className="mb-2 font-medium text-sm">Agent</legend>
-      <RadioGroup
-        name="agent"
-        defaultValue={defaultValue}
-        onValueChange={(value) => onValueChange?.(value as Agent)}
-        className="flex gap-6"
-      >
-        {AGENT_NAMES.map((agent) => {
-          return (
-            <div key={agent} className="flex items-center gap-2">
-              <RadioGroupItem id={`${id}-${agent}`} value={agent} />
-              <Label htmlFor={`${id}-${agent}`}>{AGENT_LABELS[agent]}</Label>
-            </div>
-          );
-        })}
-      </RadioGroup>
-    </fieldset>
+    <RadioGroupPrimitive.Root
+      name="agent"
+      aria-label="Agent"
+      defaultValue={defaultValue}
+      onValueChange={(value) => onValueChange?.(value as Agent)}
+      className="flex h-8 items-center rounded-md border bg-card p-0.5 dark:bg-input/30"
+    >
+      {AGENT_NAMES.map((agent) => (
+        <RadioGroupPrimitive.Item
+          key={agent}
+          value={agent}
+          className="h-full rounded px-2.5 text-xs text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[state=checked]:bg-accent data-[state=checked]:text-foreground"
+        >
+          {AGENT_LABELS[agent]}
+        </RadioGroupPrimitive.Item>
+      ))}
+    </RadioGroupPrimitive.Root>
   );
 }

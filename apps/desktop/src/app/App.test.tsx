@@ -1571,9 +1571,10 @@ test('Sessions and Projects tabs keep the same live session and expand the goal 
   expect(
     byTestId('project-active-session')[0]?.querySelector('[data-state="waiting-permission"]'),
   ).not.toBeNull();
-  expect(document.querySelector('#session-location')).toBeNull();
+  // Folded, its options are there but inert.
+  expect(document.querySelector('#session-location')?.closest('[inert]')).not.toBeNull();
   await act(async () => (byTestId('project-goal')[0] as HTMLTextAreaElement).focus());
-  expect(document.querySelector('#session-location')).not.toBeNull();
+  expect(document.querySelector('#session-location')?.closest('[inert]')).toBeNull();
   await click(byTestId('project-active-session')[0]);
   expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
   expect(
