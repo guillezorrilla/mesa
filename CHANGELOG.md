@@ -2,6 +2,17 @@
 
 Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
 
+## 0.2.10 - 2026-10-11
+
+### Features
+
+- **app**: fold the session composer when it loses focus, and align its options (#738)
+
+### Fixes
+
+- **tickets**: the Tickets tab keeps the selected ticket when you come back, an Options change holds for every ticket after it (saved as the project's default), and Write notes first is off by default (#740)
+- **app**: keep the window's size and position across updates and relaunches (#739)
+
 ## 0.2.9 - 2026-10-11
 
 ### Features
