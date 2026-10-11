@@ -216,3 +216,23 @@ test('mesa tickets show, assign, preview and defaults, and import goal --prompt'
     ).code,
   ).toBe(2);
 });
+
+test('mesa tickets fields lists the Jira fields, marks the shown ones, and fields set picks them', async () => {
+  const world = await connected();
+  world.serve(`${TEST_JIRA}/field`, [
+    { id: 'customfield_10067', name: 'Severity (SLA)' },
+    { id: 'components', name: 'Components' },
+  ]);
+  expect((await cli.mesa('tickets', 'fields', 'set')).code).toBe(2);
+  expect((await cli.mesa('tickets', 'fields', 'set', 'components')).stdout).toContain(
+    'Ticket panels show Components',
+  );
+  expect((await cli.mesa('tickets', 'fields')).stdout).toBe(
+    '* components  Components\n  customfield_10067  Severity (SLA)\n',
+  );
+  const json = await cli.mesa('tickets', 'fields', '--search', 'sla', '--json');
+  expect(json.json.data.fields).toEqual([{ id: 'customfield_10067', name: 'Severity (SLA)' }]);
+  expect((await cli.mesa('tickets', 'fields', 'set', '--clear')).stdout).toContain(
+    'Ticket panels show only their own fields',
+  );
+});

@@ -87,10 +87,12 @@ const TicketsSchema = z.strictObject({
   prompts: z.record(z.string(), z.string()).default({}),
   /** Each project's defaults for a session started from a ticket. */
   defaults: z.record(z.string(), TicketDefaultsSchema).default({}),
+  /** The Jira fields every ticket panel shows after its own, in order; each name kept to show it. */
+  fields: z.array(z.strictObject({ id: z.string().min(1), name: z.string() })).default([]),
 });
 export type TicketsFile = z.infer<typeof TicketsSchema>;
 
-const EMPTY: TicketsFile = { views: [], follows: {}, prompts: {}, defaults: {} };
+const EMPTY: TicketsFile = { views: [], follows: {}, prompts: {}, defaults: {}, fields: [] };
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
 /** The profile's ticket views, follows, and prompts, each change a locked rewrite of the file. */
@@ -192,6 +194,12 @@ export function ticketViews(ctx: MesaContext) {
         return { ...DEFAULTS, ...next };
       });
     },
+    /** Sets the fields every ticket panel shows, none to show only its own. */
+    setFields: (fields: TicketsFile['fields']) =>
+      update((tickets) => {
+        tickets.fields = fields;
+        return fields;
+      }),
     /** Sets, or with no `prompt` clears, the profile's ticket prompt, or `projectName`'s own. */
     setPrompt: (prompt: string | undefined, projectName?: string) => {
       const key = projectName === undefined ? undefined : project(projectName);

@@ -139,6 +139,24 @@ export async function filter(get: Http, site: Site, id: string): Promise<Filter>
   return { id, name };
 }
 
+/** A Jira field a ticket panel can show: built in (`components`) or custom (`customfield_10067`). */
+export type JiraField = { id: string; name: string };
+
+/** The site's fields whose name holds `search`, if given, by name. */
+// ponytail: Jira answers every field in one list (no paging), so `search` narrows it here.
+export async function jiraFields(get: Http, site: Site, search?: string): Promise<JiraField[]> {
+  const body = await jiraJson(
+    await get(`${jiraApi(site.id)}/field`),
+    z.array(z.object({ id: z.string(), name: z.string() })),
+    'Jira fields',
+  );
+  const words = search?.trim().toLowerCase() ?? '';
+  return body
+    .filter((f) => f.name.toLowerCase().includes(words))
+    .map(({ id, name }) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export type JiraTicket = {
   key: string;
   summary: string;

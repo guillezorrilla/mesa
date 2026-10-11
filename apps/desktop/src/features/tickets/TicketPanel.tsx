@@ -1,6 +1,7 @@
 import type { Ticket, TicketDefaults } from '@mesa/core';
 import { timeAgo } from '@mesa/core/browser';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { Fragment } from 'react';
 import { MarkdownView } from '@/components/MarkdownView';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { AssigneeAvatar } from './AssigneeAvatar';
 import { LiveDot } from './LiveDot';
 import { StatusIcon } from './StatusIcon';
 import { TicketStart } from './start/TicketStart';
+import { TicketFieldsMenu } from './TicketFieldsMenu';
 
 /** Links in a ticket's text open in the browser, never in the app. */
 const link = (href: string, children: React.ReactNode) => (
@@ -47,6 +49,11 @@ export function TicketPanel(props: {
         await detail.refresh();
         props.onChanged();
       }
+      return undefined;
+    });
+  const setFields = (ids: string[]) =>
+    void act(async () => {
+      if (await run('tickets.fieldsSet', { ids })) await detail.refresh();
       return undefined;
     });
   return (
@@ -121,7 +128,20 @@ export function TicketPanel(props: {
               <dd>{props.sprints.join(', ')}</dd>
             </>
           )}
+          {full?.fields?.map((field) => (
+            <Fragment key={field.id}>
+              <dt className="truncate text-muted-foreground" title={field.name}>
+                {field.name}
+              </dt>
+              <dd className="break-words">
+                {field.value ?? <span className="text-muted-foreground">None</span>}
+              </dd>
+            </Fragment>
+          ))}
         </dl>
+        {full?.fields && (
+          <TicketFieldsMenu shown={full.fields} disabled={acting} onChange={setFields} />
+        )}
         <section aria-label="Description" className="grid gap-1.5">
           <h3 className="text-xs font-medium text-muted-foreground">Description</h3>
           {full ? (

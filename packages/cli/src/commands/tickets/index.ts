@@ -1,4 +1,5 @@
 import type { Command } from '../../command.js';
+import { ticketsFields, ticketsFieldsSet } from './fields.js';
 import { ticketsBoards, ticketsFilters } from './jira.js';
 import { tickets } from './list.js';
 import { ticketsAssign, ticketsDefaults, ticketsShow } from './ticket.js';
@@ -27,6 +28,8 @@ export const TICKETS_COMMANDS: Command[] = [
   ticketsUnfollow,
   ticketsPrompt,
   ticketsDefaults,
+  ticketsFields,
+  ticketsFieldsSet,
   ticketsBoards,
   ticketsFilters,
 ];

@@ -2,6 +2,7 @@ import type {
   Board,
   Filter,
   FollowedView,
+  JiraField,
   JiraIssue,
   Ticket,
   TicketDefaults,
@@ -107,6 +108,13 @@ export const ticketsCommands = {
     'tickets',
     'boards',
     ...searchFlag(search),
+  ]),
+  'tickets.fields': command<SiteOf<{ fields: JiraField[] }>>('tickets', 'fields'),
+  'tickets.fieldsSet': commandWith<{ ids: string[] }, JiraField[]>(({ ids }) => [
+    'tickets',
+    'fields',
+    'set',
+    ...(ids.length ? ['--', ...ids] : ['--clear']),
   ]),
   'tickets.filters': commandWith<{ search?: string }, SiteOf<{ filters: Filter[] }>>(
     ({ search }) => ['tickets', 'filters', ...searchFlag(search)],

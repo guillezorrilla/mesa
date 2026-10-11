@@ -168,7 +168,7 @@ export type { ImportProgress } from './sources/import-progress.js';
 export type { ImportListRow } from './sources/import-service.js';
 export type { ItemSource } from './sources/items.js';
 export type { JiraIssue } from './sources/jira.js';
-export type { Board, Filter } from './sources/jira-tickets.js';
+export type { Board, Filter, JiraField } from './sources/jira-tickets.js';
 export type { SourceRow } from './sources/service.js';
 export type { SourceId } from './sources/sources.js';
 export type { FollowedView, Ticket, ViewInput } from './tickets/service.js';

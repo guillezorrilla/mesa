@@ -9,6 +9,7 @@ import {
   filters,
   findBoard,
   type JiraTicket,
+  jiraFields,
   searchTickets,
   sprints,
   TICKETS,
@@ -93,7 +94,7 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
   };
 
   return {
-    ...ticketActions(ctx, jira),
+    ...ticketActions(ctx, jira, () => store.read().fields),
     /** Every view the profile defines, and the projects following each. */
     views: () => {
       const file = store.read();
@@ -161,6 +162,32 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
     boards: async (search?: string, siteName?: string) => {
       const site = await jira.siteOf(siteName);
       return { site: { id: site.id, name: site.name }, boards: await boards(get(), site, search) };
+    },
+    /** The Jira fields every ticket panel shows after its own. */
+    shownFields: () => store.read().fields,
+    /** The site's Jira fields a ticket panel can show, whose name holds `search` if given. */
+    fields: async (search?: string, siteName?: string) => {
+      const site = await jira.siteOf(siteName);
+      return {
+        site: { id: site.id, name: site.name },
+        fields: await jiraFields(get(), site, search),
+      };
+    },
+    /**
+     * Sets the Jira fields every ticket panel shows, by id in order (none for only its own);
+     * each must be one of the site's, and its name is kept to show it.
+     */
+    setFields: async (ids: readonly string[], siteName?: string) => {
+      if (!ids.length) return store.setFields([]);
+      const site = await jira.siteOf(siteName);
+      const known = await jiraFields(get(), site);
+      return store.setFields(
+        [...new Set(ids)].map((id) => {
+          const found = known.find((f) => f.id === id);
+          if (!found) throw new MesaError('usage', `no Jira field ${id}; see mesa tickets fields`);
+          return found;
+        }),
+      );
     },
     filters: async (search?: string, siteName?: string) => {
       const site = await jira.siteOf(siteName);

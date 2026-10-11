@@ -9,7 +9,7 @@ const person = z.object({ displayName: z.string(), accountId: z.string().optiona
 
 const issueSchema = z.object({
   key: z.string().optional(),
-  fields: z.object({
+  fields: z.looseObject({
     summary: z.string(),
     issuetype: named,
     status: z
@@ -51,22 +51,49 @@ export type JiraIssue = {
   updated?: string;
   description: string;
   comments: { author: string; created: string; markdown: string }[];
+  /** The fields asked for by id, in that order, each value as text: null when it has none. */
+  fields?: { id: string; name: string; value: string | null }[];
 };
 
 /**
+ * A Jira field's value as text: a select's value, a person's or a component's name, a list
+ * joined with commas, a rich text field's words; null when it has none.
+ */
+export function fieldText(value: unknown): string | null {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value !== 'object') return String(value);
+  if (Array.isArray(value)) {
+    const texts = value.map(fieldText).filter((t): t is string => t !== null);
+    return texts.length ? texts.join(', ') : null;
+  }
+  const v = value as Record<string, unknown>;
+  // A cascading select names its child after its own value.
+  const own = fieldText(v.value ?? v.name ?? v.displayName ?? v.text ?? null);
+  const child = v.child === undefined ? null : fieldText(v.child);
+  if (own !== null) return child === null ? own : `${own} / ${child}`;
+  // A rich text field (Atlassian Document Format): its text nodes' words.
+  if (Array.isArray(v.content)) {
+    const words = v.content.map(fieldText).filter((t): t is string => t !== null);
+    return words.length ? words.join(' ') : null;
+  }
+  return null;
+}
+
+/**
  * Issue `key` on the site with cloud id `site`, every page of its comments followed, its HTML
- * turned into Markdown with links resolved against `url`. Reads only. The one reader both an
- * import and the Tickets tab's ticket panel use.
+ * turned into Markdown with links resolved against `url`, and the values of `fields` when given.
+ * Reads only. The one reader both an import and the Tickets tab's ticket panel use.
  */
 export async function readJiraIssue(
   get: Http,
   site: string,
   key: string,
   url: string,
+  fields?: readonly { id: string; name: string }[],
 ): Promise<JiraIssue> {
   const base = `${jiraApi(site)}/issue/${encodeURIComponent(key)}`;
   const what = `Jira issue ${key}`;
-  const { fields, renderedFields } = await readItem(
+  const { fields: read, renderedFields } = await readItem(
     get,
     `${base}?expand=renderedFields`,
     issueSchema,
@@ -88,23 +115,23 @@ export async function readJiraIssue(
     value === null || value === undefined ? {} : { [name]: value };
   return {
     key,
-    summary: fields.summary,
-    ...optional('type', fields.issuetype?.name),
-    ...optional('status', fields.status?.name),
-    ...optional('category', fields.status?.statusCategory?.key),
-    ...optional('priority', fields.priority?.name),
-    ...(fields.assignee
+    summary: read.summary,
+    ...optional('type', read.issuetype?.name),
+    ...optional('status', read.status?.name),
+    ...optional('category', read.status?.statusCategory?.key),
+    ...optional('priority', read.priority?.name),
+    ...(read.assignee
       ? {
           assignee: {
-            name: fields.assignee.displayName,
-            ...optional('accountId', fields.assignee.accountId),
+            name: read.assignee.displayName,
+            ...optional('accountId', read.assignee.accountId),
           },
         }
       : {}),
-    ...optional('reporter', fields.reporter?.displayName),
-    labels: fields.labels ?? [],
-    ...optional('created', fields.created),
-    ...optional('updated', fields.updated),
+    ...optional('reporter', read.reporter?.displayName),
+    labels: read.labels ?? [],
+    ...optional('created', read.created),
+    ...optional('updated', read.updated),
     description: await htmlToMarkdown(renderedFields?.description ?? '', url),
     comments: await Promise.all(
       comments.map(async (c) => ({
@@ -113,6 +140,9 @@ export async function readJiraIssue(
         markdown: await htmlToMarkdown(c.renderedBody ?? '', url),
       })),
     ),
+    ...(fields
+      ? { fields: fields.map(({ id, name }) => ({ id, name, value: fieldText(read[id]) })) }
+      : {}),
   };
 }
 

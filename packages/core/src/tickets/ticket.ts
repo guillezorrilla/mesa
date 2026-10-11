@@ -2,7 +2,7 @@ import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
 import { issueUrl } from '../sources/atlassian.js';
 import { readJiraIssue } from '../sources/jira.js';
-import { assignIssue } from '../sources/jira-tickets.js';
+import { assignIssue, type JiraField } from '../sources/jira-tickets.js';
 import type { JiraAccess } from './jira-access.js';
 import { liveSessions } from './live.js';
 
@@ -13,16 +13,22 @@ const issueKey = (key: string) => {
   return key.trim().toUpperCase();
 };
 
-/** One ticket of the Tickets tab: its whole panel, and assigning it to the person. */
-export function ticketActions(ctx: MesaContext, jira: JiraAccess) {
+/**
+ * One ticket of the Tickets tab: its whole panel, with the profile's chosen `fields`, and
+ * assigning it to the person.
+ */
+export function ticketActions(ctx: MesaContext, jira: JiraAccess, fields: () => JiraField[]) {
   return {
-    /** Ticket `key` with its description and comments, whether it is the person's, its sessions. */
+    /**
+     * Ticket `key` with its description, comments and chosen fields, whether it is the person's,
+     * and its sessions.
+     */
     show: async (input: string, siteName?: string) => {
       const key = issueKey(input);
       const site = await jira.siteOf(siteName);
       const url = issueUrl(site, key);
       const [issue, me] = await Promise.all([
-        readJiraIssue(jira.get(), site.id, key, url),
+        readJiraIssue(jira.get(), site.id, key, url, fields()),
         jira.me(),
       ]);
       return {
