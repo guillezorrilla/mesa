@@ -9,6 +9,7 @@ const KIND: Record<ItemSource, string> = {
   jira: 'Jira issue',
   confluence: 'Confluence page',
   notion: 'Notion page',
+  clickup: 'ClickUp item',
   web: 'web page',
 };
 

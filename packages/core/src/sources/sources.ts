@@ -3,6 +3,8 @@ import { MesaError } from '../lib/result.js';
 import { atlassianAccount, atlassianSites } from './atlassian.js';
 import { atlassianTree } from './atlassian-tree.js';
 import type { SourceTree } from './browse.js';
+import { clickupAccount, clickupSites } from './clickup.js';
+import { clickupTree } from './clickup-tree.js';
 import type { Account, Site } from './connection.js';
 import { notionAccount, notionSites } from './notion.js';
 import { notionTree } from './notion-tree.js';
@@ -24,6 +26,12 @@ export const SOURCES = {
     account: notionAccount,
     sites: notionSites,
     tree: notionTree,
+  },
+  clickup: {
+    label: 'ClickUp',
+    account: clickupAccount,
+    sites: clickupSites,
+    tree: clickupTree,
   },
 } satisfies Record<
   string,

@@ -12,8 +12,9 @@ export const distinctSites = (sites: Site[]) =>
 
 const connectionSchema = z.object({
   accessToken: z.string(),
-  refreshToken: z.string(),
-  /** When the access token stops working, ISO; absent when the source names no lifetime (Notion). */
+  /** Absent when the source gives none (ClickUp, whose access token does not expire). */
+  refreshToken: z.string().optional(),
+  /** When the access token stops working, ISO; absent when the source names no lifetime (Notion, ClickUp). */
   expiresAt: z.string().optional(),
   sites: z.array(siteSchema).transform(distinctSites),
   /** needs-reconnect once the source refused the refresh token (revoked, or expired). */
