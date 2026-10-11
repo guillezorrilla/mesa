@@ -192,7 +192,7 @@ export function TicketPanel(props: {
         ticket={{ key: ticket.key, url: ticket.url, summary: ticket.summary, mine, assignee }}
         defaults={props.defaults}
         prompt={props.prompt}
-        onStarted={props.onChanged}
+        onChanged={props.onChanged}
         onSession={props.onSession}
       />
     </div>

@@ -52,7 +52,7 @@ export function StartSheet(props: {
   ticket: StartTicket;
   options: StartOptions;
   onChange: (change: Partial<StartOptions>) => void;
-  onCancel: () => void;
+  onClose: () => void;
   onStart: (kind: TicketStart) => void;
 }) {
   const { ticket, options } = props;
@@ -127,9 +127,9 @@ export function StartSheet(props: {
             type="button"
             variant="link"
             className="px-0 text-muted-foreground"
-            onClick={props.onCancel}
+            onClick={props.onClose}
           >
-            Cancel
+            Close
           </Button>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <StartButtons onStart={props.onStart} onPoint={setSelected} />

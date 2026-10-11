@@ -147,7 +147,7 @@ test('mesa tickets show, assign, preview and defaults, and import goal --prompt'
   expect((await cli.mesa('tickets', 'preview', '--board', 'x')).code).toBe(2);
 
   expect((await cli.mesa('tickets', 'defaults', 'lantern-cove')).stdout).toContain(
-    'notes on, assign on, start in a new worktree',
+    'notes off, assign on, start in a new worktree',
   );
   const changed = await cli.mesa(
     'tickets',
@@ -156,11 +156,11 @@ test('mesa tickets show, assign, preview and defaults, and import goal --prompt'
     '--start',
     'checkout',
     '--notes',
-    'off',
+    'on',
     '--json',
   );
   expect(changed.json.data).toEqual({
-    notes: false,
+    notes: true,
     assign: true,
     start: 'checkout',
   });

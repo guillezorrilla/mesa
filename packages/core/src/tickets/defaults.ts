@@ -11,9 +11,9 @@ export type TicketDefaults = {
   start: 'worktree' | 'checkout';
 };
 
-/** What a project gets until it changes them: notes, assigning, and a worktree, all on. */
+/** What a project gets until it changes them: assigning and a worktree on; notes off, as they slow the start. */
 export const DEFAULTS: TicketDefaults = {
-  notes: true,
+  notes: false,
   assign: true,
   start: 'worktree',
 };
