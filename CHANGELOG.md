@@ -2,6 +2,21 @@
 
 Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
 
+## 0.2.9 - 2026-10-11
+
+### Features
+
+- **tickets**: start a ticket session three ways: Start session, Investigate (proves the cause or answer before any fix), or Start goal (finishes the ticket on its branch and pushes it); Codex runs `/goal` too (#732)
+- **tickets**: name a ticket view when following it and rename it in Manage views, pick the Jira fields every ticket panel shows (Components, a severity, any custom field), and keep each project's picked view when you come back (#733)
+
+### Fixes
+
+- **sources**: read Keychain items through osascript so token refreshes stop prompting (#731)
+
+### Breaking changes
+
+- **tickets**: `mesa import goal --until-done` and `mesa tickets defaults --until-done` are gone: use `--as goal`. A ticket prompt that starts with `/goal` no longer starts a goal; it is added as My rules (#732)
+
 ## 0.2.8 - 2026-10-10
 
 ### Features
