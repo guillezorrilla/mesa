@@ -66,6 +66,7 @@ pub fn relaunch(app: &tauri::AppHandle, profile: &str, notice: Option<&str>) -> 
         }
         direct.spawn().map_err(|error| error.to_string())?;
     }
+    crate::window_state::save(app);
     app.exit(0);
     Ok(())
 }

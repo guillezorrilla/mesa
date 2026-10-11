@@ -7,6 +7,7 @@ mod profile;
 mod shell_path;
 mod terminal;
 mod updater;
+mod window_state;
 
 use serde_json::Value;
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -36,6 +37,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // The window reopens where it was, at its size, after a quit, an update, or a profile switch.
+        .plugin(
+            tauri_plugin_window_state::Builder::new()
+                .with_state_flags(window_state::FLAGS)
+                .build(),
+        )
         .manage(terminal::Terms::default())
         .manage(updater::Updates::default())
         .setup(move |app| {
