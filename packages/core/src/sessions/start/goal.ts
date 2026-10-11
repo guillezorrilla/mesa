@@ -1,7 +1,8 @@
-import type { Agent } from '../../agents/names.js';
+import { AGENT_LABELS, type Agent, supportsAgentCapability } from '../../agents/names.js';
 import { MesaError } from '../../lib/result.js';
 import { readTextFile } from '../../lib/text-file.js';
 import type { SessionStore } from '../record/store.js';
+import { goalCondition, MAX_GOAL_CONDITION } from './goal-command.js';
 
 // A session's goal, its first prompt (CONTEXT.md, Goal): read, checked, and kept on the record.
 
@@ -41,29 +42,25 @@ export function requireCommandFits(command: string): void {
   }
 }
 
-// Claude Code refuses a longer /goal condition and starts no work (measured on 2.1.288: "Goal
-// condition is limited to 4000 characters (got 4048)").
-const MAX_GOAL_CONDITION = 4000;
-
 /**
- * Refuses a goal opening Claude Code's `/goal` command where it would not run: another agent takes
- * it as plain text, and Claude Code refuses a condition over 4000 characters. The condition is
- * every line after `/goal`, as Claude Code keeps them all.
+ * Refuses a goal opening the `/goal` command where it would not run: an agent without the `goal`
+ * capability takes it as plain text, and one with it refuses a condition over 4000 characters.
+ * The condition is every line after `/goal`, as each keeps them all.
  */
 export function requireGoalCommandRuns(goal: string | undefined, agent: Agent): void {
-  const command = goal?.match(/^\/goal(?:\s([\s\S]*))?$/);
-  if (!command) return;
-  if (agent !== 'claude') {
+  const condition = goal === undefined ? undefined : goalCondition(goal);
+  if (condition === undefined) return;
+  if (!supportsAgentCapability(agent, 'goal')) {
     throw new MesaError(
       'usage',
-      `${agent} has no /goal command and would take the goal as plain text: start it with claude, or drop /goal`,
+      `${agent} has no /goal command and would take the goal as plain text: start it with claude or codex, or drop /goal`,
     );
   }
-  const length = (command[1] ?? '').trim().length;
+  const { length } = condition;
   if (length > MAX_GOAL_CONDITION) {
     throw new MesaError(
       'usage',
-      `the /goal condition is ${length} characters, over the ${MAX_GOAL_CONDITION} Claude Code takes: shorten it, or keep the long part in a file the goal names`,
+      `the /goal condition is ${length} characters, over the ${MAX_GOAL_CONDITION} ${AGENT_LABELS[agent]} takes: shorten it, or keep the long part in a file the goal names`,
     );
   }
 }

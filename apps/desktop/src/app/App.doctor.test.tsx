@@ -59,7 +59,7 @@ test('Doctor shows installed and qualified versions with unsupported native oper
   expect(rows[0]).toContain('Installed 2.1.284.Qualified on 2.1.284:');
   expect(rows[1]).toContain('Not installed.Qualified on 0.157.1:');
   expect(rows[2]).toContain(
-    'Unsupported natively: background, fork, adopt, history, search, context.',
+    'Unsupported natively: goal, background, fork, adopt, history, search, context.',
   );
 });
 

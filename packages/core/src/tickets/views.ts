@@ -5,6 +5,7 @@ import { MesaError } from '../lib/result.js';
 import { changeYaml, readYaml } from '../lib/yaml-file.js';
 import { findProject } from '../projects/projects.js';
 import type { JiraField } from '../sources/jira.js';
+import { DEFAULTS, type TicketDefaults } from './defaults.js';
 
 // The profile's `tickets.yaml` (CONTEXT.md, Ticket view): the Jira views it defines once, the
 // projects that follow each, and which Saved prompt a ticket session gets. Personal, so never in a
@@ -60,25 +61,18 @@ export function parseView(input: unknown): TicketView {
   return parsed.data;
 }
 
-const TicketDefaultsSchema = z.strictObject({
-  /** Write notes before the session starts. */
-  notes: z.boolean().optional(),
-  /** Assign the ticket to the person when it is someone else's or no one's. */
-  assign: z.boolean().optional(),
-  /** Start in a new worktree on a branch named after the ticket, or in the main checkout. */
-  start: z.enum(['worktree', 'checkout']).optional(),
-  /** Start as Claude Code's /goal, so the agent keeps working until the ticket is done. */
-  untilDone: z.boolean().optional(),
-});
-export type TicketDefaults = Required<z.infer<typeof TicketDefaultsSchema>>;
-/** What a project gets until it changes them: notes, assigning, a worktree, and /goal, all on. */
-export const DEFAULTS: TicketDefaults = {
-  notes: true,
-  assign: true,
-  start: 'worktree',
-  untilDone: true,
-};
-
+const TicketDefaultsSchema = z
+  .strictObject({
+    /** Write notes before the session starts. */
+    notes: z.boolean().optional(),
+    /** Assign the ticket to the person when it is someone else's or no one's. */
+    assign: z.boolean().optional(),
+    /** Start in a new worktree on a branch named after the ticket, or in the main checkout. */
+    start: z.enum(['worktree', 'checkout']).optional(),
+    /** Files written before the Ticket starts may hold it: read, then dropped. */
+    untilDone: z.boolean().optional(),
+  })
+  .transform(({ untilDone: _, ...set }): Partial<TicketDefaults> => set);
 const TicketsSchema = z.strictObject({
   views: z.array(ViewSchema).default([]),
   /** Each project's followed view names. */

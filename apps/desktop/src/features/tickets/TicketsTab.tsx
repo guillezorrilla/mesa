@@ -1,4 +1,4 @@
-import { timeAgo } from '@mesa/core/browser';
+import { DEFAULTS, timeAgo } from '@mesa/core/browser';
 import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
@@ -95,12 +95,7 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
             settings={{
               projectPrompt: data?.projectPrompt ?? null,
               prompt: data?.prompt ?? null,
-              defaults: data?.defaults ?? {
-                notes: true,
-                assign: true,
-                start: 'worktree',
-                untilDone: true,
-              },
+              defaults: data?.defaults ?? DEFAULTS,
             }}
             onSettingsChanged={refresh}
           />

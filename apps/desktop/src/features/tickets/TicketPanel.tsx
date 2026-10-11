@@ -10,7 +10,7 @@ import { useCommand, useRun } from '@/lib/useCommand';
 import { AssigneeAvatar } from './AssigneeAvatar';
 import { LiveDot } from './LiveDot';
 import { StatusIcon } from './StatusIcon';
-import { TicketStart } from './start/TicketStart';
+import { TicketStartPanel } from './start/TicketStartPanel';
 import { TicketFieldsMenu } from './TicketFieldsMenu';
 
 /** Links in a ticket's text open in the browser, never in the app. */
@@ -22,7 +22,7 @@ const link = (href: string, children: React.ReactNode) => (
 
 /**
  * One ticket beside the list: its key and Jira link, title, who has a session on it, its
- * fields, description and comments, and Start session (TicketStart).
+ * fields, description and comments, and the Ticket starts (TicketStartPanel).
  */
 export function TicketPanel(props: {
   project: string;
@@ -186,10 +186,10 @@ export function TicketPanel(props: {
           </section>
         )}
       </div>
-      <TicketStart
+      <TicketStartPanel
         key={ticket.key}
         project={props.project}
-        ticket={{ key: ticket.key, url: ticket.url, mine, assignee }}
+        ticket={{ key: ticket.key, url: ticket.url, summary: ticket.summary, mine, assignee }}
         defaults={props.defaults}
         prompt={props.prompt}
         onStarted={props.onChanged}

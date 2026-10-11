@@ -130,7 +130,7 @@ test('an item that cannot be imported, --goal-file, or a goal too long starts no
   ).rejects.toMatchObject({ code: 'usage' });
   await expect(mesa.imports.open('lantern-cove', { exactGoal: true })).rejects.toMatchObject({
     code: 'usage',
-    message: '--no-notes and --exact-goal need --from',
+    message: '--no-notes, --exact-goal and --as need --from',
   });
 
   await expect(

@@ -1,5 +1,5 @@
 import { defineCommand } from '../command.js';
-import { requireTty } from '../input/flags.js';
+import { AS_FLAG, requireTty, ticketStartOf } from '../input/flags.js';
 import { recordedOutput } from '../output/recorded.js';
 
 export const open = defineCommand({
@@ -34,6 +34,7 @@ export const open = defineCommand({
       type: 'boolean',
       description: 'With --from, import a new item with no import-notes run',
     },
+    as: AS_FLAG,
     'exact-goal': {
       type: 'boolean',
       description: "With --from, --goal is the whole goal, in place of the item's",
@@ -98,6 +99,7 @@ export const open = defineCommand({
       from: flags.from,
       notes: !flags['no-notes'],
       exactGoal: flags['exact-goal'],
+      kind: ticketStartOf(flags.as),
     });
     const session = recorded.result;
     const exec = flags.attach ? (await mesa.sessions.attach(session.id)).exec : undefined;

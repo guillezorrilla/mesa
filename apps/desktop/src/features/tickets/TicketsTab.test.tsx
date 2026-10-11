@@ -27,7 +27,7 @@ const listOf = (views: FollowedView[], tickets: Ticket[]) =>
     project: 'lantern-cove',
     prompt: 'Ticket flow',
     projectPrompt: null,
-    defaults: { notes: false, assign: true, start: 'worktree', untilDone: true },
+    defaults: { notes: false, assign: true, start: 'worktree' },
     views,
     tickets,
   });
@@ -141,26 +141,36 @@ async function startable(answers: Record<string, (args: string[]) => unknown> = 
   return { ...fake, byTestId, opened, started };
 }
 
-test('Start session starts at once with the project defaults, then opens it', async () => {
+test('Start goal starts at once with the project defaults, then opens it', async () => {
   const { byTestId, opened, started } = await startable();
   expect(byTestId('start-summary')[0]?.textContent).toBe(
-    'Ticket flow · until done · assign to me · new worktree on lc-2',
+    'Runs in a new worktree on lc-2 · assign to me · your rules: Ticket flow',
   );
-  await click(byTestId('start-ticket')[0]);
+  await click(byTestId('start-goal')[0]);
   expect(started()).toEqual([
     'tickets assign -- LC-2',
     'import --project lantern-cove --no-notes -- https://lantern-cove.atlassian.net/browse/LC-2',
-    'import goal --project lantern-cove --prompt=Ticket flow --until-done -- LC-2',
+    'import goal --project lantern-cove --prompt=Ticket flow --as=goal -- LC-2',
     'open --from=LC-2 --exact-goal --no-parent --goal=/goal Fix it fast.\n\nWork on LC-2 --branch=lc-2 -- lantern-cove',
   ]);
   expect(byTestId('start-progress')[0]?.textContent).toContain(
-    'Start the session in a new worktree on lc-2',
+    'Start the goal in a new worktree on lc-2',
   );
   await click(button('Open session'));
   expect(opened).toEqual(['bbbbbbbb']);
 });
 
-test('Options changes the start first: where it runs, a prompt, and a new prompt written in place', async () => {
+test('Start session and Investigate each build their own goal', async () => {
+  for (const as of ['session', 'investigate']) {
+    const { byTestId, started } = await startable();
+    await click(byTestId(`start-${as}`)[0]);
+    expect(started()).toContain(
+      `import goal --project lantern-cove --prompt=Ticket flow --as=${as} -- LC-2`,
+    );
+  }
+});
+
+test('Options changes the start first: where it runs, your rules, and a new prompt written in place', async () => {
   const saved = [{ name: 'Ticket flow', text: '/goal Deliver the ticket below.' }];
   const { byTestId, calls, started } = await startable({
     prompts: () => envelope(saved),
@@ -173,9 +183,6 @@ test('Options changes the start first: where it runs, a prompt, and a new prompt
   const sheet = () => byTestId('start-sheet')[0]?.textContent ?? '';
   expect(sheet()).toContain('Assign LC-2 to me');
   expect(sheet()).toContain('Its own checkout, on the branch lc-2');
-  expect((document.getElementById('start-until-done') as HTMLElement).dataset.state).toBe(
-    'checked',
-  );
   await click(button('Main checkout'));
   expect(sheet()).toContain("The project's own checkout");
 
@@ -193,9 +200,18 @@ test('Options changes the start first: where it runs, a prompt, and a new prompt
   expect(byTestId('new-prompt-form')).toHaveLength(0);
   expect(prompt().value).toBe('Tidy flow');
 
-  await click(byTestId('start-sheet-submit')[0]);
+  // The preview shows each start's own prompt, with your rules after it.
+  await click(
+    [...document.querySelectorAll<HTMLElement>('button[aria-pressed]')].find(
+      (b) => b.textContent === 'Investigate',
+    ),
+  );
+  expect(byTestId('start-preview')[0]?.textContent).toMatch(
+    /^Investigate LC-2[\s\S]*My rules:\nSmall commits\.$/,
+  );
+  await click(byTestId('start-investigate').at(-1));
   expect(started()).toContain(
-    'import goal --project lantern-cove --prompt=Tidy flow --until-done -- LC-2',
+    'import goal --project lantern-cove --prompt=Tidy flow --as=investigate -- LC-2',
   );
   expect(started().at(-1)).toBe(
     'open --from=LC-2 --exact-goal --no-parent --goal=/goal Fix it fast.\n\nWork on LC-2 -- lantern-cove',

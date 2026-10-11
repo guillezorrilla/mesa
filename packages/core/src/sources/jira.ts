@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { Http } from '../lib/http.js';
 import { jiraApi, readItem, siteOf } from './atlassian.js';
 import { htmlToMarkdown } from './html-markdown.js';
-import type { Item, ItemRef } from './items.js';
+import { type Item, type ItemRef, jiraTitle } from './items.js';
 
 const named = z.object({ name: z.string() }).nullish();
 const person = z.object({ displayName: z.string(), accountId: z.string().optional() }).nullish();
@@ -185,7 +185,7 @@ export async function jiraIssue(
   ];
   return {
     ...ref,
-    title: `${ref.id}: ${issue.summary}`,
+    title: jiraTitle(ref.id, issue.summary),
     markdown: sections.join('\n\n'),
     ...(issue.updated ? { revision: issue.updated } : {}),
   };

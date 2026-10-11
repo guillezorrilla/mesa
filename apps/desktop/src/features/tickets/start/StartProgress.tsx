@@ -1,7 +1,7 @@
 import { Check, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { StartStep } from '../useStartTicket';
+import type { StartStep } from './useStartTicket';
 
 /** Each step of a ticket's start as it runs, ending in Open session, or Back when one failed. */
 export function StartProgress(props: {

@@ -145,7 +145,7 @@ test('filter and JQL views narrow as told, keep their own order, and a ticket in
     project: 'lantern-cove',
     prompt: null,
     projectPrompt: null,
-    defaults: { notes: true, assign: true, start: 'worktree', untilDone: true },
+    defaults: { notes: true, assign: true, start: 'worktree' },
     views: [],
     tickets: [],
   });

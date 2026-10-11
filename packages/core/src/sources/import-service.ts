@@ -11,6 +11,7 @@ import {
 } from './import.js';
 import { importNotes } from './import-notes.js';
 import { importProgress } from './import-progress.js';
+import type { ItemSource } from './items.js';
 import { resolveLink } from './links.js';
 import { pendingImportNotes } from './pending-notes.js';
 import { snapshotRows } from './snapshots.js';
@@ -128,12 +129,12 @@ export function importService(ctx: MesaContext, deps: ImportServiceDeps) {
      * The item `project` imported that `from` names: its id, else a link (or key) that resolves to
      * it. With `importing`, a link to an item not imported yet is imported first, with notes or
      * not, and `notes` says how its Write notes run went; without, it is not_found. A link that
-     * cannot be imported is refused with why.
+     * cannot be imported, or is not of `importing.source` when given, is refused before any import.
      */
     item: async (
       project: string,
       from: string,
-      importing?: { notes: boolean },
+      importing?: { notes: boolean; source?: ItemSource },
     ): Promise<{ item: ImportListRow; notes?: ImportResult['notes'] }> => {
       findProject(ctx.open(), project);
       const byId = list(project).find((item) => item.id === from.trim());
@@ -147,6 +148,9 @@ export function importService(ctx: MesaContext, deps: ImportServiceDeps) {
           'not_found',
           `${project} imported no ${from}; see mesa import list --project ${project}`,
         );
+      }
+      if (importing.source && ref.source !== importing.source) {
+        throw new MesaError('usage', `${from} is a ${ref.source} item, not ${importing.source}`);
       }
       prepare(project);
       const { result } = await run(project, [ref.url], importing.notes);

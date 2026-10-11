@@ -74,11 +74,6 @@ export function TicketSettingsPanel(props: {
         [
           ['notes', 'Write notes first', 'A summary note in the vault before the session starts'],
           ['assign', 'Assign to me on start', "When the ticket is someone else's or no one's"],
-          [
-            'untilDone',
-            'Keep working until done',
-            "Start with Claude Code's /goal, held to the ticket's acceptance criteria and tests",
-          ],
         ] as const
       ).map(([key, label, hint]) => (
         <div key={key} className="flex items-center justify-between gap-4">

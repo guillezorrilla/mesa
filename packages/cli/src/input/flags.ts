@@ -1,4 +1,4 @@
-import { MesaError, TERMINAL_APPS } from '@mesa/core';
+import { MesaError, TERMINAL_APPS, TICKET_STARTS, type TicketStart } from '@mesa/core';
 
 // What a command is given, checked and parsed into what core takes, before core sees it.
 
@@ -57,6 +57,20 @@ export function upOrDown(value: string, name: string): 'up' | 'down' {
     throw new MesaError('usage', `${name} must be up or down`);
   }
   return value;
+}
+
+/** `--as`: how a session from a Jira issue starts (CONTEXT.md, Ticket start). */
+export const AS_FLAG = {
+  type: 'string',
+  description: `A Jira issue's goal is this Ticket start's prompt: ${TICKET_STARTS.join(', ')}`,
+} as const;
+
+/** `--as`'s value, checked; undefined when not given. */
+export function ticketStartOf(value: string | undefined): TicketStart | undefined {
+  if (value === undefined) return undefined;
+  if (!(TICKET_STARTS as readonly string[]).includes(value))
+    throw new MesaError('usage', `--as must be ${TICKET_STARTS.join(', ')}`);
+  return value as TicketStart;
 }
 
 /** `--probability <option>=<p>` words as {option: p}; core checks each p is from 0 to 1. */
