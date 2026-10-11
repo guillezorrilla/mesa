@@ -67,3 +67,11 @@ test('a missing or unreadable changelog gives no notes rather than an error', ()
   ).toEqual([]);
   expect(changelogNotes(() => '# Changelog\n')).toEqual([]);
 });
+
+test('a note ending in many reference-like characters parses in linear time', () => {
+  const note = `- Tide ${'(#9'.repeat(20_000)}${'\t'.repeat(20_000)} (#1, #2) (#3)`;
+  const started = performance.now();
+  const [section] = parseChangelog(`## 0.1.0 - 2026-10-01\n\n### Added\n\n${note}\n`);
+  expect(performance.now() - started).toBeLessThan(500);
+  expect(section?.added[0]).toBe(`Tide ${'(#9'.repeat(20_000)}`);
+});

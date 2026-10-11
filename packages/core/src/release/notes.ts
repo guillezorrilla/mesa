@@ -33,12 +33,21 @@ const GROUPS: Record<string, ReleaseGroup> = {
 };
 const HEADING = /^## (\S+) - (\d{4}-\d{2}-\d{2})/;
 
+const REFERENCE = /^\(#\d+(?:, #\d+)*\)$/;
+
+/** `text` without its trailing `(#123)` or `(#1, #2)` references, one at a time, in linear time. */
+function withoutReferences(text: string) {
+  let rest = text.trimEnd();
+  for (let open = rest.lastIndexOf('(#'); open !== -1; open = rest.lastIndexOf('(#')) {
+    if (!REFERENCE.test(rest.slice(open))) break;
+    rest = rest.slice(0, open).trimEnd();
+  }
+  return rest;
+}
+
 /** A bullet as plain text: no `(#123)` references, no older `**area**: ` labels, a capital first. */
 function plain(line: string) {
-  const text = line
-    .slice(2)
-    .replace(/(\s*\(#\d+(, #\d+)*\))+$/, '')
-    .replace(/^(\*\*[^*]+\*\*(, )?)+: /, '');
+  const text = withoutReferences(line.slice(2)).replace(/^(?:\*\*[^*]+\*\*(?:, )?)+: /, '');
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
