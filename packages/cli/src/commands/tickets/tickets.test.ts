@@ -144,7 +144,7 @@ test('mesa tickets show, assign, preview and defaults, and import goal --prompt'
   expect((await cli.mesa('tickets', 'preview', '--board', 'x')).code).toBe(2);
 
   expect((await cli.mesa('tickets', 'defaults', 'lantern-cove')).stdout).toContain(
-    'notes on, assign on, start in a new worktree, until done on',
+    'notes on, assign on, start in a new worktree',
   );
   const changed = await cli.mesa(
     'tickets',
@@ -154,15 +154,12 @@ test('mesa tickets show, assign, preview and defaults, and import goal --prompt'
     'checkout',
     '--notes',
     'off',
-    '--until-done',
-    'off',
     '--json',
   );
   expect(changed.json.data).toEqual({
     notes: false,
     assign: true,
     start: 'checkout',
-    untilDone: false,
   });
   expect((await cli.mesa('tickets', 'defaults', 'lantern-cove', '--notes', 'maybe')).code).toBe(2);
 
@@ -195,9 +192,12 @@ test('mesa tickets show, assign, preview and defaults, and import goal --prompt'
     '--project',
     'lantern-cove',
     '--no-prompt',
-    '--until-done',
+    '--as',
+    'goal',
   );
-  expect(done.stdout).toMatch(/^\/goal Work on the imported[\s\S]*its tests pass\.\n$/);
+  expect(done.stdout).toMatch(/^\/goal Finish LC-12: do what the ticket asks\./);
+  const wrong = await cli.mesa('import', 'goal', 'LC-12', '--project', 'lantern-cove', '--as', 'x');
+  expect(wrong.code).toBe(2);
   expect(
     (
       await cli.mesa(

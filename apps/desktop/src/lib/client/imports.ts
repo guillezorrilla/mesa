@@ -1,4 +1,10 @@
-import type { ImportListRow, ImportProgress, ImportResult, ItemSource } from '@mesa/core';
+import type {
+  ImportListRow,
+  ImportProgress,
+  ImportResult,
+  ItemSource,
+  TicketStart,
+} from '@mesa/core';
 import { commandWith, type Recorded } from './spec';
 
 /** `--no-notes` when Write notes is off. */
@@ -19,17 +25,17 @@ export const importsCommands = {
   >(({ project }) => ['import', 'status', '--project', project]),
   // The goal a session started from the item gets, for the composer to fill in.
   // `prompt`: a Saved prompt's name for a Jira issue's goal, null for none, else the project's.
-  // `untilDone`: a Jira issue's goal is Claude Code's /goal, held to finishing it.
+  // `as`: a Jira issue's goal is that Ticket start's prompt, the Saved prompt its rules.
   'imports.goal': commandWith<
-    { project: string; from: string; prompt?: string | null; untilDone?: boolean },
+    { project: string; from: string; prompt?: string | null; as?: TicketStart },
     { source: ItemSource; id: string; title: string; goal: string }
-  >(({ project, from, prompt, untilDone }) => [
+  >(({ project, from, prompt, as }) => [
     'import',
     'goal',
     '--project',
     project,
     ...(prompt === null ? ['--no-prompt'] : prompt ? [`--prompt=${prompt}`] : []),
-    ...(untilDone ? ['--until-done'] : []),
+    ...(as ? [`--as=${as}`] : []),
     '--',
     from,
   ]),

@@ -1,5 +1,6 @@
 import { EXIT_CODES, type ImportResult, MesaError, type Recorded } from '@mesa/core';
 import { defineCommand } from '../command.js';
+import { AS_FLAG, ticketStartOf } from '../input/flags.js';
 import { columns } from '../output/columns.js';
 import { recordedOutput } from '../output/recorded.js';
 
@@ -102,24 +103,21 @@ export const importGoal = defineCommand({
     prompt: {
       type: 'string',
       description:
-        "A Jira issue's goal opens with this Saved prompt, over the project's ticket prompt",
+        "A Jira issue's goal opens with this Saved prompt (with --as, follows it), over the project's ticket prompt",
     },
     'no-prompt': {
       type: 'boolean',
       description: "A Jira issue's goal opens with no ticket prompt",
     },
-    'until-done': {
-      type: 'boolean',
-      description:
-        "A Jira issue's goal is Claude Code's /goal, so the agent keeps working until it is done",
-    },
+    as: AS_FLAG,
   },
-  example: 'mesa import goal LC-12 --project lantern-cove --until-done',
+  example: 'mesa import goal LC-12 --project lantern-cove --as investigate',
   run: async ({ mesa, args, flags }) => {
     if (flags.prompt !== undefined && flags['no-prompt'])
       throw new MesaError('usage', 'pass --prompt or --no-prompt, not both');
     const prompt = flags['no-prompt'] ? null : flags.prompt;
-    const data = await mesa.imports.goal(flags.project, args.item, prompt, flags['until-done']);
+    const as = ticketStartOf(flags.as);
+    const data = await mesa.imports.goal(flags.project, args.item, prompt, as);
     return { data, text: data.goal };
   },
 });

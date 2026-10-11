@@ -2,7 +2,8 @@ import { MesaError } from '../lib/result.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import type { sessionsService } from '../sessions/service/index.js';
 import type { ImportListRow, importService } from './import-service.js';
-import { itemGoal, untilDone } from './item-goal.js';
+import { itemGoal } from './item-goal.js';
+import { type TicketStart, ticketStartPrompt } from './ticket-start.js';
 
 // A session started from an imported item (CONTEXT.md, Import): its goal built from the item,
 // and the item kept on its record.
@@ -18,12 +19,14 @@ export type ItemOpenOptions = Omit<NonNullable<Parameters<Open>[1]>, 'from'> & {
   notes?: boolean;
   /** `goal` is the whole goal (the app's edited one), not added after the item's. */
   exactGoal?: boolean;
+  /** A Jira issue's goal is this Ticket start's prompt, `goal` after it. */
+  as?: TicketStart;
 };
 
 /**
  * Starts sessions from `item`s, through `open`. A Jira issue's goal opens with the ticket prompt
- * `ticketPrompt` names for its project (CONTEXT.md, Ticket prompt), so a prompt that starts with
- * Claude Code's `/goal` makes the whole goal its condition, the issue included.
+ * `ticketPrompt` names for its project (CONTEXT.md, Ticket prompt), or, started as a Ticket start,
+ * is that start's prompt with the ticket prompt as its rules.
  */
 export function itemSessions(
   item: Imports['item'],
@@ -32,34 +35,44 @@ export function itemSessions(
 ) {
   /**
    * `override` is a Saved prompt's name, or null for none; undefined takes the project's. With
-   * `done`, a Jira issue's goal is a /goal that holds the agent to finishing it (untilDone).
+   * `as`, a Jira issue's goal is that Ticket start's prompt, the Saved prompt its rules.
    */
   const withPrompt = (
     project: string,
     found: ImportListRow,
     goal?: string,
     override?: string | null,
-    done?: boolean,
+    as?: TicketStart,
   ) => {
     const jira = found.source === 'jira';
     const prompt = jira ? ticketPrompt(project, override)?.trim() : undefined;
+    if (jira && as)
+      return ticketStartPrompt(as, {
+        project,
+        key: found.id,
+        title: found.title,
+        url: found.url,
+        snapshot: found.snapshot,
+        note: found.note,
+        rules: prompt,
+        extra: goal,
+      });
     const base = itemGoal(found, goal);
-    const full = prompt ? `${prompt}\n\n${base}` : base;
-    return jira && done ? untilDone(full) : full;
+    return prompt ? `${prompt}\n\n${base}` : base;
   };
   return {
     /**
      * The goal a session started from `from` gets, and the item, without starting it. `prompt`
-     * names the Saved prompt a Jira issue's goal opens with (null for none) over the project's;
-     * `done` makes a Jira issue's goal a /goal that keeps the agent at it until it is done.
+     * names the Saved prompt a Jira issue's goal takes (null for none) over the project's; `as`
+     * makes it that Ticket start's prompt.
      */
-    goal: async (project: string, from: string, prompt?: string | null, done?: boolean) => {
+    goal: async (project: string, from: string, prompt?: string | null, as?: TicketStart) => {
       const { item: found } = await item(project, from);
       return {
         source: found.source,
         id: found.id,
         title: found.title,
-        goal: withPrompt(project, found, undefined, prompt, done),
+        goal: withPrompt(project, found, undefined, prompt, as),
       };
     },
     /**
@@ -69,10 +82,10 @@ export function itemSessions(
      * is a warning, the session started all the same. Every usage error comes before any import.
      */
     open: async (project: string | undefined, opts: ItemOpenOptions = {}) => {
-      const { from, notes = true, exactGoal, goal, ...start } = opts;
+      const { from, notes = true, exactGoal, goal, as, ...start } = opts;
       if (from === undefined) {
-        if (!notes || exactGoal)
-          throw new MesaError('usage', '--no-notes and --exact-goal need --from');
+        if (!notes || exactGoal || as)
+          throw new MesaError('usage', '--no-notes, --exact-goal and --as need --from');
         return open(project, { ...start, goal });
       }
       if (start.goalFile !== undefined) {
@@ -87,7 +100,7 @@ export function itemSessions(
       const found = await item(project, from, { notes });
       const opened = await open(project, {
         ...start,
-        goal: exactGoal ? goal : withPrompt(project, found.item, goal),
+        goal: exactGoal ? goal : withPrompt(project, found.item, goal, undefined, as),
         from: { source: found.item.source, id: found.item.id },
       });
       const failed =

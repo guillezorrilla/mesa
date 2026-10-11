@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
+import type { TicketStart } from '../sources/ticket-start.js';
 import { importProfile, newSession, TEST_JIRA, testStore } from '../testing/index.js';
 
 const AGILE = 'https://api.atlassian.com/ex/jira/cloud-1/rest/agile/1.0';
@@ -123,13 +124,11 @@ test('each project keeps its own defaults, and a goal takes a prompt by name, no
     notes: true,
     assign: true,
     start: 'worktree',
-    untilDone: true,
   });
   expect(mesa.tickets.setDefaults('lantern-cove', { start: 'checkout', notes: false })).toEqual({
     notes: false,
     assign: true,
     start: 'checkout',
-    untilDone: true,
   });
   expect(mesa.tickets.defaults('lantern-cove').start).toBe('checkout');
   expect(() => mesa.tickets.setDefaults('nowhere', { notes: true })).toThrow(
@@ -148,16 +147,23 @@ test('each project keeps its own defaults, and a goal takes a prompt by name, no
   expect(await goal(null)).toMatch(/^Work on the imported Jira issue LC-12/);
   await expect(goal('Missing')).rejects.toThrow('no saved prompt Missing');
 
-  // Until done: the whole goal is Claude Code's /goal, held to finishing the issue.
-  const done = async (prompt?: string | null) =>
-    (await mesa.imports.goal('lantern-cove', 'LC-12', prompt, true)).goal;
-  expect(await done(null)).toMatch(
-    /^\/goal Work on the imported Jira issue LC-12[\s\S]*\n\nDone when the issue is implemented as it describes, its acceptance criteria are met, and its tests pass\.$/,
-  );
-  expect(await done('Hotfix flow')).toMatch(/^\/goal Smallest safe change\.\n\nWork on/);
-  // A prompt that already is a /goal stays its own.
-  mesa.prompts.save('Goal flow', '/goal Ship it with a PR.');
-  expect(await done('Goal flow')).toMatch(/^\/goal Ship it with a PR\.\n\nWork on[\s\S]*\.md$/);
+  // A Ticket start: its own prompt around the issue, the Saved prompt after it as Your rules.
+  const as = async (start: TicketStart, prompt?: string | null) =>
+    (await mesa.imports.goal('lantern-cove', 'LC-12', prompt, start)).goal;
+  const session = await as('session', null);
+  expect(session).toMatch(/^Load LC-12 as context, then wait for my instructions\./);
+  expect(session).toContain('Ticket: LC-12: Fix the tide alarm');
+  expect(session).toMatch(/- Snapshot: raw\/jira\/LC-12\/.+\.md/);
+  const investigate = await as('investigate', null);
+  expect(investigate).toContain('projects/lantern-cove/investigations/LC-12.md');
+  expect(investigate).toContain('mesa open lantern-cove --from LC-12 --as goal');
+  const built = await as('goal', null);
+  expect(built).toMatch(/^\/goal Finish LC-12: do what the ticket asks\./);
+  // ponytail: room under Claude Code's 4000-character /goal condition for Your rules.
+  expect(built.length).toBeLessThan(3200);
+  expect(await as('goal', 'Hotfix flow')).toMatch(/\n\nMy rules:\nSmallest safe change\.$/);
+  // The project's ticket prompt is Your rules too, never what the goal opens with.
+  expect(await as('goal')).toMatch(/^\/goal Finish LC-12[\s\S]*Branch, test first, open a PR\.$/);
 });
 
 test('a view of a site the connection no longer reaches names the site and asks to reconnect', async () => {

@@ -1,6 +1,5 @@
-import { UNTIL_DONE } from '@mesa/core/browser';
-import { Play } from 'lucide-react';
-import { type ReactNode, useEffect } from 'react';
+import { type TicketStart, ticketStartPrompt } from '@mesa/core/browser';
+import { type ReactNode, useEffect, useState } from 'react';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -8,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { PromptField } from '@/features/prompts/PromptField';
 import { useCommand } from '@/lib/useCommand';
 import { branchOf, type StartOptions } from '../useStartTicket';
+import { STARTS, StartButtons } from './StartButtons';
 
 /** A labelled switch with a line under it saying what it does. */
 function Toggle(props: {
@@ -42,34 +42,46 @@ function Field(props: { label: string; htmlFor?: string; hint: string; children:
 }
 
 /**
- * How a session on one ticket starts, to change before Start session: where it runs, the prompt
- * its goal opens with (or a new one, written here), /goal, assigning, and Write notes; and a
- * preview of its goal.
+ * How a session on one ticket starts, to change before one of the three start buttons: where it
+ * runs, Your rules (a Saved prompt every start follows, or a new one written here), assigning, and
+ * Write notes; and the prompt each start sends.
  */
 export function StartSheet(props: {
-  ticket: { key: string; mine: boolean; assignee?: string | undefined };
+  project: string;
+  ticket: { key: string; url: string; title: string; mine: boolean; assignee?: string | undefined };
   options: StartOptions;
   onChange: (change: Partial<StartOptions>) => void;
   onCancel: () => void;
-  onStart: () => void;
+  onStart: (as: TicketStart) => void;
 }) {
   const { ticket, options } = props;
+  const [shown, setShown] = useState<TicketStart>('goal');
   const prompts = useCommand('prompts.list');
-  const promptText = prompts.data?.find((p) => p.name === options.prompt)?.text;
+  const rules = prompts.data?.find((p) => p.name === options.prompt)?.text;
   // A prompt just written here is picked before this list has it: read the list again.
   const { refresh } = prompts;
-  const missing = Boolean(options.prompt && prompts.data && promptText === undefined);
+  const missing = Boolean(options.prompt && prompts.data && rules === undefined);
   useEffect(() => {
     if (missing) void refresh();
   }, [missing, refresh]);
   const set = props.onChange;
+  // ponytail: the vault paths are known only once the ticket is imported, so these stand in.
+  const preview = ticketStartPrompt(shown, {
+    project: props.project,
+    key: ticket.key,
+    title: `${ticket.key}: ${ticket.title}`,
+    url: ticket.url,
+    snapshot: `raw/jira/${ticket.key}/<latest>.md`,
+    note: options.notes ? '<the note Write notes adds>' : undefined,
+    rules,
+  });
   return (
     <form
       className="grid gap-5 border-t bg-card px-6 py-5"
       data-testid="start-sheet"
       onSubmit={(event) => {
         event.preventDefault();
-        props.onStart();
+        props.onStart('goal');
       }}
     >
       <h3 className="text-[15px] font-semibold">Start a session on {ticket.key}</h3>
@@ -94,26 +106,19 @@ export function StartSheet(props: {
           />
         </Field>
         <Field
-          label="Prompt"
+          label="Your rules"
           htmlFor="start-prompt"
-          hint="Sent before the ticket: how you like the work done"
+          hint="Optional. A Saved prompt every start follows, such as how you test or commit"
         >
           <PromptField
             id="start-prompt"
             value={options.prompt}
-            empty="No prompt"
+            empty="None"
             onChange={(prompt) => set({ prompt })}
           />
         </Field>
       </div>
       <div className="grid gap-3 rounded-lg border bg-background/40 p-4">
-        <Toggle
-          id="start-until-done"
-          label="Keep working until done"
-          hint="Starts with Claude Code's /goal: it goes on until the acceptance criteria are met and the tests pass"
-          checked={options.untilDone}
-          onChange={(untilDone) => set({ untilDone })}
-        />
         {!ticket.mine && (
           <Toggle
             id="start-assign"
@@ -132,26 +137,41 @@ export function StartSheet(props: {
         />
       </div>
       <details className="text-sm">
-        <summary className="cursor-pointer text-muted-foreground">Preview the goal</summary>
-        <div className="mt-2 grid max-h-56 gap-2 overflow-auto rounded-md bg-muted p-3 text-xs">
-          {options.untilDone && !promptText?.startsWith('/goal') && (
-            <pre className="font-mono">/goal</pre>
-          )}
-          {promptText && <pre className="whitespace-pre-wrap font-mono">{promptText}</pre>}
-          <p className="text-muted-foreground">
-            {promptText ? 'Then ' : ''}
-            {ticket.key}'s title, its link, and where its snapshot and notes are in the vault.
+        <summary className="cursor-pointer text-muted-foreground">
+          Preview what each start sends
+        </summary>
+        <div className="mt-2 grid gap-2">
+          <SegmentedControl
+            label="Preview"
+            value={shown}
+            options={[
+              ['session', 'Session'],
+              ['investigate', 'Investigate'],
+              ['goal', 'Goal'],
+            ]}
+            onChange={setShown}
+          />
+          <p className="text-xs text-muted-foreground">
+            {STARTS.find((s) => s.as === shown)?.hint}
           </p>
-          {options.untilDone && <p className="text-muted-foreground">{UNTIL_DONE}</p>}
+          <pre
+            data-testid="start-preview"
+            className="max-h-72 overflow-auto rounded-md bg-muted p-3 font-mono text-xs whitespace-pre-wrap"
+          >
+            {preview}
+          </pre>
         </div>
       </details>
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={props.onCancel}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Button
+          type="button"
+          variant="link"
+          className="px-0 text-muted-foreground"
+          onClick={props.onCancel}
+        >
           Cancel
         </Button>
-        <Button type="submit" data-testid="start-sheet-submit">
-          <Play aria-hidden /> Start session
-        </Button>
+        <StartButtons onStart={props.onStart} />
       </div>
     </form>
   );

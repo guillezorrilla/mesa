@@ -98,7 +98,6 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
                 notes: true,
                 assign: true,
                 start: 'worktree',
-                untilDone: true,
               },
             }}
             onSettingsChanged={refresh}

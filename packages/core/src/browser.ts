@@ -71,8 +71,8 @@ export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/record/workfl
 export { GUIDELINES } from './skills/guidelines.js';
 export { DESCENDANTS_CAP } from './sources/browse.js';
 export { describeSource, siteNames } from './sources/describe.js';
-export { UNTIL_DONE } from './sources/item-goal.js';
 export { NOTES_MAX_ITEMS } from './sources/notes-limit.js';
+export * from './sources/ticket-start.js';
 export { UPDATE_CHANNELS, UPDATE_LINK } from './update/feeds.js';
 export { costAlertText } from './usage/alert.js';
 export { matchesVaultFilter, VAULT_CATEGORIES, VAULT_KINDS } from './vault/item.js';

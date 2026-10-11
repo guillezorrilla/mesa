@@ -171,6 +171,7 @@ export type { JiraIssue } from './sources/jira.js';
 export type { Board, Filter } from './sources/jira-tickets.js';
 export type { SourceRow } from './sources/service.js';
 export type { SourceId } from './sources/sources.js';
+export { TICKET_STARTS, type TicketStart } from './sources/ticket-start.js';
 export type { FollowedView, Ticket, ViewInput } from './tickets/service.js';
 export type { TicketDefaults, TicketView } from './tickets/views.js';
 export { UPDATE_CHANNELS, type UpdateChannel } from './update/feeds.js';
