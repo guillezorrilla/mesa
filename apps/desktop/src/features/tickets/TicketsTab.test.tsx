@@ -170,9 +170,11 @@ test('Start session and Investigate each build their own goal', async () => {
   }
 });
 
-test('Options changes the start first: where it runs, your rules, and a new prompt written in place', async () => {
+test('Options changes the start first, and keeps each change as the project default for every ticket', async () => {
   const saved = [{ name: 'Ticket flow', text: '/goal Deliver the ticket below.' }];
   const { byTestId, calls, started } = await startable({
+    'tickets defaults': () => envelope({ notes: false, assign: true, start: 'checkout' }),
+    'tickets prompt': () => envelope({ project: 'lantern-cove', prompt: 'Tidy flow' }),
     prompts: () => envelope(saved),
     'prompts save': (args) => {
       saved.push({ name: String(args.at(-2)), text: String(args.at(-1)) });
@@ -185,6 +187,7 @@ test('Options changes the start first: where it runs, your rules, and a new prom
   expect(sheet()).toContain('Its own checkout, on the branch lc-2');
   await click(button('Main checkout'));
   expect(sheet()).toContain("The project's own checkout");
+  expect(words(calls)).toContain('tickets defaults --start checkout -- lantern-cove');
 
   // New prompt writes one here, saves it, and picks it.
   const prompt = () => document.getElementById('start-prompt') as HTMLSelectElement;
@@ -199,6 +202,7 @@ test('Options changes the start first: where it runs, your rules, and a new prom
   expect(words(calls)).toContain('prompts save -- Tidy flow Small commits.');
   expect(byTestId('new-prompt-form')).toHaveLength(0);
   expect(prompt().value).toBe('Tidy flow');
+  expect(words(calls)).toContain('tickets prompt --project lantern-cove -- Tidy flow');
 
   // The preview shows each start's own prompt, with your rules after it.
   await click(
@@ -399,4 +403,32 @@ test('the view picked stays picked when the person leaves the project and comes 
     bridge,
   );
   expect(rows()).toEqual([expect.stringContaining('HB-2')]);
+});
+
+test('the ticket picked stays picked when the person leaves the tab and comes back', async () => {
+  localStorage.clear();
+  const { bridge } = fakeBridge({
+    tickets: () =>
+      listOf(
+        [sprint],
+        [ticket('LC-1', 'Retry the tide feed'), ticket('LC-2', 'Show the next high tide')],
+      ),
+    'tickets show': (args) => shown(String(args.at(-1))),
+    prompts: () => envelope([]),
+  });
+  const panel = () => byTestId('ticket-panel')[0]?.textContent ?? '';
+  let byTestId = await renderWithMesa(
+    <TicketsTab project="lantern-cove" onSession={() => {}} />,
+    bridge,
+  );
+  expect(panel()).toContain('LC-1');
+  await click(byTestId('ticket-row').find((row) => row.textContent?.includes('LC-2')));
+  expect(panel()).toContain('LC-2');
+
+  // Another visit to the tab, mounted again: still LC-2, not the first ticket.
+  byTestId = await renderWithMesa(
+    <TicketsTab project="lantern-cove" onSession={() => {}} />,
+    bridge,
+  );
+  expect(panel()).toContain('LC-2');
 });

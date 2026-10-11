@@ -147,12 +147,12 @@ test("preview counts a view's tickets without saving it", async () => {
 test('each project keeps its own defaults, and a goal takes a prompt by name, none, or the default', async () => {
   const { mesa, world } = await setUp();
   expect(mesa.tickets.defaults('lantern-cove')).toEqual({
-    notes: true,
+    notes: false,
     assign: true,
     start: 'worktree',
   });
-  expect(mesa.tickets.setDefaults('lantern-cove', { start: 'checkout', notes: false })).toEqual({
-    notes: false,
+  expect(mesa.tickets.setDefaults('lantern-cove', { start: 'checkout', notes: true })).toEqual({
+    notes: true,
     assign: true,
     start: 'checkout',
   });

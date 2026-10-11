@@ -11,7 +11,7 @@ import { ManageViewsDialog } from './ManageViewsDialog';
 import { TicketList } from './TicketList';
 import { TicketPanel } from './TicketPanel';
 import { TicketsToolbar } from './TicketsToolbar';
-import { usePickedView } from './usePickedView';
+import { usePicked } from './usePicked';
 
 /**
  * A project's Tickets tab (CONTEXT.md, Tickets tab): the followed views' tickets grouped by
@@ -23,9 +23,9 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
   const list = useCommand('tickets.list', { project });
   const run = useRun();
   const { acting, act } = useAct();
-  const [view, setView] = usePickedView(project);
+  const [view, setView] = usePicked(project, 'view');
   const [query, setQuery] = useState('');
-  const [selected, setSelected] = useState<string>();
+  const [selected, setSelected] = usePicked(project, 'ticket');
   const [narrowTicket, setNarrowTicket] = useState(false);
   const [dialog, setDialog] = useState<'follow' | 'manage'>();
   const [readAt, setReadAt] = useState<number>();
@@ -46,7 +46,7 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
       (!current || t.views.includes(current)) &&
       (!words || `${t.key} ${t.summary}`.toLowerCase().includes(words)),
   );
-  // Until one is picked, the first open ticket: done ones start collapsed in the list.
+  // Until one is picked, or once the picked one leaves the list, the first open ticket: done ones start collapsed in the list.
   const ticket =
     tickets.find((t) => t.key === selected) ??
     tickets.find((t) => t.category !== 'done') ??
