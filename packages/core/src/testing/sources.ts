@@ -545,7 +545,7 @@ export function githubWorld(signIn = fakeSignIn()) {
     },
     /** What GitHub lists for `repo`'s issues with `query` (state, assignee, labels, milestone). */
     serveIssues: (repo: string, query: string, issues: unknown[]) =>
-      serve(`${TEST_GITHUB}/repos/${repo}/issues?${query}&per_page=100`, issues),
+      serve(`${TEST_GITHUB}/repos/${repo}/issues?${query}&per_page=100&page=1`, issues),
     /** One issue (githubIssueObject) and its comments, oldest first. */
     serveIssue: (
       repo: string,

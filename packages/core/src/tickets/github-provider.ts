@@ -31,6 +31,8 @@ import type { TicketView, ViewInput } from './providers.js';
 
 /** How many issues one read lists: one page of GitHub's. */
 const ISSUES = 100;
+/** How many pages of the issues list one read takes at most, pull requests among them. */
+const PAGES = 3;
 
 /** A GitHub issue whole, as its ticket panel shows it. */
 export type GithubDetail = {
@@ -134,29 +136,36 @@ export function githubProvider(deps: ProviderDeps) {
     },
     read: async (view: GithubView) => {
       const path = await request(view);
-      const found = await githubCall(
-        get(),
-        `${path}&per_page=${ISSUES}`,
-        z.array(githubIssueSchema),
-        `GitHub ${view.repo}'s issues`,
-      );
+      // Pull requests share the issues list, so a page can hold few issues: read up to PAGES
+      // pages until ISSUES issues.
+      const issues: z.infer<typeof githubIssueSchema>[] = [];
+      let full = false;
+      for (let page = 1; page <= PAGES && issues.length < ISSUES; page++) {
+        const found = await githubCall(
+          get(),
+          `${path}&per_page=${ISSUES}&page=${page}`,
+          z.array(githubIssueSchema),
+          `GitHub ${view.repo}'s issues`,
+        );
+        issues.push(...found.filter((issue) => issue.pull_request === undefined));
+        full = found.length === ISSUES;
+        if (!full) break;
+      }
       const [owner = '', repo = ''] = view.repo.split('/');
-      const tickets = found
-        .filter((issue) => issue.pull_request === undefined)
-        .map((issue): ProviderTicket => {
-          const assignees = people(issue).map((a) => ({ id: a.accountId, name: a.name }));
-          const first = assignees[0];
-          return {
-            key: githubKey({ owner, repo, number: issue.number }),
-            summary: issue.title,
-            ...state(issue),
-            ...(first ? { assignee: first.name, assigneeId: first.id } : {}),
-            assignees,
-            url: issue.html_url,
-          };
-        });
-      // ponytail: one page of 100; "that many or more" is enough for a count.
-      return { tickets, query: `GET ${path}`, more: found.length >= ISSUES };
+      const tickets = issues.slice(0, ISSUES).map((issue): ProviderTicket => {
+        const assignees = people(issue).map((a) => ({ id: a.accountId, name: a.name }));
+        const first = assignees[0];
+        return {
+          key: githubKey({ owner, repo, number: issue.number }),
+          summary: issue.title,
+          ...state(issue),
+          ...(first ? { assignee: first.name, assigneeId: first.id } : {}),
+          assignees,
+          url: issue.html_url,
+        };
+      });
+      // ponytail: ISSUES at most; "that many or more" is enough for a count.
+      return { tickets, query: `GET ${path}`, more: full };
     },
     key: (input) => githubKey(issueOf(input)),
     show: async (key) => {

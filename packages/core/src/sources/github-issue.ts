@@ -70,6 +70,9 @@ export async function githubIssue(
   if (!issue) throw new MesaError('usage', `${ref.id} is not a GitHub issue`);
   const key = githubKey(issue);
   const raw = await githubCall(get, issuePath(issue), githubIssueSchema, `GitHub issue ${key}`);
+  // GitHub answers a pull request's number on the issues path too; Mesa imports issues only.
+  if (raw.pull_request !== undefined)
+    throw new MesaError('usage', `${key} is a pull request: Mesa imports GitHub issues`);
   const revision = raw.updated_at ?? undefined;
   if (revision && revision === previousRevision) return undefined;
   const facts = [

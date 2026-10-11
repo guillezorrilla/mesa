@@ -290,3 +290,45 @@ test('an 8-hour GitHub token refreshes on expiry, and a refresh GitHub refuses a
     status: 'needs-reconnect',
   });
 });
+
+test('reads at once after the token expires refresh it once, and the connection stays connected', async () => {
+  const { world, mesa } = await setUp();
+  world.expire();
+  const before = world.requests.length;
+  const reads = await Promise.all([
+    mesa.tickets.repos(),
+    mesa.tickets.repos(),
+    mesa.tickets.repos(),
+  ]);
+  expect(reads.map((r) => r.repos.length)).toEqual([2, 2, 2]);
+  // The refresh token rotates on use: a second refresh would spend a token already gone.
+  const refreshes = world.requests
+    .slice(before)
+    .filter((r) => r.method === 'POST' && r.url === `${TEST_BROKER}/token/github`);
+  expect(refreshes).toHaveLength(1);
+  expect((await mesa.sources.list()).sources.find((s) => s.id === 'github')).toMatchObject({
+    status: 'connected',
+  });
+});
+
+test('a repo whose first page is pull requests still lists the issues after them', async () => {
+  const { world, mesa } = await setUp();
+  const prs = Array.from({ length: 99 }, (_, at) =>
+    githubIssueObject(REPO, 500 + at, `Pull request ${at}`, { pr: true }),
+  );
+  world.serveIssues(REPO, 'state=all', [...prs, githubIssueObject(REPO, 412, 'Tide chart')]);
+  world.serve(`${ISSUES}?state=all&per_page=100&page=2`, [
+    githubIssueObject(REPO, 409, 'Document the retries'),
+    githubIssueObject(REPO, 398, 'Upgrade the date library', { state: 'closed' }),
+  ]);
+  const view = { provider: 'github', repo: REPO, everyone: true, showDone: true } as const;
+  expect(await mesa.tickets.preview(view)).toMatchObject({ count: 3, more: false });
+});
+
+test('a pull request is not imported as an issue', async () => {
+  const { world, mesa } = await setUp();
+  world.serveIssue(REPO, githubIssueObject(REPO, 7, 'Bump the date library', { pr: true }));
+  await expect(mesa.imports.add('lantern-cove', [`${REPO}#7`], false)).rejects.toThrow(
+    'harbor-co/harbor-api#7 is a pull request: Mesa imports GitHub issues',
+  );
+});
