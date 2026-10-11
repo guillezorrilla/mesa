@@ -60,6 +60,11 @@ export type MesaDeps = {
   version: string;
   /** The build number and attributions a release's single executable carries; none elsewhere. */
   release?: ReleaseBuild;
+  /**
+   * The CHANGELOG.md this Mesa ships, for its release notes: the executable's asset, or the repo's
+   * beside `skillsDir`. None, or one that does not read, gives no notes.
+   */
+  changelog?: () => string;
 };
 
 /**

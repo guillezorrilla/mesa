@@ -297,3 +297,105 @@ test('a notice a newer turn replaced is read quietly, without an error toast', a
   expect(toastTexts(byTestId)).toEqual([]);
   expect(byTestId('nav-inbox')[0]?.getAttribute('aria-label')).toBe('Notifications');
 });
+
+const release: InboxItem = {
+  id: '2026-09-23T11:00:00.000Z:release:0.1.6',
+  session: '',
+  at: '2026-09-23T11:00:00.000Z',
+  kind: 'release',
+  title: "What's new in v0.1.6",
+  read: false,
+  target: { kind: 'release', version: '0.1.6' },
+  notes: {
+    version: '0.1.6',
+    date: '2026-09-23',
+    added: ['Tide charts in the minimap.', 'A <b>bold</b> lantern board.'],
+    changed: ['The Board opens faster.'],
+    fixed: [
+      'Kelp sync.',
+      'Reef scroll.',
+      'Harbor lights.',
+      'Buoy names.',
+      'Dock order.',
+      'Gull tray.',
+    ],
+  },
+};
+
+test('a release notice sums its notes, expands to them as plain text, and expanding marks it read', async () => {
+  let read = false;
+  const { bridge, calls } = fakeBridge({
+    notifications: () => envelope([{ ...release, read }]),
+    'notifications read': (args) => {
+      read = true;
+      return envelope({ id: args.at(-1), read: true });
+    },
+    'notifications clear': (args) => envelope({ id: args.at(-1), cleared: true }),
+  });
+  let closed = 0;
+  const byTestId = await renderWithMesa(
+    <NotificationsMenu
+      open
+      onOpenChange={(open) => {
+        if (!open) closed++;
+      }}
+      onSession={() => {}}
+      onDoctor={() => {}}
+      onAutomations={() => {}}
+      onSettings={() => {}}
+      onRecheck={async () => {}}
+    />,
+    bridge,
+  );
+  expect(byTestId('release-summary')[0]?.textContent).toBe('2 new · 1 changed · 6 fixed');
+  expect(byTestId('release-notes')).toHaveLength(0);
+
+  await click(button('Show notes'));
+  const notes = byTestId('release-notes')[0];
+  expect(
+    [...(notes?.querySelectorAll('[data-slot="badge"]') ?? [])].map((b) => b.textContent),
+  ).toEqual(['New', 'Changed', 'Fixed']);
+  expect(notes?.querySelectorAll('li')).toHaveLength(9);
+  // A note is text, never markup.
+  expect(notes?.querySelector('b')).toBeNull();
+  expect(notes?.textContent).toContain('A <b>bold</b> lantern board.');
+  expect(calls.filter((args) => args[2] === 'read').map((args) => args.at(-1))).toEqual([
+    release.id,
+  ]);
+  // It opens in place: the menu stays open.
+  expect(closed).toBe(0);
+
+  await click(button('Hide notes'));
+  expect(byTestId('release-notes')).toHaveLength(0);
+  // Expanding again does not mark it read twice.
+  await click(button("What's new in v0.1.6"));
+  expect(byTestId('release-notes')).toHaveLength(1);
+  expect(calls.filter((args) => args[2] === 'read')).toHaveLength(1);
+
+  await click(button("Clear What's new in v0.1.6"));
+  expect(calls.some((args) => args[2] === 'clear' && args.at(-1) === release.id)).toBe(true);
+});
+
+test('Mark all read marks a release notice read', async () => {
+  const { bridge, calls } = fakeBridge({
+    notifications: () => envelope([release, finished]),
+    'notifications read': (args) => envelope({ id: args.at(-1), read: true }),
+  });
+  await renderWithMesa(
+    <NotificationsMenu
+      open
+      onOpenChange={() => {}}
+      onSession={() => {}}
+      onDoctor={() => {}}
+      onAutomations={() => {}}
+      onSettings={() => {}}
+      onRecheck={async () => {}}
+    />,
+    bridge,
+  );
+  await click(button('Mark all read'));
+  expect(calls.filter((args) => args[2] === 'read').map((args) => args.at(-1))).toEqual([
+    release.id,
+    finished.id,
+  ]);
+});

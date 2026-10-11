@@ -102,6 +102,7 @@ import { updateChannel, updateCheck, updateInstall, updateRevoked } from './upda
 import { usage } from './usage.js';
 import { VAULT_COMMANDS } from './vault/index.js';
 import { view } from './view.js';
+import { whatsNew } from './whats-new.js';
 import { windows } from './windows.js';
 import { workflow } from './workflow.js';
 import {
@@ -240,6 +241,7 @@ export const COMMANDS: Command[] = [
   usage,
   ...VAULT_COMMANDS,
   view,
+  whatsNew,
   windows,
   workflow,
   worktreesCreate,

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The CLI entrypoint: the only place that reads process globals or picks the real implementations;
 // createMesa (the composition root) wires them.
-import { writeSync } from 'node:fs';
+import { readFileSync, writeSync } from 'node:fs';
 
 const argv = process.argv.slice(2);
 // An agent hook outside a Mesa session exits before anything else loads (#22: within 50 ms).
@@ -104,6 +104,10 @@ const { code, stdout, stderr, exec, serve } = await runCli(argv, {
           },
         }
       : {}),
+    // The release notes: the executable's CHANGELOG.md, or the repo's, beside skills/.
+    changelog: bundled
+      ? () => sea.getAsset('CHANGELOG.md', 'utf8')
+      : () => readFileSync(new URL('../../../CHANGELOG.md', import.meta.url), 'utf8'),
     // The repo's skills/, beside packages/ (this file is packages/cli/dist/mesa.js), or the
     // executable's, unpacked where projects can link to them.
     skillsDir: bundled

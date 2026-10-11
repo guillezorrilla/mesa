@@ -67,13 +67,13 @@ printf %s "$build_number" >"$work/build"
 "$node" scripts/release/licenses.mjs "$work/attributions.json"
 
 # The assets mesa reads inside the executable: the version, the build number, the attributions,
-# the vault template, the skills.
+# the changelog (the release notes), the vault template, the skills.
 for arch in arm64 x64; do
   git ls-files skills | "$node" -e '
     const [work, arch, base] = process.argv.slice(1);
     const files = require("node:fs").readFileSync(0, "utf8").trim().split("\n");
     const assets = { version: `${work}/version`, build: `${work}/build`,
-      "attributions.json": `${work}/attributions.json`, "vault-AGENTS.md": "packages/core/templates/vault-AGENTS.md" };
+      "attributions.json": `${work}/attributions.json`, "CHANGELOG.md": "CHANGELOG.md", "vault-AGENTS.md": "packages/core/templates/vault-AGENTS.md" };
     for (const file of files) assets[file] = file;
     console.log(JSON.stringify({ main: `${work}/mesa.mjs`, mainFormat: "module", output: `${work}/mesa-${arch}`,
       executable: base, assets, disableExperimentalSEAWarning: true }));

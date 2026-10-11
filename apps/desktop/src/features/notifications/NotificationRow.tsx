@@ -4,6 +4,7 @@ import { CircleAlert, CircleCheck, Info, X } from 'lucide-react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
 import { cn } from '@/lib/utils';
+import { ReleaseNotesPanel } from './ReleaseNotesPanel';
 
 /** What each Doctor fix's button says. */
 const FIX_LABEL: Record<InboxFix, string> = {
@@ -18,13 +19,18 @@ const ICON = {
   automation: [CircleAlert, 'text-state-waiting'],
   finished: [CircleCheck, 'text-state-idle'],
   subagent: [Info, 'text-muted-foreground'],
+  release: [Info, 'text-state-working'],
 } as const;
 
-/** One notice: what happened, why it matters, and the action that resolves it. */
+/**
+ * One notice: what happened, why it matters, and the action that resolves it. A release notice
+ * expands in place to its notes instead, which marks it read.
+ */
 export function NotificationRow(props: {
   item: InboxItem;
   busy: boolean;
   onOpen: (item: InboxItem) => void;
+  onRead: (item: InboxItem) => void;
   onFix: (fix: InboxFix) => void;
   onClear: (item: InboxItem) => void;
 }) {
@@ -42,14 +48,26 @@ export function NotificationRow(props: {
     >
       <Icon aria-hidden className={cn('mt-0.5 size-4 shrink-0', tone)} />
       <div className="min-w-0 flex-1 space-y-1">
-        <button
-          type="button"
-          className="block w-full text-left text-sm font-semibold hover:underline"
-          onClick={() => props.onOpen(item)}
-        >
-          {item.title}
-        </button>
-        <Muted size="xs">{item.detail ?? (item.session ? `Session ${item.session}` : '')}</Muted>
+        {item.kind === 'release' ? (
+          <ReleaseNotesPanel
+            title={item.title}
+            notes={item.notes}
+            onExpand={() => props.onRead(item)}
+          />
+        ) : (
+          <>
+            <button
+              type="button"
+              className="block w-full text-left text-sm font-semibold hover:underline"
+              onClick={() => props.onOpen(item)}
+            >
+              {item.title}
+            </button>
+            <Muted size="xs">
+              {item.detail ?? (item.session ? `Session ${item.session}` : '')}
+            </Muted>
+          </>
+        )}
         {item.kind === 'doctor' && (
           <div className="flex flex-wrap gap-2 pt-1">
             {item.fix && (

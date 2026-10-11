@@ -59,6 +59,7 @@ export {
 } from './profile/terminal-palettes.js';
 export { repositoryUrl } from './projects/project-url.js';
 export { PROJECT_SORTS, type ProjectSort } from './projects/sort.js';
+export { parseChangelog, RELEASE_GROUPS, type ReleaseNotes } from './release/notes.js';
 export { type CommandId, type SearchHit, searchWorkspace } from './search/search.js';
 export { descendantOrder } from './sessions/end/descendants.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/record/general.js';

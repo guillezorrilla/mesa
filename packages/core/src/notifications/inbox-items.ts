@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { HOOKS_UPDATE_DETAIL, HOOKS_UPDATE_HINT } from '../agents/hooks-update.js';
 import type { DoctorReport } from '../doctor/doctor.js';
+import type { ReleaseNotes } from '../release/notes.js';
 import { type HookEvent, parentHook } from '../sessions/signals/hook-events.js';
 
 /**
@@ -15,19 +16,25 @@ export type InboxItem = {
   id: string;
   session: string;
   at: string;
-  kind: 'input-required' | 'finished' | 'subagent' | 'doctor' | 'automation';
+  kind: 'input-required' | 'finished' | 'subagent' | 'doctor' | 'automation' | 'release';
   title: string;
   /** A Doctor notice's one-line explanation. */
   detail?: string;
   fix?: InboxFix;
+  /** A release notice's notes, from the changelog Mesa ships. */
+  notes?: ReleaseNotes;
   read: boolean;
-  target: { kind: 'session'; id: string } | { kind: 'doctor' } | { kind: 'automations' };
+  target:
+    | { kind: 'session'; id: string }
+    | { kind: 'doctor' }
+    | { kind: 'automations' }
+    | { kind: 'release'; version: string };
 };
 
 export const CandidateSchema = z.strictObject({
   session: z.string(),
   at: z.iso.datetime(),
-  kind: z.enum(['input-required', 'finished', 'subagent', 'doctor', 'automation']),
+  kind: z.enum(['input-required', 'finished', 'subagent', 'doctor', 'automation', 'release']),
   title: z.string(),
   detail: z.string().optional(),
   fix: z.enum(INBOX_FIXES).optional(),
@@ -36,6 +43,7 @@ export const CandidateSchema = z.strictObject({
     z.strictObject({ kind: z.literal('session'), id: z.string() }),
     z.strictObject({ kind: z.literal('doctor') }),
     z.strictObject({ kind: z.literal('automations') }),
+    z.strictObject({ kind: z.literal('release'), version: z.string() }),
   ]),
 });
 /** A notice before the inbox marks it: its fingerprint and time make its id. */
@@ -50,6 +58,10 @@ export const DoctorFindingSchema = z.object({
   fix: z.enum(INBOX_FIXES).optional(),
 });
 type DoctorFinding = z.infer<typeof DoctorFindingSchema>;
+
+/** A version installed since the last one seen, which the inbox keeps as a release notice. */
+export const ReleaseSeenSchema = z.object({ version: z.string(), at: z.iso.datetime() });
+type ReleaseSeen = z.infer<typeof ReleaseSeenSchema>;
 
 /** The fields of an automation run that its failure notice reads; the run ledger owns runs. */
 export type AutomationRunNotice = {
@@ -186,3 +198,13 @@ export const failureItems = (runs: readonly AutomationRunNotice[]): Candidate[] 
       fingerprint: `automation:${run.id}`,
       target: { kind: 'automations' },
     }));
+
+/** A version's What's new notice; its notes are joined when the inbox lists it. */
+export const releaseItem = ({ version, at }: ReleaseSeen): Candidate => ({
+  session: '',
+  at,
+  kind: 'release',
+  title: `What's new in v${version}`,
+  fingerprint: `release:${version}`,
+  target: { kind: 'release', version },
+});

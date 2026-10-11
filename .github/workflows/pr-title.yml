@@ -1,16 +1,17 @@
 name: PR title
 
-# A pull request's title becomes its squash commit on main, and the release notes are grouped by
-# it (scripts/release/notes.mjs), so `pr-title` is a required check beside `verify`
-# (scripts/github/protect.sh). It is its own workflow because a retitle (`edited`) must re-run it
-# without re-running, cancelling or skipping ci.yml's `verify`.
+# A pull request's title becomes its squash commit on main, so `pr-title` is a required check
+# beside `verify` (scripts/github/protect.sh). It also holds a user-visible pull request (feat,
+# fix, perf) to its release note: a file it adds under changes/ (changes/README.md), unless it
+# has the `no-release-note` label. It is its own workflow because a retitle (`edited`) or a label
+# must re-run it without re-running, cancelling or skipping ci.yml's `verify`.
 on:
   pull_request:
-    types: [opened, edited, reopened, synchronize]
+    types: [opened, edited, reopened, synchronize, labeled, unlabeled]
 
 permissions: {}
 
-# A newer event on the same pull request (a retitle, a push) supersedes an older run.
+# A newer event on the same pull request (a retitle, a push, a label) supersedes an older run.
 concurrency:
   group: pr-title-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -18,8 +19,11 @@ concurrency:
 jobs:
   pr-title:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     steps:
-      - env:
+      - name: Title
+        env:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
           if ! printf '%s\n' "$TITLE" | grep -Eq '^(feat|fix|perf|refactor|docs|test|build|ci|chore)(\([a-z0-9-]+\))?!?: .+'; then
@@ -27,3 +31,21 @@ jobs:
             exit 1
           fi
           echo "PR title ok: $TITLE"
+      - name: Release note
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          LABELED: ${{ contains(github.event.pull_request.labels.*.name, 'no-release-note') }}
+          GH_TOKEN: ${{ github.token }}
+          FILES: repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files
+        run: |
+          if ! printf '%s\n' "$TITLE" | grep -Eq '^(feat|fix|perf)[(!:]'; then
+            echo "Not a feat, fix or perf pull request: no release note needed"
+          elif [ "$LABELED" = true ]; then
+            echo "Labelled no-release-note"
+          elif gh api --paginate "$FILES" --jq '.[] | select(.status == "added") | .filename' |
+            grep -E '^changes/.+\.md$' | grep -vx 'changes/README.md'; then
+            echo "Release note found"
+          else
+            echo "::error::A feat, fix or perf pull request adds a change file, changes/<slug>.md (changes/README.md), or has the no-release-note label when people never see the change"
+            exit 1
+          fi

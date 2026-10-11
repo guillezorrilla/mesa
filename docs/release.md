@@ -5,7 +5,7 @@ A release is a signed, notarised, stapled universal DMG with the `mesa` CLI insi
 | Command | Script | What it does |
 | --- | --- | --- |
 | `pnpm release:version X.Y.Z[-beta.N]` | `scripts/release/version.sh` | Writes the one version into every `package.json`, `Cargo.toml` and `Cargo.lock`, and its section into `CHANGELOG.md` |
-| (run by `release:version` and `release:publish`) | `scripts/release/notes.mjs <version>` | Prints the version's release notes from the pull request titles; `--write` puts them in `CHANGELOG.md`, `--published` reads them back |
+| (run by `release:version` and `release:publish`) | `scripts/release/notes.mjs <version>` | Prints the version's release notes from the change files in `changes/`; `--write` puts them in `CHANGELOG.md`, `--published` reads them back |
 | `pnpm check:version` | same, `--check` | Fails on drift; part of `pnpm verify` |
 | `pnpm release:build` | `scripts/release/build.sh` | Builds the CLI executable, the app, the DMG and update archive into `release/dist`, then runs `release:sign` |
 | (run by `release:build`) | `scripts/release/licenses.mjs <out>` | Writes the third-party attributions the CLI executable embeds, which `mesa about` and About Mesa show |
@@ -16,7 +16,9 @@ A release is a signed, notarised, stapled universal DMG with the `mesa` CLI insi
 
 ## Release notes
 
-Pull request titles, which become the squash commits on `main`, are `type(area): summary` (AGENTS.md), and the `pr-title` check fails a pull request whose title is not. `pnpm release:version X.Y.Z` runs `scripts/release/notes.mjs`, which reads the squash subjects since the last stable tag (for a beta, since the last tag of any kind) and writes the version's section under the title of `CHANGELOG.md`: `## X.Y.Z - <date>`, then `### Features` (`feat`), `### Fixes` (`fix`), `### Performance` (`perf`), `### Breaking changes` (a `!`) and `### Other` (the rest, older untyped titles included), each line `- **<area>**: <summary> (#<pr>)`. Empty groups are left out, and so are the version bump commits (`chore(release): ...`). Running it again for the same version replaces its section in place. The bump pull request carries the section, so edit it there to read well: merge lines, reword, drop what users never see. Run `pnpm release:version X.Y.Z` again right before merging the bump pull request, so pull requests merged in the meantime are in the notes, then redo your edits. `publish.sh` creates the release with that section as its notes, and falls back to GitHub's generated notes, grouped by label through `.github/release.yml`, when `CHANGELOG.md` has no section for the version.
+Release notes are written for the people who use Mesa, one change file per pull request, in the common pattern of Changesets and towncrier without either tool. A user-visible pull request adds `changes/<slug>.md`: front matter `type: added`, `changed` or `fixed`, then the note as one paragraph ([changes/README.md](../changes/README.md) has the format and an example of each). The `pr-title` check fails a `feat`, `fix` or `perf` pull request that adds no change file, unless it has the `no-release-note` label; it re-runs when a label is added or removed. `pnpm release:version X.Y.Z` runs `scripts/release/notes.mjs`, which writes the version's section under the title of `CHANGELOG.md`: `## X.Y.Z - <date>`, then `### Added`, `### Changed` and `### Fixed` (empty groups left out), each line `- <note> (#<pr>)`, with the pull request number taken from the squash commit that added the file. A stable release collects every change file and deletes them, in the bump pull request; running it again keeps the section's lines and adds the files merged since, so run it once more right before merging. A beta collects only the files added since the previous tag and keeps them, so the stable release lists everything; running it again writes its section anew. To reword a note, edit its change file before the release, not the bump pull request. A change file that does not read (a bad `type`, no note) stops the release, naming its path. Sections up to 0.2.11 were written from pull request titles and stay as written. `publish.sh` creates the release with the version's section as its notes, and falls back to GitHub's generated notes, grouped by label through `.github/release.yml`, when `CHANGELOG.md` has no section for the version.
+
+The executable carries `CHANGELOG.md` as an asset, so the notes work offline: after an update, the Inbox gets one What's new notice per version installed since the last one seen (CONTEXT.md, Release note), and `mesa whats-new [version]` prints a version's notes.
 
 ## One-time setup
 
@@ -63,7 +65,7 @@ Every script checks each variable it needs before it uses it, and names the miss
 
 ## Cut a release with CI
 
-1. Open a pull request titled `chore(release): 0.1.0-beta.2` that runs `pnpm release:version 0.1.0-beta.2` (or `0.1.0`), and review its `CHANGELOG.md` section. Right before merging it, run `pnpm release:version` again so the notes hold every pull request merged meanwhile.
+1. Open a pull request titled `chore(release): 0.1.0-beta.2` that runs `pnpm release:version 0.1.0-beta.2` (or `0.1.0`, which also deletes the change files), and review its `CHANGELOG.md` section. Right before merging it, run `pnpm release:version` again so the notes hold every pull request merged meanwhile.
 2. From `main` at that commit, push the tag: `git tag v0.1.0-beta.2 && git push origin v0.1.0-beta.2`.
 3. Approve the `release` environment in the workflow run (Actions > Release > Review deployments).
 4. Check the result: `gh release view v0.1.0-beta.2` and `gh attestation verify Mesa_0.1.0-beta.2_universal.dmg -R guillezorrilla/mesa`.
