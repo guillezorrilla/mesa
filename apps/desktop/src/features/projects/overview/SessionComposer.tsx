@@ -1,7 +1,7 @@
 import type { Agent, ProjectRow } from '@mesa/core';
-import { supportsAgentCapability, supportsPlanStart } from '@mesa/core/browser';
+import { FIXED_SHORTCUTS, supportsAgentCapability, supportsPlanStart } from '@mesa/core/browser';
 import { Play, X } from 'lucide-react';
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Kbd } from '@/components/Kbd';
 import { Badge } from '@/components/ui/badge';
@@ -19,8 +19,6 @@ import { useCommand } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { useFoldOnLeave } from './useFoldOnLeave';
 import type { OverviewState } from './useOverviewState';
-
-const START_SHORTCUT = 'Mod+Enter';
 
 /** What a session starts with: its agent, mode, goal, and the branch of its own worktree. */
 export type SessionStartInput = {
@@ -66,14 +64,12 @@ export function SessionComposer(props: {
   useEffect(() => {
     if (draft) goalBox.current?.focus();
   }, [draft]);
-  const fold = useCallback(() => setComposerOpen(false), [setComposerOpen]);
-  useFoldOnLeave(formRef, composerOpen, fold, props.busy);
+  useFoldOnLeave(formRef, composerOpen, setComposerOpen, props.busy);
   const canStart = project.exists && !props.busy;
   return (
     <form
       ref={formRef}
       data-testid="project-session-form"
-      data-open={composerOpen}
       className="rounded-xl border bg-card/45 px-4 py-3 transition-[border-color,box-shadow] focus-within:border-ring/60 focus-within:ring-[3px] focus-within:ring-ring/20 motion-reduce:transition-none"
       onSubmit={(event) => {
         event.preventDefault();
@@ -121,7 +117,7 @@ export function SessionComposer(props: {
         placeholder="What are we shipping? Describe your goal or paste a ticket URL..."
         onFocus={() => setComposerOpen(true)}
         onKeyDown={(event) => {
-          if (!canStart || !pressed(event, START_SHORTCUT)) return;
+          if (!canStart || !pressed(event, FIXED_SHORTCUTS.startSession)) return;
           event.preventDefault();
           event.currentTarget.form?.requestSubmit();
         }}
@@ -162,23 +158,22 @@ export function SessionComposer(props: {
               </NativeSelect>
             </div>
             {where === 'worktree' && (
-              <>
-                <Label htmlFor="project-branch" className="sr-only">
-                  Branch
-                </Label>
-                <Input
-                  id="project-branch"
-                  name="branch"
-                  data-testid="project-branch"
-                  className="h-8 w-48 text-xs md:text-xs"
-                  required={!extra.length}
-                  placeholder={extra.length ? 'Mesa names one' : 'feature/my-work'}
-                />
-              </>
+              <Input
+                id="project-branch"
+                aria-label="Branch"
+                name="branch"
+                data-testid="project-branch"
+                className="h-8 w-48 text-xs md:text-xs"
+                required={!extra.length}
+                placeholder={extra.length ? 'Mesa names one' : 'feature/my-work'}
+              />
             )}
             <Button className="ml-auto" size="sm" type="submit" disabled={!canStart}>
               <Play aria-hidden /> Start session
-              <Kbd shortcut={START_SHORTCUT} className="ml-1 [&>kbd]:bg-transparent" />
+              <Kbd
+                shortcut={FIXED_SHORTCUTS.startSession}
+                className="ml-1 [&>kbd]:bg-transparent"
+              />
             </Button>
           </div>
         </div>

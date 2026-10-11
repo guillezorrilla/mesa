@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 /** The look of a segmented choice, for one built on other parts (a form's radio group). */
 export const SEGMENTS = 'flex items-center rounded-md border bg-card p-0.5';
 export const SEGMENT =
-  'rounded px-3 py-1 text-xs text-muted-foreground hover:text-foreground aria-pressed:bg-accent aria-pressed:text-foreground data-[state=checked]:bg-accent data-[state=checked]:text-foreground';
+  'rounded px-3 py-1 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-pressed:bg-accent aria-pressed:text-foreground data-[state=checked]:bg-accent data-[state=checked]:text-foreground';
 
 /** A compact choice of one value among a few, each option a pressed or unpressed button. */
 export function SegmentedControl<T extends string | number>(props: {

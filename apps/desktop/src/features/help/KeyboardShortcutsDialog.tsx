@@ -25,6 +25,7 @@ const CUSTOM = Object.entries(LABELS).map(([key, label]) => ({
 const PROJECT = [
   ['Go to file', FIXED_SHORTCUTS.goToFile],
   ['Find in files', FIXED_SHORTCUTS.findInFiles],
+  ['Start session from the goal box', FIXED_SHORTCUTS.startSession],
 ] as const;
 /** Every fixed shortcut by its name, so a customized one cannot take it. */
 const FIXED: (readonly [string, string])[] = [

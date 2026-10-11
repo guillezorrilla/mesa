@@ -23,14 +23,7 @@ export function AgentField({
       className={cn(SEGMENTS, 'h-8')}
     >
       {AGENT_NAMES.map((agent) => (
-        <RadioGroupPrimitive.Item
-          key={agent}
-          value={agent}
-          className={cn(
-            SEGMENT,
-            'h-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
-          )}
-        >
+        <RadioGroupPrimitive.Item key={agent} value={agent} className={cn(SEGMENT, 'h-full')}>
           {AGENT_LABELS[agent]}
         </RadioGroupPrimitive.Item>
       ))}

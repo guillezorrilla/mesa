@@ -17,6 +17,7 @@ export const FIXED_SHORTCUTS = {
   keyboardShortcuts: 'Mod+/',
   goToFile: 'Mod+P',
   findInFiles: 'Mod+Shift+F',
+  startSession: 'Mod+Enter',
 } as const;
 
 const RESERVED = new Set(['Mod+Q', 'Mod+W', 'Mod+R', 'Mod+H', 'Mod+M']);

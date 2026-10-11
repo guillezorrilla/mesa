@@ -27,15 +27,9 @@ const ISSUE: ImportListRow = {
 const TIDE_POOL = { ...PROJECT, name: 'tide-pool', label: 'tide-pool', path: '/src/tide-pool' };
 const GOAL = 'Work on the imported Jira issue LC-12: Fix the tide alarm\nSource: x';
 
-test('Context opens imported items; Start session fills the Overview composer and keeps the item', async () => {
-  const { bridge, calls } = fakeBridge({
-    'import list': () => envelope({ items: [ISSUE] }),
-    'import goal': () => envelope({ source: 'jira', id: 'LC-12', title: ISSUE.title, goal: GOAL }),
-    'sources list': () => envelope({ sources: [] }),
-    'worktrees list': () => envelope([]),
-    open: () => envelope(managedRow('newnewne')),
-  });
-  const byTestId = await renderWithMesa(
+/** The project screen on PROJECT, with no sessions, over `bridge`. */
+const renderScreen = (bridge: ReturnType<typeof fakeBridge>['bridge']) =>
+  renderWithMesa(
     <ProjectScreen
       project={PROJECT}
       sessions={[]}
@@ -50,6 +44,16 @@ test('Context opens imported items; Start session fills the Overview composer an
     />,
     bridge,
   );
+
+test('Context opens imported items; Start session fills the Overview composer and keeps the item', async () => {
+  const { bridge, calls } = fakeBridge({
+    'import list': () => envelope({ items: [ISSUE] }),
+    'import goal': () => envelope({ source: 'jira', id: 'LC-12', title: ISSUE.title, goal: GOAL }),
+    'sources list': () => envelope({ sources: [] }),
+    'worktrees list': () => envelope([]),
+    open: () => envelope(managedRow('newnewne')),
+  });
+  const byTestId = await renderScreen(bridge);
   const goal = () => byTestId('project-goal')[0] as HTMLTextAreaElement;
 
   const tabs = [...document.querySelectorAll<HTMLButtonElement>('nav button')];
@@ -106,21 +110,7 @@ test('the composer adds another project: its chip shows, Start in is its own wor
     'worktrees list': () => envelope([]),
     open: () => envelope(managedRow('newnewne')),
   });
-  const byTestId = await renderWithMesa(
-    <ProjectScreen
-      project={PROJECT}
-      sessions={[]}
-      onSession={() => undefined}
-      onVaultItem={() => undefined}
-      onChanged={() => undefined}
-      onUnregistered={() => undefined}
-      filesDirty={false}
-      onFilesDirtyChange={() => undefined}
-      onNewSession={() => undefined}
-      onAgentSettings={() => undefined}
-    />,
-    bridge,
-  );
+  const byTestId = await renderScreen(bridge);
   await act(async () => (byTestId('project-goal')[0] as HTMLTextAreaElement).focus());
   await click(byTestId('session-with-trigger')[0]);
   expect(byTestId('session-with-option-lantern-cove')).toHaveLength(0);
@@ -157,24 +147,10 @@ test('the composer folds on a click outside or Esc, not on its menu, and keeps w
     'worktrees list': () => envelope([]),
     open: () => envelope(managedRow('newnewne')),
   });
-  const byTestId = await renderWithMesa(
-    <ProjectScreen
-      project={PROJECT}
-      sessions={[]}
-      onSession={() => undefined}
-      onVaultItem={() => undefined}
-      onChanged={() => undefined}
-      onUnregistered={() => undefined}
-      filesDirty={false}
-      onFilesDirtyChange={() => undefined}
-      onNewSession={() => undefined}
-      onAgentSettings={() => undefined}
-    />,
-    bridge,
-  );
-  const form = byTestId('project-session-form')[0] as HTMLFormElement;
+  const byTestId = await renderScreen(bridge);
   const goal = byTestId('project-goal')[0] as HTMLTextAreaElement;
-  const open = () => form.dataset.open === 'true';
+  // Folded, its options are there but inert.
+  const open = () => !document.getElementById('session-location')?.closest('[inert]');
   await act(async () => goal.focus());
   expect(open()).toBe(true);
   await choose(byTestId('session-mode')[0], 'plan');
