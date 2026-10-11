@@ -189,6 +189,17 @@ test('a custom task id link names its Workspace; a link that is no task or page 
     title: 'TIDE-7: Buoy check',
     url: 'https://app.clickup.com/t/ws-1/TIDE-7',
   });
+  // A plain id under a Workspace is the plain task.
+  world.serveTask('86tide1', { name: 'Chart the spring tide' });
+  const plain = await mesa.imports.add(
+    'lantern-cove',
+    ['https://app.clickup.com/t/ws-1/86tide1'],
+    false,
+  );
+  expect(plain.result.items[0]).toMatchObject({
+    id: '86tide1',
+    url: 'https://app.clickup.com/t/86tide1',
+  });
   await expect(
     mesa.imports.add('lantern-cove', ['https://app.clickup.com/ws-1/v/li/901'], false),
   ).rejects.toMatchObject({

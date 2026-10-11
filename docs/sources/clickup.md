@@ -18,9 +18,9 @@ ClickUp's token answer (`POST https://api.clickup.com/api/v2/oauth/token`, `clie
 - `https://app.clickup.com/t/<workspace id>/<custom id>`: a task by its custom id (Workspaces with custom task ids on), read with `custom_task_ids=true&team_id=<workspace id>`. Snapshots go to `raw/clickup/<custom id>/`.
 - `https://app.clickup.com/<workspace id>/v/dc/<doc id>/<page id>`: a Doc page. Snapshots go to `raw/clickup/<doc id>.<page id>/`.
 
-Any other `app.clickup.com` link (a list view, a Doc with no page) is refused with the shapes above. The link is canonical as written, and a refresh resolves it again.
+A custom id holds a dash (its prefix's); `/t/<workspace>/<id>` with a plain id is read as `/t/<id>`. Any other `app.clickup.com` link (a list view, a Doc with no page) is refused with the shapes above. The link is canonical as written, and a refresh resolves it again. The Picker's tasks link by plain id, so a task imported once by its custom-id link and once from the Picker has two folders.
 
-- Task: `GET /api/v2/task/<id>?include_markdown_description=true`, then its comments, `GET /api/v2/task/<id>/comment`, which answers the newest 25; older ones follow with `start` and `start_id` from the last comment, until a page holds fewer than 25. The snapshot lists status, list, assignees, tags, created, and updated, then the description (ClickUp's `markdown_description`), then every comment oldest first. Its revision is `date_updated`; a changed-only refresh reads the task alone and skips the comments when it is unchanged.
+- Task: `GET /api/v2/task/<id>?include_markdown_description=true`, then its comments, `GET /api/v2/task/<id>/comment`, which answers the newest 25; older ones follow with `start` and `start_id` from the last comment, until a page holds fewer than 25. The snapshot lists status, list, assignees, tags, created, and updated, then the description (ClickUp's `markdown_description`), then every comment oldest first. Its revision is `date_updated`; a changed-only refresh reads the task alone and skips the comments when it is unchanged. Whether a new comment alone changes `date_updated` was not checked live; a plain refresh (no `--changed-only`) always reads every comment. Replies in a comment's thread are not read, only the comments themselves.
 - Doc page: `GET /api/v3/workspaces/<workspace>/docs/<doc>/pages/<page>?content_format=text/md`, its content as ClickUp's Markdown. Its revision is `date_updated`.
 
 ## What a browse reads
@@ -36,7 +36,7 @@ Any other `app.clickup.com` link (a list view, a Doc with no page) is refused wi
 
 Spaces, folders, lists, and a Doc's pages come whole: ClickUp does not page them.
 
-ClickUp's API has no text search, so a search keeps the names under the node that hold the text, ignoring case: tasks across a Workspace, a space, a folder, or a list through filtered team tasks (`GET /api/v2/team/<workspace>/task?page=<n>&include_closed=true` with `space_ids[]`, `project_ids[]` (a folder), or `list_ids[]`), matching the name or custom id; Docs by name under Docs; pages by name in a Doc. From the root it searches each Workspace in turn. A page of results may hold no match, with a cursor to the next.
+ClickUp's API has no text search, so a search keeps the names under the node that hold the text, ignoring case: tasks across a Workspace, a space, a folder, or a list through filtered team tasks (`GET /api/v2/team/<workspace>/task?page=<n>&include_closed=true` with `space_ids[]`, `project_ids[]` (a folder), or `list_ids[]`), matching the name or custom id; Docs by name under Docs; pages by name in a Doc. From the root or a Workspace a search finds tasks; Docs are searched under the Docs node. From the root it searches each Workspace in turn. A page of results may hold no match, with a cursor to the next.
 
 ## Rate and plan limits
 

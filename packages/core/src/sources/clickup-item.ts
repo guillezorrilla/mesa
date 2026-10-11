@@ -1,7 +1,13 @@
 import { z } from 'zod';
 import type { Http } from '../lib/http.js';
 import { MesaError } from '../lib/result.js';
-import { type ClickupLink, clickupCall, clickupLink } from './clickup.js';
+import {
+  type ClickupLink,
+  clickupCall,
+  clickupLink,
+  clickupTitle,
+  type TaskLink,
+} from './clickup.js';
 import type { Item, ItemRef } from './items.js';
 
 /** ClickUp's times: Unix milliseconds, as a string or a number. */
@@ -35,11 +41,11 @@ const commentsSchema = z.object({
 const COMMENTS_PAGE = 25;
 
 /** The query that names a task by its custom id in its Workspace; none for a plain id. */
-const custom = (link: Extract<ClickupLink, { kind: 'task' }>) =>
+const custom = (link: TaskLink) =>
   link.workspace ? `custom_task_ids=true&team_id=${link.workspace}` : '';
 
 /** Every comment on a task, oldest first: ClickUp answers 25 at a time, newest first. */
-async function comments(get: Http, link: Extract<ClickupLink, { kind: 'task' }>, what: string) {
+async function comments(get: Http, link: TaskLink, what: string) {
   const all: z.infer<typeof commentsSchema>['comments'] = [];
   for (;;) {
     const last = all.at(-1);
@@ -48,8 +54,10 @@ async function comments(get: Http, link: Extract<ClickupLink, { kind: 'task' }>,
       .join('&');
     const path = `/v2/task/${link.id}/comment${query ? `?${query}` : ''}`;
     const page = await clickupCall(get, path, commentsSchema, `${what}'s comments`);
-    all.push(...page.comments);
-    if (page.comments.length < COMMENTS_PAGE) return all.reverse();
+    // ponytail: guards against a page that starts again at `start_id`; ClickUp says it does not.
+    const fresh = page.comments.filter((c) => !all.some((seen) => seen.id === c.id));
+    all.push(...fresh);
+    if (page.comments.length < COMMENTS_PAGE || !fresh.length) return all.reverse();
   }
 }
 
@@ -61,7 +69,7 @@ async function comments(get: Http, link: Extract<ClickupLink, { kind: 'task' }>,
 async function task(
   get: Http,
   ref: ItemRef,
-  link: Extract<ClickupLink, { kind: 'task' }>,
+  link: TaskLink,
   previousRevision?: string,
 ): Promise<Item | undefined> {
   const what = `ClickUp task ${link.id}`;
@@ -87,7 +95,7 @@ async function task(
   ];
   return {
     ...ref,
-    title: raw.custom_id ? `${raw.custom_id}: ${raw.name}` : raw.name,
+    title: clickupTitle(raw),
     markdown: sections.join('\n\n'),
     ...(revision ? { revision } : {}),
   };

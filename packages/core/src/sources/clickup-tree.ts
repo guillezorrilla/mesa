@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { Http } from '../lib/http.js';
 import { MesaError } from '../lib/result.js';
 import { BROWSE_PAGE_SIZE, type BrowseChild, type BrowsePage, type SourceTree } from './browse.js';
-import { CLICKUP_WEB, clickupCall, clickupUrl } from './clickup.js';
+import { CLICKUP_WEB, clickupCall, clickupTitle, clickupUrl } from './clickup.js';
 import type { Site } from './connection.js';
 
 // ClickUp's tree, its node ids `<kind>:<workspace>:<id>...`:
@@ -57,7 +57,7 @@ const tasksSchema = z.object({ tasks: z.array(taskSchema), last_page: z.boolean(
 const taskChild = (workspace: string, task: z.infer<typeof taskSchema>) =>
   child(
     { kind: 'task', workspace, ids: [task.id] },
-    task.custom_id ? `${task.custom_id}: ${task.name}` : task.name,
+    clickupTitle(task),
     clickupUrl({ kind: 'task', id: task.id }),
     { hasChildren: false, importable: true },
   );
@@ -245,6 +245,7 @@ function searchUnder(
 ): Promise<BrowsePage> {
   if (node === undefined) return searchEach(get, sites, search, cursor);
   const at = parseNode(node);
+  workspaceNamed(sites, at.workspace);
   const team = `/v2/team/${at.workspace}/task`;
   switch (at.kind) {
     case 'workspace':

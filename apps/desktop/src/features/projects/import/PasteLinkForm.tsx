@@ -6,8 +6,8 @@ import { Switch } from '@/components/ui/switch';
 
 /**
  * Paste a link to import: a Jira issue or key, a Confluence or Notion page, a ClickUp task or Doc
- * page, or any public web
- * page, with the Write notes toggle every import shares. Cleared once the import ran.
+ * page, or any public web page, with the Write notes toggle every import shares. Cleared once the
+ * import ran.
  */
 export function PasteLinkForm(props: {
   acting: boolean;

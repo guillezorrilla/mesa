@@ -2,7 +2,6 @@ import type { Clock } from '../lib/clock.js';
 import type { Http } from '../lib/http.js';
 import { MesaError } from '../lib/result.js';
 import { brokerToken } from './broker.js';
-import { outOfReach } from './clickup.js';
 import type { Connection, ConnectionStore } from './connection.js';
 import { SOURCES, type SourceId } from './sources.js';
 
@@ -54,6 +53,13 @@ export const scopeError = (source: SourceId) =>
 /** Atlassian's answer to a token that lacks a scope the call needs. */
 const missingScope = async (response: Response) =>
   response.status === 401 && /scope does not match/i.test(await response.clone().text());
+
+/**
+ * ClickUp's answer to a call into a Workspace the person did not give Mesa: a 401 that is no
+ * token failure, so the connection is left as it is and the caller says the item is out of reach.
+ */
+const outOfReach = async (response: Response) =>
+  response.status === 401 && /team not authorized/i.test(await response.clone().text());
 
 /** A source asking Mesa to wait: a 429, or a 503 that says for how long. */
 const limited = (response: Response) =>

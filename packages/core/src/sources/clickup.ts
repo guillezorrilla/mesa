@@ -14,16 +14,9 @@ export const CLICKUP_WEB = 'https://app.clickup.com';
 export const CLICKUP_HOSTS = ['app.clickup.com'];
 
 /**
- * ClickUp's answer to a call into a Workspace the person did not give Mesa: a 401 that is no
- * token failure (authorizedFetch leaves the connection as it is).
- */
-export const outOfReach = async (response: Response) =>
-  response.status === 401 && /team not authorized/i.test(await response.clone().text());
-
-/**
  * One GET of ClickUp's API at `path`, its JSON body parsed by `schema`. ClickUp answers 404 for an
- * item that is gone, and a 401 (outOfReach) for one in a Workspace the person did not give Mesa:
- * both not_found, saying so.
+ * item that is gone, and a 401 (authorizedFetch's outOfReach) for one in a Workspace the person
+ * did not give Mesa: both not_found, saying so.
  */
 export async function clickupCall<T>(get: Http, path: string, schema: z.ZodType<T>, what: string) {
   const response = await get(`${CLICKUP_API}${path}`);
@@ -62,18 +55,28 @@ export async function clickupSites(get: Http): Promise<Site[]> {
  * What a ClickUp link names: a task, by its id (`/t/<id>`) or by its custom id in a Workspace
  * (`/t/<workspace>/<custom id>`), or a Doc page (`/<workspace>/v/dc/<doc>/<page>`).
  */
-export type ClickupLink =
-  | { kind: 'task'; id: string; workspace?: string }
-  | { kind: 'page'; workspace: string; doc: string; page: string };
+export type ClickupLink = TaskLink | { kind: 'page'; workspace: string; doc: string; page: string };
+/** A task link; `workspace` only for a custom id, which ClickUp reads within its Workspace. */
+export type TaskLink = { kind: 'task'; id: string; workspace?: string };
+
+/** A task's title: its custom id, when it has one, then its name. */
+export const clickupTitle = (task: { name: string; custom_id?: string | null }) =>
+  task.custom_id ? `${task.custom_id}: ${task.name}` : task.name;
 
 const ID = '([A-Za-z0-9_-]+)';
 const TASK = new RegExp(`^/t/(?:${ID}/)?${ID}/?$`);
 const PAGE = new RegExp(`^/${ID}/v/dc/${ID}/${ID}/?$`);
 
-/** The task or Doc page `url`'s path names; undefined when it names neither. */
+/**
+ * The task or Doc page `url`'s path names; undefined when it names neither. A custom id holds a
+ * dash (its prefix's); a plain id under a Workspace (`/t/<workspace>/<id>`) is read as `/t/<id>`.
+ */
 export function clickupLink(url: URL): ClickupLink | undefined {
   const task = TASK.exec(url.pathname);
-  if (task?.[2]) return { kind: 'task', id: task[2], ...(task[1] ? { workspace: task[1] } : {}) };
+  if (task?.[2]) {
+    const custom = task[1] && task[2].includes('-');
+    return { kind: 'task', id: task[2], ...(custom ? { workspace: task[1] } : {}) };
+  }
   const page = PAGE.exec(url.pathname);
   if (page?.[1] && page[2] && page[3])
     return { kind: 'page', workspace: page[1], doc: page[2], page: page[3] };
