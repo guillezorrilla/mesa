@@ -1,13 +1,13 @@
 import { useState } from 'react';
 
 /** What a project's Tickets tab keeps picked across visits: the view, and the ticket open. */
-type Kept = 'view' | 'ticket';
+type KeptPick = 'view' | 'ticket';
 
 // ponytail: kept in this machine's localStorage, a convenience; another device starts fresh.
-const keyOf = (project: string, kept: Kept) => `mesa.tickets.${kept}.${project}`;
+const keyOf = (project: string, kept: KeptPick) => `mesa.tickets.${kept}.${project}`;
 
 /** The `kept` pick last made in `project`'s Tickets tab, or undefined if none or unreadable. */
-const stored = (project: string, kept: Kept) => {
+const stored = (project: string, kept: KeptPick) => {
   try {
     return localStorage.getItem(keyOf(project, kept)) ?? undefined;
   } catch {
@@ -19,7 +19,7 @@ const stored = (project: string, kept: Kept) => {
  * A pick in `project`'s Tickets tab and its setter, kept across visits: leaving the project or
  * the tab and coming back shows the same view and the same ticket, not the defaults again.
  */
-export function usePicked(project: string, kept: Kept) {
+export function useKeptPick(project: string, kept: KeptPick) {
   const [picked, setPicked] = useState(() => ({ project, value: stored(project, kept) }));
   const value = picked.project === project ? picked.value : stored(project, kept);
   const setValue = (next: string | undefined) => {

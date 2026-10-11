@@ -11,7 +11,7 @@ import { ManageViewsDialog } from './ManageViewsDialog';
 import { TicketList } from './TicketList';
 import { TicketPanel } from './TicketPanel';
 import { TicketsToolbar } from './TicketsToolbar';
-import { usePicked } from './usePicked';
+import { useKeptPick } from './useKeptPick';
 
 /**
  * A project's Tickets tab (CONTEXT.md, Tickets tab): the followed views' tickets grouped by
@@ -23,9 +23,9 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
   const list = useCommand('tickets.list', { project });
   const run = useRun();
   const { acting, act } = useAct();
-  const [view, setView] = usePicked(project, 'view');
+  const [view, setView] = useKeptPick(project, 'view');
   const [query, setQuery] = useState('');
-  const [selected, setSelected] = usePicked(project, 'ticket');
+  const [selected, setSelected] = useKeptPick(project, 'ticket');
   const [narrowTicket, setNarrowTicket] = useState(false);
   const [dialog, setDialog] = useState<'follow' | 'manage'>();
   const [readAt, setReadAt] = useState<number>();

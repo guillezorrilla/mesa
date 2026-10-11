@@ -3,8 +3,7 @@ import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Switch } from '@/components/ui/switch';
 import { PromptField } from '@/features/prompts/PromptField';
-import { useAct } from '@/lib/useAct';
-import { useRun } from '@/lib/useCommand';
+import { useTicketSettings } from './useTicketSettings';
 
 /**
  * The gear's settings for this project's ticket sessions: the prompt (its own, or the default
@@ -18,20 +17,13 @@ export function TicketSettingsPanel(props: {
   defaults: TicketDefaults;
   onChanged: () => void;
 }) {
-  const run = useRun();
-  const { acting, act } = useAct();
+  const {
+    saving: acting,
+    setDefault,
+    setPrompt,
+    setSharedPrompt,
+  } = useTicketSettings(props.project, props.onChanged);
   const profilePrompt = props.projectPrompt ? undefined : props.prompt;
-  const save = (call: () => Promise<unknown>) =>
-    void act(async () => {
-      if (await call()) props.onChanged();
-      return undefined;
-    });
-  const setDefault = (change: Partial<TicketDefaults>) =>
-    save(() => run('tickets.defaults', { project: props.project, change }));
-  const setPrompt = (name: string, project?: string) =>
-    save(() =>
-      run('tickets.prompt', { ...(name ? { name } : {}), ...(project ? { project } : {}) }),
-    );
   return (
     <div className="grid w-80 max-w-[calc(100vw-3rem)] gap-4 p-1" data-testid="ticket-settings">
       <Label htmlFor="ticket-prompt" className="grid gap-1.5 font-normal">
@@ -41,7 +33,7 @@ export function TicketSettingsPanel(props: {
           value={props.projectPrompt}
           empty={`Use the default${profilePrompt ? ` (${profilePrompt})` : ''}`}
           disabled={acting}
-          onChange={(name) => setPrompt(name ?? '', props.project)}
+          onChange={setPrompt}
         />
       </Label>
       {profilePrompt !== undefined && (
@@ -52,7 +44,7 @@ export function TicketSettingsPanel(props: {
             value={profilePrompt}
             empty="No prompt"
             disabled={acting}
-            onChange={(name) => setPrompt(name ?? '')}
+            onChange={setSharedPrompt}
           />
         </Label>
       )}

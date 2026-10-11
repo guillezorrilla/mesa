@@ -1,6 +1,6 @@
 import type { TicketDefaults, TicketStart } from '@mesa/core/browser';
 import { useState } from 'react';
-import { useRun } from '@/lib/useCommand';
+import { useTicketSettings } from '../useTicketSettings';
 import { StartBar } from './StartBar';
 import { StartProgress } from './StartProgress';
 import { StartSheet } from './StartSheet';
@@ -25,22 +25,20 @@ export function TicketStartPanel(props: {
 }) {
   const { ticket } = props;
   const { steps, session, startTicket, reset } = useStartTicket(props.project);
-  const run = useRun();
+  const settings = useTicketSettings(props.project, props.onChanged);
   const [customizing, setCustomizing] = useState(false);
-  const [options, setOptions] = useState<StartOptions>(() =>
-    initialOptions(props.defaults, ticket, props.prompt),
-  );
+  // The project's defaults as last read, under what was changed here: a ticket opened before the
+  // list read a saved change again picks it up once the read lands.
+  const [changed, setChanged] = useState<Partial<StartOptions>>({});
+  const options = { ...initialOptions(props.defaults, ticket, props.prompt), ...changed };
   const start = (kind: TicketStart) =>
     void startTicket(ticket, options, kind).then((ok) => ok && props.onChanged());
-  const change = ({ prompt, ...defaults }: Partial<StartOptions>) => {
-    setOptions((was) => ({ ...was, ...defaults, ...(prompt === undefined ? {} : { prompt }) }));
-    const { project } = props;
-    void Promise.all([
-      Object.keys(defaults).length && run('tickets.defaults', { project, change: defaults }),
-      // None clears the project's own prompt: the next ticket follows the profile's default, if any.
-      prompt !== undefined &&
-        run('tickets.prompt', { ...(prompt ? { name: prompt } : {}), project }),
-    ]).then((saved) => saved.some(Boolean) && props.onChanged());
+  const change = (change: Partial<StartOptions>) => {
+    setChanged((was) => ({ ...was, ...change }));
+    const { prompt, ...defaults } = change;
+    if (Object.keys(defaults).length) settings.setDefault(defaults);
+    // None clears the project's own prompt: the next ticket follows the shared one, if any.
+    if (prompt !== undefined) settings.setPrompt(prompt);
   };
   if (steps)
     return (
@@ -59,7 +57,7 @@ export function TicketStartPanel(props: {
         ticket={ticket}
         options={options}
         onChange={change}
-        onCancel={() => setCustomizing(false)}
+        onClose={() => setCustomizing(false)}
         onStart={start}
       />
     );

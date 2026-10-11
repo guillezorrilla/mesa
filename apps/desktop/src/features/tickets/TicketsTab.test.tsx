@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import type { FollowedView, Ticket } from '@mesa/core';
 import { act } from 'react';
-import { expect, test } from 'vitest';
+import { beforeEach, expect, test } from 'vitest';
 import { choose, click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
 import { TicketsTab } from './TicketsTab';
 
@@ -69,6 +69,9 @@ const atlassian = (status: 'connected' | 'needs-reconnect' | 'disconnected') => 
   status,
 });
 const words = (calls: string[][]) => calls.map((args) => args.slice(1).join(' '));
+
+// Each test starts with no view or ticket kept from another.
+beforeEach(() => localStorage.clear());
 
 test('the list groups tickets by status, and the panel shows the ticket whole and assigns it', async () => {
   const { bridge, calls } = fakeBridge({
@@ -366,7 +369,6 @@ test('a view that needs a fresh sign-in says so and offers Reconnect', async () 
 });
 
 test('the view picked stays picked when the person leaves the project and comes back', async () => {
-  localStorage.clear();
   const harbor: FollowedView = {
     name: 'harbor',
     describe: 'JQL: project = HB (everyone, not done)',
@@ -406,7 +408,6 @@ test('the view picked stays picked when the person leaves the project and comes 
 });
 
 test('the ticket picked stays picked when the person leaves the tab and comes back', async () => {
-  localStorage.clear();
   const { bridge } = fakeBridge({
     tickets: () =>
       listOf(
@@ -431,4 +432,32 @@ test('the ticket picked stays picked when the person leaves the tab and comes ba
     bridge,
   );
   expect(panel()).toContain('LC-2');
+});
+
+test('an option changed on one ticket is where the next ticket starts', async () => {
+  let defaults = { notes: false, assign: true, start: 'worktree' };
+  const { bridge, calls } = fakeBridge({
+    tickets: () => {
+      const list = listOf(
+        [sprint],
+        [ticket('LC-1', 'Retry the tide feed'), ticket('LC-2', 'Show the next high tide')],
+      );
+      return { ...list, data: { ...(list.data as object), defaults } };
+    },
+    'tickets defaults': () => {
+      defaults = { ...defaults, notes: true };
+      return envelope(defaults);
+    },
+    'tickets show': (args) => shown(String(args.at(-1))),
+    prompts: () => envelope([]),
+  });
+  const byTestId = await renderWithMesa(
+    <TicketsTab project="lantern-cove" onSession={() => {}} />,
+    bridge,
+  );
+  await click(byTestId('start-options')[0]);
+  await click(document.getElementById('start-notes') ?? undefined);
+  expect(words(calls)).toContain('tickets defaults --notes on -- lantern-cove');
+  await click(byTestId('ticket-row').find((row) => row.textContent?.includes('LC-2')));
+  expect(byTestId('start-summary')[0]?.textContent).toContain('notes first');
 });
