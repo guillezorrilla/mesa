@@ -2,6 +2,7 @@ import type { Clock } from '../lib/clock.js';
 import type { Http } from '../lib/http.js';
 import { MesaError } from '../lib/result.js';
 import { brokerToken } from './broker.js';
+import { outOfReach } from './clickup.js';
 import type { Connection, ConnectionStore } from './connection.js';
 import { SOURCES, type SourceId } from './sources.js';
 
@@ -58,9 +59,14 @@ const missingScope = async (response: Response) =>
 const limited = (response: Response) =>
   response.status === 429 || (response.status === 503 && response.headers.has('retry-after'));
 
-/** How long to wait after try `tried` (1 on): Retry-After's seconds, else 1 s doubling. */
-const waitMs = (response: Response, tried: number) => {
-  const asked = Number(response.headers.get('retry-after') ?? Number.NaN);
+/**
+ * How long to wait after try `tried` (1 on): Retry-After's seconds, else until X-RateLimit-Reset
+ * (a Unix time in seconds, as ClickUp sends), else 1 s doubling.
+ */
+const waitMs = (response: Response, tried: number, now: Date) => {
+  const header = (name: string) => Number(response.headers.get(name) ?? Number.NaN);
+  const reset = Math.ceil(header('x-ratelimit-reset') - now.getTime() / 1000);
+  const asked = Number.isFinite(header('retry-after')) ? header('retry-after') : reset;
   const seconds = Number.isFinite(asked) && asked >= 0 ? asked : 2 ** (tried - 1);
   return Math.min(seconds, MAX_WAIT_S) * 1000;
 };
@@ -78,9 +84,10 @@ export const withBearer =
 /**
  * The one owner of calls to a source's API: fetch-shaped, with the connection's Bearer token. An
  * expired token (one with no expiry never is), or one the source answers 401 to, refreshes once
- * through the broker and the rotated refresh token is stored; a refused refresh, or a 401 after one, marks the connection
- * needs-reconnect and throws. A rate-limited call (a 429, or a 503 with Retry-After) waits as
- * Retry-After asks (at most MAX_WAIT_S) and is sent again, TRIES times in all, then throws.
+ * through the broker and the rotated refresh token is stored; a refused refresh, a 401 after one,
+ * or a 401 to a connection with no refresh token marks the connection needs-reconnect and throws.
+ * A rate-limited call (a 429, or a 503 with Retry-After) waits as waitMs says (at most MAX_WAIT_S)
+ * and is sent again, TRIES times in all, then throws.
  */
 export function authorizedFetch(deps: SourceDeps, source: SourceId): Http {
   let refreshing: Promise<Connection> | undefined;
@@ -94,6 +101,8 @@ export function authorizedFetch(deps: SourceDeps, source: SourceId): Http {
       const stored = await deps.connections.read(source);
       if (stored?.status === 'connected' && stored.accessToken !== connection.accessToken)
         return stored;
+      // A source that gives no refresh token (ClickUp) answers 401 only once the token is revoked.
+      if (!connection.refreshToken) throw await needsReconnect(connection);
       const tokens = await brokerToken(deps, source, {
         grant_type: 'refresh_token',
         refresh_token: connection.refreshToken,
@@ -126,7 +135,7 @@ export function authorizedFetch(deps: SourceDeps, source: SourceId): Http {
             `${SOURCES[source].label} is rate limiting Mesa (HTTP ${response.status} ${TRIES} times): try again in a minute`,
           );
         }
-        await deps.sleep(waitMs(response, tried));
+        await deps.sleep(waitMs(response, tried, deps.clock()));
       }
     };
     let refreshed = false;
@@ -136,7 +145,7 @@ export function authorizedFetch(deps: SourceDeps, source: SourceId): Http {
       refreshed = true;
     }
     const response = await call(connection.accessToken);
-    if (response.status !== 401) return response;
+    if (response.status !== 401 || (await outOfReach(response))) return response;
     if (await missingScope(response)) throw scopeError(source);
     if (refreshed) throw await needsReconnect(connection);
     connection = await refresh(connection);

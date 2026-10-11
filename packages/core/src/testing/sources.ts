@@ -20,7 +20,8 @@ export const TEST_BROKER = 'https://broker.example.test';
  * A source and the broker in memory, with a person who signs in (fakeSignIn): code-1 exchanges
  * for access-1 and refresh-1 (with `expiresIn` seconds, none when undefined), each refresh
  * rotates to the next pair and uses up the old refresh token, and the source's API answers only a
- * live access token, and only a request `accepts`. `revoke` ends every token, as removing the
+ * live access token, and only a request `accepts`; with `refreshes` false, the source gives no
+ * refresh token, as ClickUp does. `revoke` ends every token, as removing the
  * app at the source does; `expire` only the access tokens. `deps` wires it all into testDeps.
  */
 function brokerWorld(
@@ -29,7 +30,8 @@ function brokerWorld(
   {
     expiresIn,
     accepts = () => true,
-  }: { expiresIn?: number; accepts?: (r: FakeRequest) => boolean },
+    refreshes = true,
+  }: { expiresIn?: number; accepts?: (r: FakeRequest) => boolean; refreshes?: boolean },
 ) {
   const live = { access: new Set<string>(), refresh: new Set<string>() };
   let issued = 0;
@@ -40,7 +42,7 @@ function brokerWorld(
     return {
       body: {
         access_token: `access-${issued}`,
-        refresh_token: `refresh-${issued}`,
+        ...(refreshes ? { refresh_token: `refresh-${issued}` } : {}),
         ...(expiresIn === undefined ? {} : { expires_in: expiresIn }),
       },
     };
@@ -297,6 +299,66 @@ export function notionWorld(signIn = fakeSignIn()) {
           has_more: n + 1 < pages.length,
         };
       }),
+  };
+}
+
+/** ClickUp's API in clickupWorld. */
+export const TEST_CLICKUP = 'https://api.clickup.com/api';
+
+/**
+ * ClickUp and the broker in memory (brokerWorld): access tokens with no expiry and no refresh
+ * token, as ClickUp's are. Rowan Tide signed in and gave Mesa the invented Workspace Lantern Cove
+ * (ws-1).
+ */
+export function clickupWorld(signIn = fakeSignIn()) {
+  const world = brokerWorld('clickup', signIn, { refreshes: false });
+  world.serve(`${TEST_CLICKUP}/v2/user`, {
+    user: { id: 101, username: 'Rowan Tide', email: 'rowan@example.test' },
+  });
+  world.serve(`${TEST_CLICKUP}/v2/team`, { teams: [{ id: 'ws-1', name: 'Lantern Cove' }] });
+  return {
+    ...world,
+    /**
+     * Task `id` as ClickUp's API answers it, with its Markdown description, and its `comments`
+     * (newest last) 25 to a page, newest first, as ClickUp pages them.
+     */
+    serveTask: (
+      id: string,
+      task: {
+        name: string;
+        markdown?: string;
+        updated?: string;
+        comments?: { by: string; text: string }[];
+      },
+    ) => {
+      world.serve(`${TEST_CLICKUP}/v2/task/${id}?include_markdown_description=true`, {
+        id,
+        custom_id: null,
+        name: task.name,
+        markdown_description: task.markdown ?? '',
+        status: { status: 'in progress' },
+        list: { name: 'Tide charts' },
+        assignees: [{ username: 'Rowan Tide' }],
+        tags: [{ name: 'tides' }],
+        date_created: '1790000000000',
+        date_updated: task.updated ?? '1790000000000',
+      });
+      const comments = (task.comments ?? [])
+        .map((c, at) => ({
+          id: `c${at}`,
+          comment_text: c.text,
+          user: { username: c.by },
+          date: String(1790000000000 + at * 60_000),
+        }))
+        .reverse();
+      for (let at = 0; at === 0 || at <= comments.length; at += 25) {
+        const last = comments[at - 1];
+        const query = last ? `?start=${last.date}&start_id=${last.id}` : '';
+        world.serve(`${TEST_CLICKUP}/v2/task/${id}/comment${query}`, {
+          comments: comments.slice(at, at + 25),
+        });
+      }
+    },
   };
 }
 

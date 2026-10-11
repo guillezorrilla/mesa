@@ -6,6 +6,8 @@ const ENV: Env = {
   ATLASSIAN_CLIENT_SECRET: 'secret-1',
   NOTION_CLIENT_ID: 'notion-client',
   NOTION_CLIENT_SECRET: 'notion-secret',
+  CLICKUP_CLIENT_ID: 'clickup-client',
+  CLICKUP_CLIENT_SECRET: 'clickup-secret',
 };
 const BROKER = 'https://broker.example.test';
 
@@ -141,6 +143,38 @@ test('Notion signs in as its owner with no scopes, and takes the client secret a
       url: 'https://api.notion.com/v1/oauth/token',
       body: { grant_type: 'refresh_token', refresh_token: 'rt-1' },
       authorization: basic,
+    },
+  ]);
+});
+
+test('ClickUp signs in with no scopes, and takes the client id and secret in the JSON body', async () => {
+  const to = new URL(
+    (await get('/authorize/clickup?state=n1.49152')).headers.get('location') ?? '',
+  );
+  expect(`${to.origin}${to.pathname}`).toBe('https://app.clickup.com/api');
+  expect(Object.fromEntries(to.searchParams)).toEqual({
+    client_id: 'clickup-client',
+    redirect_uri: `${BROKER}/callback/clickup`,
+    state: 'n1.49152',
+  });
+
+  const { upstream, calls } = vendor(200, { access_token: 'at-1' });
+  const answer = await post(
+    '/token/clickup',
+    { grant_type: 'authorization_code', code: 'c1' },
+    upstream,
+  );
+  expect(await answer.json()).toEqual({ access_token: 'at-1' });
+  expect(calls).toEqual([
+    {
+      url: 'https://api.clickup.com/api/v2/oauth/token',
+      body: {
+        grant_type: 'authorization_code',
+        code: 'c1',
+        client_id: 'clickup-client',
+        client_secret: 'clickup-secret',
+        redirect_uri: `${BROKER}/callback/clickup`,
+      },
     },
   ]);
 });

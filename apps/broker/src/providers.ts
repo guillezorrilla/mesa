@@ -16,9 +16,10 @@ export type Provider = {
 };
 
 /**
- * Every source the broker signs in to, one row each (ADR-0014); ClickUp may come later. Notion's
- * public connection takes no scopes (its capabilities are set in the app) and its secret as HTTP
- * Basic.
+ * Every source the broker signs in to, one row each (ADR-0014). Notion's public connection takes
+ * no scopes (its capabilities are set in the app) and its secret as HTTP Basic. ClickUp takes no
+ * scopes either (a token reaches the Workspaces the person picks) and answers only an access token,
+ * which does not expire.
  */
 export const PROVIDERS: Record<string, Provider> = {
   atlassian: {
@@ -35,5 +36,11 @@ export const PROVIDERS: Record<string, Provider> = {
     params: { owner: 'user', response_type: 'code' },
     env: { clientId: 'NOTION_CLIENT_ID', clientSecret: 'NOTION_CLIENT_SECRET' },
     clientAuth: 'basic',
+  },
+  clickup: {
+    authorizeUrl: 'https://app.clickup.com/api',
+    tokenUrl: 'https://api.clickup.com/api/v2/oauth/token',
+    params: {},
+    env: { clientId: 'CLICKUP_CLIENT_ID', clientSecret: 'CLICKUP_CLIENT_SECRET' },
   },
 };

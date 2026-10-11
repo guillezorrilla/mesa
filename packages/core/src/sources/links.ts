@@ -2,13 +2,14 @@ import { MesaError } from '../lib/result.js';
 import { truncatedSlug } from '../lib/slug.js';
 import { issueUrl, pageUrl } from './atlassian.js';
 import { notConnectedError } from './authorized-fetch.js';
+import { CLICKUP_HOSTS, clickupLink, clickupRef } from './clickup.js';
 import type { Site } from './connection.js';
 import type { ItemRef } from './items.js';
 import { NOTION_HOSTS, NOTION_ID, notionId, notionUrl } from './notion.js';
 import type { SourceId } from './sources.js';
 
 // What a pasted link is (CONTEXT.md, Import): a Jira issue (its URL, or a bare key), a Confluence
-// page, a Notion page or database row, or any other public web page. An Atlassian link resolves
+// page, a Notion page or database row, a ClickUp task or Doc page, or any other public web page. An Atlassian link resolves
 // through the connected site its host names, whose cloud id the API calls take.
 
 const KEY = /^[A-Z][A-Z0-9_]+-\d+$/;
@@ -54,6 +55,14 @@ export function resolveLink(link: string, sites: Partial<Record<SourceId, Site[]
   }
   url.hash = '';
   if (NOTION_HOSTS.includes(url.host)) return notionRef(url, text, Boolean(sites.notion));
+  if (CLICKUP_HOSTS.includes(url.host)) {
+    if (!sites.clickup) throw notConnectedError('clickup');
+    const link = clickupLink(url);
+    if (link) return clickupRef(link);
+    throw usage(
+      `${text} is not a ClickUp task or Doc page: Mesa imports /t/<task id> and /<workspace>/v/dc/<doc>/<page> links`,
+    );
+  }
   const site = atlassian.find((s) => new URL(s.url).host === url.host);
   if (!site) {
     if (!url.host.endsWith('.atlassian.net')) {
