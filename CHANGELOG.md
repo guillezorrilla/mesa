@@ -2,6 +2,12 @@
 
 Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
 
+## 0.2.11 - 2026-10-11
+
+### Features
+
+- **tickets**: Start goal shows its proof (each check, the commit and the push) in the conversation, where the goal's checker can see it, and says what it tried when Blocked; Investigate defines Confirmed for bugs, spikes and stories and no longer stops on a progress summary (#743)
+
 ## 0.2.10 - 2026-10-11
 
 ### Features
