@@ -8,6 +8,8 @@ import { clickupTree } from './clickup-tree.js';
 import type { Account, Site } from './connection.js';
 import { githubAccount, githubSites } from './github.js';
 import { githubTree } from './github-tree.js';
+import { linearAccount, linearSites } from './linear.js';
+import { linearTree } from './linear-tree.js';
 import { notionAccount, notionSites } from './notion.js';
 import { notionTree } from './notion-tree.js';
 
@@ -34,6 +36,12 @@ export const SOURCES = {
     account: clickupAccount,
     sites: clickupSites,
     tree: clickupTree,
+  },
+  linear: {
+    label: 'Linear',
+    account: linearAccount,
+    sites: linearSites,
+    tree: linearTree,
   },
   github: {
     label: 'GitHub',

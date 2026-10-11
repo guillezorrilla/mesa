@@ -61,17 +61,24 @@ const missingScope = async (response: Response) =>
 const outOfReach = async (response: Response) =>
   response.status === 401 && /team not authorized/i.test(await response.clone().text());
 
-/** A source asking Mesa to wait: a 429, or a 503 that says for how long. */
-const limited = (response: Response) =>
-  response.status === 429 || (response.status === 503 && response.headers.has('retry-after'));
+/**
+ * A source asking Mesa to wait: a 429, a 503 that says for how long, or Linear's GraphQL answer, a
+ * 400 whose error code is RATELIMITED.
+ */
+const limited = async (response: Response) =>
+  response.status === 429 ||
+  (response.status === 503 && response.headers.has('retry-after')) ||
+  (response.status === 400 && /"RATELIMITED"/.test(await response.clone().text()));
 
 /**
  * How long to wait after try `tried` (1 on): Retry-After's seconds, else until X-RateLimit-Reset
- * (a Unix time in seconds, as ClickUp sends), else 1 s doubling.
+ * (a Unix time in seconds, as ClickUp sends) or X-RateLimit-Requests-Reset (in milliseconds, as
+ * Linear sends), else 1 s doubling.
  */
 const waitMs = (response: Response, tried: number, now: Date) => {
   const header = (name: string) => Number(response.headers.get(name) ?? Number.NaN);
-  const reset = Math.ceil(header('x-ratelimit-reset') - now.getTime() / 1000);
+  const resetAt = header('x-ratelimit-reset') || header('x-ratelimit-requests-reset') / 1000;
+  const reset = Math.ceil(resetAt - now.getTime() / 1000);
   const asked = Number.isFinite(header('retry-after')) ? header('retry-after') : reset;
   const seconds = Number.isFinite(asked) && asked >= 0 ? asked : 2 ** (tried - 1);
   return Math.min(seconds, MAX_WAIT_S) * 1000;
@@ -92,7 +99,7 @@ export const withBearer =
  * expired token (one with no expiry never is), or one the source answers 401 to, refreshes once
  * through the broker and the rotated refresh token is stored; a refused refresh, a 401 after one,
  * or a 401 to a connection with no refresh token marks the connection needs-reconnect and throws.
- * A rate-limited call (a 429, or a 503 with Retry-After) waits as waitMs says (at most MAX_WAIT_S)
+ * A rate-limited call (limited) waits as waitMs says (at most MAX_WAIT_S)
  * and is sent again, TRIES times in all, then throws.
  */
 export function authorizedFetch(deps: SourceDeps, source: SourceId): Http {
@@ -134,7 +141,7 @@ export function authorizedFetch(deps: SourceDeps, source: SourceId): Http {
     const call = async (token: string) => {
       for (let tried = 1; ; tried++) {
         const response = await withBearer(deps.http, token)(url, init);
-        if (!limited(response)) return response;
+        if (!(await limited(response))) return response;
         if (tried === TRIES) {
           throw new MesaError(
             'internal',

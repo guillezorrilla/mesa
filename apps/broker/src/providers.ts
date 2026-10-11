@@ -13,13 +13,17 @@ export type Provider = {
    * (`basic`), as Notion asks.
    */
   clientAuth?: 'basic';
+  /** How the token request's body is encoded: JSON, or a form (`form`), as Linear asks. */
+  tokenBody?: 'form';
 };
 
 /**
  * Every source the broker signs in to, one row each (ADR-0014). Notion's public connection takes
  * no scopes (its capabilities are set in the app) and its secret as HTTP Basic. ClickUp takes no
  * scopes either (a token reaches the Workspaces the person picks) and answers only an access token,
- * which does not expire.
+ * which does not expire. Linear asks for read only, takes its token request as a form, and answers
+ * day-long access tokens with rotating refresh tokens; `prompt=consent` shows the workspace picker
+ * again on a reconnect.
  */
 export const PROVIDERS: Record<string, Provider> = {
   atlassian: {
@@ -42,5 +46,13 @@ export const PROVIDERS: Record<string, Provider> = {
     tokenUrl: 'https://api.clickup.com/api/v2/oauth/token',
     params: {},
     env: { clientId: 'CLICKUP_CLIENT_ID', clientSecret: 'CLICKUP_CLIENT_SECRET' },
+  },
+  linear: {
+    authorizeUrl: 'https://linear.app/oauth/authorize',
+    tokenUrl: 'https://api.linear.app/oauth/token',
+    scopes: 'read',
+    params: { response_type: 'code', prompt: 'consent' },
+    env: { clientId: 'LINEAR_CLIENT_ID', clientSecret: 'LINEAR_CLIENT_SECRET' },
+    tokenBody: 'form',
   },
 };

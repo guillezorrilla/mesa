@@ -362,6 +362,106 @@ export function clickupWorld(signIn = fakeSignIn()) {
   };
 }
 
+/** Linear's GraphQL endpoint in linearWorld. */
+export const TEST_LINEAR = 'https://api.linear.app/graphql';
+
+type LinearVariables = Record<string, unknown>;
+
+/**
+ * Linear and the broker in memory (brokerWorld): day-long access tokens whose refresh tokens
+ * rotate, as Linear's do, and one GraphQL endpoint that answers each query by its operation name
+ * (`answer`), recorded in `queries`; an answer of undefined is Linear's "Entity not found". Rowan
+ * Tide signed in to the invented workspace Lantern Cove (org-1, URL key lantern-cove).
+ */
+export function linearWorld(signIn = fakeSignIn()) {
+  const world = brokerWorld('linear', signIn, { expiresIn: 86399 });
+  const operations: Record<string, (variables: LinearVariables) => unknown> = {};
+  const queries: { operation: string; variables: LinearVariables }[] = [];
+  world.servePost(TEST_LINEAR, (body) => {
+    const operation = /^\s*query (\w+)/.exec(String(body.query))?.[1] ?? '';
+    const variables = (body.variables ?? {}) as LinearVariables;
+    queries.push({ operation, variables });
+    const answerOf = operations[operation];
+    if (!answerOf) return { errors: [{ message: `Cannot query ${operation}` }] };
+    const data = answerOf(variables);
+    return data === undefined
+      ? {
+          data: null,
+          errors: [{ message: 'Entity not found: Issue', extensions: { code: 'INVALID_INPUT' } }],
+        }
+      : { data };
+  });
+  const answer = (operation: string, data: (variables: LinearVariables) => unknown) => {
+    operations[operation] = data;
+  };
+  answer('Viewer', () => ({
+    viewer: { id: 'user-1', name: 'Rowan Tide', email: 'rowan@example.test' },
+  }));
+  answer('Organization', () => ({
+    organization: { id: 'org-1', name: 'Lantern Cove', urlKey: 'lantern-cove' },
+  }));
+  const issues: Record<string, unknown> = {};
+  const comments: Record<string, unknown[]> = {};
+  /** `list` from the offset cursor `c<n>` names, `size` at a time, as a Linear connection. */
+  const page = (list: unknown[], after: unknown, size: number) => {
+    const from = after ? Number(String(after).slice(1)) : 0;
+    const more = from + size < list.length;
+    return {
+      nodes: list.slice(from, from + size),
+      pageInfo: { hasNextPage: more, endCursor: more ? `c${from + size}` : null },
+    };
+  };
+  answer('Issue', ({ id, after }) => {
+    const issue = issues[String(id)];
+    return issue && { issue: { ...issue, comments: page(comments[String(id)] ?? [], after, 50) } };
+  });
+  answer('IssueComments', ({ id, after }) =>
+    issues[String(id)]
+      ? { issue: { comments: page(comments[String(id)] ?? [], after, 50) } }
+      : undefined,
+  );
+  return {
+    ...world,
+    queries,
+    answer,
+    /**
+     * Issue `identifier` in team Harbour as Linear's API answers it, with its Markdown
+     * description, and its `comments` (oldest first) 50 to a page. Called again, it changes it.
+     */
+    serveIssue: (
+      identifier: string,
+      issue: {
+        title: string;
+        description?: string;
+        updated?: string;
+        comments?: { by: string; text: string }[];
+      },
+    ) => {
+      issues[identifier] = {
+        identifier,
+        title: issue.title,
+        description: issue.description ?? null,
+        updatedAt: issue.updated ?? '2026-09-24T12:00:00.000Z',
+        createdAt: '2026-09-20T09:00:00.000Z',
+        priorityLabel: 'High',
+        estimate: 3,
+        dueDate: null,
+        state: { name: 'In Progress' },
+        team: { name: 'Harbour' },
+        project: { name: 'Spring tides' },
+        cycle: { number: 4, name: null },
+        assignee: { name: 'Rowan Tide' },
+        labels: { nodes: [{ name: 'tides' }] },
+      };
+      comments[identifier] = (issue.comments ?? []).map((c, at) => ({
+        body: c.text,
+        createdAt: new Date(Date.parse('2026-09-21T10:00:00Z') + at * 60_000).toISOString(),
+        user: { name: c.by },
+      }));
+    },
+  };
+}
+
 /** GitHub's REST API in githubWorld. */
 export const TEST_GITHUB = 'https://api.github.com';
 

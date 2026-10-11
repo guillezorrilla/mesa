@@ -10,6 +10,7 @@ const KIND: Record<ItemSource, string> = {
   confluence: 'Confluence page',
   notion: 'Notion page',
   clickup: 'ClickUp item',
+  linear: 'Linear item',
   github: 'GitHub issue',
   web: 'web page',
 };

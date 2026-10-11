@@ -1,5 +1,6 @@
 // An item a project imports (CONTEXT.md, Import): a Jira issue, a Confluence page, a Notion page,
-// a ClickUp task or Doc page, a GitHub issue, or a web page.
+// a ClickUp task or Doc page, a Linear issue, project or document, a GitHub issue, or a web
+// page.
 
 /** An imported Jira issue's title: its key, then its summary. */
 export const jiraTitle = (key: string, summary: string) => `${key}: ${summary}`;
@@ -11,16 +12,24 @@ export const jiraTitle = (key: string, summary: string) => `${key}: ${summary}`;
 export const itemIdOfKey = (key: string) => key.replace('#', '/');
 
 /** Where an item comes from: its folder under `raw/`, and its snapshots' `source`. */
-export const ITEM_SOURCES = ['jira', 'confluence', 'notion', 'clickup', 'github', 'web'] as const;
+export const ITEM_SOURCES = [
+  'jira',
+  'confluence',
+  'notion',
+  'clickup',
+  'linear',
+  'github',
+  'web',
+] as const;
 export type ItemSource = (typeof ITEM_SOURCES)[number];
 
 /** A link resolved to one item (links.ts). */
 export type ItemRef = {
   source: ItemSource;
   /**
-   * The issue key, the page id (Notion's 32 hex), the ClickUp task id or `<doc>.<page>`, a
-   * GitHub issue's `<owner>/<repo>/<number>`, or the web URL's slug: the item's folder,
-   * raw/<source>/<id>/.
+   * The issue key, the page id (Notion's 32 hex), the ClickUp task id or `<doc>.<page>`, the
+   * Linear issue identifier or `<project|document>.<slug id>`, a GitHub issue's
+   * `<owner>/<repo>/<number>`, or the web URL's slug: the item's folder, raw/<source>/<id>/.
    */
   id: string;
   /** Its canonical URL, which a refresh resolves again. */
