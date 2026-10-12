@@ -312,11 +312,11 @@ test('a ClickUp task is a ticket, with the ticket prompt and the Ticket starts; 
   const page = await mesa.imports.goal('lantern-cove', 'd1.p1');
   expect(page.goal).not.toContain('Branch, test first');
   await expect(mesa.imports.goal('lantern-cove', 'd1.p1', undefined, 'session')).rejects.toThrow(
-    '--as starts a ticket (jira, github, clickup); d1.p1 is not one, a clickup item',
+    '--as starts a ticket (jira, github, clickup); d1.p1 is a clickup item',
   );
   await expect(
     mesa.imports.open('lantern-cove', { from: 'd1.p1', notes: false, kind: 'goal' }),
-  ).rejects.toThrow('d1.p1 is not one');
+  ).rejects.toThrow('d1.p1 is a clickup item');
 
   const ticket = await mesa.imports.goal('lantern-cove', 'DOCK-112');
   expect(ticket.goal).toMatch(/^Branch, test first, open a PR\./);

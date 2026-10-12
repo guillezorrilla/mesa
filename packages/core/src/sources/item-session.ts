@@ -26,7 +26,7 @@ export type ItemOpenOptions = Omit<NonNullable<Parameters<Open>[1]>, 'from'> & {
 };
 
 /**
- * Starts sessions from `item`s, through `open`. A ticket's goal (a Jira or GitHub issue's, a ClickUp task's; isTicketItem) opens
+ * Starts sessions from `item`s, through `open`. A ticket's goal (a Jira or GitHub issue's) opens
  * with the ticket prompt `ticketPrompt` names for its project (CONTEXT.md, Ticket prompt), or, started as a Ticket start,
  * is that start's prompt with the ticket prompt as its rules.
  */
@@ -45,11 +45,11 @@ export function itemSessions(
     found: ImportListRow,
     { goal, override, kind }: { goal?: string; override?: string | null; kind?: TicketStart } = {},
   ) => {
-    const ticket = isTicketItem(found);
+    const ticket = isTicketItem(found.source, found.id);
     if (kind && !ticket)
       throw new MesaError(
         'usage',
-        `--as starts a ticket (${PROVIDER_IDS.join(', ')}); ${found.id} is not one, a ${found.source} item`,
+        `--as starts a ticket (${PROVIDER_IDS.join(', ')}); ${found.id} is a ${found.source} item`,
       );
     const prompt = ticket ? ticketPrompt(project, override)?.trim() : undefined;
     if (kind) {
