@@ -2,6 +2,21 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.2.13 - 2026-10-12
+
+### Added
+
+- ClickUp in Connections and the Context tab: connect ClickUp once, then browse its Workspaces, spaces, folders, lists and Docs in the Picker, or paste a task or Doc page link, to import ClickUp tasks (with their descriptions and comments) and Doc pages into a project's vault. (#749)
+- ClickUp in the Tickets tab: a project can track its work in ClickUp, following a List, a whole Folder or Space, or a saved view, then open any task or subtask, assign it to yourself, and start a session from it. (#753)
+- GitHub Issues in the Tickets tab: connect GitHub, follow a repo narrowed by labels and milestone, open an issue to read its comments, assign yourself, and start a session from it, as with Jira. A project with no tracker yet asks where it tracks work, and the gear changes it while keeping the old views for when you switch back. (#752)
+- Linear in Connections and the Context tab: connect Linear once, then browse its teams, projects, issues and documents in the Picker, or paste an issue, project or document link, to import Linear issues (with their descriptions and comments), projects and documents into a project's vault. (#750)
+- Linear in the Tickets tab: follow a team's current or next cycle, a project, or one of your saved views, open an issue to see its priority, cycle, estimate and comments, assign yourself, and start a session from it, as with Jira. A Linear connection made before this asks you to reconnect once the first time you assign an issue. (#754)
+
+### Fixed
+
+- Starting a session or importing by a ticket key: `mesa open --from` and `mesa import` take the ticket ids `mesa tickets` lists (linear:ENG-123, clickup:DOCK-112), and a bare key such as ENG-123 reads as Linear or ClickUp when Jira is not connected, instead of asking you to connect Atlassian. (#755)
+- Tickets tab without an Atlassian sign-in: a project that follows Jira views now lists them with one Connect Atlassian banner, instead of staying on "Reading Jira...". (#751)
+
 ## 0.2.12 - 2026-10-11
 
 ### Added
