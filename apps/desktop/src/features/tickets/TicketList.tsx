@@ -1,5 +1,5 @@
 import type { Ticket } from '@mesa/core';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, CornerDownRight } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { AssigneeAvatar } from './AssigneeAvatar';
@@ -32,7 +32,7 @@ const groupOf = (ticket: Ticket) =>
 
 /**
  * The tickets grouped by status, done collapsed at first. Each row is one line: status, key,
- * title, a Live dot when a session works from it, and the assignee. ↑ and ↓ move the selection.
+ * title (marked when a subtask), a Live dot when a session works from it, and the assignee. ↑ and ↓ move the selection.
  */
 export function TicketList(props: {
   tickets: readonly Ticket[];
@@ -106,7 +106,16 @@ export function TicketList(props: {
                   <span className="w-[4.5rem] truncate font-mono text-xs text-muted-foreground">
                     {props.shortKey?.(ticket.key) ?? ticket.key}
                   </span>
-                  <span className="truncate">{ticket.summary}</span>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    {ticket.parent && (
+                      <CornerDownRight
+                        role="img"
+                        aria-label="Subtask"
+                        className="size-3 shrink-0 text-muted-foreground"
+                      />
+                    )}
+                    <span className="truncate">{ticket.summary}</span>
+                  </span>
                   <span className="flex items-center gap-2">
                     {ticket.sessions.length > 0 && <LiveDot />}
                     <Assignees ticket={ticket} />

@@ -162,8 +162,6 @@ export type { SkillInventoryRow } from './skills/inventory.js';
 export type { SkillRow, SkillSync } from './skills/sync.js';
 export { type BrowseChild, type BrowseResult, DESCENDANTS_CAP } from './sources/browse.js';
 export { type CallbackListen, loopbackListener } from './sources/callback-listener.js';
-export type { Account, Site } from './sources/connection.js';
-export { siteNames } from './sources/describe.js';
 export type {
   ClickupFolder,
   ClickupList,
@@ -171,6 +169,8 @@ export type {
   ClickupSpace,
   ClickupWorkspace,
 } from './sources/clickup-locations.js';
+export type { Account, Site } from './sources/connection.js';
+export { siteNames } from './sources/describe.js';
 export type { GithubRepo } from './sources/github-repos.js';
 export type { ImportedItem, ImportResult, RefreshOptions } from './sources/import.js';
 export type { ImportProgress } from './sources/import-progress.js';

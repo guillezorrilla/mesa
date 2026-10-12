@@ -24,8 +24,12 @@ import {
   ClickupViewSchema,
   clickupLocationOf,
 } from './clickup-view.js';
-import { parseWith, type TicketProvider } from './provider.js';
-import type { ProviderDeps, ProviderTicket } from './provider.js';
+import {
+  type ProviderDeps,
+  type ProviderTicket,
+  parseWith,
+  type TicketProvider,
+} from './provider.js';
 import type { TicketView, ViewInput } from './providers.js';
 
 /** A ClickUp task whole, as its ticket panel shows it. */

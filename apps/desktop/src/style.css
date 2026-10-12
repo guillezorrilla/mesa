@@ -42,6 +42,7 @@
   --state-failed: oklch(0.58 0.2 27);
   /* A tracker's tint, and GitHub's open and closed states. */
   --tracker-github: oklch(0.53 0.14 150);
+  --tracker-clickup: oklch(0.58 0.21 355);
   --issue-open: oklch(0.55 0.14 150);
   --issue-closed: oklch(0.52 0.17 300);
   /* Chart series, in fixed order: validated for colour-vision deficiency on this surface. */
@@ -82,6 +83,7 @@
   --state-done: oklch(0.62 0.01 250);
   --state-failed: oklch(0.7 0.18 25);
   --tracker-github: oklch(0.72 0.14 150);
+  --tracker-clickup: oklch(0.72 0.17 355);
   --issue-open: oklch(0.5 0.13 150);
   --issue-closed: oklch(0.5 0.16 300);
   --series-1: #3987e5;
@@ -144,6 +146,7 @@
   --color-state-done: var(--state-done);
   --color-state-failed: var(--state-failed);
   --color-tracker-github: var(--tracker-github);
+  --color-tracker-clickup: var(--tracker-clickup);
   --color-issue-open: var(--issue-open);
   --color-issue-closed: var(--issue-closed);
 }

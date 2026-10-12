@@ -1,6 +1,6 @@
 import type { Ticket, TicketDefaults } from '@mesa/core';
 import { timeAgo } from '@mesa/core/browser';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { ArrowLeft, CornerDownRight, ExternalLink } from 'lucide-react';
 import { MarkdownView } from '@/components/MarkdownView';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ const link = (href: string, children: React.ReactNode) => (
 
 /**
  * One ticket beside the list: its key (with its tracker's icon, but on Jira) and link to its
- * tracker, title, who has a session on it, Status (GitHub's State), Assignee (or Assignees) and
+ * tracker, the task it is a subtask of, title, who has a session on it, Status (GitHub's State), Assignee (or Assignees) and
  * its tracker's own fields (TRACKERS), description and comments, and the Ticket starts
  * (TicketStartPanel).
  */
@@ -83,6 +83,13 @@ export function TicketPanel(props: {
             Open in {tracker.short} <ExternalLink aria-hidden className="size-3.5" />
           </a>
         </div>
+        {full && 'parent' in full && full.parent && (
+          <div className="-mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <CornerDownRight aria-hidden className="size-3" />
+            Subtask of <span className="font-mono">{tracker.shortKey(full.parent.key)}</span>
+            {full.parent.summary}
+          </div>
+        )}
         <h2 className="text-xl leading-snug font-semibold text-balance">{ticket.summary}</h2>
         {sessions.length > 0 && (
           <div className="flex items-center gap-2.5 rounded-lg bg-state-working/10 px-3 py-2 text-sm">
