@@ -28,7 +28,7 @@ export const open = defineCommand({
     from: {
       type: 'string',
       description:
-        'Start from an imported item (its id or link; a link not imported yet is imported first): the goal names its title, URL, and vault paths, then --goal',
+        'Start from an imported item (its id, link, or ticket id such as linear:ENG-123; one not imported yet is imported first): the goal names its title, URL, and vault paths, then --goal',
     },
     'no-notes': {
       type: 'boolean',

@@ -291,7 +291,7 @@ test('an unsupported, unconnected, or inaccessible link says why and writes noth
   expect(await refused(['ftp://example.test/tides'])).toMatchObject({ code: 'usage' });
   expect(await refused(['the tides'])).toEqual({
     code: 'usage',
-    message: 'the tides is not a link or a Jira issue key',
+    message: 'the tides is not a link or a ticket key',
   });
   await mesa.sources.disconnect('atlassian');
   expect(await refused(['LC-12'])).toEqual({

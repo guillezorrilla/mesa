@@ -199,6 +199,20 @@ test('an issue imports with its description and every comment, a project and a d
   );
 });
 
+test('a bare key or a linear: ticket id names the issue in the connected workspace', async () => {
+  const { world, mesa } = await setUp();
+  world.serveIssue('HAR-12', { title: 'Chart the spring tide', description: 'Plan.' });
+  const { result } = await mesa.imports.add('lantern-cove', ['HAR-12'], false);
+  expect(result.items).toMatchObject([
+    { source: 'linear', id: 'HAR-12', url: `${WEB}/issue/HAR-12` },
+  ]);
+  // The id mesa tickets lists finds the same item, as mesa open --from takes it.
+  expect(await mesa.imports.goal('lantern-cove', 'linear:HAR-12')).toMatchObject({
+    source: 'linear',
+    id: 'HAR-12',
+  });
+});
+
 test('a link to another workspace, to no item, or to a missing issue says why', async () => {
   const { mesa } = await setUp();
   const add = (link: string) => mesa.imports.add('lantern-cove', [link], false);
