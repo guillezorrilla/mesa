@@ -60,7 +60,8 @@ export function SessionCard(props: {
           else props.onSelect({ shift: event.shiftKey, toggle: event.metaKey });
         }}
       >
-        <span className="flex w-full min-w-0 items-center gap-2 font-medium">
+        {/* Clears the hover actions so the title never runs under them. */}
+        <span className="flex w-full min-w-0 items-center gap-2 font-medium group-focus-within:pr-17 group-hover:pr-17">
           {session.managed && session.kind === 'terminal' ? (
             <TerminalSquare aria-hidden className="size-3.5 shrink-0 text-state-working" />
           ) : session.lastState.state === 'idle' ? (
