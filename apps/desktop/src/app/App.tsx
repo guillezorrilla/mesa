@@ -1,6 +1,6 @@
 import type { TreeRow } from '@mesa/core';
 import { DEFAULT_SHORTCUTS, GENERAL_PROJECT } from '@mesa/core/browser';
-import { useCallback, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { warningOf } from '@/components/Toast';
 import { UnsavedFilesDialog } from '@/features/files/UnsavedFilesDialog';
 import { useNativeNotifications } from '@/features/notifications/useNativeNotifications';
@@ -40,8 +40,6 @@ export function App() {
   const { view, setView, navigate, navigateLatest, overlay, setOverlay } = workspace;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sessions, setSessions] = useState<TreeRow[]>([]);
-  const [sessionsLoaded, setSessionsLoaded] = useState(false);
-  const sessionsWereLoaded = useCallback(() => setSessionsLoaded(true), []);
   const search = useSearchPalette();
   const [archiveSessionRequest, setArchiveSessionRequest] = useState<SessionRequest>();
   const [dependencySessionRequest, setDependencySessionRequest] = useState<SessionRequest>();
@@ -67,16 +65,14 @@ export function App() {
     config.data?.projects?.sort,
   );
   const needsProfileSetup = config.error?.code === 'not_found';
-  const ready = useInitialView({
+  const { ready, onboarding, onSessionsLoaded } = useInitialView({
     config: config.data,
     needsProfileSetup,
     projects: projects.data,
     sessions,
-    sessionsLoaded,
     failed: (!!config.error && !needsProfileSetup) || !!projects.error,
     setView,
   });
-  const onboarding = needsProfileSetup || config.data?.onboarding?.status === 'active';
   useDiscoveryOffer({
     config: config.data,
     projects: projects.data,
@@ -226,7 +222,7 @@ export function App() {
               doctor={doctor}
               sessions={sessions}
               onRowsChange={setSessions}
-              onSessionsLoaded={sessionsWereLoaded}
+              onSessionsLoaded={onSessionsLoaded}
               filesDirty={workspace.filesDirty}
               onFilesDirtyChange={workspace.setFilesDirty}
               onNewSession={requestNewSession}

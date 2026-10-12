@@ -1,11 +1,14 @@
 import type { Config } from '@mesa/core';
 import { DEFAULT_APPEARANCE } from '@mesa/core/browser';
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 
-/** Applies the profile's appearance (theme, font, size, density, color vision) to the document root. */
+/**
+ * Applies the profile's appearance (theme, font, size, density, color vision) to the document root,
+ * before the frame paints, so the first frame is never in the wrong theme.
+ */
 export function useAppearance(choices: Config['appearance'] | undefined) {
   const appearance = choices ?? DEFAULT_APPEARANCE;
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.documentElement;
     const media = window.matchMedia?.('(prefers-color-scheme: dark)');
     const applyTheme = () => {
