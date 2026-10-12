@@ -38,6 +38,7 @@ export function WorkspaceMain(props: {
   doctor: CommandState<DoctorReport>;
   sessions: readonly TreeRow[];
   onRowsChange: (rows: TreeRow[]) => void;
+  onSessionsLoaded: () => void;
   filesDirty: boolean;
   onFilesDirtyChange: (dirty: boolean) => void;
   onNewSession: (preset: SessionPreset) => void;
@@ -91,6 +92,7 @@ export function WorkspaceMain(props: {
           projectsError={needsProfileSetup ? undefined : projects.error?.message}
           onRetryProjects={() => void projects.refresh()}
           onRowsChange={props.onRowsChange}
+          onLoaded={props.onSessionsLoaded}
           onSessions={() => navigate({ kind: 'sessions' })}
           onProject={(name) => navigate({ kind: 'project', name })}
           archiveSessionRequest={props.archiveSessionRequest}

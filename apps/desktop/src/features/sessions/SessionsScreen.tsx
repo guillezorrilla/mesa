@@ -36,6 +36,8 @@ export function SessionsScreen(
     projectsError?: string;
     onRetryProjects?: () => void;
     onRowsChange?: (rows: TreeRow[]) => void;
+    /** Called once the first look has answered, rows or a failure. */
+    onLoaded?: () => void;
     onSessions?: () => void;
     onProject?: (project: string) => void;
     archiveSessionRequest?: { count: number; ids: string[] };
@@ -50,10 +52,13 @@ export function SessionsScreen(
     onGridGroupsChanged?: () => void;
   } = {},
 ) {
-  const { data, look } = useSessions();
+  const { data, loaded, look } = useSessions();
   useEffect(() => {
     if (data) props.onRowsChange?.(data);
   }, [data, props.onRowsChange]);
+  useEffect(() => {
+    if (loaded) props.onLoaded?.();
+  }, [loaded, props.onLoaded]);
   const [dialog, setDialog] = useState<OpenDialog>();
   useLookForSelected(props.selectedSession, data, look);
   useDialogRequest(props.archiveSessionRequest, data, 'archive', setDialog);
