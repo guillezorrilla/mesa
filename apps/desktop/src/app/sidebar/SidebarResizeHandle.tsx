@@ -15,9 +15,11 @@ export function SidebarResizeHandle(props: { width: number; onWidth: (width: num
     const stop = () => {
       document.removeEventListener('pointermove', move);
       document.removeEventListener('pointerup', stop);
+      document.removeEventListener('pointercancel', stop);
     };
     document.addEventListener('pointermove', move);
     document.addEventListener('pointerup', stop);
+    document.addEventListener('pointercancel', stop);
   };
   const step = (event: KeyboardEvent) => {
     const sign = { ArrowLeft: -1, ArrowRight: 1 }[event.key];

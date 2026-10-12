@@ -1,24 +1,17 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, expect, test } from 'vitest';
-import { press } from '@/lib/testing';
+import { beforeEach, expect, test } from 'vitest';
+import { fakeBridge, press, renderWithMesa } from '@/lib/testing';
 import { SidebarResizeHandle } from './SidebarResizeHandle';
 import { useSidebarWidth } from './useSidebarWidth';
-
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 function Sized() {
   const [width, setWidth] = useSidebarWidth();
   return <SidebarResizeHandle width={width} onWidth={setWidth} />;
 }
 
-let root: Root | undefined;
 const render = async () => {
-  await act(async () => root?.unmount());
-  document.body.innerHTML = '<div id="root"></div>';
-  root = createRoot(document.getElementById('root') as HTMLElement);
-  await act(async () => root?.render(<Sized />));
+  await renderWithMesa(<Sized />, fakeBridge().bridge);
   return document.querySelector<HTMLElement>('[role="separator"]') as HTMLElement;
 };
 const width = (handle: HTMLElement) => Number(handle.getAttribute('aria-valuenow'));
@@ -28,7 +21,6 @@ const pointer = (target: EventTarget, type: string, clientX: number) =>
   });
 
 beforeEach(() => localStorage.clear());
-afterEach(async () => act(async () => root?.unmount()));
 
 test('the handle is a labelled vertical separator at the default width', async () => {
   const handle = await render();
@@ -49,6 +41,10 @@ test('dragging sets the width live, clamped to 200 and 480, and stops on release
   expect(width(handle)).toBe(200);
   await pointer(document, 'pointermove', 340);
   await pointer(document, 'pointerup', 340);
+  await pointer(document, 'pointermove', 400);
+  expect(width(handle)).toBe(340);
+  await pointer(handle, 'pointerdown', 340);
+  await pointer(document, 'pointercancel', 340);
   await pointer(document, 'pointermove', 400);
   expect(width(handle)).toBe(340);
 });

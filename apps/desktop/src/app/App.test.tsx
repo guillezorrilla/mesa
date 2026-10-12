@@ -7,7 +7,7 @@ import {
   TERMINAL_PRESETS,
 } from '@mesa/core/browser';
 import { act } from 'react';
-import { expect, test, vi } from 'vitest';
+import { beforeEach, expect, test, vi } from 'vitest';
 import { CONFIRMATION_MS } from '@/components/Toast';
 import {
   asking,
@@ -47,6 +47,9 @@ const openProject = async (byTestId: (id: string) => HTMLElement[], index = 0) =
   );
   await click(byTestId('sidebar-project')[index]);
 };
+
+// The sidebar keeps its width in localStorage; each test starts from the default.
+beforeEach(() => localStorage.clear());
 
 test('sidebar opens a project workspace and its Skills tab', async () => {
   const { bridge } = fakeBridge({
