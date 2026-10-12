@@ -21,9 +21,10 @@ export type Provider = {
  * Every source the broker signs in to, one row each (ADR-0014). Notion's public connection takes
  * no scopes (its capabilities are set in the app) and its secret as HTTP Basic. ClickUp takes no
  * scopes either (a token reaches the Workspaces the person picks) and answers only an access token,
- * which does not expire. Linear asks for read only, takes its token request as a form, and answers
- * day-long access tokens with rotating refresh tokens; `prompt=consent` shows the workspace picker
- * again on a reconnect. GitHub's is a GitHub App: no scopes (its permissions, Issues read and
+ * which does not expire. Linear asks for read and write (write is the narrowest scope that lets
+ * Assign to me set an issue's assignee; issues:create only creates), takes its token request as a
+ * form, and answers day-long access tokens with rotating refresh tokens; `prompt=consent` shows
+ * the workspace picker again on a reconnect. GitHub's is a GitHub App: no scopes (its permissions, Issues read and
  * write, are set on the app), 8-hour user tokens with rotating refresh tokens, a form token
  * request, and refusals answered as HTTP 200 with an `error`.
  */
@@ -52,7 +53,7 @@ export const PROVIDERS: Record<string, Provider> = {
   linear: {
     authorizeUrl: 'https://linear.app/oauth/authorize',
     tokenUrl: 'https://api.linear.app/oauth/token',
-    scopes: 'read',
+    scopes: 'read,write',
     params: { response_type: 'code', prompt: 'consent' },
     env: { clientId: 'LINEAR_CLIENT_ID', clientSecret: 'LINEAR_CLIENT_SECRET' },
     tokenBody: 'form',

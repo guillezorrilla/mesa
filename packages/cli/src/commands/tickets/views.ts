@@ -20,7 +20,7 @@ export const ticketsViews = defineCommand({
 export const ticketsViewsAdd = defineCommand({
   name: 'tickets views add',
   summary:
-    "Define a view: a board's current or next sprint, a saved filter, or JQL; a GitHub repo (--provider github); or a ClickUp List, Folder, Space or saved view (--provider clickup)",
+    "Define a view: a board's current or next sprint, a saved filter, or JQL; a GitHub repo (--provider github); a ClickUp List, Folder, Space or saved view (--provider clickup); or a Linear team's cycle, project, or custom view (--provider linear)",
   args: ['name'],
   flags: VIEW_FLAGS,
   example: 'mesa tickets views add sprint --board 42',

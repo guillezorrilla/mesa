@@ -5,11 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useAct } from '@/lib/useAct';
-import { useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { FollowDialogFrame } from './FollowDialogFrame';
-import { freeName } from './freeName';
+import { useFollowView } from './useFollowView';
 import { type Pick, ViewPicker } from './ViewPicker';
 
 type Kind = 'current' | 'next' | 'filter' | 'jql';
@@ -32,16 +30,11 @@ export function FollowViewDialog(props: {
   onFollowed: () => void;
   onCancel: () => void;
 }) {
-  const run = useRun();
-  const { acting, act } = useAct();
-  const views = useCommand('tickets.views');
   const [kind, setKind] = useState<Kind>('current');
   const [picked, setPicked] = useState<Pick>();
   const [jql, setJql] = useState('');
   const [typedName, setTypedName] = useState('');
   const [checkedJql, setCheckedJql] = useState('');
-  const [mine, setMine] = useState(true);
-  const [hideDone, setHideDone] = useState(true);
   const filter = kind === 'filter';
   const query: ViewQuery | undefined =
     kind === 'jql'
@@ -49,31 +42,22 @@ export function FollowViewDialog(props: {
         ? { jql: checkedJql.trim() }
         : undefined
       : picked && (filter ? { filter: picked.id } : { board: Number(picked.id), sprint: kind });
-  const view = query && {
-    ...query,
-    ...(mine ? {} : { everyone: true }),
-    ...(hideDone ? {} : { showDone: true }),
-  };
-  const others = (views.data ?? []).filter((v) => !props.following.includes(v.name));
-  const suggested = freeName(
+  const base =
     kind === 'jql'
       ? 'JQL view'
       : filter
         ? (picked?.name ?? 'Saved filter')
-        : `${picked?.name ?? 'Board'} ${kind === 'next' ? 'next sprint' : 'sprint'}`,
-    (views.data ?? []).map((v) => v.name),
+        : `${picked?.name ?? 'Board'} ${kind === 'next' ? 'next sprint' : 'sprint'}`;
+  const { views, view, name, suggested, acting, follow, toggles } = useFollowView(
+    props.project,
+    props.onFollowed,
+    query,
+    base,
+    typedName,
   );
-  const name = typedName.trim() || suggested;
+  const others = (views ?? []).filter((v) => !props.following.includes(v.name));
   // A typed name another view has is refused before Follow, not after.
-  const taken = (views.data ?? []).find((v) => v.name.toLowerCase() === name.toLowerCase())?.name;
-  const follow = (existing?: string) =>
-    void act(async () => {
-      const target =
-        existing ?? (view && (await run('tickets.viewsAdd', { view: { name, ...view } }))?.name);
-      if (target && (await run('tickets.follow', { project: props.project, view: target })))
-        props.onFollowed();
-      return undefined;
-    });
+  const taken = (views ?? []).find((v) => v.name.toLowerCase() === name.toLowerCase())?.name;
   return (
     <FollowDialogFrame
       tracker="jira"
@@ -87,10 +71,7 @@ export function FollowViewDialog(props: {
           : 'Pick a board or filter.'
       }
       labels={{ mine: 'Only my tickets', hideDone: 'Hide done tickets' }}
-      mine={mine}
-      hideDone={hideDone}
-      onMine={setMine}
-      onHideDone={setHideDone}
+      {...toggles}
       disabled={acting || !view || taken !== undefined}
       onSubmit={() => follow()}
       onCancel={props.onCancel}

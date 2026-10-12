@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { SourceError } from '@/features/projects/import/SourceError';
 import { type CommandState, useCommand } from '@/lib/useCommand';
+import { type Choice, ChoiceRows } from './ChoiceRows';
 
 /** A board or saved filter a view can name. */
 export type Pick = { id: string; name: string };
-
-type Choice = Pick & { hint: string };
 
 /** The choices as radio rows; the first is picked until the person picks another. */
 function Choices(props: {
@@ -24,33 +23,13 @@ function Choices(props: {
   if (props.read.error && !choices)
     return <SourceError source="atlassian" error={props.read.error} onRetry={props.read.refresh} />;
   return (
-    <div
-      role="radiogroup"
-      aria-label={props.label}
-      className="max-h-44 divide-y overflow-auto rounded-lg border"
-    >
-      {choices?.map((c) => (
-        <label
-          key={c.id}
-          htmlFor={`view-pick-${c.id}`}
-          className="flex cursor-pointer items-center gap-2.5 px-3 py-2 text-sm hover:bg-accent/60"
-        >
-          <input
-            id={`view-pick-${c.id}`}
-            type="radio"
-            name="view-pick"
-            checked={picked?.id === c.id}
-            onChange={() => onPick({ id: c.id, name: c.name })}
-            className="accent-primary"
-          />
-          {c.name}
-          <span className="ml-auto text-xs text-muted-foreground">{c.hint}</span>
-        </label>
-      ))}
-      {choices && !choices.length && (
-        <p className="px-3 py-2 text-sm text-muted-foreground">None found.</p>
-      )}
-    </div>
+    <ChoiceRows
+      label={props.label}
+      name="view-pick"
+      choices={choices}
+      picked={picked?.id}
+      onPick={(c) => onPick({ id: c.id, name: c.name })}
+    />
   );
 }
 

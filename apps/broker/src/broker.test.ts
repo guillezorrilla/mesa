@@ -191,19 +191,24 @@ test('ClickUp signs in with no scopes, and takes the client id and secret in the
   ]);
 });
 
-test('Linear asks for read with consent, and takes its token requests as a form', async () => {
+test('Linear asks for read and write with consent, and takes its token requests as a form', async () => {
   const to = new URL((await get('/authorize/linear?state=n1.49152')).headers.get('location') ?? '');
   expect(`${to.origin}${to.pathname}`).toBe('https://linear.app/oauth/authorize');
   expect(Object.fromEntries(to.searchParams)).toEqual({
     client_id: 'linear-client',
-    scope: 'read',
+    scope: 'read,write',
     redirect_uri: `${BROKER}/callback/linear`,
     state: 'n1.49152',
     response_type: 'code',
     prompt: 'consent',
   });
 
-  const token = { access_token: 'at-1', expires_in: 86399, refresh_token: 'rt-1', scope: 'read' };
+  const token = {
+    access_token: 'at-1',
+    expires_in: 86399,
+    refresh_token: 'rt-1',
+    scope: 'read,write',
+  };
   const { upstream, calls } = vendor(200, token);
   const answer = await post(
     '/token/linear',

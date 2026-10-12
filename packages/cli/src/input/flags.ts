@@ -105,7 +105,7 @@ export const SEARCH_FLAG = {
 
 /** The flags that name a view's query: `views add` and `preview` take them. */
 export const VIEW_FLAGS = {
-  provider: { type: 'string', description: 'jira (default), github or clickup' },
+  provider: { type: 'string', description: 'jira (default), github, clickup or linear' },
   board: { type: 'string', description: "A board's id: the view reads its sprint" },
   sprint: { type: 'string', description: 'current (default) or next, with --board' },
   filter: { type: 'string', description: "A saved filter's id" },
@@ -120,11 +120,14 @@ export const VIEW_FLAGS = {
   list: { type: 'string', description: "ClickUp: a List's link or id" },
   folder: { type: 'string', description: "ClickUp: a Folder's link or id, for every List in it" },
   space: { type: 'string', description: "ClickUp: a Space's link or id, for every List in it" },
-  view: { type: 'string', description: "ClickUp: a saved view's link or id" },
+  view: { type: 'string', description: "ClickUp or Linear: a saved view's link or id" },
   workspace: {
     type: 'string',
     description: 'ClickUp: the Workspace of a bare id, when the connection reaches several',
   },
+  team: { type: 'string', description: "Linear: a team's key or id: the view reads its cycle" },
+  cycle: { type: 'string', description: 'Linear: current (default) or next, with --team' },
+  'linear-project': { type: 'string', description: "Linear: a project's id, slug id or link" },
   everyone: { type: 'boolean', description: "Every assignee's tickets, not only yours" },
   'show-done': { type: 'boolean', description: 'Done (closed) tickets too' },
   site: { type: 'string', description: 'The Atlassian site, when the connection reaches several' },
@@ -195,6 +198,23 @@ const PROVIDER_VIEWS: {
       return { provider: 'clickup', ...Object.fromEntries(given), ...narrowing };
     },
   },
+  linear: {
+    flags: ['team', 'cycle', 'linear-project', 'view'],
+    query: (text, narrowing) => {
+      const cycle = text('cycle');
+      if (cycle !== undefined && cycle !== 'current' && cycle !== 'next')
+        throw new MesaError('usage', '--cycle is current or next');
+      const [team, project, view] = [text('team'), text('linear-project'), text('view')];
+      return {
+        provider: 'linear',
+        ...(team ? { team } : {}),
+        ...(cycle ? { cycle: cycle as 'current' | 'next' } : {}),
+        ...(project ? { project } : {}),
+        ...(view ? { view } : {}),
+        ...narrowing,
+      };
+    },
+  },
 };
 
 /** The view query VIEW_FLAGS name, checked: Jira's, or another provider's with --provider. */
@@ -204,8 +224,12 @@ export function viewOf(flags: ViewFlags): ViewQuery {
     return typeof value === 'string' ? value : undefined;
   };
   const provider = providerOf(text('provider') ?? 'jira');
+  const mine: ViewFlag[] = PROVIDER_VIEWS[provider].flags;
   for (const [other, { flags: own }] of Object.entries(PROVIDER_VIEWS)) {
-    const given = own.filter((name) => other !== provider && text(name) !== undefined);
+    // A flag two providers share (--view) is the given provider's.
+    const given = own.filter(
+      (name) => other !== provider && !mine.includes(name) && text(name) !== undefined,
+    );
     if (given.length)
       throw new MesaError(
         'usage',

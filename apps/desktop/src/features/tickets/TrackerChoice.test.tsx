@@ -101,6 +101,7 @@ test('a project with no tracker asks where it tracks work: connected first, Conn
     'JiraConnected as rowan@example.testUse Jira',
     'GitHub IssuesSign in, then pick the repos Mesa may readConnect',
     'ClickUpSign in with your ClickUp workspaceConnect',
+    'LinearSign in with your Linear workspaceConnect',
   ]);
   expect(text()).toMatch(/Connected.*Not connected yet/);
 

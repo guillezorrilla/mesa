@@ -67,7 +67,7 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
     fields: shown,
     origin: (project) => originRepo(ctx, project),
   });
-  const { jira, github, clickup } = rows;
+  const { jira, github, clickup, linear } = rows;
 
   const savedPrompt = (name: string) => {
     const saved = deps.prompts().find((p) => same(p.name, name));
@@ -149,6 +149,8 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
     repo: github.repo,
     locations: clickup.locations,
     savedViews: clickup.savedViews,
+    teams: linear.teams,
+    team: linear.team,
     /** The site's Jira fields a ticket panel can show, whose name holds `search`, and the ones it shows. */
     fields: async (search?: string, siteName?: string) => ({
       ...(await jira.fields(search, siteName)),

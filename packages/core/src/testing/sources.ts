@@ -492,6 +492,44 @@ export const TEST_LINEAR = 'https://api.linear.app/graphql';
 
 type LinearVariables = Record<string, unknown>;
 
+/** The people of linearWorld, by name: Rowan Tide is the one signed in. */
+const LINEAR_PEOPLE: Record<string, string> = { 'Rowan Tide': 'user-1', 'Mira Keel': 'user-2' };
+
+/** What a Linear issue's state, priority and assignee are, where a test cares. */
+export type LinearIssueFacts = {
+  /** Its workflow state's type; started (In Progress) unless given. */
+  state?: 'triage' | 'backlog' | 'unstarted' | 'started' | 'completed' | 'canceled';
+  /** Its assignee's name (LINEAR_PEOPLE), Rowan Tide unless given, null for none. */
+  assignee?: string | null;
+  /** 0 (none) to 4 (low); 2 (High) unless given. */
+  priority?: number;
+};
+
+const LINEAR_STATES = {
+  triage: 'Triage',
+  backlog: 'Backlog',
+  unstarted: 'Todo',
+  started: 'In Progress',
+  completed: 'Done',
+  canceled: 'Canceled',
+};
+const LINEAR_PRIORITIES = ['No priority', 'Urgent', 'High', 'Medium', 'Low'];
+
+/** Issue `identifier` as a Linear issue list answers it, in workspace lantern-cove. */
+export const linearIssueObject = (
+  identifier: string,
+  title: string,
+  { state = 'started', assignee = 'Rowan Tide', priority = 2 }: LinearIssueFacts = {},
+) => ({
+  identifier,
+  title,
+  url: `https://linear.app/lantern-cove/issue/${identifier}/${title.toLowerCase().replaceAll(/\W+/g, '-')}`,
+  priority,
+  priorityLabel: LINEAR_PRIORITIES[priority],
+  state: { name: LINEAR_STATES[state], type: state, color: '#f2c94c' },
+  assignee: assignee === null ? null : { id: LINEAR_PEOPLE[assignee] ?? 'user-9', name: assignee },
+});
+
 /**
  * Linear and the broker in memory (brokerWorld): day-long access tokens whose refresh tokens
  * rotate, as Linear's do, and one GraphQL endpoint that answers each query by its operation name
@@ -503,7 +541,7 @@ export function linearWorld(signIn = fakeSignIn()) {
   const operations: Record<string, (variables: LinearVariables) => unknown> = {};
   const queries: { operation: string; variables: LinearVariables }[] = [];
   world.servePost(TEST_LINEAR, (body) => {
-    const operation = /^\s*query (\w+)/.exec(String(body.query))?.[1] ?? '';
+    const operation = /^\s*(?:query|mutation) (\w+)/.exec(String(body.query))?.[1] ?? '';
     const variables = (body.variables ?? {}) as LinearVariables;
     queries.push({ operation, variables });
     const answerOf = operations[operation];
@@ -540,6 +578,11 @@ export function linearWorld(signIn = fakeSignIn()) {
     const issue = issues[String(id)];
     return issue && { issue: { ...issue, comments: page(comments[String(id)] ?? [], after, 50) } };
   });
+  // The Tickets tab's panel reads the same issue, with more of its fields.
+  answer('TicketIssue', ({ id, after }) => {
+    const issue = issues[String(id)];
+    return issue && { issue: { ...issue, comments: page(comments[String(id)] ?? [], after, 50) } };
+  });
   answer('IssueComments', ({ id, after }) =>
     issues[String(id)]
       ? { issue: { comments: page(comments[String(id)] ?? [], after, 50) } }
@@ -560,23 +603,25 @@ export function linearWorld(signIn = fakeSignIn()) {
         description?: string;
         updated?: string;
         comments?: { by: string; text: string }[];
-      },
+      } & LinearIssueFacts,
     ) => {
       issues[identifier] = {
-        identifier,
-        title: issue.title,
+        ...linearIssueObject(identifier, issue.title, issue),
         description: issue.description ?? null,
         updatedAt: issue.updated ?? '2026-09-24T12:00:00.000Z',
         createdAt: '2026-09-20T09:00:00.000Z',
-        priorityLabel: 'High',
         estimate: 3,
         dueDate: null,
-        state: { name: 'In Progress' },
-        team: { name: 'Harbour' },
+        team: { key: 'HAR', name: 'Harbour' },
         project: { name: 'Spring tides' },
-        cycle: { number: 4, name: null },
-        assignee: { name: 'Rowan Tide' },
-        labels: { nodes: [{ name: 'tides' }] },
+        cycle: {
+          id: 'cycle-4',
+          number: 4,
+          name: null,
+          startsAt: '2026-09-21T00:00:00.000Z',
+          endsAt: '2026-10-04T00:00:00.000Z',
+        },
+        labels: { nodes: [{ name: 'tides', color: '#4ea7fc' }] },
       };
       comments[identifier] = (issue.comments ?? []).map((c, at) => ({
         body: c.text,

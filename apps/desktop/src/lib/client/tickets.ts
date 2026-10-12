@@ -9,6 +9,11 @@ import type {
   GithubRepo,
   JiraField,
   JiraIssue,
+  LinearCustomView,
+  LinearCycle,
+  LinearDetail,
+  LinearProject,
+  LinearTeam,
   ProviderId,
   SourceId,
   Ticket,
@@ -28,6 +33,7 @@ export type TicketDetail = (
   | (JiraIssue & { provider: 'jira'; site: string })
   | (GithubDetail & { provider: 'github' })
   | (ClickupDetail & { provider: 'clickup' })
+  | (LinearDetail & { provider: 'linear' })
 ) & {
   id: string;
   url: string;
@@ -50,6 +56,10 @@ const FLAGS: Record<string, { flag: string; joined?: true }> = {
   space: { flag: 'space' },
   view: { flag: 'view' },
   workspace: { flag: 'workspace' },
+  team: { flag: 'team' },
+  cycle: { flag: 'cycle' },
+  // A Linear project: GitHub's input names its repo, never a project.
+  project: { flag: 'linear-project' },
   everyone: { flag: 'everyone' },
   showDone: { flag: 'show-done' },
 };
@@ -136,6 +146,18 @@ export const ticketsCommands = {
   'tickets.locations': command<{ workspaces: ClickupWorkspace[] }>('tickets', 'locations'),
   /** ClickUp's saved task views at Everything and in each Space. */
   'tickets.savedViews': command<{ views: ClickupSavedView[] }>('tickets', 'saved-views'),
+  /** The Linear teams a view can follow the cycle of. */
+  'tickets.teams': command<LinearTeam[]>('tickets', 'teams'),
+  /** A Linear team's current and next cycles, open projects, and custom views of issues. */
+  'tickets.team': commandWith<
+    { team: string },
+    {
+      team: LinearTeam;
+      cycles: { current?: LinearCycle; next?: LinearCycle };
+      projects: LinearProject[];
+      views: LinearCustomView[];
+    }
+  >(({ team }) => ['tickets', 'team', '--', team]),
   'tickets.defaults': commandWith<
     { project: string; change: Partial<TicketDefaults> },
     TicketDefaults

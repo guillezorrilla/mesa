@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { MesaError } from '../lib/result.js';
 import { isClickupTaskId } from '../sources/clickup.js';
+import { isLinearIdentifier } from '../sources/linear.js';
 import type { SourceId } from '../sources/sources.js';
 import { clickupProvider } from './clickup-provider.js';
 import { type ClickupViewInput, ClickupViewSchema, describeClickupView } from './clickup-view.js';
@@ -8,6 +9,8 @@ import { githubProvider } from './github-provider.js';
 import { describeGithubView, type GithubViewInput, GithubViewSchema } from './github-view.js';
 import { jiraProvider } from './jira-provider.js';
 import { describeJiraView, type JiraViewInput, JiraViewSchema } from './jira-view.js';
+import { linearProvider } from './linear-provider.js';
+import { describeLinearView, type LinearViewInput, LinearViewSchema } from './linear-view.js';
 import type { ProviderDeps } from './provider.js';
 
 /**
@@ -30,6 +33,14 @@ export const PROVIDERS = {
     connect: clickupProvider,
     // Its source imports Doc pages too, which are no tickets.
     ticket: isClickupTaskId,
+  },
+  linear: {
+    name: 'Linear',
+    source: 'linear',
+    describe: describeLinearView,
+    connect: linearProvider,
+    // Its source imports projects and documents too, which are no tickets.
+    ticket: isLinearIdentifier,
   },
 } as const satisfies Record<
   string,
@@ -59,7 +70,12 @@ export const providerName = (id: ProviderId): string => PROVIDERS[id].name;
 /** A view of any provider as tickets.yaml keeps it; one written before providers reads as Jira's. */
 export const TicketViewSchema = z.preprocess(
   (v) => (v && typeof v === 'object' && !('provider' in v) ? { ...v, provider: 'jira' } : v),
-  z.discriminatedUnion('provider', [JiraViewSchema, GithubViewSchema, ClickupViewSchema]),
+  z.discriminatedUnion('provider', [
+    JiraViewSchema,
+    GithubViewSchema,
+    ClickupViewSchema,
+    LinearViewSchema,
+  ]),
 );
 export type TicketView = z.infer<typeof TicketViewSchema>;
 
@@ -81,7 +97,7 @@ export function providerOf(id: string): ProviderId {
   return found;
 }
 
-/** A ticket's id across providers: the provider, a colon, its own key, such as jira:LC-12, github:owner/repo#12 or clickup:DOCK-112. */
+/** A ticket's id across providers: the provider, a colon, its own key, such as jira:LC-12, github:owner/repo#12, clickup:DOCK-112 or linear:ENG-123. */
 export const ticketId = (provider: ProviderId, key: string) => `${provider}:${key}`;
 
 /** `input` as a provider and its key: a ticket id such as jira:LC-12, or a bare Jira key. */
@@ -95,7 +111,7 @@ export function ticketRef(input: string): { provider: ProviderId; key: string } 
  * What `mesa tickets views add` takes: a view of any provider, before its provider checks it;
  * one naming no provider is Jira's.
  */
-export type ViewInput = JiraViewInput | GithubViewInput | ClickupViewInput;
+export type ViewInput = JiraViewInput | GithubViewInput | ClickupViewInput | LinearViewInput;
 
 /** A view's query without its name, as the Follow dialog's live count takes it (per provider). */
 export type ViewQuery = ViewInput extends infer V

@@ -1,13 +1,11 @@
 import type { ViewQuery } from '@mesa/core';
 import { useEffect, useState } from 'react';
-import { useAct } from '@/lib/useAct';
-import { useCommand, useRun } from '@/lib/useCommand';
 import { useRepoAccess } from '../github/useRepoAccess';
 import type { FollowDialogProps } from '../trackers';
 import { FollowDialogFrame } from './FollowDialogFrame';
-import { freeName } from './freeName';
 import { RepoFilters } from './RepoFilters';
 import { RepoPicker } from './RepoPicker';
+import { useFollowView } from './useFollowView';
 
 /**
  * GitHub's Follow dialog, "Follow a repo": the repo (this project's remote first, or one just
@@ -15,15 +13,10 @@ import { RepoPicker } from './RepoPicker';
  * Hide closed issues, and the live count. The followed repo is a view named after the repo.
  */
 export function FollowRepoDialog(props: FollowDialogProps) {
-  const run = useRun();
-  const { acting, act } = useAct();
-  const views = useCommand('tickets.views');
   const access = useRepoAccess(props.project);
   const [picked, setPicked] = useState<string>();
   const [labels, setLabels] = useState<string[]>([]);
   const [milestone, setMilestone] = useState<string>();
-  const [mine, setMine] = useState(true);
-  const [hideDone, setHideDone] = useState(true);
   const pick = (repo: string) => {
     setPicked(repo);
     setLabels([]);
@@ -38,30 +31,20 @@ export function FollowRepoDialog(props: FollowDialogProps) {
     setMilestone(undefined);
   }, [added]);
   const repo = picked ?? access.repos?.[0]?.fullName;
-  const view: ViewQuery | undefined = repo
+  const query: ViewQuery | undefined = repo
     ? {
         provider: 'github',
         repo,
         ...(labels.length ? { labels } : {}),
         ...(milestone ? { milestone } : {}),
-        ...(mine ? {} : { everyone: true }),
-        ...(hideDone ? {} : { showDone: true }),
       }
     : undefined;
-  const name = freeName(
+  const { view, name, acting, follow, toggles } = useFollowView(
+    props.project,
+    props.onFollowed,
+    query,
     repo?.split('/')[1] ?? 'repo',
-    (views.data ?? []).map((v) => v.name),
   );
-  const follow = () =>
-    void act(async () => {
-      const followed = view && (await run('tickets.viewsAdd', { view: { name, ...view } }));
-      if (
-        followed &&
-        (await run('tickets.follow', { project: props.project, view: followed.name }))
-      )
-        props.onFollowed();
-      return undefined;
-    });
   return (
     <FollowDialogFrame
       tracker="github"
@@ -76,12 +59,9 @@ export function FollowRepoDialog(props: FollowDialogProps) {
       }}
       waiting={access.repos ? 'Give Mesa access to a repo first.' : 'Reading repos...'}
       labels={{ mine: 'Only issues assigned to me', hideDone: 'Hide closed issues' }}
-      mine={mine}
-      hideDone={hideDone}
-      onMine={setMine}
-      onHideDone={setHideDone}
+      {...toggles}
       disabled={acting || !view}
-      onSubmit={follow}
+      onSubmit={() => follow()}
       onCancel={props.onCancel}
     >
       <RepoPicker access={access} repo={repo} onPick={pick} />
