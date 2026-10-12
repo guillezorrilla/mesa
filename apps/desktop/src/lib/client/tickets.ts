@@ -6,6 +6,11 @@ import type {
   GithubRepo,
   JiraField,
   JiraIssue,
+  LinearCustomView,
+  LinearCycle,
+  LinearDetail,
+  LinearProject,
+  LinearTeam,
   ProviderId,
   SourceId,
   Ticket,
@@ -24,6 +29,7 @@ type SiteOf<T> = { site: { id: string; name: string } } & T;
 export type TicketDetail = (
   | (JiraIssue & { provider: 'jira'; site: string })
   | (GithubDetail & { provider: 'github' })
+  | (LinearDetail & { provider: 'linear' })
 ) & {
   id: string;
   url: string;
@@ -41,6 +47,11 @@ const FLAGS: Record<string, { flag: string; joined?: true }> = {
   repo: { flag: 'repo' },
   labels: { flag: 'label', joined: true },
   milestone: { flag: 'milestone' },
+  team: { flag: 'team' },
+  cycle: { flag: 'cycle' },
+  // A Linear project: GitHub's input names its repo, never a project.
+  project: { flag: 'linear-project' },
+  customView: { flag: 'custom-view' },
   everyone: { flag: 'everyone' },
   showDone: { flag: 'show-done' },
 };
@@ -123,6 +134,18 @@ export const ticketsCommands = {
       milestones: { number: number; title: string }[];
     }
   >(({ repo }) => ['tickets', 'repo', '--', repo]),
+  /** The Linear teams a view can follow the cycle of. */
+  'tickets.teams': command<LinearTeam[]>('tickets', 'teams'),
+  /** A Linear team's current and next cycles, open projects, and custom views of issues. */
+  'tickets.team': commandWith<
+    { team: string },
+    {
+      team: LinearTeam;
+      cycles: { current?: LinearCycle; next?: LinearCycle };
+      projects: LinearProject[];
+      views: LinearCustomView[];
+    }
+  >(({ team }) => ['tickets', 'team', '--', team]),
   'tickets.defaults': commandWith<
     { project: string; change: Partial<TicketDefaults> },
     TicketDefaults

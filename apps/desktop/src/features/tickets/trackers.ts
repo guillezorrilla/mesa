@@ -1,6 +1,8 @@
 import type { ProviderId, SourceId, Ticket } from '@mesa/core';
-import { CircleDot, type LucideIcon, SquareKanban } from 'lucide-react';
+import { CircleDot, Gauge, type LucideIcon, SquareKanban } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
+import { CategoryStatus } from './CategoryStatus';
+import { FollowLinearDialog } from './follow/FollowLinearDialog';
 import { FollowRepoDialog } from './follow/FollowRepoDialog';
 import { FollowViewDialog } from './follow/FollowViewDialog';
 import { GithubRepoGate } from './github/GithubRepoGate';
@@ -9,8 +11,9 @@ import { GithubSetupPanel } from './github/GithubSetupPanel';
 import { GithubState } from './github/GithubState';
 import { GithubTicketFields } from './github/GithubTicketFields';
 import { JiraSetupPanel } from './JiraSetupPanel';
-import { JiraStatus } from './JiraStatus';
 import { JiraTicketFields } from './JiraTicketFields';
+import { LinearSetupPanel } from './linear/LinearSetupPanel';
+import { LinearTicketFields } from './linear/LinearTicketFields';
 import type { TicketFieldsProps } from './ticketFields';
 
 /** What a tracker's Follow dialog gets from the tab. */
@@ -80,7 +83,7 @@ export const TRACKERS: { [K in ProviderId]: Tracker<K> } = {
     mark: false,
     several: false,
     statusName: 'Status',
-    Status: JiraStatus,
+    Status: CategoryStatus,
     Setup: JiraSetupPanel,
     connectPage: false,
     Follow: FollowViewDialog,
@@ -108,6 +111,26 @@ export const TRACKERS: { [K in ProviderId]: Tracker<K> } = {
     Settings: GithubSettingsRow,
     Follow: FollowRepoDialog,
     Fields: GithubTicketFields,
+  },
+  linear: {
+    name: 'Linear',
+    short: 'Linear',
+    source: 'linear',
+    sourceLabel: 'Linear',
+    signIn: 'Sign in with your Linear workspace',
+    icon: Gauge,
+    tint: 'text-tracker-linear',
+    unit: 'view',
+    nouns: 'issues',
+    shortKey: (key) => key,
+    mark: true,
+    several: false,
+    statusName: 'Status',
+    Status: CategoryStatus,
+    Setup: LinearSetupPanel,
+    connectPage: true,
+    Follow: FollowLinearDialog,
+    Fields: LinearTicketFields,
   },
 };
 

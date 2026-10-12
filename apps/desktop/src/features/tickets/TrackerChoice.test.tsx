@@ -100,6 +100,7 @@ test('a project with no tracker asks where it tracks work: connected first, Conn
   expect(rows()).toEqual([
     'JiraConnected as rowan@example.testUse Jira',
     'GitHub IssuesSign in, then pick the repos Mesa may readConnect',
+    'LinearSign in with your Linear workspaceConnect',
   ]);
   expect(text()).toMatch(/Connected.*Not connected yet/);
 
