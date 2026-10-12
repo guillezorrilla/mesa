@@ -187,6 +187,8 @@ test("Follow a repo picks this project's remote, narrows by label and milestone 
   await click(byTestId('milestone-button')[0]);
   await click(item('v2.4'));
   expect(byTestId('milestone-button')[0]?.textContent).toBe('v2.4');
+  // One milestone: picking it closes the list.
+  expect(item('Any milestone')).toBeUndefined();
   expect(words(calls)).toContain(
     `tickets preview --provider github --repo ${REPO} --label=bug --milestone 3`,
   );

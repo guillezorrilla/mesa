@@ -9,6 +9,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { substringFilter } from '@/lib/substringFilter';
 import { cn } from '@/lib/utils';
 
 /** One choice in a PickMenu: its value, the name shown and searched, and an optional color dot. */
@@ -38,10 +39,7 @@ export function PickMenu(props: {
         className="w-[max(18rem,var(--radix-popover-trigger-width))] p-0"
         aria-label={props.label}
       >
-        {/* Names holding the search, not cmdk's fuzzy match ("app" is not area/skills). */}
-        <Command
-          filter={(value, search) => (value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0)}
-        >
+        <Command filter={substringFilter}>
           <CommandInput placeholder={props.search} />
           <CommandList className="max-h-64">
             <CommandEmpty>{props.empty}</CommandEmpty>
