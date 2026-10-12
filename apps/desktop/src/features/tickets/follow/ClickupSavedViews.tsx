@@ -39,7 +39,7 @@ export function ClickupSavedViews(props: {
             className="accent-primary"
           />
           <span className="rounded border px-1.5 text-[11px] font-medium text-muted-foreground capitalize">
-            {view.type.replace('_', ' ')}
+            {view.type.replaceAll('_', ' ')}
           </span>
           {view.name}
           <span className="ml-auto text-xs text-muted-foreground">in {view.where}</span>

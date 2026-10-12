@@ -98,6 +98,15 @@ export function clickupLink(url: URL): ClickupLink | undefined {
   return undefined;
 }
 
+/** Whether an imported ClickUp item, by its canonical URL, is a task (not a Doc page). */
+export const isClickupTask = (url: string) => {
+  try {
+    return clickupLink(new URL(url))?.kind === 'task';
+  } catch {
+    return false;
+  }
+};
+
 /** A task's or a Doc page's canonical URL, which an import takes. */
 export const clickupUrl = (link: ClickupLink) =>
   link.kind === 'task'

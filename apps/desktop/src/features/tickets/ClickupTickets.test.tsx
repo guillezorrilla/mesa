@@ -271,6 +271,13 @@ test('the Saved view tab lists the views with their type and where they are kept
             workspace: 'ws-1',
             where: 'Harbor ops',
           },
+          {
+            id: 'v-map',
+            name: 'Berth plan',
+            type: 'mind_map_view',
+            workspace: 'ws-1',
+            where: 'Harbor ops',
+          },
         ],
       }),
     'tickets preview': () => envelope({ describe: 'x', jql: null, count: 3, more: false }),
@@ -284,7 +291,7 @@ test('the Saved view tab lists the views with their type and where they are kept
   await click(button('Saved view'));
   const views = document.querySelector('[role="radiogroup"][aria-label="Saved views"]');
   expect(views?.textContent).toBe(
-    'listMy open tasksin EverythingboardDock sprint boardin Harbor ops',
+    'listMy open tasksin EverythingboardDock sprint boardin Harbor opsmind map viewBerth planin Harbor ops',
   );
   expect(words(calls)).toContain(
     'tickets preview --provider clickup --workspace ws-1 --view v-mine',

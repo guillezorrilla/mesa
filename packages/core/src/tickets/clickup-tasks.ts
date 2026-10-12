@@ -99,6 +99,9 @@ export async function readClickupTasks(get: Http, view: ClickupView, me: () => P
     more = !(body.last_page ?? body.tasks.length < 100);
     if (!more) break;
   }
+  // `more` says ClickUp had pages after the cap, read before a saved view's narrowing here: the
+  // tasks not read may hold more of the person's, so "or more" stays true even when the kept
+  // tasks are fewer than the cap, and is said only when the unfiltered cap was hit.
   const kept = saved
     ? tasks.filter(
         (t) =>

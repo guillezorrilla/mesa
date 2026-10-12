@@ -274,7 +274,7 @@ export function clickupProvider(deps: ProviderDeps) {
     locations: async () => ({ workspaces: await clickupLocations(get(), await workspaces()) }),
     /** The saved task views at each Workspace's Everything level and in its Spaces. */
     savedViews: async () => ({
-      views: await clickupSavedViews(get(), await clickupLocations(get(), await workspaces())),
+      views: await clickupSavedViews(get(), await workspaces()),
     }),
   };
 }

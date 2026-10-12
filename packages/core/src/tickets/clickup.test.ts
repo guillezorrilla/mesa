@@ -23,14 +23,16 @@ async function setUp() {
     file === '/usr/bin/open'
       ? world.deps.run(file, args, ...rest)
       : agents.run(file, args, ...rest);
+  const sleeps: number[] = [];
   const { home, mesa } = projectProfile(run, {
     ...world.deps,
     run,
     clock: () => new Date('2026-09-24T12:00:00.000Z'),
+    sleep: async (ms) => void sleeps.push(ms),
   });
   await mesa.sources.connect('clickup');
   world.serveLocations();
-  return { world, home, mesa };
+  return { world, home, mesa, sleeps };
 }
 
 /** A List view of Sprint 18, followed by lantern-cove, which tracks work in ClickUp. */
@@ -231,6 +233,10 @@ test('a saved view lists its own tasks, narrowed here to the person and open one
   world.serveTasks('/v2/view/v-board/task', [page(0), page(100), page(200), page(300)]);
   const all = { provider: 'clickup', view: 'v-board', everyone: true, showDone: true } as const;
   expect(await mesa.tickets.preview(all)).toMatchObject({ count: 300, more: true });
+  // Narrowed to the person's here, after the cap: none of the 300 read are theirs, but the pages
+  // not read may hold some, so "or more" stays.
+  const mine = { provider: 'clickup', view: 'v-board' } as const;
+  expect(await mesa.tickets.preview(mine)).toMatchObject({ count: 0, more: true });
 });
 
 test('a view names one List, Folder, Space or view, by a link of its kind or an id', async () => {
@@ -285,4 +291,68 @@ test('a session started from a ClickUp task imports it by its custom id, and its
   expect(record?.from).toEqual({ source: 'clickup', id: 'DOCK-112' });
   const [ticket] = (await mesa.tickets.list('lantern-cove')).tickets;
   expect(ticket?.sessions).toEqual([{ id: record?.id, project: 'lantern-cove' }]);
+});
+
+test('a ClickUp task is a ticket, with the ticket prompt and the Ticket starts; an imported Doc page is not', async () => {
+  const { world, mesa } = await setUp();
+  mesa.prompts.save('Ticket flow', 'Branch, test first, open a PR.');
+  mesa.tickets.setPrompt('Ticket flow');
+  world.serve(`${TEST_CLICKUP}/v3/workspaces/ws-1/docs/d1/pages/p1?content_format=text/md`, {
+    name: 'Harbour rules',
+    content: 'Tie up at the north wall.',
+  });
+  const task = clickupTaskObject('86a1', 'Replace the fender sensors', { custom: 'DOCK-112' });
+  world.serveTaskObject(task);
+  await mesa.imports.add(
+    'lantern-cove',
+    ['https://app.clickup.com/ws-1/v/dc/d1/p1', 'https://app.clickup.com/t/ws-1/DOCK-112'],
+    false,
+  );
+
+  const page = await mesa.imports.goal('lantern-cove', 'd1.p1');
+  expect(page.goal).not.toContain('Branch, test first');
+  await expect(mesa.imports.goal('lantern-cove', 'd1.p1', undefined, 'session')).rejects.toThrow(
+    '--as starts a ticket (jira, github, clickup); d1.p1 is not one, a clickup item',
+  );
+  await expect(
+    mesa.imports.open('lantern-cove', { from: 'd1.p1', notes: false, kind: 'goal' }),
+  ).rejects.toThrow('d1.p1 is not one');
+
+  const ticket = await mesa.imports.goal('lantern-cove', 'DOCK-112');
+  expect(ticket.goal).toMatch(/^Branch, test first, open a PR\./);
+  const started = await mesa.imports.goal('lantern-cove', 'DOCK-112', undefined, 'session');
+  expect(started.goal).toMatch(/^Load DOCK-112 as context/);
+  expect(started.goal).toContain('My rules:\nBranch, test first, open a PR.');
+});
+
+test("one Follow dialog's reads take each Space's Folders and Lists once, and the views by the Spaces list alone", async () => {
+  const { world, mesa } = await setUp();
+  const before = world.requests.length;
+  await mesa.tickets.locations();
+  await mesa.tickets.savedViews();
+  expect(world.requests.slice(before).map((r) => r.url.replace(TEST_CLICKUP, ''))).toEqual([
+    '/v2/team/ws-1/space?archived=false',
+    '/v2/space/s1/folder?archived=false',
+    '/v2/space/s1/list?archived=false',
+    '/v2/team/ws-1/space?archived=false',
+    '/v2/team/ws-1/view',
+    '/v2/space/s1/view',
+  ]);
+});
+
+test("a view's read goes through the source's authorized fetch: a 429 waits until X-RateLimit-Reset", async () => {
+  const { world, mesa, sleeps } = await setUp();
+  await followSprint(mesa);
+  const answers = [
+    {
+      status: 429,
+      headers: { 'x-ratelimit-reset': String(Date.parse('2026-09-24T12:00:05Z') / 1000) },
+      body: {},
+    },
+    { body: { tasks: [clickupTaskObject('86a1', 'Replace the fender sensors')], last_page: true } },
+  ];
+  world.routes[`GET ${TEST_CLICKUP}${MINE}&page=0`] = () =>
+    answers.shift() ?? { status: 500, body: {} };
+  expect((await mesa.tickets.list('lantern-cove')).tickets.map((t) => t.key)).toEqual(['86a1']);
+  expect(sleeps).toEqual([5000]);
 });

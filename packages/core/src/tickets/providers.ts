@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { MesaError } from '../lib/result.js';
+import { isClickupTask } from '../sources/clickup.js';
+import type { ItemRef } from '../sources/items.js';
 import type { SourceId } from '../sources/sources.js';
 import { clickupProvider } from './clickup-provider.js';
 import { type ClickupViewInput, ClickupViewSchema, describeClickupView } from './clickup-view.js';
@@ -9,22 +11,35 @@ import { jiraProvider } from './jira-provider.js';
 import { describeJiraView, type JiraViewInput, JiraViewSchema } from './jira-view.js';
 import type { ProviderDeps } from './provider.js';
 
+/** Every item its source imports is one of its tickets (Jira's issues, GitHub's issues). */
+const everyItem = () => true;
+
 /**
  * The ticket providers (CONTEXT.md, Ticket view), keyed by id: each row's name, the source whose
- * connection it reads, a line describing one of its views, and its reads and its one write
- * (TicketProvider). A new tracker is one row here, its view in TicketViewSchema, and its files.
+ * connection it reads, which of that source's imported items are its tickets, a line describing
+ * one of its views, and its reads and its one write (TicketProvider). A new tracker is one row
+ * here, its view in TicketViewSchema, and its files.
  */
 export const PROVIDERS = {
-  jira: { name: 'Jira', source: 'atlassian', describe: describeJiraView, connect: jiraProvider },
+  jira: {
+    name: 'Jira',
+    source: 'atlassian',
+    ticket: everyItem,
+    describe: describeJiraView,
+    connect: jiraProvider,
+  },
   github: {
     name: 'GitHub Issues',
     source: 'github',
+    ticket: everyItem,
     describe: describeGithubView,
     connect: githubProvider,
   },
   clickup: {
     name: 'ClickUp',
     source: 'clickup',
+    /** Its tasks; a Doc page is not a ticket. */
+    ticket: (item: Pick<ItemRef, 'url'>) => isClickupTask(item.url),
     describe: describeClickupView,
     connect: clickupProvider,
   },
@@ -33,12 +48,23 @@ export const PROVIDERS = {
   {
     name: string;
     source: SourceId;
+    /** Whether an item imported from it (its `source` this provider's id) is one of its tickets. */
+    ticket: (item: Pick<ItemRef, 'id' | 'url'>) => boolean;
     describe: (view: never) => string;
     connect: (deps: ProviderDeps) => unknown;
   }
 >;
 export type ProviderId = keyof typeof PROVIDERS;
 export const PROVIDER_IDS = Object.keys(PROVIDERS) as ProviderId[];
+
+/**
+ * Whether imported `item` is a ticket: its source is a ticket provider's, and that provider's row
+ * says the item is one of its tickets (a ClickUp task, not a Doc page).
+ */
+export function isTicketItem(item: Pick<ItemRef, 'id' | 'url'> & { source: string }): boolean {
+  const provider = PROVIDER_IDS.find((p) => p === item.source);
+  return provider !== undefined && PROVIDERS[provider].ticket(item);
+}
 
 /** Provider `id`'s name, such as Jira. */
 export const providerName = (id: ProviderId): string => PROVIDERS[id].name;

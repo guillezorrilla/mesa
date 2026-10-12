@@ -50,7 +50,7 @@ Each read takes up to three pages of 100 tasks, `more` when ClickUp has more aft
 
 The panel reads `GET /api/v2/task/<key>?include_markdown_description=true` (with `custom_task_ids=true&team_id=<ws>` for a custom id, trying each connected Workspace when several), its comments as an import does, its Space's name (`GET /api/v2/space/<id>`), and its parent task on a subtask. Assign to me is `PUT /api/v2/task/<key>` with `{"assignees": {"add": [<me>], "rem": []}}`, with a receipt; a task whose answer does not list the person says so.
 
-The Follow dialog's Location tree reads each Workspace's Spaces, then per Space its Folders with their Lists and its Lists outside any Folder (`GET /api/v2/team/<ws>/space`, `/space/<id>/folder`, `/space/<id>/list`, `archived=false`), searched in the app (`mesa tickets locations`). Its Saved view tab lists the task views at the Workspace's Everything level and in each Space (`GET /api/v2/team/<ws>/view`, `/space/<id>/view`; `mesa tickets saved-views`); a view kept in a Folder or a List is followed by its link.
+The Follow dialog's Location tree reads each Workspace's Spaces, then per Space its Folders with their Lists and its Lists outside any Folder (`GET /api/v2/team/<ws>/space`, `/space/<id>/folder`, `/space/<id>/list`, `archived=false`), searched in the app (`mesa tickets locations`). Its Saved view tab lists the task views at the Workspace's Everything level and in each Space (`GET /api/v2/team/<ws>/view`, `/space/<id>/view`; `mesa tickets saved-views`); a view kept in a Folder or a List is followed by its link. Both read 4 requests at a time, about 33 for a Workspace of ten Spaces. Of the imported ClickUp items only tasks are tickets: a Doc page gets no ticket prompt and no Ticket start.
 
 ## Rate and plan limits
 
