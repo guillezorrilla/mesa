@@ -22,7 +22,9 @@ import type { SessionLocation } from '@/features/sessions/start/useStartSession'
 import { cn } from '@/lib/utils';
 import type { WorkspaceView } from '@/lib/workspaceView';
 import { SidebarNavButton } from './SidebarNavButton';
+import { SidebarResizeHandle } from './SidebarResizeHandle';
 import { SidebarTabs } from './SidebarTabs';
+import { useSidebarWidth } from './useSidebarWidth';
 
 /** `list` with `value` added, or removed when it is there. */
 const toggled = (list: string[], value: string) =>
@@ -58,6 +60,7 @@ export function WorkspaceSidebar(props: {
   const [closedProjects, setClosedProjects] = useState<string[]>([]);
   const [compactSessions, setCompactSessions] = useState<string[]>([]);
   const [projectTab, setProjectTab] = useState(false);
+  const [width, setWidth] = useSidebarWidth();
   useEffect(() => {
     if (view.kind === 'project') setProjectTab(true);
     if (view.kind === 'session' || view.kind === 'sessions') setProjectTab(false);
@@ -98,8 +101,10 @@ export function WorkspaceSidebar(props: {
       data-collapsed={collapsed}
       // The Sessions tab's empty space gives the keyboard back to the open session.
       data-returns-focus={!projectTab || undefined}
-      className={cn('flex shrink-0 flex-col border-r bg-card/50', collapsed ? 'w-14' : 'w-[264px]')}
+      className={cn('relative flex shrink-0 flex-col border-r bg-card/50', collapsed && 'w-14')}
+      style={collapsed ? undefined : { width }}
     >
+      {!collapsed && <SidebarResizeHandle width={width} onWidth={setWidth} />}
       <div className="flex h-12 items-center border-b px-2">
         {!collapsed && (
           <SidebarTabs

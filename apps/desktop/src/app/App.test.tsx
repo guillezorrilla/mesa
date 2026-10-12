@@ -7,7 +7,7 @@ import {
   TERMINAL_PRESETS,
 } from '@mesa/core/browser';
 import { act } from 'react';
-import { expect, test, vi } from 'vitest';
+import { beforeEach, expect, test, vi } from 'vitest';
 import { CONFIRMATION_MS } from '@/components/Toast';
 import {
   asking,
@@ -47,6 +47,9 @@ const openProject = async (byTestId: (id: string) => HTMLElement[], index = 0) =
   );
   await click(byTestId('sidebar-project')[index]);
 };
+
+// The sidebar keeps its width in localStorage; each test starts from the default.
+beforeEach(() => localStorage.clear());
 
 test('sidebar opens a project workspace and its Skills tab', async () => {
   const { bridge } = fakeBridge({
@@ -1656,8 +1659,16 @@ test('sidebar selects an exact session and keeps its terminal alive across navig
   expect(byTestId('terminal-bbbbbbbb')).toHaveLength(1);
   expect(terms.calls.filter((call) => call[0] === 'close')).toEqual([]);
   expect(terms.calls.filter((call) => call[0] === 'open')).toHaveLength(2);
+  const handle = document.querySelector('[aria-label="Resize sidebar"]') as HTMLElement;
+  await press(handle, 'ArrowRight');
+  expect(byTestId('workspace-sidebar')[0]?.style.width).toBe('280px');
   await click(document.querySelector('[aria-label="Collapse sidebar"]') as HTMLElement);
   expect(byTestId('workspace-sidebar')[0]?.dataset.collapsed).toBe('true');
+  expect(byTestId('workspace-sidebar')[0]?.style.width).toBe('');
+  expect(document.querySelector('[aria-label="Resize sidebar"]')).toBeNull();
+  await click(document.querySelector('[aria-label="Expand sidebar"]') as HTMLElement);
+  expect(byTestId('workspace-sidebar')[0]?.style.width).toBe('280px');
+  await click(document.querySelector('[aria-label="Collapse sidebar"]') as HTMLElement);
   expect(byTestId('selected-session')).toHaveLength(1);
   await click(byTestId('search-trigger')[0]);
   const grid = byTestId('palette-query')[0] as HTMLInputElement;
