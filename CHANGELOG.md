@@ -2,6 +2,21 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.2.14 - 2026-10-12
+
+### Added
+
+- Resizable sidebar: drag the workspace sidebar's right edge, or focus it and use the arrow keys, to make it between 200 and 480 pixels wide. Double-click the edge to reset it, and Mesa remembers the width across launches. (#763)
+
+### Changed
+
+- A loading screen at launch: Mesa shows its mark and a spinner on the app background until the first view is ready, then opens straight on onboarding, your first live session or the Board, with no empty Board or white flash in between. (#764)
+
+### Fixed
+
+- Follow a repo fits the window and is easier to narrow down: labels and milestones are picked from searchable lists, picked labels show with a remove mark, and Follow stays in view however many there are. Links to GitHub and other sites, such as Give Mesa access on GitHub, now open in your default browser. (#760)
+- Session card buttons stay readable on hover: a card's title now stops short of its hover buttons instead of running under them. (#761)
+
 ## 0.2.13 - 2026-10-12
 
 ### Added
