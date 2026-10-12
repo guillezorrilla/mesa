@@ -1,14 +1,19 @@
+import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 /** A label's color as CSS: GitHub's hex with no #; undefined for none. */
 export const labelHex = (color: string | undefined) =>
   color && /^[0-9a-f]{6}$/i.test(color) ? `#${color}` : undefined;
 
-/** A GitHub label as GitHub draws it: a pill tinted with its own color (hex, no #). */
+/**
+ * A GitHub label as GitHub draws it: a pill tinted with its own color (hex, no #), with anything
+ * after its name, such as a remove mark.
+ */
 export function GithubLabel(props: {
   name: string;
   color?: string | undefined;
   className?: string;
+  children?: ReactNode;
 }) {
   const color = labelHex(props.color);
   return (
@@ -29,6 +34,7 @@ export function GithubLabel(props: {
       )}
     >
       {props.name}
+      {props.children}
     </span>
   );
 }

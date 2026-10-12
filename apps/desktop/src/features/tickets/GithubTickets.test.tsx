@@ -165,14 +165,30 @@ test("Follow a repo picks this project's remote, narrows by label and milestone 
     'Follow a repoIts issues show up in this tab. Pull requests are left out.',
   );
   expect(byTestId('repo-button')[0]?.textContent).toBe(`${REPO}This project's remote`);
-  // The filters start empty: Any milestone, no label.
-  const chip = (name: string) =>
-    [...(byTestId('repo-filters')[0]?.querySelectorAll('button') ?? [])].find(
-      (b) => b.textContent === name,
-    );
-  expect(chip('Any')?.getAttribute('aria-pressed')).toBe('true');
-  await click(chip('bug'));
-  await click(chip('v2.4'));
+  // The filters start empty: Any label, Any milestone, each picked from a searchable list.
+  const item = (name: string) =>
+    [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].find((i) => i.textContent === name);
+  expect(byTestId('labels-button')[0]?.textContent).toBe('Any label');
+  expect(byTestId('milestone-button')[0]?.textContent).toBe('Any milestone');
+  await click(byTestId('labels-button')[0]);
+  expect(document.querySelector('[cmdk-input]')?.getAttribute('placeholder')).toBe(
+    'Search 2 labels',
+  );
+  await click(item('bug'));
+  // Several labels can be ticked in a row: the list stays open, the picked one checked.
+  expect(item('bug')?.getAttribute('aria-checked')).toBe('true');
+  expect(
+    byTestId('repo-filters')[0]?.querySelector('[aria-label="Remove label bug"]'),
+  ).toBeTruthy();
+  await click(item('docs'));
+  expect(dialog()).toContain('Issues must have every label picked.');
+  await click(button('Remove label docs'));
+  expect(byTestId('labels-button')[0]?.textContent).toBe('Add label');
+  await click(byTestId('milestone-button')[0]);
+  await click(item('v2.4'));
+  expect(byTestId('milestone-button')[0]?.textContent).toBe('v2.4');
+  // One milestone: picking it closes the list.
+  expect(item('Any milestone')).toBeUndefined();
   expect(words(calls)).toContain(
     `tickets preview --provider github --repo ${REPO} --label=bug --milestone 3`,
   );

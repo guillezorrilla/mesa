@@ -23,6 +23,7 @@ import { useCommand, useRun } from '@/lib/useCommand';
 import { useAppearance } from './hooks/useAppearance';
 import { useAppMenu } from './hooks/useAppMenu';
 import { useCloseGuard } from './hooks/useCloseGuard';
+import { useExternalLinks } from './hooks/useExternalLinks';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { useInitialView } from './hooks/useInitialView';
 import { useMesaLinks } from './hooks/useMesaLinks';
@@ -127,6 +128,7 @@ export function App() {
   });
   useNativeNotifications(navigateLatest);
   useAppMenu(navigateLatest);
+  useExternalLinks();
   useGlobalShortcuts({
     shortcuts,
     onSearch: () => search.toggleSearch('all'),

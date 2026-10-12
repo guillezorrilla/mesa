@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { SourceError } from '@/features/projects/import/SourceError';
+import { substringFilter } from '@/lib/substringFilter';
 import { useCommand } from '@/lib/useCommand';
 
 /**
@@ -45,10 +46,7 @@ export function TicketFieldsMenu(props: {
             Shown after each ticket's own fields, in all your projects.
           </span>
         </div>
-        {/* A name or id holding the search, not cmdk's fuzzy match ("sev" is not Fix versions). */}
-        <Command
-          filter={(value, search) => (value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0)}
-        >
+        <Command filter={substringFilter}>
           <CommandInput placeholder="Search Jira fields" />
           <CommandList className="max-h-72">
             {props.shown.length > 0 && (
