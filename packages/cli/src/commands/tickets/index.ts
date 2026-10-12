@@ -1,4 +1,5 @@
 import type { Command } from '../../command.js';
+import { ticketsLocations, ticketsSavedViews } from './clickup.js';
 import { ticketsFields, ticketsFieldsSet } from './fields.js';
 import { ticketsRepo, ticketsRepos } from './github.js';
 import { ticketsBoards, ticketsFilters } from './jira.js';
@@ -37,4 +38,6 @@ export const TICKETS_COMMANDS: Command[] = [
   ticketsFilters,
   ticketsRepos,
   ticketsRepo,
+  ticketsLocations,
+  ticketsSavedViews,
 ];

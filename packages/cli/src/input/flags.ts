@@ -1,5 +1,7 @@
 import {
   MesaError,
+  type ProviderId,
+  providerName,
   providerOf,
   TERMINAL_APPS,
   TICKET_STARTS,
@@ -103,7 +105,7 @@ export const SEARCH_FLAG = {
 
 /** The flags that name a view's query: `views add` and `preview` take them. */
 export const VIEW_FLAGS = {
-  provider: { type: 'string', description: 'jira (default) or github' },
+  provider: { type: 'string', description: 'jira (default), github or clickup' },
   board: { type: 'string', description: "A board's id: the view reads its sprint" },
   sprint: { type: 'string', description: 'current (default) or next, with --board' },
   filter: { type: 'string', description: "A saved filter's id" },
@@ -115,64 +117,105 @@ export const VIEW_FLAGS = {
   project: { type: 'string', description: 'GitHub: the project whose origin remote is the repo' },
   label: { type: 'string', description: 'GitHub: issues with these labels, comma-separated' },
   milestone: { type: 'string', description: "GitHub: a milestone's title or number, or none" },
+  list: { type: 'string', description: "ClickUp: a List's link or id" },
+  folder: { type: 'string', description: "ClickUp: a Folder's link or id, for every List in it" },
+  space: { type: 'string', description: "ClickUp: a Space's link or id, for every List in it" },
+  view: { type: 'string', description: "ClickUp: a saved view's link or id" },
+  workspace: {
+    type: 'string',
+    description: 'ClickUp: the Workspace of a bare id, when the connection reaches several',
+  },
   everyone: { type: 'boolean', description: "Every assignee's tickets, not only yours" },
   'show-done': { type: 'boolean', description: 'Done (closed) tickets too' },
   site: { type: 'string', description: 'The Atlassian site, when the connection reaches several' },
 } as const;
 
-type ViewFlags = { [K in keyof typeof VIEW_FLAGS]?: string | boolean | undefined } & {
+type ViewFlag = keyof typeof VIEW_FLAGS;
+type ViewFlags = { [K in ViewFlag]?: string | boolean | undefined } & {
   everyone?: boolean | undefined;
   'show-done'?: boolean | undefined;
 };
+type Narrowing = { everyone?: true; showDone?: true };
 
-/** The view query VIEW_FLAGS name, checked: Jira's, or GitHub's with --provider github. */
+/**
+ * Each provider's own flags, and its view query from them (`text` reads a flag given as text);
+ * the rest of VIEW_FLAGS are every provider's.
+ */
+const PROVIDER_VIEWS: {
+  [K in ProviderId]: {
+    flags: ViewFlag[];
+    query: (text: (name: ViewFlag) => string | undefined, narrowing: Narrowing) => ViewQuery;
+  };
+} = {
+  jira: {
+    flags: ['board', 'sprint', 'filter', 'jql', 'site'],
+    query: (text, narrowing) => {
+      const board = text('board') === undefined ? undefined : Number(text('board'));
+      if (board !== undefined && !(Number.isInteger(board) && board > 0))
+        throw new MesaError('usage', '--board takes a board id; see mesa tickets boards');
+      const sprint = text('sprint');
+      if (sprint !== undefined && sprint !== 'current' && sprint !== 'next')
+        throw new MesaError('usage', '--sprint is current or next');
+      const [filter, jql, site] = [text('filter'), text('jql'), text('site')];
+      return {
+        ...(board !== undefined ? { board } : {}),
+        ...(sprint ? { sprint: sprint as 'current' | 'next' } : {}),
+        ...(filter !== undefined ? { filter } : {}),
+        ...(jql !== undefined ? { jql } : {}),
+        ...narrowing,
+        ...(site ? { site } : {}),
+      };
+    },
+  },
+  github: {
+    flags: ['repo', 'project', 'label', 'milestone'],
+    query: (text, narrowing) => {
+      const labels = text('label')
+        ?.split(',')
+        .map((l) => l.trim())
+        .filter(Boolean);
+      const [repo, project, milestone] = [text('repo'), text('project'), text('milestone')];
+      return {
+        provider: 'github',
+        ...(repo ? { repo } : {}),
+        ...(project ? { project } : {}),
+        ...(labels?.length ? { labels } : {}),
+        ...(milestone ? { milestone } : {}),
+        ...narrowing,
+      };
+    },
+  },
+  clickup: {
+    flags: ['list', 'folder', 'space', 'view', 'workspace'],
+    query: (text, narrowing) => {
+      const given = (['list', 'folder', 'space', 'view', 'workspace'] as const).flatMap((name) => {
+        const value = text(name);
+        return value ? [[name, value] as const] : [];
+      });
+      return { provider: 'clickup', ...Object.fromEntries(given), ...narrowing };
+    },
+  },
+};
+
+/** The view query VIEW_FLAGS name, checked: Jira's, or another provider's with --provider. */
 export function viewOf(flags: ViewFlags): ViewQuery {
-  const text = (name: keyof typeof VIEW_FLAGS) => {
+  const text = (name: ViewFlag) => {
     const value = flags[name];
     return typeof value === 'string' ? value : undefined;
   };
-  const narrowing = {
+  const provider = providerOf(text('provider') ?? 'jira');
+  for (const [other, { flags: own }] of Object.entries(PROVIDER_VIEWS)) {
+    const given = own.filter((name) => other !== provider && text(name) !== undefined);
+    if (given.length)
+      throw new MesaError(
+        'usage',
+        `${given.map((n) => `--${n}`).join(', ')}: for ${providerName(providerOf(other))} views only`,
+      );
+  }
+  return PROVIDER_VIEWS[provider].query(text, {
     ...(flags.everyone ? { everyone: true } : {}),
     ...(flags['show-done'] ? { showDone: true } : {}),
-  };
-  const provider = providerOf(text('provider') ?? 'jira');
-  const only = (names: (keyof typeof VIEW_FLAGS)[], owner: string) => {
-    const given = names.filter((name) => text(name) !== undefined);
-    if (given.length)
-      throw new MesaError('usage', `${given.map((n) => `--${n}`).join(', ')}: ${owner}'s only`);
-  };
-  if (provider === 'github') {
-    only(['board', 'sprint', 'filter', 'jql', 'site'], 'Jira');
-    const labels = text('label')
-      ?.split(',')
-      .map((l) => l.trim())
-      .filter(Boolean);
-    const [repo, project, milestone] = [text('repo'), text('project'), text('milestone')];
-    return {
-      provider,
-      ...(repo ? { repo } : {}),
-      ...(project ? { project } : {}),
-      ...(labels?.length ? { labels } : {}),
-      ...(milestone ? { milestone } : {}),
-      ...narrowing,
-    };
-  }
-  only(['repo', 'project', 'label', 'milestone'], 'GitHub (--provider github)');
-  const board = text('board') === undefined ? undefined : Number(text('board'));
-  if (board !== undefined && !(Number.isInteger(board) && board > 0))
-    throw new MesaError('usage', '--board takes a board id; see mesa tickets boards');
-  const sprint = text('sprint');
-  if (sprint !== undefined && sprint !== 'current' && sprint !== 'next')
-    throw new MesaError('usage', '--sprint is current or next');
-  const [filter, jql, site] = [text('filter'), text('jql'), text('site')];
-  return {
-    ...(board !== undefined ? { board } : {}),
-    ...(sprint ? { sprint: sprint as 'current' | 'next' } : {}),
-    ...(filter !== undefined ? { filter } : {}),
-    ...(jql !== undefined ? { jql } : {}),
-    ...narrowing,
-    ...(site ? { site } : {}),
-  };
+  });
 }
 
 /** `on` or `off`, as a boolean; undefined when not given. */

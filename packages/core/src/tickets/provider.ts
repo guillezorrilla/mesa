@@ -26,12 +26,16 @@ export type ProviderTicket = {
   summary: string;
   status: string;
   category: TicketCategory;
+  /** The status's own color, hex, where a provider gives one (ClickUp). */
+  color?: string;
   priority?: string;
   assignee?: string;
   /** The assignee's account id in the provider, which says whether the ticket is the person's. */
   assigneeId?: string;
   /** Every assignee, where a provider allows several (GitHub); `assignee` is the first. */
   assignees?: { id: string; name: string }[];
+  /** The task it is a subtask of, by the provider's id, where a provider has subtasks (ClickUp). */
+  parent?: string;
   url: string;
   /** The Atlassian site it is on (Jira). */
   site?: string;

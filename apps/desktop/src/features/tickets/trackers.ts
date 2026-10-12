@@ -1,6 +1,10 @@
 import type { ProviderId, SourceId, Ticket } from '@mesa/core';
-import { CircleDot, type LucideIcon, SquareKanban } from 'lucide-react';
+import { CircleDot, ListChecks, type LucideIcon, SquareKanban } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
+import { ClickupSetupPanel } from './clickup/ClickupSetupPanel';
+import { ClickupStatus } from './clickup/ClickupStatus';
+import { ClickupTicketFields } from './clickup/ClickupTicketFields';
+import { FollowClickupDialog } from './follow/FollowClickupDialog';
 import { FollowRepoDialog } from './follow/FollowRepoDialog';
 import { FollowViewDialog } from './follow/FollowViewDialog';
 import { GithubRepoGate } from './github/GithubRepoGate';
@@ -108,6 +112,26 @@ export const TRACKERS: { [K in ProviderId]: Tracker<K> } = {
     Settings: GithubSettingsRow,
     Follow: FollowRepoDialog,
     Fields: GithubTicketFields,
+  },
+  clickup: {
+    name: 'ClickUp',
+    short: 'ClickUp',
+    source: 'clickup',
+    sourceLabel: 'ClickUp',
+    signIn: 'Sign in with your ClickUp workspace',
+    icon: ListChecks,
+    tint: 'text-tracker-clickup',
+    unit: 'view',
+    nouns: 'tasks',
+    shortKey: (key) => key,
+    mark: true,
+    several: true,
+    statusName: 'Status',
+    Status: ClickupStatus,
+    Setup: ClickupSetupPanel,
+    connectPage: true,
+    Follow: FollowClickupDialog,
+    Fields: ClickupTicketFields,
   },
 };
 

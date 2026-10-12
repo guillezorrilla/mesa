@@ -1,5 +1,8 @@
 import type {
   Board,
+  ClickupDetail,
+  ClickupSavedView,
+  ClickupWorkspace,
   Filter,
   FollowedView,
   GithubDetail,
@@ -24,6 +27,7 @@ type SiteOf<T> = { site: { id: string; name: string } } & T;
 export type TicketDetail = (
   | (JiraIssue & { provider: 'jira'; site: string })
   | (GithubDetail & { provider: 'github' })
+  | (ClickupDetail & { provider: 'clickup' })
 ) & {
   id: string;
   url: string;
@@ -41,6 +45,11 @@ const FLAGS: Record<string, { flag: string; joined?: true }> = {
   repo: { flag: 'repo' },
   labels: { flag: 'label', joined: true },
   milestone: { flag: 'milestone' },
+  list: { flag: 'list' },
+  folder: { flag: 'folder' },
+  space: { flag: 'space' },
+  view: { flag: 'view' },
+  workspace: { flag: 'workspace' },
   everyone: { flag: 'everyone' },
   showDone: { flag: 'show-done' },
 };
@@ -123,6 +132,10 @@ export const ticketsCommands = {
       milestones: { number: number; title: string }[];
     }
   >(({ repo }) => ['tickets', 'repo', '--', repo]),
+  /** ClickUp's Spaces, Folders and Lists in each connected Workspace, which a view follows. */
+  'tickets.locations': command<{ workspaces: ClickupWorkspace[] }>('tickets', 'locations'),
+  /** ClickUp's saved task views at Everything and in each Space. */
+  'tickets.savedViews': command<{ views: ClickupSavedView[] }>('tickets', 'saved-views'),
   'tickets.defaults': commandWith<
     { project: string; change: Partial<TicketDefaults> },
     TicketDefaults
