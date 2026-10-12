@@ -2,18 +2,20 @@ import { MesaError } from '../lib/result.js';
 import type { Account } from '../sources/connection.js';
 import { isLinearIdentifier, linearAccount, linearIdOf } from '../sources/linear.js';
 import {
-  assignLinearIssue,
   type LinearCycle,
-  type LinearListed,
   linearCustomView,
   linearCustomViews,
   linearCycles,
-  linearIssue,
-  linearIssues,
   linearProject,
   linearTeam,
   linearTeams,
   linearTeamWork,
+} from '../sources/linear-teams.js';
+import {
+  assignLinearIssue,
+  type LinearListed,
+  linearIssue,
+  linearIssues,
 } from '../sources/linear-tickets.js';
 import { type LinearView, type LinearViewInput, LinearViewSchema } from './linear-view.js';
 import {
@@ -102,7 +104,10 @@ export function linearProvider(deps: ProviderDeps) {
   };
 
   const row: TicketProvider<ViewInput, TicketView, LinearDetail> = {
-    /** `input` with its team, project or custom view found in Linear, and their names kept. */
+    /**
+     * `input` with its team, project or custom view found in Linear, and their names kept. Found
+     * even when not checking (the live count): a key or a link becomes the id the read sends.
+     */
     view: async (input: LinearViewInput) => {
       const { provider: _, team, cycle, project, customView, ...rest } = input;
       // Exactly one of them, before asking Linear for any.

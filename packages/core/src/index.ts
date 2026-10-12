@@ -176,7 +176,7 @@ export type {
   LinearCycle,
   LinearProject,
   LinearTeam,
-} from './sources/linear-tickets.js';
+} from './sources/linear-teams.js';
 export type { SourceRow } from './sources/service.js';
 export type { SourceId } from './sources/sources.js';
 export type { TicketDefaults } from './tickets/defaults.js';
