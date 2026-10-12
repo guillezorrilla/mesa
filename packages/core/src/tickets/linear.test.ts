@@ -386,7 +386,7 @@ test('a session started from a Linear issue imports it through the pipeline, and
   ]);
 });
 
-test('a Linear project in Context is no ticket: it starts no Ticket start', async () => {
+test('a Linear project or document in Context is no ticket: it starts no Ticket start', async () => {
   const { world, mesa } = await setUp();
   world.answer('Project', () => ({
     project: {
@@ -408,5 +408,24 @@ test('a Linear project in Context is no ticket: it starts no Ticket start', asyn
   );
   await expect(
     mesa.imports.open('lantern-cove', { from: 'project.5e1f2a3b4c6d', notes: false, kind: 'goal' }),
+  ).rejects.toThrow('--as starts a ticket');
+  world.answer('Document', () => ({
+    document: {
+      title: 'Harbour rules',
+      content: 'Moor bow first.',
+      updatedAt: '2026-09-24T12:00:00.000Z',
+    },
+  }));
+  await mesa.imports.add(
+    'lantern-cove',
+    ['https://linear.app/lantern-cove/document/harbour-rules-9a8b7c6d5e4f'],
+    false,
+  );
+  await expect(
+    mesa.imports.open('lantern-cove', {
+      from: 'document.9a8b7c6d5e4f',
+      notes: false,
+      kind: 'session',
+    }),
   ).rejects.toThrow('--as starts a ticket');
 });
