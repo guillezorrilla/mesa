@@ -109,9 +109,16 @@ export function linearProvider(deps: ProviderDeps) {
      * even when not checking (the live count): a key or a link becomes the id the read sends.
      */
     view: async (input: LinearViewInput) => {
-      const { provider: _, team, cycle, project, customView, ...rest } = input;
+      const { provider: _, team, cycle, project, view: customView, ...rest } = input;
       // Exactly one of them, before asking Linear for any.
-      parseWith(LinearViewSchema, { ...input, provider: 'linear' });
+      parseWith(LinearViewSchema, {
+        ...rest,
+        team,
+        cycle,
+        project,
+        customView,
+        provider: 'linear',
+      });
       const found = team ? await linearTeam(get(), team) : undefined;
       const picked = project
         ? await linearProject(get(), linearIdOf(project, 'project'))

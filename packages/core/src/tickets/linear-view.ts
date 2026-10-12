@@ -34,13 +34,13 @@ export type LinearView = z.infer<typeof LinearViewSchema>;
 
 /**
  * What `mesa tickets views add --provider linear` takes: a team by its key or id (its current
- * cycle unless it says next), a project by its id, slug or link, or a custom view by its id or
- * link.
+ * cycle unless it says next), a project by its id, slug or link, or a custom view (`view`, as
+ * ClickUp's saved view is named) by its id or link.
  */
 export type LinearViewInput = Pick<
   LinearView,
-  'name' | 'team' | 'cycle' | 'project' | 'customView' | 'everyone' | 'showDone'
-> & { provider: 'linear' };
+  'name' | 'team' | 'cycle' | 'project' | 'everyone' | 'showDone'
+> & { provider: 'linear'; view?: string };
 
 /**
  * `view` in a line, as the view switcher's second line shows it: what it follows, then whose, and

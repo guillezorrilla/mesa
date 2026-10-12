@@ -11,8 +11,10 @@ import {
 import type { Item, ItemRef } from './items.js';
 
 /** ClickUp's times: Unix milliseconds, as a string or a number. */
-const millis = z.union([z.string(), z.number()]).nullish();
-const iso = (ms: z.infer<typeof millis>) => (ms ? new Date(Number(ms)).toISOString() : undefined);
+export const clickupMillis = z.union([z.string(), z.number()]).nullish();
+/** A ClickUp time as ISO 8601; undefined for none. */
+export const clickupIso = (ms: z.infer<typeof clickupMillis>) =>
+  ms ? new Date(Number(ms)).toISOString() : undefined;
 
 const taskSchema = z.object({
   id: z.string(),
@@ -23,8 +25,8 @@ const taskSchema = z.object({
   list: z.object({ name: z.string() }).nullish(),
   assignees: z.array(z.object({ username: z.string().nullish() })).nullish(),
   tags: z.array(z.object({ name: z.string() })).nullish(),
-  date_created: millis,
-  date_updated: millis,
+  date_created: clickupMillis,
+  date_updated: clickupMillis,
 });
 
 const commentsSchema = z.object({
@@ -41,15 +43,15 @@ const commentsSchema = z.object({
 const COMMENTS_PAGE = 25;
 
 /** The query that names a task by its custom id in its Workspace; none for a plain id. */
-const custom = (link: TaskLink) =>
+export const customQuery = (link: TaskLink) =>
   link.workspace ? `custom_task_ids=true&team_id=${link.workspace}` : '';
 
 /** Every comment on a task, oldest first: ClickUp answers 25 at a time, newest first. */
-async function comments(get: Http, link: TaskLink, what: string) {
+export async function clickupComments(get: Http, link: TaskLink, what: string) {
   const all: z.infer<typeof commentsSchema>['comments'] = [];
   for (;;) {
     const last = all.at(-1);
-    const query = [custom(link), last ? `start=${last.date}&start_id=${last.id}` : '']
+    const query = [customQuery(link), last ? `start=${last.date}&start_id=${last.id}` : '']
       .filter(Boolean)
       .join('&');
     const path = `/v2/task/${link.id}/comment${query ? `?${query}` : ''}`;
@@ -73,7 +75,7 @@ async function task(
   previousRevision?: string,
 ): Promise<Item | undefined> {
   const what = `ClickUp task ${link.id}`;
-  const query = ['include_markdown_description=true', custom(link)].filter(Boolean).join('&');
+  const query = ['include_markdown_description=true', customQuery(link)].filter(Boolean).join('&');
   const raw = await clickupCall(get, `/v2/task/${link.id}?${query}`, taskSchema, what);
   const revision = raw.date_updated ? String(raw.date_updated) : undefined;
   if (revision && revision === previousRevision) return undefined;
@@ -82,11 +84,12 @@ async function task(
     ['List', raw.list?.name],
     ['Assignees', raw.assignees?.flatMap((a) => (a.username ? [a.username] : [])).join(', ')],
     ['Tags', raw.tags?.map((t) => t.name).join(', ')],
-    ['Created', iso(raw.date_created)],
-    ['Updated', iso(raw.date_updated)],
+    ['Created', clickupIso(raw.date_created)],
+    ['Updated', clickupIso(raw.date_updated)],
   ].flatMap(([label, value]) => (value ? [`- ${label}: ${value}`] : []));
-  const discussion = (await comments(get, link, what)).map(
-    (c) => `### ${c.user?.username ?? 'Someone'}, ${iso(c.date)}\n\n${c.comment_text.trim()}`,
+  const discussion = (await clickupComments(get, link, what)).map(
+    (c) =>
+      `### ${c.user?.username ?? 'Someone'}, ${clickupIso(c.date)}\n\n${c.comment_text.trim()}`,
   );
   const sections = [
     facts.join('\n'),
@@ -104,7 +107,7 @@ async function task(
 const pageSchema = z.object({
   name: z.string().nullish(),
   content: z.string().nullish(),
-  date_updated: millis,
+  date_updated: clickupMillis,
 });
 
 /** A ClickUp Doc page as an item: its content as ClickUp's Markdown. One GET (v3). */

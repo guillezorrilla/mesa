@@ -162,6 +162,13 @@ export type { SkillInventoryRow } from './skills/inventory.js';
 export type { SkillRow, SkillSync } from './skills/sync.js';
 export { type BrowseChild, type BrowseResult, DESCENDANTS_CAP } from './sources/browse.js';
 export { type CallbackListen, loopbackListener } from './sources/callback-listener.js';
+export type {
+  ClickupFolder,
+  ClickupList,
+  ClickupSavedView,
+  ClickupSpace,
+  ClickupWorkspace,
+} from './sources/clickup-locations.js';
 export type { Account, Site } from './sources/connection.js';
 export { siteNames } from './sources/describe.js';
 export type { GithubRepo } from './sources/github-repos.js';
@@ -179,11 +186,13 @@ export type {
 } from './sources/linear-teams.js';
 export type { SourceRow } from './sources/service.js';
 export type { SourceId } from './sources/sources.js';
+export type { ClickupDetail } from './tickets/clickup-provider.js';
 export type { TicketDefaults } from './tickets/defaults.js';
 export type { GithubDetail } from './tickets/github-provider.js';
 export type { LinearDetail } from './tickets/linear-provider.js';
 export {
   type ProviderId,
+  providerName,
   providerOf,
   type TicketView,
   type ViewInput,

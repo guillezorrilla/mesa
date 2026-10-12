@@ -193,7 +193,7 @@ test('Follow Linear issues picks a team, then its cycle, a project or a saved vi
   expect(words(calls)).toContain('tickets preview --provider linear --linear-project p1');
   await click(button('Saved view'));
   expect(dialog()).toContain('Needs triageYour view');
-  expect(words(calls)).toContain('tickets preview --provider linear --custom-view v1');
+  expect(words(calls)).toContain('tickets preview --provider linear --view v1');
   await click(button('Project'));
   await click(byTestId('confirm-follow-view')[0]);
   expect(

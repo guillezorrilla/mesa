@@ -302,7 +302,7 @@ test('a project and a saved view follow by link; a team with no next cycle says 
   const saved = await mesa.tickets.addView({
     provider: 'linear',
     name: 'Triage',
-    customView: 'https://linear.app/lantern-cove/view/needs-triage-0a1b2c3d4e5f',
+    view: 'https://linear.app/lantern-cove/view/needs-triage-0a1b2c3d4e5f',
     showDone: true,
   });
   expect(saved).toMatchObject({
@@ -326,7 +326,7 @@ test('a project and a saved view follow by link; a team with no next cycle says 
     customView: { issues: page(view === 'view-1' ? [linearIssueObject('HAR-7', 'Seventh')] : []) },
   }));
   expect(
-    await mesa.tickets.preview({ provider: 'linear', customView: 'view-1', showDone: true }),
+    await mesa.tickets.preview({ provider: 'linear', view: 'view-1', showDone: true }),
   ).toMatchObject({
     count: 1,
     jql: `customView(id: "view-1") issues(filter: ${JSON.stringify(MINE)})`,
@@ -344,13 +344,13 @@ test('a project and a saved view follow by link; a team with no next cycle says 
     mesa.tickets.addView({ provider: 'linear', name: 'x', team: 'NOPE' }),
   ).rejects.toThrow('no Linear team NOPE; see mesa tickets teams');
   await expect(
-    mesa.tickets.addView({ provider: 'linear', name: 'x', customView: 'view-9' }),
+    mesa.tickets.addView({ provider: 'linear', name: 'x', view: 'view-9' }),
   ).rejects.toThrow(/^no Linear custom view view-9$/);
   await expect(
     mesa.tickets.addView({
       provider: 'linear',
       name: 'x',
-      customView: 'https://linear.app/lantern-cove/project/x-1',
+      view: 'https://linear.app/lantern-cove/project/x-1',
     }),
   ).rejects.toThrow('is not a Linear view link');
 });

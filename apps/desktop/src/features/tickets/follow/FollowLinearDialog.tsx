@@ -33,7 +33,7 @@ export function FollowLinearDialog(props: FollowDialogProps) {
   const target =
     what === 'cycle'
       ? team && { team: team.id, cycle }
-      : picked && (what === 'project' ? { project: picked.id } : { customView: picked.id });
+      : picked && (what === 'project' ? { project: picked.id } : { view: picked.id });
   const view: ViewQuery | undefined = target && { provider: 'linear', ...target, ...narrowing };
   const base =
     what === 'cycle'

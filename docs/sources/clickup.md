@@ -1,6 +1,6 @@
 # ClickUp
 
-Mesa connects to ClickUp as an OAuth app through its broker (ADR-0014). `mesa sources connect clickup`, or Connect in Settings > Connections, opens ClickUp's sign-in in the default browser, where the person picks the Workspaces Mesa may read; the token goes in the macOS Keychain. Mesa only reads: no writes go to ClickUp.
+Mesa connects to ClickUp as an OAuth app through its broker (ADR-0014). `mesa sources connect clickup`, or Connect in Settings > Connections, opens ClickUp's sign-in in the default browser, where the person picks the Workspaces Mesa may read; the token goes in the macOS Keychain. Mesa reads, and writes one thing: Assign to me in the Tickets tab adds the person to a task's assignees (see Tickets). ClickUp's OAuth has no scopes, so assigning takes the same token.
 
 ## Scopes
 
@@ -37,6 +37,20 @@ A custom id holds a dash (its prefix's); `/t/<workspace>/<id>` with a plain id i
 Spaces, folders, lists, and a Doc's pages come whole: ClickUp does not page them.
 
 ClickUp's API has no text search, so a search keeps the names under the node that hold the text, ignoring case: tasks across a Workspace, a space, a folder, or a list through filtered team tasks (`GET /api/v2/team/<workspace>/task?page=<n>&include_closed=true` with `space_ids[]`, `project_ids[]` (a folder), or `list_ids[]`), matching the name or custom id; Docs by name under Docs; pages by name in a Doc. From the root or a Workspace a search finds tasks; Docs are searched under the Docs node. From the root it searches each Workspace in turn. A page of results may hold no match, with a cursor to the next.
+
+## Tickets
+
+A project can track its work in ClickUp (CONTEXT.md, Tracker, Ticket view). A ClickUp view follows one of a List, a Folder or a Space (every List in it), or a saved ClickUp view, by its link or id (`mesa tickets views add --provider clickup --list|--folder|--space|--view <link or id> [--workspace <id>] [--everyone] [--show-done]`). A link names its Workspace: `/<ws>/v/li/<list>`, `/<ws>/v/f/<folder>`, `/<ws>/v/s/<space>`, a view of one of them such as `/<ws>/v/b/li/<list>`, or a saved view, `/<ws>/v/<type>/<view id>`; a bare id is in the one connected Workspace, or `--workspace`. Adding a view reads its name and place: `GET /api/v2/list/<id>`, `/folder/<id>`, `/space/<id>` or `/view/<id>`.
+
+- List: `GET /api/v2/list/<id>/task?subtasks=true[&include_closed=true][&assignees[]=<me>]&page=<n>`.
+- Folder or Space: the Workspace's filtered tasks, `GET /api/v2/team/<ws>/task?project_ids[]=<folder>` (or `space_ids[]=<space>`) with the same query.
+- Saved view: `GET /api/v2/view/<id>/task?page=<n>`, which takes no narrowing of its own: its own filters apply, and Mesa keeps the person's tasks and leaves out closed ones unless the view says otherwise.
+
+Each read takes up to three pages of 100 tasks, `more` when ClickUp has more after them. Hide closed tasks leaves out the statuses of type `closed`; the list groups by status type (open to do, custom in progress, done and closed done). A task's key is its `custom_id` when its Workspace has them, else its id, and its link (`/t/<ws>/<custom id>` or `/t/<id>`) is what Start session imports, so the Live dot matches the session the import starts.
+
+The panel reads `GET /api/v2/task/<key>?include_markdown_description=true` (with `custom_task_ids=true&team_id=<ws>` for a custom id, trying each connected Workspace when several), its comments as an import does, its Space's name (`GET /api/v2/space/<id>`), and its parent task on a subtask. Assign to me is `PUT /api/v2/task/<key>` with `{"assignees": {"add": [<me>], "rem": []}}`, with a receipt; a task whose answer does not list the person says so.
+
+The Follow dialog's Location tree reads each Workspace's Spaces, then per Space its Folders with their Lists and its Lists outside any Folder (`GET /api/v2/team/<ws>/space`, `/space/<id>/folder`, `/space/<id>/list`, `archived=false`), searched in the app (`mesa tickets locations`). Its Saved view tab lists the task views at the Workspace's Everything level and in each Space (`GET /api/v2/team/<ws>/view`, `/space/<id>/view`; `mesa tickets saved-views`); a view kept in a Folder or a List is followed by its link. Both read 4 requests at a time, about 33 for a Workspace of ten Spaces. Of the imported ClickUp items only tasks are tickets: a Doc page gets no ticket prompt and no Ticket start.
 
 ## Rate and plan limits
 
