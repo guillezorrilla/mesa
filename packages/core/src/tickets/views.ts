@@ -39,7 +39,7 @@ const TicketsSchema = z.strictObject({
   /** Each project's followed view names. */
   follows: z.record(z.string(), z.array(z.string())).default({}),
   /** Each project's tracker, when it set one; unset reads as Jira for a project following Jira views. */
-  trackers: z.record(z.string(), z.enum(PROVIDER_IDS as [ProviderId, ...ProviderId[]])).default({}),
+  trackers: z.record(z.string(), z.enum(PROVIDER_IDS)).default({}),
   /** The Saved prompt every ticket session gets, unless its project names its own. */
   prompt: z.string().optional(),
   prompts: z.record(z.string(), z.string()).default({}),

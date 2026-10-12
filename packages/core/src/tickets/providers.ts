@@ -12,6 +12,9 @@ import { describeJiraView, type JiraViewInput, JiraViewSchema } from './jira-vie
 import { linearProvider } from './linear-provider.js';
 import { describeLinearView, type LinearViewInput, LinearViewSchema } from './linear-view.js';
 import type { ProviderDeps } from './provider.js';
+import { PROVIDER_IDS, type ProviderId } from './provider-id.js';
+
+export { PROVIDER_IDS, type ProviderId, ticketId, ticketRef } from './provider-id.js';
 
 /**
  * The ticket providers (CONTEXT.md, Ticket view), keyed by id: each row's name, the source whose
@@ -43,7 +46,7 @@ export const PROVIDERS = {
     ticket: isLinearIdentifier,
   },
 } as const satisfies Record<
-  string,
+  ProviderId,
   {
     name: string;
     source: SourceId;
@@ -53,8 +56,6 @@ export const PROVIDERS = {
     ticket?: (id: string) => boolean;
   }
 >;
-export type ProviderId = keyof typeof PROVIDERS;
-export const PROVIDER_IDS = Object.keys(PROVIDERS) as ProviderId[];
 
 /** Whether an item imported from `source` with id `id` is a ticket, a ticket provider's. */
 export function isTicketItem(source: string, id: string): boolean {
@@ -95,16 +96,6 @@ export function providerOf(id: string): ProviderId {
   if (!found)
     throw new MesaError('usage', `no ticket provider ${id}; one of ${PROVIDER_IDS.join(', ')}`);
   return found;
-}
-
-/** A ticket's id across providers: the provider, a colon, its own key, such as jira:LC-12, github:owner/repo#12, clickup:DOCK-112 or linear:ENG-123. */
-export const ticketId = (provider: ProviderId, key: string) => `${provider}:${key}`;
-
-/** `input` as a provider and its key: a ticket id such as jira:LC-12, or a bare Jira key. */
-export function ticketRef(input: string): { provider: ProviderId; key: string } {
-  const at = input.indexOf(':');
-  const provider = PROVIDER_IDS.find((p) => p === input.slice(0, at).trim().toLowerCase());
-  return provider ? { provider, key: input.slice(at + 1) } : { provider: 'jira', key: input };
 }
 
 /**
