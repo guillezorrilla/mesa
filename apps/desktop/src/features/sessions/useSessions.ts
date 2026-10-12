@@ -12,6 +12,8 @@ export function useSessions() {
   const run = useRun();
   const call = useCall();
   const [data, setData] = useState<TreeRow[]>();
+  // The first look has answered, rows or a failure.
+  const [loaded, setLoaded] = useState(false);
   const look = useMemo(() => {
     // Quietly: a model that fails leaves the rules' state, and the row says why.
     const place = oneAtATime(async () => {
@@ -19,6 +21,7 @@ export function useSessions() {
     });
     return oneAtATime(async () => {
       const rows = await run('sessions.list');
+      setLoaded(true);
       if (!rows) return;
       setData(rows);
       if (rows.some((row) => row.managed && row.supervision.pending)) void place();
@@ -29,5 +32,5 @@ export function useSessions() {
     const timer = setInterval(look, 2000);
     return () => clearInterval(timer);
   }, [look]);
-  return { data, look };
+  return { data, loaded, look };
 }

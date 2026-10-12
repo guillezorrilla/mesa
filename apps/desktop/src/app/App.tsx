@@ -1,6 +1,6 @@
 import type { TreeRow } from '@mesa/core';
 import { DEFAULT_SHORTCUTS, GENERAL_PROJECT } from '@mesa/core/browser';
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { warningOf } from '@/components/Toast';
 import { UnsavedFilesDialog } from '@/features/files/UnsavedFilesDialog';
 import { useNativeNotifications } from '@/features/notifications/useNativeNotifications';
@@ -27,6 +27,7 @@ import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { useInitialView } from './hooks/useInitialView';
 import { useMesaLinks } from './hooks/useMesaLinks';
 import { useWorkspaceNavigation } from './hooks/useWorkspaceNavigation';
+import { LoadingScreen } from './LoadingScreen';
 import { paletteView } from './navigation';
 import { QuitDialog } from './QuitDialog';
 import { WorkspaceSidebar } from './sidebar/WorkspaceSidebar';
@@ -39,6 +40,8 @@ export function App() {
   const { view, setView, navigate, navigateLatest, overlay, setOverlay } = workspace;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sessions, setSessions] = useState<TreeRow[]>([]);
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
+  const sessionsWereLoaded = useCallback(() => setSessionsLoaded(true), []);
   const search = useSearchPalette();
   const [archiveSessionRequest, setArchiveSessionRequest] = useState<SessionRequest>();
   const [dependencySessionRequest, setDependencySessionRequest] = useState<SessionRequest>();
@@ -64,11 +67,13 @@ export function App() {
     config.data?.projects?.sort,
   );
   const needsProfileSetup = config.error?.code === 'not_found';
-  useInitialView({
+  const ready = useInitialView({
     config: config.data,
     needsProfileSetup,
     projects: projects.data,
     sessions,
+    sessionsLoaded,
+    failed: (!!config.error && !needsProfileSetup) || !!projects.error,
     setView,
   });
   const onboarding = needsProfileSetup || config.data?.onboarding?.status === 'active';
@@ -141,157 +146,162 @@ export function App() {
     },
   });
   return (
-    <div className="flex h-screen min-h-[480px] flex-col">
-      <TitleBar
-        view={view}
-        navigate={navigate}
-        overlay={overlay}
-        onOverlay={setOverlay}
-        onSettings={workspace.openSettings}
-        searchShortcut={shortcuts.search}
-        onSearch={() => search.openSearch()}
-        projects={projects.data}
-        currentProject={project?.name}
-        canStart={canStart}
-        onNewSession={requestNewSession}
-        doctor={doctor.data}
-        onRecheck={doctor.refresh}
-        profileMenu={profileMenu}
-      />
-      {linkGuidance && (
-        <p role="status" data-testid="mesa-link-guidance" className="px-6 py-2 text-sm">
-          {linkGuidance}
-        </p>
-      )}
-      <div className="flex min-h-0 flex-1">
-        <WorkspaceSidebar
+    <>
+      {!ready && <LoadingScreen />}
+      {/* Mounted while loading, so the session tree it reads loads behind the loading screen. */}
+      <div hidden={!ready} className="flex h-screen min-h-[480px] flex-col">
+        <TitleBar
           view={view}
-          onView={navigate}
-          projects={sidebarProjects}
-          sort={sorted.sort}
-          onSort={sorted.setSort}
-          sessions={sessions}
-          waiting={waiting}
-          collapsed={sidebarCollapsed}
-          onCollapse={() => setSidebarCollapsed((value) => !value)}
-          onAddProject={setProjectAdd}
-          onProjectsChanged={() => void projects.refresh()}
-          onProjectUnregistered={projectUnregistered}
-          starting={starting}
-          lastSession={workspace.lastSession}
-          lastProject={workspace.lastProject}
-          onNewSession={(project, location, parent) =>
-            requestNewSession({
-              ...(project === GENERAL_PROJECT ? { general: true } : { project }),
-              location,
-              parent,
-            })
-          }
-          onArchiveSession={(id) => {
-            navigate({ kind: 'session', id });
-            setArchiveSessionRequest((request) => ({
-              count: (request?.count ?? 0) + 1,
-              ids: [id],
-            }));
-          }}
-          onArchiveSessions={(ids) =>
-            setArchiveSessionRequest((request) => ({ count: (request?.count ?? 0) + 1, ids }))
-          }
-          onDependencySession={(id) => {
-            navigate({ kind: 'session', id });
-            setDependencySessionRequest((request) => ({
-              count: (request?.count ?? 0) + 1,
-              ids: [id],
-            }));
-          }}
+          navigate={navigate}
+          overlay={overlay}
+          onOverlay={setOverlay}
+          onSettings={workspace.openSettings}
+          searchShortcut={shortcuts.search}
+          onSearch={() => search.openSearch()}
+          projects={projects.data}
+          currentProject={project?.name}
+          canStart={canStart}
+          onNewSession={requestNewSession}
+          doctor={doctor.data}
+          onRecheck={doctor.refresh}
+          profileMenu={profileMenu}
         />
-        <OpenSettingsContext.Provider value={workspace.openSettings}>
-          <WorkspaceMain
+        {linkGuidance && (
+          <p role="status" data-testid="mesa-link-guidance" className="px-6 py-2 text-sm">
+            {linkGuidance}
+          </p>
+        )}
+        <div className="flex min-h-0 flex-1">
+          <WorkspaceSidebar
             view={view}
-            project={project}
-            navigate={navigate}
-            config={config}
-            projects={projects}
-            needsProfileSetup={needsProfileSetup}
-            onProfileInitialised={profileInitialised}
-            prompts={prompts}
-            doctor={doctor}
+            onView={navigate}
+            projects={sidebarProjects}
+            sort={sorted.sort}
+            onSort={sorted.setSort}
             sessions={sessions}
-            onRowsChange={setSessions}
-            filesDirty={workspace.filesDirty}
-            onFilesDirtyChange={workspace.setFilesDirty}
-            onNewSession={requestNewSession}
+            waiting={waiting}
+            collapsed={sidebarCollapsed}
+            onCollapse={() => setSidebarCollapsed((value) => !value)}
             onAddProject={setProjectAdd}
+            onProjectsChanged={() => void projects.refresh()}
             onProjectUnregistered={projectUnregistered}
-            onVaultSettings={() => workspace.openSettings('general')}
-            archiveSessionRequest={archiveSessionRequest}
-            dependencySessionRequest={dependencySessionRequest}
-            promptInsertRequest={promptInsertRequest}
+            starting={starting}
+            lastSession={workspace.lastSession}
+            lastProject={workspace.lastProject}
+            onNewSession={(project, location, parent) =>
+              requestNewSession({
+                ...(project === GENERAL_PROJECT ? { general: true } : { project }),
+                location,
+                parent,
+              })
+            }
+            onArchiveSession={(id) => {
+              navigate({ kind: 'session', id });
+              setArchiveSessionRequest((request) => ({
+                count: (request?.count ?? 0) + 1,
+                ids: [id],
+              }));
+            }}
+            onArchiveSessions={(ids) =>
+              setArchiveSessionRequest((request) => ({ count: (request?.count ?? 0) + 1, ids }))
+            }
+            onDependencySession={(id) => {
+              navigate({ kind: 'session', id });
+              setDependencySessionRequest((request) => ({
+                count: (request?.count ?? 0) + 1,
+                ids: [id],
+              }));
+            }}
           />
-        </OpenSettingsContext.Provider>
-      </div>
-      <CommandPalette
-        mode={search.mode}
-        onMode={search.openSearch}
-        onClose={search.closeSearch}
-        projects={projects.data ?? []}
-        sessions={sessions}
-        prompts={view.kind === 'session' ? prompts.data : undefined}
-        shortcuts={shortcuts}
-        returnFocus={search.returnFocus.current}
-        onSelect={(hit) => {
-          const target = paletteView(hit);
-          if (hit.kind === 'prompt' && view.kind === 'session') {
-            const saved = prompts.data?.find((prompt) => prompt.name === hit.id);
-            if (saved) setPromptInsertRequest({ session: view.id, text: saved.text });
-          } else if (target) navigate(target);
-          else if (hit.id === 'new-session') requestNewSession();
-          else if (hit.id === 'smarter-decisions') workspace.openSettings('decisions');
-          else if (hit.id === 'open-vault') {
-            void act(async () => warningOf(await run('vault.open')));
-          } else if (hit.id === 'profile') {
-            if (profileMenu.current) profileMenu.current.open = true;
-            profileMenu.current?.querySelector('summary')?.focus();
-          }
-        }}
-      />
-      <WorkspaceOverlays
-        overlay={overlay}
-        onOverlay={setOverlay}
-        settingsCategory={workspace.settingsCategory}
-        config={config}
-        doctor={doctor}
-        onProjectsChanged={() => void projects.refresh()}
-        navigate={navigate}
-        onReplayTour={startOnboarding}
-      />
-      {cloneLink && (
-        <CloneProjectDialog
-          key={cloneLink.request}
-          url={cloneLink.url}
-          onCancel={() => setCloneLink(undefined)}
-          onCloned={async (name) => {
-            await projects.refresh();
-            navigate({ kind: 'project', name });
+          <OpenSettingsContext.Provider value={workspace.openSettings}>
+            <WorkspaceMain
+              view={view}
+              project={project}
+              navigate={navigate}
+              config={config}
+              projects={projects}
+              needsProfileSetup={needsProfileSetup}
+              onProfileInitialised={profileInitialised}
+              prompts={prompts}
+              doctor={doctor}
+              sessions={sessions}
+              onRowsChange={setSessions}
+              onSessionsLoaded={sessionsWereLoaded}
+              filesDirty={workspace.filesDirty}
+              onFilesDirtyChange={workspace.setFilesDirty}
+              onNewSession={requestNewSession}
+              onAddProject={setProjectAdd}
+              onProjectUnregistered={projectUnregistered}
+              onVaultSettings={() => workspace.openSettings('general')}
+              archiveSessionRequest={archiveSessionRequest}
+              dependencySessionRequest={dependencySessionRequest}
+              promptInsertRequest={promptInsertRequest}
+            />
+          </OpenSettingsContext.Provider>
+        </div>
+        <CommandPalette
+          mode={search.mode}
+          onMode={search.openSearch}
+          onClose={search.closeSearch}
+          projects={projects.data ?? []}
+          sessions={sessions}
+          prompts={view.kind === 'session' ? prompts.data : undefined}
+          shortcuts={shortcuts}
+          returnFocus={search.returnFocus.current}
+          onSelect={(hit) => {
+            const target = paletteView(hit);
+            if (hit.kind === 'prompt' && view.kind === 'session') {
+              const saved = prompts.data?.find((prompt) => prompt.name === hit.id);
+              if (saved) setPromptInsertRequest({ session: view.id, text: saved.text });
+            } else if (target) navigate(target);
+            else if (hit.id === 'new-session') requestNewSession();
+            else if (hit.id === 'smarter-decisions') workspace.openSettings('decisions');
+            else if (hit.id === 'open-vault') {
+              void act(async () => warningOf(await run('vault.open')));
+            } else if (hit.id === 'profile') {
+              if (profileMenu.current) profileMenu.current.open = true;
+              profileMenu.current?.querySelector('summary')?.focus();
+            }
           }}
         />
-      )}
-      {projectAdd && (
-        <ProjectAddDialog
-          request={projectAdd}
-          onCancel={closeProjectAdd}
-          onRegistered={projectRegistered}
+        <WorkspaceOverlays
+          overlay={overlay}
+          onOverlay={setOverlay}
+          settingsCategory={workspace.settingsCategory}
+          config={config}
+          doctor={doctor}
+          onProjectsChanged={() => void projects.refresh()}
+          navigate={navigate}
+          onReplayTour={startOnboarding}
         />
-      )}
-      {workspace.pendingView && (
-        <UnsavedFilesDialog
-          onDiscard={workspace.discardPending}
-          onCancel={workspace.cancelPending}
-        />
-      )}
-      {quit.quitOpen && (
-        <QuitDialog closing={quit.closing} onQuit={quit.confirmQuit} onCancel={quit.cancelQuit} />
-      )}
-    </div>
+        {cloneLink && (
+          <CloneProjectDialog
+            key={cloneLink.request}
+            url={cloneLink.url}
+            onCancel={() => setCloneLink(undefined)}
+            onCloned={async (name) => {
+              await projects.refresh();
+              navigate({ kind: 'project', name });
+            }}
+          />
+        )}
+        {projectAdd && (
+          <ProjectAddDialog
+            request={projectAdd}
+            onCancel={closeProjectAdd}
+            onRegistered={projectRegistered}
+          />
+        )}
+        {workspace.pendingView && (
+          <UnsavedFilesDialog
+            onDiscard={workspace.discardPending}
+            onCancel={workspace.cancelPending}
+          />
+        )}
+        {quit.quitOpen && (
+          <QuitDialog closing={quit.closing} onQuit={quit.confirmQuit} onCancel={quit.cancelQuit} />
+        )}
+      </div>
+    </>
   );
 }
