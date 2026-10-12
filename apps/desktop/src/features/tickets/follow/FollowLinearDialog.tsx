@@ -61,7 +61,7 @@ export function FollowLinearDialog(props: FollowDialogProps) {
       view={view}
       name={name}
       words={{ nouns: 'issues', query: 'the filter Mesa sends' }}
-      waiting={teams.data ? 'Pick what to follow first.' : 'Reading teams...'}
+      waiting={teams.data || teams.error ? 'Pick what to follow first.' : 'Reading teams...'}
       labels={{ mine: 'Only issues assigned to me', hideDone: 'Hide completed and canceled' }}
       mine={mine}
       hideDone={hideDone}
@@ -72,7 +72,7 @@ export function FollowLinearDialog(props: FollowDialogProps) {
       onCancel={props.onCancel}
     >
       <TeamChips
-        teams={teams.data}
+        read={teams}
         picked={team?.id}
         onPick={(next) => {
           setChosen(next);

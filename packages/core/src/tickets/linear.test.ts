@@ -263,6 +263,27 @@ test('a Linear connection without the write scope asks to reconnect to assign, a
   expect((await mesa.sources.list()).sources.find((s) => s.id === 'linear')).toMatchObject({
     status: 'connected',
   });
+  // A FORBIDDEN error that names a scope is the same answer, however Linear words it.
+  world.servePost('https://api.linear.app/graphql', () => ({
+    data: null,
+    errors: [
+      { message: 'Insufficient scopes for this operation', extensions: { code: 'FORBIDDEN' } },
+    ],
+  }));
+  await expect(mesa.tickets.assign('linear:HAR-12')).rejects.toThrow(
+    'Linear needs reconnecting to allow this',
+  );
+});
+
+test('a rate limit Linear answers without its HTTP 400 says to try again', async () => {
+  const { world, mesa } = await setUp();
+  world.servePost('https://api.linear.app/graphql', () => ({
+    data: null,
+    errors: [{ message: 'Rate limit exceeded', extensions: { code: 'RATELIMITED' } }],
+  }));
+  await expect(mesa.tickets.teams()).rejects.toThrow(
+    'Linear is rate limiting Mesa: try again in a minute',
+  );
 });
 
 test('a project and a saved view follow by link; a team with no next cycle says so', async () => {
@@ -322,6 +343,9 @@ test('a project and a saved view follow by link; a team with no next cycle says 
   await expect(
     mesa.tickets.addView({ provider: 'linear', name: 'x', team: 'NOPE' }),
   ).rejects.toThrow('no Linear team NOPE; see mesa tickets teams');
+  await expect(
+    mesa.tickets.addView({ provider: 'linear', name: 'x', customView: 'view-9' }),
+  ).rejects.toThrow(/^no Linear custom view view-9$/);
   await expect(
     mesa.tickets.addView({
       provider: 'linear',

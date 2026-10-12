@@ -182,7 +182,7 @@ export async function linearCustomViews(get: Http): Promise<LinearCustomView[]> 
   return customViews.nodes.filter((v) => v.modelName === 'Issue').map(toCustomView);
 }
 
-/** Custom view `id` (its id or slug id), which must list issues. */
+/** Custom view `id` (its id or slug id), which must list issues; not_found when it is no view. */
 export async function linearCustomView(get: Http, id: string): Promise<LinearCustomView> {
   const { customView } = await linearCall(
     get,
@@ -190,7 +190,12 @@ export async function linearCustomView(get: Http, id: string): Promise<LinearCus
     { id },
     z.object({ customView: customViewSchema }),
     `Linear custom view ${id}`,
-  );
+  ).catch((error: unknown) => {
+    // A view's link or id is the person's to check, not the connection's.
+    if (error instanceof MesaError && error.code === 'not_found')
+      throw new MesaError('not_found', `no Linear custom view ${id}`);
+    throw error;
+  });
   if (customView.modelName !== 'Issue')
     throw new MesaError('usage', `Linear view ${customView.name} lists no issues`);
   return toCustomView(customView);

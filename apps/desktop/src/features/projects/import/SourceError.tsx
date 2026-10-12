@@ -9,7 +9,8 @@ const toConnect = (error: BrowseError) =>
 
 /**
  * Why a node's children did not load, and for a source not connected or needing reconnecting, a
- * Connect or Reconnect button: Settings > Connections' sign-in, then `onRetry`.
+ * Connect or Reconnect button: Settings > Connections' sign-in, then `onRetry`. Its buttons never
+ * submit a form it sits in, such as a Follow dialog's.
  */
 export function SourceError(props: { source: SourceId; error: BrowseError; onRetry: () => void }) {
   const { source, error } = props;
@@ -21,7 +22,13 @@ export function SourceError(props: { source: SourceId; error: BrowseError; onRet
     <div data-testid="source-error" className="flex items-center gap-2 px-2 py-1 text-sm">
       <span className="min-w-0 flex-1 text-destructive">{error.message}</span>
       {toConnect(error) ? (
-        <Button size="sm" variant="secondary" disabled={signingIn} onClick={() => void connect()}>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          disabled={signingIn}
+          onClick={() => void connect()}
+        >
           {signingIn
             ? 'Waiting for sign-in...'
             : error.code === 'not_found'
@@ -29,7 +36,7 @@ export function SourceError(props: { source: SourceId; error: BrowseError; onRet
               : 'Reconnect'}
         </Button>
       ) : (
-        <Button size="sm" variant="ghost" onClick={props.onRetry}>
+        <Button type="button" size="sm" variant="ghost" onClick={props.onRetry}>
           Try again
         </Button>
       )}

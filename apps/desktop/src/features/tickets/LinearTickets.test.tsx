@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import type { Ticket } from '@mesa/core';
 import { beforeEach, expect, test } from 'vitest';
-import { click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
+import { click, envelope, failure, fakeBridge, renderWithMesa } from '@/lib/testing';
 import { TicketsTab } from './TicketsTab';
 
 const cycleView = {
@@ -202,4 +202,52 @@ test('Follow Linear issues picks a team, then its cycle, a project or a saved vi
     'tickets views add --provider linear --linear-project p1 -- Mooring alerts',
     'tickets follow -- lantern-cove Mooring alerts',
   ]);
+});
+
+test("Follow Linear issues says why teams or a team's work did not read, and Connect or Try again reads them", async () => {
+  let connected = false;
+  let workFails = true;
+  const linear = { id: 'linear', label: 'Linear', connected, status: 'disconnected' };
+  const { bridge, calls } = fakeBridge({
+    tickets: () => listOf([], []),
+    prompts: () => envelope([]),
+    'tickets views': () => envelope([]),
+    'tickets teams': () =>
+      connected
+        ? envelope([HARBOUR])
+        : {
+            ok: false,
+            error: {
+              code: 'not_found',
+              message: 'Linear is not connected: run mesa sources connect linear',
+              details: { connect: 'linear' },
+            },
+          },
+    'tickets team': () =>
+      workFails
+        ? failure('Linear is rate limiting Mesa: try again in a minute', 'internal')
+        : envelope({ team: HARBOUR, cycles: {}, projects: [], views: [] }),
+    'tickets preview': () => envelope({ describe: 'x', jql: null, count: 0, more: false }),
+    'sources list': () => envelope({ sources: [linear] }),
+    'sources connect': () => {
+      connected = true;
+      return envelope({ ...linear, connected: true, status: 'connected' });
+    },
+  });
+  const byTestId = await renderWithMesa(
+    <TicketsTab project="lantern-cove" onSession={() => {}} />,
+    bridge,
+  );
+  await click(button('Follow Linear issues'));
+  expect(byTestId('source-error')[0]?.textContent).toContain('Linear is not connected');
+  await click(button('Connect'));
+  expect(words(calls)).toContain('sources connect linear');
+  expect(byTestId('linear-teams')[0]?.textContent).toBe('HARHarbour');
+  expect(byTestId('source-error')[0]?.textContent).toContain('Linear is rate limiting Mesa');
+  workFails = false;
+  await click(button('Try again'));
+  expect(byTestId('source-error')).toHaveLength(0);
+  // Try again reads again inside the dialog: it does not submit it.
+  expect(words(calls).filter((w) => w.startsWith('tickets views add'))).toEqual([]);
+  expect(byTestId('follow-view-dialog')[0]?.textContent).toContain('No active cycle yet');
 });

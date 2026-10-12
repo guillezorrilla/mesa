@@ -2,6 +2,7 @@ import type { LinearCustomView, LinearProject } from '@mesa/core';
 import { useEffect } from 'react';
 import { Muted } from '@/components/Muted';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { SourceError } from '@/features/projects/import/SourceError';
 import { useCommand } from '@/lib/useCommand';
 import { cycleDates } from '../linear/cycleDates';
 import { type Choice, ChoiceRows } from './ChoiceRows';
@@ -38,7 +39,8 @@ const whose = (view: LinearCustomView) =>
 /**
  * A Linear Follow dialog's second step, "What to follow" in team `team`: Cycle (current or next,
  * with dates), Project (with lead and progress) or Saved view, as tabs over their choices. The
- * first project or saved view is picked until the person picks another.
+ * first project or saved view is picked until the person picks another. A failed read says why,
+ * with Connect, Reconnect or Try again, in place of the choices.
  */
 export function LinearTargets(props: {
   team: string;
@@ -79,6 +81,8 @@ export function LinearTargets(props: {
           : 'Reading cycles...',
     };
   });
+  if (work.error && !data)
+    return <SourceError source="linear" error={work.error} onRetry={work.refresh} />;
   return (
     <div className="grid gap-2">
       <StepLabel step={2}>What to follow</StepLabel>

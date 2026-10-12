@@ -15,20 +15,31 @@ export const LINEAR_WEB = 'https://linear.app';
 export const LINEAR_HOSTS = ['linear.app'];
 
 const errorsSchema = z
-  .array(z.object({ message: z.string(), extensions: z.object({ code: z.string() }).nullish() }))
+  .array(
+    z.object({
+      message: z.string(),
+      extensions: z.object({ code: z.string().nullish() }).nullish(),
+    }),
+  )
   .nullish();
+
+type LinearError = { message: string; extensions?: { code?: string | null } | null };
 
 /**
  * Linear's answer to a token without the scope a call needs (`Invalid scope: \`write\` required`,
- * as Linear words it): one signed in before Mesa asked for that scope.
+ * as Linear words it, or a FORBIDDEN error that names a scope): one signed in before Mesa asked
+ * for that scope.
  */
-const MISSING_SCOPE = /\binvalid scope\b|\bscope\b.*\brequired\b/i;
+const missingScope = (e: LinearError) =>
+  /\binvalid scope\b|\bscope\b.*\brequired\b/i.test(e.message) ||
+  (e.extensions?.code === 'FORBIDDEN' && /\bscopes?\b/i.test(e.message));
 
 /**
  * One GraphQL query to Linear's API, its `data` parsed by `schema`. Linear answers an item that is
  * gone, or in a team the person cannot see, with an "Entity not found" error: not_found, saying so.
  * A token that lacks a scope the call needs asks to reconnect (scopeError), the connection kept for
- * the rest. Any other error names `what` and Linear's first message.
+ * the rest. A rate limit the authorized fetch did not wait out (one answered without its HTTP
+ * 400) says to try again. Any other error names `what` and Linear's first message.
  */
 export async function linearCall<T>(
   get: Http,
@@ -51,7 +62,9 @@ export async function linearCall<T>(
       `${what} is missing, or not in the connected Linear workspace: reconnect Linear and pick its workspace`,
     );
   }
-  if (errors.some((e) => MISSING_SCOPE.test(e.message))) throw scopeError('linear');
+  if (errors.some(missingScope)) throw scopeError('linear');
+  if (errors.some((e) => e.extensions?.code === 'RATELIMITED'))
+    throw new MesaError('internal', 'Linear is rate limiting Mesa: try again in a minute');
   const why = errors[0]?.message ?? (response.ok ? undefined : `HTTP ${response.status}`);
   if (why) throw new MesaError('internal', `${what} answered ${why}`);
   const data = schema.safeParse(parsed.success ? parsed.data.data : undefined);
