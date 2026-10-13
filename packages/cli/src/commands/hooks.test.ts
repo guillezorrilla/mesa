@@ -93,7 +93,7 @@ test('SessionStart gives only the owning native session a bounded Mesa pointer',
   expect(start.stdout).toContain(`mesa show ${opened.id} --json`);
   expect(start.stdout).toContain('invoked here as /skill-name');
   expect(start.stdout).toContain(
-    'project_context, read_note, search_vault and session_goals on demand',
+    'project_context, read_note, search_vault and session_goals when past work bears on it',
   );
   // On demand: no first step to promise (#558).
   expect(start.stdout).not.toMatch(/\bfirst\b/);

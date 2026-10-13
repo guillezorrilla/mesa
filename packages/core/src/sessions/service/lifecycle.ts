@@ -88,13 +88,14 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
     record(
       {
         type: 'session',
-        summary: (r) =>
+        summary: ({ removed: r }) =>
           `Removed session ${id}${r.worktree ? `, its worktree${r.additional?.some((a) => a.worktree) ? 's' : ''}` : ''}${r.branch ? `, branch ${r.branch}` : ''}`,
         failure: `Could not remove session ${id}`,
-        project: (r) => projectScope(r.project),
+        project: ({ removed: r }) => projectScope(r.project),
         session: () => id,
         inputs: { id, ...opts },
-        outputs: (r) => r,
+        warning: (r) => r.warning,
+        outputs: (r) => r.removed,
       },
       () =>
         removeSession(
@@ -108,11 +109,14 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
             runs: paths.runs,
             costs: paths.costs,
             decisions: paths.decisions,
+            capture: deps.capture,
+            removing: ctx.removing,
+            clock: ctx.clock,
           },
           id,
           opts,
         ),
-    );
+    ).then((recorded) => ({ ...recorded, result: recorded.result.removed }));
   return {
     /**
      * Starts `agent` (else the project's, else the profile's) in a new window, with the goal

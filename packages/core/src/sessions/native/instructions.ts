@@ -108,7 +108,7 @@ export function mesaPointer(
     `Help: mesa help --agent. Skills: ${skills}, invoked here as ${prefix}skill-name.`,
     'Coordinate: mesa sessions --json, mesa open [--after], send, handoff; check state before sending. Only a human answers permission or question prompts.',
     'Guardrails check sent prompts; never bypass a block without the user.',
-    "Vault: mesa-vault's project_context, read_note, search_vault and session_goals on demand, when past work bears on the task. After a design decision: search_vault, then save_decision; save_summary, save_note only for lasting knowledge.",
+    "Vault: mesa-vault's project_context, read_note, search_vault and session_goals when past work bears on it. After a design decision or a correction: search_vault, then save_decision; save_summary, save_note only for lasting knowledge.",
     `Without the tools: ${vault} and the mesa-vault skill.`,
   ];
   if (record.additional) lines.splice(1, 0, alsoIn(record, Buffer.byteLength(lines.join('\n'))));

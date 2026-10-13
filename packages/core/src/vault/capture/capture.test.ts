@@ -694,3 +694,76 @@ test('with capture off, a Board look that finds an exit reads no transcript', as
     read.mockRestore();
   }
 });
+
+test('removing a live session returns at once; its capture lands from removing/, which it then leaves', async () => {
+  const w = captureWorld();
+  const s = await w.session();
+  const removing = join(w.home, '.mesa', 'default', 'sessions', 'removing');
+  const { result } = await w.mesa.sessions.remove(s.id, { force: true });
+  expect(result).toMatchObject({ window: true, capture: true });
+  expect(w.captures()).toHaveLength(1);
+  // Gone from every list while its capture runs; a Board look that finds the run ended lands it.
+  expect(readdirSync(removing)).toEqual([`${s.id}.json`]);
+  await expect(w.mesa.sessions.show(s.id)).rejects.toMatchObject({ code: 'not_found' });
+  expect((await w.mesa.sessions.list()).map((r) => r.id)).not.toContain(s.id);
+  await w.land();
+  expect(filesIn(w.vault, 'wiki/decisions')).toHaveLength(1);
+  expect(w.receipts()).toHaveLength(1);
+  expect(readdirSync(removing)).toEqual([]);
+});
+
+test('removing a stopped session whose capture still runs keeps it until that capture lands', async () => {
+  const w = captureWorld();
+  const s = await w.session();
+  await w.mesa.sessions.stop(s.id, true);
+  const { result } = await w.mesa.sessions.remove(s.id);
+  expect(result.capture).toBe(true);
+  expect(w.captures()).toHaveLength(1);
+  const removing = join(w.home, '.mesa', 'default', 'sessions', 'removing');
+  expect(readdirSync(removing)).toEqual([`${s.id}.json`]);
+  await w.land();
+  expect(filesIn(w.vault, 'wiki/decisions')).toHaveLength(1);
+  expect(testStore(w.home).find(s.id)).toBeUndefined();
+  expect(readdirSync(removing)).toEqual([]);
+});
+
+test("a second end of a removed session's capture run lands nothing again and keeps no failed receipt", async () => {
+  const w = captureWorld();
+  const s = await w.session();
+  await w.mesa.sessions.remove(s.id, { force: true });
+  // tmux's pane-died and a Board look may end one run at once.
+  await Promise.all([w.land(), w.land()]);
+  await w.land();
+  expect(w.receipts()).toHaveLength(1);
+  expect(w.receipts()[0]?.receipt.status).not.toBe('failed');
+});
+
+test('the next removal drops a Removing record no capture will land', async () => {
+  const w = captureWorld();
+  const s = await w.session();
+  await w.mesa.sessions.remove(s.id, { force: true });
+  const removing = join(w.home, '.mesa', 'default', 'sessions', 'removing');
+  const file = join(removing, `${s.id}.json`);
+  // Its capture settled, but the landing that did it never removed it.
+  const record = JSON.parse(readFileSync(file, 'utf8'));
+  writeFileSync(
+    file,
+    JSON.stringify({ ...record, capture: { ...record.capture, state: 'failed' } }),
+  );
+  w.mesa.config.set('vault.capture', 'off');
+  const other = await w.session();
+  await w.mesa.sessions.remove(other.id, { force: true });
+  expect(readdirSync(removing)).toEqual([]);
+});
+
+test('with capture off, a removal starts no capture and the record goes at once', async () => {
+  const w = captureWorld();
+  w.mesa.config.set('vault.capture', 'off');
+  const s = await w.session();
+  const { result } = await w.mesa.sessions.remove(s.id, { force: true });
+  expect(result.capture).toBe(false);
+  expect(w.captures()).toEqual([]);
+  expect(existsSync(join(w.home, '.mesa', 'default', 'sessions', 'removing', `${s.id}.json`))).toBe(
+    false,
+  );
+});

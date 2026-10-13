@@ -69,8 +69,8 @@ export type MesaDeps = {
 
 /**
  * What every domain's services share for one profile: the deps, its paths and config, the secrets
- * receipts redact, the receipt recorder, the session store, and the tmux backend. Built once by
- * createMesa, the composition root (ADR-0008).
+ * receipts redact, the receipt recorder, the session store and its Removing records, and the tmux
+ * backend. Built once by createMesa, the composition root (ADR-0008).
  */
 export function createContext(profile: string, deps: MesaDeps) {
   const paths = profilePaths(deps.home, profile);
@@ -138,6 +138,7 @@ export function createContext(profile: string, deps: MesaDeps) {
       redact: (text) => redactWhole(text, deps.home, secrets()),
     }),
     store: sessionStore({ dir: paths.sessions, newId: deps.newId, lock: deps }),
+    removing: sessionStore({ dir: paths.removing, newId: deps.newId, lock: deps }),
     tmux,
     /** The pane-died hook on the profile's tmux server, and whether a server runs there. */
     tmuxHook: async () => ({ socket: paths.tmuxSocket, ...(await tmux.paneDiedHookState()) }),
