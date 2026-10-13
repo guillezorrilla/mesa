@@ -39,6 +39,7 @@ export function DiffPanel(props: {
   onClose: () => void;
 }) {
   const changes = useCommand('sessions.diff', { id: props.sessionId });
+  const data = changes.data;
   const appearance = useCommand('config.get').data?.appearance ?? DEFAULT_APPEARANCE;
   const run = useRun();
   const [width, setWidth] = useKeptWidth('mesa.diff.width', DIFF_WIDTH);
@@ -60,7 +61,6 @@ export function DiffPanel(props: {
     void changes.refresh();
   }, [props.state]);
 
-  const data = changes.data;
   // Kept across renders, so a resize drag hands GitDiffRows the same rows and it skips the work.
   const files = useMemo(() => diffFiles(data?.rows ?? []), [data]);
   const at = Math.max(
@@ -113,9 +113,9 @@ export function DiffPanel(props: {
             <span className="truncate font-mono font-medium" title={props.branch}>
               {props.branch ?? 'This checkout'}
             </span>
-            {changes.data && (
+            {data && (
               <span className="shrink-0 text-muted-foreground">
-                since <span className="font-mono">{changes.data.base}</span>
+                since <span className="font-mono">{data.base}</span>
               </span>
             )}
           </p>
@@ -145,29 +145,29 @@ export function DiffPanel(props: {
           />
           <IconButton label="Close changes" icon={X} onClick={props.onClose} />
         </div>
-        {changes.data && (
+        {data && (
           <div className="flex items-center gap-3 px-3 pb-2.5 text-xs text-muted-foreground">
-            <span>{counted(changes.data.ahead, 'commit')}</span>
+            <span>{counted(data.ahead, 'commit')}</span>
             <span>{counted(files.length, 'file')}</span>
             <Stat added={added} removed={removed} />
-            {changes.data.omitted > 0 && (
+            {data.omitted > 0 && (
               <span className="text-state-waiting">
-                {counted(changes.data.omitted, 'more new file')} not shown
+                {counted(data.omitted, 'more new file')} not shown
               </span>
             )}
             <SplitBar added={added} removed={removed} />
           </div>
         )}
       </header>
-      {!changes.data ? (
+      {!data ? (
         <Muted className="grid flex-1 place-items-center px-6 text-center">
           {changes.error
             ? `Could not read this session's changes: ${changes.error.message}`
             : 'Reading changes...'}
         </Muted>
-      ) : !file || !data ? (
+      ) : !file ? (
         <div className="grid flex-1 place-content-center gap-1 px-6 text-center">
-          <p className="text-sm font-medium">No changes since {changes.data.base}</p>
+          <p className="text-sm font-medium">No changes since {data.base}</p>
           <Muted size="xs">
             Commits, edits and new files show up here as the session makes them.
           </Muted>
