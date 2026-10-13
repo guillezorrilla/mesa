@@ -1,6 +1,6 @@
 import { clip } from '../lib/clip.js';
 import { shellWord } from '../lib/process.js';
-import type { ScopedContext } from './context.js';
+import { notePath, type ScopedContext } from './context.js';
 import type { NewLogEntry } from './log.js';
 import type { SystemOneProvider } from './systemone.js';
 
@@ -31,10 +31,6 @@ export function turnAdvice(context: ScopedContext): string | undefined {
     ADVICE_CHARS,
   );
 }
-
-/** The vault path of a `note:` source id. */
-const notePath = (id: unknown) =>
-  typeof id === 'string' && id.startsWith('note:') ? id.slice('note:'.length) : undefined;
 
 /**
  * The Decision log's line for one automatic relevance ask: the note advised, if advice was sent

@@ -71,10 +71,7 @@ type Placements = z.infer<typeof PlacementsSchema>;
  * An ask to make: the session, the key it answers, and the state to send; or, past the budget,
  * the reply saved instead of asking.
  */
-export type Claim = Pick<Want, 'key' | 'state' | 'project' | 'rules'> & {
-  id: string;
-  refused?: PlacementReply;
-};
+export type Claim = Want & { id: string; refused?: PlacementReply };
 
 /**
  * How a row was placed, for `mesa show --json` and the app: `rules`, or the model whose answer

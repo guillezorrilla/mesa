@@ -1,4 +1,4 @@
-import type { LogEntry } from '@mesa/core';
+import { type LogEntry, obsidianDateTime } from '@mesa/core';
 import { defineCommand } from '../../command.js';
 import { wholeNumber } from '../../input/flags.js';
 import { columns } from '../../output/columns.js';
@@ -9,7 +9,7 @@ function logText(entries: LogEntry[]) {
   if (!entries.length) return 'no decisions logged in this period';
   return columns(
     entries.map((e) => [
-      e.at.slice(0, 16).replace('T', ' '),
+      obsidianDateTime(new Date(e.at)).replace('T', ' '),
       e.site,
       e.session ?? '',
       e.by,

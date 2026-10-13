@@ -3,6 +3,9 @@ import { z } from 'zod';
 // Local time comes from the process time zone (TZ), the one dependency here that is not injected:
 // it is the wall clock Obsidian shows, so it is accepted as is. Tests pin TZ=UTC (vitest.config.ts).
 
+/** One day in milliseconds. */
+export const DAY_MS = 86_400_000;
+
 const pad = (n: number, width = 2) => String(n).padStart(width, '0');
 
 /** The local calendar date of `date` as YYYY-MM-DD: the daily note's name, and Obsidian's Date. */

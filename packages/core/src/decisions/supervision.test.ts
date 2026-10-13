@@ -172,7 +172,7 @@ test('each saved reply is logged once, beside what the rules read from the same 
   });
 });
 
-test('an abstention is logged as abstained, with the answer it leaned to and no change', async () => {
+test('an abstention is logged as abstained, with the rules state standing and no change', async () => {
   const { world, store, place, want, logged } = placing();
   answering(world, 'idle', 0.5);
   store.look('a1b2c3d4', { ...want('a1b2c3d4', 'something no reader knows'), rules: 'working' });
@@ -180,8 +180,9 @@ test('an abstention is logged as abstained, with the answer it leaned to and no 
   expect(logged).toEqual([
     expect.objectContaining({
       status: 'abstained',
-      answer: 'idle',
+      answer: 'working',
       rules: 'working',
+      probabilities: expect.objectContaining({ idle: 0.5 }),
       changed: false,
     }),
   ]);

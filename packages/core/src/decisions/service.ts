@@ -1,6 +1,7 @@
 import type { MesaContext } from '../context.js';
 import { clip } from '../lib/clip.js';
 import { MesaError } from '../lib/result.js';
+import { DAY_MS } from '../lib/time.js';
 import type { Recorded } from '../receipts/recorder.js';
 import { projectLabel } from '../sessions/record/general.js';
 import type { SessionRecord } from '../sessions/record/record.js';
@@ -31,8 +32,6 @@ import type { Decision } from './types.js';
 // advice for one live session, through `mesa decisions evaluate|context|advise`, the
 // decision_evaluate tool, and the app's session details. Routine calls keep nothing but the
 // session's bounded use; only an explicit decision with a rationale writes a receipt.
-
-const DAY_MS = 86_400_000;
 
 export type EvaluateOptions = {
   /** The session, for a person outside a Mesa window; inside one, only its own. */
@@ -150,6 +149,7 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
     const signal = AbortSignal.timeout(Math.max(0, until - ctx.clock().getTime()));
     const asked = query?.trim() || session.goal?.trim();
     if (!asked || off(session)) return undefined;
+    const provider = model();
     const context = await answer(
       session,
       { site: 'relevance', query: clip(asked, 500) },
@@ -157,8 +157,8 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
     );
     const text = 'sources' in context ? turnAdvice(context) : undefined;
     if (text) stateOf(session.id).saw('advice');
-    const provider = model();
-    if ('sources' in context && provider !== 'none')
+    // A ready-only read (Antigravity's, before each of its model calls) asks nothing: not logged.
+    if ('sources' in context && provider !== 'none' && !readyOnly)
       ctx.decisionLog.append(adviceEntry(context, session.project, provider, text !== undefined));
     return text;
   };

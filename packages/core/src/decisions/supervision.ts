@@ -129,27 +129,26 @@ async function ask(
   };
 }
 
-/** The Decision log's line for a saved reply: what the model placed beside what the rules read. */
+/**
+ * The Decision log's line for a saved reply: the state that stood (the model's when accepted,
+ * else the rules') beside what the rules read; an answer with probabilities but not placed is an
+ * abstention, one without any a failure.
+ */
 export function placementEntry(
   claim: Claim,
   reply: PlacementReply,
   provider: SystemOneProvider,
 ): NewLogEntry {
   const { placed, probabilities, ask } = reply;
-  const top = probabilities && Object.entries(probabilities).sort((a, b) => b[1] - a[1])[0]?.[0];
   return {
     site: 'supervision',
     session: claim.id,
     project: claim.project ?? null,
     question: 'What state is this session in?',
     rules: claim.rules ?? null,
-    answer: placed?.state ?? top ?? null,
+    answer: placed?.state ?? claim.rules ?? null,
     by: provider,
-    status: placed
-      ? 'accepted'
-      : ask.fallbackReason?.startsWith('abstained')
-        ? 'abstained'
-        : 'unavailable',
+    status: placed ? 'accepted' : probabilities ? 'abstained' : 'unavailable',
     changed: Boolean(placed && placed.state !== claim.rules),
     ...(ask.margin === undefined ? {} : { margin: ask.margin }),
     ...(probabilities ? { probabilities } : {}),

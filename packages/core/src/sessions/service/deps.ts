@@ -109,9 +109,7 @@ export function sessionDeps(
         ...ctx,
         start: (input: RunInput) =>
           startRun(
-            runDeps(VAULT_CAPTURE, (action) =>
-              faro.guardrail.gate(action, { yes: true }, { record: () => {} }, false),
-            ),
+            runDeps(VAULT_CAPTURE, (action) => faro.guardrail.gate(action, { yes: true })),
             input,
           ),
       },

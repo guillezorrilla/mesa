@@ -1,8 +1,10 @@
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { Clock } from '../lib/clock.js';
+import { scanLines } from '../lib/file-lines.js';
 import type { IdSource } from '../lib/ids.js';
+import { EVALUATION_STATUSES } from './evaluate.js';
 import { SYSTEM_ONE_PROVIDERS } from './systemone.js';
 
 // The Decision log (CONTEXT.md, ADR-0024): every model ask at the supervision and relevance sites,
@@ -10,21 +12,14 @@ import { SYSTEM_ONE_PROVIDERS } from './systemone.js';
 // Impact reads it; nothing decides from it. Profile data, never the vault: a busy Board asks a
 // model many times a minute, too many for receipts. It never holds a prompt or a screen.
 
-export const LOG_SITES = ['supervision', 'relevance', 'guardrail'] as const;
+const LOG_SITES = ['supervision', 'relevance', 'guardrail'] as const;
 
 /**
  * How the entry went. A model ask is accepted, abstained, unavailable (failed, or not asked), or
  * skipped (relevance: no source shared enough words, so no model was asked). A guardrail stop is
  * blocked (it did not go on) or overridden (`--yes`, a person's yes, or `--force`).
  */
-export const LOG_STATUSES = [
-  'accepted',
-  'abstained',
-  'unavailable',
-  'skipped',
-  'blocked',
-  'overridden',
-] as const;
+const LOG_STATUSES = [...EVALUATION_STATUSES, 'skipped', 'blocked', 'overridden'] as const;
 
 const EntrySchema = z.object({
   id: z.string(),
@@ -93,22 +88,21 @@ export function decisionLog(deps: { dir: string; clock: Clock; newId: IdSource }
       const months = readdirSync(deps.dir).filter(
         (name) => MONTH.test(name) && (!from || name.slice(0, 7) >= from.slice(0, 7)),
       );
-      return (
-        months
-          .flatMap((name) => readFileSync(join(deps.dir, name), 'utf8').split('\n'))
-          .flatMap((line) => {
-            const entry = line ? parse(line) : undefined;
-            return entry &&
-              (!from || entry.at >= from) &&
-              (!filter.session || entry.session === filter.session) &&
-              (!filter.project || entry.project === filter.project)
-              ? [entry]
-              : [];
-          })
-          // Later lines first, so entries of the same instant read newest first too.
-          .reverse()
-          .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
-      );
+      const entries: LogEntry[] = [];
+      for (const name of months) {
+        scanLines(join(deps.dir, name), 0, (line) => {
+          const entry = parse(line);
+          if (
+            entry &&
+            (!from || entry.at >= from) &&
+            (!filter.session || entry.session === filter.session) &&
+            (!filter.project || entry.project === filter.project)
+          )
+            entries.push(entry);
+        });
+      }
+      // Later lines first, so entries of the same instant read newest first too.
+      return entries.reverse().sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
     },
   };
 }
