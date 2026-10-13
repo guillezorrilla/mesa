@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { scriptedRunner } from '../testing/runner.js';
-import { prCli, prProvider } from './provider.js';
+import { prCli, prProvider, prRemote } from './provider.js';
 
 describe('prProvider', () => {
   test.each([
@@ -22,6 +22,14 @@ describe('prProvider', () => {
     '',
   ])('%s has no PR provider', (url) => {
     expect(prProvider(url)).toBeUndefined();
+  });
+});
+
+test('prRemote names the repo', () => {
+  expect(prRemote('git@github.com:acme/web.git')).toEqual({ provider: 'github', repo: 'acme/web' });
+  expect(prRemote('https://bitbucket.org/acme-eng/pos.bridge/')).toEqual({
+    provider: 'bitbucket',
+    repo: 'acme-eng/pos.bridge',
   });
 });
 

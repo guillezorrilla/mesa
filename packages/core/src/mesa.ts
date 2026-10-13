@@ -21,7 +21,7 @@ import { profilesService } from './profile/profiles.js';
 import { profileService } from './profile/service.js';
 import { projectsService } from './projects/service.js';
 import { promptsService } from './prompts/prompts.js';
-import { prsService } from './prs/service.js';
+import { PR_READERS, prsService } from './prs/service.js';
 import { receiptsService } from './receipts/service.js';
 import { whatsNew } from './release/notes.js';
 import { sessionsService } from './sessions/service/index.js';
@@ -98,7 +98,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
       board: () => sessions.sessions.list(),
       send: sessions.sessions.send,
     }),
-    prs: prsService(ctx),
+    prs: prsService(ctx, PR_READERS),
     hooks: hooksService(ctx),
     skills,
     usage,

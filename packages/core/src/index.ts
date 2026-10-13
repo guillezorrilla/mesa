@@ -93,8 +93,9 @@ export {
   trustCommand,
 } from './projects/trust.js';
 export type { SavedPrompt } from './prompts/prompts.js';
+export type { Bucket, Since } from './prs/buckets.js';
 export type { PrProvider } from './prs/provider.js';
-export type { PrSetupRow } from './prs/service.js';
+export type { PrList, PrRow, PrSetupRow } from './prs/service.js';
 export { RECORD_KINDS } from './receipts/policy.js';
 export type { Recorded } from './receipts/recorder.js';
 export { DEFAULT_RECEIPT_LIMIT, type ReceiptEntry } from './receipts/store.js';

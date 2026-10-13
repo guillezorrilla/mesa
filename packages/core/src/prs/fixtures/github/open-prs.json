@@ -1,0 +1,100 @@
+{
+  "data": {
+    "viewer": { "login": "ana-r" },
+    "repository": {
+      "pullRequests": {
+        "nodes": [
+          {
+            "number": 482,
+            "title": "Split checkout totals into a service",
+            "url": "https://github.com/acme/storefront/pull/482",
+            "headRefName": "feat/checkout-totals",
+            "updatedAt": "2026-10-13T09:00:00Z",
+            "author": { "login": "dana-ruiz" },
+            "reviewRequests": { "nodes": [{ "requestedReviewer": { "login": "ana-r" } }] },
+            "reviews": { "nodes": [] },
+            "comments": { "nodes": [] },
+            "commits": { "nodes": [{ "commit": { "committedDate": "2026-10-13T08:50:00Z" } }] },
+            "reviewThreads": { "nodes": [] }
+          },
+          {
+            "number": 477,
+            "title": "Cache menu images at the edge",
+            "url": "https://github.com/acme/storefront/pull/477",
+            "headRefName": "feat/edge-image-cache",
+            "updatedAt": "2026-10-13T11:40:00Z",
+            "author": { "login": "lee-park" },
+            "reviewRequests": { "nodes": [] },
+            "reviews": {
+              "nodes": [
+                {
+                  "author": { "login": "ana-r" },
+                  "state": "CHANGES_REQUESTED",
+                  "submittedAt": "2026-10-12T15:00:00Z"
+                },
+                { "author": { "login": "ana-r" }, "state": "PENDING", "submittedAt": null }
+              ]
+            },
+            "comments": {
+              "nodes": [{ "author": { "login": "lee-park" }, "createdAt": "2026-10-13T11:30:00Z" }]
+            },
+            "commits": {
+              "nodes": [
+                { "commit": { "committedDate": "2026-10-12T10:00:00Z" } },
+                { "commit": { "committedDate": "2026-10-13T09:10:00Z" } },
+                { "commit": { "committedDate": "2026-10-13T11:20:00Z" } }
+              ]
+            },
+            "reviewThreads": {
+              "nodes": [
+                {
+                  "isResolved": true,
+                  "comments": {
+                    "nodes": [
+                      { "author": { "login": "ana-r" }, "createdAt": "2026-10-12T15:00:00Z" },
+                      { "author": { "login": "lee-park" }, "createdAt": "2026-10-13T11:25:00Z" }
+                    ]
+                  }
+                },
+                {
+                  "isResolved": false,
+                  "comments": {
+                    "nodes": [
+                      { "author": { "login": "ana-r" }, "createdAt": "2026-10-12T15:00:00Z" }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "number": 470,
+            "title": "Bump the image SDK",
+            "url": "https://github.com/acme/storefront/pull/470",
+            "headRefName": "deps/image-sdk",
+            "updatedAt": "2026-10-10T08:00:00Z",
+            "author": null,
+            "reviewRequests": { "nodes": [] },
+            "reviews": { "nodes": [] },
+            "comments": { "nodes": [] },
+            "commits": { "nodes": [] },
+            "reviewThreads": { "nodes": [] }
+          },
+          {
+            "number": 468,
+            "title": "Tidy the cart reducer",
+            "url": "https://github.com/acme/storefront/pull/468",
+            "headRefName": "chore/cart-reducer",
+            "updatedAt": "2026-10-09T08:00:00Z",
+            "author": { "login": "ana-r" },
+            "reviewRequests": { "nodes": [] },
+            "reviews": { "nodes": [] },
+            "comments": { "nodes": [] },
+            "commits": { "nodes": [] },
+            "reviewThreads": { "nodes": [] }
+          }
+        ]
+      }
+    }
+  }
+}

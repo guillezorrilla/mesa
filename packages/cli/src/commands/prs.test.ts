@@ -4,7 +4,8 @@ import { scriptedRunner } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
-// Invented projects whose origin remotes a scripted git answers; gh is ready, twg is not installed.
+// Invented projects whose origin remotes a scripted git answers: lantern-cove on GitHub with a
+// ready gh, tide-pool on Bitbucket with no twg, driftwood with no remote.
 
 const cli = cliHarness();
 beforeEach(cli.reset);
@@ -13,8 +14,51 @@ const REMOTES: Record<string, string> = {
   'lantern-cove': 'git@github.com:acme/lantern-cove.git\n',
   'tide-pool': 'https://bitbucket.org/acme-eng/tide-pool.git\n',
 };
+const GH_VERSION = 'gh version 2.62.0 (2026-01-01)\n';
 
-test('prs setup --json lists each project with its provider, CLI state and next step', async () => {
+const pr = (number: number, author: string, over: object = {}) => ({
+  number,
+  title: `Change ${number}`,
+  url: `https://github.com/acme/lantern-cove/pull/${number}`,
+  headRefName: `feat/${number}`,
+  updatedAt: `2026-10-1${number % 10}T09:00:00Z`,
+  author: { login: author },
+  reviewRequests: { nodes: [] },
+  reviews: { nodes: [] },
+  comments: { nodes: [] },
+  commits: { nodes: [{ commit: { committedDate: '2026-10-10T08:00:00Z' } }] },
+  reviewThreads: { nodes: [] },
+  ...over,
+});
+const OPEN_PRS = JSON.stringify({
+  data: {
+    viewer: { login: 'ana-r' },
+    repository: {
+      pullRequests: {
+        nodes: [
+          pr(11, 'lee-park', {
+            reviews: {
+              nodes: [
+                {
+                  author: { login: 'ana-r' },
+                  state: 'COMMENTED',
+                  submittedAt: '2026-10-10T09:00:00Z',
+                },
+              ],
+            },
+          }),
+          pr(12, 'dana-ruiz', {
+            reviewRequests: { nodes: [{ requestedReviewer: { login: 'ana-r' } }] },
+          }),
+          pr(13, 'ana-r'),
+          pr(14, 'kofi-m'),
+        ],
+      },
+    },
+  },
+});
+
+async function world() {
   await cli.withProject();
   for (const name of ['tide-pool', 'driftwood']) {
     const dir = join(cli.home, 'src', name);
@@ -23,15 +67,20 @@ test('prs setup --json lists each project with its provider, CLI state and next 
   }
   cli.run = scriptedRunner(
     {
-      git: (args) => {
-        const remote = REMOTES[args[1]?.split('/').at(-1) ?? ''];
-        return remote ?? { ok: false, reason: 'failed', detail: 'No such remote' };
-      },
-      gh: 'gh version 2.62.0 (2026-01-01)\n',
+      git: (args) =>
+        REMOTES[args[1]?.split('/').at(-1) ?? ''] ?? {
+          ok: false,
+          reason: 'failed',
+          detail: 'No such remote',
+        },
+      gh: (args) => (args[0] === 'api' ? OPEN_PRS : GH_VERSION),
     },
     { missing: ['twg'] },
   ).run;
+}
 
+test('prs setup --json lists each project with its provider, CLI state and next step', async () => {
+  await world();
   const listed = await cli.mesa('prs', 'setup', '--json');
   expect(listed.code, listed.stdout).toBe(0);
   expect(listed.json.data).toEqual(
@@ -60,4 +109,36 @@ test('prs setup --json lists each project with its provider, CLI state and next 
   expect(text.stdout).toMatch(
     /tide-pool\s+bitbucket\s+twg\s+missing\s+brew install atlassian\/twg\/twg/,
   );
+});
+
+test('prs --json lists the PRs that need me, most urgent first, and the blocked projects', async () => {
+  await world();
+  const listed = await cli.mesa('prs', '--json');
+  expect(listed.code, listed.stdout).toBe(0);
+  // Mine (#13) never shows; #14 is not for me; #12 asks me first, then #11 waits on Lee.
+  expect(
+    listed.json.data.prs.map((p: { number: number; bucket: string }) => [p.number, p.bucket]),
+  ).toEqual([
+    [12, 'need'],
+    [11, 'waiting'],
+  ]);
+  expect(listed.json.data.prs[0]).toMatchObject({
+    project: 'lantern-cove',
+    provider: 'github',
+    author: 'dana-ruiz',
+    url: 'https://github.com/acme/lantern-cove/pull/12',
+    since: { commits: 1, replies: 0, resolved: 0, threads: 0 },
+  });
+  expect(listed.json.data.blocked).toMatchObject([{ project: 'tide-pool', state: 'missing' }]);
+
+  const all = await cli.mesa('prs', '--all', '--project', 'lantern-cove', '--json');
+  expect(all.json.data.prs.map((p: { number: number }) => p.number)).toEqual([12, 11, 14]);
+  expect(all.json.data.blocked).toEqual([]);
+
+  const text = await cli.mesa('prs');
+  expect(text.stdout).toMatch(/lantern-cove\s+#12\s+needs review\s+dana-ruiz/);
+  expect(text.stdout).toContain('tide-pool: twg missing; run brew install atlassian/twg/twg');
+
+  const unknown = await cli.mesa('prs', '--project', 'nowhere', '--json');
+  expect(unknown.code).not.toBe(0);
 });
