@@ -9,6 +9,7 @@ import {
   messageOf,
   named,
   parsedLine,
+  promptsIn,
   type Transcripts,
   type Where,
 } from '../transcripts.js';
@@ -273,6 +274,7 @@ export const claudeTranscriptReader: Transcripts<'claude'> = {
   file: claudeFile,
   name: (where, id, file = claudeFile(where, id)) => (file ? claudeName(file) : undefined),
   firstPrompt: (file) => firstPromptIn(file, userText),
+  prompts: (file, count) => promptsIn(file, userText, count),
   messages: (file) => {
     const { lines, truncated } = tailLines(file, MESSAGE_TAIL);
     return { messages: lines.flatMap((line) => messageIn(line) ?? []), truncated };

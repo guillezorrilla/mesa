@@ -1,6 +1,7 @@
 import { counted, odds } from '../../lib/format.js';
 import type { SessionRow } from '../board/rows.js';
 import { sessionProjects } from './session-projects.js';
+import { WAITING_STATES } from './states.js';
 
 // How Mesa shows a session row and its log to a person, the same in the CLI and on the Board.
 // Pure, importing only pure modules, so the app bundles it (`@mesa/core/browser`).
@@ -37,15 +38,18 @@ export const additionalLabel = (s: SessionRow) =>
 export const sessionBranch = (s: SessionRow) =>
   s.managed ? (s.gitBranch ?? s.worktree?.branch ?? s.pending?.branch) : undefined;
 
+/** A session Mesa may name (autoName): an interactive one no person, or its agent, has named. */
+export const nameable = (s: { kind: string; name?: string; agentName?: string }) =>
+  s.kind === 'interactive' && !s.name && !s.agentName;
+
 /**
- * A Mesa session no one has named that has something to be named from, its goal or a prompt:
- * one autoName is worth trying after each of its turns.
+ * A Mesa session worth one autoName now: nameable, with a goal or a prompt, and between turns
+ * (idle, or waiting on a person), so it is asked once per turn, never during one.
  */
 export const wantsName = (s: SessionRow) =>
   s.managed &&
-  s.kind === 'interactive' &&
-  !s.name &&
-  !s.agentName &&
+  nameable(s) &&
+  (s.lastState.state === 'idle' || WAITING_STATES.has(s.lastState.state)) &&
   Boolean(s.goal?.trim() || s.conversation);
 
 /** A number of sessions as it reads: `1 session`, `2 sessions`. */

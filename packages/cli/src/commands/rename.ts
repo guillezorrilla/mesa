@@ -14,9 +14,10 @@ export const rename = defineCommand({
   },
   example: 'mesa rename a1b2c3d4 "tide tables"',
   run: async ({ mesa, args, flags }) => {
-    if (flags.auto === (args.name !== undefined))
+    const { name } = args;
+    if (Boolean(flags.auto) === (name !== undefined))
       throw new MesaError('usage', 'pass either a name or --auto');
-    if (flags.auto) {
+    if (name === undefined) {
       const recorded = await mesa.sessions.autoName(args.session);
       const r = recorded.result;
       return recordedOutput(recorded, {
@@ -27,7 +28,7 @@ export const rename = defineCommand({
             : `${r.id} has nothing to be named from yet`,
       });
     }
-    const recorded = mesa.sessions.rename(args.session, args.name ?? '');
+    const recorded = mesa.sessions.rename(args.session, name);
     const r = recorded.result;
     return recordedOutput(recorded, { data: r, text: `renamed ${r.id} to ${r.name}` });
   },

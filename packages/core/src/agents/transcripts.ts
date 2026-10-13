@@ -37,6 +37,8 @@ export type Transcripts<A extends Agent> = {
   name: (where: Where, id: string, file?: string) => string | undefined;
   /** The person's first prompt in transcript `file`, one line of at most `PROMPT_CHARS`. */
   firstPrompt: (file: string) => string | undefined;
+  /** The person's first `count` prompts in transcript `file`, whole (promptsIn). */
+  prompts: (file: string, count: number) => string[];
   /** The messages in the end of `file` (MESSAGE_TAIL), oldest first, and whether it was cut. */
   messages: (file: string) => { messages: TranscriptMessage[]; truncated: boolean };
   /** The git branch its agent last worked on in transcript `file`; none for an agent that does not say. */
@@ -59,23 +61,25 @@ export const PROMPT_CHARS = 60;
 // agent adds another kind (Claude Code's commands and caveats, Codex's context and history).
 const INJECTED = ['<', 'Caveat:', '# AGENTS.md', 'The following is the Codex'];
 
-/** `text` on one line and clipped, or none when blank or injected. */
+/** `text` trimmed, or none when blank or injected (a command, its output, a caveat). */
 function promptOf(text: unknown): string | undefined {
   if (typeof text !== 'string') return undefined;
-  const line = text.replace(/\s+/g, ' ').trim();
-  if (!line || INJECTED.some((start) => line.startsWith(start))) return undefined;
-  return clip(line, PROMPT_CHARS);
+  const prompt = text.trim();
+  if (!prompt || INJECTED.some((start) => prompt.startsWith(start))) return undefined;
+  return prompt;
 }
 
 /**
- * The first prompt in transcript `file`, read from its head only until one is found: the first
- * of the person's texts (`userText` finds them in one line) that is not blank or injected.
+ * The person's first `count` prompts in transcript `file`, read from its head only until they are
+ * found: their texts (`userText` finds them in one line) that are not blank or injected.
  */
-export function firstPromptIn<Line>(
+export function promptsIn<Line>(
   file: string,
   userText: (line: Line) => unknown[],
-): string | undefined {
-  const first = (head: string) => {
+  count: number,
+): string[] {
+  const found = (head: string) => {
+    const prompts: string[] = [];
     for (const raw of head.split('\n')) {
       let line: Line;
       try {
@@ -85,12 +89,22 @@ export function firstPromptIn<Line>(
       }
       for (const text of userText(line)) {
         const prompt = promptOf(text);
-        if (prompt) return prompt;
+        if (prompt) prompts.push(prompt);
+        if (prompts.length === count) return prompts;
       }
     }
-    return undefined;
+    return prompts;
   };
-  return first(fileHead(file, PROMPT_HEAD, (head) => first(head) !== undefined));
+  return found(fileHead(file, PROMPT_HEAD, (head) => found(head).length === count));
+}
+
+/** The first prompt in transcript `file` (promptsIn), on one line of at most `PROMPT_CHARS`. */
+export function firstPromptIn<Line>(
+  file: string,
+  userText: (line: Line) => unknown[],
+): string | undefined {
+  const [first] = promptsIn(file, userText, 1);
+  return first === undefined ? undefined : clip(first.replace(/\s+/g, ' '), PROMPT_CHARS);
 }
 
 /** How much of a transcript's end its messages are read from. */

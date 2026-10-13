@@ -4,9 +4,9 @@ import type { DecisionRecorder } from '../../decisions/types.js';
 import type { Clock } from '../../lib/clock.js';
 import type { Env } from '../../lib/process.js';
 import type { RegistryEntry } from '../../projects/registry.js';
-import { refreshBranch } from '../native/branch.js';
 import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
+import { refreshBranch } from '../signals/branch.js';
 import { refreshContext } from '../signals/context-use.js';
 import type { HookEvent } from '../signals/hook-events.js';
 import type { TmuxBackend } from '../tmux/backend.js';
@@ -101,11 +101,15 @@ export async function listSessions(
         children: children.get(found.id) ?? [],
       });
       // A live session's context and branch are read when its state just changed (a reply ends
-      // a turn), not on every look; a locked record is not waited for.
-      if (row.endedAt || !row.agentSessionId || row.lastState.state === found.lastState.state)
-        return row;
-      const { context } = refreshContext(deps, row, { wait: false });
-      const { gitBranch } = refreshBranch(deps, row, { wait: false });
+      // a turn), not on every look, and its branch once while it has none (one started before
+      // Mesa read branches); a locked record is not waited for.
+      // ponytail: one whose transcript names no branch (a folder outside git) is read on every
+      // look; mark it read once if that gets slow.
+      if (!row.agentSessionId) return row;
+      const turned = !row.endedAt && row.lastState.state !== found.lastState.state;
+      const { context } = turned ? refreshContext(deps, row, { wait: false }) : row;
+      const { gitBranch } =
+        turned || !row.gitBranch ? refreshBranch(deps, row, { wait: false }) : row;
       return { ...row, ...(context ? { context } : {}), ...(gitBranch ? { gitBranch } : {}) };
     }),
   );

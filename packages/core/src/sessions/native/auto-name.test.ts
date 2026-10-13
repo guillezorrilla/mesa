@@ -6,6 +6,7 @@ import { autoName, slugName } from './auto-name.js';
 
 const AGENT_ID = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
 const say = (content: string) => ({ type: 'user', message: { role: 'user', content } });
+const SECRET = 'tide-token-8f3a';
 
 /** A session in a temp home, Haiku answering `reply`; each ask's argv, env and prompt kept. */
 function setUp(fields: Partial<NewSession>, reply: string | false, ...prompts: string[]) {
@@ -28,7 +29,8 @@ function setUp(fields: Partial<NewSession>, reply: string | false, ...prompts: s
       ? { ok: false, reason: 'failed', detail: 'exit 1' }
       : { ok: true, stdout: reply };
   };
-  const name = () => autoName({ store, run, home, env: { MESA_SESSION_ID: 'outer123' } }, id);
+  const deps = { store, run, home, env: { MESA_SESSION_ID: 'outer123' }, secrets: () => [SECRET] };
+  const name = () => autoName(deps, id);
   return { name, asks };
 }
 
@@ -37,7 +39,9 @@ test('an unnamed session is named from its prompts by one bare Haiku call', asyn
     { agentSessionId: AGENT_ID },
     'Fix Tide-Pump alarm\n',
     'hi',
-    'the tide pump alarm rings twice, fix it',
+    '<command-name>/model</command-name>',
+    '<local-command-stdout>Set model to haiku</local-command-stdout>',
+    `the tide pump alarm rings twice with key ${SECRET}, fix it`,
   );
   expect((await name()).agentName).toBe('fix-tide-pump-alarm');
   const [ask] = asks;
@@ -48,20 +52,24 @@ test('an unnamed session is named from its prompts by one bare Haiku call', asyn
   // Its hooks would log into the session that asked.
   expect(ask?.env).toMatchObject({ MESA_SESSION_ID: '' });
   expect(ask?.input).toContain('<message>\nhi\n</message>');
+  // Commands and their output are not the person's words, and secrets never leave Mesa.
   expect(ask?.input).toContain('the tide pump alarm rings twice');
+  expect(ask?.input).not.toContain('/model');
+  expect(ask?.input).not.toContain(SECRET);
   // Named once: the next call asks nothing.
   await name();
   expect(asks).toHaveLength(1);
 });
 
-test("a ticket session's name starts with the ticket's branch", async () => {
+test("a ticket session is named from its ticket's title, after its branch", async () => {
   const ticket = {
-    goal: 'Load LC-12 as context.',
-    from: { source: 'jira' as const, id: 'LC-12' },
+    goal: 'Load LC-12 as context, then wait for my instructions.',
+    from: { source: 'jira' as const, id: 'LC-12', title: 'LC-12: Tide alarm rings twice' },
   };
   const bare = setUp(ticket, 'tide-alarm');
   expect((await bare.name()).agentName).toBe('lc-12-tide-alarm');
-  expect(bare.asks[0]?.input).toContain('start the name with lc-12');
+  expect(bare.asks[0]?.input).toContain('<message>\nLC-12: Tide alarm rings twice\n</message>');
+  expect(bare.asks[0]?.input).not.toContain('Load LC-12');
   expect((await setUp(ticket, 'lc-12-tide-alarm').name()).agentName).toBe('lc-12-tide-alarm');
 });
 
