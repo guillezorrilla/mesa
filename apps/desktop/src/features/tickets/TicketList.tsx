@@ -3,6 +3,7 @@ import { ChevronDown, CornerDownRight } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { AssigneeAvatar } from './AssigneeAvatar';
+import { clickupHex } from './clickup/ClickupStatus';
 import { LiveDot } from './LiveDot';
 import { CATEGORIES, StatusIcon } from './StatusIcon';
 
@@ -19,37 +20,37 @@ function Assignees({ ticket }: { ticket: Ticket }) {
   );
 }
 
-/** A ticket's category, an unknown one counting as to do. */
-const categoryOf = (ticket: Ticket) =>
-  CATEGORIES.some(([c]) => c === ticket.category) ? ticket.category : 'new';
-
 type Group = { id: string; status: string; category: Ticket['category']; rows: Ticket[] };
+
+const RANK = Object.keys(CATEGORIES);
 
 /**
  * The tickets grouped by their own status name (Ready apart from In Progress, though Jira files
- * both as in progress), the groups ordered by category (CATEGORIES), then by the tracker's order.
+ * both as in progress), by category (CATEGORIES) and then by name, the tracker's order within one.
  */
+// ponytail: names order the statuses of one category; the workflow's own order needs each
+// tracker's board configuration, a read (and for Jira a scope) Mesa does not have yet.
 function groupByStatus(tickets: readonly Ticket[]): Group[] {
   const groups = new Map<string, Group>();
   for (const ticket of tickets) {
-    const category = categoryOf(ticket);
-    const status = ticket.status || (CATEGORIES.find(([c]) => c === category)?.[1] ?? '');
+    const { category } = ticket;
+    const status = ticket.status || CATEGORIES[category];
     const id = `${category}:${status.toLowerCase()}`;
     const group = groups.get(id) ?? { id, status, category, rows: [] };
     groups.set(id, group);
     group.rows.push(ticket);
   }
-  const rank = (g: Group) => CATEGORIES.findIndex(([c]) => c === g.category);
-  return [...groups.values()].sort((a, b) => rank(a) - rank(b));
+  return [...groups.values()].sort(
+    (a, b) =>
+      RANK.indexOf(a.category) - RANK.indexOf(b.category) ||
+      a.status.localeCompare(b.status, undefined, { sensitivity: 'base' }),
+  );
 }
 
-/** Whether a group shows its rows: done groups start collapsed, the rest open, `toggled` flips. */
-const isOpen = (group: Group, toggled: ReadonlySet<string>) =>
-  (group.category === 'done') === toggled.has(group.id);
-
 /**
- * The tickets grouped by status (groupByStatus), done collapsed at first. Each row is one line: status, key,
- * title (marked when a subtask), a Live dot when a session works from it, and the assignee. ↑ and ↓ move the selection.
+ * The tickets grouped by status (groupByStatus), done groups collapsed at first. Each row is one
+ * line: status, key, title (marked when a subtask), a Live dot when a session works from it, and
+ * the assignee. ↑ and ↓ move the selection.
  */
 export function TicketList(props: {
   tickets: readonly Ticket[];
@@ -58,18 +59,13 @@ export function TicketList(props: {
   selected: string | undefined;
   onSelect: (key: string) => void;
 }) {
-  const [toggled, setToggled] = useState<ReadonlySet<string>>(new Set());
-  const toggle = (id: string) =>
-    setToggled((was) => {
-      const next = new Set(was);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
+  // The groups the person opened or closed; the rest are open unless done.
+  const [picked, setPicked] = useState<ReadonlyMap<string, boolean>>(new Map());
+  const isOpen = (group: Group) => picked.get(group.id) ?? group.category !== 'done';
+  const toggle = (group: Group) => setPicked(new Map(picked).set(group.id, !isOpen(group)));
   const groups = groupByStatus(props.tickets);
   const move = (step: number) => {
-    const order = groups
-      .flatMap((group) => (isOpen(group, toggled) ? group.rows : []))
-      .map((t) => t.key);
+    const order = groups.flatMap((group) => (isOpen(group) ? group.rows : [])).map((t) => t.key);
     const at = props.selected ? order.indexOf(props.selected) : -1;
     const next = order[Math.min(order.length - 1, Math.max(0, at + step))];
     if (next) {
@@ -90,21 +86,20 @@ export function TicketList(props: {
       }}
     >
       {groups.map((group) => {
-        const open = isOpen(group, toggled);
+        const open = isOpen(group);
         return (
           <div key={group.id}>
             <button
               type="button"
               aria-expanded={open}
               className="flex w-full items-center gap-2 px-4 pt-2.5 pb-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-              onClick={() => toggle(group.id)}
+              onClick={() => toggle(group)}
             >
               <ChevronDown
                 aria-hidden
                 className={cn('size-3 transition-transform', !open && '-rotate-90')}
               />
-              <StatusIcon category={group.category} className="size-3" />
-              {group.status}
+              <span className="inline-block first-letter:uppercase">{group.status}</span>
               <span className="text-muted-foreground/70 tabular-nums">{group.rows.length}</span>
             </button>
             {open &&
@@ -119,7 +114,7 @@ export function TicketList(props: {
                   className="grid w-full grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-2.5 px-4 py-2 text-left text-sm hover:bg-accent/60 focus-visible:bg-accent/60 focus-visible:outline-none aria-selected:bg-accent"
                   onClick={() => props.onSelect(ticket.key)}
                 >
-                  <StatusIcon category={ticket.category} />
+                  <StatusIcon category={ticket.category} color={clickupHex(ticket.color)} />
                   <span className="w-[4.5rem] truncate font-mono text-xs text-muted-foreground">
                     {props.shortKey?.(ticket.key) ?? ticket.key}
                   </span>

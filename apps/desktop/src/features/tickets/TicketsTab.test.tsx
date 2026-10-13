@@ -82,6 +82,8 @@ test('the list groups tickets by status name, Ready apart from In Progress, and 
       listOf(
         [sprint],
         [
+          // Ready listed first by Jira, still grouped after In Progress: groups go by name.
+          ticket('LC-3', 'Chart the spring tides', { category: 'indeterminate', status: 'Ready' }),
           ticket('LC-1', 'Retry the tide feed', {
             category: 'indeterminate',
             status: 'In Progress',
@@ -89,7 +91,6 @@ test('the list groups tickets by status name, Ready apart from In Progress, and 
             sessions: [{ id: 'aaaaaaaa', project: 'harbor-gate' }],
           }),
           ticket('LC-2', 'Show the next high tide'),
-          ticket('LC-3', 'Chart the spring tides', { category: 'indeterminate', status: 'Ready' }),
         ],
       ),
     'tickets show': (args) => shown(String(args.at(-1))),
