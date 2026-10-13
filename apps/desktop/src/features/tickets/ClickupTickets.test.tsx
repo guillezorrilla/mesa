@@ -130,7 +130,7 @@ test("a ClickUp project lists tasks and subtasks by status, and the panel shows 
   const groups = [...document.querySelectorAll('[role="listbox"] [aria-expanded]')].map(
     (g) => g.textContent,
   );
-  expect(groups).toEqual(['In progress1', 'To do1', 'Done1']);
+  expect(groups).toEqual(['in progress1', 'to do1', 'complete1']);
   const subtask = byTestId('ticket-row').find((row) => row.textContent?.includes('DOCK-116'));
   expect(subtask?.querySelector('[aria-label="Subtask"]')).not.toBeNull();
 

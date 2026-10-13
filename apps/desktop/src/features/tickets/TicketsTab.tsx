@@ -64,7 +64,7 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
   const signIn = failing.filter((v) => v.connect);
   // Until the list reads, the tab speaks Jira's words, as before trackers.
   const tracker = data?.tracker ?? 'jira';
-  const { Follow, Setup, name, nouns, unit, groups, shortKey, connectPage } = TRACKERS[tracker];
+  const { Follow, Setup, name, nouns, unit, shortKey, connectPage } = TRACKERS[tracker];
   const refresh = () => void list.refresh();
 
   const choice = data && (choosing || (!data.tracker && !views.length));
@@ -150,7 +150,6 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
               {tickets.length ? (
                 <TicketList
                   tickets={tickets}
-                  groups={groups}
                   shortKey={shortKey}
                   selected={ticket?.key}
                   onSelect={(key) => {
