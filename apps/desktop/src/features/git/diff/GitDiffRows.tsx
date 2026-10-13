@@ -9,17 +9,35 @@ const HATCH =
   'bg-[repeating-linear-gradient(135deg,var(--color-border)_0,var(--color-border)_1px,transparent_1px,transparent_7px)]';
 
 type Line = DiffRow & { kind: 'context' | 'change' };
-type Piece = { line: Line } | { fold: Line[]; at: number };
+type Piece = { line: Line } | { fold: Line[]; at: number } | { gap: number; at: number };
 /** Each side's line number appears once per file, so the pair keys a row. */
 const keyOf = (line: Line) => `${line.oldLine ?? ''}:${line.newLine ?? ''}`;
 
-/** Lines near a change, with each longer unchanged run as one fold. */
+/**
+ * Lines near a change, with each longer unchanged run as one fold, and a gap where the patch
+ * skips lines between its hunks (a diff without `--full` holds only the lines near each change).
+ */
 function pieces(lines: Line[]): Piece[] {
   const near = lines.map((_, i) =>
     lines.slice(Math.max(0, i - CONTEXT), i + CONTEXT + 1).some((line) => line.kind === 'change'),
   );
   const out: Piece[] = [];
+  let lastOld = 0;
+  let lastNew = 0;
   lines.forEach((line, i) => {
+    const skipped = Math.max(
+      line.oldLine === undefined ? 0 : line.oldLine - lastOld - 1,
+      line.newLine === undefined ? 0 : line.newLine - lastNew - 1,
+    );
+    if (skipped > 0) {
+      // Skipped lines are unchanged, so both sides move past them: an inline removal and its
+      // addition, each one-sided, report the same gap once.
+      lastOld += skipped;
+      lastNew += skipped;
+      out.push({ gap: skipped, at: i });
+    }
+    lastOld = line.oldLine ?? lastOld;
+    lastNew = line.newLine ?? lastNew;
     const last = out.at(-1);
     if (near[i]) out.push({ line });
     else if (last && 'fold' in last) last.fold.push(line);
@@ -82,6 +100,16 @@ export const GitDiffRows = memo(function GitDiffRows(props: {
       ))}
       {shown.map((piece, index) => {
         if ('line' in piece) return <Rows key={keyOf(piece.line)} line={piece.line} side={side} />;
+        if ('gap' in piece)
+          return (
+            <p
+              key={`gap:${piece.at}`}
+              className="col-span-full my-1 flex items-center gap-3 border-y border-dashed font-sans text-xs text-muted-foreground"
+            >
+              <span className="w-12 shrink-0 py-1.5 text-center">...</span>
+              {piece.gap} unchanged {piece.gap === 1 ? 'line' : 'lines'} not in this diff
+            </p>
+          );
         if (open.has(piece.at))
           return (
             <Fragment key={`fold:${piece.at}`}>
@@ -118,7 +146,7 @@ function Rows(props: { line: Line; side: boolean }) {
   const removed = line.kind === 'change' && line.oldLine !== undefined;
   const added = line.kind === 'change' && line.newLine !== undefined;
   const number = 'select-none pr-3 text-right text-muted-foreground';
-  const text = 'whitespace-pre-wrap break-all pl-2 pr-3';
+  const text = 'whitespace-pre-wrap [overflow-wrap:anywhere] pl-2 pr-3';
   if (props.side)
     return (
       <>
@@ -182,7 +210,12 @@ function InlineLine(props: { old?: number; next?: number; sign: ' ' | '-' | '+';
       <span className={cn(number, tone)}>{props.old}</span>
       <span className={cn(number, tone)}>{props.next}</span>
       <span className={cn('select-none', tone)}>{props.sign}</span>
-      <span className={cn('whitespace-pre-wrap break-all pr-3', props.sign !== ' ' && tone)}>
+      <span
+        className={cn(
+          'whitespace-pre-wrap [overflow-wrap:anywhere] pr-3',
+          props.sign !== ' ' && tone,
+        )}
+      >
         {props.text}
       </span>
     </>
