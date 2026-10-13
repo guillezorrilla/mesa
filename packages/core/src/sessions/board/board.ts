@@ -6,9 +6,8 @@ import type { Env } from '../../lib/process.js';
 import type { RegistryEntry } from '../../projects/registry.js';
 import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
-import { refreshBranch } from '../signals/branch.js';
-import { refreshContext } from '../signals/context-use.js';
 import type { HookEvent } from '../signals/hook-events.js';
+import { refreshReadings } from '../signals/readings.js';
 import type { TmuxBackend } from '../tmux/backend.js';
 import { targetLabel } from '../tmux/format.js';
 import { windowOf } from '../window/window-name.js';
@@ -31,7 +30,7 @@ const RECENT_MS = 24 * 60 * 60 * 1000;
  * newest session not stopped that holds its agent session id. Faro classifies every row from its
  * latest hook event, its listing, its window, and (only when neither of the first two speaks) its
  * tail; a new state is saved to the record, and so is an id read now or the id the listing names
- * for its pane after a /clear. A live session's context use and branch are read (refreshContext, refreshBranch) when
+ * for its pane after a /clear. A live session's context use and branch are read (refreshReadings) when
  * its state changed. A queued session, and one cancelled before it ran, keeps
  * Mesa's state, at no attention. Highest attention first.
  */
@@ -100,17 +99,17 @@ export async function listSessions(
         window: byLabel.get(targetLabel(windowOf(found))),
         children: children.get(found.id) ?? [],
       });
-      // A live session's context and branch are read when its state just changed (a reply ends
-      // a turn), not on every look, and its branch on each look while it has none (one started
-      // before Mesa read branches); a locked record is not waited for.
-      // ponytail: a live one outside git has none, so its transcript's end (BRANCH_TAIL) is read
-      // on every look; keep a "read, none" mark on the record if that ever shows up.
+      // A live session's readings (context use, branch) are read when its state just changed (a
+      // reply ends a turn), not on every look, and once while it has no branch reading (one
+      // started before Mesa read branches); a locked record is not waited for.
       if (row.endedAt || !row.agentSessionId) return row;
-      const turned = row.lastState.state !== found.lastState.state;
-      const { context } = turned ? refreshContext(deps, row, { wait: false }) : row;
-      const { gitBranch } =
-        turned || !row.gitBranch ? refreshBranch(deps, row, { wait: false }) : row;
-      return { ...row, ...(context ? { context } : {}), ...(gitBranch ? { gitBranch } : {}) };
+      if (row.lastState.state === found.lastState.state && row.gitBranch !== undefined) return row;
+      const { context, gitBranch } = refreshReadings(deps, row, { wait: false });
+      return {
+        ...row,
+        ...(context ? { context } : {}),
+        ...(gitBranch === undefined ? {} : { gitBranch }),
+      };
     }),
   );
   const foreign = listed

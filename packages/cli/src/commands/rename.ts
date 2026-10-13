@@ -20,12 +20,10 @@ export const rename = defineCommand({
     if (name === undefined) {
       const recorded = await mesa.sessions.autoName(args.session);
       const r = recorded.result;
+      const shown = r.name || r.agentName;
       return recordedOutput(recorded, {
         data: r,
-        text:
-          r.name || r.agentName
-            ? `${r.id} is ${r.name ?? r.agentName}`
-            : `${r.id} has nothing to be named from yet`,
+        text: shown ? `${r.id} is ${shown}` : `${r.id} has nothing to be named from yet`,
       });
     }
     const recorded = mesa.sessions.rename(args.session, name);

@@ -4,7 +4,6 @@ import { fileHead } from '../../lib/file-head.js';
 import { lastMatchingLine, tailLines } from '../../lib/file-tail.js';
 import {
   type Block,
-  firstPromptIn,
   MESSAGE_TAIL,
   messageOf,
   named,
@@ -217,20 +216,20 @@ function claudeName(file: string): string | undefined {
 }
 
 /**
- * How far back from a transcript's end its branch is looked for: Claude Code stamps each line with
- * its folder's `gitBranch`, so a transcript whose end names none has none (a folder outside git).
+ * The branch a transcript last names: the `gitBranch` Claude Code stamps on each line naming its
+ * folder, read from the last such line; empty when that line names none (a folder outside git).
  */
-const BRANCH_TAIL = 256 << 10;
-
-/** The branch a transcript last names, within its last `BRANCH_TAIL` bytes. */
 function claudeBranch(file: string): string | undefined {
   return lastMatchingLine(
     file,
-    (line) =>
-      line.includes('"gitBranch"')
-        ? named(parsedLine<{ gitBranch?: unknown }>(line)?.gitBranch)
-        : undefined,
-    BRANCH_TAIL,
+    (line) => {
+      const entry = line.includes('"cwd"')
+        ? parsedLine<{ cwd?: unknown; gitBranch?: unknown }>(line)
+        : undefined;
+      if (typeof entry?.cwd !== 'string') return undefined;
+      return typeof entry.gitBranch === 'string' ? entry.gitBranch.trim() : '';
+    },
+    NAME_TAIL,
   );
 }
 
@@ -279,7 +278,6 @@ export const claudeTranscriptReader: Transcripts<'claude'> = {
   history: (where, since) => claudeHistory(claudeTranscripts(where.home, where.env), since),
   file: claudeFile,
   name: (where, id, file = claudeFile(where, id)) => (file ? claudeName(file) : undefined),
-  firstPrompt: (file) => firstPromptIn(file, userText),
   prompts: (file, count) => promptsIn(file, userText, count),
   messages: (file) => {
     const { lines, truncated } = tailLines(file, MESSAGE_TAIL);

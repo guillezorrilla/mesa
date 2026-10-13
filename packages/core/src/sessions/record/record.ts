@@ -110,7 +110,12 @@ const SessionRecordFields = z.strictObject({
    * Mesa made from its prompts (autoName); `name` wins.
    */
   agentName: z.string().optional(),
-  /** The git branch its agent last worked on, as its transcript names it (refreshBranch). */
+  /** The last ask for a name autoName made (nameAsk), so it asks each once. */
+  nameAsked: z.string().optional(),
+  /**
+   * The git branch its agent last worked on, as its transcript names it (refreshReadings); empty
+   * when it names none (a folder outside git), so it is not read again until the next turn.
+   */
   gitBranch: z.string().optional(),
   /** A person's workflow label, independent of Faro's observed agent state. */
   workflowStatus: z.enum(WORKFLOW_STATUSES).optional(),

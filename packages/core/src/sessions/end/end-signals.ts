@@ -13,8 +13,8 @@ import { recordAgent, type SessionRecord } from '../record/record.js';
 import { markEnded, markExited, startedOutputs } from '../record/session-receipt.js';
 import { endRun } from '../run/end.js';
 import type { SessionAssistance } from '../service/deps.js';
-import { refreshContext } from '../signals/context-use.js';
 import { type HookEvent, parentHook, recordHookEvent } from '../signals/hook-events.js';
+import { refreshReadings } from '../signals/readings.js';
 import { dueToStart, startQueued } from '../start/queue.js';
 import { callerOf, windowId } from '../window/caller.js';
 import { recordPaneDied } from './pane-died.js';
@@ -36,8 +36,8 @@ export function endSignals(
     look: (all?: boolean) => Promise<SessionRow[]>;
     /** What a queued start needs (startQueued). */
     launch: () => Parameters<typeof startQueued>[0];
-    /** Where a session's context use is read (refreshContext). */
-    context: Parameters<typeof refreshContext>[0];
+    /** Where a session's context use is read (refreshReadings). */
+    context: Parameters<typeof refreshReadings>[0];
     /** A turn's decision advice, and what a session's decision status reads. */
     assistance: SessionAssistance;
     /** Starts a session's Vault capture when due (startCapture): a warning, if it did not start. */
@@ -205,7 +205,7 @@ export function endSignals(
       const id = event?.mesaSessionId;
       // A turn ended: its reply's usage is in the transcript. A hook still logs without a record.
       const ended = event?.event === 'Stop' && id && parentHook(event) ? store.find(id) : undefined;
-      if (ended) refreshContext(deps.context, ended);
+      if (ended) refreshReadings(deps.context, ended);
       const state =
         event && parentHook(event) && AGENTS[event.agent].hookState?.(event.event, event.payload);
       if (event?.event === 'SessionEnd' && id && state) {

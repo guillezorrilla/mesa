@@ -1,5 +1,7 @@
 import type { Runner, RunResult } from '../lib/process.js';
 
+type RunOptions = Parameters<Runner>[3];
+
 /** Stdout, or a function of the call's arguments returning stdout or a whole result. */
 type Answer = string | ((args: string[]) => string | RunResult | Promise<string | RunResult>);
 
@@ -11,9 +13,9 @@ export function scriptedRunner(
   outputs: Record<string, Answer> = {},
   opts: { missing?: string[]; slow?: string[]; failing?: string[] } = {},
 ) {
-  const calls: { file: string; args: string[]; timeoutMs: number }[] = [];
-  const run: Runner = async (file, args, timeoutMs) => {
-    calls.push({ file, args, timeoutMs });
+  const calls: { file: string; args: string[]; timeoutMs: number; options?: RunOptions }[] = [];
+  const run: Runner = async (file, args, timeoutMs, options) => {
+    calls.push({ file, args, timeoutMs, ...(options ? { options } : {}) });
     if (opts.missing?.includes(file)) return { ok: false, reason: 'missing', detail: 'ENOENT' };
     if (opts.slow?.includes(file)) return { ok: false, reason: 'timeout', detail: 'killed' };
     if (opts.failing?.includes(file)) return { ok: false, reason: 'failed', detail: 'exit 1' };

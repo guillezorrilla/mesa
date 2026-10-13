@@ -3,10 +3,10 @@ import { askHaiku } from '../../agents/claude/ask.js';
 import type { MesaContext } from '../../context.js';
 import { clip } from '../../lib/clip.js';
 import { redactWhole } from '../../lib/redact.js';
-import { slugify } from '../../lib/slug.js';
+import { truncatedSlug } from '../../lib/slug.js';
 import { isTicketItem } from '../../tickets/providers.js';
 import { branchOf } from '../../tickets/ticket-start.js';
-import { nameable } from '../record/labels.js';
+import { nameAsk, nameable } from '../record/labels.js';
 import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
 
@@ -29,9 +29,7 @@ ${said.map((p) => `<message>\n${clip(p, PROMPT_CHARS)}\n</message>`).join('\n')}
 
 /** A reply as a name: its first line's slug, at most NAME_CHARS long; none for a blank one or `none`. */
 export function slugName(reply: string): string | undefined {
-  const slug = slugify(reply.trim().split(/\r?\n/, 1)[0] ?? '')
-    .slice(0, NAME_CHARS)
-    .replace(/-+$/, '');
+  const slug = truncatedSlug(reply.trim().split(/\r?\n/, 1)[0] ?? '', NAME_CHARS);
   return slug && slug !== 'none' ? slug : undefined;
 }
 
@@ -41,12 +39,12 @@ export function slugName(reply: string): string | undefined {
  */
 function sourceOf(deps: Pick<MesaContext, 'home' | 'env'>, record: SessionRecord): string[] {
   if (record.from?.title) return [record.from.title];
-  if (record.agent !== 'terminal' && record.agentSessionId) {
-    const transcripts = AGENTS[record.agent].transcripts;
+  const transcripts = record.agent === 'terminal' ? undefined : AGENTS[record.agent].transcripts;
+  if (transcripts && record.agentSessionId) {
     try {
-      const file = transcripts?.file(deps, record.agentSessionId);
-      const said = file ? transcripts?.prompts(file, PROMPTS) : undefined;
-      if (said?.length) return said;
+      const file = transcripts.file(deps, record.agentSessionId);
+      const said = file ? transcripts.prompts(file, PROMPTS) : [];
+      if (said.length) return said;
     } catch {
       // A transcript may disappear while it is read: the goal stands in.
     }
@@ -57,32 +55,39 @@ function sourceOf(deps: Pick<MesaContext, 'home' | 'env'>, record: SessionRecord
 /**
  * Names session `id` from what it is about, when it is nameable: Haiku's slug, asked with the text
  * redacted, kept as its `agentName`. A session started on a ticket is named from the ticket's
- * title, after its branch. Unchanged when it has a name already, has nothing to name it from, or
- * Haiku does not answer with a name.
+ * title, after its branch. Asks once per ask (nameAsk: its title, or each turn), so a call for an
+ * ask already made, or for a session with a name, changes nothing; an ask with nothing to name it
+ * from, or that Haiku answers with no name, is still marked made.
  */
 export async function autoName(
   deps: Pick<MesaContext, 'run' | 'home' | 'env' | 'secrets'> & { store: SessionStore },
   id: string,
 ): Promise<SessionRecord> {
-  const record = deps.store.get(id);
-  if (!nameable(record)) return record;
+  const found = deps.store.get(id);
+  if (!nameable(found)) return found;
+  // Each ask once (nameAsk), claimed before Haiku is asked, so two calls at once ask it once.
+  const ask = nameAsk(found);
+  let claimed = false;
+  const record = deps.store.update(id, (current) => {
+    if (!nameable(current) || current.nameAsked === ask) return {};
+    claimed = true;
+    return { nameAsked: ask };
+  });
+  if (!claimed) return record;
   const said = sourceOf(deps, record);
   if (!said.length) return record;
   const { from } = record;
-  const ticket = from?.title && isTicketItem(from.source, from.id) ? branchOf(from.id) : undefined;
+  const titled = Boolean(from?.title);
+  const ticket =
+    from && titled && isTicketItem(from.source, from.id) ? branchOf(from.id) : undefined;
   const secrets = deps.secrets();
-  const reply = await askHaiku(
-    deps,
-    ASK(
-      said.map((text) => redactWhole(text, deps.home, secrets)),
-      Boolean(from?.title),
-    ),
-  );
+  const asked = said.map((text) => redactWhole(text, deps.home, secrets));
+  const reply = await askHaiku(deps, ASK(asked, titled));
   const slug = reply === undefined ? undefined : slugName(reply);
   if (!slug) return record;
-  // Its own key only: lc-12-tide-alarm is not a name for lc-1.
+  // Its own key only: lc-12-tide-alarm is not a name for lc-1; the key counts toward its length.
   const keyed = !ticket || slug === ticket || slug.startsWith(`${ticket}-`);
-  const agentName = keyed ? slug : `${ticket}-${slug}`;
+  const agentName = keyed ? slug : truncatedSlug(`${ticket}-${slug}`, NAME_CHARS);
   // A name given while Haiku was asked wins.
   return deps.store.update(id, (current) => (nameable(current) ? { agentName } : {}));
 }

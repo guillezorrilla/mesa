@@ -234,14 +234,15 @@ export function plantLiveSession(home: string, pid: number, fields: object, env:
 
 /**
  * A Claude Code transcript on disk, as it writes one: conversation `id`, run in `cwd`, which it
- * names on a line after the first; `content` in place of those lines when given; under `env`'s
+ * names on a line after the first; `content` (text, or its lines as objects) in place of those
+ * lines when given; under `env`'s
  * CLAUDE_CONFIG_DIR when it sets one. Its path.
  */
 export function plantTranscript(
   home: string,
   id: string,
   cwd: string,
-  content?: string,
+  content?: string | readonly object[],
   env: Env = {},
 ) {
   const folder = join(claudeTranscripts(home, env), cwd.replaceAll(/[^A-Za-z0-9]/g, '-'));
@@ -251,7 +252,11 @@ export function plantTranscript(
     { type: 'user', sessionId: id, cwd, message: { role: 'user', content: 'Remember lantern' } },
   ];
   const file = join(folder, `${id}.jsonl`);
-  writeFileSync(file, content ?? lines.map((l) => JSON.stringify(l)).join('\n'));
+  const text = typeof content === 'string' ? content : (content ?? lines);
+  writeFileSync(
+    file,
+    typeof text === 'string' ? text : text.map((l) => JSON.stringify(l)).join('\n'),
+  );
   return file;
 }
 

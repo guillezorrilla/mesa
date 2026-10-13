@@ -74,7 +74,10 @@ test('a session started from an item is named from its title at once, and asked 
   });
   expect(wantsName(ticket)).toBe(true);
   expect(nameAsk(ticket)).toBe('title');
-  expect(nameAsk(managed({ ...ticket, lastState: { state: 'working', at: 't2' } }))).toBe('title');
-  // Prompts are read once per turn, by the time its state since then was set.
-  expect(nameAsk(managed({ ...working, lastState: { state: 'idle', at: 't3' } }))).toBe('t3');
+  expect(wantsName(managed({ ...ticket, nameAsked: 'title' }))).toBe(false);
+  // Prompts are read once per turn, by the time its state was set.
+  const idle = managed({ ...working, lastState: { state: 'idle', at: 't3' } });
+  expect(nameAsk(idle)).toBe('t3');
+  expect(wantsName(managed({ ...idle, nameAsked: 't3' }))).toBe(false);
+  expect(wantsName(managed({ ...idle, nameAsked: 't1' }))).toBe(true);
 });

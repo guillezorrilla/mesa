@@ -13,8 +13,8 @@ import { applyEach } from '../record/each.js';
 import { renameSession, setWorkflowStatus } from '../record/edits.js';
 import { projectScope } from '../record/general.js';
 import { recordAgent } from '../record/record.js';
-import { refreshContext } from '../signals/context-use.js';
 import { readHookEvents } from '../signals/hook-events.js';
+import { refreshReadings } from '../signals/readings.js';
 import { sessionGoal } from '../start/goal.js';
 import { sessionLog } from '../window/output-log.js';
 import type { SessionDeps } from './deps.js';
@@ -79,7 +79,7 @@ export function inspectActions(
       store.get(id);
       const row = (await board(true)).find((r) => r.id === id);
       // The look may have learned a provider-owned ID before its context can be read.
-      refreshContext(contextDeps, store.get(id));
+      refreshReadings(contextDeps, store.get(id));
       // Read again: the look may have saved a new state, or started it from its queue.
       const current = store.get(id);
       const latestAntigravityId =

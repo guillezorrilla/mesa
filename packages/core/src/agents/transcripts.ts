@@ -35,13 +35,14 @@ export type Transcripts<A extends Agent> = {
   file: (where: Where, id: string) => string | undefined;
   /** Its native name, none when it has none; `file` is its transcript when the caller has it. */
   name: (where: Where, id: string, file?: string) => string | undefined;
-  /** The person's first prompt in transcript `file`, one line of at most `PROMPT_CHARS`. */
-  firstPrompt: (file: string) => string | undefined;
   /** The person's first `count` prompts in transcript `file`, whole (promptsIn). */
   prompts: (file: string, count: number) => string[];
   /** The messages in the end of `file` (MESSAGE_TAIL), oldest first, and whether it was cut. */
   messages: (file: string) => { messages: TranscriptMessage[]; truncated: boolean };
-  /** The git branch its agent last worked on in transcript `file`; none for an agent that does not say. */
+  /**
+   * The git branch its agent last worked on in transcript `file`, empty when it worked outside git;
+   * none for an agent that does not say, or a transcript that does not yet.
+   */
   branch?: (file: string) => string | undefined;
 };
 
@@ -98,14 +99,8 @@ export function promptsIn<Line>(
   return found(fileHead(file, PROMPT_HEAD, (head) => found(head).length === count));
 }
 
-/** The first prompt in transcript `file` (promptsIn), on one line of at most `PROMPT_CHARS`. */
-export function firstPromptIn<Line>(
-  file: string,
-  userText: (line: Line) => unknown[],
-): string | undefined {
-  const [first] = promptsIn(file, userText, 1);
-  return first === undefined ? undefined : clip(first.replace(/\s+/g, ' '), PROMPT_CHARS);
-}
+/** A prompt as a list shows it: on one line of at most `PROMPT_CHARS`. */
+export const promptLine = (prompt: string) => clip(prompt.replace(/\s+/g, ' '), PROMPT_CHARS);
 
 /** How much of a transcript's end its messages are read from. */
 export const MESSAGE_TAIL = 2 << 20;
