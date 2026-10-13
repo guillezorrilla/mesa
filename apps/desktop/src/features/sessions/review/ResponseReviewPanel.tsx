@@ -14,9 +14,8 @@ import { useResponseReview } from './useResponseReview';
 /**
  * The session's replies beside its terminal, each fenced block copied on its own; the selected
  * reply open in place under it with its full text, and Comment for exact passage feedback;
- * `initialResponse` opens on that reply. While
- * `shown` is false only its guardrail question stays, so its selection and comment outlast a look
- * at the changes.
+ * `initialResponse` opens on that reply. While `shown` is false only its guardrail question
+ * stays, so its selection and comment outlast a look at the changes.
  */
 export function ResponseReviewPanel({
   sessionId,

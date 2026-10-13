@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { AGENTS } from '../../agents/agents.js';
+import { closesFence, opensFence } from '../../lib/code-fence.js';
 import type { Env } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
-import { closesFence, FENCE } from '../../vault/links.js';
 import type { SavedReview } from '../input/reviews.js';
 import type { SessionStore } from '../record/store.js';
 
@@ -55,29 +55,24 @@ const sha = (text: string) => createHash('sha256').update(text).digest('hex');
 
 /**
  * The contents of each fenced block in a reply, in order, without the opening fence's indentation;
- * an unclosed one runs to the end, and a blank one is left out.
+ * a blank one is left out. An unclosed one runs to the end, unless the reply was `cut` short, when
+ * it may be only part of a block and is left out too.
  */
-export function replyBlocks(text: string): string[] {
+export function replyBlocks(text: string, cut = false): string[] {
   const blocks: string[] = [];
-  let fence = '';
-  let indent = '';
+  let open: { marker: string; indent: string } | undefined;
   let lines: string[] = [];
   for (const line of text.split('\n')) {
-    if (fence) {
-      if (closesFence(line, fence)) {
-        blocks.push(lines.join('\n'));
-        fence = '';
-      } else lines.push(line.startsWith(indent) ? line.slice(indent.length) : line.trimStart());
-      continue;
-    }
-    const open = FENCE.exec(line);
-    // A backtick fence's info string has no backtick: ```a``` on one line is inline code.
-    if (!open?.[1] || (open[1][0] === '`' && line.slice(open[0].length).includes('`'))) continue;
-    fence = open[1];
-    indent = line.slice(0, open[0].length - fence.length);
-    lines = [];
+    if (!open) {
+      open = opensFence(line);
+      lines = [];
+    } else if (closesFence(line, open.marker)) {
+      blocks.push(lines.join('\n'));
+      open = undefined;
+    } else
+      lines.push(line.startsWith(open.indent) ? line.slice(open.indent.length) : line.trimStart());
   }
-  if (fence) blocks.push(lines.join('\n'));
+  if (open && !cut) blocks.push(lines.join('\n'));
   return blocks.filter((block) => block.trim());
 }
 
@@ -124,7 +119,7 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
       source: sha(message.line),
       revision: sha(message.text),
       text,
-      blocks: replyBlocks(text),
+      blocks: replyBlocks(text, message.text.length > MAX_TEXT),
       ...(message.at ? { at: message.at } : {}),
       truncated: message.text.length > MAX_TEXT,
     });

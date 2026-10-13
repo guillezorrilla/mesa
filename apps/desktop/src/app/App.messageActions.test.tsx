@@ -9,24 +9,14 @@ import {
   fakeBridge,
   fakePlatform,
   managedRow,
+  nativeResponse,
   PROJECTS,
   renderWithMesa,
 } from '@/lib/testing';
 import { App } from './App';
 
-const response = (text: string, source: string) => ({
-  profile: 'default',
-  session: 'aaaaaaaa',
-  agent: 'claude',
-  nativeSessionId: 'invented-native-id',
-  source: source.repeat(64),
-  revision: 'f'.repeat(64),
-  text,
-  blocks: [],
-  truncated: false,
-});
 // Newest first, as `mesa review responses` lists them.
-const ROWS = [response('A violet otter.', 'a'), response('An amber heron.', 'b')];
+const ROWS = [nativeResponse('A violet otter.', 'a'), nativeResponse('An amber heron.', 'b')];
 
 const config = async (messageActions: boolean) => {
   const base = ((await fakeBridge().bridge(['--json', 'config'])) as { data: Config }).data;
@@ -77,7 +67,7 @@ test('hovering the terminal shows Copy, which copies the latest response, until 
 test('Replies opens the Replies pane on the latest reply', async () => {
   const { terminal } = await setup();
   await hover(terminal);
-  await click(button('Show latest reply in Replies'));
+  await click(button('Replies'));
   const replies = document.querySelector('aside[aria-label="Replies"]') as HTMLElement;
   expect(replies).not.toBeNull();
   const heads = [...replies.querySelectorAll('button[aria-expanded]')];
@@ -105,7 +95,7 @@ test('the overlay never takes keyboard focus from the terminal', async () => {
   expect(document.activeElement).toBe(input);
   await hover(terminal);
   expect(document.activeElement).toBe(input);
-  for (const label of ['Copy latest reply', 'Show latest reply in Replies']) {
+  for (const label of ['Copy latest reply', 'Replies']) {
     const action = button(label) as HTMLButtonElement;
     expect(action.tabIndex).toBe(-1);
     const press = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
@@ -138,7 +128,11 @@ test('re-entering shows no actions until the new read answers, so Copy never cop
   expect(toolbar()).toBeNull();
   await act(async () =>
     second.resolve(
-      envelope({ rows: [response('A newer finch.', 'c'), ...ROWS], reviews: [], truncated: false }),
+      envelope({
+        rows: [nativeResponse('A newer finch.', 'c'), ...ROWS],
+        reviews: [],
+        truncated: false,
+      }),
     ),
   );
   await click(button('Copy latest reply'));

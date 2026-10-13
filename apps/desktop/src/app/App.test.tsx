@@ -22,6 +22,7 @@ import {
   fakeTerminals,
   foreignRow,
   managedRow,
+  nativeResponse,
   PROJECTS,
   press,
   renderWithMesa,
@@ -2013,17 +2014,7 @@ test('selected-session image preview can be removed or sent only to the selected
 });
 
 test('selected session reviews an exact native response passage beside its running terminal', async () => {
-  const row = {
-    profile: 'default',
-    session: 'aaaaaaaa',
-    agent: 'claude',
-    nativeSessionId: 'invented-native-id',
-    source: 'a'.repeat(64),
-    revision: 'b'.repeat(64),
-    text: 'A violet otter.',
-    blocks: [],
-    truncated: false,
-  };
+  const row = nativeResponse('A violet otter.', 'a');
   const preview = {
     id: 'c'.repeat(64),
     target: 'aaaaaaaa',
@@ -2098,23 +2089,11 @@ test('selected session reviews an exact native response passage beside its runni
 });
 
 test('a reply shows its first two lines and its blocks, each copied on its own, and opens in place, staying open when pressed again', async () => {
-  const response = (text: string, source: string, blocks: string[] = []) => ({
-    profile: 'default',
-    session: 'aaaaaaaa',
-    agent: 'claude',
-    nativeSessionId: 'invented-native-id',
-    source: source.repeat(64),
-    revision: 'b'.repeat(64),
-    text,
-    blocks,
-    truncated: false,
-  });
   const rows = [
-    response('First line.\nSecond line.\nThird line.', 'a', [
-      'Hi team,\nthe lantern ships.',
-      'pnpm verify',
-    ]),
-    response('Older.', 'c'),
+    nativeResponse('First line.\nSecond line.\nThird line.', 'a', {
+      blocks: ['Hi team,\nthe lantern ships.', 'pnpm verify'],
+    }),
+    nativeResponse('Older.', 'c'),
   ];
   const { bridge } = fakeBridge({
     projects: () => envelope(PROJECTS),
@@ -2137,7 +2116,7 @@ test('a reply shows its first two lines and its blocks, each copied on its own, 
     [...review.querySelectorAll<HTMLButtonElement>('button')].filter(
       (button) => button.textContent?.trim() === 'Comment',
     );
-  const openRow = () => comments()[0]?.closest('.group');
+  const openRow = () => comments()[0]?.closest('div.border');
   await click(heads()[1]);
   expect(heads().map((head) => head.getAttribute('aria-expanded'))).toEqual(['false', 'true']);
   expect(openRow()?.contains(heads()[1] ?? null)).toBe(true);

@@ -174,7 +174,8 @@ test("a reply's fenced blocks are each kept for copying on their own", () => {
     '',
     'Thanks',
     '```',
-    'Run `mesa sessions` or ```inline``` code, which is no block.',
+    'Run `mesa sessions` or inline code, which is no block.',
+    '```inline``` on its own line is no block either.',
     '  ~~~~sh',
     '  pnpm verify',
     '    ok',
@@ -192,4 +193,6 @@ test("a reply's fenced blocks are each kept for copying on their own", () => {
     'unclosed tail',
   ]);
   expect(replyBlocks('No blocks here.')).toEqual([]);
+  // A reply cut short may end inside a block: that part is not offered as a whole block.
+  expect(replyBlocks('```\nfirst\n```\n```\nhalf of a', true)).toEqual(['first']);
 });

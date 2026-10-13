@@ -1,6 +1,13 @@
-import type { Check, DoctorReport, ForeignRow, ManagedRow, ProjectRow } from '@mesa/core';
+import type {
+  Check,
+  DoctorReport,
+  ForeignRow,
+  ManagedRow,
+  NativeResponse,
+  ProjectRow,
+} from '@mesa/core';
 
-// Fixtures the screens' tests share: projects, doctor checks, and board rows.
+// Fixtures the screens' tests share: projects, doctor checks, board rows, and session replies.
 
 export const PROJECTS: ProjectRow[] = [
   {
@@ -109,4 +116,22 @@ export const deadPane = managedRow('ffffffff', {
   lastState: { state: 'done', confidence: 0.85, at: '2026-09-25T12:00:00.000Z', source: 'tmux' },
   attention: 0.24,
   lastOutput: 'Bye!',
+});
+
+/** One of session aaaaaaaa's replies as `mesa review responses` lists it, its source `source` x64. */
+export const nativeResponse = (
+  text: string,
+  source: string,
+  extra: Partial<NativeResponse> = {},
+): NativeResponse => ({
+  profile: 'default',
+  session: 'aaaaaaaa',
+  agent: 'claude',
+  nativeSessionId: 'invented-native-id',
+  source: source.repeat(64),
+  revision: 'f'.repeat(64),
+  text,
+  blocks: [],
+  truncated: false,
+  ...extra,
 });

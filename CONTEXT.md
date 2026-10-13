@@ -255,7 +255,7 @@ Not: per-message actions in the scrollback.
 
 ## Replies
 
-The pane beside a managed agent session's terminal, opened by the session bar's Replies button or a Message action, never by itself: its Replies tab lists the agent's recent native responses (`mesa review responses`, newest first), each as its first two lines and then each fenced code block in it (``` or ~~~, the row's `blocks`, from `replyBlocks`) with its own Copy, so a drafted message or a command is one click from the pasteboard. Opening a reply shows its full text and Comment, which opens the response review: an exact passage of it, a comment, a preview, and the guarded send. Its Changes tab, for a session with a project, reviews Git hunks the same way.
+The pane beside a managed agent session's terminal, opened by the session bar's Replies button or a Message action, never by itself: its Replies tab lists the agent's recent native responses (`mesa review responses`, newest first), each as its first two lines and then each fenced code block in it (``` or ~~~, the row's `blocks`, from `replyBlocks`; a blank one, or one a reply cut at 64 KiB leaves unclosed, is left out) with its own Copy, so a drafted message or a command is one click from the pasteboard. Opening a reply shows its full text and Comment, which opens the response review: an exact passage of it, a comment, a preview, and the guarded send. Its Changes tab, for a session with a project, reviews Git hunks the same way.
 Not: review (the feedback a person sends from it), transcript, history.
 
 ## Terminal palette

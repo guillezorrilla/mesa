@@ -22,7 +22,7 @@ export function ResponseRow(props: {
     if (open) row.current?.scrollIntoView?.({ block: 'nearest' });
   }, [open]);
   return (
-    <div ref={row} className={cn('group rounded border', open && 'border-ring')}>
+    <div ref={row} className={cn('rounded border', open && 'border-ring')}>
       <div className="flex items-start gap-1 p-2">
         <button
           type="button"
@@ -35,7 +35,6 @@ export function ResponseRow(props: {
         <Button
           size="icon-sm"
           variant="ghost"
-          className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
           aria-label="Copy reply"
           onClick={() => props.onCopy(response.text, 'Reply')}
         >

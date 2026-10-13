@@ -8,6 +8,7 @@ export {
   exited,
   foreignRow,
   managedRow,
+  nativeResponse,
   PROJECTS,
   report,
 } from './fixtures';

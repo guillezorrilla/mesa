@@ -64,7 +64,7 @@ export function MessageActions(props: {
             }
           />
           <IconButton
-            label="Show latest reply in Replies"
+            label="Replies"
             icon={MessageSquareQuote}
             tabIndex={-1}
             onMouseDown={keepFocus}

@@ -10,7 +10,7 @@ import { ResponseReviewPanel } from './ResponseReviewPanel';
  * The Replies pane beside the selected terminal: Replies, or Changes for a session with a
  * project, over the session's replies and saved review comments.
  */
-export function ReviewPanel({
+export function RepliesPanel({
   sessionId,
   project,
   checkout,
@@ -22,7 +22,7 @@ export function ReviewPanel({
   initialResponse?: NativeResponse;
 }) {
   const responses = useCommand('review.responses', { id: sessionId });
-  const [mode, setMode] = useState<'responses' | 'changes'>('responses');
+  const [mode, setMode] = useState<'replies' | 'changes'>('replies');
   return (
     <aside
       aria-label="Replies"
@@ -32,8 +32,8 @@ export function ReviewPanel({
         <div className="flex gap-1">
           <Button
             size="sm"
-            variant={mode === 'responses' ? 'secondary' : 'ghost'}
-            onClick={() => setMode('responses')}
+            variant={mode === 'replies' ? 'secondary' : 'ghost'}
+            onClick={() => setMode('replies')}
           >
             Replies
           </Button>
@@ -69,7 +69,7 @@ export function ReviewPanel({
         sessionId={sessionId}
         responses={responses}
         initialResponse={initialResponse}
-        shown={mode === 'responses'}
+        shown={mode === 'replies'}
       />
     </aside>
   );

@@ -12,9 +12,9 @@ import { guardrailOf } from '../dialogs/GuardrailDialog';
 import { reviewOutcome } from './reviewOutcome';
 
 /**
- * One response review's state: the response selected (`initialResponse` first), whether a comment
- * on it was started, its passage and comment, the preview, and sending it, with the guardrail's question when it asks. A selected
- * response the list no longer holds is let go.
+ * One response review's state: the response selected (`initialResponse` first), whether a
+ * comment on it was started, its passage and comment, the preview, and sending it, with the
+ * guardrail's question when it asks. A selected response the list no longer holds is let go.
  */
 export function useResponseReview(
   sessionId: string,
