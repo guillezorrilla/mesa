@@ -94,6 +94,7 @@ export function SessionsSection(props: {
           key={project.name}
           project={project}
           closed={props.closedProjects.includes(project.name)}
+          count={inProject(project.name).length}
           onToggle={() => props.onToggleProject(project.name)}
           starting={props.starting}
           onNewSession={props.onNewSession}
