@@ -9,7 +9,7 @@ export type ProfilePaths = {
   config: string;
   registry: string;
   sessions: string;
-  /** Removed sessions' records kept only until their Vault capture lands (CONTEXT.md). */
+  /** Removing records, `<session id>.json` each (CONTEXT.md, Removing record). */
   removing: string;
   /** The agent hooks' event logs, one `<session id>.jsonl` each. */
   events: string;

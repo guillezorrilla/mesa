@@ -69,8 +69,8 @@ export type MesaDeps = {
 
 /**
  * What every domain's services share for one profile: the deps, its paths and config, the secrets
- * receipts redact, the receipt recorder, the session store (and its removing one), and the tmux backend. Built once by
- * createMesa, the composition root (ADR-0008).
+ * receipts redact, the receipt recorder, the session store and its Removing records, and the tmux
+ * backend. Built once by createMesa, the composition root (ADR-0008).
  */
 export function createContext(profile: string, deps: MesaDeps) {
   const paths = profilePaths(deps.home, profile);

@@ -13,6 +13,7 @@ import { captureInFlight } from '../../vault/capture/claim.js';
 import { checkoutHolders, heldWorktrees, real, worktreeHolder } from '../record/holders.js';
 import type { SessionStore } from '../record/store.js';
 import { runInput, runOutput } from '../run/files.js';
+import { RUN_TIMEOUT_SECONDS } from '../run/start.js';
 import { eventsLog } from '../signals/hook-events.js';
 import { deleteBranch, deleteWorktree, hasSubmodules, type Worktree } from '../start/worktree.js';
 import { killIfThere, type TmuxBackend } from '../tmux/backend.js';
@@ -32,10 +33,8 @@ export type Removed = {
   runOutput: boolean;
   /** Its tmux window, live under `force`, or left dead. */
   window: boolean;
-  /** Its Vault capture still runs: the record waits in `removing/` and goes once it lands. */
+  /** Its Vault capture still runs: the record is a Removing record until it lands. */
   capture: boolean;
-  /** Why its capture did not start, when it did not. */
-  warning?: string;
   worktree?: string;
   branch?: string;
   /** Each additional project's worktree and branch it removed (CONTEXT.md, Additional project). */
@@ -45,14 +44,15 @@ export type Removed = {
 /**
  * Removes a session's record, its hook log, its output log, a run's output, its cost tally, and
  * its decision assistance, with `deleteWorktree` its git worktree and each additional project's,
- * and with `deleteBranch` their branch. Once its window is closed its Vault capture starts
- * (`capture`, not waited for): while it runs, the record moves to `removing`, out of every list,
- * and the capture's landing removes it there (landCapture), so a removal is never slower for it. A queued session is refused, to be cancelled first; a live
- * one is refused unless `force`, which closes its window first; a worktree another session holds
+ * and with `deleteBranch` their branch. Once its window is closed its Vault capture starts, not
+ * waited for: while it runs, the record moves to `removing` as a Removing record (CONTEXT.md),
+ * listed nowhere, which the capture's landing removes (landCapture). A queued session is refused,
+ * to be cancelled first; a live one is refused unless `force`, which closes its window first; a worktree another session holds
  * or runs in, or git has locked, is refused, and one with changes or submodules unless `force`; a
  * branch checked out where the session does not hold it is refused, as is one its own worktree has
  * without `deleteWorktree`. Every refusal, for every repository, comes before anything goes, so a
- * refused rm leaves the session as it was, to retry.
+ * refused rm leaves the session as it was, to retry. What went, and why its capture did not
+ * start, when it did not.
  */
 export async function removeSession(
   deps: {
@@ -70,13 +70,13 @@ export async function removeSession(
     decisions: string;
     /** Starts its Vault capture when due (startCapture): a warning, if it did not start. */
     capture: (id: string) => Promise<string | undefined>;
-    /** Where a record waits for its capture to land. */
-    removing: Pick<SessionStore, 'put'>;
+    /** The Removing records: where a record waits for its capture to land. */
+    removing: Pick<SessionStore, 'put' | 'list' | 'remove'>;
     clock: () => Date;
   },
   id: string,
   { force = false, deleteWorktree: dropWorktree = false, deleteBranch: dropBranch = false } = {},
-): Promise<Removed> {
+): Promise<{ removed: Removed; warning?: string }> {
   const record = deps.store.get(id);
   // Removing it would leave what waits on it waiting on nothing, so it would start at once.
   if (record.lastState.state === 'queued') {
@@ -129,7 +129,6 @@ export async function removeSession(
   }
   // Before its hook log goes: a capture reads it to know there was a conversation.
   const warning = await deps.capture(id);
-  if (warning) removed.warning = warning;
   for (const { worktree, repo } of dropWorktree ? repos : []) {
     if (existsSync(worktree.path)) await deleteWorktree(deps.run, repo, worktree, { force });
     // Its folder already gone: clear git's registration of it, if git still has one.
@@ -159,13 +158,27 @@ export async function removeSession(
   rmSync(runInput(deps.runs, id), { force: true });
   rmSync(costTally(deps.costs, id), { force: true });
   rmSync(sessionDecisionsFile(deps.decisions, id), { force: true });
-  // ponytail: a landing that read the record just before it moved fails to settle it; its notes
-  // are written, and the record stays in removing/, listed nowhere.
-  deps.store.remove(id, (current) => {
-    removed.capture = captureInFlight(current, deps.clock());
-    return removed.capture ? deps.removing : undefined;
-  });
-  return removed;
+  const now = deps.clock();
+  removed.capture = deps.store.remove(id, (current) =>
+    captureInFlight(current, now) ? deps.removing : undefined,
+  );
+  dropAbandoned(deps.removing, now);
+  return { removed, ...(warning ? { warning } : {}) };
+}
+
+/** How old a Removing record's capture claim is before it never lands: past twice a run's timeout. */
+const ABANDONED_MS = 2 * RUN_TIMEOUT_SECONDS * 1000;
+
+/**
+ * Drops the Removing records no capture will land: one whose capture is no longer in flight (its
+ * landing raced the move, or its claim went stale), and one claimed longer ago than ABANDONED_MS,
+ * whose run its timeout has long ended.
+ */
+function dropAbandoned(removing: Pick<SessionStore, 'list' | 'remove'>, now: Date) {
+  for (const r of removing.list()) {
+    const age = now.getTime() - Date.parse(r.capture?.at ?? r.startedAt);
+    if (!captureInFlight(r, now) || age > ABANDONED_MS) removing.remove(r.id);
+  }
 }
 
 /**

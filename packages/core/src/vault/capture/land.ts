@@ -178,34 +178,39 @@ function write(ctx: CaptureContext, about: SessionRecord, planned: readonly Plan
  * record `done` with the notes and its mark moved (settle), under one `capture` receipt (none
  * for a capture that saved nothing). A run that failed, output that does not read, or a refused
  * write changes no note and keeps the mark, and the record and a failed receipt say why. A session
- * removed while its capture ran waits in `removing` (removeSession): it lands from there, and then
- * goes. Never throws: its receipt, and a warning.
+ * removed while its capture ran is a Removing record (removeSession): it lands there, read where
+ * it is at each step, and goes once this run settled it; a record gone meanwhile was landed by
+ * another end of this run. Never throws: its receipt, and a warning.
  */
 export async function landCapture(
   ctx: CaptureContext,
   run: SessionRecord,
   read: HeadlessResult,
 ): Promise<{ receipt?: { id: string; path: string } | null; warning?: string }> {
-  const removed =
-    run.about && !ctx.store.find(run.about) ? ctx.removing.find(run.about) : undefined;
-  if (!removed) return landOn(ctx, run, read);
-  try {
-    return await landOn({ ...ctx, store: ctx.removing }, run, read);
-  } finally {
-    ctx.removing.remove(removed.id);
-  }
+  const id = run.about;
+  if (!id) return { warning: `run ${run.id} is about no session: nothing captured` };
+  /** The store that holds the session's record now: a removal may move it at any time. */
+  const holder = () => (ctx.store.find(id) ? ctx.store : ctx.removing);
+  const landed = await landOn(ctx, holder, run, read);
+  const left = ctx.removing.find(id);
+  if (left && settledBy(run, left)) ctx.removing.remove(id);
+  return landed;
 }
 
-/** landCapture over the store `ctx.store` that holds the run's session. */
+/** Whether `r`'s capture was settled by run `run`, which then has nothing left to land. */
+const settledBy = (run: SessionRecord, r: SessionRecord) =>
+  r.capture?.run === run.id && r.capture.state !== 'running';
+
+/** landCapture over the record `holder()` holds. */
 async function landOn(
   ctx: CaptureContext,
+  holder: () => CaptureContext['store'],
   run: SessionRecord,
   read: HeadlessResult,
 ): Promise<{ receipt?: { id: string; path: string } | null; warning?: string }> {
-  const about = run.about ? ctx.store.find(run.about) : undefined;
+  const about = run.about ? holder().find(run.about) : undefined;
   if (!about) return { warning: `run ${run.id}'s session is gone: nothing captured` };
-  const settled = (r: SessionRecord) => r.capture?.run === run.id && r.capture.state !== 'running';
-  if (settled(about)) return {};
+  if (settledBy(run, about)) return {};
   const at = () => ctx.clock().toISOString();
   try {
     const recorded = await ctx.record(captureSpec(about, run.id), async () => {
@@ -221,13 +226,15 @@ async function landOn(
         problem = error;
       }
       return withVaultLock(ctx.notes(), async (): Promise<Landed> => {
-        const now = ctx.store.get(about.id);
-        if (settled(now)) return { notes: now.capture?.notes ?? [], items: [], again: true };
+        // Gone meanwhile: another end of this run landed it, and its removal took the record.
+        const now = holder().find(about.id);
+        if (!now || settledBy(run, now))
+          return { notes: now?.capture?.notes ?? [], items: [], again: true };
         try {
           if (problem) throw problem;
           const landed = write(ctx, about, planned);
           settle(
-            ctx.store,
+            holder(),
             about.id,
             { run: run.id, at: at(), state: 'done', notes: landed.notes },
             run.id,
@@ -235,14 +242,15 @@ async function landOn(
           return landed;
         } catch (error) {
           const reason = toFail(error).error.message;
-          settle(ctx.store, about.id, { run: run.id, at: at(), state: 'failed', reason });
+          settle(holder(), about.id, { run: run.id, at: at(), state: 'failed', reason });
           throw error;
         }
       });
     });
     const { receipt } = recorded;
-    if (receipt)
-      ctx.store.update(about.id, (current) =>
+    // A Removing record may already be gone; the receipt names the session either way.
+    if (receipt && holder().find(about.id))
+      holder().update(about.id, (current) =>
         current.capture?.run === run.id
           ? { capture: { ...current.capture, receipt: receipt.path } }
           : {},

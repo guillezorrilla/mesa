@@ -21,6 +21,9 @@ const RECORD_FILE = /^([0-9a-z]{8})\.json$/;
 
 type Patch = Partial<Omit<SessionRecord, 'id'>>;
 
+/** Where a removal can move a record instead of dropping it: another store's `put`. */
+export type RecordSink = { put: (record: SessionRecord) => unknown };
+
 export function sessionStore({
   dir,
   newId,
@@ -119,16 +122,18 @@ export function sessionStore({
     },
     /**
      * Under the lock, so an update that waited for it cannot write the record back; when `into`
-     * names a store for the record as it is now, it moves there instead of going.
+     * names a sink for the record as it is now, it moves there instead of going. Whether it moved.
      */
-    remove: (
-      id: string,
-      into?: (current: SessionRecord) => { put: (record: SessionRecord) => unknown } | undefined,
-    ) =>
-      void change(id, (current) => {
-        into?.(current)?.put(current);
+    remove: (id: string, into?: (current: SessionRecord) => RecordSink | undefined) => {
+      let moved = false;
+      change(id, (current) => {
+        const sink = into?.(current);
+        sink?.put(current);
+        moved = Boolean(sink);
         return undefined;
-      }),
+      });
+      return moved;
+    },
   };
 }
 
