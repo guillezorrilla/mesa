@@ -17,7 +17,7 @@ import { SelectedSessionDetails } from './SelectedSessionDetails';
 import type { SidePanel } from './useSidePanel';
 
 /**
- * The selected session's bar: its project and title, details, agent, the Review, Browser and Diff
+ * The selected session's bar: its project and title, details, agent, the Replies, Browser and Diff
  * toggles, Archive, and then `children` (its Session actions menu).
  */
 export function SelectedSessionBar({

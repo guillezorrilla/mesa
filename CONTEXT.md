@@ -202,7 +202,7 @@ Not: workspace, secondary project, linked project.
 
 ## Session diff
 
-Everything a project session's checkout holds that its base branch lacks: its commits since the merge-base with the base, staged and unstaged edits, and untracked files, as one patch. The base is the worktree's recorded `base`, else the project's default branch, so a session in the main checkout shows its unpushed and uncommitted work. `mesa diff <session> --json` reads it; the app's Diff button beside Review and Browser shows it as a file list and the open file's diff, with Open in editor. General sessions have none.
+Everything a project session's checkout holds that its base branch lacks: its commits since the merge-base with the base, staged and unstaged edits, and untracked files, as one patch. The base is the worktree's recorded `base`, else the project's default branch, so a session in the main checkout shows its unpushed and uncommitted work. `mesa diff <session> --json` reads it; the app's Diff button beside Replies and Browser shows it as a file list and the open file's diff, with Open in editor. General sessions have none.
 
 ## Selected checkout
 
