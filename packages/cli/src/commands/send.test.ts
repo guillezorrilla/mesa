@@ -98,6 +98,26 @@ test('a destructive prompt is blocked with exit 5; --force sends it', async () =
   const forced = await mesa('send', id, 'run rm -rf /', '--force', '--json');
   expect(forced.json.data).toMatchObject({ sent: true, override: 'force' });
   expect(world.windows[0]?.typed).toEqual(['run rm -rf /']);
+  // Each stop and the override are in the Decision log, newest first; the prompt is not.
+  const log = await mesa('decisions', 'log', '--session', id, '--json');
+  expect(log.json.data.map((e: { status: string }) => e.status)).toEqual([
+    'overridden',
+    'blocked',
+    'blocked',
+  ]);
+  expect(log.json.data[0]).toMatchObject({
+    site: 'guardrail',
+    session: id,
+    project: 'lantern-cove',
+    question: 'Is it safe to send this?',
+    answer: 'block',
+    by: 'rules',
+    changed: true,
+    reason: 'the text holds a destructive command (rm -rf)',
+    override: 'force',
+  });
+  expect(JSON.stringify(log.json.data)).not.toContain('rm -rf /');
+  expect((await mesa('decisions', 'log', '--session', id)).stdout).toContain('guardrail');
 });
 
 test('a strict project asks y/N in a terminal; with --json or none, it is exit 5 unless --yes', async () => {

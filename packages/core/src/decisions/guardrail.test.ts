@@ -8,6 +8,7 @@ import {
   passGuardrail,
   type Verdict,
 } from './guardrail.js';
+import type { NewLogEntry } from './log.js';
 
 // Invented keys, built here so no key-shaped string sits in the repo.
 const x = (n: number) => 'x'.repeat(n);
@@ -157,4 +158,37 @@ test('an allow passes; a block passes only --force; an ask passes --yes, --force
     'Project lighthouse has guardrail: strict. Send it?',
     'Project lighthouse has guardrail: strict. Send it?',
   ]);
+});
+
+test('a stop and an override are logged with why, an allow is not', async () => {
+  const logged: NewLogEntry[] = [];
+  const pass = (text: string, project: string | undefined, overrides: object) =>
+    passGuardrail(
+      deps({ log: (entry) => logged.push(entry) }),
+      { action: 'send', target: 'a1b2c3d4', text, ...(project ? { project } : {}) },
+      overrides,
+    );
+  await pass('hello', 'harbour', {});
+  await pass('run rm -rf /', 'harbour', {}).catch(() => undefined);
+  await pass('hello', 'lighthouse', { yes: true });
+  await pass('hello', 'lighthouse', { confirm: async () => false }).catch(() => undefined);
+  expect(logged.map((e) => [e.answer, e.status, e.override])).toEqual([
+    ['block', 'blocked', undefined],
+    ['ask', 'overridden', 'yes'],
+    ['ask', 'blocked', undefined],
+  ]);
+  expect(logged[0]).toMatchObject({
+    site: 'guardrail',
+    session: 'a1b2c3d4',
+    project: 'harbour',
+    rules: 'block',
+    by: 'rules',
+    changed: true,
+    reason: 'the text holds a destructive command (rm -rf)',
+    probabilities: {
+      allow: expect.closeTo(0.01),
+      ask: expect.closeTo(0.04),
+      block: expect.closeTo(0.95),
+    },
+  });
 });

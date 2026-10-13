@@ -24,6 +24,8 @@ export type ProfilePaths = {
    * use without prompts, and its ready answers (decisions/session-decisions.ts).
    */
   decisions: string;
+  /** The Decision log, one `<YYYY-MM>.jsonl` a month (decisions/log.ts, ADR-0024). */
+  decisionLog: string;
   /** The one-line scripts `mesa attach --app` hands to a terminal app. */
   attachScripts: string;
   /** Sessions' git worktrees, `<project>/<branch>` each (CONTEXT.md, Worktree). */
@@ -79,6 +81,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     runs: join(root, 'sessions', 'runs'),
     costs: join(root, 'sessions', 'costs'),
     decisions: join(root, 'sessions', 'decisions'),
+    decisionLog: join(root, 'decision-log'),
     attachScripts: join(root, 'attach'),
     worktrees: join(root, 'worktrees'),
     checkouts: join(root, 'checkouts'),

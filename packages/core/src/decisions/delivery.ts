@@ -1,6 +1,8 @@
 import { clip } from '../lib/clip.js';
 import { shellWord } from '../lib/process.js';
 import type { ScopedContext } from './context.js';
+import type { NewLogEntry } from './log.js';
+import type { SystemOneProvider } from './systemone.js';
 
 // Automatic decision advice inside a session (ADR-0019 "Delivery into sessions", #463): the words a
 // native turn event carries, how long Mesa waits for them, and the background ask that readies the
@@ -28,6 +30,41 @@ export function turnAdvice(context: ScopedContext): string | undefined {
     ].join('\n'),
     ADVICE_CHARS,
   );
+}
+
+/** The vault path of a `note:` source id. */
+const notePath = (id: unknown) =>
+  typeof id === 'string' && id.startsWith('note:') ? id.slice('note:'.length) : undefined;
+
+/**
+ * The Decision log's line for one automatic relevance ask: the note advised, if advice was sent
+ * (`sent`); skipped when no source shared enough words for the model to be asked. The rules have
+ * no answer at this site, and the prompt is never kept.
+ */
+export function adviceEntry(
+  context: ScopedContext,
+  project: string,
+  provider: SystemOneProvider,
+  sent: boolean,
+): NewLogEntry {
+  const { evaluation, sources } = context;
+  const note = sent ? notePath(sources[0]?.id) : undefined;
+  return {
+    site: 'relevance',
+    session: context.session,
+    project,
+    question: 'Which vault note helps this prompt?',
+    rules: null,
+    answer:
+      notePath(evaluation.answer) ??
+      (typeof evaluation.answer === 'string' ? evaluation.answer : null),
+    by: provider,
+    status: sources.length === 0 ? 'skipped' : evaluation.status,
+    changed: sent,
+    ...(evaluation.margin === undefined ? {} : { margin: evaluation.margin }),
+    ...(evaluation.latencyMs ? { latencyMs: evaluation.latencyMs } : {}),
+    ...(note ? { note } : {}),
+  };
 }
 
 /**

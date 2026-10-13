@@ -1,8 +1,10 @@
 import { redactText } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import type { Project } from '../projects/project-file.js';
+import { isSessionId } from '../sessions/record/id.js';
 import { decide, type FaroDeps } from './decide.js';
 import { DESTRUCTIVE_PATTERNS, firstMatch, SECRET_PATTERNS } from './guardrail-patterns.js';
+import type { NewLogEntry } from './log.js';
 import { rulesBackend } from './rules.js';
 import type { Decision, Question } from './types.js';
 
@@ -52,6 +54,8 @@ export type GuardrailDeps = Omit<FaroDeps<GuardState>, 'backends'> & {
   level: (project: string) => GuardrailLevel | undefined;
   /** The profile's key values: a text holding one is blocked like any other secret. */
   secrets: readonly string[];
+  /** Where a stop or an override is logged (the Decision log); an allow is not. */
+  log?: (entry: NewLogEntry) => void;
 };
 
 const VERDICT: Question = { kind: 'Choice', id: 'verdict', options: ['allow', 'ask', 'block'] };
@@ -135,16 +139,39 @@ export async function passGuardrail(
   const check = await checkGuardrail(deps, input);
   const { verdict, reason } = check;
   if (verdict === 'allow') return undefined;
-  if (overrides.force) return 'force';
-  const blocked = (message: string) => new MesaError('guardrail_blocked', message, check);
+  const [answer] = check.decision.answers;
+  const logged = (override?: Override) =>
+    deps.log?.({
+      site: 'guardrail',
+      session: isSessionId(input.target) ? input.target : null,
+      project: input.project ?? null,
+      question: `Is it safe to ${input.action} this?`,
+      rules: verdict,
+      answer: verdict,
+      by: 'rules',
+      status: override ? 'overridden' : 'blocked',
+      changed: true,
+      ...(answer?.kind === 'Choice' ? { probabilities: answer.probabilities } : {}),
+      reason,
+      ...(override ? { override } : {}),
+    });
+  const through = (override: Override) => {
+    logged(override);
+    return override;
+  };
+  const blocked = (message: string) => {
+    logged();
+    return new MesaError('guardrail_blocked', message, check);
+  };
+  if (overrides.force) return through('force');
   if (verdict === 'block')
     throw blocked(`blocked: ${reason}; pass --force to ${input.action} it anyway`);
-  if (overrides.yes) return 'yes';
+  if (overrides.yes) return through('yes');
   if (!overrides.confirm) {
     throw blocked(`the guardrail asks first: ${reason}; pass --yes to ${input.action} it`);
   }
   if (await overrides.confirm(`${sentence(reason)}. ${sentence(input.action)} it?`)) {
-    return 'confirmed';
+    return through('confirmed');
   }
   throw blocked(`declined: ${reason}`);
 }

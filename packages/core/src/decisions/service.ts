@@ -5,7 +5,7 @@ import type { Recorded } from '../receipts/recorder.js';
 import { projectLabel } from '../sessions/record/general.js';
 import type { SessionRecord } from '../sessions/record/record.js';
 import type { Stdio } from '../vault/mount/mcp-server.js';
-import { turnAdvice } from './delivery.js';
+import { adviceEntry, turnAdvice } from './delivery.js';
 import {
   ASSIST_MODES,
   type AssistMode,
@@ -31,6 +31,8 @@ import type { Decision } from './types.js';
 // advice for one live session, through `mesa decisions evaluate|context|advise`, the
 // decision_evaluate tool, and the app's session details. Routine calls keep nothing but the
 // session's bounded use; only an explicit decision with a rationale writes a receipt.
+
+const DAY_MS = 86_400_000;
 
 export type EvaluateOptions = {
   /** The session, for a person outside a Mesa window; inside one, only its own. */
@@ -155,6 +157,9 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
     );
     const text = 'sources' in context ? turnAdvice(context) : undefined;
     if (text) stateOf(session.id).saw('advice');
+    const provider = model();
+    if ('sources' in context && provider !== 'none')
+      ctx.decisionLog.append(adviceEntry(context, session.project, provider, text !== undefined));
     return text;
   };
 
@@ -221,6 +226,12 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
         use: [...state.use].reverse(),
       };
     },
+    /** The Decision log of the last `days` days, newest first, for one session when given. */
+    log: ({ days = 7, session }: { days?: number; session?: string } = {}) =>
+      ctx.decisionLog.read({
+        since: new Date(ctx.clock().getTime() - days * DAY_MS),
+        ...(session ? { session } : {}),
+      }),
     /** Turns assistance off for a session, or back on. */
     setOff: (off: boolean, given?: string) => {
       const session = bound(given);

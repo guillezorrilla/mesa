@@ -10,6 +10,7 @@ import {
   placementStore,
 } from '../sessions/signals/placements.js';
 import { decide } from './decide.js';
+import type { DecisionLog, NewLogEntry } from './log.js';
 import { type DecisionModels, PER_TURN_MS } from './models.js';
 import { rulesBackend } from './rules.js';
 import { automaticGate } from './site-mode.js';
@@ -128,6 +129,34 @@ async function ask(
   };
 }
 
+/** The Decision log's line for a saved reply: what the model placed beside what the rules read. */
+export function placementEntry(
+  claim: Claim,
+  reply: PlacementReply,
+  provider: SystemOneProvider,
+): NewLogEntry {
+  const { placed, probabilities, ask } = reply;
+  const top = probabilities && Object.entries(probabilities).sort((a, b) => b[1] - a[1])[0]?.[0];
+  return {
+    site: 'supervision',
+    session: claim.id,
+    project: claim.project ?? null,
+    question: 'What state is this session in?',
+    rules: claim.rules ?? null,
+    answer: placed?.state ?? top ?? null,
+    by: provider,
+    status: placed
+      ? 'accepted'
+      : ask.fallbackReason?.startsWith('abstained')
+        ? 'abstained'
+        : 'unavailable',
+    changed: Boolean(placed && placed.state !== claim.rules),
+    ...(ask.margin === undefined ? {} : { margin: ask.margin }),
+    ...(probabilities ? { probabilities } : {}),
+    ...(ask.latencyMs === undefined ? {} : { latencyMs: ask.latencyMs }),
+  };
+}
+
 /** What one placing call did with one session: its reply saved, or dropped as stale. */
 export type Placed = { id: string; key: string } & (
   | { saved: PlacementReply }
@@ -149,6 +178,8 @@ export async function placeUnsure(deps: {
   hasKey: (provider: SystemOneProvider) => Promise<boolean>;
   tables?: SupervisionTables;
   clock: Clock;
+  /** Where each saved reply is logged (the Decision log); a budget reply was never asked. */
+  log?: DecisionLog['append'];
 }): Promise<Placed[]> {
   const { gate, acceptAt } = deps.tables ?? tables(false);
   const provider = supervisingModel(deps.model(), gate);
@@ -171,9 +202,9 @@ export async function placeUnsure(deps: {
         deps.store.settle(id, key, undefined);
         return { id, key, dropped: stale };
       }
-      return deps.store.settle(id, key, reply)
-        ? { id, key, saved: reply }
-        : { id, key, dropped: 'the screen changed' };
+      if (!deps.store.settle(id, key, reply)) return { id, key, dropped: 'the screen changed' };
+      deps.log?.(placementEntry(claim, reply, provider));
+      return { id, key, saved: reply };
     }),
   );
 }
@@ -191,5 +222,6 @@ export function boardPlacing(ctx: MesaContext, models: Pick<DecisionModels, 'act
       hasKey: models.hasKey,
       tables: tables(ctx.configIfAny()?.decisions.experimental ?? false),
       clock: ctx.clock,
+      log: ctx.decisionLog.append,
     });
 }

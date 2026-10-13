@@ -31,10 +31,11 @@ export function createFaro(ctx: MesaContext, models: Pick<DecisionModels, 'activ
    * registry, not the config, so a config that does not read never loosens it; a project Mesa
    * cannot read has none.
    */
-  const guard = (recorder?: DecisionRecorder): GuardrailDeps => ({
+  const guard = (recorder?: DecisionRecorder, logged = false): GuardrailDeps => ({
     profile: profile(),
     clock: ctx.clock,
     ...(recorder ? { recorder } : {}),
+    ...(logged ? { log: ctx.decisionLog.append } : {}),
     secrets: ctx.secrets(),
     level: (project) => {
       try {
@@ -137,10 +138,11 @@ export function createFaro(ctx: MesaContext, models: Pick<DecisionModels, 'activ
         }),
       /**
        * In front of an external action: goes on, or throws guardrail_blocked; the decision goes
-       * to `recorder`, the action's receipt (passGuardrail).
+       * to `recorder`, the action's receipt (passGuardrail), and a stop or an override to the
+       * Decision log unless `logged` is false (Mesa's own prompt, which a person never sees).
        */
-      gate: (input: Guarded, overrides: Overrides, recorder: DecisionRecorder) =>
-        passGuardrail(guard(recorder), input, overrides),
+      gate: (input: Guarded, overrides: Overrides, recorder: DecisionRecorder, logged = true) =>
+        passGuardrail(guard(recorder, logged), input, overrides),
     },
     /** The model the profile chose and its threshold, for doctor; none before init. */
     inUse: () => {

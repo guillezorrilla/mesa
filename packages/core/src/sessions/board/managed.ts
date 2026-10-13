@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { AGENTS } from '../../agents/agents.js';
 import type { AgentProcess } from '../../agents/listing.js';
 import type { Agent } from '../../agents/names.js';
+import type { AgentState } from '../../agents/states.js';
 import { supervisionKey, supervisionState } from '../../decisions/supervision.js';
 import type { SystemOneProvider } from '../../decisions/systemone.js';
 import { MesaError } from '../../lib/result.js';
@@ -10,7 +11,7 @@ import type { SessionRecord } from '../record/record.js';
 import { FINAL_STATES, isAgentState } from '../record/states.js';
 import type { SessionStore } from '../record/store.js';
 import { type HookEvent, parentHook } from '../signals/hook-events.js';
-import { type PlacementStore, supervisionOf } from '../signals/placements.js';
+import { type PlacementStore, supervisionOf, type Want } from '../signals/placements.js';
 import { classifySession, type Placement, type SessionSignals } from '../signals/state.js';
 import type { TmuxBackend } from '../tmux/backend.js';
 import type { TmuxWindow } from '../tmux/format.js';
@@ -170,7 +171,7 @@ export async function managedRow(
   const { supervision } = deps;
   const want =
     supervision && ran && signals.tail !== undefined && found.agent !== 'antigravity'
-      ? wantOf(found.id, found.agent, signals.tail, supervision.provider)
+      ? wantOf(found, found.agent, signals.tail, supervision.provider)
       : undefined;
   const reply = supervision?.look(found.id, want);
   if (reply?.placed) signals.placed = reply.placed;
@@ -216,8 +217,18 @@ export async function managedRow(
   };
 }
 
-/** What a look wants the model to place: the bounded screen, under its cache key. */
-function wantOf(id: string, agent: Agent, tail: string, provider: SystemOneProvider) {
+/**
+ * What a look wants the model to place: the bounded screen, under its cache key, with what the
+ * rules alone read from that screen (the state it shows, else the one the record keeps).
+ */
+function wantOf(
+  found: SessionRecord,
+  agent: Agent,
+  tail: string,
+  provider: SystemOneProvider,
+): Want {
   const state = supervisionState(agent, tail);
-  return { key: supervisionKey(id, state, provider), state };
+  // Only a session that ran is placed, so the state it keeps is an agent's.
+  const rules = AGENTS[agent].screen.state(tail) ?? (found.lastState.state as AgentState);
+  return { key: supervisionKey(found.id, state, provider), state, project: found.project, rules };
 }

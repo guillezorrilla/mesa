@@ -1,6 +1,7 @@
 import type { Command } from '../../command.js';
 import { decisionsAdvise, decisionsContext, decisionsEvaluate } from './evaluate.js';
 import { decisionsKeyList, decisionsKeyRemove, decisionsKeySet, decisionsUse } from './keys.js';
+import { decisionsLog } from './log.js';
 import { decisionsMcp } from './mcp.js';
 import { decisionsPlace } from './place.js';
 import { decisionsOff, decisionsOn, decisionsPrepare, decisionsStatus } from './session.js';
@@ -16,6 +17,7 @@ export const DECISIONS_COMMANDS: Command[] = [
   decisionsContext,
   decisionsAdvise,
   decisionsStatus,
+  decisionsLog,
   decisionsOff,
   decisionsOn,
   decisionsPrepare,

@@ -28,6 +28,7 @@ export type { ScopedContext } from './decisions/context.js';
 export type { AssistMode, Evaluation } from './decisions/evaluate.js';
 export type { GuardrailCheck, Override, Verdict } from './decisions/guardrail.js';
 export type { KeyProvider, KeyRow } from './decisions/keys.js';
+export type { LogEntry } from './decisions/log.js';
 export { measuredText, type SiteMeasure } from './decisions/measured.js';
 export type { Advice, DecisionAnswer } from './decisions/request.js';
 export type { DecisionAssistance, DecisionStatus } from './decisions/service.js';
