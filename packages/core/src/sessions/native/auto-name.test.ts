@@ -71,6 +71,9 @@ test("a ticket session is named from its ticket's title, after its branch", asyn
   expect(bare.asks[0]?.input).toContain('<message>\nLC-12: Tide alarm rings twice\n</message>');
   expect(bare.asks[0]?.input).not.toContain('Load LC-12');
   expect((await setUp(ticket, 'lc-12-tide-alarm').name()).agentName).toBe('lc-12-tide-alarm');
+  // A longer key is another ticket's, never this one's.
+  const other = { ...ticket, from: { ...ticket.from, id: 'LC-1' } };
+  expect((await setUp(other, 'lc-12-tide-alarm').name()).agentName).toBe('lc-1-lc-12-tide-alarm');
 });
 
 test('no name when there is nothing to name from, Haiku says none or fails, or it has one', async () => {

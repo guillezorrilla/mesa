@@ -4,6 +4,7 @@ import type { SessionRow } from '../board/rows.js';
 import {
   attentionScore,
   contextPercent,
+  nameAsk,
   sessionBranch,
   sessionCount,
   sessionLabel,
@@ -63,4 +64,17 @@ test('a session is worth naming between turns once it has a goal or a prompt and
   expect(wantsName(managed({ ...idle, goal: 'x', name: 'tide' }))).toBe(false);
   expect(wantsName(managed({ ...idle, kind: 'run', goal: 'x' }))).toBe(false);
   expect(wantsName(foreign)).toBe(false);
+});
+
+test('a session started from an item is named from its title at once, and asked once', () => {
+  const working = { kind: 'interactive', goal: 'x', lastState: { state: 'working', at: 't1' } };
+  const ticket = managed({
+    ...working,
+    from: { source: 'jira', id: 'LC-12', title: 'LC-12: Tide' },
+  });
+  expect(wantsName(ticket)).toBe(true);
+  expect(nameAsk(ticket)).toBe('title');
+  expect(nameAsk(managed({ ...ticket, lastState: { state: 'working', at: 't2' } }))).toBe('title');
+  // Prompts are read once per turn, by the time its state since then was set.
+  expect(nameAsk(managed({ ...working, lastState: { state: 'idle', at: 't3' } }))).toBe('t3');
 });

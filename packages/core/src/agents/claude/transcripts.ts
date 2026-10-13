@@ -216,7 +216,13 @@ function claudeName(file: string): string | undefined {
   return custom ?? ai;
 }
 
-/** The branch a transcript last names: Claude Code stamps each line with its folder's `gitBranch`. */
+/**
+ * How far back from a transcript's end its branch is looked for: Claude Code stamps each line with
+ * its folder's `gitBranch`, so a transcript whose end names none has none (a folder outside git).
+ */
+const BRANCH_TAIL = 256 << 10;
+
+/** The branch a transcript last names, within its last `BRANCH_TAIL` bytes. */
 function claudeBranch(file: string): string | undefined {
   return lastMatchingLine(
     file,
@@ -224,7 +230,7 @@ function claudeBranch(file: string): string | undefined {
       line.includes('"gitBranch"')
         ? named(parsedLine<{ gitBranch?: unknown }>(line)?.gitBranch)
         : undefined,
-    NAME_TAIL,
+    BRANCH_TAIL,
   );
 }
 

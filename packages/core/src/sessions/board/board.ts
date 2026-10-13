@@ -101,12 +101,12 @@ export async function listSessions(
         children: children.get(found.id) ?? [],
       });
       // A live session's context and branch are read when its state just changed (a reply ends
-      // a turn), not on every look, and its branch once while it has none (one started before
-      // Mesa read branches); a locked record is not waited for.
-      // ponytail: one whose transcript names no branch (a folder outside git) is read on every
-      // look; mark it read once if that gets slow.
-      if (!row.agentSessionId) return row;
-      const turned = !row.endedAt && row.lastState.state !== found.lastState.state;
+      // a turn), not on every look, and its branch on each look while it has none (one started
+      // before Mesa read branches); a locked record is not waited for.
+      // ponytail: a live one outside git has none, so its transcript's end (BRANCH_TAIL) is read
+      // on every look; keep a "read, none" mark on the record if that ever shows up.
+      if (row.endedAt || !row.agentSessionId) return row;
+      const turned = row.lastState.state !== found.lastState.state;
       const { context } = turned ? refreshContext(deps, row, { wait: false }) : row;
       const { gitBranch } =
         turned || !row.gitBranch ? refreshBranch(deps, row, { wait: false }) : row;

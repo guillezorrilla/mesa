@@ -43,14 +43,21 @@ export const nameable = (s: { kind: string; name?: string; agentName?: string })
   s.kind === 'interactive' && !s.name && !s.agentName;
 
 /**
- * A Mesa session worth one autoName now: nameable, with a goal or a prompt, and between turns
- * (idle, or waiting on a person), so it is asked once per turn, never during one.
+ * A Mesa session worth one autoName now: nameable, with a goal or a prompt, and either started
+ * from an item, whose title it is named from at once, or between turns (idle, or waiting on a
+ * person), so its prompts are read once per turn, never during one.
  */
 export const wantsName = (s: SessionRow) =>
   s.managed &&
   nameable(s) &&
-  (s.lastState.state === 'idle' || WAITING_STATES.has(s.lastState.state)) &&
+  Boolean(s.from?.title || s.lastState.state === 'idle' || WAITING_STATES.has(s.lastState.state)) &&
   Boolean(s.goal?.trim() || s.conversation);
+
+/**
+ * Which ask a wanted name is (wantsName): one for a session named from its item's title, else one
+ * per turn, by the time its state since the turn ended was set.
+ */
+export const nameAsk = (s: SessionRow) => (s.managed && s.from?.title ? 'title' : s.lastState.at);
 
 /** A number of sessions as it reads: `1 session`, `2 sessions`. */
 export const sessionCount = (n: number) => counted(n, 'session');
