@@ -16,12 +16,17 @@ import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Kbd } from '@/components/Kbd';
 import { Muted } from '@/components/Muted';
+import { ResizeHandle } from '@/components/ResizeHandle';
 import { Button } from '@/components/ui/button';
 import { GitDiffRows } from '@/features/git/diff/GitDiffRows';
 import { useCommand, useRun } from '@/lib/useCommand';
+import { useKeptWidth } from '@/lib/useKeptWidth';
 import { cn } from '@/lib/utils';
 import { DiffFileList, STATUS_TONE, Stat } from './DiffFileList';
 import { diffFiles } from './diffFiles';
+
+/** The panel's width bounds beside the terminal; CSS keeps the terminal at least 16rem wide. */
+const DIFF_WIDTH = { min: 360, max: 1600, initial: 640, step: 32 };
 
 /**
  * Everything the selected session changed since it left its base branch, beside its terminal:
@@ -39,6 +44,7 @@ export function DiffPanel(props: {
   const changes = useCommand('sessions.diff', { id: props.sessionId });
   const appearance = useCommand('config.get').data?.appearance ?? DEFAULT_APPEARANCE;
   const run = useRun();
+  const [width, setWidth] = useKeptWidth('mesa.diff.width', DIFF_WIDTH);
   const [expanded, setExpanded] = useState(false);
   const [listOpen, setListOpen] = useState(true);
   const [layout, setLayout] = useState<'inline' | 'side-by-side'>('inline');
@@ -81,9 +87,21 @@ export function DiffPanel(props: {
       onKeyDown={onKeyDown}
       className={cn(
         'flex h-full min-h-0 flex-col border-l bg-card',
-        expanded ? 'absolute inset-0 z-20 border-l-0' : 'w-[clamp(28rem,50%,64rem)] shrink-0',
+        expanded
+          ? 'absolute inset-0 z-20 border-l-0'
+          : 'relative max-w-[calc(100%-16rem)] shrink-0',
       )}
+      style={expanded ? undefined : { width }}
     >
+      {!expanded && (
+        <ResizeHandle
+          label="Resize changes panel"
+          edge="left"
+          width={width}
+          bounds={DIFF_WIDTH}
+          onWidth={setWidth}
+        />
+      )}
       <header className="shrink-0 border-b">
         <div className="flex items-center gap-2 px-3 pt-2.5 pb-2">
           <GitBranch aria-hidden className="size-4 shrink-0 text-state-working" />

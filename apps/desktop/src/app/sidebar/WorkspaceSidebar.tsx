@@ -9,6 +9,7 @@ import {
   Map as MapIcon,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { ResizeHandle } from '@/components/ResizeHandle';
 import { Button } from '@/components/ui/button';
 import { usePendingRuns } from '@/features/automations/usePendingRuns';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
@@ -19,12 +20,14 @@ import { SessionsSection } from '@/features/sessions/sidebar/SessionsSection';
 import { sidebarGroups, sidebarOrder } from '@/features/sessions/sidebar/sidebarGroups';
 import { useUnfoldOnNewSession } from '@/features/sessions/sidebar/useUnfoldOnNewSession';
 import type { SessionLocation } from '@/features/sessions/start/useStartSession';
+import { useKeptWidth } from '@/lib/useKeptWidth';
 import { cn } from '@/lib/utils';
 import type { WorkspaceView } from '@/lib/workspaceView';
 import { SidebarNavButton } from './SidebarNavButton';
-import { SidebarResizeHandle } from './SidebarResizeHandle';
 import { SidebarTabs } from './SidebarTabs';
-import { useSidebarWidth } from './useSidebarWidth';
+
+/** The expanded sidebar's width bounds, default, and arrow-key step, in pixels. */
+const SIDEBAR_WIDTH = { min: 200, max: 480, initial: 264, step: 16 };
 
 /** `list` with `value` added, or removed when it is there. */
 const toggled = (list: string[], value: string) =>
@@ -60,7 +63,7 @@ export function WorkspaceSidebar(props: {
   const [closedProjects, setClosedProjects] = useState<string[]>([]);
   const [compactSessions, setCompactSessions] = useState<string[]>([]);
   const [projectTab, setProjectTab] = useState(false);
-  const [width, setWidth] = useSidebarWidth();
+  const [width, setWidth] = useKeptWidth('mesa.sidebar.width', SIDEBAR_WIDTH);
   useEffect(() => {
     if (view.kind === 'project') setProjectTab(true);
     if (view.kind === 'session' || view.kind === 'sessions') setProjectTab(false);
@@ -104,7 +107,15 @@ export function WorkspaceSidebar(props: {
       className={cn('relative flex shrink-0 flex-col border-r bg-card/50', collapsed && 'w-14')}
       style={collapsed ? undefined : { width }}
     >
-      {!collapsed && <SidebarResizeHandle width={width} onWidth={setWidth} />}
+      {!collapsed && (
+        <ResizeHandle
+          label="Resize sidebar"
+          edge="right"
+          width={width}
+          bounds={SIDEBAR_WIDTH}
+          onWidth={setWidth}
+        />
+      )}
       <div className="flex h-12 items-center border-b px-2">
         {!collapsed && (
           <SidebarTabs
