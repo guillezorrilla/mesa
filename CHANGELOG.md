@@ -2,6 +2,17 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.2.15 - 2026-10-13
+
+### Changed
+
+- Projects stand out in the Sessions tab: projects with sessions come first, show their name in bold with a count, keep their header in view while you scroll, and carry their own color on the folder and on a rail beside their session cards. (#769)
+
+### Fixed
+
+- Delete permanently now saves the session's decisions to the vault: its Vault capture runs in the background, so the session still disappears at once. Agents also save your corrections to how they work, such as which tool to use or a convention, as soon as you give them. (#772)
+- The Tickets list groups tickets by their own status, so Ready tickets sit apart from In Progress ones instead of all showing under In progress; Linear and ClickUp lists group by their status names too, and ClickUp's status icons wear its status colors. (#768)
+
 ## 0.2.14 - 2026-10-12
 
 ### Added
