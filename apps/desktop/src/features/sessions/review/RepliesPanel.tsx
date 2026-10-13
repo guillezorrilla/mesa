@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useCommand } from '@/lib/useCommand';
 import { ChangeReviewPanel } from './ChangeReviewPanel';
-import { ResponseReviewPanel } from './ResponseReviewPanel';
+import { RepliesTab } from './RepliesTab';
 
 /**
  * The Replies pane beside the selected terminal: Replies, or Changes for a session with a
@@ -65,7 +65,7 @@ export function RepliesPanel({
           onSaved={() => void responses.refresh()}
         />
       )}
-      <ResponseReviewPanel
+      <RepliesTab
         sessionId={sessionId}
         responses={responses}
         initialResponse={initialResponse}

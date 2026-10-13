@@ -1,7 +1,7 @@
 import type { NativeResponse } from '@mesa/core';
 import { Copy } from 'lucide-react';
 import { type ReactNode, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/IconButton';
 import { cn } from '@/lib/utils';
 
 /**
@@ -32,14 +32,11 @@ export function ResponseRow(props: {
         >
           {response.text.split('\n').slice(0, 2).join('\n')}
         </button>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label="Copy reply"
+        <IconButton
+          label="Copy reply"
+          icon={Copy}
           onClick={() => props.onCopy(response.text, 'Reply')}
-        >
-          <Copy aria-hidden />
-        </Button>
+        />
       </div>
       {response.blocks.map((block, index) => (
         <div
@@ -50,14 +47,11 @@ export function ResponseRow(props: {
           <pre className="max-h-32 min-w-0 flex-1 overflow-auto whitespace-pre-wrap break-words font-mono text-xs">
             {block}
           </pre>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label={`Copy block ${index + 1}`}
+          <IconButton
+            label={`Copy block ${index + 1}`}
+            icon={Copy}
             onClick={() => props.onCopy(block, 'Block')}
-          >
-            <Copy aria-hidden />
-          </Button>
+          />
         </div>
       ))}
       {open && <div className="border-t p-3">{props.children}</div>}

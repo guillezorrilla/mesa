@@ -63,12 +63,11 @@ export function replyBlocks(text: string, cut = false): string[] {
   let open: { marker: string; indent: string } | undefined;
   let lines: string[] = [];
   for (const line of text.split('\n')) {
-    if (!open) {
-      open = opensFence(line);
-      lines = [];
-    } else if (closesFence(line, open.marker)) {
+    if (!open) open = opensFence(line);
+    else if (closesFence(line, open.marker)) {
       blocks.push(lines.join('\n'));
       open = undefined;
+      lines = [];
     } else
       lines.push(line.startsWith(open.indent) ? line.slice(open.indent.length) : line.trimStart());
   }
@@ -111,6 +110,7 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
     const message = messages[i];
     if (message?.role !== 'assistant') continue;
     const text = message.text.slice(0, MAX_TEXT);
+    const cut = message.text.length > MAX_TEXT;
     rows.push({
       profile: deps.profile,
       session: id,
@@ -119,9 +119,9 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
       source: sha(message.line),
       revision: sha(message.text),
       text,
-      blocks: replyBlocks(text, message.text.length > MAX_TEXT),
+      blocks: replyBlocks(text, cut),
       ...(message.at ? { at: message.at } : {}),
-      truncated: message.text.length > MAX_TEXT,
+      truncated: cut,
     });
   }
   return { rows, reviews, truncated: truncated || rows.length === MAX_RESPONSES };

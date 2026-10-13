@@ -54,11 +54,11 @@ export function outsideCode(body: string): string {
   return body
     .split('\n')
     .map((line) => {
-      const marker = opensFence(line)?.marker ?? '';
       if (fence) {
         if (closesFence(line, fence)) fence = '';
         return blank(line);
       }
+      const marker = opensFence(line)?.marker ?? '';
       if (marker) {
         fence = marker;
         paragraph = false;

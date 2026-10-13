@@ -17,7 +17,7 @@ import { useResponseReview } from './useResponseReview';
  * `initialResponse` opens on that reply. While `shown` is false only its guardrail question
  * stays, so its selection and comment outlast a look at the changes.
  */
-export function ResponseReviewPanel({
+export function RepliesTab({
   sessionId,
   responses,
   initialResponse,
