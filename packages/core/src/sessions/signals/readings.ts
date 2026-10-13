@@ -18,10 +18,11 @@ export function refreshReadings(
   if (record.agent === 'terminal' || !record.agentSessionId) return record;
   const id = record.agentSessionId;
   const { context: readContext, transcripts } = AGENTS[record.agent];
+  const readBranch = transcripts?.branch;
   try {
     const context = readContext?.(deps, id);
-    const file = transcripts?.branch && transcripts.file(deps, id);
-    const gitBranch = file ? transcripts?.branch?.(file) : undefined;
+    const file = readBranch && transcripts?.file(deps, id);
+    const gitBranch = file ? readBranch(file) : undefined;
     const changed = {
       ...(readContext && JSON.stringify(context) !== JSON.stringify(record.context)
         ? { context }

@@ -77,13 +77,10 @@ export async function autoName(
   const said = sourceOf(deps, record);
   if (!said.length) return record;
   const { from } = record;
-  const titled = Boolean(from?.title);
-  const ticket =
-    from && titled && isTicketItem(from.source, from.id) ? branchOf(from.id) : undefined;
+  const ticket = from?.title && isTicketItem(from.source, from.id) ? branchOf(from.id) : undefined;
   const secrets = deps.secrets();
   const asked = said.map((text) => redactWhole(text, deps.home, secrets));
-  const reply = await askHaiku(deps, ASK(asked, titled));
-  const slug = reply === undefined ? undefined : slugName(reply);
+  const slug = slugName((await askHaiku(deps, ASK(asked, Boolean(from?.title)))) ?? '');
   if (!slug) return record;
   // Its own key only: lc-12-tide-alarm is not a name for lc-1; the key counts toward its length.
   const keyed = !ticket || slug === ticket || slug.startsWith(`${ticket}-`);
