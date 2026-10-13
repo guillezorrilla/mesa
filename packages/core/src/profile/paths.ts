@@ -9,6 +9,8 @@ export type ProfilePaths = {
   config: string;
   registry: string;
   sessions: string;
+  /** Removed sessions' records kept only until their Vault capture lands (CONTEXT.md). */
+  removing: string;
   /** The agent hooks' event logs, one `<session id>.jsonl` each. */
   events: string;
   /** Sessions' output logs, one `<session id>.log` each: local only, never in the vault. */
@@ -71,6 +73,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     config: join(root, 'config.yaml'),
     registry: join(root, 'registry.yaml'),
     sessions: join(root, 'sessions'),
+    removing: join(root, 'sessions', 'removing'),
     events: join(root, 'sessions', 'events'),
     logs: join(root, 'sessions', 'logs'),
     runs: join(root, 'sessions', 'runs'),

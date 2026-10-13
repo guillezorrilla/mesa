@@ -135,6 +135,7 @@ export function sessionDeps(
     nativeDeps,
     runDeps,
     ensureBackgroundView,
+    capture,
     ends,
   };
 }

@@ -112,8 +112,23 @@ export function sessionStore({
         })
         .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
     },
-    /** Under the lock, so an update that waited for it cannot write the record back. */
-    remove: (id: string) => void change(id, () => undefined),
+    /** Writes `record` as it is: a removal moving it here (remove's `into`). */
+    put: (record: SessionRecord) => {
+      mkdirSync(dir, { recursive: true, mode: 0o700 });
+      return write(record);
+    },
+    /**
+     * Under the lock, so an update that waited for it cannot write the record back; when `into`
+     * names a store for the record as it is now, it moves there instead of going.
+     */
+    remove: (
+      id: string,
+      into?: (current: SessionRecord) => { put: (record: SessionRecord) => unknown } | undefined,
+    ) =>
+      void change(id, (current) => {
+        into?.(current)?.put(current);
+        return undefined;
+      }),
   };
 }
 

@@ -14,7 +14,7 @@ const STALE_CLAIM_MS = 10 * 60 * 1000;
  * Whether `s` has a capture run in flight: a claim with a run, or one with none yet, younger than
  * STALE_CLAIM_MS.
  */
-const captureInFlight = (s: SessionRecord, now: Date) =>
+export const captureInFlight = (s: SessionRecord, now: Date) =>
   s.capture?.state === 'running' &&
   (Boolean(s.capture.run) || now.getTime() - Date.parse(s.capture.at) <= STALE_CLAIM_MS);
 

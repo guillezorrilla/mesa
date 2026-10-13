@@ -694,3 +694,44 @@ test('with capture off, a Board look that finds an exit reads no transcript', as
     read.mockRestore();
   }
 });
+
+test('removing a live session returns at once; its capture lands from removing/, which it then leaves', async () => {
+  const w = captureWorld();
+  const s = await w.session();
+  const removing = join(w.home, '.mesa', 'default', 'sessions', 'removing');
+  const { result } = await w.mesa.sessions.remove(s.id, { force: true });
+  expect(result).toMatchObject({ window: true, capture: true });
+  expect(w.captures()).toHaveLength(1);
+  // Gone from every list while its capture runs; a Board look that finds the run ended lands it.
+  expect(readdirSync(removing)).toEqual([`${s.id}.json`]);
+  await expect(w.mesa.sessions.show(s.id)).rejects.toMatchObject({ code: 'not_found' });
+  expect((await w.mesa.sessions.list()).map((r) => r.id)).not.toContain(s.id);
+  await w.land();
+  expect(filesIn(w.vault, 'wiki/decisions')).toHaveLength(1);
+  expect(w.receipts()).toHaveLength(1);
+  expect(readdirSync(removing)).toEqual([]);
+});
+
+test('removing a stopped session whose capture still runs keeps it until that capture lands', async () => {
+  const w = captureWorld();
+  const s = await w.session();
+  await w.mesa.sessions.stop(s.id, true);
+  const { result } = await w.mesa.sessions.remove(s.id);
+  expect(result.capture).toBe(true);
+  expect(w.captures()).toHaveLength(1);
+  await w.land();
+  expect(filesIn(w.vault, 'wiki/decisions')).toHaveLength(1);
+  expect(testStore(w.home).find(s.id)).toBeUndefined();
+});
+
+test('with capture off, a removal starts no capture and the record goes at once', async () => {
+  const w = captureWorld();
+  w.mesa.config.set('vault.capture', 'off');
+  const s = await w.session();
+  const { result } = await w.mesa.sessions.remove(s.id, { force: true });
+  expect(result.capture).toBe(false);
+  expect(w.captures()).toEqual([]);
+  expect(existsSync(join(w.home, '.mesa', 'default', 'sessions', 'removing', `${s.id}.json`))).toBe(
+    false,
+  );
+});

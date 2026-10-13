@@ -9,6 +9,7 @@ import { MesaError } from '../../lib/result.js';
 import type { Profile } from '../../profile/profile.js';
 import { findProject } from '../../projects/projects.js';
 import { costTally } from '../../usage/session-cost.js';
+import { captureInFlight } from '../../vault/capture/claim.js';
 import { checkoutHolders, heldWorktrees, real, worktreeHolder } from '../record/holders.js';
 import type { SessionStore } from '../record/store.js';
 import { runInput, runOutput } from '../run/files.js';
@@ -31,6 +32,10 @@ export type Removed = {
   runOutput: boolean;
   /** Its tmux window, live under `force`, or left dead. */
   window: boolean;
+  /** Its Vault capture still runs: the record waits in `removing/` and goes once it lands. */
+  capture: boolean;
+  /** Why its capture did not start, when it did not. */
+  warning?: string;
   worktree?: string;
   branch?: string;
   /** Each additional project's worktree and branch it removed (CONTEXT.md, Additional project). */
@@ -40,7 +45,9 @@ export type Removed = {
 /**
  * Removes a session's record, its hook log, its output log, a run's output, its cost tally, and
  * its decision assistance, with `deleteWorktree` its git worktree and each additional project's,
- * and with `deleteBranch` their branch. A queued session is refused, to be cancelled first; a live
+ * and with `deleteBranch` their branch. Once its window is closed its Vault capture starts
+ * (`capture`, not waited for): while it runs, the record moves to `removing`, out of every list,
+ * and the capture's landing removes it there (landCapture), so a removal is never slower for it. A queued session is refused, to be cancelled first; a live
  * one is refused unless `force`, which closes its window first; a worktree another session holds
  * or runs in, or git has locked, is refused, and one with changes or submodules unless `force`; a
  * branch checked out where the session does not hold it is refused, as is one its own worktree has
@@ -61,6 +68,11 @@ export async function removeSession(
     costs: string;
     /** The profile's sessions/decisions/, where a session's decision assistance is. */
     decisions: string;
+    /** Starts its Vault capture when due (startCapture): a warning, if it did not start. */
+    capture: (id: string) => Promise<string | undefined>;
+    /** Where a record waits for its capture to land. */
+    removing: Pick<SessionStore, 'put'>;
+    clock: () => Date;
   },
   id: string,
   { force = false, deleteWorktree: dropWorktree = false, deleteBranch: dropBranch = false } = {},
@@ -105,6 +117,7 @@ export async function removeSession(
     outputLog: false,
     runOutput: false,
     window: false,
+    capture: false,
   };
   if (pane) {
     if (record.backgroundId && !record.endedAt)
@@ -114,6 +127,9 @@ export async function removeSession(
   } else if (record.backgroundId && !record.endedAt) {
     await stopClaudeBackground(deps.run, record.backgroundId);
   }
+  // Before its hook log goes: a capture reads it to know there was a conversation.
+  const warning = await deps.capture(id);
+  if (warning) removed.warning = warning;
   for (const { worktree, repo } of dropWorktree ? repos : []) {
     if (existsSync(worktree.path)) await deleteWorktree(deps.run, repo, worktree, { force });
     // Its folder already gone: clear git's registration of it, if git still has one.
@@ -143,7 +159,12 @@ export async function removeSession(
   rmSync(runInput(deps.runs, id), { force: true });
   rmSync(costTally(deps.costs, id), { force: true });
   rmSync(sessionDecisionsFile(deps.decisions, id), { force: true });
-  deps.store.remove(id);
+  // ponytail: a landing that read the record just before it moved fails to settle it; its notes
+  // are written, and the record stays in removing/, listed nowhere.
+  deps.store.remove(id, (current) => {
+    removed.capture = captureInFlight(current, deps.clock());
+    return removed.capture ? deps.removing : undefined;
+  });
   return removed;
 }
 

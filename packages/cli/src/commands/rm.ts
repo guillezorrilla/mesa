@@ -73,7 +73,7 @@ export const rm = defineCommand({
         a.branch && `${a.project}'s branch ${a.branch}`,
       ]),
     ].filter(Boolean);
-    const text = `removed ${r.id}${also.length ? `, with ${also.join(', ')}` : ''}`;
+    const text = `removed ${r.id}${also.length ? `, with ${also.join(', ')}` : ''}${r.capture ? '; its vault capture lands in the background' : ''}`;
     return recordedOutput(recorded, { data: r, text });
   },
 });

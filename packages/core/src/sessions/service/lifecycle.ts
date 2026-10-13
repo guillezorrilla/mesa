@@ -94,7 +94,8 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
         project: (r) => projectScope(r.project),
         session: () => id,
         inputs: { id, ...opts },
-        outputs: (r) => r,
+        warning: (r) => r.warning,
+        outputs: ({ warning: _, ...r }) => r,
       },
       () =>
         removeSession(
@@ -108,6 +109,9 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
             runs: paths.runs,
             costs: paths.costs,
             decisions: paths.decisions,
+            capture: deps.capture,
+            removing: ctx.removing,
+            clock: ctx.clock,
           },
           id,
           opts,

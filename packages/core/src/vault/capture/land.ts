@@ -27,10 +27,13 @@ import { type CaptureItem, captureItems } from './items.js';
 // returned (ADR-0006: the agent never writes the vault), all or none, with one receipt, and keeps
 // how it went on the captured session's record.
 
-/** What landing a capture takes: the records, the vault, receipts, and redaction. */
+/**
+ * What landing a capture takes: the records, those removed while their capture runs, the vault,
+ * receipts, and redaction.
+ */
 export type CaptureContext = Pick<
   MesaContext,
-  'store' | 'notes' | 'record' | 'clock' | 'home' | 'secrets'
+  'store' | 'removing' | 'notes' | 'record' | 'clock' | 'home' | 'secrets'
 >;
 
 /** One item as a capture saved it: where, whether that changed the note, and its odds. */
@@ -174,10 +177,27 @@ function write(ctx: CaptureContext, about: SessionRecord, planned: readonly Plan
  * their covering notes found, then, under the vault lock, all written or none, and the session's
  * record `done` with the notes and its mark moved (settle), under one `capture` receipt (none
  * for a capture that saved nothing). A run that failed, output that does not read, or a refused
- * write changes no note and keeps the mark, and the record and a failed receipt say why. Never
- * throws: its receipt, and a warning.
+ * write changes no note and keeps the mark, and the record and a failed receipt say why. A session
+ * removed while its capture ran waits in `removing` (removeSession): it lands from there, and then
+ * goes. Never throws: its receipt, and a warning.
  */
 export async function landCapture(
+  ctx: CaptureContext,
+  run: SessionRecord,
+  read: HeadlessResult,
+): Promise<{ receipt?: { id: string; path: string } | null; warning?: string }> {
+  const removed =
+    run.about && !ctx.store.find(run.about) ? ctx.removing.find(run.about) : undefined;
+  if (!removed) return landOn(ctx, run, read);
+  try {
+    return await landOn({ ...ctx, store: ctx.removing }, run, read);
+  } finally {
+    ctx.removing.remove(removed.id);
+  }
+}
+
+/** landCapture over the store `ctx.store` that holds the run's session. */
+async function landOn(
   ctx: CaptureContext,
   run: SessionRecord,
   read: HeadlessResult,

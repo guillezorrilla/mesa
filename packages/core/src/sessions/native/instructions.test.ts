@@ -29,7 +29,7 @@ test.each(['claude', 'codex', 'antigravity'] as const)(
     expect(Buffer.byteLength(pointer)).toBeLessThan(1000);
     expect(pointer).toContain(`Mesa session abcdefgh; profile ${PROFILE}; project ${PROJECT};`);
     expect(pointer).toContain(
-      "Vault: mesa-vault's project_context, read_note, search_vault and session_goals on demand, when past work bears on the task. After a design decision: search_vault, then save_decision; save_summary, save_note only for lasting knowledge.",
+      "Vault: mesa-vault's project_context, read_note, search_vault and session_goals when past work bears on it. After a design decision or a correction: search_vault, then save_decision; save_summary, save_note only for lasting knowledge.",
     );
     expect(pointer).toContain(`Without the tools: mesa vault context ${PROJECT} --json`);
     expect(pointer).not.toContain('unavailable until P5');
@@ -66,7 +66,7 @@ test('a session across projects names them in one line, eliding past the 1,000-b
     const pointer = mesaPointer(record({ agent, worktree, additional }), PROFILE, CWD);
     expect(Buffer.byteLength(pointer)).toBeLessThan(1000);
     expect(pointer).toMatch(/^Also in projects (.+, )?and \d more\.$/m);
-    expect(pointer).toContain('session_goals on demand');
+    expect(pointer).toContain('session_goals when past work bears on it');
     expect(pointer).not.toContain('first');
   }
   expect(mesaPointer(record({}), PROFILE, CWD)).not.toContain('Also in');
