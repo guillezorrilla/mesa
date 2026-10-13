@@ -113,15 +113,11 @@ export function SessionsScreen(
           row={selected}
           projects={props.projects}
           acting={acting}
-          reviewOpen={side.reviewOpen}
-          browserOpen={side.browserOpen}
-          diffOpen={side.diffOpen}
+          panel={side.open}
           onProject={props.onProject}
           onSessions={props.onSessions}
           onSwap={commands.swap}
-          onToggleReview={side.toggleReview}
-          onToggleBrowser={side.toggleBrowser}
-          onToggleDiff={side.toggleDiff}
+          onTogglePanel={side.toggle}
           onDialog={setDialog}
         >
           {selected && (
@@ -214,7 +210,7 @@ export function SessionsScreen(
             props.onSelectSession?.(id);
           }}
         />
-        {selected?.managed && side.reviewOpen && (
+        {selected?.managed && side.open === 'review' && (
           <ReviewPanel
             key={`${selected.id}:${side.reviewResponse?.source ?? ''}`}
             sessionId={selected.id}
@@ -223,7 +219,7 @@ export function SessionsScreen(
             checkout={selected.worktree?.path ?? selected.cwd}
           />
         )}
-        {selected?.managed && side.diffOpen && selected.project !== GENERAL_PROJECT && (
+        {selected?.managed && side.open === 'diff' && selected.project !== GENERAL_PROJECT && (
           <DiffPanel
             key={selected.id}
             sessionId={selected.id}
@@ -231,15 +227,15 @@ export function SessionsScreen(
             checkout={selected.worktree?.path ?? selected.cwd}
             branch={selected.worktree?.branch}
             stateAt={selected.lastState.at}
-            onClose={side.closeDiff}
+            onClose={side.close}
           />
         )}
-        {selected?.managed && side.browserOpen && (
+        {selected?.managed && side.open === 'browser' && (
           <BrowserPanel
             key={selected.id}
             sessionId={selected.id}
             initialUrl={side.browserTarget}
-            onClose={side.closeBrowser}
+            onClose={side.close}
           />
         )}
       </div>

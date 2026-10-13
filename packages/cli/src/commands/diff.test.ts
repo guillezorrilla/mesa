@@ -7,7 +7,7 @@ import { cliHarness } from '../testing.js';
 const cli = cliHarness();
 beforeEach(cli.reset);
 
-test('diff shows a session worktree’s commits, edits and new files since its base, not the base’s later work', async () => {
+test("diff shows the commits, edits and new files since its base, never the base's later work", async () => {
   const repo = await cli.withProject();
   writeFileSync(join(repo, 'tide.txt'), 'low\n');
   gitRepo(repo);
@@ -55,7 +55,7 @@ test('diff refuses a General session, which has no project checkout', async () =
   expect(result.stderr).toContain('General session');
 });
 
-test('diff names a base branch the checkout lacks instead of printing Git’s error', async () => {
+test('diff names a base branch the checkout lacks instead of printing the Git error', async () => {
   gitRepo(await cli.withProject());
   cli.run = withRealGit(cli.run);
   testStore(cli.home, 'default', shortIds('cccccccc')).create(() =>

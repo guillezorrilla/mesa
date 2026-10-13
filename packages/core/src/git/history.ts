@@ -3,7 +3,7 @@ import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import { type Checkout, resolveCheckout } from '../projects/checkout.js';
 import { gitCommand } from './command.js';
-import { type DiffRow, diffRows } from './diff.js';
+import { type DiffRow, diffRows, PATCH_FLAGS } from './diff.js';
 import { branchName, commitOid } from './ref.js';
 
 export type GitGraphCommit = {
@@ -112,12 +112,7 @@ export async function compareGitRefs(
   ]);
   const [divergence, diff] = await Promise.all([
     gitCommand(run, checkout.path, ['rev-list', '--left-right', '--count', `${base}...${head}`]),
-    gitCommand(
-      run,
-      checkout.path,
-      ['diff', '--no-ext-diff', '--no-textconv', '--no-color', '--find-renames', base, head, '--'],
-      30_000,
-    ),
+    gitCommand(run, checkout.path, ['diff', ...PATCH_FLAGS, base, head, '--'], 30_000),
   ]);
   if (!divergence.ok) throw new MesaError('usage', `cannot compare commits: ${divergence.detail}`);
   if (!diff.ok) throw new MesaError('usage', `cannot compare commits: ${diff.detail}`);

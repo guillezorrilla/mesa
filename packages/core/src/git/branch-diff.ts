@@ -6,7 +6,7 @@ import { type Checkout, resolveCheckout } from '../projects/checkout.js';
 import { findProject } from '../projects/projects.js';
 import { defaultBranchRef } from '../worktrees/base.js';
 import { gitCommand } from './command.js';
-import { type DiffRow, diffRows } from './diff.js';
+import { type DiffRow, diffRows, PATCH_FLAGS } from './diff.js';
 import { commitOid } from './ref.js';
 
 // ponytail: untracked files past this many are left out; page them if a checkout ever needs more.
@@ -20,6 +20,8 @@ export type GitBranchDiff = {
   mergeBase: string;
   /** Commits on HEAD since the merge-base. */
   ahead: number;
+  /** Untracked files past the cap, left out of the patch. */
+  omitted: number;
   patch: string;
   rows: DiffRow[];
 };
@@ -61,12 +63,7 @@ export async function readBranchDiff(
   const mergeBase = found.stdout.trim();
   const [count, tracked, others] = await Promise.all([
     gitCommand(run, checkout.path, ['rev-list', '--count', `${mergeBase}..HEAD`]),
-    gitCommand(
-      run,
-      checkout.path,
-      ['diff', '--no-ext-diff', '--no-textconv', '--no-color', '--find-renames', mergeBase, '--'],
-      30_000,
-    ),
+    gitCommand(run, checkout.path, ['diff', ...PATCH_FLAGS, mergeBase, '--'], 30_000),
     gitCommand(run, checkout.path, ['ls-files', '--others', '--exclude-standard', '-z']),
   ]);
   if (!tracked.ok) throw new MesaError('usage', `cannot read changes: ${tracked.detail}`);
@@ -82,6 +79,7 @@ export async function readBranchDiff(
     base: ref,
     mergeBase,
     ahead: count.ok ? Number(count.stdout.trim()) : 0,
+    omitted: Math.max(0, untracked.length - MAX_UNTRACKED),
     patch,
     rows: diffRows(patch),
   };

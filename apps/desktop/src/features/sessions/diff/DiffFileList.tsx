@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { type DiffFile, tally } from './diffFiles';
+import type { DiffFile } from './diffFiles';
 
 export const STATUS_TONE: Record<DiffFile['status'], string> = {
   A: 'text-state-idle',
@@ -10,6 +10,17 @@ export const STATUS_TONE: Record<DiffFile['status'], string> = {
 };
 const STATUS_NAME = { A: 'Added', M: 'Modified', D: 'Deleted', R: 'Renamed' } as const;
 const CELL = { added: 'bg-state-idle', removed: 'bg-state-failed', empty: 'bg-muted' } as const;
+
+/** Five cells split between added and removed, GitHub's diffstat: how heavy, and which way. */
+export function tally(added: number, removed: number): ('added' | 'removed' | 'empty')[] {
+  const total = added + removed;
+  if (!total) return Array(5).fill('empty');
+  const filled = Math.min(5, Math.max(1, Math.ceil(Math.log10(total + 1) * 2)));
+  const green = Math.round((added / total) * filled);
+  return Array.from({ length: 5 }, (_, i) =>
+    i < green ? 'added' : i < filled ? 'removed' : 'empty',
+  );
+}
 
 /** Added and removed line counts, as +12 -3. */
 export function Stat(props: { added: number; removed: number }) {

@@ -13,6 +13,7 @@ import { AutomationBanner } from '@/features/automations/AutomationBanner';
 import type { OpenDialog } from '../dialogs/SessionDialogs';
 import { AgentSwitcher } from './AgentSwitcher';
 import { SelectedSessionDetails } from './SelectedSessionDetails';
+import type { SidePanel } from './useSidePanel';
 
 /**
  * The selected session's bar: its project and title, details, agent, the Review, Browser and Diff
@@ -23,15 +24,11 @@ export function SelectedSessionBar({
   row,
   projects,
   acting,
-  reviewOpen,
-  browserOpen,
-  diffOpen,
+  panel,
   onProject,
   onSessions,
   onSwap,
-  onToggleReview,
-  onToggleBrowser,
-  onToggleDiff,
+  onTogglePanel,
   onDialog,
   children,
 }: {
@@ -39,15 +36,12 @@ export function SelectedSessionBar({
   row?: TreeRow;
   projects?: readonly ProjectRow[];
   acting: boolean;
-  reviewOpen: boolean;
-  browserOpen: boolean;
-  diffOpen: boolean;
+  /** The side panel open beside the terminal, if any. */
+  panel?: SidePanel;
   onProject?: (project: string) => void;
   onSessions?: () => void;
   onSwap: (id: string, agent: Agent) => void;
-  onToggleReview: () => void;
-  onToggleBrowser: () => void;
-  onToggleDiff: () => void;
+  onTogglePanel: (panel: SidePanel) => void;
   onDialog: (dialog: OpenDialog) => void;
   children?: ReactNode;
 }) {
@@ -94,8 +88,8 @@ export function SelectedSessionBar({
           variant="ghost"
           size="sm"
           aria-label="Review responses"
-          aria-pressed={reviewOpen}
-          onClick={onToggleReview}
+          aria-pressed={panel === 'review'}
+          onClick={() => onTogglePanel('review')}
         >
           <MessageSquareQuote aria-hidden /> Review
         </Button>
@@ -105,8 +99,8 @@ export function SelectedSessionBar({
           variant="ghost"
           size="sm"
           aria-label="Open session browser"
-          aria-pressed={browserOpen}
-          onClick={onToggleBrowser}
+          aria-pressed={panel === 'browser'}
+          onClick={() => onTogglePanel('browser')}
         >
           <Globe aria-hidden /> Browser
         </Button>
@@ -116,9 +110,9 @@ export function SelectedSessionBar({
           variant="ghost"
           size="sm"
           aria-label="Show session changes"
-          aria-pressed={diffOpen}
+          aria-pressed={panel === 'diff'}
           title="Everything this session changed since its base branch"
-          onClick={onToggleDiff}
+          onClick={() => onTogglePanel('diff')}
         >
           <GitCompareArrows aria-hidden /> Diff
         </Button>

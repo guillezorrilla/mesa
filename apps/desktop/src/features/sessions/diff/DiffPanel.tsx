@@ -94,11 +94,9 @@ export function DiffPanel(props: {
       onKeyDown={onKeyDown}
       className={cn(
         'flex h-full min-h-0 flex-col border-l bg-card',
-        expanded
-          ? 'absolute inset-0 z-20 border-l-0'
-          : 'relative max-w-[calc(100%-256px)] shrink-0',
+        expanded ? 'absolute inset-0 z-20 border-l-0' : 'relative shrink-0',
       )}
-      style={expanded ? undefined : { width }}
+      style={expanded ? undefined : { width, maxWidth: `calc(100% - ${TERMINAL_MIN}px)` }}
     >
       {!expanded && (
         <ResizeHandle
@@ -157,6 +155,12 @@ export function DiffPanel(props: {
               {files.length} {files.length === 1 ? 'file' : 'files'}
             </span>
             <Stat added={added} removed={removed} />
+            {changes.data.omitted > 0 && (
+              <span className="text-state-waiting">
+                {changes.data.omitted} more new {changes.data.omitted === 1 ? 'file' : 'files'} not
+                shown
+              </span>
+            )}
             <SplitBar added={added} removed={removed} />
           </div>
         )}
