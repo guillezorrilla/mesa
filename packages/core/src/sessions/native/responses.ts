@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { AGENTS } from '../../agents/agents.js';
 import type { Env } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
+import { closesFence, FENCE } from '../../vault/links.js';
 import type { SavedReview } from '../input/reviews.js';
 import type { SessionStore } from '../record/store.js';
 
@@ -27,6 +28,8 @@ export type NativeResponse = {
   source: string;
   revision: string;
   text: string;
+  /** Each fenced block's contents, for copying on its own (`replyBlocks`). */
+  blocks: string[];
   at?: string;
   truncated: boolean;
 };
@@ -49,6 +52,34 @@ export type ResponseReviewPreview = {
 };
 
 const sha = (text: string) => createHash('sha256').update(text).digest('hex');
+
+/**
+ * The contents of each fenced block in a reply, in order, without the opening fence's indentation;
+ * an unclosed one runs to the end, and a blank one is left out.
+ */
+export function replyBlocks(text: string): string[] {
+  const blocks: string[] = [];
+  let fence = '';
+  let indent = '';
+  let lines: string[] = [];
+  for (const line of text.split('\n')) {
+    if (fence) {
+      if (closesFence(line, fence)) {
+        blocks.push(lines.join('\n'));
+        fence = '';
+      } else lines.push(line.startsWith(indent) ? line.slice(indent.length) : line.trimStart());
+      continue;
+    }
+    const open = FENCE.exec(line);
+    // A backtick fence's info string has no backtick: ```a``` on one line is inline code.
+    if (!open?.[1] || (open[1][0] === '`' && line.slice(open[0].length).includes('`'))) continue;
+    fence = open[1];
+    indent = line.slice(0, open[0].length - fence.length);
+    lines = [];
+  }
+  if (fence) blocks.push(lines.join('\n'));
+  return blocks.filter((block) => block.trim());
+}
 
 /** Recent native assistant messages, with exact source and text revisions for later review. */
 export function sessionResponses(deps: ResponseDeps, id: string): SessionResponses {
@@ -93,6 +124,7 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
       source: sha(message.line),
       revision: sha(message.text),
       text,
+      blocks: replyBlocks(text),
       ...(message.at ? { at: message.at } : {}),
       truncated: message.text.length > MAX_TEXT,
     });

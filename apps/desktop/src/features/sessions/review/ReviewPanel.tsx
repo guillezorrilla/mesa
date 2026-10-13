@@ -7,8 +7,8 @@ import { ChangeReviewPanel } from './ChangeReviewPanel';
 import { ResponseReviewPanel } from './ResponseReviewPanel';
 
 /**
- * The review pane beside the selected terminal: Responses, or Changes for a session with a
- * project, over the session's responses and saved review comments.
+ * The Replies pane beside the selected terminal: Replies, or Changes for a session with a
+ * project, over the session's replies and saved review comments.
  */
 export function ReviewPanel({
   sessionId,
@@ -25,7 +25,7 @@ export function ReviewPanel({
   const [mode, setMode] = useState<'responses' | 'changes'>('responses');
   return (
     <aside
-      aria-label="Response review"
+      aria-label="Replies"
       className="flex h-full min-h-0 w-[24rem] shrink-0 flex-col border-l bg-card"
     >
       <div className="flex items-center justify-between border-b px-3 py-2">
@@ -35,7 +35,7 @@ export function ReviewPanel({
             variant={mode === 'responses' ? 'secondary' : 'ghost'}
             onClick={() => setMode('responses')}
           >
-            Responses
+            Replies
           </Button>
           {project && (
             <Button
@@ -50,7 +50,7 @@ export function ReviewPanel({
         <Button
           size="icon-sm"
           variant="ghost"
-          aria-label="Refresh responses"
+          aria-label="Refresh replies"
           onClick={() => void responses.refresh()}
         >
           <RefreshCw aria-hidden />

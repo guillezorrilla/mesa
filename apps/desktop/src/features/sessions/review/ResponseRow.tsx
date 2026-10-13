@@ -5,14 +5,15 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 /**
- * One native response in the Responses list: its first two lines, which open it in place, and
- * Copy. Open, it shows `children` (its review) right under it, scrolled into view.
+ * One reply in the Replies list: its first two lines, which open it in place, Copy for the whole
+ * reply, and each fenced block with its own Copy. Open, it shows `children` right under it,
+ * scrolled into view.
  */
 export function ResponseRow(props: {
   response: NativeResponse;
   open: boolean;
   onOpen: () => void;
-  onCopy: () => void;
+  onCopy: (text: string, what: 'Reply' | 'Block') => void;
   children: ReactNode;
 }) {
   const { response, open } = props;
@@ -35,12 +36,31 @@ export function ResponseRow(props: {
           size="icon-sm"
           variant="ghost"
           className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-          aria-label="Copy response"
-          onClick={props.onCopy}
+          aria-label="Copy reply"
+          onClick={() => props.onCopy(response.text, 'Reply')}
         >
           <Copy aria-hidden />
         </Button>
       </div>
+      {response.blocks.map((block, index) => (
+        <div
+          // biome-ignore lint/suspicious/noArrayIndexKey: a reply's blocks never reorder.
+          key={index}
+          className="mx-2 mb-2 flex items-start gap-1 rounded bg-muted p-2"
+        >
+          <pre className="max-h-32 min-w-0 flex-1 overflow-auto whitespace-pre-wrap break-words font-mono text-xs">
+            {block}
+          </pre>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={`Copy block ${index + 1}`}
+            onClick={() => props.onCopy(block, 'Block')}
+          >
+            <Copy aria-hidden />
+          </Button>
+        </div>
+      ))}
       {open && <div className="border-t p-3">{props.children}</div>}
     </div>
   );

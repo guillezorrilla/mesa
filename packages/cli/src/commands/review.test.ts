@@ -16,11 +16,19 @@ test('review responses, preview and send use the public CLI and guarded send pat
     type: 'assistant',
     timestamp: '2026-09-28T12:00:00.000Z',
     cwd: dir,
-    message: { role: 'assistant', content: [{ type: 'text', text: 'A violet otter.' }] },
+    message: {
+      role: 'assistant',
+      content: [{ type: 'text', text: 'A violet otter.\n```\nmesa sessions\n```' }],
+    },
   });
   plantTranscript(cli.home, opened.agentSessionId, dir, line);
   const listed = await cli.mesa('review', 'responses', opened.id, '--json');
-  expect(listed.json).toMatchObject({ ok: true, data: { rows: [{ text: 'A violet otter.' }] } });
+  expect(listed.json).toMatchObject({
+    ok: true,
+    data: {
+      rows: [{ text: 'A violet otter.\n```\nmesa sessions\n```', blocks: ['mesa sessions'] }],
+    },
+  });
   const row = listed.json.data.rows[0];
   const flags = [
     '--source',

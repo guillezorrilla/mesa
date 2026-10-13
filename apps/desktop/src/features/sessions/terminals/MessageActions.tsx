@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 const keepFocus = (event: { preventDefault: () => void }) => event.preventDefault();
 
 /**
- * Copy and Review for the agent's latest response, over a session terminal while the pointer is
+ * Copy and Replies for the agent's latest response, over a session terminal while the pointer is
  * on it. Each hover reads the responses again; with none yet, nothing shows.
  */
 export function MessageActions(props: {
@@ -52,19 +52,19 @@ export function MessageActions(props: {
           className="absolute top-2 right-4 z-10 flex gap-0.5 rounded-md border bg-card/95 p-0.5 shadow-sm"
         >
           <IconButton
-            label="Copy latest response"
+            label="Copy latest reply"
             icon={Copy}
             tabIndex={-1}
             onMouseDown={keepFocus}
             onClick={() =>
               void act(async () => {
                 await platform.clipboard.write(latest.text);
-                return said('Response copied');
+                return said('Reply copied');
               })
             }
           />
           <IconButton
-            label="Review latest response"
+            label="Show latest reply in Replies"
             icon={MessageSquareQuote}
             tabIndex={-1}
             onMouseDown={keepFocus}

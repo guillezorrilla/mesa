@@ -88,11 +88,10 @@ export function SelectedSessionBar({
         <Button
           variant="ghost"
           size="sm"
-          aria-label="Review responses"
           aria-pressed={panel === 'review'}
           onClick={() => onTogglePanel('review')}
         >
-          <MessageSquareQuote aria-hidden /> Review
+          <MessageSquareQuote aria-hidden /> Replies
         </Button>
       )}
       {row?.managed && (

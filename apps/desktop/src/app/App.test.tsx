@@ -39,6 +39,15 @@ const openTab = (name: string) =>
       (tab) => tab.textContent === name,
     ),
   );
+/** Opens the selected session's Replies pane and returns it. */
+const openReplies = async () => {
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent?.trim() === 'Replies',
+    ),
+  );
+  return document.querySelector('aside[aria-label="Replies"]') as HTMLElement;
+};
 const openProject = async (byTestId: (id: string) => HTMLElement[], index = 0) => {
   await click(
     [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find(
@@ -2012,6 +2021,7 @@ test('selected session reviews an exact native response passage beside its runni
     source: 'a'.repeat(64),
     revision: 'b'.repeat(64),
     text: 'A violet otter.',
+    blocks: [],
     truncated: false,
   };
   const preview = {
@@ -2032,15 +2042,20 @@ test('selected session reviews an exact native response passage beside its runni
   });
   const platform = fakePlatform();
   const byTestId = await renderWithMesa(<App />, bridge, platform);
-  await click(document.querySelector('[aria-label="Review responses"]') as HTMLElement);
+  const review = await openReplies();
   expect(byTestId('terminal-panel')).toHaveLength(1);
-  const review = document.querySelector('[aria-label="Response review"]') as HTMLElement;
   expect(review.textContent).toContain('A violet otter.');
-  await click(review.querySelector('[aria-label="Copy response"]') as HTMLElement);
+  await click(review.querySelector('[aria-label="Copy reply"]') as HTMLElement);
   expect(platform.pasteboard).toEqual(['A violet otter.']);
   await click(
     [...review.querySelectorAll<HTMLButtonElement>('button')].find(
       (button) => button.textContent === 'A violet otter.',
+    ),
+  );
+  expect(review.querySelector('#review-response-text')).toBeNull();
+  await click(
+    [...review.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent?.trim() === 'Comment',
     ),
   );
   const passage = review.querySelector('#review-response-text') as HTMLTextAreaElement;
@@ -2082,8 +2097,8 @@ test('selected session reviews an exact native response passage beside its runni
   expect(byTestId('response-review-preview')[0]?.textContent).toContain('Delivered');
 });
 
-test('a response shows its first two lines and opens its review in place, staying open when pressed again', async () => {
-  const response = (text: string, source: string) => ({
+test('a reply shows its first two lines and its blocks, each copied on its own, and opens in place, staying open when pressed again', async () => {
+  const response = (text: string, source: string, blocks: string[] = []) => ({
     profile: 'default',
     session: 'aaaaaaaa',
     agent: 'claude',
@@ -2091,28 +2106,46 @@ test('a response shows its first two lines and opens its review in place, stayin
     source: source.repeat(64),
     revision: 'b'.repeat(64),
     text,
+    blocks,
     truncated: false,
   });
-  const rows = [response('First line.\nSecond line.\nThird line.', 'a'), response('Older.', 'c')];
+  const rows = [
+    response('First line.\nSecond line.\nThird line.', 'a', [
+      'Hi team,\nthe lantern ships.',
+      'pnpm verify',
+    ]),
+    response('Older.', 'c'),
+  ];
   const { bridge } = fakeBridge({
     projects: () => envelope(PROJECTS),
     sessions: () => envelope([managedRow('aaaaaaaa')]),
     'review responses': () => envelope({ rows, reviews: [], truncated: false }),
   });
-  await renderWithMesa(<App />, bridge);
-  await click(document.querySelector('[aria-label="Review responses"]') as HTMLElement);
-  const review = document.querySelector('[aria-label="Response review"]') as HTMLElement;
+  const platform = fakePlatform();
+  await renderWithMesa(<App />, bridge, platform);
+  const review = await openReplies();
   const heads = () => [...review.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')];
   expect(heads().map((head) => head.textContent)).toEqual(['First line.\nSecond line.', 'Older.']);
-  const passageRow = () => review.querySelector('#review-response-text')?.closest('.group');
+  expect([...review.querySelectorAll('pre')].map((block) => block.textContent)).toEqual([
+    'Hi team,\nthe lantern ships.',
+    'pnpm verify',
+  ]);
+  await click(review.querySelector('[aria-label="Copy block 2"]') as HTMLElement);
+  await click(review.querySelector('[aria-label="Copy block 1"]') as HTMLElement);
+  expect(platform.pasteboard).toEqual(['pnpm verify', 'Hi team,\nthe lantern ships.']);
+  const comments = () =>
+    [...review.querySelectorAll<HTMLButtonElement>('button')].filter(
+      (button) => button.textContent?.trim() === 'Comment',
+    );
+  const openRow = () => comments()[0]?.closest('.group');
   await click(heads()[1]);
   expect(heads().map((head) => head.getAttribute('aria-expanded'))).toEqual(['false', 'true']);
-  expect(passageRow()?.contains(heads()[1] ?? null)).toBe(true);
+  expect(openRow()?.contains(heads()[1] ?? null)).toBe(true);
   await click(heads()[1]);
   expect(heads()[1]?.getAttribute('aria-expanded')).toBe('true');
   await click(heads()[0]);
-  expect(passageRow()?.contains(heads()[0] ?? null)).toBe(true);
-  expect(review.querySelectorAll('#review-response-text')).toHaveLength(1);
+  expect(openRow()?.contains(heads()[0] ?? null)).toBe(true);
+  expect(comments()).toHaveLength(1);
 });
 
 test('selected session reviews a Git hunk beside its running terminal', async () => {
@@ -2156,8 +2189,7 @@ test('selected session reviews a Git hunk beside its running terminal', async ()
       envelope({ id: preview.id, target: 'aaaaaaaa', status: 'delivered' }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(document.querySelector('[aria-label="Review responses"]') as HTMLElement);
-  const review = document.querySelector('[aria-label="Response review"]') as HTMLElement;
+  const review = await openReplies();
   await click(
     [...review.querySelectorAll('button')].find((button) => button.textContent === 'Changes'),
   );
