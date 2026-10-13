@@ -53,7 +53,9 @@ export async function readBranchDiff(
   const ref =
     base ?? (await defaultBranchRef(profile, run, findProject(profile, project).path, project));
   if (!ref) throw new MesaError('usage', `${project} has no default branch to compare with`);
-  const baseOid = await commitOid(run, checkout.path, ref);
+  const baseOid = await commitOid(run, checkout.path, ref).catch(() => {
+    throw new MesaError('usage', `base branch ${ref} is not in this checkout`);
+  });
   const found = await gitCommand(run, checkout.path, ['merge-base', baseOid, 'HEAD']);
   if (!found.ok) throw new MesaError('usage', `${ref} shares no history with this checkout`);
   const mergeBase = found.stdout.trim();

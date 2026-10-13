@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { type DiffFile, tally } from './diffFiles';
 
@@ -27,8 +28,15 @@ export function DiffFileList(props: {
   onOpen: (path: string) => void;
   className?: string;
 }) {
+  const list = useRef<HTMLUListElement>(null);
+  // Focus in the list follows the open file, so j and k never leave the ring on the last one.
+  useEffect(() => {
+    if (props.open && list.current?.contains(document.activeElement))
+      list.current.querySelector<HTMLElement>('[aria-current="true"]')?.focus();
+  }, [props.open]);
   return (
     <ul
+      ref={list}
       aria-label="Changed files"
       className={cn('min-h-0 shrink-0 overflow-y-auto border-r py-1', props.className)}
     >

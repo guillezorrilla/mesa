@@ -54,3 +54,16 @@ test('diff refuses a General session, which has no project checkout', async () =
   expect(result.code).toBe(2);
   expect(result.stderr).toContain('General session');
 });
+
+test('diff names a base branch the checkout lacks instead of printing Git’s error', async () => {
+  gitRepo(await cli.withProject());
+  cli.run = withRealGit(cli.run);
+  testStore(cli.home, 'default', shortIds('cccccccc')).create(() =>
+    newSession({
+      worktree: { path: join(cli.home, 'src/lantern-cove'), branch: 'main', base: 'trunk' },
+    }),
+  );
+  const result = await cli.mesa('diff', 'cccccccc');
+  expect(result.code).toBe(2);
+  expect(result.stderr).toContain('base branch trunk is not in this checkout');
+});

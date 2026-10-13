@@ -69,3 +69,27 @@ test('the diffstat fills more cells for bigger changes, green for added first', 
   expect(tally(1, 0)).toEqual(['added', 'empty', 'empty', 'empty', 'empty']);
   expect(tally(60, 40)).toEqual(['added', 'added', 'added', 'removed', 'removed']);
 });
+
+test('dragging the edge widens the panel only as far as the terminal keeps 256px', async () => {
+  localStorage.clear();
+  const { bridge } = fakeBridge({ diff: diff({}) });
+  await renderWithMesa(
+    <div>
+      <DiffPanel sessionId="aaaaaaaa" project="lantern-cove" onClose={() => {}} />
+    </div>,
+    bridge,
+  );
+  const handle = document.querySelector<HTMLElement>('[aria-label="Resize changes panel"]');
+  if (!handle?.parentElement?.parentElement) throw new Error('handle missing');
+  Object.defineProperty(handle.parentElement.parentElement, 'clientWidth', { value: 1100 });
+  const pointer = (target: EventTarget, type: string, clientX: number) =>
+    act(async () => {
+      target.dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, clientX }));
+    });
+  await pointer(handle, 'pointerdown', 700);
+  await pointer(document, 'pointermove', 600);
+  expect(handle.getAttribute('aria-valuenow')).toBe('820');
+  await pointer(document, 'pointermove', 100);
+  expect(handle.getAttribute('aria-valuenow')).toBe('844');
+  await pointer(document, 'pointerup', 100);
+});

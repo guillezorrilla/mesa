@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
-import { Kbd } from '@/components/Kbd';
 import { Muted } from '@/components/Muted';
 import { ResizeHandle } from '@/components/ResizeHandle';
 import { Button } from '@/components/ui/button';
@@ -25,8 +24,9 @@ import { cn } from '@/lib/utils';
 import { DiffFileList, STATUS_TONE, Stat } from './DiffFileList';
 import { diffFiles } from './diffFiles';
 
-/** The panel's width bounds beside the terminal; CSS keeps the terminal at least 16rem wide. */
-const DIFF_WIDTH = { min: 360, max: 1600, initial: 640, step: 32 };
+/** The panel's width bounds beside the terminal, which always keeps TERMINAL_MIN pixels. */
+const DIFF_WIDTH = { min: 360, max: 1600, initial: 720, step: 32 };
+const TERMINAL_MIN = 256;
 
 /**
  * Everything the selected session changed since it left its base branch, beside its terminal:
@@ -45,6 +45,12 @@ export function DiffPanel(props: {
   const appearance = useCommand('config.get').data?.appearance ?? DEFAULT_APPEARANCE;
   const run = useRun();
   const [width, setWidth] = useKeptWidth('mesa.diff.width', DIFF_WIDTH);
+  const panel = useRef<HTMLElement>(null);
+  // A drag stops where the terminal would drop below its minimum, so the edge never outruns the pointer.
+  const resize = (next: number) => {
+    const room = panel.current?.parentElement?.clientWidth;
+    setWidth(room ? Math.min(next, room - TERMINAL_MIN) : next);
+  };
   const [expanded, setExpanded] = useState(false);
   const [listOpen, setListOpen] = useState(true);
   const [layout, setLayout] = useState<'inline' | 'side-by-side'>('inline');
@@ -83,13 +89,14 @@ export function DiffPanel(props: {
 
   return (
     <aside
+      ref={panel}
       aria-label="Session changes"
       onKeyDown={onKeyDown}
       className={cn(
         'flex h-full min-h-0 flex-col border-l bg-card',
         expanded
           ? 'absolute inset-0 z-20 border-l-0'
-          : 'relative max-w-[calc(100%-16rem)] shrink-0',
+          : 'relative max-w-[calc(100%-256px)] shrink-0',
       )}
       style={expanded ? undefined : { width }}
     >
@@ -99,7 +106,7 @@ export function DiffPanel(props: {
           edge="left"
           width={width}
           bounds={DIFF_WIDTH}
-          onWidth={setWidth}
+          onWidth={resize}
         />
       )}
       <header className="shrink-0 border-b">
@@ -205,19 +212,15 @@ export function DiffPanel(props: {
                   <SquareArrowOutUpRight aria-hidden /> Open in editor
                 </Button>
               )}
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Kbd>k</Kbd>
-                <Kbd>j</Kbd>
-              </span>
               <IconButton
-                label="Previous file"
+                label="Previous file (k)"
                 icon={ChevronUp}
                 size="icon-xs"
                 disabled={at === 0}
                 onClick={() => move(-1)}
               />
               <IconButton
-                label="Next file"
+                label="Next file (j)"
                 icon={ChevronDown}
                 size="icon-xs"
                 disabled={at === files.length - 1}
