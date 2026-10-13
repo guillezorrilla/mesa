@@ -76,12 +76,14 @@ const words = (calls: string[][]) => calls.map((args) => args.slice(1).join(' ')
 // Each test starts with no view or ticket kept from another.
 beforeEach(() => localStorage.clear());
 
-test('the list groups tickets by status, and the panel shows the ticket whole and assigns it', async () => {
+test('the list groups tickets by status name, Ready apart from In Progress, and the panel shows the ticket whole and assigns it', async () => {
   const { bridge, calls } = fakeBridge({
     tickets: () =>
       listOf(
         [sprint],
         [
+          // Ready listed first by Jira, still grouped after In Progress: groups go by name.
+          ticket('LC-3', 'Chart the spring tides', { category: 'indeterminate', status: 'Ready' }),
           ticket('LC-1', 'Retry the tide feed', {
             category: 'indeterminate',
             status: 'In Progress',
@@ -102,11 +104,11 @@ test('the list groups tickets by status, and the panel shows the ticket whole an
   const groups = [...document.querySelectorAll('[role="listbox"] [aria-expanded]')].map(
     (g) => g.textContent,
   );
-  expect(groups).toEqual(['In progress1', 'To do1']);
+  expect(groups).toEqual(['In Progress1', 'Ready1', 'To Do1']);
   expect(byTestId('ticket-row')[0]?.textContent).toContain('LC-1Retry the tide feedLive');
   expect(byTestId('view-switcher')[0]?.textContent).toContain('sprintTide 7');
 
-  await click(byTestId('ticket-row')[1]);
+  await click(byTestId('ticket-row')[2]);
   const panel = () => byTestId('ticket-panel')[0]?.textContent ?? '';
   expect(panel()).toContain('Show the next high tide');
   expect(panel()).toContain('Harbor staff ask for the next high tide.');
@@ -485,7 +487,7 @@ test('an existing Jira project shows its tab as before: no tracker choice, icon 
     'sprintTide 7',
     'Refresh tickets',
     'Ticket settings',
-    'To do1',
+    'To Do1',
     'LC-2Show the next high tide?',
     'Tickets',
     'Assign to me',

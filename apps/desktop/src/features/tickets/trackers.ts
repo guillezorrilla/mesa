@@ -44,8 +44,6 @@ type Tracker<K extends ProviderId> = {
   unit: 'view' | 'repo';
   /** What it calls its items. */
   nouns: string;
-  /** Its own names for the list's status groups, where it has them. */
-  groups?: Partial<Record<Ticket['category'], string>>;
   /** A ticket's key as the list and the panel show it. */
   shortKey: (key: string) => string;
   /** The tracker icon beside a ticket's id in the panel: not on Jira, which looks as before. */
@@ -103,7 +101,6 @@ export const TRACKERS: { [K in ProviderId]: Tracker<K> } = {
     tint: 'text-tracker-github',
     unit: 'repo',
     nouns: 'issues',
-    groups: { new: 'Open', done: 'Closed' },
     shortKey: (key) => key.slice(key.lastIndexOf('#')),
     mark: true,
     several: true,

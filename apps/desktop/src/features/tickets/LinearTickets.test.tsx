@@ -97,7 +97,7 @@ test('a Linear project lists issues by state type, and the panel shows its field
   const groups = [...document.querySelectorAll('[role="listbox"] [aria-expanded]')].map(
     (g) => g.textContent,
   );
-  expect(groups).toEqual(['In progress1', 'To do1', 'Done1']);
+  expect(groups).toEqual(['In Progress1', 'Todo1', 'Canceled1']);
   expect(byTestId('view-switcher')[0]?.textContent).toContain('Harbour cycle');
 
   await click(byTestId('ticket-row').find((row) => row.textContent?.includes('HAR-21')));
