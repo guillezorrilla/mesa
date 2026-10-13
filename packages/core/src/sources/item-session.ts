@@ -121,7 +121,7 @@ export function itemSessions(
       const opened = await open(project, {
         ...start,
         goal: exactGoal ? goal : goalFor(project, found.item, { goal, kind }),
-        from: { source: found.item.source, id: found.item.id },
+        from: { source: found.item.source, id: found.item.id, title: found.item.title },
       });
       const failed =
         found.notes && !found.notes.ok

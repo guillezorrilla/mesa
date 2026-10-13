@@ -2,11 +2,11 @@ import { existsSync } from 'node:fs';
 import { lastMatchingLine, tailLines } from '../../lib/file-tail.js';
 import {
   type Block,
-  firstPromptIn,
   MESSAGE_TAIL,
   messageOf,
   named,
   parsedLine,
+  promptsIn,
   type Transcripts,
 } from '../transcripts.js';
 import { codexHome, codexSessionIndex } from './paths.js';
@@ -69,7 +69,7 @@ export const codexTranscriptReader: Transcripts<'codex'> = {
   history: codexHistory,
   file: rolloutForThread,
   name: (where, id) => codexName(codexSessionIndex(codexHome(where.home, where.env)), id),
-  firstPrompt: (file) => firstPromptIn(file, userText),
+  prompts: (file, count) => promptsIn(file, userText, count),
   messages: (file) => {
     const { lines, truncated } = tailLines(file, MESSAGE_TAIL);
     // Codex's startup AGENTS and environment messages use role=user before turn_context.

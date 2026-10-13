@@ -219,7 +219,7 @@ test('a session started from a GitHub issue imports it through the pipeline, and
   const record = testStore(home)
     .list()
     .find((r) => r.from?.source === 'github');
-  expect(record?.from).toEqual({ source: 'github', id: `${REPO}/412` });
+  expect(record?.from).toMatchObject({ source: 'github', id: `${REPO}/412` });
   expect((await mesa.imports.list('lantern-cove')).items).toEqual([
     expect.objectContaining({
       source: 'github',

@@ -2,6 +2,7 @@ import { antigravitySessionId } from '../../agents/antigravity/log.js';
 import { listAgentProcesses } from '../../agents/listing.js';
 import type { MesaContext } from '../../context.js';
 import { sessionTree } from '../board/tree.js';
+import { autoName } from '../native/auto-name.js';
 import { decisionStatus } from '../native/decision-status.js';
 import { discoverNative } from '../native/discovery.js';
 import { nativeHistory } from '../native/history.js';
@@ -12,8 +13,8 @@ import { applyEach } from '../record/each.js';
 import { renameSession, setWorkflowStatus } from '../record/edits.js';
 import { projectScope } from '../record/general.js';
 import { recordAgent } from '../record/record.js';
-import { refreshContext } from '../signals/context-use.js';
 import { readHookEvents } from '../signals/hook-events.js';
+import { refreshReadings } from '../signals/readings.js';
 import { sessionGoal } from '../start/goal.js';
 import { sessionLog } from '../window/output-log.js';
 import type { SessionDeps } from './deps.js';
@@ -78,7 +79,7 @@ export function inspectActions(
       store.get(id);
       const row = (await board(true)).find((r) => r.id === id);
       // The look may have learned a provider-owned ID before its context can be read.
-      refreshContext(contextDeps, store.get(id));
+      refreshReadings(contextDeps, store.get(id));
       // Read again: the look may have saved a new state, or started it from its queue.
       const current = store.get(id);
       const latestAntigravityId =
@@ -130,6 +131,26 @@ export function inspectActions(
         },
         () => renameSession(store, id, name),
       ),
+    /**
+     * Names a session no one has named from what the person asked it (autoName); unchanged, and
+     * unrecorded, when it has a name or nothing to name it from yet.
+     */
+    autoName: (id: string) => {
+      const before = store.get(id);
+      return record(
+        {
+          type: 'session',
+          summary: (r) => `Named session ${id} ${r.agentName}`,
+          failure: `Could not name session ${id}`,
+          project: (r) => projectScope(r.project),
+          session: () => id,
+          inputs: { id },
+          outputs: (r) => ({ agentName: r.agentName }),
+          changed: (r) => r.agentName !== before.agentName,
+        },
+        () => autoName({ ...ctx, store }, id),
+      );
+    },
     workflow: (id: string, status: string) =>
       record(
         {

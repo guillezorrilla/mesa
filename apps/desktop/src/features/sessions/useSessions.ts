@@ -1,4 +1,5 @@
 import type { TreeRow } from '@mesa/core';
+import { wantsName } from '@mesa/core/browser';
 import { useEffect, useMemo, useState } from 'react';
 import { oneAtATime } from '@/lib/oneAtATime';
 import { useCall, useRun } from '@/lib/useCommand';
@@ -6,7 +7,9 @@ import { useCall, useRun } from '@/lib/useCommand';
 /**
  * Refresh session state every two seconds and after actions, without overlapping requests. A row
  * the Board is unsure of is placed by the chosen model beside the look, never inside it; the next
- * look shows the reply, so a screen that keeps changing costs at most one ask per look.
+ * look shows the reply, so a screen that keeps changing costs at most one ask per look. A session
+ * no one has named is named (mesa rename --auto) when it wants one (wantsName): once from its
+ * item's title, else once per turn, between turns, until it has one.
  */
 export function useSessions() {
   const run = useRun();
@@ -25,6 +28,8 @@ export function useSessions() {
       if (!rows) return;
       setData(rows);
       if (rows.some((row) => row.managed && row.supervision.pending)) void place();
+      // Quietly: core asks each once (nameAsk), and no name yet is tried at the next ask.
+      for (const row of rows) if (wantsName(row)) void call('sessions.autoName', { id: row.id });
     });
   }, [run, call]);
   useEffect(() => {

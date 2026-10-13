@@ -504,7 +504,11 @@ test('open --from starts from an imported item, imports a new link first, and se
 
   const page = `${SITE}/wiki/spaces/LC/pages/9001`;
   const fresh = await mesa('open', 'lantern-cove', '--from', page, '--no-notes', '--json');
-  expect(fresh.json.data.from).toEqual({ source: 'confluence', id: '9001' });
+  expect(fresh.json.data.from).toEqual({
+    source: 'confluence',
+    id: '9001',
+    title: 'Tide schedule',
+  });
   expect(fresh.json.data.goal).not.toContain('- Note:');
   const edited = await mesa(
     'open',
@@ -523,8 +527,8 @@ test('open --from starts from an imported item, imports a new link first, and se
     rows.filter((r: { from?: unknown }) => r.from).map((r: { from: unknown }) => r.from),
   ).toEqual(
     expect.arrayContaining([
-      { source: 'jira', id: 'LC-12' },
-      { source: 'confluence', id: '9001' },
+      { source: 'jira', id: 'LC-12', title: 'LC-12: Fix the tide alarm' },
+      { source: 'confluence', id: '9001', title: 'Tide schedule' },
     ]),
   );
 

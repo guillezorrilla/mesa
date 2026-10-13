@@ -1,7 +1,7 @@
 import { statSync } from 'node:fs';
 import { AGENTS } from '../../agents/agents.js';
 import type { Agent } from '../../agents/names.js';
-import type { Where } from '../../agents/transcripts.js';
+import { promptLine, type Where } from '../../agents/transcripts.js';
 
 // A native conversation's first prompt and when its file was last written: what a person
 // recognises a conversation by when it has no native name (native-name.ts).
@@ -21,7 +21,8 @@ export function nativePrompt(
     const file = c.file ?? transcripts.file(deps, c.id);
     if (!file) return {};
     const updatedAt = statSync(file).mtime.toISOString();
-    const prompt = transcripts.firstPrompt(file);
+    const [first] = transcripts.prompts(file, 1);
+    const prompt = first === undefined ? undefined : promptLine(first);
     return { ...(prompt ? { prompt } : {}), updatedAt };
   } catch {
     // A file may disappear while it is read.

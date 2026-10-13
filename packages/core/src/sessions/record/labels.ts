@@ -1,6 +1,8 @@
 import { counted, odds } from '../../lib/format.js';
 import type { SessionRow } from '../board/rows.js';
+import type { SessionRecord } from './record.js';
 import { sessionProjects } from './session-projects.js';
+import { WAITING_STATES } from './states.js';
 
 // How Mesa shows a session row and its log to a person, the same in the CLI and on the Board.
 // Pure, importing only pure modules, so the app bundles it (`@mesa/core/browser`).
@@ -30,9 +32,35 @@ export const isRun = (s: SessionRow) => s.managed && s.kind === 'run';
 export const additionalLabel = (s: SessionRow) =>
   s.managed && s.additional ? `+${sessionProjects(s).slice(1).join(',')}` : undefined;
 
-/** The branch a Mesa session runs on (its worktree's), or will once it starts (a queued one's). */
+/**
+ * The branch a Mesa session works on: the one its agent last named (refreshReadings), else its
+ * worktree's, else the one it will once it starts (a queued one's).
+ */
 export const sessionBranch = (s: SessionRow) =>
-  s.managed ? (s.worktree?.branch ?? s.pending?.branch) : undefined;
+  s.managed ? s.gitBranch || s.worktree?.branch || s.pending?.branch : undefined;
+
+/** A session Mesa may name (autoName): an interactive one no person, or its agent, has named. */
+export const nameable = (s: { kind: string; name?: string; agentName?: string }) =>
+  s.kind === 'interactive' && !s.name && !s.agentName;
+
+/**
+ * Which ask for a name a session is at: one for a session named from its item's title, else one
+ * per turn, by the time its state was set. autoName asks each once (`nameAsked`).
+ */
+export const nameAsk = (s: Pick<SessionRecord, 'from' | 'lastState'>) =>
+  s.from?.title ? 'title' : s.lastState.at;
+
+/**
+ * A Mesa session worth one autoName now: nameable, with a goal or a prompt, not yet asked at this
+ * ask (nameAsk), and either started from an item, whose title it is named from at once, or between
+ * turns (idle, or waiting on a person), so its prompts are read once per turn, never during one.
+ */
+export const wantsName = (s: SessionRow) =>
+  s.managed &&
+  nameable(s) &&
+  s.nameAsked !== nameAsk(s) &&
+  Boolean(s.from?.title || s.lastState.state === 'idle' || WAITING_STATES.has(s.lastState.state)) &&
+  Boolean(s.goal?.trim() || s.conversation);
 
 /** A number of sessions as it reads: `1 session`, `2 sessions`. */
 export const sessionCount = (n: number) => counted(n, 'session');

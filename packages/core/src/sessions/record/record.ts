@@ -105,8 +105,18 @@ const SessionRecordFields = z.strictObject({
     .optional(),
   /** What a person calls it (mesa rename, mesa adopt --name). */
   name: z.string().optional(),
-  /** What its agent calls it, as the listing last named it (Claude Code's /rename); `name` wins. */
+  /**
+   * What its agent calls it, as the listing last named it (Claude Code's /rename), else the name
+   * Mesa made from its prompts (autoName); `name` wins.
+   */
   agentName: z.string().optional(),
+  /** The last ask for a name autoName made (nameAsk), so it asks each once. */
+  nameAsked: z.string().optional(),
+  /**
+   * The git branch its agent last worked on, as its transcript names it (refreshReadings); empty
+   * when it names none (a folder outside git), so it is not read again until the next turn.
+   */
+  gitBranch: z.string().optional(),
   /** A person's workflow label, independent of Faro's observed agent state. */
   workflowStatus: z.enum(WORKFLOW_STATUSES).optional(),
   /** Started outside Mesa, then adopted (CONTEXT.md, Adopted session). */
@@ -233,7 +243,14 @@ const SessionRecordFields = z.strictObject({
     ]),
   ),
   /** The imported item it was started from (mesa open --from; CONTEXT.md, Import). */
-  from: z.strictObject({ source: z.enum(ITEM_SOURCES), id: z.string() }).optional(),
+  from: z
+    .strictObject({
+      source: z.enum(ITEM_SOURCES),
+      id: z.string(),
+      /** Its title when the session started, which the session's name is made from (autoName). */
+      title: z.string().optional(),
+    })
+    .optional(),
   /** The session it continues, which handed off to it (CONTEXT.md, Handoff). */
   handoffFrom: z.string().regex(SHORT_ID).optional(),
   resumedFrom: z.string().optional(),

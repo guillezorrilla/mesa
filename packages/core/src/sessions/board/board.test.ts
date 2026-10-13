@@ -265,6 +265,9 @@ test("a look reads a live session's context when its state changes, not on every
       JSON.stringify({
         type: 'assistant',
         timestamp: '2026-09-24T11:59:00.000Z',
+        // Each line names its folder and branch, as Claude Code stamps them.
+        cwd: '/src/lantern-cove',
+        gitBranch: 'main',
         message: { model: 'claude-sonnet-4-20250514', usage: { input_tokens: tokens } },
       }),
     );

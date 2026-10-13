@@ -16,6 +16,12 @@ test('show, rename, and rm, as the issue types them: sessions shows the name, rm
   expect((await mesa('show', id)).stdout).toMatch(/^project: lantern-cove$/m);
   expect(await mesa('show', 'zzzzzzzz')).toMatchObject({ code: 3 });
 
+  // No goal and no prompt yet: nothing to name it from, and Haiku is not asked.
+  expect((await mesa('rename', id, '--auto')).stdout).toBe(
+    `${id} has nothing to be named from yet\n`,
+  );
+  for (const args of [[id], [id, 'tide', '--auto']])
+    expect(await mesa('rename', ...args)).toMatchObject({ code: 2 });
   expect((await mesa('rename', id, 'rm test')).stdout).toBe(`renamed ${id} to rm test\n`);
   expect((await mesa('sessions')).stdout.split('\n')[0]).toMatch(/^rm test {2}lantern-cove/);
   expect((await mesa('sessions', '--json')).json.data[0]).toMatchObject({ id, name: 'rm test' });

@@ -402,7 +402,7 @@ test('a session started from a Linear issue imports it through the pipeline, and
   const record = testStore(home)
     .list()
     .find((r) => r.from?.source === 'linear');
-  expect(record?.from).toEqual({ source: 'linear', id: 'HAR-12' });
+  expect(record?.from).toMatchObject({ source: 'linear', id: 'HAR-12' });
   const [ticket] = (await mesa.tickets.list('lantern-cove')).tickets;
   expect(ticket?.sessions).toEqual([{ id: record?.id, project: 'lantern-cove' }]);
   expect((await mesa.tickets.show('linear:HAR-12')).sessions).toEqual([

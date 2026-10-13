@@ -4,11 +4,13 @@ import type { SessionRow } from '../board/rows.js';
 import {
   attentionScore,
   contextPercent,
+  nameAsk,
   sessionBranch,
   sessionCount,
   sessionLabel,
   sessionTitle,
   waitingOn,
+  wantsName,
 } from './labels.js';
 
 // Only the fields the view reads.
@@ -33,6 +35,8 @@ test('a row reads as its name, else its agent name, else its id; its branch is i
   const worktree = { path: '/w/try-x', branch: 'try/x' };
   expect(sessionBranch(managed({ worktree, pending: { branch: 'later' } }))).toBe('try/x');
   expect(sessionBranch(managed({ pending: { branch: 'later' } }))).toBe('later');
+  // The branch its agent works on now wins: a worktree it made, or a branch it moved to.
+  expect(sessionBranch(managed({ worktree, gitBranch: 'try/y' }))).toBe('try/y');
   expect(sessionBranch(managed({}))).toBeUndefined();
   expect(sessionBranch(foreign)).toBeUndefined();
   expect(waitingOn('a1b2c3d4')).toBe('waiting on a1b2c3d4');
@@ -43,4 +47,37 @@ test('a row reads as its name, else its agent name, else its id; its branch is i
 test('an attention score and a context reading read the same everywhere', () => {
   expect(attentionScore(0.8333)).toBe('0.83');
   expect([21.16, 54.5, 120, -3].map(contextPercent)).toEqual([21, 55, 100, 0]);
+});
+
+test('a session is worth naming between turns once it has a goal or a prompt and no one named it', () => {
+  const idle = { kind: 'interactive', lastState: { state: 'idle', at: 'x' } };
+  expect(wantsName(managed({ ...idle, goal: 'Chart the tide' }))).toBe(true);
+  expect(wantsName(managed({ ...idle, conversation: true }))).toBe(true);
+  const asking = { ...idle, lastState: { state: 'waiting-question', at: 'x' } };
+  expect(wantsName(managed({ ...asking, goal: 'x' }))).toBe(true);
+  // Never during a turn: a working session's state time moves with each tool call.
+  expect(wantsName(managed({ ...idle, lastState: { state: 'working', at: 'x' }, goal: 'x' }))).toBe(
+    false,
+  );
+  expect(wantsName(managed(idle))).toBe(false);
+  expect(wantsName(managed({ ...idle, goal: 'x', agentName: 'tide' }))).toBe(false);
+  expect(wantsName(managed({ ...idle, goal: 'x', name: 'tide' }))).toBe(false);
+  expect(wantsName(managed({ ...idle, kind: 'run', goal: 'x' }))).toBe(false);
+  expect(wantsName(foreign)).toBe(false);
+});
+
+test('a session started from an item is named from its title at once, and asked once', () => {
+  const working = { kind: 'interactive', goal: 'x', lastState: { state: 'working', at: 't1' } };
+  const ticket = managed({
+    ...working,
+    from: { source: 'jira', id: 'LC-12', title: 'LC-12: Tide' },
+  });
+  expect(wantsName(ticket)).toBe(true);
+  expect(nameAsk(ticket)).toBe('title');
+  expect(wantsName(managed({ ...ticket, nameAsked: 'title' }))).toBe(false);
+  // Prompts are read once per turn, by the time its state was set.
+  const idle = managed({ ...working, lastState: { state: 'idle', at: 't3' } });
+  expect(nameAsk(idle)).toBe('t3');
+  expect(wantsName(managed({ ...idle, nameAsked: 't3' }))).toBe(false);
+  expect(wantsName(managed({ ...idle, nameAsked: 't1' }))).toBe(true);
 });

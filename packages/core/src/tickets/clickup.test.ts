@@ -288,7 +288,7 @@ test('a session started from a ClickUp task imports it by its custom id, and its
   const record = testStore(home)
     .list()
     .find((r) => r.from?.source === 'clickup');
-  expect(record?.from).toEqual({ source: 'clickup', id: 'DOCK-112' });
+  expect(record?.from).toMatchObject({ source: 'clickup', id: 'DOCK-112' });
   const [ticket] = (await mesa.tickets.list('lantern-cove')).tickets;
   expect(ticket?.sessions).toEqual([{ id: record?.id, project: 'lantern-cove' }]);
 });
