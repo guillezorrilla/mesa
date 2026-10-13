@@ -181,7 +181,7 @@ const ConfigShape = z.strictObject({
         .enum(['native', 'shift-enter'])
         .default(DEFAULT_TERMINAL_PREFERENCES.newlineKey),
       wezTermNewTab: z.boolean().default(DEFAULT_TERMINAL_PREFERENCES.wezTermNewTab),
-      // Copy and Review over a session terminal on hover, for the agent's latest response.
+      // Copy and Replies over a session terminal on hover, for the agent's latest reply.
       messageActions: z.boolean().default(DEFAULT_TERMINAL_PREFERENCES.messageActions),
       // The `custom` palette (terminal-palettes.ts), which needs all 20.
       colors: z
