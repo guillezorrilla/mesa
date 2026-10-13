@@ -9,23 +9,14 @@ import {
   fakeBridge,
   fakePlatform,
   managedRow,
+  nativeResponse,
   PROJECTS,
   renderWithMesa,
 } from '@/lib/testing';
 import { App } from './App';
 
-const response = (text: string, source: string) => ({
-  profile: 'default',
-  session: 'aaaaaaaa',
-  agent: 'claude',
-  nativeSessionId: 'invented-native-id',
-  source: source.repeat(64),
-  revision: 'f'.repeat(64),
-  text,
-  truncated: false,
-});
 // Newest first, as `mesa review responses` lists them.
-const ROWS = [response('A violet otter.', 'a'), response('An amber heron.', 'b')];
+const ROWS = [nativeResponse('A violet otter.', 'a'), nativeResponse('An amber heron.', 'b')];
 
 const config = async (messageActions: boolean) => {
   const base = ((await fakeBridge().bridge(['--json', 'config'])) as { data: Config }).data;
@@ -67,21 +58,20 @@ test('hovering the terminal shows Copy, which copies the latest response, until 
   expect(toolbar()).toBeNull();
   await hover(terminal);
   expect(toolbar()).not.toBeNull();
-  await click(button('Copy latest response'));
+  await click(button('Copy latest reply'));
   expect(platform.pasteboard).toEqual(['A violet otter.']);
   await leave(terminal);
   expect(toolbar()).toBeNull();
 });
 
-test('Review opens the existing response review on the latest response', async () => {
+test('Replies opens the Replies pane on the latest reply', async () => {
   const { terminal } = await setup();
   await hover(terminal);
-  await click(button('Review latest response'));
-  const review = document.querySelector('[aria-label="Response review"]') as HTMLElement;
-  expect(review).not.toBeNull();
-  const text = review.querySelector<HTMLTextAreaElement>('#review-response-text');
-  expect(text?.value).toBe('A violet otter.');
-  expect(review.textContent).toContain(`claude response ${'a'.repeat(12)}`);
+  await click(button('Replies'));
+  const replies = document.querySelector('aside[aria-label="Replies"]') as HTMLElement;
+  expect(replies).not.toBeNull();
+  const heads = [...replies.querySelectorAll('button[aria-expanded]')];
+  expect(heads.map((head) => head.getAttribute('aria-expanded'))).toEqual(['true', 'false']);
 });
 
 test('with terminal.messageActions off, hovering shows no overlay and reads no responses', async () => {
@@ -105,14 +95,14 @@ test('the overlay never takes keyboard focus from the terminal', async () => {
   expect(document.activeElement).toBe(input);
   await hover(terminal);
   expect(document.activeElement).toBe(input);
-  for (const label of ['Copy latest response', 'Review latest response']) {
+  for (const label of ['Copy latest reply', 'Replies']) {
     const action = button(label) as HTMLButtonElement;
     expect(action.tabIndex).toBe(-1);
     const press = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
     act(() => void action.dispatchEvent(press));
     expect(press.defaultPrevented).toBe(true);
   }
-  await click(button('Copy latest response'));
+  await click(button('Copy latest reply'));
   expect(platform.pasteboard).toEqual(['A violet otter.']);
   expect(document.activeElement).toBe(input);
 });
@@ -138,9 +128,13 @@ test('re-entering shows no actions until the new read answers, so Copy never cop
   expect(toolbar()).toBeNull();
   await act(async () =>
     second.resolve(
-      envelope({ rows: [response('A newer finch.', 'c'), ...ROWS], reviews: [], truncated: false }),
+      envelope({
+        rows: [nativeResponse('A newer finch.', 'c'), ...ROWS],
+        reviews: [],
+        truncated: false,
+      }),
     ),
   );
-  await click(button('Copy latest response'));
+  await click(button('Copy latest reply'));
   expect(platform.pasteboard).toEqual(['A newer finch.']);
 });

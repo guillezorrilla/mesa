@@ -2,6 +2,8 @@
 // body writes, and the vault item each one leads to, found the way Obsidian finds it. The one owner
 // for links, so the reader, backlinks, and the project context agree. Pure: no file is read here.
 
+import { closesFence, opensFence } from '../lib/code-fence.js';
+
 /** One link as a note's body writes it. */
 export type NoteLink = {
   /** As written: `[[tide#Tables|tides]]`, `![[chart.png]]`, `[chart](../raw/chart.png)`. */
@@ -34,7 +36,6 @@ export type VaultLink = NoteLink & LinkResolution;
 /** The vault's paths, keyed the ways a link names one. Built once per inventory, then shared. */
 export type LinkIndex = { byPath: Map<string, string>; byName: Map<string, string[]> };
 
-const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 const THEMATIC_BREAK = /^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
 const SETEXT_HEADING = /^ {0,3}(?:=+|-+)[ \t]*$/;
 const CODE_SPAN = /(`+).*?\1/g;
@@ -53,16 +54,11 @@ export function outsideCode(body: string): string {
   return body
     .split('\n')
     .map((line) => {
-      const open = FENCE.exec(line);
-      const marker = open?.[1] ?? '';
       if (fence) {
-        const closes =
-          marker[0] === fence[0] &&
-          marker.length >= fence.length &&
-          !line.slice(open?.[0].length).trim();
-        if (closes) fence = '';
+        if (closesFence(line, fence)) fence = '';
         return blank(line);
       }
+      const marker = opensFence(line)?.marker ?? '';
       if (marker) {
         fence = marker;
         paragraph = false;

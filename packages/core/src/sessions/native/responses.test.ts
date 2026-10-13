@@ -6,6 +6,7 @@ import {
   projectProfile,
   scriptedRunner,
 } from '../../testing/index.js';
+import { replyBlocks } from './responses.js';
 
 test('response review pins an exact native message and passage before delivery', async () => {
   const world = fakeTmux();
@@ -44,6 +45,7 @@ test('response review pins an exact native message and passage before delivery',
     session: opened.id,
     agent: 'claude',
     text: 'The violet otter is here.',
+    blocks: [],
   });
   const input = {
     profile: row.profile,
@@ -162,4 +164,35 @@ test('a review refused before typing is failed and can be retried after the agen
     status: 'delivered',
   });
   expect(pane.typed).toHaveLength(1);
+});
+
+test("a reply's fenced blocks are each kept for copying on their own", () => {
+  const reply = [
+    'Here is the draft:',
+    '```text',
+    'Hi team, the lantern ships Friday.',
+    '',
+    'Thanks',
+    '```',
+    'Run `mesa sessions` or inline code, which is no block.',
+    '```inline``` on its own line is no block either.',
+    '  ~~~~sh',
+    '  pnpm verify',
+    '    ok',
+    ' ~~~',
+    '  ~~~~',
+    '```',
+    '   ',
+    '```',
+    '```',
+    'unclosed tail',
+  ].join('\n');
+  expect(replyBlocks(reply)).toEqual([
+    'Hi team, the lantern ships Friday.\n\nThanks',
+    'pnpm verify\n  ok\n~~~',
+    'unclosed tail',
+  ]);
+  expect(replyBlocks('No blocks here.')).toEqual([]);
+  // A reply cut short may end inside a block: that part is not offered as a whole block.
+  expect(replyBlocks('```\nfirst\n```\n```\nhalf of a', true)).toEqual(['first']);
 });

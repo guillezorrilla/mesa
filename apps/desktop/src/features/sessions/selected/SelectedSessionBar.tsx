@@ -17,7 +17,7 @@ import { SelectedSessionDetails } from './SelectedSessionDetails';
 import type { SidePanel } from './useSidePanel';
 
 /**
- * The selected session's bar: its project and title, details, agent, the Review, Browser and Diff
+ * The selected session's bar: its project and title, details, agent, the Replies, Browser and Diff
  * toggles, Archive, and then `children` (its Session actions menu).
  */
 export function SelectedSessionBar({
@@ -88,11 +88,10 @@ export function SelectedSessionBar({
         <Button
           variant="ghost"
           size="sm"
-          aria-label="Review responses"
           aria-pressed={panel === 'review'}
           onClick={() => onTogglePanel('review')}
         >
-          <MessageSquareQuote aria-hidden /> Review
+          <MessageSquareQuote aria-hidden /> Replies
         </Button>
       )}
       {row?.managed && (

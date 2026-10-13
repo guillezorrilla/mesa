@@ -4,13 +4,13 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useCommand } from '@/lib/useCommand';
 import { ChangeReviewPanel } from './ChangeReviewPanel';
-import { ResponseReviewPanel } from './ResponseReviewPanel';
+import { RepliesTab } from './RepliesTab';
 
 /**
- * The review pane beside the selected terminal: Responses, or Changes for a session with a
- * project, over the session's responses and saved review comments.
+ * The Replies pane beside the selected terminal: Replies, or Changes for a session with a
+ * project, over the session's replies and saved review comments.
  */
-export function ReviewPanel({
+export function RepliesPanel({
   sessionId,
   project,
   checkout,
@@ -22,20 +22,20 @@ export function ReviewPanel({
   initialResponse?: NativeResponse;
 }) {
   const responses = useCommand('review.responses', { id: sessionId });
-  const [mode, setMode] = useState<'responses' | 'changes'>('responses');
+  const [mode, setMode] = useState<'replies' | 'changes'>('replies');
   return (
     <aside
-      aria-label="Response review"
+      aria-label="Replies"
       className="flex h-full min-h-0 w-[24rem] shrink-0 flex-col border-l bg-card"
     >
       <div className="flex items-center justify-between border-b px-3 py-2">
         <div className="flex gap-1">
           <Button
             size="sm"
-            variant={mode === 'responses' ? 'secondary' : 'ghost'}
-            onClick={() => setMode('responses')}
+            variant={mode === 'replies' ? 'secondary' : 'ghost'}
+            onClick={() => setMode('replies')}
           >
-            Responses
+            Replies
           </Button>
           {project && (
             <Button
@@ -50,7 +50,7 @@ export function ReviewPanel({
         <Button
           size="icon-sm"
           variant="ghost"
-          aria-label="Refresh responses"
+          aria-label="Refresh replies"
           onClick={() => void responses.refresh()}
         >
           <RefreshCw aria-hidden />
@@ -65,11 +65,11 @@ export function ReviewPanel({
           onSaved={() => void responses.refresh()}
         />
       )}
-      <ResponseReviewPanel
+      <RepliesTab
         sessionId={sessionId}
         responses={responses}
         initialResponse={initialResponse}
-        shown={mode === 'responses'}
+        shown={mode === 'replies'}
       />
     </aside>
   );

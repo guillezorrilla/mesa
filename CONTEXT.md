@@ -202,7 +202,7 @@ Not: workspace, secondary project, linked project.
 
 ## Session diff
 
-Everything a project session's checkout holds that its base branch lacks: its commits since the merge-base with the base, staged and unstaged edits, and untracked files, as one patch. The base is the worktree's recorded `base`, else the project's default branch, so a session in the main checkout shows its unpushed and uncommitted work. `mesa diff <session> --json` reads it; the app's Diff button beside Review and Browser shows it as a file list and the open file's diff, with Open in editor. General sessions have none.
+Everything a project session's checkout holds that its base branch lacks: its commits since the merge-base with the base, staged and unstaged edits, and untracked files, as one patch. The base is the worktree's recorded `base`, else the project's default branch, so a session in the main checkout shows its unpushed and uncommitted work. `mesa diff <session> --json` reads it; the app's Diff button beside Replies and Browser shows it as a file list and the open file's diff, with Open in editor. General sessions have none.
 
 ## Selected checkout
 
@@ -250,8 +250,13 @@ Not: pane, tab. A tmux session is a project's group of windows, never a Mesa ses
 
 ## Message actions
 
-Copy and Review over a session's embedded terminal while the pointer is on it, for the agent's latest native response as `mesa review responses` lists it: Copy puts its text on the pasteboard, and Review opens the response review on it. They show only for an interactive agent session with a response, never take the terminal's keyboard focus, and do not read terminal text. `terminal.messageActions` (default true) turns them off; Settings > Terminal & Editor has the toggle.
+Copy and Replies over a session's embedded terminal while the pointer is on it, for the agent's latest native response as `mesa review responses` lists it: Copy puts its text on the pasteboard, and Replies opens the Replies pane on it. They show only for an interactive agent session with a response, never take the terminal's keyboard focus, and do not read terminal text. `terminal.messageActions` (default true) turns them off; Settings > Terminal & Editor has the toggle.
 Not: per-message actions in the scrollback.
+
+## Replies
+
+The pane beside a managed agent session's terminal, opened by the session bar's Replies button or a Message action, never by itself: its Replies tab lists the agent's recent native responses (`mesa review responses`, newest first), each as its first two lines and then each fenced code block in it (``` or ~~~, the row's `blocks`, from `replyBlocks`; a blank one, or one a reply cut at 64 KiB leaves unclosed, is left out) with its own Copy, so a drafted message or a command is one click from the pasteboard. Opening a reply shows its full text and Comment, which opens the response review: an exact passage of it, a comment, a preview, and the guarded send. Its Changes tab, for a session with a project, reviews Git hunks the same way.
+Not: review (the feedback a person sends from it), transcript, history.
 
 ## Terminal palette
 

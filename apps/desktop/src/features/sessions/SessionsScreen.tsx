@@ -12,7 +12,7 @@ import { DiffPanel } from './diff/DiffPanel';
 import { GridToolbar } from './grid/GridToolbar';
 import { useGrid } from './grid/useGrid';
 import { BrowserPanel } from './review/BrowserPanel';
-import { ReviewPanel } from './review/ReviewPanel';
+import { RepliesPanel } from './review/RepliesPanel';
 import { SessionStart } from './SessionStart';
 import { SelectedSessionBar } from './selected/SelectedSessionBar';
 import { SessionActionsMenu } from './selected/SessionActionsMenu';
@@ -212,7 +212,7 @@ export function SessionsScreen(
           }}
         />
         {selected?.managed && side.open === 'review' && (
-          <ReviewPanel
+          <RepliesPanel
             key={`${selected.id}:${side.reviewResponse?.source ?? ''}`}
             sessionId={selected.id}
             initialResponse={side.reviewResponse}

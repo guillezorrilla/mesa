@@ -70,7 +70,7 @@ export function TerminalEditorSettingsPanel(props: { onShortcuts: () => void }) 
         <SettingRow
           icon={MessageSquareQuote}
           title="Message Actions"
-          description="Show Copy and Review for the agent's latest response when hovering a session terminal."
+          description="Show Copy and Replies for the agent's latest reply when hovering a session terminal."
           htmlFor="message-actions"
           control={
             <ToggleField

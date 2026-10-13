@@ -12,9 +12,9 @@ import { guardrailOf } from '../dialogs/GuardrailDialog';
 import { reviewOutcome } from './reviewOutcome';
 
 /**
- * One response review's state: the response selected (`initialResponse` first), its passage and
- * comment, the preview, and sending it, with the guardrail's question when it asks. A selected
- * response the list no longer holds is let go.
+ * One response review's state: the response selected (`initialResponse` first), whether a
+ * comment on it was started, its passage and comment, the preview, and sending it, with the
+ * guardrail's question when it asks. A selected response the list no longer holds is let go.
  */
 export function useResponseReview(
   sessionId: string,
@@ -24,6 +24,7 @@ export function useResponseReview(
   const call = useCall();
   const { act, acting } = useAct();
   const [selected, setSelected] = useState(initialResponse);
+  const [commenting, setCommenting] = useState(false);
   const [range, setRange] = useState({ start: 0, end: 0 });
   const [comment, setComment] = useState('');
   const [preview, setPreview] = useState<ResponseReviewPreview>();
@@ -98,6 +99,7 @@ export function useResponseReview(
   return {
     acting,
     selected,
+    commenting,
     range,
     comment,
     preview,
@@ -108,10 +110,12 @@ export function useResponseReview(
     delivered: Boolean(preview && (deliveredId === preview.id || saved((s) => s === 'delivered'))),
     select: (row: NativeResponse) => {
       setSelected(row);
+      setCommenting(false);
       setRange({ start: 0, end: 0 });
       setPreview(undefined);
       setFailure(undefined);
     },
+    startComment: () => setCommenting(true),
     selectRange: (next: { start: number; end: number }) => {
       setRange(next);
       setPreview(undefined);

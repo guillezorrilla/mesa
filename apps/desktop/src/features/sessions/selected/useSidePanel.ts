@@ -4,13 +4,13 @@ import { useEffect, useState } from 'react';
 export type SidePanel = 'review' | 'browser' | 'diff';
 
 /**
- * Which panel sits beside the selected session's terminal: Review, Browser or Diff, one at a time,
+ * Which panel sits beside the selected session's terminal: Replies, Browser or Diff, one at a time,
  * none when the selection changes. A request from a terminal opens its panel once its session is
  * the one selected.
  */
 export function useSidePanel(selectedSession: string | undefined) {
   const [open, setOpen] = useState<SidePanel>();
-  // The response a terminal's Review picked, preselected when the review opens.
+  // The reply a terminal's Replies picked, opened when the pane opens.
   const [reviewResponse, setReviewResponse] = useState<NativeResponse>();
   const [pendingReview, setPendingReview] = useState<NativeResponse>();
   const [browserTarget, setBrowserTarget] = useState<{ url: string }>();

@@ -7,7 +7,7 @@ import { MessageActions } from './MessageActions';
 
 /**
  * One session's embedded terminal under the board: open it in the terminal app, or close it.
- * With `onReviewResponse`, hovering it offers Copy and Review for the latest response.
+ * With `onReviewResponse`, hovering it offers Copy and Replies for the latest reply.
  */
 export function TerminalPanel(props: {
   sessionId: string;

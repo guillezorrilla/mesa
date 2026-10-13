@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { AGENTS } from '../../agents/agents.js';
+import { closesFence, opensFence } from '../../lib/code-fence.js';
 import type { Env } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
 import type { SavedReview } from '../input/reviews.js';
@@ -27,6 +28,8 @@ export type NativeResponse = {
   source: string;
   revision: string;
   text: string;
+  /** Each fenced block's contents, for copying on its own (`replyBlocks`). */
+  blocks: string[];
   at?: string;
   truncated: boolean;
 };
@@ -49,6 +52,28 @@ export type ResponseReviewPreview = {
 };
 
 const sha = (text: string) => createHash('sha256').update(text).digest('hex');
+
+/**
+ * The contents of each fenced block in a reply, in order, without the opening fence's indentation;
+ * a blank one is left out. An unclosed one runs to the end, unless the reply was `cut` short, when
+ * it may be only part of a block and is left out too.
+ */
+export function replyBlocks(text: string, cut = false): string[] {
+  const blocks: string[] = [];
+  let open: { marker: string; indent: string } | undefined;
+  let lines: string[] = [];
+  for (const line of text.split('\n')) {
+    if (!open) open = opensFence(line);
+    else if (closesFence(line, open.marker)) {
+      blocks.push(lines.join('\n'));
+      open = undefined;
+      lines = [];
+    } else
+      lines.push(line.startsWith(open.indent) ? line.slice(open.indent.length) : line.trimStart());
+  }
+  if (open && !cut) blocks.push(lines.join('\n'));
+  return blocks.filter((block) => block.trim());
+}
 
 /** Recent native assistant messages, with exact source and text revisions for later review. */
 export function sessionResponses(deps: ResponseDeps, id: string): SessionResponses {
@@ -85,6 +110,7 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
     const message = messages[i];
     if (message?.role !== 'assistant') continue;
     const text = message.text.slice(0, MAX_TEXT);
+    const cut = message.text.length > MAX_TEXT;
     rows.push({
       profile: deps.profile,
       session: id,
@@ -93,8 +119,9 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
       source: sha(message.line),
       revision: sha(message.text),
       text,
+      blocks: replyBlocks(text, cut),
       ...(message.at ? { at: message.at } : {}),
-      truncated: message.text.length > MAX_TEXT,
+      truncated: cut,
     });
   }
   return { rows, reviews, truncated: truncated || rows.length === MAX_RESPONSES };
