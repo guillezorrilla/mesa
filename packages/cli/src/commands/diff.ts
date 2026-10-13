@@ -1,3 +1,4 @@
+import { counted } from '@mesa/core';
 import { defineCommand } from '../command.js';
 
 export const diff = defineCommand({
@@ -7,10 +8,8 @@ export const diff = defineCommand({
   args: ['session'],
   example: 'mesa diff a1b2c3d4',
   run: async ({ mesa, args }) => {
-    const changes = await mesa.sessions.diff(args.session);
-    return {
-      data: changes,
-      text: `${changes.ahead} commits since ${changes.base}\n${changes.patch}`,
-    };
+    // The rows carry the patch already; --json leaves the raw text out.
+    const { patch, ...data } = await mesa.sessions.diff(args.session);
+    return { data, text: `${counted(data.ahead, 'commit')} since ${data.base}\n${patch}` };
   },
 });

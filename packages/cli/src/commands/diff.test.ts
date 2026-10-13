@@ -29,9 +29,12 @@ test("diff shows the commits, edits and new files since its base, never the base
   const result = await cli.mesa('diff', 'aaaaaaaa', '--json');
   expect(result.code, result.stdout).toBe(0);
   expect(result.json.data).toMatchObject({ base: 'main', ahead: 1 });
-  const { patch, rows } = result.json.data;
-  expect(patch).toContain('b/chart.txt');
-  expect(patch).not.toContain('later.txt');
+  const { rows } = result.json.data;
+  expect(result.json.data.patch).toBeUndefined();
+  const text = (await cli.mesa('diff', 'aaaaaaaa')).stdout;
+  expect(text).toContain('1 commit since main');
+  expect(text).toContain('b/chart.txt');
+  expect(text).not.toContain('later.txt');
   expect(rows).toEqual(
     expect.arrayContaining([
       { kind: 'change', left: 'low', right: 'high', oldLine: 1, newLine: 1 },

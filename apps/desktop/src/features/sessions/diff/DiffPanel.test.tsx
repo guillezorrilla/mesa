@@ -19,7 +19,15 @@ const rows: DiffRow[] = [
   { kind: 'change', left: '', right: 'kelp', newLine: 2 },
 ];
 const diff = (data: object) => () =>
-  envelope({ base: 'main', mergeBase: 'abc', ahead: 2, patch: '', rows, ...data });
+  envelope({
+    checkout: { project: 'lantern-cove', path: '/w/reef', registered: false },
+    base: 'main',
+    mergeBase: 'abc',
+    ahead: 2,
+    omitted: 0,
+    rows,
+    ...data,
+  });
 const buttons = () => [...document.querySelectorAll<HTMLElement>('button')];
 
 test('the session diff lists every changed file, walks them with j and k, and opens one in the editor', async () => {
@@ -28,20 +36,14 @@ test('the session diff lists every changed file, walks them with j and k, and op
     'files open': () => envelope({ result: { opened: true } }),
   });
   await renderWithMesa(
-    <DiffPanel
-      sessionId="aaaaaaaa"
-      project="lantern-cove"
-      checkout="/w/reef"
-      branch="session/reef"
-      onClose={() => {}}
-    />,
+    <DiffPanel sessionId="aaaaaaaa" branch="session/reef" state="idle" onClose={() => {}} />,
     bridge,
   );
   const panel = document.querySelector<HTMLElement>('[aria-label="Session changes"]');
   expect(panel?.textContent).toContain('session/reefsince main');
   expect(panel?.textContent).toContain('2 commits2 files+3 -1');
   const files = document.querySelectorAll('[aria-label="Changed files"] button');
-  expect([...files].map((each) => each.textContent)).toEqual(['Mtide.tssrc', 'Anotes.txt']);
+  expect([...files].map((each) => each.textContent)).toEqual(['Mtide.tssrc/', 'Anotes.txt']);
   expect(files[0]?.getAttribute('aria-current')).toBe('true');
 
   await act(async () => {
@@ -57,10 +59,7 @@ test('the session diff lists every changed file, walks them with j and k, and op
 
 test('a session with nothing changed says so, naming its base', async () => {
   const { bridge } = fakeBridge({ diff: diff({ rows: [], ahead: 0 }) });
-  await renderWithMesa(
-    <DiffPanel sessionId="aaaaaaaa" project="lantern-cove" onClose={() => {}} />,
-    bridge,
-  );
+  await renderWithMesa(<DiffPanel sessionId="aaaaaaaa" state="idle" onClose={() => {}} />, bridge);
   expect(document.body.textContent).toContain('No changes since main');
 });
 
@@ -75,7 +74,7 @@ test('dragging the edge widens the panel only as far as the terminal keeps 256px
   const { bridge } = fakeBridge({ diff: diff({}) });
   await renderWithMesa(
     <div>
-      <DiffPanel sessionId="aaaaaaaa" project="lantern-cove" onClose={() => {}} />
+      <DiffPanel sessionId="aaaaaaaa" state="idle" onClose={() => {}} />
     </div>,
     bridge,
   );
@@ -104,10 +103,7 @@ test('Expand covers the terminal side by side, Escape shrinks it back, and left-
     diff: diff({ rows: removal, omitted: 3 }),
     'files open': () => envelope({ result: { opened: true } }),
   });
-  await renderWithMesa(
-    <DiffPanel sessionId="aaaaaaaa" project="lantern-cove" onClose={() => {}} />,
-    bridge,
-  );
+  await renderWithMesa(<DiffPanel sessionId="aaaaaaaa" state="idle" onClose={() => {}} />, bridge);
   const panel = () => document.querySelector<HTMLElement>('[aria-label="Session changes"]');
   expect(panel()?.textContent).toContain('3 more new files not shown');
   await click(buttons().find((button) => button.title === 'Expand over terminal'));

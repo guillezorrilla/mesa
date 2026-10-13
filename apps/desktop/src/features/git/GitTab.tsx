@@ -230,7 +230,12 @@ export function GitTab(props: {
               {current ? (
                 <>
                   <GitDiffHeader
-                    entry={current}
+                    code={current.code}
+                    path={
+                      current.change.oldPath
+                        ? `${current.change.oldPath} -> ${current.change.path}`
+                        : current.change.path
+                    }
                     at={at}
                     total={order.length}
                     onMove={(step) => select(at + step)}

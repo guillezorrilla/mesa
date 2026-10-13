@@ -12,7 +12,7 @@ import { searchConversations } from '../native/search.js';
 import { vaultStatus } from '../native/vault-status.js';
 import { applyEach } from '../record/each.js';
 import { renameSession, setWorkflowStatus } from '../record/edits.js';
-import { GENERAL_PROJECT, projectScope } from '../record/general.js';
+import { projectScope } from '../record/general.js';
 import { recordAgent } from '../record/record.js';
 import { refreshContext } from '../signals/context-use.js';
 import { readHookEvents } from '../signals/hook-events.js';
@@ -121,12 +121,13 @@ export function inspectActions(
     /** Everything the session's checkout holds that its base branch lacks (readBranchDiff). */
     diff: (id: string) => {
       const found = store.get(id);
-      if (found.project === GENERAL_PROJECT)
+      const project = projectScope(found.project);
+      if (!project)
         throw new MesaError('usage', 'a General session has no project checkout to diff');
       return readBranchDiff(
         ctx.open(),
         ctx.run,
-        found.project,
+        project,
         found.worktree?.base,
         found.worktree?.path ?? found.cwd,
       );

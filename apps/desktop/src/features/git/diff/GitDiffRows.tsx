@@ -1,6 +1,6 @@
 import type { DiffRow } from '@mesa/core';
 import { ChevronDown, ChevronsUpDown, ChevronUp } from 'lucide-react';
-import { Fragment, useState } from 'react';
+import { Fragment, memo, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 /** Unchanged lines kept open on each side of a change; longer runs fold. */
@@ -46,8 +46,11 @@ function unified(lines: Line[]): Line[] {
   return out;
 }
 
-/** Side-by-side or inline rows of one file's diff, unchanged runs folded. */
-export function GitDiffRows(props: {
+/**
+ * Side-by-side or inline rows of one file's diff, unchanged runs folded; memoized, so a parent
+ * that re-renders on every frame (a resize drag) leaves a large diff alone.
+ */
+export const GitDiffRows = memo(function GitDiffRows(props: {
   rows: DiffRow[];
   layout: 'inline' | 'side-by-side';
   /** The profile's diff text size in px. */
@@ -107,7 +110,7 @@ export function GitDiffRows(props: {
       })}
     </div>
   );
-}
+});
 
 /** One unchanged line, or one aligned removed/added pair, in the chosen layout. */
 function Rows(props: { line: Line; side: boolean }) {

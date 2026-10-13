@@ -1,5 +1,5 @@
 import type { DiffRow } from '@mesa/core';
-import { patchFiles } from '@/features/git/GitCommitPanel';
+import { patchFiles } from '@/features/git/diff/patchFiles';
 
 export type DiffFile = {
   path: string;

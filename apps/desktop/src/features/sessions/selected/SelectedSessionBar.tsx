@@ -1,5 +1,6 @@
 import type { Agent, ProjectRow, TreeRow } from '@mesa/core';
 import {
+  diffable,
   GENERAL_PROJECT,
   projectLabel,
   recoverable,
@@ -105,7 +106,7 @@ export function SelectedSessionBar({
           <Globe aria-hidden /> Browser
         </Button>
       )}
-      {row?.managed && row.project !== GENERAL_PROJECT && (
+      {row && diffable(row) && (
         <Button
           variant="ghost"
           size="sm"

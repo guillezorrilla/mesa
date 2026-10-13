@@ -1,4 +1,5 @@
 import type { ManagedRow, SessionRow } from '../board/rows.js';
+import { GENERAL_PROJECT } from './general.js';
 import type { SessionRecord } from './record.js';
 import { FINAL_STATES, WAITING_STATES } from './states.js';
 
@@ -22,6 +23,9 @@ export const waitingForInput = (s: SessionRow) =>
 /** A Mesa session with an interactive agent, whose native responses Review reads. */
 export const reviewable = (s: SessionRow): s is ManagedRow =>
   s.managed && s.kind === 'interactive' && s.agent !== 'terminal';
+/** A Mesa session in a registered project, whose checkout the Diff panel compares with its base. */
+export const diffable = (s: SessionRow): s is ManagedRow =>
+  s.managed && s.project !== GENERAL_PROJECT;
 /** A Mesa session whose agent has exited and whose conversation can reopen. */
 export const resumable = (s: SessionRow) =>
   s.managed && exited(s) && Boolean(s.agentSessionId) && !s.resumedBy;

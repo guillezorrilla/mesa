@@ -1,13 +1,8 @@
 import { useEffect, useRef } from 'react';
+import { folderOf, glyph, nameOf } from '@/features/git/gitChanges';
 import { cn } from '@/lib/utils';
 import type { DiffFile } from './diffFiles';
 
-export const STATUS_TONE: Record<DiffFile['status'], string> = {
-  A: 'text-state-idle',
-  M: 'text-state-waiting',
-  D: 'text-state-failed',
-  R: 'text-state-working',
-};
 const STATUS_NAME = { A: 'Added', M: 'Modified', D: 'Deleted', R: 'Renamed' } as const;
 const CELL = { added: 'bg-state-idle', removed: 'bg-state-failed', empty: 'bg-muted' } as const;
 
@@ -41,8 +36,9 @@ export function DiffFileList(props: {
 }) {
   const list = useRef<HTMLUListElement>(null);
   // Focus in the list follows the open file, so j and k never leave the ring on the last one.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a newly opened file moves the focus.
   useEffect(() => {
-    if (props.open && list.current?.contains(document.activeElement))
+    if (list.current?.contains(document.activeElement))
       list.current.querySelector<HTMLElement>('[aria-current="true"]')?.focus();
   }, [props.open]);
   return (
@@ -52,7 +48,6 @@ export function DiffFileList(props: {
       className={cn('min-h-0 shrink-0 overflow-y-auto border-r py-1', props.className)}
     >
       {props.files.map((file) => {
-        const slash = file.path.lastIndexOf('/');
         const current = file.path === props.open;
         return (
           <li key={file.path}>
@@ -66,7 +61,7 @@ export function DiffFileList(props: {
               )}
               onClick={() => props.onOpen(file.path)}
             >
-              <span className={cn('font-mono text-xs font-semibold', STATUS_TONE[file.status])}>
+              <span className={cn('font-mono text-xs font-semibold', glyph(file.status)[1])}>
                 {file.status}
               </span>
               <span className="min-w-0">
@@ -77,11 +72,11 @@ export function DiffFileList(props: {
                     file.status === 'D' && 'line-through decoration-state-failed/60',
                   )}
                 >
-                  {file.path.slice(slash + 1)}
+                  {nameOf(file.path)}
                 </span>
-                {slash > 0 && (
+                {folderOf(file.path) && (
                   <span className="block truncate text-[11px] text-muted-foreground">
-                    {file.path.slice(0, slash)}
+                    {folderOf(file.path)}
                   </span>
                 )}
               </span>

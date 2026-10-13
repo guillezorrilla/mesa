@@ -1,7 +1,5 @@
-import { DEFAULT_APPEARANCE } from '@mesa/core/browser';
+import { counted, DEFAULT_APPEARANCE } from '@mesa/core/browser';
 import {
-  ChevronDown,
-  ChevronUp,
   Columns2,
   GitBranch,
   Maximize2,
@@ -12,16 +10,17 @@ import {
   SquareArrowOutUpRight,
   X,
 } from 'lucide-react';
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
 import { ResizeHandle } from '@/components/ResizeHandle';
 import { Button } from '@/components/ui/button';
+import { GitDiffHeader } from '@/features/git/diff/GitDiffHeader';
 import { GitDiffRows } from '@/features/git/diff/GitDiffRows';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { useKeptWidth } from '@/lib/useKeptWidth';
 import { cn } from '@/lib/utils';
-import { DiffFileList, STATUS_TONE, Stat } from './DiffFileList';
+import { DiffFileList, Stat } from './DiffFileList';
 import { diffFiles } from './diffFiles';
 
 /** The panel's width bounds beside the terminal, which always keeps TERMINAL_MIN pixels. */
@@ -30,15 +29,13 @@ const TERMINAL_MIN = 256;
 
 /**
  * Everything the selected session changed since it left its base branch, beside its terminal:
- * the changed files and the open one's diff. `stateAt` changing (the session moved on) reads
- * the changes again.
+ * the changed files and the open one's diff. A new session `state` (it went idle, or started
+ * working) reads the changes again.
  */
 export function DiffPanel(props: {
   sessionId: string;
-  project: string;
-  checkout?: string;
   branch?: string;
-  stateAt?: string;
+  state: string;
   onClose: () => void;
 }) {
   const changes = useCommand('sessions.diff', { id: props.sessionId });
@@ -55,15 +52,17 @@ export function DiffPanel(props: {
   const [listOpen, setListOpen] = useState(true);
   const [layout, setLayout] = useState<'inline' | 'side-by-side'>('inline');
   const [openPath, setOpenPath] = useState<string>();
-  const seenState = useRef(props.stateAt);
+  const seenState = useRef(props.state);
   // biome-ignore lint/correctness/useExhaustiveDependencies: only a new session state reads again.
   useEffect(() => {
-    if (props.stateAt === seenState.current) return;
-    seenState.current = props.stateAt;
+    if (props.state === seenState.current) return;
+    seenState.current = props.state;
     void changes.refresh();
-  }, [props.stateAt]);
+  }, [props.state]);
 
-  const files = diffFiles(changes.data?.rows ?? []);
+  const data = changes.data;
+  // Kept across renders, so a resize drag hands GitDiffRows the same rows and it skips the work.
+  const files = useMemo(() => diffFiles(data?.rows ?? []), [data]);
   const at = Math.max(
     0,
     files.findIndex((file) => file.path === openPath),
@@ -148,17 +147,12 @@ export function DiffPanel(props: {
         </div>
         {changes.data && (
           <div className="flex items-center gap-3 px-3 pb-2.5 text-xs text-muted-foreground">
-            <span>
-              {changes.data.ahead} {changes.data.ahead === 1 ? 'commit' : 'commits'}
-            </span>
-            <span>
-              {files.length} {files.length === 1 ? 'file' : 'files'}
-            </span>
+            <span>{counted(changes.data.ahead, 'commit')}</span>
+            <span>{counted(files.length, 'file')}</span>
             <Stat added={added} removed={removed} />
             {changes.data.omitted > 0 && (
               <span className="text-state-waiting">
-                {changes.data.omitted} more new {changes.data.omitted === 1 ? 'file' : 'files'} not
-                shown
+                {counted(changes.data.omitted, 'more new file')} not shown
               </span>
             )}
             <SplitBar added={added} removed={removed} />
@@ -171,7 +165,7 @@ export function DiffPanel(props: {
             ? `Could not read this session's changes: ${changes.error.message}`
             : 'Reading changes...'}
         </Muted>
-      ) : !file ? (
+      ) : !file || !data ? (
         <div className="grid flex-1 place-content-center gap-1 px-6 text-center">
           <p className="text-sm font-medium">No changes since {changes.data.base}</p>
           <Muted size="xs">
@@ -189,16 +183,13 @@ export function DiffPanel(props: {
             />
           )}
           <section aria-label={file.path} className="flex min-w-0 flex-1 flex-col">
-            <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1.5">
-              <span className={cn('font-mono text-xs font-semibold', STATUS_TONE[file.status])}>
-                {file.status}
-              </span>
-              <span
-                className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground"
-                title={file.path}
-              >
-                {file.path}
-              </span>
+            <GitDiffHeader
+              code={file.status}
+              path={file.path}
+              at={at}
+              total={files.length}
+              onMove={move}
+            >
               <Stat added={file.added} removed={file.removed} />
               {file.status !== 'D' && (
                 <Button
@@ -206,8 +197,8 @@ export function DiffPanel(props: {
                   size="xs"
                   onClick={() =>
                     void run('files.open', {
-                      project: props.project,
-                      checkout: props.checkout,
+                      project: data.checkout.project,
+                      checkout: data.checkout.path,
                       path: file.path,
                       line: file.firstLine,
                     })
@@ -216,21 +207,7 @@ export function DiffPanel(props: {
                   <SquareArrowOutUpRight aria-hidden /> Open in editor
                 </Button>
               )}
-              <IconButton
-                label="Previous file (k)"
-                icon={ChevronUp}
-                size="icon-xs"
-                disabled={at === 0}
-                onClick={() => move(-1)}
-              />
-              <IconButton
-                label="Next file (j)"
-                icon={ChevronDown}
-                size="icon-xs"
-                disabled={at === files.length - 1}
-                onClick={() => move(1)}
-              />
-            </div>
+            </GitDiffHeader>
             <div className="min-h-0 flex-1 overflow-auto p-3">
               <GitDiffRows
                 key={`${file.path}:${layout}`}

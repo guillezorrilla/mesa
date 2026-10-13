@@ -175,8 +175,13 @@ export const sessionsCommands = {
     '--',
     id,
   ]),
+  // Everything a session changed since its base branch, as rows (mesa diff leaves the patch out).
+  'sessions.diff': commandWith<{ id: string }, Omit<GitBranchDiff, 'patch'>>(({ id }) => [
+    'diff',
+    '--',
+    id,
+  ]),
   // A project's sessions side by side, in the user's terminal app.
-  'sessions.diff': commandWith<{ id: string }, GitBranchDiff>(({ id }) => ['diff', '--', id]),
   'sessions.show': commandWith<
     { id: string },
     SessionRecord & {

@@ -1,5 +1,5 @@
 import type { Config, GridGroup, ProjectRow, SavedPrompt, TreeRow } from '@mesa/core';
-import { GENERAL_PROJECT } from '@mesa/core/browser';
+import { diffable, GENERAL_PROJECT } from '@mesa/core/browser';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
@@ -184,7 +184,8 @@ export function SessionsScreen(
       <div
         className={
           props.selectedSession
-            ? 'relative flex min-h-0 flex-1'
+            ? // relative: the Diff panel's Expand covers this area.
+              'relative flex min-h-0 flex-1'
             : props.gridMode
               ? 'grid gap-3 lg:grid-cols-2'
               : 'space-y-4'
@@ -219,14 +220,12 @@ export function SessionsScreen(
             checkout={selected.worktree?.path ?? selected.cwd}
           />
         )}
-        {selected?.managed && side.open === 'diff' && selected.project !== GENERAL_PROJECT && (
+        {selected && diffable(selected) && side.open === 'diff' && (
           <DiffPanel
             key={selected.id}
             sessionId={selected.id}
-            project={selected.project}
-            checkout={selected.worktree?.path ?? selected.cwd}
             branch={selected.worktree?.branch}
-            stateAt={selected.lastState.at}
+            state={selected.lastState.state}
             onClose={side.close}
           />
         )}
