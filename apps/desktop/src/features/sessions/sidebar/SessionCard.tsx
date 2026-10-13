@@ -1,5 +1,11 @@
 import type { TreeRow } from '@mesa/core';
-import { GENERAL_PROJECT, projectLabel, sessionLabel, sessionTitle } from '@mesa/core/browser';
+import {
+  GENERAL_PROJECT,
+  projectLabel,
+  sessionBranch,
+  sessionLabel,
+  sessionTitle,
+} from '@mesa/core/browser';
 import { ChevronsDown, ChevronsUp, Clock3, GitBranch, Plus, TerminalSquare, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AutomationBanner } from '@/features/automations/AutomationBanner';
@@ -35,6 +41,7 @@ export function SessionCard(props: {
   onDependencySession?: (id: string) => void;
 }) {
   const { session, selected, chosen, compact } = props;
+  const branch = sessionBranch(session);
   return (
     <div className="group relative mb-1">
       <button
@@ -94,10 +101,10 @@ export function SessionCard(props: {
         )}
         {!compact && (
           <>
-            {session.managed && session.worktree && (
+            {branch && (
               <span className="flex min-w-0 items-center gap-1 pl-4 font-mono text-[11px] text-state-working">
                 <GitBranch aria-hidden className="size-3 shrink-0" />
-                <span className="truncate">{session.worktree.branch}</span>
+                <span className="truncate">{branch}</span>
               </span>
             )}
             <span

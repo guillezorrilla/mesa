@@ -77,6 +77,12 @@ export const sessionsCommands = {
   'sessions.rename': commandWith<{ id: string; name: string }, Recorded<SessionRecord>>(
     ({ id, name }) => ['rename', '--', id, name],
   ),
+  'sessions.autoName': commandWith<{ id: string }, Recorded<SessionRecord>>(({ id }) => [
+    'rename',
+    '--auto',
+    '--',
+    id,
+  ]),
   // The app removes an ended session only, so never with --force.
   'sessions.remove': commandWith<
     { id: string; force?: boolean; deleteWorktree?: boolean; deleteBranch?: boolean },

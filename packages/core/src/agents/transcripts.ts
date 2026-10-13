@@ -39,6 +39,8 @@ export type Transcripts<A extends Agent> = {
   firstPrompt: (file: string) => string | undefined;
   /** The messages in the end of `file` (MESSAGE_TAIL), oldest first, and whether it was cut. */
   messages: (file: string) => { messages: TranscriptMessage[]; truncated: boolean };
+  /** The git branch its agent last worked on in transcript `file`; none for an agent that does not say. */
+  branch?: (file: string) => string | undefined;
 };
 
 /** A content block of a message: its kind and, for text, its text. */

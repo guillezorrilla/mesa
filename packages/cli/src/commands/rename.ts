@@ -1,13 +1,33 @@
+import { MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { recordedOutput } from '../output/recorded.js';
 
 export const rename = defineCommand({
   name: 'rename',
   summary: 'Give a session a name; sessions and the Board show it in place of the id',
-  args: ['session', 'name'],
+  args: ['session', 'name?'],
+  flags: {
+    auto: {
+      type: 'boolean',
+      description: 'Name it from what you asked it, with Claude Haiku, when no one has named it',
+    },
+  },
   example: 'mesa rename a1b2c3d4 "tide tables"',
-  run: ({ mesa, args }) => {
-    const recorded = mesa.sessions.rename(args.session, args.name);
+  run: async ({ mesa, args, flags }) => {
+    if (flags.auto === (args.name !== undefined))
+      throw new MesaError('usage', 'pass either a name or --auto');
+    if (flags.auto) {
+      const recorded = await mesa.sessions.autoName(args.session);
+      const r = recorded.result;
+      return recordedOutput(recorded, {
+        data: r,
+        text:
+          r.name || r.agentName
+            ? `${r.id} is ${r.name ?? r.agentName}`
+            : `${r.id} has nothing to be named from yet`,
+      });
+    }
+    const recorded = mesa.sessions.rename(args.session, args.name ?? '');
     const r = recorded.result;
     return recordedOutput(recorded, { data: r, text: `renamed ${r.id} to ${r.name}` });
   },

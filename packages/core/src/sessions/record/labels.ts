@@ -30,9 +30,23 @@ export const isRun = (s: SessionRow) => s.managed && s.kind === 'run';
 export const additionalLabel = (s: SessionRow) =>
   s.managed && s.additional ? `+${sessionProjects(s).slice(1).join(',')}` : undefined;
 
-/** The branch a Mesa session runs on (its worktree's), or will once it starts (a queued one's). */
+/**
+ * The branch a Mesa session works on: the one its agent last named (refreshBranch), else its
+ * worktree's, else the one it will once it starts (a queued one's).
+ */
 export const sessionBranch = (s: SessionRow) =>
-  s.managed ? (s.worktree?.branch ?? s.pending?.branch) : undefined;
+  s.managed ? (s.gitBranch ?? s.worktree?.branch ?? s.pending?.branch) : undefined;
+
+/**
+ * A Mesa session no one has named that has something to be named from, its goal or a prompt:
+ * one autoName is worth trying after each of its turns.
+ */
+export const wantsName = (s: SessionRow) =>
+  s.managed &&
+  s.kind === 'interactive' &&
+  !s.name &&
+  !s.agentName &&
+  Boolean(s.goal?.trim() || s.conversation);
 
 /** A number of sessions as it reads: `1 session`, `2 sessions`. */
 export const sessionCount = (n: number) => counted(n, 'session');

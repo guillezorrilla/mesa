@@ -105,8 +105,13 @@ const SessionRecordFields = z.strictObject({
     .optional(),
   /** What a person calls it (mesa rename, mesa adopt --name). */
   name: z.string().optional(),
-  /** What its agent calls it, as the listing last named it (Claude Code's /rename); `name` wins. */
+  /**
+   * What its agent calls it, as the listing last named it (Claude Code's /rename), else the name
+   * Mesa made from its prompts (autoName); `name` wins.
+   */
   agentName: z.string().optional(),
+  /** The git branch its agent last worked on, as its transcript names it (refreshBranch). */
+  gitBranch: z.string().optional(),
   /** A person's workflow label, independent of Faro's observed agent state. */
   workflowStatus: z.enum(WORKFLOW_STATUSES).optional(),
   /** Started outside Mesa, then adopted (CONTEXT.md, Adopted session). */

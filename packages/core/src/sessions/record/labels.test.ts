@@ -9,6 +9,7 @@ import {
   sessionLabel,
   sessionTitle,
   waitingOn,
+  wantsName,
 } from './labels.js';
 
 // Only the fields the view reads.
@@ -33,6 +34,8 @@ test('a row reads as its name, else its agent name, else its id; its branch is i
   const worktree = { path: '/w/try-x', branch: 'try/x' };
   expect(sessionBranch(managed({ worktree, pending: { branch: 'later' } }))).toBe('try/x');
   expect(sessionBranch(managed({ pending: { branch: 'later' } }))).toBe('later');
+  // The branch its agent works on now wins: a worktree it made, or a branch it moved to.
+  expect(sessionBranch(managed({ worktree, gitBranch: 'try/y' }))).toBe('try/y');
   expect(sessionBranch(managed({}))).toBeUndefined();
   expect(sessionBranch(foreign)).toBeUndefined();
   expect(waitingOn('a1b2c3d4')).toBe('waiting on a1b2c3d4');
@@ -43,4 +46,15 @@ test('a row reads as its name, else its agent name, else its id; its branch is i
 test('an attention score and a context reading read the same everywhere', () => {
   expect(attentionScore(0.8333)).toBe('0.83');
   expect([21.16, 54.5, 120, -3].map(contextPercent)).toEqual([21, 55, 100, 0]);
+});
+
+test('a session is worth naming once it has a goal or a prompt and no one named it', () => {
+  const unnamed = { kind: 'interactive', lastState: { at: 'x' } };
+  expect(wantsName(managed({ ...unnamed, goal: 'Chart the tide' }))).toBe(true);
+  expect(wantsName(managed({ ...unnamed, conversation: true }))).toBe(true);
+  expect(wantsName(managed(unnamed))).toBe(false);
+  expect(wantsName(managed({ ...unnamed, goal: 'x', agentName: 'tide' }))).toBe(false);
+  expect(wantsName(managed({ ...unnamed, goal: 'x', name: 'tide' }))).toBe(false);
+  expect(wantsName(managed({ kind: 'run', goal: 'x' }))).toBe(false);
+  expect(wantsName(foreign)).toBe(false);
 });

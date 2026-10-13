@@ -215,6 +215,18 @@ function claudeName(file: string): string | undefined {
   return custom ?? ai;
 }
 
+/** The branch a transcript last names: Claude Code stamps each line with its folder's `gitBranch`. */
+function claudeBranch(file: string): string | undefined {
+  return lastMatchingLine(
+    file,
+    (line) =>
+      line.includes('"gitBranch"')
+        ? named(parsedLine<{ gitBranch?: unknown }>(line)?.gitBranch)
+        : undefined,
+    NAME_TAIL,
+  );
+}
+
 /** One transcript line, parsed: the fields its prompt and messages are read from. */
 type Line = {
   type?: unknown;
@@ -265,4 +277,5 @@ export const claudeTranscriptReader: Transcripts<'claude'> = {
     const { lines, truncated } = tailLines(file, MESSAGE_TAIL);
     return { messages: lines.flatMap((line) => messageIn(line) ?? []), truncated };
   },
+  branch: claudeBranch,
 };
