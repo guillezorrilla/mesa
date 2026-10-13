@@ -2,7 +2,8 @@ import type { ProjectRow, TreeRow } from '@mesa/core';
 import { activeSession, GENERAL_PROJECT, recoverable, sessionProjects } from '@mesa/core/browser';
 
 /**
- * The sidebar's lists: the visible projects (pinned first), the active sessions (oldest first),
+ * The sidebar's lists: the visible projects (pinned first), and in the Sessions tab's order
+ * (pinned, then those with active sessions, then the rest), the active sessions (oldest first),
  * the recoverable ones, and the active ones in no listed project, split into General and Other;
  * a project's active sessions by primary (inProject, the Sessions tab's groups); and those it is
  * primary or additional in (touching, the Projects tab's count; CONTEXT.md, Additional project).
@@ -25,7 +26,11 @@ export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonl
   const inProject = (name: string) => active.filter((session) => session.project === name);
   const touching = (name: string) =>
     active.filter((session) => session.managed && sessionProjects(session).includes(name));
-  return { visible, active, stranded, general, other, inProject, touching };
+  const busy = (name: string) => Number(inProject(name).length > 0);
+  const byActivity = [...visible].sort(
+    (a, b) => Number(b.pinned) - Number(a.pinned) || busy(b.name) - busy(a.name),
+  );
+  return { visible, byActivity, active, stranded, general, other, inProject, touching };
 }
 
 export type SidebarGroups = ReturnType<typeof sidebarGroups>;
@@ -35,8 +40,8 @@ export type SidebarGroups = ReturnType<typeof sidebarGroups>;
  * for a folded one), then General, Other, and Recoverable.
  */
 export function sidebarOrder(groups: SidebarGroups, closedProjects: readonly string[]) {
-  const { visible, stranded, general, other, inProject } = groups;
-  const projects = visible
+  const { byActivity, stranded, general, other, inProject } = groups;
+  const projects = byActivity
     .filter((project) => !closedProjects.includes(project.name))
     .flatMap((project) => inProject(project.name));
   return [...projects, ...general, ...other, ...stranded].map((session) => session.id);

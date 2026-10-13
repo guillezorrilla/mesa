@@ -1,7 +1,8 @@
 import type { ProjectRow } from '@mesa/core';
 import { ChevronDown, ChevronRight, Folder, FolderOpen } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { hueOf } from '@/lib/hueOf';
+import { CountPill } from '@/components/CountPill';
+import { nameColor } from '@/lib/nameColor';
 import { cn } from '@/lib/utils';
 import { ProjectNewSessionMenu } from '../start/ProjectNewSessionMenu';
 import { StartingSessions } from '../start/StartingSessions';
@@ -9,8 +10,9 @@ import type { SessionLocation } from '../start/useStartSession';
 
 /**
  * One project in the Sessions tab: a header that folds its session cards, and its + menu. A
- * project with sessions reads bright with its count, its cards hung from a rail in the project's
- * own color (the folder wears it too); an empty one stays quiet.
+ * busy project (sessions open or starting) reads bright with its count, its cards hung from a
+ * rail in the project's own color (the folder wears it too), and its header stays in view while
+ * its cards scroll; an empty one stays quiet.
  */
 export function ProjectSessionsGroup(props: {
   project: ProjectRow;
@@ -24,14 +26,18 @@ export function ProjectSessionsGroup(props: {
   children: ReactNode;
 }) {
   const { project, closed, count } = props;
-  const FolderIcon = closed || !count ? Folder : FolderOpen;
-  const color = `oklch(0.7 0.13 ${hueOf(project.name)})`;
+  const startingHere = (props.starting ?? []).includes(project.name);
+  const busy = count > 0 || startingHere;
+  const FolderIcon = busy && !closed ? FolderOpen : Folder;
+  const color = nameColor(project.name);
   return (
     <div className="mb-2">
       <div
         className={cn(
           'flex items-center gap-1 px-1 text-muted-foreground',
-          count ? 'text-[13px]' : 'text-xs',
+          busy &&
+            'sticky top-0 z-10 bg-[color-mix(in_oklch,var(--card)_50%,var(--background))] text-[13px]',
+          !busy && 'text-xs',
         )}
       >
         <button
@@ -44,37 +50,41 @@ export function ProjectSessionsGroup(props: {
           onClick={props.onToggle}
         >
           {closed ? (
-            <ChevronRight aria-hidden className="size-3" />
+            <ChevronRight aria-hidden className="size-3 shrink-0" />
           ) : (
-            <ChevronDown aria-hidden className="size-3" />
+            <ChevronDown aria-hidden className="size-3 shrink-0" />
           )}
           <FolderIcon
             aria-hidden
             className="size-3.5 shrink-0"
-            style={count ? { color } : undefined}
+            style={busy ? { color } : undefined}
           />
           <span
-            className={cn('truncate', count > 0 && 'font-semibold tracking-tight text-foreground')}
+            className={cn(
+              'line-clamp-2 break-words',
+              busy && 'font-semibold tracking-tight text-foreground',
+            )}
           >
             {project.label}
           </span>
         </button>
         {count > 0 && (
-          <span className="rounded-full bg-muted px-1.5 text-[10px] leading-4 font-medium tabular-nums">
-            {count}
-          </span>
+          <CountPill
+            count={count}
+            className="bg-muted text-[10px] leading-4 font-medium text-muted-foreground tabular-nums"
+          />
         )}
         <ProjectNewSessionMenu project={project} onNewSession={props.onNewSession} />
       </div>
-      {!closed && count > 0 && (
+      {((count > 0 && !closed) || startingHere) && (
         <div
           className="mt-1 ml-3 space-y-1 border-l-2 pl-2"
           style={{ borderColor: `color-mix(in oklch, ${color} 45%, transparent)` }}
         >
-          {props.children}
+          {!closed && props.children}
+          <StartingSessions project={project.name} starting={props.starting} />
         </div>
       )}
-      <StartingSessions project={project.name} starting={props.starting} />
     </div>
   );
 }

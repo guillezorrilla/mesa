@@ -37,7 +37,7 @@ export function SessionsSection(props: {
   onDependencySession?: (id: string) => void;
 }) {
   const { groups, view, onView } = props;
-  const { visible, active, stranded, general, other, inProject } = groups;
+  const { byActivity, active, stranded, general, other, inProject } = groups;
   const { chosen, onSelection, order } = props;
   const list = useRef<HTMLDivElement>(null);
   /** Focuses the card `by` places from `id`, Shift-clicking it with `shift`; none past either end. */
@@ -89,19 +89,22 @@ export function SessionsSection(props: {
           onSelection({ kind: 'escape' });
       }}
     >
-      {visible.map((project) => (
-        <ProjectSessionsGroup
-          key={project.name}
-          project={project}
-          closed={props.closedProjects.includes(project.name)}
-          count={inProject(project.name).length}
-          onToggle={() => props.onToggleProject(project.name)}
-          starting={props.starting}
-          onNewSession={props.onNewSession}
-        >
-          {inProject(project.name).map(card)}
-        </ProjectSessionsGroup>
-      ))}
+      {byActivity.map((project) => {
+        const cards = inProject(project.name);
+        return (
+          <ProjectSessionsGroup
+            key={project.name}
+            project={project}
+            closed={props.closedProjects.includes(project.name)}
+            count={cards.length}
+            onToggle={() => props.onToggleProject(project.name)}
+            starting={props.starting}
+            onNewSession={props.onNewSession}
+          >
+            {cards.map(card)}
+          </ProjectSessionsGroup>
+        );
+      })}
       {(general.length > 0 || props.starting?.includes(GENERAL_PROJECT)) && (
         <div>
           <Muted size="xs" className="px-2">

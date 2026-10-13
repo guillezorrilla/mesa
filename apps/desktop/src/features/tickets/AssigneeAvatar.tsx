@@ -1,4 +1,4 @@
-import { hueOf } from '@/lib/hueOf';
+import { nameColor } from '@/lib/nameColor';
 import { cn } from '@/lib/utils';
 
 /** A person's initials in a small circle, the same color for the same name. */
@@ -24,7 +24,7 @@ export function AssigneeAvatar(props: { name?: string | undefined; className?: s
   return (
     <span
       title={name}
-      style={{ backgroundColor: `oklch(0.62 0.14 ${hueOf(name)})` }}
+      style={{ backgroundColor: nameColor(name) }}
       className={cn(
         'inline-grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white',
         props.className,

@@ -180,3 +180,13 @@ test('the sidebar lists active sessions in the order they were opened, whatever 
   ]);
   expect(active.map((row) => row.id)).toEqual(['first001', 'second01', 'third001']);
 });
+
+test('the Sessions tab lists projects with active sessions first, pinned ones before both', () => {
+  const named = (name: string, pinned = false) => ({ ...PROJECTS[0], name, label: name, pinned });
+  const projects = [named('lantern-cove'), named('quiet'), named('pinned', true), named('tide')];
+  const groups = sidebarGroups(projects as typeof PROJECTS, [
+    managedRow('aaaaaaaa', { project: 'tide' }),
+  ]);
+  expect(groups.byActivity.map((p) => p.name)).toEqual(['pinned', 'tide', 'lantern-cove', 'quiet']);
+  expect(sidebarOrder(groups, [])).toEqual(['aaaaaaaa']);
+});
