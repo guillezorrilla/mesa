@@ -19,6 +19,7 @@ import { decide } from './decide.js';
 import { DECISIONS_COMMANDS } from './decisions/index.js';
 import { dependency } from './dependency.js';
 import { diagnostics } from './diagnostics.js';
+import { diff } from './diff.js';
 import { discover, discoverAdopt } from './discover.js';
 import { doctor, doctorInstall } from './doctor.js';
 import { FILES_COMMANDS } from './files/index.js';
@@ -139,6 +140,7 @@ export const COMMANDS: Command[] = [
   ...DECISIONS_COMMANDS,
   daily,
   diagnostics,
+  diff,
   discover,
   discoverAdopt,
   doctor,

@@ -1,5 +1,5 @@
 import type { Config, GridGroup, ProjectRow, SavedPrompt, TreeRow } from '@mesa/core';
-import { GENERAL_PROJECT } from '@mesa/core/browser';
+import { diffable, GENERAL_PROJECT } from '@mesa/core/browser';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { type OpenDialog, SessionDialogs } from './dialogs/SessionDialogs';
 import { useDialogRequest } from './dialogs/useDialogRequest';
+import { DiffPanel } from './diff/DiffPanel';
 import { GridToolbar } from './grid/GridToolbar';
 import { useGrid } from './grid/useGrid';
 import { BrowserPanel } from './review/BrowserPanel';
@@ -112,13 +113,11 @@ export function SessionsScreen(
           row={selected}
           projects={props.projects}
           acting={acting}
-          reviewOpen={side.reviewOpen}
-          browserOpen={side.browserOpen}
+          panel={side.open}
           onProject={props.onProject}
           onSessions={props.onSessions}
           onSwap={commands.swap}
-          onToggleReview={side.toggleReview}
-          onToggleBrowser={side.toggleBrowser}
+          onTogglePanel={side.toggle}
           onDialog={setDialog}
         >
           {selected && (
@@ -185,7 +184,8 @@ export function SessionsScreen(
       <div
         className={
           props.selectedSession
-            ? 'flex min-h-0 flex-1'
+            ? // relative: the Diff panel's Expand covers this area.
+              'relative flex min-h-0 flex-1'
             : props.gridMode
               ? 'grid gap-3 lg:grid-cols-2'
               : 'space-y-4'
@@ -211,7 +211,7 @@ export function SessionsScreen(
             props.onSelectSession?.(id);
           }}
         />
-        {selected?.managed && side.reviewOpen && (
+        {selected?.managed && side.open === 'review' && (
           <ReviewPanel
             key={`${selected.id}:${side.reviewResponse?.source ?? ''}`}
             sessionId={selected.id}
@@ -220,12 +220,21 @@ export function SessionsScreen(
             checkout={selected.worktree?.path ?? selected.cwd}
           />
         )}
-        {selected?.managed && side.browserOpen && (
+        {selected && diffable(selected) && side.open === 'diff' && (
+          <DiffPanel
+            key={selected.id}
+            sessionId={selected.id}
+            branch={selected.worktree?.branch}
+            state={selected.lastState.state}
+            onClose={side.close}
+          />
+        )}
+        {selected?.managed && side.open === 'browser' && (
           <BrowserPanel
             key={selected.id}
             sessionId={selected.id}
             initialUrl={side.browserTarget}
-            onClose={side.closeBrowser}
+            onClose={side.close}
           />
         )}
       </div>

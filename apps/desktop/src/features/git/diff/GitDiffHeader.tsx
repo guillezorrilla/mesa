@@ -1,22 +1,31 @@
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { cn } from '@/lib/utils';
-import { type GitEntry, glyph } from '../gitChanges';
+import { glyph } from '../gitChanges';
 
-/** The open change's status letter and path, its place in the list, and previous/next. */
+/** The open change's status letter and path, `children` (its actions), its place in the list, and previous/next. */
 export function GitDiffHeader(props: {
-  entry: GitEntry;
+  /** Git's status letter; `?` (untracked) shows as U. */
+  code: string;
+  path: string;
   at: number;
   total: number;
   onMove: (step: -1 | 1) => void;
+  children?: ReactNode;
 }) {
-  const { change, code } = props.entry;
   return (
     <div className="flex shrink-0 items-center gap-2 border-b px-4 py-2.5">
-      <span className={cn('font-mono text-sm', glyph(code)[1])}>{code === '?' ? 'U' : code}</span>
-      <span className="min-w-0 flex-1 truncate font-mono text-sm text-muted-foreground">
-        {change.oldPath ? `${change.oldPath} -> ${change.path}` : change.path}
+      <span className={cn('font-mono text-sm', glyph(props.code)[1])}>
+        {props.code === '?' ? 'U' : props.code}
       </span>
+      <span
+        className="min-w-0 flex-1 truncate font-mono text-sm text-muted-foreground"
+        title={props.path}
+      >
+        {props.path}
+      </span>
+      {props.children}
       <span className="text-xs text-muted-foreground">
         {props.at + 1} / {props.total}
       </span>

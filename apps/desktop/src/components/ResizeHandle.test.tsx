@@ -2,16 +2,26 @@
 import { act } from 'react';
 import { beforeEach, expect, test } from 'vitest';
 import { fakeBridge, press, renderWithMesa } from '@/lib/testing';
-import { SidebarResizeHandle } from './SidebarResizeHandle';
-import { useSidebarWidth } from './useSidebarWidth';
+import { useKeptWidth } from '@/lib/useKeptWidth';
+import { ResizeHandle } from './ResizeHandle';
 
-function Sized() {
-  const [width, setWidth] = useSidebarWidth();
-  return <SidebarResizeHandle width={width} onWidth={setWidth} />;
+const BOUNDS = { min: 200, max: 480, initial: 264, step: 16 };
+
+function Sized(props: { edge: 'left' | 'right' }) {
+  const [width, setWidth] = useKeptWidth('mesa.sidebar.width', BOUNDS);
+  return (
+    <ResizeHandle
+      label="Resize sidebar"
+      edge={props.edge}
+      width={width}
+      bounds={BOUNDS}
+      onWidth={setWidth}
+    />
+  );
 }
 
-const render = async () => {
-  await renderWithMesa(<Sized />, fakeBridge().bridge);
+const render = async (edge: 'left' | 'right' = 'right') => {
+  await renderWithMesa(<Sized edge={edge} />, fakeBridge().bridge);
   return document.querySelector<HTMLElement>('[role="separator"]') as HTMLElement;
 };
 const width = (handle: HTMLElement) => Number(handle.getAttribute('aria-valuenow'));
@@ -77,4 +87,16 @@ test('the width is kept and read back; a missing or invalid value falls back to 
     localStorage.setItem('mesa.sidebar.width', kept);
     expect(width(await render())).toBe(264);
   }
+});
+
+test('a left edge grows the panel as it moves left, by drag and by key', async () => {
+  const handle = await render('left');
+  await pointer(handle, 'pointerdown', 800);
+  await pointer(document, 'pointermove', 760);
+  expect(width(handle)).toBe(304);
+  await pointer(document, 'pointerup', 760);
+  await press(handle, 'ArrowLeft');
+  expect(width(handle)).toBe(320);
+  await press(handle, 'ArrowRight');
+  expect(width(handle)).toBe(304);
 });

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { patchFiles } from './GitCommitPanel';
+import { patchFiles } from './patchFiles';
 
 test('a commit patch splits per file, quoted and spaced paths included', () => {
   const meta = (left: string) => ({ kind: 'meta' as const, left, right: '' });

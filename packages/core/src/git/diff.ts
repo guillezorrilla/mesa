@@ -21,6 +21,9 @@ export type GitDiff = {
   rows: DiffRow[];
 };
 
+/** How Mesa asks Git for a patch: no external or textconv drivers, no colour, renames found. */
+export const PATCH_FLAGS = ['--no-ext-diff', '--no-textconv', '--no-color', '--find-renames'];
+
 /** Align consecutive removed and added lines for the side-by-side view. */
 export function diffRows(patch: string): DiffRow[] {
   const lines = patch.replace(/\n$/, '').split('\n');
@@ -94,10 +97,7 @@ export async function readGitDiff(
   const checkout = await resolveCheckout(profile, run, project, selected);
   const args = [
     'diff',
-    '--no-ext-diff',
-    '--no-textconv',
-    '--no-color',
-    '--find-renames',
+    ...PATCH_FLAGS,
     ...(full ? ['--unified=1000000'] : []),
     ...(staged ? ['--cached'] : []),
     '--',

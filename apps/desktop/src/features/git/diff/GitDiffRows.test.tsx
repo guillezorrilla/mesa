@@ -50,3 +50,31 @@ test('inline reads a change block as all removed lines, then all added ones', as
   );
   expect(byTestId('git-inline-diff')[0]?.textContent).toBe('1-a2-b1+x');
 });
+
+test('lines a patch skips between its hunks show as a gap, never as touching rows', async () => {
+  const context = (oldLine: number, newLine: number): DiffRow => ({
+    kind: 'context',
+    left: `o${oldLine}`,
+    right: `o${oldLine}`,
+    oldLine,
+    newLine,
+  });
+  const hunks: DiffRow[] = [
+    { kind: 'meta', left: '@@ -3,2 +3,3 @@', right: '@@ -3,2 +3,3 @@' },
+    context(3, 3),
+    { kind: 'change', left: '', right: 'added', newLine: 4 },
+    context(4, 5),
+    { kind: 'meta', left: '@@ -16,2 +17,2 @@', right: '@@ -16,2 +17,2 @@' },
+    { kind: 'change', left: 'was', right: 'now', oldLine: 16, newLine: 17 },
+    context(17, 18),
+  ];
+  for (const layout of ['side-by-side', 'inline'] as const) {
+    await renderWithMesa(
+      <GitDiffRows rows={hunks} layout={layout} fontSize={13} />,
+      fakeBridge().bridge,
+    );
+    expect(
+      [...document.querySelectorAll('p')].map((gap) => gap.textContent?.replace('...', '')),
+    ).toEqual(['2 unchanged lines not in this diff', '11 unchanged lines not in this diff']);
+  }
+});

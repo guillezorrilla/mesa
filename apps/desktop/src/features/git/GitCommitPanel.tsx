@@ -1,25 +1,12 @@
-import type { DiffRow, GitComparison, GitGraphCommit } from '@mesa/core';
+import type { GitComparison, GitGraphCommit } from '@mesa/core';
 import { Calendar, User, X } from 'lucide-react';
 import { useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
 import { cn } from '@/lib/utils';
 import { GitDiffRows } from './diff/GitDiffRows';
+import { patchFiles } from './diff/patchFiles';
 import { branchRefs } from './GitCommitGraph';
-
-type PatchFile = { path: string; rows: DiffRow[] };
-
-/** A whole-commit patch cut at each `diff --git` header, one entry per file. */
-export function patchFiles(rows: DiffRow[]): PatchFile[] {
-  const files: PatchFile[] = [];
-  for (const row of rows) {
-    // Git quotes a header whose path is not plain ASCII: diff --git "a/x" "b/x".
-    const header = row.kind === 'meta' && /^diff --git "?a\/.*"? "?b\/(.*?)"?$/.exec(row.left);
-    if (header) files.push({ path: header[1] ?? row.left, rows: [] });
-    else files.at(-1)?.rows.push(row);
-  }
-  return files;
-}
 
 /** One commit's changes, or a two-ref comparison: the files on the left, the open file's diff. */
 export function GitCommitPanel(props: {

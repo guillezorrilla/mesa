@@ -6,6 +6,7 @@ import type {
   DescendantResult,
   DiscoveryAdoption,
   EachResult,
+  GitBranchDiff,
   GridGroup,
   InstructionStatus,
   NativeDiscovery,
@@ -177,6 +178,12 @@ export const sessionsCommands = {
   'sessions.attach': commandWith<{ id: string }, Attached>(({ id }) => [
     'attach',
     '--app',
+    '--',
+    id,
+  ]),
+  // Everything a session changed since its base branch, as rows (mesa diff leaves the patch out).
+  'sessions.diff': commandWith<{ id: string }, Omit<GitBranchDiff, 'patch'>>(({ id }) => [
+    'diff',
     '--',
     id,
   ]),
