@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { type OpenDialog, SessionDialogs } from './dialogs/SessionDialogs';
 import { useDialogRequest } from './dialogs/useDialogRequest';
+import { DiffPanel } from './diff/DiffPanel';
 import { GridToolbar } from './grid/GridToolbar';
 import { useGrid } from './grid/useGrid';
 import { BrowserPanel } from './review/BrowserPanel';
@@ -114,11 +115,13 @@ export function SessionsScreen(
           acting={acting}
           reviewOpen={side.reviewOpen}
           browserOpen={side.browserOpen}
+          diffOpen={side.diffOpen}
           onProject={props.onProject}
           onSessions={props.onSessions}
           onSwap={commands.swap}
           onToggleReview={side.toggleReview}
           onToggleBrowser={side.toggleBrowser}
+          onToggleDiff={side.toggleDiff}
           onDialog={setDialog}
         >
           {selected && (
@@ -185,7 +188,7 @@ export function SessionsScreen(
       <div
         className={
           props.selectedSession
-            ? 'flex min-h-0 flex-1'
+            ? 'relative flex min-h-0 flex-1'
             : props.gridMode
               ? 'grid gap-3 lg:grid-cols-2'
               : 'space-y-4'
@@ -218,6 +221,17 @@ export function SessionsScreen(
             initialResponse={side.reviewResponse}
             project={selected.project === GENERAL_PROJECT ? undefined : selected.project}
             checkout={selected.worktree?.path ?? selected.cwd}
+          />
+        )}
+        {selected?.managed && side.diffOpen && selected.project !== GENERAL_PROJECT && (
+          <DiffPanel
+            key={selected.id}
+            sessionId={selected.id}
+            project={selected.project}
+            checkout={selected.worktree?.path ?? selected.cwd}
+            branch={selected.worktree?.branch}
+            stateAt={selected.lastState.at}
+            onClose={side.closeDiff}
           />
         )}
         {selected?.managed && side.browserOpen && (

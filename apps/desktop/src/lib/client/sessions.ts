@@ -6,6 +6,7 @@ import type {
   DescendantResult,
   DiscoveryAdoption,
   EachResult,
+  GitBranchDiff,
   GridGroup,
   InstructionStatus,
   NativeDiscovery,
@@ -175,6 +176,7 @@ export const sessionsCommands = {
     id,
   ]),
   // A project's sessions side by side, in the user's terminal app.
+  'sessions.diff': commandWith<{ id: string }, GitBranchDiff>(({ id }) => ['diff', '--', id]),
   'sessions.show': commandWith<
     { id: string },
     SessionRecord & {

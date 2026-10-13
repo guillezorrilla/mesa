@@ -1,6 +1,8 @@
 import { antigravitySessionId } from '../../agents/antigravity/log.js';
 import { listAgentProcesses } from '../../agents/listing.js';
 import type { MesaContext } from '../../context.js';
+import { readBranchDiff } from '../../git/branch-diff.js';
+import { MesaError } from '../../lib/result.js';
 import { sessionTree } from '../board/tree.js';
 import { decisionStatus } from '../native/decision-status.js';
 import { discoverNative } from '../native/discovery.js';
@@ -10,7 +12,7 @@ import { searchConversations } from '../native/search.js';
 import { vaultStatus } from '../native/vault-status.js';
 import { applyEach } from '../record/each.js';
 import { renameSession, setWorkflowStatus } from '../record/edits.js';
-import { projectScope } from '../record/general.js';
+import { GENERAL_PROJECT, projectScope } from '../record/general.js';
 import { recordAgent } from '../record/record.js';
 import { refreshContext } from '../signals/context-use.js';
 import { readHookEvents } from '../signals/hook-events.js';
@@ -115,6 +117,19 @@ export function inspectActions(
           identityChanged,
         ),
       };
+    },
+    /** Everything the session's checkout holds that its base branch lacks (readBranchDiff). */
+    diff: (id: string) => {
+      const found = store.get(id);
+      if (found.project === GENERAL_PROJECT)
+        throw new MesaError('usage', 'a General session has no project checkout to diff');
+      return readBranchDiff(
+        ctx.open(),
+        ctx.run,
+        found.project,
+        found.worktree?.base,
+        found.worktree?.path ?? found.cwd,
+      );
     },
     /** Gives a session the name a person calls it by; the board shows it in place of the id. */
     rename: (id: string, name: string) =>

@@ -6,7 +6,7 @@ import {
   reviewable,
   sessionTitle,
 } from '@mesa/core/browser';
-import { Archive, Globe, MessageSquareQuote } from 'lucide-react';
+import { Archive, GitCompareArrows, Globe, MessageSquareQuote } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { AutomationBanner } from '@/features/automations/AutomationBanner';
@@ -15,7 +15,7 @@ import { AgentSwitcher } from './AgentSwitcher';
 import { SelectedSessionDetails } from './SelectedSessionDetails';
 
 /**
- * The selected session's bar: its project and title, details, agent, the Review and Browser
+ * The selected session's bar: its project and title, details, agent, the Review, Browser and Diff
  * toggles, Archive, and then `children` (its Session actions menu).
  */
 export function SelectedSessionBar({
@@ -25,11 +25,13 @@ export function SelectedSessionBar({
   acting,
   reviewOpen,
   browserOpen,
+  diffOpen,
   onProject,
   onSessions,
   onSwap,
   onToggleReview,
   onToggleBrowser,
+  onToggleDiff,
   onDialog,
   children,
 }: {
@@ -39,11 +41,13 @@ export function SelectedSessionBar({
   acting: boolean;
   reviewOpen: boolean;
   browserOpen: boolean;
+  diffOpen: boolean;
   onProject?: (project: string) => void;
   onSessions?: () => void;
   onSwap: (id: string, agent: Agent) => void;
   onToggleReview: () => void;
   onToggleBrowser: () => void;
+  onToggleDiff: () => void;
   onDialog: (dialog: OpenDialog) => void;
   children?: ReactNode;
 }) {
@@ -105,6 +109,18 @@ export function SelectedSessionBar({
           onClick={onToggleBrowser}
         >
           <Globe aria-hidden /> Browser
+        </Button>
+      )}
+      {row?.managed && row.project !== GENERAL_PROJECT && (
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Show session changes"
+          aria-pressed={diffOpen}
+          title="Everything this session changed since its base branch"
+          onClick={onToggleDiff}
+        >
+          <GitCompareArrows aria-hidden /> Diff
         </Button>
       )}
       {row && recoverable(row) && (
