@@ -31,15 +31,30 @@ const PROVIDERS: Record<string, PrProvider> = {
   'bitbucket.org': 'bitbucket',
 };
 
+type Remote = { provider: PrProvider; repo: string };
+
 /** The provider and repo (`owner/name`) a git remote URL names, https or ssh; undefined for any other host. */
-export function prRemote(remoteUrl: string): { provider: PrProvider; repo: string } | undefined {
+export function prRemote(remoteUrl: string, host?: string): Remote | undefined {
   const match = REMOTE.exec(remoteUrl.trim());
-  const provider = match?.[1] ? PROVIDERS[match[1].toLowerCase()] : undefined;
+  const provider = PROVIDERS[(host ?? match?.[1] ?? '').toLowerCase()];
   return provider && match ? { provider, repo: `${match[2]}/${match[3]}` } : undefined;
 }
 
 /** The provider a git remote URL is on; undefined for any other host. */
 export const prProvider = (remoteUrl: string) => prRemote(remoteUrl)?.provider;
+
+/**
+ * prRemote, also through an ssh host alias (`git@github.com-work:acme/web.git`, a second account's
+ * `Host` in ~/.ssh/config): `ssh -G` names the host git's ssh would really reach.
+ */
+export async function resolveRemote(run: Runner, remoteUrl: string): Promise<Remote | undefined> {
+  const direct = prRemote(remoteUrl);
+  const alias = REMOTE.exec(remoteUrl.trim())?.[1];
+  if (direct || !alias || /^https?:/i.test(remoteUrl.trim())) return direct;
+  const config = await run('ssh', ['-G', alias], 5_000);
+  const host = config.ok ? /^hostname (\S+)$/m.exec(config.stdout)?.[1] : undefined;
+  return host ? prRemote(remoteUrl, host) : undefined;
+}
 
 /** Whether the provider's CLI is installed and signed in. */
 export const prCli = (run: Runner, provider: PrProvider): Promise<CliState> =>

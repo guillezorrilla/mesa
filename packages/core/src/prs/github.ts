@@ -96,6 +96,7 @@ export const readGithub: PrReader = async (run, repo) => {
       branch: pr.headRefName,
       updatedAt: pr.updatedAt,
       author: pr.author,
+      authorName: pr.author,
       state: 'open' as const,
       requested: pr.reviewRequests.nodes.some((r) => r.requestedReviewer?.login === me),
       reviews: pr.reviews.nodes.flatMap((r) =>

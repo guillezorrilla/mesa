@@ -7,6 +7,8 @@ export type PrHead = {
   title: string;
   url: string;
   branch: string;
+  /** The author as people read them (a GitHub login, a Bitbucket display name); `author` is the id. */
+  authorName: string;
   updatedAt: string;
 };
 

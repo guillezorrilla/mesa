@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { scriptedRunner } from '../testing/runner.js';
-import { prCli, prProvider, prRemote } from './provider.js';
+import { prCli, prProvider, prRemote, resolveRemote } from './provider.js';
 
 describe('prProvider', () => {
   test.each([
@@ -31,6 +31,29 @@ test('prRemote names the repo', () => {
     provider: 'bitbucket',
     repo: 'acme-eng/pos.bridge',
   });
+});
+
+test('resolveRemote follows an ssh host alias to its real host, and asks ssh only for one', async () => {
+  const { run, calls } = scriptedRunner({
+    ssh: (args) =>
+      args[1] === 'github.com-work'
+        ? 'user git\nhostname github.com\nport 22\n'
+        : 'hostname gitlab.example.com\n',
+  });
+  expect(await resolveRemote(run, 'git@github.com-work:acme/web.git')).toEqual({
+    provider: 'github',
+    repo: 'acme/web',
+  });
+  expect(await resolveRemote(run, 'git@code-mirror:acme/web.git')).toBeUndefined();
+  expect(await resolveRemote(run, 'https://bitbucket.org/acme-eng/web.git')).toEqual({
+    provider: 'bitbucket',
+    repo: 'acme-eng/web',
+  });
+  expect(await resolveRemote(run, 'https://gitlab.com/acme/web.git')).toBeUndefined();
+  expect(calls.map((c) => c.args)).toEqual([
+    ['-G', 'github.com-work'],
+    ['-G', 'code-mirror'],
+  ]);
 });
 
 describe('prCli', () => {

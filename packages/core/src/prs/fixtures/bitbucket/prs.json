@@ -1,0 +1,378 @@
+{
+  "workspace": "acme-eng",
+  "repository": "atlas-api",
+  "items": [
+    {
+      "input": "212",
+      "ok": true,
+      "data": {
+        "comment_count": 0,
+        "task_count": 0,
+        "type": "pullrequest",
+        "id": 212,
+        "title": "Rate limit the export endpoint",
+        "description": "Caps exports at ten a minute per token.",
+        "state": "OPEN",
+        "draft": false,
+        "author": {
+          "display_name": "Amara Osei",
+          "type": "user",
+          "uuid": "{0a1b2c3d-2222-4aaa-8bbb-000000000002}",
+          "account_id": "712020:3c9e4f10-2b6d-4e8a-9f1c-7d5e8a2b4c61",
+          "nickname": "Amara Osei"
+        },
+        "created_on": "2026-10-13T08:10:00.000000+00:00",
+        "updated_on": "2026-10-13T09:00:00.000000+00:00",
+        "destination": { "branch": { "name": "main" } },
+        "source": { "branch": { "name": "feat/export-rate-limit" } },
+        "links": {
+          "html": { "href": "https://bitbucket.org/acme-eng/atlas-api/pull-requests/212" }
+        },
+        "reviewers": [
+          {
+            "display_name": "Kofi Mensah",
+            "type": "user",
+            "uuid": "{0a1b2c3d-1111-4aaa-8bbb-000000000001}",
+            "account_id": "5f1a2b3c4d5e6f7a8b9c0d1e",
+            "nickname": "Kofi Mensah"
+          },
+          {
+            "display_name": "Lena Fischer",
+            "type": "user",
+            "uuid": "{0a1b2c3d-3333-4aaa-8bbb-000000000003}",
+            "account_id": "6a0b1c2d3e4f5a6b7c8d9e0f",
+            "nickname": "Lena Fischer"
+          }
+        ],
+        "participants": [
+          {
+            "type": "participant",
+            "user": {
+              "display_name": "Kofi Mensah",
+              "type": "user",
+              "uuid": "{0a1b2c3d-1111-4aaa-8bbb-000000000001}",
+              "account_id": "5f1a2b3c4d5e6f7a8b9c0d1e",
+              "nickname": "Kofi Mensah"
+            },
+            "role": "REVIEWER",
+            "approved": false,
+            "state": null,
+            "participated_on": null
+          },
+          {
+            "type": "participant",
+            "user": {
+              "display_name": "Lena Fischer",
+              "type": "user",
+              "uuid": "{0a1b2c3d-3333-4aaa-8bbb-000000000003}",
+              "account_id": "6a0b1c2d3e4f5a6b7c8d9e0f",
+              "nickname": "Lena Fischer"
+            },
+            "role": "REVIEWER",
+            "approved": false,
+            "state": null,
+            "participated_on": null
+          }
+        ],
+        "queued": false,
+        "_statuses": [],
+        "_tasks": [],
+        "_commits": [
+          {
+            "type": "commit",
+            "hash": "b2c3d4e5f6a1",
+            "date": "2026-10-13T08:05:00+00:00",
+            "author": { "type": "author", "raw": "Amara Osei <amara@acme-eng.example>" },
+            "message": "Rate limit exports per token\n"
+          }
+        ],
+        "_comments": []
+      }
+    },
+    {
+      "input": "208",
+      "ok": true,
+      "data": {
+        "comment_count": 6,
+        "task_count": 0,
+        "type": "pullrequest",
+        "id": 208,
+        "title": "Paginate the audit log",
+        "description": "Cursor pagination for the audit log endpoint.",
+        "state": "OPEN",
+        "draft": false,
+        "author": {
+          "display_name": "Lena Fischer",
+          "type": "user",
+          "uuid": "{0a1b2c3d-3333-4aaa-8bbb-000000000003}",
+          "account_id": "6a0b1c2d3e4f5a6b7c8d9e0f",
+          "nickname": "Lena Fischer"
+        },
+        "created_on": "2026-10-09T10:00:00.000000+00:00",
+        "updated_on": "2026-10-11T09:30:00.000000+00:00",
+        "destination": { "branch": { "name": "main" } },
+        "source": { "branch": { "name": "feat/audit-pagination" } },
+        "links": {
+          "html": { "href": "https://bitbucket.org/acme-eng/atlas-api/pull-requests/208" }
+        },
+        "reviewers": [
+          {
+            "display_name": "Kofi Mensah",
+            "type": "user",
+            "uuid": "{0a1b2c3d-1111-4aaa-8bbb-000000000001}",
+            "account_id": "5f1a2b3c4d5e6f7a8b9c0d1e",
+            "nickname": "Kofi Mensah"
+          }
+        ],
+        "participants": [
+          {
+            "type": "participant",
+            "user": {
+              "display_name": "Kofi Mensah",
+              "type": "user",
+              "uuid": "{0a1b2c3d-1111-4aaa-8bbb-000000000001}",
+              "account_id": "5f1a2b3c4d5e6f7a8b9c0d1e",
+              "nickname": "Kofi Mensah"
+            },
+            "role": "REVIEWER",
+            "approved": false,
+            "state": "changes_requested",
+            "participated_on": "2026-10-10T14:05:00.000000+00:00"
+          },
+          {
+            "type": "participant",
+            "user": {
+              "display_name": "Amara Osei",
+              "type": "user",
+              "uuid": "{0a1b2c3d-2222-4aaa-8bbb-000000000002}",
+              "account_id": "712020:3c9e4f10-2b6d-4e8a-9f1c-7d5e8a2b4c61",
+              "nickname": "Amara Osei"
+            },
+            "role": "PARTICIPANT",
+            "approved": false,
+            "state": null,
+            "participated_on": "2026-10-10T15:00:00.000000+00:00"
+          }
+        ],
+        "queued": false,
+        "_statuses": [],
+        "_tasks": [],
+        "_commits": [
+          {
+            "type": "commit",
+            "hash": "c3d4e5f6a1b2",
+            "date": "2026-10-11T08:45:00+00:00",
+            "author": { "type": "author", "raw": "Lena Fischer <lena@acme-eng.example>" },
+            "message": "Return the next cursor\n"
+          },
+          {
+            "type": "commit",
+            "hash": "e5f6a1b2c3d4",
+            "date": "2026-10-09T09:50:00+00:00",
+            "author": { "type": "author", "raw": "Lena Fischer <lena@acme-eng.example>" },
+            "message": "Paginate the audit log\n"
+          }
+        ],
+        "_comments": [
+          {
+            "id": 501,
+            "created_on": "2026-10-10T14:00:00.000000+00:00",
+            "updated_on": "2026-10-10T14:00:00.000000+00:00",
+            "content": { "raw": "Should the cursor be opaque?", "html": "" },
+            "user": {
+              "display_name": "Kofi Mensah",
+              "type": "user",
+              "uuid": "{0a1b2c3d-1111-4aaa-8bbb-000000000001}",
+              "account_id": "5f1a2b3c4d5e6f7a8b9c0d1e",
+              "nickname": "Kofi Mensah"
+            },
+            "deleted": false,
+            "inline": {
+              "from": null,
+              "to": 42,
+              "path": "src/audit/list.ts",
+              "start_from": null,
+              "start_to": null
+            },
+            "pending": false,
+            "type": "pullrequest_comment",
+            "resolution": {}
+          },
+          {
+            "id": 502,
+            "created_on": "2026-10-11T09:00:00.000000+00:00",
+            "updated_on": "2026-10-11T09:00:00.000000+00:00",
+            "content": { "raw": "Made it opaque, base64 of the last id.", "html": "" },
+            "user": {
+              "display_name": "Lena Fischer",
+              "type": "user",
+              "uuid": "{0a1b2c3d-3333-4aaa-8bbb-000000000003}",
+              "account_id": "6a0b1c2d3e4f5a6b7c8d9e0f",
+              "nickname": "Lena Fischer"
+            },
+            "deleted": false,
+            "inline": {
+              "from": null,
+              "to": 42,
+              "path": "src/audit/list.ts",
+              "start_from": null,
+              "start_to": null
+            },
+            "pending": false,
+            "type": "pullrequest_comment",
+            "parent": { "id": 501 }
+          },
+          {
+            "id": 503,
+            "created_on": "2026-10-10T14:02:00.000000+00:00",
+            "updated_on": "2026-10-10T14:02:00.000000+00:00",
+            "content": { "raw": "This loads every row before slicing.", "html": "" },
+            "user": {
+              "display_name": "Kofi Mensah",
+              "type": "user",
+              "uuid": "{0a1b2c3d-1111-4aaa-8bbb-000000000001}",
+              "account_id": "5f1a2b3c4d5e6f7a8b9c0d1e",
+              "nickname": "Kofi Mensah"
+            },
+            "deleted": false,
+            "inline": {
+              "from": null,
+              "to": 57,
+              "path": "src/audit/list.ts",
+              "start_from": null,
+              "start_to": null
+            },
+            "pending": false,
+            "type": "pullrequest_comment"
+          },
+          {
+            "id": 504,
+            "created_on": "2026-10-11T09:30:00.000000+00:00",
+            "updated_on": "2026-10-11T09:30:00.000000+00:00",
+            "content": {
+              "raw": "Pushed a fix for the cursor, ready for another look.",
+              "html": ""
+            },
+            "user": {
+              "display_name": "Lena Fischer",
+              "type": "user",
+              "uuid": "{0a1b2c3d-3333-4aaa-8bbb-000000000003}",
+              "account_id": "6a0b1c2d3e4f5a6b7c8d9e0f",
+              "nickname": "Lena Fischer"
+            },
+            "deleted": false,
+            "pending": false,
+            "type": "pullrequest_comment"
+          },
+          {
+            "id": 505,
+            "created_on": "2026-10-12T10:00:00.000000+00:00",
+            "updated_on": "2026-10-12T10:00:00.000000+00:00",
+            "content": { "raw": "Draft note, not sent yet.", "html": "" },
+            "user": {
+              "display_name": "Kofi Mensah",
+              "type": "user",
+              "uuid": "{0a1b2c3d-1111-4aaa-8bbb-000000000001}",
+              "account_id": "5f1a2b3c4d5e6f7a8b9c0d1e",
+              "nickname": "Kofi Mensah"
+            },
+            "deleted": false,
+            "inline": {
+              "from": null,
+              "to": 12,
+              "path": "src/audit/cursor.ts",
+              "start_from": null,
+              "start_to": null
+            },
+            "pending": true,
+            "type": "pullrequest_comment"
+          },
+          {
+            "id": 506,
+            "created_on": "2026-10-10T15:00:00.000000+00:00",
+            "updated_on": "2026-10-10T15:10:00.000000+00:00",
+            "content": { "raw": "", "html": "" },
+            "user": {
+              "display_name": "Amara Osei",
+              "type": "user",
+              "uuid": "{0a1b2c3d-2222-4aaa-8bbb-000000000002}",
+              "account_id": "712020:3c9e4f10-2b6d-4e8a-9f1c-7d5e8a2b4c61",
+              "nickname": "Amara Osei"
+            },
+            "deleted": true,
+            "pending": false,
+            "type": "pullrequest_comment"
+          }
+        ]
+      }
+    },
+    {
+      "input": "205",
+      "ok": true,
+      "data": {
+        "comment_count": 0,
+        "task_count": 0,
+        "type": "pullrequest",
+        "id": 205,
+        "title": "Upgrade the database driver",
+        "description": "Moves to the next major driver release.",
+        "state": "OPEN",
+        "draft": false,
+        "author": {
+          "display_name": "Kofi Mensah",
+          "type": "user",
+          "uuid": "{0a1b2c3d-1111-4aaa-8bbb-000000000001}",
+          "account_id": "5f1a2b3c4d5e6f7a8b9c0d1e",
+          "nickname": "Kofi Mensah"
+        },
+        "created_on": "2026-10-08T12:00:00.000000+00:00",
+        "updated_on": "2026-10-10T16:00:00.000000+00:00",
+        "destination": { "branch": { "name": "main" } },
+        "source": { "branch": { "name": "chore/db-driver" } },
+        "links": {
+          "html": { "href": "https://bitbucket.org/acme-eng/atlas-api/pull-requests/205" }
+        },
+        "reviewers": [
+          {
+            "display_name": "Amara Osei",
+            "type": "user",
+            "uuid": "{0a1b2c3d-2222-4aaa-8bbb-000000000002}",
+            "account_id": "712020:3c9e4f10-2b6d-4e8a-9f1c-7d5e8a2b4c61",
+            "nickname": "Amara Osei"
+          }
+        ],
+        "participants": [
+          {
+            "type": "participant",
+            "user": {
+              "display_name": "Amara Osei",
+              "type": "user",
+              "uuid": "{0a1b2c3d-2222-4aaa-8bbb-000000000002}",
+              "account_id": "712020:3c9e4f10-2b6d-4e8a-9f1c-7d5e8a2b4c61",
+              "nickname": "Amara Osei"
+            },
+            "role": "REVIEWER",
+            "approved": true,
+            "state": "approved",
+            "participated_on": "2026-10-10T16:00:00.000000+00:00"
+          }
+        ],
+        "queued": false,
+        "_statuses": [],
+        "_tasks": [],
+        "_commits": [
+          {
+            "type": "commit",
+            "hash": "d4e5f6a1b2c3",
+            "date": "2026-10-08T11:55:00+00:00",
+            "author": { "type": "author", "raw": "Kofi Mensah <kofi@acme-eng.example>" },
+            "message": "Upgrade the database driver\n"
+          }
+        ],
+        "_comments": []
+      }
+    }
+  ],
+  "summary": { "requested": 3, "succeeded": 3, "failed": 0 },
+  "partial": false
+}

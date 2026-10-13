@@ -1,0 +1,28 @@
+{
+  "apiVersion": "v2",
+  "command": "user.get",
+  "request": { "accountId": null },
+  "data": {
+    "accountId": "5f1a2b3c4d5e6f7a8b9c0d1e",
+    "name": "Kofi Mensah",
+    "picture": "https://avatar.example.com/kofi/128",
+    "accountStatus": "active",
+    "email": "kofi@acme-eng.example",
+    "nickname": "Kofi Mensah",
+    "locale": "en-US",
+    "zoneinfo": null,
+    "extendedProfile": {
+      "jobTitle": "Software Engineer",
+      "department": null,
+      "organization": null,
+      "location": null
+    }
+  },
+  "meta": {
+    "resourceClass": "entity",
+    "sourceMode": "mixed",
+    "resourceType": "user",
+    "backend": "graphstore",
+    "resultCount": 1
+  }
+}

@@ -1,0 +1,143 @@
+[
+  {
+    "comment_count": 0,
+    "task_count": 0,
+    "type": "pullrequest",
+    "id": 212,
+    "title": "Rate limit the export endpoint",
+    "description": "Caps exports at ten a minute per token.",
+    "state": "OPEN",
+    "draft": false,
+    "merge_commit": null,
+    "close_source_branch": true,
+    "closed_by": null,
+    "author": {
+      "display_name": "Amara Osei",
+      "type": "user",
+      "uuid": "{0a1b2c3d-2222-4aaa-8bbb-000000000002}",
+      "account_id": "712020:3c9e4f10-2b6d-4e8a-9f1c-7d5e8a2b4c61",
+      "nickname": "Amara Osei"
+    },
+    "reason": "",
+    "created_on": "2026-10-13T08:10:00.000000+00:00",
+    "updated_on": "2026-10-13T09:00:00.000000+00:00",
+    "destination": {
+      "branch": { "name": "main" },
+      "commit": { "hash": "a1b2c3d4e5f6", "type": "commit" },
+      "repository": {
+        "type": "repository",
+        "full_name": "acme-eng/atlas-api",
+        "name": "atlas-api",
+        "uuid": "{0a1b2c3d-9999-4aaa-8bbb-000000000099}"
+      }
+    },
+    "source": {
+      "branch": { "name": "feat/export-rate-limit" },
+      "commit": { "hash": "b2c3d4e5f6a1", "type": "commit" },
+      "repository": {
+        "type": "repository",
+        "full_name": "acme-eng/atlas-api",
+        "name": "atlas-api",
+        "uuid": "{0a1b2c3d-9999-4aaa-8bbb-000000000099}"
+      }
+    },
+    "links": {
+      "html": { "href": "https://bitbucket.org/acme-eng/atlas-api/pull-requests/212" }
+    },
+    "queued": false
+  },
+  {
+    "comment_count": 6,
+    "task_count": 0,
+    "type": "pullrequest",
+    "id": 208,
+    "title": "Paginate the audit log",
+    "description": "Cursor pagination for the audit log endpoint.",
+    "state": "OPEN",
+    "draft": false,
+    "merge_commit": null,
+    "close_source_branch": true,
+    "closed_by": null,
+    "author": {
+      "display_name": "Lena Fischer",
+      "type": "user",
+      "uuid": "{0a1b2c3d-3333-4aaa-8bbb-000000000003}",
+      "account_id": "6a0b1c2d3e4f5a6b7c8d9e0f",
+      "nickname": "Lena Fischer"
+    },
+    "reason": "",
+    "created_on": "2026-10-09T10:00:00.000000+00:00",
+    "updated_on": "2026-10-11T09:30:00.000000+00:00",
+    "destination": {
+      "branch": { "name": "main" },
+      "commit": { "hash": "a1b2c3d4e5f6", "type": "commit" },
+      "repository": {
+        "type": "repository",
+        "full_name": "acme-eng/atlas-api",
+        "name": "atlas-api",
+        "uuid": "{0a1b2c3d-9999-4aaa-8bbb-000000000099}"
+      }
+    },
+    "source": {
+      "branch": { "name": "feat/audit-pagination" },
+      "commit": { "hash": "c3d4e5f6a1b2", "type": "commit" },
+      "repository": {
+        "type": "repository",
+        "full_name": "acme-eng/atlas-api",
+        "name": "atlas-api",
+        "uuid": "{0a1b2c3d-9999-4aaa-8bbb-000000000099}"
+      }
+    },
+    "links": {
+      "html": { "href": "https://bitbucket.org/acme-eng/atlas-api/pull-requests/208" }
+    },
+    "queued": false
+  },
+  {
+    "comment_count": 0,
+    "task_count": 0,
+    "type": "pullrequest",
+    "id": 205,
+    "title": "Upgrade the database driver",
+    "description": "Moves to the next major driver release.",
+    "state": "OPEN",
+    "draft": false,
+    "merge_commit": null,
+    "close_source_branch": true,
+    "closed_by": null,
+    "author": {
+      "display_name": "Kofi Mensah",
+      "type": "user",
+      "uuid": "{0a1b2c3d-1111-4aaa-8bbb-000000000001}",
+      "account_id": "5f1a2b3c4d5e6f7a8b9c0d1e",
+      "nickname": "Kofi Mensah"
+    },
+    "reason": "",
+    "created_on": "2026-10-08T12:00:00.000000+00:00",
+    "updated_on": "2026-10-10T16:00:00.000000+00:00",
+    "destination": {
+      "branch": { "name": "main" },
+      "commit": { "hash": "a1b2c3d4e5f6", "type": "commit" },
+      "repository": {
+        "type": "repository",
+        "full_name": "acme-eng/atlas-api",
+        "name": "atlas-api",
+        "uuid": "{0a1b2c3d-9999-4aaa-8bbb-000000000099}"
+      }
+    },
+    "source": {
+      "branch": { "name": "chore/db-driver" },
+      "commit": { "hash": "d4e5f6a1b2c3", "type": "commit" },
+      "repository": {
+        "type": "repository",
+        "full_name": "acme-eng/atlas-api",
+        "name": "atlas-api",
+        "uuid": "{0a1b2c3d-9999-4aaa-8bbb-000000000099}"
+      }
+    },
+    "links": {
+      "html": { "href": "https://bitbucket.org/acme-eng/atlas-api/pull-requests/205" }
+    },
+    "queued": false
+  }
+]

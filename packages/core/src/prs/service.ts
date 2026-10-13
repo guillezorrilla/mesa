@@ -3,9 +3,10 @@ import { gitCommand } from '../git/command.js';
 import type { CliState } from '../lib/cli-state.js';
 import { MesaError } from '../lib/result.js';
 import { listProjects } from '../projects/projects.js';
+import { readBitbucket } from './bitbucket.js';
 import { type Bucket, bucketOf, type Since } from './buckets.js';
 import { readGithub } from './github.js';
-import { PR_CLIS, type PrProvider, prCli, prRemote } from './provider.js';
+import { PR_CLIS, type PrProvider, prCli, resolveRemote } from './provider.js';
 import type { PrHead, PrReader } from './reader.js';
 
 /** A project's PR provider and its CLI's state; `next` is the command that unblocks it, if any. */
@@ -19,7 +20,7 @@ export type PrSetupRow = {
 };
 
 /** One PR in the Reviews list (CONTEXT.md, Review bucket). */
-export type PrRow = PrHead & {
+export type PrRow = Omit<PrHead, 'authorName'> & {
   project: string;
   provider: PrProvider;
   author: string;
@@ -61,7 +62,7 @@ export function prsService(ctx: MesaContext, readers: Record<PrProvider, PrReade
         .filter((p) => !only || p.name === only)
         .map(async ({ name, path }) => {
           const remote = await gitCommand(ctx.run, path, ['remote', 'get-url', 'origin']);
-          const found = remote.ok ? prRemote(remote.stdout) : undefined;
+          const found = remote.ok ? await resolveRemote(ctx.run, remote.stdout) : undefined;
           if (!found) return { name, setup: setupRow(name) };
           const cli = await probe(found.provider);
           return { name, ...found, cli, setup: setupRow(name, found.provider, cli) };
@@ -95,7 +96,7 @@ export function prsService(ctx: MesaContext, readers: Record<PrProvider, PrReade
             if (pr.author === read.me) continue;
             const { bucket, since } = bucketOf(pr, read.me);
             if (bucket === 'done' || (bucket === 'other' && !opts.all)) continue;
-            const { number, title, url, branch, updatedAt, author } = pr;
+            const { number, title, url, branch, updatedAt, authorName: author } = pr;
             list.prs.push({
               ...{ project: p.name, provider: p.provider, number, title, url, branch },
               ...{ updatedAt, author, bucket, since },
@@ -126,6 +127,5 @@ function setupRow(project: string, provider?: PrProvider, cli?: CliState): PrSet
 /** The readers the composition root wires: one per provider. */
 export const PR_READERS: Record<PrProvider, PrReader> = {
   github: readGithub,
-  // Filled by the Bitbucket reader (#786); until then a Bitbucket project reports it.
-  bitbucket: async () => ({ ok: false, reason: 'failed', detail: 'Bitbucket is not read yet' }),
+  bitbucket: readBitbucket,
 };
