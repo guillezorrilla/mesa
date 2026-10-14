@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { HelpMenu } from '@/features/help/HelpMenu';
 import { NotificationsMenu } from '@/features/notifications/NotificationsMenu';
 import { ProfileMenu } from '@/features/profile/ProfileMenu';
+import { COMMAND_ICONS } from '@/features/search/hitIcon';
 import { NewSessionMenu } from '@/features/sessions/start/NewSessionMenu';
 import type { SessionPreset } from '@/features/sessions/start/useStartSession';
 import type { SettingsCategory } from '@/features/settings/categories';
@@ -65,7 +66,12 @@ export function TitleBar(props: {
         />
       </div>
       <nav aria-label="Workspace shortcuts" className="ml-auto flex shrink-0 items-center gap-2">
-        {([['Cost', DollarSign, 'usage', 'cost']] as const).map(([label, Icon, kind, id]) => (
+        {(
+          [
+            ['Impact', COMMAND_ICONS.impact, 'impact', 'impact'],
+            ['Cost', DollarSign, 'usage', 'cost'],
+          ] as const
+        ).map(([label, Icon, kind, id]) => (
           <Button
             key={id}
             variant="ghost"

@@ -1,6 +1,5 @@
 import type { ProjectRow, ProjectSort, TreeRow } from '@mesa/core';
 import {
-  Activity,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -217,7 +216,6 @@ export function WorkspaceSidebar(props: {
         {nav('Vault', Library, { kind: 'vault' })}
         {nav('Map', MapIcon, { kind: 'map' })}
         {nav('Daily', Clock3, { kind: 'daily' })}
-        {nav('Impact', Activity, { kind: 'impact' })}
         {nav('Automations', COMMAND_ICONS.automations, { kind: 'automations' }, pendingRuns)}
         {nav('Doctor', COMMAND_ICONS.doctor, { kind: 'doctor' })}
         {nav('Shortcuts', COMMAND_ICONS.shortcuts, { kind: 'shortcuts' })}

@@ -314,17 +314,20 @@ test('sidebar opens Map without creating a missing saved map', async () => {
   expect(calls.some((args) => args[1] === 'map')).toBe(false);
 });
 
-test('sidebar opens Impact between Daily and Automations', async () => {
+test('the title bar opens Impact from its first shortcut, before Cost; the sidebar has none', async () => {
   const { bridge, calls } = fakeBridge({
     impact: () => envelope(impactReport()),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  const row = byTestId('nav-daily')[0]?.parentElement;
-  const labels = [...(row?.children ?? [])].map((el) => el.getAttribute('data-testid'));
-  expect(labels.indexOf('nav-impact')).toBe(labels.indexOf('nav-daily') + 1);
-  expect(labels.indexOf('nav-automations')).toBe(labels.indexOf('nav-impact') + 1);
-  await click(byTestId('nav-impact')[0]);
+  const [impact] = byTestId('nav-impact');
+  expect(byTestId('nav-impact')).toHaveLength(1);
+  expect(impact?.closest('header')).not.toBeNull();
+  expect(impact?.closest('aside')).toBeNull();
+  expect(impact?.getAttribute('aria-label')).toBe('Impact');
+  expect(impact?.nextElementSibling?.getAttribute('data-testid')).toBe('nav-cost');
+  await click(impact);
   expect(byTestId('impact-summary')[0]?.textContent).toBe('Nothing yet.');
+  expect(byTestId('nav-impact')[0]?.getAttribute('aria-current')).toBe('page');
   expect(calls).toContainEqual(['--json', 'impact', '--days', '7']);
 });
 
