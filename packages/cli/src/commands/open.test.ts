@@ -90,6 +90,15 @@ test('open --terminal starts a plain shell session with no coding agent conversa
   });
 });
 
+test('open --terminal --run runs the command first, then keeps the shell; --run alone is refused', async () => {
+  const world = cli.withTmux();
+  await cli.withProject({ layOut: false });
+  const opened = await mesa('open', 'lantern-cove', '--terminal', '--run', 'gh auth login --web');
+  expect(opened.code, opened.stdout).toBe(0);
+  expect(world.windows.at(-1)?.launch).toBe("gh auth login --web; exec '/bin/zsh' -l");
+  expect(await mesa('open', 'lantern-cove', '--run', 'twg login')).toMatchObject({ code: 2 });
+});
+
 test('open --mode plan reports native Plan in JSON and passes the provider startup flag', async () => {
   const world = cli.withTmux();
   await cli.withProject({ layOut: false });

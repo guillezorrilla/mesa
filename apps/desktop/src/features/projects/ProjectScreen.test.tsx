@@ -41,6 +41,7 @@ const renderScreen = (bridge: ReturnType<typeof fakeBridge>['bridge']) =>
       onFilesDirtyChange={() => undefined}
       onNewSession={() => undefined}
       onAgentSettings={() => undefined}
+      onPrSetup={() => undefined}
     />,
     bridge,
   );
@@ -213,6 +214,7 @@ test('the Overview lists a session where the project is additional, marked from 
       onFilesDirtyChange={() => undefined}
       onNewSession={() => undefined}
       onAgentSettings={() => undefined}
+      onPrSetup={() => undefined}
     />,
     bridge,
   );

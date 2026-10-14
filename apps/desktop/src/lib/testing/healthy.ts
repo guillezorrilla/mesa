@@ -4,6 +4,7 @@ import type {
   DoctorReport,
   HooksStatus,
   PrEventList,
+  PrList,
   ProfileInfo,
   ProfileRow,
   ProjectContext,
@@ -171,6 +172,8 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
       events: [],
       problems: [],
     } satisfies PrEventList),
+  prs: () => envelope({ prs: [], blocked: [], problems: [], quiet: [] } satisfies PrList),
+  'prs setup': () => envelope([]),
   'hooks status': () =>
     envelope({
       path: '/h/.claude/settings.json',

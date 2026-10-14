@@ -17,6 +17,8 @@ test('doctor reports { healthy, checks } and exits 3 when unhealthy', async () =
     'claude',
     'codex',
     'agy',
+    'gh',
+    'twg',
     'obsidian',
     'profile dir',
     'claude hooks',
@@ -34,6 +36,17 @@ test('doctor reports { healthy, checks } and exits 3 when unhealthy', async () =
     ].map((event) => `codex hooks ${event}`),
     'antigravity hooks',
     'antigravity vault',
+  ]);
+
+  // gh and twg only serve PR reviews: missing, they warn with their install and Mesa stays healthy.
+  cli.run = scriptedRunner({}, { missing: ['gh', 'twg'] }).run;
+  const noClis = await mesa('doctor', '--json');
+  expect(noClis.code).toBe(0);
+  expect(
+    noClis.json.data.checks.filter((c: { name: string }) => ['gh', 'twg'].includes(c.name)),
+  ).toMatchObject([
+    { name: 'gh', status: 'warn', install: 'brew install gh' },
+    { name: 'twg', status: 'warn', install: 'brew install atlassian/twg/twg' },
   ]);
 
   cli.run = scriptedRunner({}, { missing: ['tmux', 'claude', 'codex', 'agy'] }).run;

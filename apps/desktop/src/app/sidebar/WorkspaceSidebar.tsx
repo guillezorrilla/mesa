@@ -4,6 +4,7 @@ import {
   ChevronRight,
   Clock3,
   Folder,
+  GitPullRequest,
   Library,
   type LucideIcon,
   Map as MapIcon,
@@ -14,6 +15,8 @@ import { Button } from '@/components/ui/button';
 import { usePendingRuns } from '@/features/automations/usePendingRuns';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { ProjectsSection } from '@/features/projects/ProjectsSection';
+import { ReviewsSection } from '@/features/prs/ReviewsSection';
+import { useSharedPrs } from '@/features/prs/usePrs';
 import { COMMAND_ICONS } from '@/features/search/hitIcon';
 import { useSessionSelection } from '@/features/sessions/selection/useSessionSelection';
 import { SessionsSection } from '@/features/sessions/sidebar/SessionsSection';
@@ -24,7 +27,7 @@ import { useKeptWidth } from '@/lib/useKeptWidth';
 import { cn } from '@/lib/utils';
 import type { WorkspaceView } from '@/lib/workspaceView';
 import { SidebarNavButton } from './SidebarNavButton';
-import { SidebarTabs } from './SidebarTabs';
+import { type SidebarTab, SidebarTabs } from './SidebarTabs';
 
 /** The expanded sidebar's width bounds, default, and arrow-key step, in pixels. */
 const SIDEBAR_WIDTH = { min: 200, max: 480, initial: 264, step: 16 };
@@ -62,11 +65,14 @@ export function WorkspaceSidebar(props: {
   const { view, onView, collapsed } = props;
   const [closedProjects, setClosedProjects] = useState<string[]>([]);
   const [compactSessions, setCompactSessions] = useState<string[]>([]);
-  const [projectTab, setProjectTab] = useState(false);
+  const [tab, setTab] = useState<SidebarTab>('sessions');
+  // The app's one read of every project's PRs, so the tab can count them before it opens.
+  const prs = useSharedPrs();
   const [width, setWidth] = useKeptWidth('mesa.sidebar.width', SIDEBAR_WIDTH);
   useEffect(() => {
-    if (view.kind === 'project') setProjectTab(true);
-    if (view.kind === 'session' || view.kind === 'sessions') setProjectTab(false);
+    if (view.kind === 'project') setTab('projects');
+    if (view.kind === 'session' || view.kind === 'sessions') setTab('sessions');
+    if (view.kind === 'prs-setup') setTab('reviews');
   }, [view.kind]);
   const groups = sidebarGroups(props.projects, props.sessions);
   const { visible, active, stranded } = groups;
@@ -75,7 +81,7 @@ export function WorkspaceSidebar(props: {
   const selection = useSessionSelection(order, view.kind === 'session' ? view.id : undefined);
   /** The Sessions tab, back on the session last shown while it is still listed, else the first. */
   const openSessions = () => {
-    setProjectTab(false);
+    setTab('sessions');
     if (view.kind === 'session') return;
     const listed = [...active, ...stranded];
     const back = listed.find((session) => session.id === props.lastSession) ?? listed[0];
@@ -83,7 +89,7 @@ export function WorkspaceSidebar(props: {
   };
   /** The Projects tab, back on the project last shown while it is still listed. */
   const openProjects = () => {
-    setProjectTab(true);
+    setTab('projects');
     const last = visible.find((project) => project.name === props.lastProject);
     if (last && view.kind !== 'project') onView({ kind: 'project', name: last.name });
   };
@@ -103,7 +109,7 @@ export function WorkspaceSidebar(props: {
       data-testid="workspace-sidebar"
       data-collapsed={collapsed}
       // The Sessions tab's empty space gives the keyboard back to the open session.
-      data-returns-focus={!projectTab || undefined}
+      data-returns-focus={tab === 'sessions' || undefined}
       className={cn('relative flex shrink-0 flex-col border-r bg-card/50', collapsed && 'w-14')}
       style={collapsed ? undefined : { width }}
     >
@@ -119,11 +125,13 @@ export function WorkspaceSidebar(props: {
       <div className="flex h-12 items-center border-b px-2">
         {!collapsed && (
           <SidebarTabs
-            projectTab={projectTab}
+            tab={tab}
             sessionCount={active.length + stranded.length}
             waiting={props.waiting}
+            reviewCount={prs?.toAct ?? 0}
             onSessions={openSessions}
             onProjects={openProjects}
+            onReviews={() => setTab('reviews')}
           />
         )}
         <Button
@@ -151,8 +159,27 @@ export function WorkspaceSidebar(props: {
             >
               <Folder aria-hidden className="size-4" />
             </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Reviews"
+              title="Reviews"
+              onClick={() => {
+                setTab('reviews');
+                props.onCollapse();
+              }}
+            >
+              <GitPullRequest aria-hidden className="size-4" />
+            </Button>
           </div>
-        ) : projectTab ? (
+        ) : tab === 'reviews' ? (
+          prs && (
+            <ReviewsSection
+              prs={prs}
+              onSetup={(row) => onView({ kind: 'prs-setup', project: row.project })}
+            />
+          )
+        ) : tab === 'projects' ? (
           <ProjectsSection
             projects={visible}
             touching={groups.touching}

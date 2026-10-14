@@ -51,6 +51,7 @@ export type { StashAction, StashCreated, StashEntry } from './git/stash.js';
 export type { GitChange, GitStatus } from './git/status.js';
 export type { GitSync, GitTracking } from './git/sync.js';
 export type { InstructionRow } from './instructions/inventory.js';
+export type { CliState } from './lib/cli-state.js';
 export { type Clock, systemClock } from './lib/clock.js';
 export { counted, duration, listPrice, odds, percent, usd } from './lib/format.js';
 export type { Http } from './lib/http.js';
@@ -92,6 +93,9 @@ export {
   trustCommand,
 } from './projects/trust.js';
 export type { SavedPrompt } from './prompts/prompts.js';
+export { BUCKET_LABELS, type Bucket, type Since } from './prs/buckets.js';
+export type { PrProvider } from './prs/provider.js';
+export type { PrList, PrRow, PrSetupRow } from './prs/service.js';
 export { RECORD_KINDS } from './receipts/policy.js';
 export type { Recorded } from './receipts/recorder.js';
 export { DEFAULT_RECEIPT_LIMIT, type ReceiptEntry } from './receipts/store.js';

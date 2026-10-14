@@ -11,6 +11,7 @@ import { nearestProject } from '@/features/projects/nearestProject';
 import { ProjectAddDialog } from '@/features/projects/ProjectAddDialog';
 import { useDiscoveryOffer } from '@/features/projects/useDiscoveryOffer';
 import { useSortedProjects } from '@/features/projects/useSortedProjects';
+import { PrsContext, usePrs } from '@/features/prs/usePrs';
 import { CommandPalette } from '@/features/search/CommandPalette';
 import { useSearchPalette } from '@/features/search/useSearchPalette';
 import { sidebarGroups } from '@/features/sessions/sidebar/sidebarGroups';
@@ -57,6 +58,7 @@ export function App() {
   const config = useCommand('config.get');
   const prompts = useCommand('prompts.list');
   const projects = useCommand('projects.list');
+  const prs = usePrs();
   const project =
     view.kind === 'project' ? projects.data?.find((p) => p.name === view.name) : undefined;
   const sorted = useSortedProjects(
@@ -169,74 +171,76 @@ export function App() {
             {linkGuidance}
           </p>
         )}
-        <div className="flex min-h-0 flex-1">
-          <WorkspaceSidebar
-            view={view}
-            onView={navigate}
-            projects={sidebarProjects}
-            sort={sorted.sort}
-            onSort={sorted.setSort}
-            sessions={sessions}
-            waiting={waiting}
-            collapsed={sidebarCollapsed}
-            onCollapse={() => setSidebarCollapsed((value) => !value)}
-            onAddProject={setProjectAdd}
-            onProjectsChanged={() => void projects.refresh()}
-            onProjectUnregistered={projectUnregistered}
-            starting={starting}
-            lastSession={workspace.lastSession}
-            lastProject={workspace.lastProject}
-            onNewSession={(project, location, parent) =>
-              requestNewSession({
-                ...(project === GENERAL_PROJECT ? { general: true } : { project }),
-                location,
-                parent,
-              })
-            }
-            onArchiveSession={(id) => {
-              navigate({ kind: 'session', id });
-              setArchiveSessionRequest((request) => ({
-                count: (request?.count ?? 0) + 1,
-                ids: [id],
-              }));
-            }}
-            onArchiveSessions={(ids) =>
-              setArchiveSessionRequest((request) => ({ count: (request?.count ?? 0) + 1, ids }))
-            }
-            onDependencySession={(id) => {
-              navigate({ kind: 'session', id });
-              setDependencySessionRequest((request) => ({
-                count: (request?.count ?? 0) + 1,
-                ids: [id],
-              }));
-            }}
-          />
-          <OpenSettingsContext.Provider value={workspace.openSettings}>
-            <WorkspaceMain
+        <PrsContext.Provider value={prs}>
+          <div className="flex min-h-0 flex-1">
+            <WorkspaceSidebar
               view={view}
-              project={project}
-              navigate={navigate}
-              config={config}
-              projects={projects}
-              needsProfileSetup={needsProfileSetup}
-              onProfileInitialised={profileInitialised}
-              prompts={prompts}
-              doctor={doctor}
+              onView={navigate}
+              projects={sidebarProjects}
+              sort={sorted.sort}
+              onSort={sorted.setSort}
               sessions={sessions}
-              onRowsChange={setSessions}
-              onSessionsLoaded={onSessionsLoaded}
-              filesDirty={workspace.filesDirty}
-              onFilesDirtyChange={workspace.setFilesDirty}
-              onNewSession={requestNewSession}
+              waiting={waiting}
+              collapsed={sidebarCollapsed}
+              onCollapse={() => setSidebarCollapsed((value) => !value)}
               onAddProject={setProjectAdd}
+              onProjectsChanged={() => void projects.refresh()}
               onProjectUnregistered={projectUnregistered}
-              onVaultSettings={() => workspace.openSettings('general')}
-              archiveSessionRequest={archiveSessionRequest}
-              dependencySessionRequest={dependencySessionRequest}
-              promptInsertRequest={promptInsertRequest}
+              starting={starting}
+              lastSession={workspace.lastSession}
+              lastProject={workspace.lastProject}
+              onNewSession={(project, location, parent) =>
+                requestNewSession({
+                  ...(project === GENERAL_PROJECT ? { general: true } : { project }),
+                  location,
+                  parent,
+                })
+              }
+              onArchiveSession={(id) => {
+                navigate({ kind: 'session', id });
+                setArchiveSessionRequest((request) => ({
+                  count: (request?.count ?? 0) + 1,
+                  ids: [id],
+                }));
+              }}
+              onArchiveSessions={(ids) =>
+                setArchiveSessionRequest((request) => ({ count: (request?.count ?? 0) + 1, ids }))
+              }
+              onDependencySession={(id) => {
+                navigate({ kind: 'session', id });
+                setDependencySessionRequest((request) => ({
+                  count: (request?.count ?? 0) + 1,
+                  ids: [id],
+                }));
+              }}
             />
-          </OpenSettingsContext.Provider>
-        </div>
+            <OpenSettingsContext.Provider value={workspace.openSettings}>
+              <WorkspaceMain
+                view={view}
+                project={project}
+                navigate={navigate}
+                config={config}
+                projects={projects}
+                needsProfileSetup={needsProfileSetup}
+                onProfileInitialised={profileInitialised}
+                prompts={prompts}
+                doctor={doctor}
+                sessions={sessions}
+                onRowsChange={setSessions}
+                onSessionsLoaded={onSessionsLoaded}
+                filesDirty={workspace.filesDirty}
+                onFilesDirtyChange={workspace.setFilesDirty}
+                onNewSession={requestNewSession}
+                onAddProject={setProjectAdd}
+                onProjectUnregistered={projectUnregistered}
+                onVaultSettings={() => workspace.openSettings('general')}
+                archiveSessionRequest={archiveSessionRequest}
+                dependencySessionRequest={dependencySessionRequest}
+                promptInsertRequest={promptInsertRequest}
+              />
+            </OpenSettingsContext.Provider>
+          </div>
+        </PrsContext.Provider>
         <CommandPalette
           mode={search.mode}
           onMode={search.openSearch}

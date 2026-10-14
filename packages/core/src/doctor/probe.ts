@@ -14,7 +14,8 @@ export const TMUX_INSTALL = 'brew install tmux';
 export type Binary = {
   name: string;
   args: readonly string[];
-  role: 'required' | 'agent';
+  /** `optional` rows warn when missing and never block Mesa (gh, twg for PR reviews). */
+  role: 'required' | 'agent' | 'optional';
   install: string;
 };
 

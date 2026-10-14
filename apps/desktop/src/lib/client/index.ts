@@ -9,6 +9,7 @@ import { importsCommands } from './imports';
 import { instructionsCommands } from './instructions';
 import { notificationsCommands } from './notifications';
 import { projectsCommands } from './projects';
+import { prsCommands } from './prs';
 import { reviewCommands } from './review';
 import { sessionsCommands } from './sessions';
 import { settingsCommands } from './settings';
@@ -43,6 +44,7 @@ const COMMANDS = {
   ...sourcesCommands,
   ...importsCommands,
   ...ticketsCommands,
+  ...prsCommands,
   ...vaultCommands,
   ...settingsCommands,
   ...notificationsCommands,

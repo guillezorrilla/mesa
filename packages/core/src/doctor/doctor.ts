@@ -10,6 +10,7 @@ import { SYSTEM_ONE_MODELS } from '../decisions/systemone.js';
 import type { DecisionsModel } from '../decisions/types.js';
 import type { Runner } from '../lib/process.js';
 import { toFail } from '../lib/result.js';
+import { PR_CLIS } from '../prs/provider.js';
 import type { ObsidianPaths } from '../vault/obsidian.js';
 import type { VaultStatus } from '../vault/vault.js';
 import {
@@ -45,6 +46,10 @@ type Finding = Omit<Check, 'status'>;
 const BINARIES: Binary[] = [
   { name: 'tmux', args: ['-V'], role: 'required', install: TMUX_INSTALL },
   ...AGENT_NAMES.map((name) => agentBinary(name)),
+  // PR reviews read and draft through these (#785); a project without one only loses its PRs.
+  ...Object.values(PR_CLIS).map(
+    (c): Binary => ({ name: c.cli, args: ['--version'], role: 'optional', install: c.install }),
+  ),
 ];
 
 /** The rows Mesa can install itself (`mesa doctor install`), each with its Homebrew command. */
@@ -275,7 +280,8 @@ export async function runDoctor(deps: {
   ]);
   const anAgent = binaries.some((b) => b.role === 'agent' && b.check.ok);
   const healthy = anAgent && binaries.every((b) => b.role !== 'required' || b.check.ok);
-  const blocking = (b: (typeof binaries)[number]) => b.role === 'required' || !anAgent;
+  const blocking = (b: (typeof binaries)[number]) =>
+    b.role === 'required' || (b.role === 'agent' && !anAgent);
   const checks: Check[] = [
     ...binaries.map((b) => ({
       ...b.check,

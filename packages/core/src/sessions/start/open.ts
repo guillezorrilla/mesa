@@ -74,7 +74,8 @@ export async function openSession(
         : input.general
           ? deps.home
           : undefined;
-    const command = `exec ${shellWord(deps.shell)} -l`;
+    const shell = `exec ${shellWord(deps.shell)} -l`;
+    const command = input.run?.trim() ? `${input.run.trim()}; ${shell}` : shell;
     requireCommandFits(command);
     return launchSession(
       deps,

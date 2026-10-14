@@ -23,6 +23,8 @@ export type OpenInput = {
   base?: string;
   /** A shell in the project checkout, with no coding agent or provider conversation. */
   terminal?: boolean;
+  /** With `terminal`: a command line the shell runs first, then the shell stays (`gh auth login --web`). */
+  run?: string;
   /** An existing linked worktree it runs in (checkoutWorktree), in place of `branch`. */
   worktree?: Worktree;
   /** The imported item it starts from (mesa open --from), kept on the record. */
@@ -82,6 +84,7 @@ export function validateOpenInput(input: OpenFlags): void {
   ) {
     refuse('--terminal cannot use --agent, --goal, --after, --mode, or --background');
   }
+  if (input.run !== undefined && !input.terminal) refuse('--run needs --terminal');
   if (input.noParent && input.parent !== undefined) {
     refuse('pass --parent or --no-parent, not both');
   }

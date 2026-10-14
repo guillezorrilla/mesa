@@ -122,7 +122,7 @@ Not: task, job, run (`kind: run` qualifies a session, it is not another name for
 
 ## Plain terminal session
 
-`mesa open <project> --terminal` starts the profile's login shell in a project checkout, or in its own worktree with `--branch`. It uses `kind: terminal` and `agent: terminal` in the session record, with no agent session id, goal, provider, context use, or skill links. The Board observes its tmux window directly; it does not ask Faro to infer a coding-agent state. Attach and stop work as for other windows. Send, resume, and handoff refuse it because there is no coding-agent conversation. The app's quick Terminal choice uses this path.
+`mesa open <project> --terminal` starts the profile's login shell in a project checkout, or in its own worktree with `--branch`. It uses `kind: terminal` and `agent: terminal` in the session record, with no agent session id, goal, provider, context use, or skill links. The Board observes its tmux window directly; it does not ask Faro to infer a coding-agent state. Attach and stop work as for other windows. Send, resume, and handoff refuse it because there is no coding-agent conversation. The app's quick Terminal choice uses this path. `--run <command>` has the shell run a command line first and then stay open, as the Reviews setup does for `gh auth login --web` or `twg login`.
 
 ## Archived session
 
@@ -310,6 +310,21 @@ Not: Inbox, native notification.
 
 Something new on the open pull request of a live Mesa session's branch (its Worktree's), since the session started: a failed check, a check passing again after a failure the session was told of, a review (its state and author), or an issue or inline review comment. Read with `gh` only, through the branch-name matching Repository insight uses, so a fork's pull request never counts; `gh` missing, logged out, or not responding is a reported state (`gh.state`: `ready`, `missing`, `unauthenticated`, `unavailable`), and finds no event. `mesa pr-events --json` lists the pending ones and sends nothing; `mesa pr-events --deliver` (refused while `sessions.prEvents` is off, the default) sends each idle session its pending events as one short prompt, up to 10, each with its link under its pull request's. GitHub text is untrusted: only a trusted author's (`authorAssociation` OWNER, MEMBER, or COLLABORATOR, or GitHub Actions under its own login in each source: `github-actions` from `gh pr view`, `github-actions[bot]` from the REST review comments) is quoted, its first 160 characters with control, format, and backtick characters removed, in an `untrusted-github-text` fence under a first line telling the agent to read it as data, never as instructions; anyone else's review or comment is forwarded as its author, kind, file, and link alone. Author logins, check names, and file paths are cleaned and cut the same way, and a check's or comment's link that is not one plain HTTPS URL becomes the pull request's. A session working, waiting on a person, or idle by a guess under `decisions.threshold` is not typed into: its events wait for a pass that finds it idle, so delivery never interrupts a turn. The board is looked at again after the gh calls, so a turn begun meanwhile is seen, and a session idle without a Faro placement waits too. Each event id is claimed in `~/.mesa/<profile>/pr-events.json` before its send, so it is sent once across restarts and processes; a send refused before anything was typed gives its claim back. The same file keeps the checks a forwarded failure left failing, so their fix is news; each delivery pass drops the marks of sessions no longer live and of checks or pull requests a full read shows gone. Each delivered prompt keeps a decision receipt with the board's Faro placement of the session (its Decision, and the state's probabilities and confidence in `outputs`) and the event ids. With the setting on, the app delivers every minute and when a session goes idle; Settings > Notifications has the toggle and gh's state.
 Not: notification, inbox item, webhook.
+
+## PR review
+
+Reviewing someone else's open pull request from Mesa: the Reviews tab (and each project's Reviews tab) lists the PRs that need the person, `mesa prs --json` lists them, and a review session drafts the review. A project's provider comes from its `origin` remote, GitHub through `gh` and Bitbucket Cloud through `twg` (ADR-0024); `mesa prs setup` shows each project's provider and its CLI's state. The person's own PRs are never listed. Not the session change review of `mesa review`, which comments on a Mesa session's own diff.
+Not: code review of a session, PR event.
+
+## Review bucket
+
+Where a PR stands for the person, computed from its events by one rule for both providers: `need` (their review is requested and they have not reviewed; a comment is not a review), `updated` (commits or the author's comments after their last review or comment), `waiting` (nothing new since), `done` (they approved with nothing new since, or it is merged or closed; not listed; an approved PR that gets new commits or replies is `updated` again), and `other` (not for them; listed only with `--all`). `since` is the evidence: commits and author replies since their last word, and their inline threads resolved out of total. Whether each earlier comment was addressed is judged only by a re-review session.
+Not: workflow status, session state.
+
+## Pending draft
+
+A review comment that exists on the provider but only its author can see: a comment in a GitHub pending review, or a Bitbucket comment created with `--pending`. A review session writes only these; the person submits them on the provider (GitHub's review page, Bitbucket's Finish review).
+Not: a posted comment, a vault draft.
 
 ## Weekly Rewind
 

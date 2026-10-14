@@ -214,6 +214,8 @@ export const sessionsCommands = {
       /** An existing linked worktree to run in. */
       checkout?: string;
       terminal?: boolean;
+      /** With `terminal`: a command line the shell runs first. */
+      run?: string;
       parent?: string;
       /** The imported item it starts from; `goal` is then its whole goal, as edited. */
       from?: string;
@@ -233,6 +235,7 @@ export const sessionsCommands = {
       worktree,
       checkout,
       terminal,
+      run,
       parent,
       from,
       with: extra,
@@ -249,6 +252,7 @@ export const sessionsCommands = {
       ...(worktree ? ['--worktree'] : []),
       ...(checkout ? [`--checkout=${checkout}`] : []),
       ...(terminal ? ['--terminal'] : []),
+      ...(run ? [`--run=${run}`] : []),
       ...(general ? ['--general'] : []),
       '--',
       ...(project ? [project] : []),

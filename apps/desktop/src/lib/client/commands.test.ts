@@ -9,6 +9,7 @@ import { importsCommands } from './imports';
 import { instructionsCommands } from './instructions';
 import { notificationsCommands } from './notifications';
 import { projectsCommands } from './projects';
+import { prsCommands } from './prs';
 import { reviewCommands } from './review';
 import { sessionsCommands } from './sessions';
 import { settingsCommands } from './settings';
@@ -30,6 +31,7 @@ test('no command name is defined by two domain tables', () => {
     importsCommands,
     notificationsCommands,
     projectsCommands,
+    prsCommands,
     reviewCommands,
     instructionsCommands,
     sessionsCommands,
