@@ -195,7 +195,7 @@ describe('startReview', () => {
     const run = fakeGit(listing({ path: WORKTREE, branch: 'review/12' }), { rebased: true });
     const { deps, opened } = harness([reviewSession('r0und1aa', {}, ended)], run);
     await startReview(deps, input());
-    expect(opened[0]?.opts.goal).toBe('Review round 2');
+    expect(opened[0]?.opts).toMatchObject({ goal: 'Review round 2' });
   });
 
   test('Post now is refused for an agent other than Claude, before any git runs', async () => {
