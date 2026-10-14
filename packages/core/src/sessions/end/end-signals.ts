@@ -8,6 +8,7 @@ import { joinWarnings } from '../../receipts/recorder.js';
 import type { SessionRow } from '../board/rows.js';
 import { decisionStatus, decisionsReach } from '../native/decision-status.js';
 import { mesaPointer } from '../native/instructions.js';
+import { sessionFolder } from '../record/folder.js';
 import { isOver } from '../record/lifecycle.js';
 import { recordAgent, type SessionRecord } from '../record/record.js';
 import { markEnded, markExited, startedOutputs } from '../record/session-receipt.js';
@@ -110,8 +111,7 @@ export function endSignals(
   };
   /** Where a session's agent runs, from its record and the registry. */
   const cwdOf = (started: SessionRecord) =>
-    started.cwd ??
-    started.worktree?.path ??
+    sessionFolder(started) ??
     readRegistry(paths.registry).find((entry) => entry.name === started.project)?.path;
   /** How the session's agent reaches the Decision model now, for its pointer to name. */
   const reach = (started: SessionRecord) => {

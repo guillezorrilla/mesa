@@ -14,6 +14,7 @@ import { searchConversations } from '../native/search.js';
 import { vaultStatus } from '../native/vault-status.js';
 import { applyEach } from '../record/each.js';
 import { renameSession, setWorkflowStatus } from '../record/edits.js';
+import { sessionFolder } from '../record/folder.js';
 import { projectScope } from '../record/general.js';
 import { recordAgent } from '../record/record.js';
 import { readHookEvents } from '../signals/hook-events.js';
@@ -121,21 +122,26 @@ export function inspectActions(
       };
     },
     /**
-     * Everything the session's checkout holds that `base` lacks (readBranchDiff). Without `base`,
-     * its worktree's recorded base (recordedBase), else the project's default.
+     * Everything the session's checkout holds that `base` lacks (readBranchDiff), read where its
+     * agent works now (refreshReadings). Without `base`, its worktree's recorded base when it works
+     * there (recordedBase), else the project's default.
      */
     diff: async (id: string, base?: string) => {
-      const found = store.get(id);
+      const found = refreshReadings(contextDeps, store.get(id));
       const project = projectScope(found.project);
       if (!project)
         throw new MesaError('usage', 'a General session has no project checkout to diff');
       const { worktree } = found;
+      const folder = sessionFolder(found);
       return readBranchDiff(
         ctx.open(),
         ctx.run,
         project,
-        base ?? (worktree && (await recordedBase(ctx.run, worktree))),
-        worktree?.path ?? found.cwd,
+        base ??
+          (worktree && worktree.path === folder
+            ? await recordedBase(ctx.run, worktree)
+            : undefined),
+        folder,
       );
     },
     /** Gives a session the name a person calls it by; the board shows it in place of the id. */

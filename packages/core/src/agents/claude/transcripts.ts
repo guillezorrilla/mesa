@@ -234,25 +234,26 @@ function claudeBranch(file: string): string | undefined {
 }
 
 /**
- * The worktree a transcript last entered: Claude Code stamps a `worktree-state` line on each turn
- * in one, with a null session once it leaves.
+ * The folder a transcript's agent moved to (EnterWorktree, ExitWorktree): Claude Code stamps a
+ * `worktree-state` line on each turn inside a worktree, and a null one when it leaves, back to the
+ * `originalCwd` the last entered line names. None when it never moved, within the tail.
  */
-function claudeWorktree(file: string): { path: string; branch: string } | undefined {
+function claudeFolder(file: string): string | undefined {
+  let left = false;
   // ponytail: only the last NAME_TAIL bytes; a turn writes the line again, so a live one is there.
-  const found = lastMatchingLine(
+  return lastMatchingLine(
     file,
     (line) => {
       if (!line.includes('"worktree-state"')) return undefined;
       const state = parsedLine<{
-        worktreeSession?: { worktreePath?: unknown; worktreeBranch?: unknown } | null;
+        worktreeSession?: { worktreePath?: unknown; originalCwd?: unknown } | null;
       }>(line)?.worktreeSession;
-      if (state === undefined) return undefined;
-      const { worktreePath: path, worktreeBranch: branch } = state ?? {};
-      return typeof path === 'string' && typeof branch === 'string' ? { path, branch } : null;
+      if (state === null) left = true;
+      const folder = left ? state?.originalCwd : state?.worktreePath;
+      return typeof folder === 'string' ? folder : undefined;
     },
     NAME_TAIL,
   );
-  return found ?? undefined;
 }
 
 /** One transcript line, parsed: the fields its prompt and messages are read from. */
@@ -306,5 +307,5 @@ export const claudeTranscriptReader: Transcripts<'claude'> = {
     return { messages: lines.flatMap((line) => messageIn(line) ?? []), truncated };
   },
   branch: claudeBranch,
-  worktree: claudeWorktree,
+  folder: claudeFolder,
 };

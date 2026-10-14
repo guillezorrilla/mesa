@@ -166,6 +166,7 @@ export type {
 } from './sessions/native/responses.js';
 export type { ConversationHit, ConversationSearch } from './sessions/native/search.js';
 export type { EachResult, ItemResult } from './sessions/record/each.js';
+export { sessionFolder } from './sessions/record/folder.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/record/general.js';
 export {
   additionalLabel,

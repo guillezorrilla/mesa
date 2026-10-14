@@ -132,8 +132,9 @@ const SessionRecordFields = z.strictObject({
    */
   decisionsMounted: z.literal(true).optional(),
   /**
-   * The folder its agent runs in, when that is neither the project's nor its worktree: an adopted
-   * session's own, where claude keeps its conversation.
+   * The folder its agent runs in, when Mesa did not start it there: an adopted session's own, where
+   * claude keeps its conversation, or one its agent moved to (refreshReadings). Read through
+   * sessionFolder, which puts it before the worktree.
    */
   cwd: z.string().optional(),
   /** The git worktree it runs in (mesa open --branch; CONTEXT.md, Worktree). */

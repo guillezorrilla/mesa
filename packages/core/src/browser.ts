@@ -83,6 +83,7 @@ export { canPost, reviewsOf } from './prs/review-sessions.js';
 export { parseChangelog, RELEASE_GROUPS, type ReleaseNotes } from './release/notes.js';
 export { type CommandId, type SearchHit, searchWorkspace } from './search/search.js';
 export { descendantOrder } from './sessions/end/descendants.js';
+export { sessionFolder } from './sessions/record/folder.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/record/general.js';
 export * from './sessions/record/labels.js';
 export * from './sessions/record/lifecycle.js';

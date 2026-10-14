@@ -24,6 +24,7 @@ import type { RegistryEntry } from '../../projects/registry.js';
 import { reviewDeny } from '../../prs/review-guard.js';
 import { joinWarnings } from '../../receipts/recorder.js';
 import { sessionWorktree } from '../../worktrees/create.js';
+import { sessionFolder } from '../record/folder.js';
 import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
 import { nestedAgentVars, type TmuxBackend } from '../tmux/backend.js';
@@ -97,7 +98,7 @@ export const folderOf = (
   r: Pick<SessionRecord, 'cwd' | 'worktree'>,
   project: RegistryEntry | null,
 ) => {
-  const folder = r.cwd ?? r.worktree?.path ?? project?.path;
+  const folder = sessionFolder(r) ?? project?.path;
   if (!folder) throw new MesaError('usage', 'General session has no working folder');
   return folder;
 };

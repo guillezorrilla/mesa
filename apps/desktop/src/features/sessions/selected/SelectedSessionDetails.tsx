@@ -6,7 +6,7 @@ import type {
   SessionRecord,
   Supervision,
 } from '@mesa/core';
-import { attentionScore, contextPercent, percent } from '@mesa/core/browser';
+import { attentionScore, contextPercent, percent, sessionFolder } from '@mesa/core/browser';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
@@ -71,8 +71,7 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
   const read = [row.context, record?.context].filter((c) => c !== undefined);
   const context = read.sort((a, b) => b.at.localeCompare(a.at))[0];
   const shown = context ? contextPercent(context.used) : 0;
-  const cwd =
-    record?.cwd ?? row.cwd ?? record?.worktree?.path ?? row.worktree?.path ?? props.projectPath;
+  const cwd = (record && sessionFolder(record)) ?? sessionFolder(row) ?? props.projectPath;
   // The other projects it works in (CONTEXT.md, Additional project), each in its worktree.
   const additional = record?.additional ?? row.additional;
   const date = (at: string) => new Date(at).toLocaleString();

@@ -1,5 +1,5 @@
 import type { TreeRow } from '@mesa/core';
-import { diffable, GENERAL_PROJECT } from '@mesa/core/browser';
+import { diffable, GENERAL_PROJECT, sessionFolder } from '@mesa/core/browser';
 import { Activity, memo } from 'react';
 import { DiffPanel } from '../diff/DiffPanel';
 import { BrowserPanel } from '../review/BrowserPanel';
@@ -31,8 +31,8 @@ export function SidePanels(props: {
         managed={row.managed}
         diffable={diffable(row)}
         project={mine && mine.project !== GENERAL_PROJECT ? mine.project : undefined}
-        checkout={mine && (mine.worktree?.path ?? mine.cwd)}
-        branch={mine?.worktree?.branch}
+        checkout={mine && sessionFolder(mine)}
+        branch={mine && (mine.cwd ? mine.gitBranch || undefined : mine.worktree?.branch)}
         state={row.lastState.state}
         onClose={props.onClose}
       />

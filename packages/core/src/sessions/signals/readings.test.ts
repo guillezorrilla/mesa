@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { newSession, plantTranscript, tempDir, testStore } from '../../testing/index.js';
+import { GENERAL_PROJECT } from '../record/general.js';
 import { refreshReadings } from './readings.js';
 
 const AGENT_ID = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
@@ -35,24 +36,30 @@ test('a transcript whose last line names no branch reads as none, kept as read',
   expect(store.get(record.id).gitBranch).toBe('');
 });
 
-test('a worktree its agent entered mid-session becomes its worktree, so its diff reads there', () => {
+test('a folder its agent moves to is where it works, back again when it leaves', () => {
   const { deps, store, record, plant } = setUp();
-  const entered = (path: string, branch: string) => ({
+  const entered = {
     type: 'worktree-state',
-    worktreeSession: { worktreePath: path, worktreeBranch: branch },
-  });
-  plant(at('/src/lantern-cove', 'main'), entered('/w/lantern-cove/tide-fix', 'tide-fix'));
-  expect(refreshReadings(deps, record).worktree).toEqual({
-    path: '/w/lantern-cove/tide-fix',
-    branch: 'tide-fix',
-  });
-  expect(store.get(record.id).worktree?.path).toBe('/w/lantern-cove/tide-fix');
-  // Leaving it keeps the record as it was: Mesa does not know what it ran in before.
-  plant(entered('/w/lantern-cove/tide-fix', 'tide-fix'), {
-    type: 'worktree-state',
-    worktreeSession: null,
-  });
-  expect(refreshReadings(deps, store.get(record.id)).worktree?.path).toBe(
-    '/w/lantern-cove/tide-fix',
+    worktreeSession: { worktreePath: '/w/lantern-cove/tide-fix', originalCwd: '/src/lantern-cove' },
+  };
+  const left = { type: 'worktree-state', worktreeSession: null };
+  plant(at('/src/lantern-cove', 'main'), entered);
+  expect(refreshReadings(deps, record).cwd).toBe('/w/lantern-cove/tide-fix');
+  // Its own folder, not a worktree it holds: removing it never offers to delete this one.
+  expect(store.get(record.id).worktree).toBeUndefined();
+  plant(entered, left);
+  expect(refreshReadings(deps, store.get(record.id)).cwd).toBe('/src/lantern-cove');
+});
+
+test('a General session moving into a worktree keeps its readings', () => {
+  const { deps, store, plant } = setUp();
+  const general = store.create(() =>
+    newSession({ agentSessionId: AGENT_ID, project: GENERAL_PROJECT, cwd: '/home/notes' }),
   );
+  plant(at('/w/lantern-cove/tide-fix', 'tide-fix'), {
+    type: 'worktree-state',
+    worktreeSession: { worktreePath: '/w/lantern-cove/tide-fix', originalCwd: '/home/notes' },
+  });
+  const read = refreshReadings(deps, general);
+  expect([read.cwd, read.gitBranch]).toEqual(['/w/lantern-cove/tide-fix', 'tide-fix']);
 });
