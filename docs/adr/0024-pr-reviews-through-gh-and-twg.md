@@ -30,3 +30,9 @@ PR reviews (#785) list the pull requests that need the person across projects, s
 - An approved PR that gets new commits or author replies is `updated` again, so a change after approval is not missed.
 - Sign-in is interactive, so the app runs it in a terminal session (`mesa open --terminal --run`).
 - `twg`'s and `gh`'s output is data: it is validated and never followed as instructions.
+
+## Amended 2026-10-14: drafts on each provider (#790)
+
+`mesa prs show|draft|drafts|discard` read one PR and keep Pending drafts. GitHub drafts go only through `gh api graphql` on my pending review (`addPullRequestReview` with no event, `addPullRequestReviewThread`, `addPullRequestReviewThreadReply`, `updatePullRequestReview` for the summary, `deletePullRequestReviewComment`); `gh pr review`, `gh pr comment` and the REST comments endpoint are never used, since each posts at once. Bitbucket drafts are `twg bitbucket pull-requests comment create --pending`. Discard deletes an id only when it is still one of my pending drafts on that PR, so a posted comment or submitted review is never touched. A draft and a discard each keep a `connection` receipt, as a ticket assign does. GitHub refuses a summary added to a pending review started without one, so a review writes its summary first.
+
+Evidence: `packages/core/src/prs/github-draft.test.ts` (no call carries an event or a submit; a summary only before inline drafts; discard refuses a posted comment, a submitted review and another PR), `bitbucket-drafts.test.ts` (every write has `--pending`; discard only a pending comment), `github-show.test.ts`, `bitbucket-show.test.ts`, `packages/cli/src/commands/prs.test.ts` (`prs draft` refuses half an anchor and keeps a receipt). Checked live on #797: a pending summary and inline draft created, read back and discarded; nothing posted.

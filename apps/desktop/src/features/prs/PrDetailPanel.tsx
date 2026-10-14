@@ -1,13 +1,11 @@
 import type { PrDetail, PrDraft } from '@mesa/core';
+import { commentPlace } from '@mesa/core/browser';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 type DetailTab = 'comments' | 'drafts' | 'files';
-
-const where = (d: { path: string | null; line: number | null }) =>
-  d.path ? `${d.path}${d.line ? `:${d.line}` : ''}` : 'Review summary';
 
 /** Drafts when there are any, else my comments when there are any, else the files. */
 const firstTab = (pr: PrDetail): DetailTab =>
@@ -47,7 +45,7 @@ export function PrDetailPanel(props: { pr: PrDetail; onDiscard: (draft: PrDraft)
         {tab === 'comments' &&
           (pr.threads.length ? (
             pr.threads.map((t) => (
-              <Item key={t.id} where={where(t)} aside={<Resolved resolved={t.resolved} />}>
+              <Item key={t.id} where={commentPlace(t)} aside={<Resolved resolved={t.resolved} />}>
                 <p className="whitespace-pre-wrap">{t.body}</p>
                 {t.lastReply && (
                   <p className="mt-1 whitespace-pre-wrap text-muted-foreground text-sm">
@@ -65,7 +63,7 @@ export function PrDetailPanel(props: { pr: PrDetail; onDiscard: (draft: PrDraft)
             pr.drafts.map((d) => (
               <Item
                 key={d.id}
-                where={where(d)}
+                where={commentPlace(d)}
                 aside={
                   <Button variant="ghost" size="xs" onClick={() => props.onDiscard(d)}>
                     Discard

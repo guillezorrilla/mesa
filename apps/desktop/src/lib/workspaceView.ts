@@ -1,3 +1,4 @@
+import type { PrRef } from './client/prs';
 export type WorkspaceView =
   | {
       kind:
@@ -26,4 +27,4 @@ export type WorkspaceView =
   /** Connecting a project's PR provider (gh or twg) from the Reviews tab. */
   | { kind: 'prs-setup'; project: string }
   /** One pull request's detail, opened from a Reviews list. */
-  | { kind: 'pr'; project: string; number: number };
+  | ({ kind: 'pr' } & PrRef);

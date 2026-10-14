@@ -1,6 +1,9 @@
 import type { PrDetail, PrList, PrSetupRow } from '@mesa/core';
 import { commandWith } from './spec';
 
+/** One pull request: its project and number. */
+export type PrRef = { project: string; number: number };
+
 /** The Reviews tab's commands (CONTEXT.md, PR review). */
 export const prsCommands = {
   /** The open PRs that need me, every project's or `project`'s; `all` adds the ones not for me. */
@@ -16,7 +19,7 @@ export const prsCommands = {
     ...(project ? ['--project', project] : []),
   ]),
   /** One PR in full: where it stands for me, my threads, my Pending drafts, and its files. */
-  'prs.show': commandWith<{ project: string; number: number }, PrDetail>(({ project, number }) => [
+  'prs.show': commandWith<PrRef, PrDetail>(({ project, number }) => [
     'prs',
     'show',
     '--',
@@ -24,7 +27,12 @@ export const prsCommands = {
     String(number),
   ]),
   /** Deletes one of my Pending drafts on the PR. */
-  'prs.discard': commandWith<{ project: string; number: number; id: string }, { id: string }>(
-    ({ project, number, id }) => ['prs', 'discard', '--', project, String(number), id],
-  ),
+  'prs.discard': commandWith<PrRef & { id: string }, { id: string }>(({ project, number, id }) => [
+    'prs',
+    'discard',
+    '--',
+    project,
+    String(number),
+    id,
+  ]),
 };

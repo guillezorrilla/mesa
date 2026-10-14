@@ -1,5 +1,6 @@
 import type { PrRow, PrSetupRow } from '@mesa/core';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import type { PrRef } from '@/lib/client/prs';
 import { CheckedLine } from './CheckedLine';
 import { ReviewsList } from './ReviewsList';
 import { useGrouping } from './useGrouping';
@@ -10,7 +11,7 @@ export function ReviewsSection(props: {
   prs: Prs;
   onSetup: (row: PrSetupRow) => void;
   onOpen: (pr: PrRow) => void;
-  current?: { project: string; number: number };
+  current?: PrRef;
 }) {
   const [by, setBy] = useGrouping();
   const now = Date.now();

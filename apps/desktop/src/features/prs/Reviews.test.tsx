@@ -27,7 +27,7 @@ const pr = (
   author: 'Dana Ruiz',
   updatedAt: ago(30),
   bucket,
-  since: { commits: 0, replies: 0, resolved: 0, threads: 0 },
+  since: { lastWord: null, commits: 0, replies: 0, resolved: 0, threads: 0 },
   ...over,
 });
 const blocked: PrSetupRow = {

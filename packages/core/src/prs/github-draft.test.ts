@@ -16,7 +16,15 @@ function fakeGh(pending: Review | null, comments = 0) {
     const data = (d: unknown) => JSON.stringify({ data: d });
     if (query.includes('pending: reviews'))
       return data({
-        repository: { pullRequest: { id: 'PR_1', pending: { nodes: pending ? [pending] : [] } } },
+        repository: {
+          pullRequest: {
+            id: 'PR_1',
+            // My pending review holds one draft comment, PRRC_c5.
+            pending: {
+              nodes: pending ? [{ ...pending, comments: { nodes: [{ id: 'PRRC_c5' }] } }] : [],
+            },
+          },
+        },
       });
     if (query.includes('addPullRequestReview('))
       return data({
@@ -154,28 +162,57 @@ test('a summary for a pending review started without one is reported: GitHub ref
 });
 
 test('discard deletes a draft comment, or clears the summary and drops a review left empty', async () => {
-  const comment = fakeGh(null);
+  const mine = { id: 'PRR_mine', body: 'Looks close.' };
+  const comment = fakeGh(mine);
   expect(await githubApi.discard(comment.run, 'acme/storefront', 477, 'PRRC_c5')).toEqual({
     ok: true,
     value: { id: 'PRRC_c5' },
   });
-  expect(operations(comment.calls)).toEqual(['deletePullRequestReviewComment']);
-  expect(comment.calls[0]?.args).toEqual(expect.arrayContaining(['-f', 'id=PRRC_c5']));
+  expect(operations(comment.calls)).toEqual(['repository', 'deletePullRequestReviewComment']);
+  expect(comment.calls[1]?.args).toEqual([
+    'api',
+    'graphql',
+    '-f',
+    expect.stringContaining('deletePullRequestReviewComment(input: {id: $id})'),
+    '-f',
+    'id=PRRC_c5',
+  ]);
 
-  const withDrafts = fakeGh(null, 2);
+  const withDrafts = fakeGh(mine, 2);
   await githubApi.discard(withDrafts.run, 'acme/storefront', 477, 'review:PRR_mine');
-  expect(operations(withDrafts.calls)).toEqual(['updatePullRequestReview']);
-  expect(withDrafts.calls[0]?.args).toEqual(
+  expect(operations(withDrafts.calls)).toEqual(['repository', 'updatePullRequestReview']);
+  expect(withDrafts.calls[1]?.args).toEqual(
     expect.arrayContaining(['-f', 'review=PRR_mine', '-f', 'body=']),
   );
 
-  const empty = fakeGh(null, 0);
+  const empty = fakeGh(mine, 0);
   expect(await githubApi.discard(empty.run, 'acme/storefront', 477, 'review:PRR_mine')).toEqual({
     ok: true,
     value: { id: 'review:PRR_mine' },
   });
-  expect(operations(empty.calls)).toEqual(['updatePullRequestReview', 'deletePullRequestReview']);
+  expect(operations(empty.calls)).toEqual([
+    'repository',
+    'updatePullRequestReview',
+    'deletePullRequestReview',
+  ]);
   expectNothingSubmitted([...comment.calls, ...withDrafts.calls, ...empty.calls]);
+});
+
+test('discard never touches a posted comment, a submitted review, or another PR', async () => {
+  for (const id of ['PRRC_posted', 'review:PRR_submitted']) {
+    const gh = fakeGh({ id: 'PRR_mine', body: '' });
+    expect(await githubApi.discard(gh.run, 'acme/storefront', 477, id)).toMatchObject({
+      ok: false,
+      reason: 'failed',
+      detail: expect.stringContaining('not a pending draft'),
+    });
+    expect(operations(gh.calls)).toEqual(['repository']);
+  }
+  const none = fakeGh(null);
+  expect(await githubApi.discard(none.run, 'acme/storefront', 477, 'PRRC_c5')).toMatchObject({
+    ok: false,
+  });
+  expect(operations(none.calls)).toEqual(['repository']);
 });
 
 test('a failing gh is reported, never thrown, and stops before any write', async () => {

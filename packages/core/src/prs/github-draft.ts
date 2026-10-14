@@ -14,6 +14,15 @@ const PENDING = `query($owner: String!, $name: String!, $number: Int!) {
   }
 }`;
 
+// ponytail: a pending review's first 100 comments; a review with more drafts than that is unlikely.
+const MINE = `query($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      pending: reviews(states: PENDING, first: 1) { nodes { id comments(first: 100) { nodes { id } } } }
+    }
+  }
+}`;
+
 // A summary written before any other draft starts the review with it: GitHub refuses to give a
 // body to a pending review that has none ("Could not edit a review with a missing body").
 const START = `mutation($pr: ID!, $body: String) {
@@ -66,6 +75,22 @@ const PendingRes = z.object({
   data: z.object({
     repository: z.object({
       pullRequest: z.object({ id: z.string(), pending: z.object({ nodes: z.array(Review) }) }),
+    }),
+  }),
+});
+const MineRes = z.object({
+  data: z.object({
+    repository: z.object({
+      pullRequest: z.object({
+        pending: z.object({
+          nodes: z.array(
+            z.object({
+              id: z.string(),
+              comments: z.object({ nodes: z.array(z.object({ id: z.string() })) }),
+            }),
+          ),
+        }),
+      }),
     }),
   }),
 });
@@ -175,7 +200,20 @@ export const draftGithub: PrProviderApi['draft'] = async (run, repo, number, inp
 };
 
 /** Removes one draft: a comment from my pending review, or the summary (`review:<id>`) cleared. */
-export const discardGithub: PrProviderApi['discard'] = async (run, _repo, _number, id) => {
+export const discardGithub: PrProviderApi['discard'] = async (run, repo, number, id) => {
+  // Only a draft of mine on this PR: a posted comment or a submitted review is never touched.
+  const mine = await ghGraphql(run, MINE, { strings: repoVars(repo), ints: { number } }, MineRes);
+  if (!mine.ok) return mine;
+  const pending = mine.value.data.repository.pullRequest.pending.nodes[0];
+  const isPending = id.startsWith(SUMMARY_PREFIX)
+    ? pending?.id === id.slice(SUMMARY_PREFIX.length)
+    : Boolean(pending?.comments.nodes.some((c) => c.id === id));
+  if (!isPending)
+    return {
+      ok: false,
+      reason: 'failed',
+      detail: `${id} is not a pending draft of yours on #${number}`,
+    };
   if (!id.startsWith(SUMMARY_PREFIX)) {
     const read = await ghGraphql(run, DELETE_COMMENT, { strings: { id } }, DeleteRes);
     return read.ok ? { ok: true, value: { id } } : read;

@@ -30,7 +30,7 @@ function checksOf(pr: Pr): PrRead['checks'] {
   return 'passing';
 }
 
-/** Inline threads, each with its newest posted reply; a reply may answer another reply. */
+/** Inline threads, each with the PR author's newest posted reply; a reply may answer another reply. */
 function threadsOf(pr: Pr): PrThread[] {
   const comments = posted(pr);
   const parentOf = new Map(pr._comments.map((c) => [c.id, c.parent?.id]));
@@ -44,7 +44,8 @@ function threadsOf(pr: Pr): PrThread[] {
   };
   const last = new Map<number, (typeof comments)[number]>();
   for (const c of comments) {
-    if (!c.parent) continue;
+    // The PR author's answer: what the back-and-forth waits on.
+    if (!c.parent || c.user.id !== pr.author.id) continue;
     const root = rootOf(c.id);
     const seen = last.get(root);
     if (!seen || Date.parse(c.created_on) > Date.parse(seen.created_on)) last.set(root, c);

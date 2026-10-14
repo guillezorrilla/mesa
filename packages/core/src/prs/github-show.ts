@@ -93,7 +93,8 @@ export const showGithub: PrProviderApi['show'] = async (run, repo, number) => {
   const threads = pr.reviewThreads.nodes.flatMap((t): PrThread[] => {
     const [first, ...replies] = submitted(t.comments.nodes);
     if (!first) return [];
-    const last = replies.at(-1);
+    // The PR author's answer: what the back-and-forth waits on.
+    const last = replies.filter((r) => r.author === pr.author).at(-1);
     return [
       {
         id: t.id,

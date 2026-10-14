@@ -6,7 +6,7 @@ import { MesaError } from '../lib/result.js';
 import type { JsonRead } from '../lib/run-json.js';
 import { listProjects } from '../projects/projects.js';
 import { bitbucketApi } from './bitbucket.js';
-import { type Bucket, bucketOf, bucketRank, type Since } from './buckets.js';
+import { type Bucket, bucketOf, bucketRank, commentPlace, type Since } from './buckets.js';
 import { githubApi } from './github.js';
 import { PR_CLIS, type PrProvider, prCli, resolveRemote } from './provider.js';
 import type {
@@ -150,7 +150,12 @@ export function prsService(ctx: MesaContext) {
      */
     draft: async (project: string, number: number, input: DraftInput) => {
       if (!input.text.trim()) throw new MesaError('usage', 'a draft needs --text');
-      if (input.replyTo === undefined && (input.path === undefined) !== (input.line === undefined))
+      if (input.replyTo !== undefined && (input.path !== undefined || input.line !== undefined))
+        throw new MesaError(
+          'usage',
+          'a reply sits in its thread: pass --reply-to or --path and --line',
+        );
+      if ((input.path === undefined) !== (input.line === undefined))
         throw new MesaError('usage', 'an inline draft needs both --path and --line');
       if (input.line !== undefined && (!Number.isInteger(input.line) || input.line < 1))
         throw new MesaError('usage', '--line must be a positive whole number');
@@ -159,7 +164,7 @@ export function prsService(ctx: MesaContext) {
         {
           kind: 'connection',
           summary: (d: PrDraft) =>
-            `Drafted a pending comment on ${project} #${number}${d.path ? ` at ${d.path}${d.line ? `:${d.line}` : ''}` : ''}`,
+            `Drafted a pending comment on ${project} #${number} (${commentPlace(d)})`,
           failure: `Could not draft a comment on ${project} #${number}`,
           inputs: {
             project,

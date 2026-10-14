@@ -230,6 +230,8 @@ test('prs draft leaves one pending inline comment, never submitting, and refuses
   );
   expect(drafted.code, drafted.stdout).toBe(0);
   expect(drafted.json.data).toMatchObject({ id: 'PRRC_1', path: 'src/cart.ts', line: 57 });
+  // The provider write keeps a receipt, as a ticket assign does.
+  expect(drafted.json.data.receipt).toMatchObject({ id: expect.any(String) });
   expect(queries).toHaveLength(3);
   for (const query of queries) expect(query).not.toMatch(/submitPullRequestReview|event/);
 });

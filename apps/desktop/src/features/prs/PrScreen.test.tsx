@@ -7,6 +7,8 @@ import { PrScreen } from './PrScreen';
 
 // Invented PRs and people: Lee's storefront PR on GitHub, Kofi's atlas-api PR on Bitbucket.
 
+const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+
 const detail = (over: Partial<PrDetail> = {}): PrDetail => ({
   project: 'storefront',
   provider: 'github',
@@ -15,10 +17,10 @@ const detail = (over: Partial<PrDetail> = {}): PrDetail => ({
   url: 'https://example.test/storefront/pull/477',
   branch: 'feat/edge-image-cache',
   base: 'main',
-  updatedAt: '2026-10-13T11:40:00Z',
+  updatedAt: hoursAgo(3),
   author: 'lee-park',
   bucket: 'updated',
-  since: { commits: 3, replies: 2, resolved: 1, threads: 2 },
+  since: { lastWord: hoursAgo(5), commits: 3, replies: 2, resolved: 1, threads: 2 },
   additions: 233,
   deletions: 61,
   checks: 'passing',
@@ -75,16 +77,22 @@ async function show(pr: PrDetail) {
 
 test('the status says, per state, where the PR stands in one sentence', async () => {
   await show(detail());
-  expect(status()).toContain('lee-park pushed 3 commits and replied twice since your review.');
+  expect(status()).toContain(
+    'lee-park pushed 3 commits and replied 2 times since your review 5h ago.',
+  );
   expect(status()).toContain('1 of your 2 threads resolved');
 
   await show(
-    detail({ bucket: 'need', since: { commits: 1, replies: 0, resolved: 0, threads: 0 } }),
+    detail({
+      bucket: 'need',
+      since: { lastWord: null, commits: 1, replies: 0, resolved: 0, threads: 0 },
+    }),
   );
   expect(status()).toContain('lee-park asked for your review.');
+  expect(status()).toContain('Updated 3h ago.');
 
   await show(detail({ bucket: 'waiting' }));
-  expect(status()).toContain('Nothing new since your review.');
+  expect(status()).toContain('Nothing new since your review 5h ago.');
   expect(status()).toContain('It moves to Updated as soon as lee-park pushes or replies.');
 });
 
@@ -156,7 +164,7 @@ test('a PR row in the sidebar opens its detail', async () => {
         author: 'lee-park',
         updatedAt: '2026-10-13T11:40:00Z',
         bucket: 'updated',
-        since: { commits: 3, replies: 2, resolved: 1, threads: 2 },
+        since: { lastWord: hoursAgo(5), commits: 3, replies: 2, resolved: 1, threads: 2 },
       },
     ],
     blocked: [],

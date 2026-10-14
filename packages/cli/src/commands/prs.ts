@@ -1,11 +1,9 @@
-import { BUCKET_LABELS, type PrDraft } from '@mesa/core';
+import { BUCKET_LABELS, type PrDraft, commentPlace as where } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { wholeNumber } from '../input/flags.js';
 import { columns } from '../output/columns.js';
 import { recordedOutput } from '../output/recorded.js';
 
-const where = (d: { path: string | null; line: number | null }) =>
-  d.path ? `${d.path}${d.line ? `:${d.line}` : ''}` : 'summary';
 const draftLines = (drafts: PrDraft[]) =>
   drafts.length
     ? columns(drafts.map((d) => [d.id, where(d), d.body.split('\n')[0]]))
@@ -22,7 +20,7 @@ export const prsShow = defineCommand({
     return {
       data,
       text: [
-        `#${data.number} ${data.title} (${BUCKET_LABELS[data.bucket as keyof typeof BUCKET_LABELS] ?? data.bucket})`,
+        `#${data.number} ${data.title} (${data.bucket === 'done' ? 'Done' : BUCKET_LABELS[data.bucket]})`,
         `${data.author} · ${data.branch} -> ${data.base} · +${data.additions} -${data.deletions} · checks ${data.checks ?? 'none'}`,
         data.url,
         '',

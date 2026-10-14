@@ -2,13 +2,14 @@ import type { PrDraft } from '@mesa/core';
 import { PR_CLIS } from '@mesa/core/browser';
 import { ExternalLink } from 'lucide-react';
 import { Muted } from '@/components/Muted';
+import type { PrRef } from '@/lib/client/prs';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { PrDetailPanel } from './PrDetailPanel';
 import { PrStatusPanel } from './PrStatusPanel';
 import { useSharedPrs } from './usePrs';
 
-const CHECKS = {
+const CHECK_LABEL = {
   passing: { label: 'Checks pass', dot: 'bg-state-idle' },
   failing: { label: 'Checks failing', dot: 'bg-state-failed' },
   pending: { label: 'Checks running', dot: 'bg-state-waiting' },
@@ -18,7 +19,7 @@ const CHECKS = {
  * One pull request, opened from a Reviews list: where it stands for me in one sentence with the
  * next step, then my comments, my Pending drafts and its files. Read when it opens.
  */
-export function PrScreen(props: { project: string; number: number }) {
+export function PrScreen(props: PrRef) {
   const show = useCommand('prs.show', { project: props.project, number: props.number });
   const run = useRun();
   const shared = useSharedPrs();
@@ -30,7 +31,7 @@ export function PrScreen(props: { project: string; number: number }) {
       void shared?.list.refresh();
     }
   };
-  const checks = pr.checks ? CHECKS[pr.checks] : undefined;
+  const checks = pr.checks ? CHECK_LABEL[pr.checks] : undefined;
   return (
     <div data-testid="pr-screen" className="max-w-3xl space-y-5">
       <div className="flex items-center gap-2 text-muted-foreground text-xs">
@@ -69,7 +70,7 @@ export function PrScreen(props: { project: string; number: number }) {
         </div>
       </div>
       <PrStatusPanel pr={pr} />
-      <PrDetailPanel key={`${pr.project}#${pr.number}`} pr={pr} onDiscard={discard} />
+      <PrDetailPanel pr={pr} onDiscard={discard} />
     </div>
   );
 }

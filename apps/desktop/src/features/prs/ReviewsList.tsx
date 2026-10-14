@@ -3,6 +3,7 @@ import { actionable, PR_CLIS } from '@mesa/core/browser';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
+import type { PrRef } from '@/lib/client/prs';
 import { cn } from '@/lib/utils';
 import { PullRequestRow } from './PullRequestRow';
 import { type PrGrouping, prGroups } from './prGroups';
@@ -21,7 +22,7 @@ export function ReviewsList(props: {
   onSetup: (row: PrSetupRow) => void;
   onOpen: (pr: PrRow) => void;
   /** The PR whose detail is shown, marked in the list. */
-  current?: { project: string; number: number };
+  current?: PrRef;
   now: number;
 }) {
   const [closed, setClosed] = useState<string[]>([]);

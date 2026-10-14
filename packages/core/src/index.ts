@@ -108,7 +108,7 @@ export {
   trustCommand,
 } from './projects/trust.js';
 export type { SavedPrompt } from './prompts/prompts.js';
-export { BUCKET_LABELS, type Bucket, type Since } from './prs/buckets.js';
+export { BUCKET_LABELS, type Bucket, commentPlace, type Since } from './prs/buckets.js';
 export type { PrProvider } from './prs/provider.js';
 export type { DraftInput, PrDraft, PrFile, PrThread } from './prs/reader.js';
 export type { PrDetail, PrList, PrRow, PrSetupRow } from './prs/service.js';
