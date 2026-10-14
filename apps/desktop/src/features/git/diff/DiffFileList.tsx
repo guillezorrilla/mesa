@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { folderOf, glyph, nameOf } from '@/features/git/gitChanges';
 import { cn } from '@/lib/utils';
+import { folderOf, glyph, nameOf } from '../gitChanges';
 import type { DiffFile } from './diffFiles';
 
 const STATUS_NAME = { A: 'Added', M: 'Modified', D: 'Deleted', R: 'Renamed' } as const;

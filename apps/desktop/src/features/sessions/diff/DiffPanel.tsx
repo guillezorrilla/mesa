@@ -16,13 +16,12 @@ import { Muted } from '@/components/Muted';
 import { ResizeHandle } from '@/components/ResizeHandle';
 import { Stat } from '@/components/Stat';
 import { Button } from '@/components/ui/button';
-import { GitDiffHeader } from '@/features/git/diff/GitDiffHeader';
-import { GitDiffRows } from '@/features/git/diff/GitDiffRows';
+import { diffFiles } from '@/features/git/diff/diffFiles';
+import { GitDiffFiles } from '@/features/git/diff/GitDiffFiles';
+import { useOpenDiffFile } from '@/features/git/diff/useOpenDiffFile';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { useKeptWidth } from '@/lib/useKeptWidth';
 import { cn } from '@/lib/utils';
-import { DiffFileList } from './DiffFileList';
-import { diffFiles } from './diffFiles';
 
 /** The panel's width bounds beside the terminal, which always keeps TERMINAL_MIN pixels. */
 const DIFF_WIDTH = { min: 360, max: 1600, initial: 720, step: 32 };
@@ -53,7 +52,6 @@ export function DiffPanel(props: {
   const [expanded, setExpanded] = useState(false);
   const [listOpen, setListOpen] = useState(true);
   const [layout, setLayout] = useState<'inline' | 'side-by-side'>('inline');
-  const [openPath, setOpenPath] = useState<string>();
   const seenState = useRef(props.state);
   // biome-ignore lint/correctness/useExhaustiveDependencies: only a new session state reads again.
   useEffect(() => {
@@ -64,15 +62,7 @@ export function DiffPanel(props: {
 
   // Kept across renders, so a resize drag hands GitDiffRows the same rows and it skips the work.
   const files = useMemo(() => diffFiles(data?.rows ?? []), [data]);
-  const at = Math.max(
-    0,
-    files.findIndex((file) => file.path === openPath),
-  );
-  const file = files[at];
-  const move = (step: -1 | 1) => {
-    const next = files[at + step];
-    if (next) setOpenPath(next.path);
-  };
+  const { at, file, open, move } = useOpenDiffFile(files);
   const added = files.reduce((sum, each) => sum + each.added, 0);
   const removed = files.reduce((sum, each) => sum + each.removed, 0);
   const expand = (next: boolean) => {
@@ -174,51 +164,34 @@ export function DiffPanel(props: {
           </Muted>
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1">
-          {listOpen && (
-            <DiffFileList
-              files={files}
-              open={file.path}
-              onOpen={setOpenPath}
-              className={expanded ? 'w-72' : 'w-56'}
-            />
-          )}
-          <section aria-label={file.path} className="flex min-w-0 flex-1 flex-col">
-            <GitDiffHeader
-              code={file.status}
-              path={file.path}
-              at={at}
-              total={files.length}
-              onMove={move}
-            >
-              <Stat added={file.added} removed={file.removed} />
-              {file.status !== 'D' && (
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  onClick={() =>
-                    void run('files.open', {
-                      project: data.checkout.project,
-                      checkout: data.checkout.path,
-                      path: file.path,
-                      line: file.firstLine,
-                    })
-                  }
-                >
-                  <SquareArrowOutUpRight aria-hidden /> Open in editor
-                </Button>
-              )}
-            </GitDiffHeader>
-            <div className="min-h-0 flex-1 overflow-auto p-3">
-              <GitDiffRows
-                key={`${file.path}:${layout}`}
-                rows={file.rows}
-                layout={layout}
-                fontSize={appearance.diffFontSize}
-              />
-            </div>
-          </section>
-        </div>
+        <GitDiffFiles
+          files={files}
+          at={at}
+          onOpen={open}
+          onMove={move}
+          layout={layout}
+          fontSize={appearance.diffFontSize}
+          list={listOpen}
+          listClassName={expanded ? 'w-72' : 'w-56'}
+          actions={
+            file.status !== 'D' && (
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={() =>
+                  void run('files.open', {
+                    project: data.checkout.project,
+                    checkout: data.checkout.path,
+                    path: file.path,
+                    line: file.firstLine,
+                  })
+                }
+              >
+                <SquareArrowOutUpRight aria-hidden /> Open in editor
+              </Button>
+            )
+          }
+        />
       )}
     </aside>
   );

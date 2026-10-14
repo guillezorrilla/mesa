@@ -155,6 +155,51 @@ test('the tabs open on drafts, else my comments, else files, and switch on click
   expect(selectedTab()).toBe('Files2');
 });
 
+test("the Files tab reads the PR's patch only when opened and shows each file's diff", async () => {
+  const meta = (left: string) => ({ kind: 'meta', left, right: left });
+  const rows = [
+    meta('diff --git a/src/edge/cache.ts b/src/edge/cache.ts'),
+    meta('@@ -41,2 +41,2 @@'),
+    {
+      kind: 'context',
+      left: 'const ttl = 60;',
+      right: 'const ttl = 60;',
+      oldLine: 41,
+      newLine: 41,
+    },
+    { kind: 'change', left: 'key(item)', right: 'key(item, width)', oldLine: 42, newLine: 42 },
+    meta('diff --git a/test/edge/cache.test.ts b/test/edge/cache.test.ts'),
+    meta('new file mode 100644'),
+    meta('@@ -0,0 +1 @@'),
+    { kind: 'change', left: '', right: "test('304 keeps the body')", newLine: 1 },
+  ];
+  const { bridge, calls } = fakeBridge({
+    'prs show': () => envelope(detail()),
+    'prs diff': () => envelope({ rows }),
+  });
+  await renderWithMesa(<PrScreen project="storefront" number={477} />, bridge);
+  const diffs = () => calls.filter((c) => c[1] === 'prs' && c[2] === 'diff');
+  expect(diffs()).toEqual([]);
+
+  await click(tab('Files'));
+  expect(diffs().map((c) => c.slice(2))).toEqual([['diff', '--', 'storefront', '477']]);
+  const files = document.querySelectorAll<HTMLButtonElement>(
+    '[data-testid="pr-tab-files"] [aria-label="Changed files"] button',
+  );
+  expect([...files].map((f) => f.textContent)).toEqual([
+    'Mcache.tssrc/edge/',
+    'Acache.test.tstest/edge/',
+  ]);
+  const open = document.querySelector('section[aria-label="src/edge/cache.ts"]')?.textContent ?? '';
+  expect(open).toContain('key(item)');
+  expect(open).toContain('key(item, width)');
+
+  await click(files[1]);
+  expect(
+    document.querySelector('section[aria-label="test/edge/cache.test.ts"]')?.textContent,
+  ).toContain("test('304 keeps the body')");
+});
+
 test('Discard asks first, then deletes the draft by its id and reads the PR again', async () => {
   let drafts = DRAFTS;
   const { bridge, calls } = fakeBridge({

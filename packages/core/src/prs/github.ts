@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { diffGithub } from './github-diff.js';
 import { discardGithub, draftGithub } from './github-draft.js';
 import { ghGraphql, repoVars } from './github-graphql.js';
 import { Nodes, PR_FACTS, PrNode, toPr } from './github-pr.js';
@@ -44,6 +45,7 @@ export const readGithub: PrReader = async (run, repo) => {
 export const githubApi: PrProviderApi = {
   list: readGithub,
   show: showGithub,
+  diff: diffGithub,
   draft: draftGithub,
   discard: discardGithub,
   publish: publishGithub,

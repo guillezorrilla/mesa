@@ -3,7 +3,6 @@ import type { DiffRow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
 import { click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
-import { tally } from './DiffFileList';
 import { DiffPanel } from './DiffPanel';
 
 const meta = (left: string): DiffRow => ({ kind: 'meta', left, right: left });
@@ -61,12 +60,6 @@ test('a session with nothing changed says so, naming its base', async () => {
   const { bridge } = fakeBridge({ diff: diff({ rows: [], ahead: 0 }) });
   await renderWithMesa(<DiffPanel sessionId="aaaaaaaa" state="idle" onClose={() => {}} />, bridge);
   expect(document.body.textContent).toContain('No changes since main');
-});
-
-test('the diffstat fills more cells for bigger changes, green for added first', () => {
-  expect(tally(0, 0)).toEqual(['empty', 'empty', 'empty', 'empty', 'empty']);
-  expect(tally(1, 0)).toEqual(['added', 'empty', 'empty', 'empty', 'empty']);
-  expect(tally(60, 40)).toEqual(['added', 'added', 'added', 'removed', 'removed']);
 });
 
 test('dragging the edge widens the panel only as far as the terminal keeps 256px', async () => {

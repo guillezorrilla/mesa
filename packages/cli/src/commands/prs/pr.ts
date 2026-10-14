@@ -57,6 +57,20 @@ export const prsShow = defineCommand({
     };
   },
 });
+export const prsDiff = defineCommand({
+  name: 'prs diff',
+  summary: "Show a pull request's changes, base to head, as one patch",
+  args: ['project', 'number'],
+  example: 'mesa prs diff lantern-cove 482',
+  run: async ({ mesa, args }) => {
+    // The rows carry the patch already; --json leaves the raw text out, as mesa diff does.
+    const { patch, ...data } = await mesa.prs.diff(
+      args.project,
+      wholeNumber(args.number, 'number'),
+    );
+    return { data, text: patch || 'No changes.' };
+  },
+});
 export const prsDraft = defineCommand({
   name: 'prs draft',
   summary:

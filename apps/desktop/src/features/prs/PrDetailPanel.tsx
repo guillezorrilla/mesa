@@ -2,9 +2,9 @@ import type { PrDetail, PrDraft } from '@mesa/core';
 import { commentPlace } from '@mesa/core/browser';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
-import { Stat } from '@/components/Stat';
 import { Button } from '@/components/ui/button';
 import { PrCommentsTab } from './PrCommentsTab';
+import { PrFilesTab } from './PrFilesTab';
 
 const TABS = ['comments', 'drafts', 'files'] as const;
 type DetailTab = (typeof TABS)[number];
@@ -75,20 +75,7 @@ export function PrDetailPanel(props: {
           ) : (
             <Muted className="py-4">No pending drafts.</Muted>
           ))}
-        {tab === 'files' &&
-          (pr.files.length ? (
-            pr.files.map((f) => (
-              <div
-                key={f.path}
-                className="grid grid-cols-[1fr_auto] gap-4 border-b py-2 font-mono text-xs last:border-b-0"
-              >
-                <span className="truncate">{f.path}</span>
-                <Stat added={f.additions} removed={f.deletions} />
-              </div>
-            ))
-          ) : (
-            <Muted className="py-4">No changed files.</Muted>
-          ))}
+        {tab === 'files' && <PrFilesTab pr={pr} />}
       </div>
     </div>
   );
