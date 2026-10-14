@@ -1,7 +1,16 @@
 // @vitest-environment happy-dom
 import { act, useState } from 'react';
 import { expect, test } from 'vitest';
-import { deferred, envelope, fakeBridge, PROJECTS, renderWithMesa } from './testing';
+import {
+  click,
+  deferred,
+  envelope,
+  failure,
+  fakeBridge,
+  PROJECTS,
+  renderWithMesa,
+  toastTexts,
+} from './testing';
 import { useCommand } from './useCommand';
 
 test('refresh keeps same-command data and ignores an older reply', async () => {
@@ -72,4 +81,32 @@ test('a screen shown again starts from its last reply while it reloads', async (
   expect(byTestId('projects')[0]?.dataset.busy).toBe('true');
   await act(async () => reload.resolve(envelope([PROJECTS[0]])));
   expect(byTestId('projects')[0]?.textContent).toBe('lantern-cove');
+});
+
+test('a refreshing read alerts a failure once, and again only after it recovers', async () => {
+  const broken = () => failure('sessions: cannot read', 'invalid_config');
+  const replies = [broken(), broken(), broken(), envelope(PROJECTS), broken()];
+  const { bridge } = fakeBridge({ projects: () => replies.shift() });
+  function Projects() {
+    const { refresh } = useCommand('projects.list');
+    return (
+      <button type="button" data-testid="refresh" onClick={() => void refresh()}>
+        Refresh
+      </button>
+    );
+  }
+  const byTestId = await renderWithMesa(<Projects />, bridge);
+  const refresh = () => click(byTestId('refresh')[0]);
+  expect(toastTexts(byTestId)).toEqual(['sessions: cannot read']);
+  await click(
+    byTestId('toast')[0]?.querySelector<HTMLElement>('[aria-label="Dismiss"]') ?? undefined,
+  );
+  // The same failure on the next refreshes: the dismissed alert stays closed.
+  await refresh();
+  await refresh();
+  expect(toastTexts(byTestId)).toEqual([]);
+  // It recovers, then fails again: that is news, so it alerts.
+  await refresh();
+  await refresh();
+  expect(toastTexts(byTestId)).toEqual(['sessions: cannot read']);
 });

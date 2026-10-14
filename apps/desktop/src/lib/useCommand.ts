@@ -51,6 +51,23 @@ export function useRun() {
 type CommandError = Extract<Result<unknown>, { ok: false }>['error'];
 
 /**
+ * For a read that refreshes by itself: alerts a failure when it first appears or changes, not
+ * again while the same one repeats, so a dismissed alert stays closed; a success re-arms it.
+ * Pass the failure, or undefined after a success.
+ */
+export function useNewFailureAlert() {
+  const toast = useToast();
+  const last = useRef<string>(undefined);
+  return useCallback(
+    (error: CommandError | undefined) => {
+      if (error && error.message !== last.current) toast(error.message);
+      last.current = error?.message;
+    },
+    [toast],
+  );
+}
+
+/**
  * The last good reply to each command and its arguments, per client (one per MesaRoot): a screen
  * shown again starts from it while it reloads, rather than from nothing.
  * ponytail: unbounded, one entry per command and arguments read; an LRU if that ever grows large.
@@ -102,7 +119,7 @@ function useRead<K extends CommandName>(
   ...args: CallArgs<K>
 ): CommandState<DataOf<K>> {
   const call = useCall();
-  const toast = useToast();
+  const alertNew = useNewFailureAlert();
   const cached = repliesOf(useClient());
   // By value: a caller passes a fresh object each render.
   const key = JSON.stringify([name, args, useContext(CommandScope)]);
@@ -135,12 +152,12 @@ function useRead<K extends CommandName>(
     if (result.ok) {
       cached.set(key, result.data);
       setState({ key, data: result.data, busy: false });
+      alertNew(undefined);
     } else {
       setState((last) => ({ ...last, error: result.error, busy: false }));
-      if (toastMissing || result.error.code !== 'not_found')
-        toast(result.error.message, 'alert', undefined, { repeating: true });
+      if (toastMissing || result.error.code !== 'not_found') alertNew(result.error);
     }
-  }, [call, toast, cached, name, key, toastMissing]);
+  }, [call, alertNew, cached, name, key, toastMissing]);
 
   useEffect(() => {
     void refresh();

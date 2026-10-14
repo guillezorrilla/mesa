@@ -70,7 +70,7 @@ export async function readRepositoryInsight(
   if (!head.ok) throw new MesaError('usage', `cannot read Git HEAD: ${head.detail}`);
   const observedAt = clock().toISOString();
   const branchSessions = new Map<string, string[]>();
-  for (const session of store.list()) {
+  for (const session of store.readable()) {
     for (const held of heldWorktrees(session)) {
       if (held.project !== project || !held.worktree.branch) continue;
       const ids = branchSessions.get(held.worktree.branch) ?? [];

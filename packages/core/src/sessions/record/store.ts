@@ -22,9 +22,6 @@ const RECORD_FILE = /^([0-9a-z]{8})\.json$/;
 
 type Patch = Partial<Omit<SessionRecord, 'id'>>;
 
-/** A record file read: the record, or why it does not read (the message names the file). */
-type ScannedRecord = { record: SessionRecord } | { reason: string };
-
 /** Where a removal can move a record instead of dropping it: another store's `put`. */
 export type RecordSink = { put: (record: SessionRecord) => unknown };
 
@@ -57,20 +54,27 @@ export function sessionStore({
     return valid;
   };
   const get = read;
-  /** Each record file, read; one that does not read (a damaged file) says why instead. */
-  const scan = (): ScannedRecord[] => {
-    if (!existsSync(dir)) return [];
-    return readdirSync(dir, { withFileTypes: true }).flatMap((e): ScannedRecord[] => {
+  /**
+   * Every record file, read: the records that read, oldest first, and why each other one does not
+   * (its message names the file). Reads directly, not through `read`: a file removed between the
+   * listing and the read is gone, not unreadable.
+   */
+  const scan = () => {
+    const records: SessionRecord[] = [];
+    const reasons: string[] = [];
+    if (!existsSync(dir)) return { records, reasons };
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
       const id = e.isFile() && RECORD_FILE.exec(e.name)?.[1];
-      if (!id) return [];
+      if (!id) continue;
       try {
         const record = readJson(fileOf(id), SessionRecordSchema);
-        // Removed between the listing and the read: gone, not unreadable.
-        return record ? [{ record: own(id, record) }] : [];
+        if (record) records.push(own(id, record));
       } catch (error) {
-        return [{ reason: toFail(error).error.message }];
+        reasons.push(toFail(error).error.message);
       }
-    });
+    }
+    records.sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+    return { records, reasons };
   };
   /**
    * Changes the record under its lock (`<id>.json.lock` beside it), so read-modify-write updates
@@ -125,27 +129,21 @@ export function sessionStore({
         wait ? undefined : 0,
       ),
     /**
-     * Every record, oldest first; one that does not read fails the list, so a guard (a worktree
-     * still in use) never passes on a record it could not see.
+     * Every record, oldest first, for a guard or a change (a worktree still in use, a queue): one
+     * that does not read fails it, so a guard never passes on a record it could not see.
      */
-    list: (): SessionRecord[] =>
-      scan()
-        .map((found) => {
-          if ('record' in found) return found.record;
-          throw new MesaError('invalid_config', found.reason);
-        })
-        .sort((a, b) => a.startedAt.localeCompare(b.startedAt)),
+    list: (): SessionRecord[] => {
+      const { records, reasons } = scan();
+      if (reasons[0]) throw new MesaError('invalid_config', reasons[0]);
+      return records;
+    },
     /**
-     * Every record that reads, oldest first, for a view that refreshes (the board, the Inbox):
-     * one that does not read is left out, and Doctor names it (`unreadable`).
+     * Every record that reads, oldest first, for a view (the board, the Inbox, a report): one that
+     * does not read is left out, and Doctor names it (`unreadable`).
      */
-    readable: (): SessionRecord[] =>
-      scan()
-        .flatMap((found) => ('record' in found ? [found.record] : []))
-        .sort((a, b) => a.startedAt.localeCompare(b.startedAt)),
+    readable: (): SessionRecord[] => scan().records,
     /** Why each record file that does not read fails, for Doctor. */
-    unreadable: (): string[] =>
-      scan().flatMap((found) => ('record' in found ? [] : [found.reason])),
+    unreadable: (): string[] => scan().reasons,
     /** Writes `record` as it is: a removal moving it here (remove's `into`). */
     put: (record: SessionRecord) => {
       mkdirSync(dir, { recursive: true, mode: 0o700 });

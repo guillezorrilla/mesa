@@ -6,8 +6,7 @@ import { Button } from './ui/button';
 /**
  * How a toast looks and lasts (ADR-0009 amendment): a confirmation is neutral, shows every time,
  * and goes by itself; an alert (a failure or a warning) is warm, shows once however often it
- * comes, and stays until dismissed. An alert from a read that repeats (a screen's refresh) stays
- * dismissed for the run; one from an action the person takes shows again each time it fails.
+ * comes, and stays until dismissed.
  */
 type Tone = 'confirmation' | 'alert';
 export type Message = { text: string; tone: Tone };
@@ -34,14 +33,7 @@ export const warningOf = (data?: { warning?: string }): Message | undefined =>
 /** How long a confirmation stays. */
 export const CONFIRMATION_MS = 4000;
 
-/** `repeating`: the alert comes from a read that runs again by itself, not from a person's action. */
-type Show = (
-  text: string,
-  tone?: Tone,
-  link?: ToastLink,
-  options?: { repeating?: boolean },
-) => void;
-const ToastContext = createContext<Show>(() => {});
+const ToastContext = createContext<(text: string, tone?: Tone, link?: ToastLink) => void>(() => {});
 
 /**
  * Shows toasts by their tone; `useToast()` returns the function that adds one, an alert unless
@@ -50,21 +42,18 @@ const ToastContext = createContext<Show>(() => {});
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<(Message & { id: number; link?: ToastLink })[]>([]);
   const last = useRef(0);
-  // The alerts the person dismissed, so a screen that refreshes does not bring one back.
-  const dismissed = useRef(new Set<string>());
-  const dismiss = useCallback((m: Message & { id: number }) => {
-    if (m.tone === 'alert') dismissed.current.add(m.text);
-    setMessages((all) => all.filter((x) => x.id !== m.id));
-  }, []);
-  const show = useCallback<Show>(
-    (text, tone = 'alert', link, options) => {
+  const dismiss = useCallback(
+    (id: number) => setMessages((all) => all.filter((m) => m.id !== id)),
+    [],
+  );
+  const show = useCallback(
+    (text: string, tone: Tone = 'alert', link?: ToastLink) => {
       const id = ++last.current;
       if (tone === 'confirmation') {
         setMessages((all) => [...all, { id, text, tone, link }]);
-        setTimeout(() => dismiss({ id, text, tone }), CONFIRMATION_MS);
+        setTimeout(() => dismiss(id), CONFIRMATION_MS);
         return;
       }
-      if (options?.repeating && dismissed.current.has(text)) return;
       // An alert already showing is not repeated: several screens can hit the same failure.
       setMessages((all) =>
         all.some((m) => m.tone === 'alert' && m.text === text)
@@ -104,7 +93,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                     className="h-auto justify-self-start px-0 has-[>svg]:px-0"
                     onClick={() => {
                       m.link?.onFollow();
-                      dismiss(m);
+                      dismiss(m.id);
                     }}
                   >
                     {m.link.label}
@@ -117,7 +106,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 size="icon"
                 className="size-6 shrink-0"
                 aria-label="Dismiss"
-                onClick={() => dismiss(m)}
+                onClick={() => dismiss(m.id)}
               >
                 <X />
               </Button>

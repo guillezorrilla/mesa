@@ -17,6 +17,7 @@ import {
   hookItem,
   type InboxItem,
   releaseItem,
+  shownInInbox,
 } from './inbox-items.js';
 import { type InboxState, inboxStore } from './inbox-store.js';
 
@@ -115,11 +116,8 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
         : current;
     return inboxItems(state, failures(), notes);
   };
-  /**
-   * What the Inbox shows: not a finished turn, which needs nothing from the person and which the
-   * Session Board already shows; its macOS notice still follows `notifications.finished`.
-   */
-  const list = () => all().filter((item) => item.kind !== 'finished');
+  /** What the Inbox shows (shownInInbox). */
+  const list = () => all().filter(shownInInbox);
   const change = (id: string, field: 'read' | 'cleared') => {
     if (!all().some((item) => item.id === id))
       throw new MesaError('not_found', `no inbox item ${id}`);
@@ -153,10 +151,9 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
      * kept hook offsets stop them coming back. Counts the ones the Inbox showed.
      */
     clearAll: () => {
-      const shown = list().length;
-      const ids = all().map((item) => item.id);
-      if (ids.length) store.write({ cleared: ids });
-      return shown;
+      const items = all();
+      if (items.length) store.write({ cleared: items.map((item) => item.id) });
+      return items.filter(shownInInbox).length;
     },
     delivery,
     /** App and background worker claim through the same short, synchronous lock. */

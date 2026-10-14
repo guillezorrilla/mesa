@@ -21,7 +21,7 @@ export function diagnosticsService(ctx: MesaContext) {
       const limit = filter.limit ?? 100;
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 200)
         throw new MesaError('usage', 'diagnostics limit must be 1-200');
-      const records = filter.session ? [ctx.store.get(filter.session)] : ctx.store.list();
+      const records = filter.session ? [ctx.store.get(filter.session)] : ctx.store.readable();
       const secrets = ctx.secrets();
       const events = records
         .flatMap((record) =>

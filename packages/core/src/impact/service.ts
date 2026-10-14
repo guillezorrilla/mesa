@@ -63,7 +63,7 @@ export function impactService(ctx: MesaContext) {
               since,
             })
           : [];
-      const found = new Map<string, SessionRecord>(ctx.store.list().map((r) => [r.id, r]));
+      const found = new Map<string, SessionRecord>(ctx.store.readable().map((r) => [r.id, r]));
       // Each session's hook log, read once.
       const logs = new Map<string, HookEvent[]>();
       const events = (id: string) => {
