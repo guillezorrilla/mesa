@@ -75,7 +75,7 @@ export function reviewActions(
               mode,
               head,
               ...(round > 1 ? { earlier: pr.threads } : {}),
-              ...(since ? { since } : {}),
+              ...(since ? { lastHead: since } : {}),
             });
           },
         },

@@ -17,7 +17,7 @@ export type ReviewPromptInput = {
   mode: SessionReview['mode'];
   head: string;
   /** The head the previous round reviewed: round 2 reads only what changed since. */
-  since?: string;
+  lastHead?: string;
   earlier?: EarlierThread[];
   /** The command that runs this Mesa (ctx.self), so the session calls the same build, not whatever `mesa` is on PATH. */
   mesa: string;
@@ -37,7 +37,7 @@ const fenced = (lines: string[]) => [`\`\`\`${FENCE}`, ...lines, '```'];
 export function reviewPrompt(input: ReviewPromptInput): string {
   const { project, number, mesa } = input;
   const pr = `${project} ${number}`;
-  const base = input.since ? short(input.since) : 'origin/<base>';
+  const base = input.lastHead ? short(input.lastHead) : 'origin/<base>';
   const earlier = (input.earlier ?? []).map(
     (t) =>
       `- ${short(t.id)} ${short(t.path)}${t.line === null ? '' : `:${t.line}`}: ${short(t.body, QUOTED)}${
@@ -55,7 +55,7 @@ export function reviewPrompt(input: ReviewPromptInput): string {
       `author: ${short(input.author)}`,
       ...(earlier.length ? ['your earlier threads:', ...earlier] : []),
     ]),
-    `1. Read \`${mesa} prs show ${pr} --json\` and \`git diff ${base}...HEAD\`${input.since ? ' (what changed since your last review; if that commit is gone after a force-push, use origin/<base>)' : ''}.`,
+    `1. Read \`${mesa} prs show ${pr} --json\` and \`git diff ${base}...HEAD\`${input.lastHead ? ' (what changed since your last review; if that commit is gone after a force-push, use origin/<base>)' : ''}.`,
     '2. Find real issues in the changed lines: bugs, and breaks of the AGENTS.md or CLAUDE.md rules that cover them; `git blame` only where a change looks like a regression. Keep what you are 80% sure of. Nits are not issues.',
     ...(earlier.length
       ? [
