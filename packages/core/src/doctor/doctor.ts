@@ -19,6 +19,7 @@ import {
   CHECK_TIMEOUT_MS,
   firstVersion,
   homebrewInstall,
+  OBSIDIAN_INSTALL,
   probe,
   TMUX_INSTALL,
 } from './probe.js';
@@ -52,9 +53,6 @@ const BINARIES: Binary[] = [
   ),
 ];
 
-/** How to install Obsidian, which most people do not have yet. */
-const OBSIDIAN_INSTALL = 'brew install --cask obsidian';
-
 /** The rows Mesa can install itself (`mesa doctor install`), each with its Homebrew command. */
 export const INSTALLABLE = new Map([
   ...BINARIES.flatMap((b) => {
@@ -74,7 +72,7 @@ async function obsidianCheck(run: Runner, paths: ObsidianPaths): Promise<Finding
       ...base,
       ok: false,
       registered: false,
-      hint: `not installed; Mesa's vault opens in Obsidian 1.12.7+: install with \`${OBSIDIAN_INSTALL}\``,
+      hint: `Obsidian 1.12.7+ not found at ${paths.bundle}; install with \`${OBSIDIAN_INSTALL}\``,
       install: OBSIDIAN_INSTALL,
     };
   }

@@ -1,5 +1,5 @@
 import { FolderOpen } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -33,8 +33,11 @@ export function VaultStep(props: {
         ...(other ? [{ path: other, title: 'Another folder' }] : []),
       ]
     : [];
-  // Without Obsidian, a stale vault list is no reason to pick an old vault: a new one is.
-  const selected = chosen ?? (props.obsidian ? options[0]?.path : choices.data?.suggested);
+  // Without Obsidian, a stale vault list is no reason to pick an old vault: a new one is. That
+  // holds after Install too, so a missing Obsidian is remembered for the step.
+  const missing = useRef(false);
+  if (!props.obsidian) missing.current = true;
+  const selected = chosen ?? (missing.current ? choices.data?.suggested : options[0]?.path);
   const create = () =>
     act(async () => {
       if (!selected || !(await run('profile.init', { vault: selected }))) return undefined;

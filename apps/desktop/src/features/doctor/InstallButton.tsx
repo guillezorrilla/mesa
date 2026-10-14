@@ -10,7 +10,7 @@ const HOMEBREW_INSTALL =
   '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"';
 
 /**
- * Installs a missing tmux, agent or Obsidian with Homebrew, then reruns the doctor so the row turns ok.
+ * Installs a missing requirement with Homebrew, then reruns the doctor so the row turns ok.
  * Without Homebrew it says so, with brew.sh and Homebrew's own installer to copy into a terminal.
  */
 export function InstallButton(props: { name: string; onInstalled: () => Promise<void> }) {

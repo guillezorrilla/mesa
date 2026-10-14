@@ -3,20 +3,22 @@ import { scriptedRunner } from '../testing/index.js';
 import { INSTALLABLE } from './doctor.js';
 import { installRequirement } from './install.js';
 
-test('installs tmux, the agents, gh and twg with their Homebrew command', async () => {
+test('installs tmux, the agents, gh, twg and Obsidian with their Homebrew command', async () => {
   const { run, calls } = scriptedRunner();
   expect(await installRequirement(run, 'tmux')).toEqual({ name: 'tmux', installed: true });
   await installRequirement(run, 'claude');
   await installRequirement(run, 'gh');
   await installRequirement(run, 'twg');
+  await installRequirement(run, 'obsidian');
   expect(calls.map((c) => [c.file, ...c.args].join(' '))).toEqual([
     'brew install tmux',
     'brew install --cask claude-code',
     'brew install gh',
     'brew install atlassian/twg/twg',
+    'brew install --cask obsidian',
   ]);
   expect([...INSTALLABLE.keys()]).toEqual(
-    expect.arrayContaining(['tmux', 'claude', 'codex', 'gh', 'twg']),
+    expect.arrayContaining(['tmux', 'claude', 'codex', 'gh', 'twg', 'obsidian']),
   );
 });
 

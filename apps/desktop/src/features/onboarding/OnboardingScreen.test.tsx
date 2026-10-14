@@ -163,6 +163,12 @@ test('Vault: without Obsidian, Create a new vault is preselected and Install obs
   await click(notice?.querySelector<HTMLElement>('[data-testid="install-button"]') ?? undefined);
   expect(calls).toContainEqual(['--json', 'doctor', 'install', 'obsidian']);
   expect(byTestId('obsidian-missing')).toHaveLength(0);
+  // The new vault stays chosen: the old list is no better for a fresh Obsidian.
+  expect(
+    byTestId('vault-choice').map((row) =>
+      row.querySelector('[role="radio"]')?.getAttribute('data-state'),
+    ),
+  ).toEqual(['unchecked', 'checked']);
 });
 
 test('Projects: Continue needs a ticked folder with no project yet; with one, nothing starts ticked', async () => {
