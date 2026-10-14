@@ -1,5 +1,4 @@
-import { FENCE } from '../pr-events/pr-event-delivery.js';
-import { short } from '../pr-events/pr-events.js';
+import { UNTRUSTED_FENCE as FENCE, short } from '../lib/untrusted-text.js';
 
 /** One of my earlier threads on the PR, as a round 2 review checks it. */
 export type EarlierThread = {
@@ -37,10 +36,13 @@ const fenced = (lines: string[], indent = '') => [
 
 /** My earlier threads, each fenced, and how round 2 answers them. */
 function earlierSection(input: ReviewPromptInput): string[] {
-  const threads = (input.earlier ?? []).flatMap((t) => [
-    `- Thread ${short(t.id)} at ${short(t.path)}${t.line === null ? '' : `:${t.line}`}`,
+  // The thread id and path come from the provider too: they sit in the fence with the text.
+  const threads = (input.earlier ?? []).flatMap((t, i) => [
+    `- Thread ${i + 1}:`,
     ...fenced(
       [
+        `id: ${short(t.id)}`,
+        `at: ${short(t.path)}${t.line === null ? '' : `:${t.line}`}`,
         `mine: ${short(t.body, QUOTED)}`,
         ...(t.lastReply
           ? [`last reply (${short(t.lastReply.author)}): ${short(t.lastReply.body, QUOTED)}`]

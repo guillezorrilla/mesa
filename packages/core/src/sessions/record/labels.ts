@@ -12,7 +12,8 @@ const reviewName = (s: { review?: Pick<SessionReview, 'pr'> }) =>
   s.review ? `Review #${s.review.pr}` : undefined;
 
 /** What a review session reviews, as its card and the PR's detail say it: `Review #12 · round 2 · drafts`. */
-export const reviewLabel = (r: SessionReview) => `Review #${r.pr} · round ${r.round} · ${r.mode}`;
+export const reviewLabel = (r: SessionReview) =>
+  `${reviewName({ review: r })} · round ${r.round} · ${r.mode}`;
 
 /**
  * A session's name when a person gave it one, else a review session's (`Review #12`), else the one
@@ -27,11 +28,15 @@ export const sessionLabel = (s: {
 }) => (s.managed !== false && (s.name || reviewName(s) || s.agentName)) || s.id;
 
 /**
- * What a session's card calls it: its name, else a review session's, else the one its agent gives
- * it, else its goal's first line, else its id.
+ * What a session's card calls it: its name, else a review session's with its round and mode, else
+ * the one its agent gives it, else its goal's first line, else its id.
  */
 export const sessionTitle = (s: SessionRow) =>
-  (s.managed && (s.name || reviewName(s) || s.agentName || s.goal?.trim().split(/\r?\n/, 1)[0])) ||
+  (s.managed &&
+    (s.name ||
+      (s.review && reviewLabel(s.review)) ||
+      s.agentName ||
+      s.goal?.trim().split(/\r?\n/, 1)[0])) ||
   s.id;
 
 /** A Mesa session that runs a skill headlessly (CONTEXT.md, Skill run). */
@@ -55,8 +60,12 @@ export const sessionBranch = (s: SessionRow) =>
  * A session Mesa may name (autoName): an interactive one no person, or its agent, has named, and
  * not a review session, whose name is its pull request's (`Review #12`).
  */
-export const nameable = (s: { kind: string; name?: string; agentName?: string; review?: object }) =>
-  s.kind === 'interactive' && !s.name && !s.agentName && !s.review;
+export const nameable = (s: {
+  kind: string;
+  name?: string;
+  agentName?: string;
+  review?: SessionReview;
+}) => s.kind === 'interactive' && !s.name && !s.agentName && !s.review;
 
 /**
  * Which ask for a name a session is at: one for a session named from its item's title, else one

@@ -18,7 +18,6 @@ import { useStartReview } from './useStartReview';
 // The states a review session can be started from; done and drafts-waiting have their own step.
 const START_LABEL: Partial<Record<PrDetail['bucket'], 'Start review' | 'Re-review'>> = {
   need: 'Start review',
-  other: 'Start review',
   updated: 'Re-review',
   waiting: 'Re-review',
 };
@@ -68,9 +67,11 @@ export function PrScreen(
       label={label}
       live={reviews.find((r) => r.alive)?.id}
       noPost={
-        props.agent && props.agent !== 'claude'
-          ? `Post now needs Claude; ${pr.project} reviews with ${props.agent}.`
-          : undefined
+        props.agent === 'claude'
+          ? undefined
+          : props.agent === undefined
+            ? 'Loading project'
+            : `Post now needs Claude; ${pr.project} reviews with ${props.agent ?? 'no agent'}.`
       }
       onStart={(post) => void review.start(post)}
       onOpen={open}
@@ -118,6 +119,7 @@ export function PrScreen(
         </p>
       )}
       <PrStatusPanel pr={pr} action={action} />
+      {review.note && <Muted>{review.note}</Muted>}
       {review.steps && (
         <StartProgress
           title={`Starting the review of #${pr.number}`}

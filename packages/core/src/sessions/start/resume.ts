@@ -93,7 +93,8 @@ export async function resumeSession(
       vaultMounted: old.vaultMounted,
       decisionsMounted: old.decisionsMounted,
       from: old.from,
-      review: old.review,
+      // Still a review of the PR, but Post now was the yes for that run only: back to drafts.
+      ...(old.review ? { review: { ...old.review, mode: 'drafts' as const } } : {}),
       resumedFrom: old.id,
     },
     {

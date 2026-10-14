@@ -15,13 +15,26 @@ const listing = (...linked: { path: string; branch: string }[]) =>
     .map((w) => `worktree ${w.path}\0HEAD ${'b'.repeat(40)}\0branch refs/heads/${w.branch}\0\0`)
     .join('');
 
-/** A git that lists `worktrees`, says `status` for a worktree's changes, and answers rev-parse with HEAD. */
-function fakeGit(worktrees = listing(), status = '') {
+const FAILED: RunResult = { ok: false, reason: 'failed', detail: 'exit 1' };
+
+/**
+ * A git that lists `worktrees`, says `status` for a worktree's changes and `ahead` for its commits
+ * past the new head, has a local review branch when `branch` is set (an ancestor of the head unless
+ * `diverged`), and answers rev-parse with HEAD.
+ */
+function fakeGit(
+  worktrees = listing(),
+  opts: { status?: string; ahead?: string; branch?: boolean; diverged?: boolean } = {},
+) {
   return scriptedRunner({
     git: (args): string | RunResult => {
       const sub = args[2];
       if (sub === 'worktree') return worktrees;
-      if (sub === 'status') return status;
+      if (sub === 'status') return opts.status ?? '';
+      if (sub === 'rev-list') return opts.ahead ?? '';
+      if (sub === 'merge-base') return opts.diverged ? FAILED : '';
+      if (sub === 'rev-parse' && args.includes('--quiet'))
+        return opts.branch ? `${HEAD}\n` : FAILED;
       if (sub === 'rev-parse') return `${HEAD}\n`;
       return '';
     },
@@ -79,8 +92,9 @@ const input = (fields: Partial<ReviewStartInput> = {}): ReviewStartInput => ({
   number: 12,
   provider: 'github',
   post: false,
+  pendingDrafts: 0,
   agent: 'claude',
-  goal: (round) => `Review round ${round}`,
+  goal: (review) => `Review round ${review.round}`,
   ...fields,
 });
 
@@ -140,6 +154,7 @@ describe('startReview', () => {
     expect(await startReview(deps, input({ post: true }))).toEqual({
       session: 'l1v3r3v1',
       existing: true,
+      mode: 'drafts',
     });
     expect(opened).toEqual([]);
     expect(calls).toEqual([]);
@@ -153,6 +168,7 @@ describe('startReview', () => {
       ['-C', PROJECT, 'worktree', 'list', '--porcelain', '-z'],
       ['-C', WORKTREE, 'status', '--porcelain=v1', '-z'],
       ['-C', WORKTREE, 'fetch', 'origin', 'pull/12/head'],
+      ['-C', WORKTREE, 'rev-list', 'FETCH_HEAD..HEAD'],
       ['-C', WORKTREE, 'switch', '--quiet', '-C', 'review/12', 'FETCH_HEAD'],
       ['-C', PROJECT, 'rev-parse', '--verify', '--end-of-options', 'review/12^{commit}'],
     ]);
@@ -176,7 +192,9 @@ describe('startReview', () => {
   });
 
   test('a review worktree with changes is reported, and neither fetched into nor moved', async () => {
-    const run = fakeGit(listing({ path: WORKTREE, branch: 'review/12' }), ' M tide.ts\0');
+    const run = fakeGit(listing({ path: WORKTREE, branch: 'review/12' }), {
+      status: ' M tide.ts\0',
+    });
     const { deps, opened, calls } = harness([reviewSession('r0und1aa', {}, ended)], run);
     await expect(startReview(deps, input())).rejects.toMatchObject({
       code: 'usage',
@@ -184,5 +202,54 @@ describe('startReview', () => {
     });
     expect(gitArgs(calls).some((a) => a.includes('fetch') || a.includes('switch'))).toBe(false);
     expect(opened).toEqual([]);
+  });
+
+  test('Post now is refused while I have pending drafts on the pull request, before any git runs', async () => {
+    const { deps, calls } = harness();
+    await expect(startReview(deps, input({ post: true, pendingDrafts: 2 }))).rejects.toMatchObject({
+      code: 'usage',
+      message: expect.stringContaining('2 pending drafts'),
+    });
+    expect(calls).toEqual([]);
+  });
+
+  test('a review/<n> worktree no review session of the pull request holds is never moved', async () => {
+    const run = fakeGit(listing({ path: '/w/mine', branch: 'review/12' }));
+    const { deps, opened, calls } = harness([], run);
+    await expect(startReview(deps, input())).rejects.toMatchObject({
+      code: 'usage',
+      message: expect.stringContaining('which no review of #12 holds'),
+    });
+    expect(gitArgs(calls).some((a) => a.includes('fetch') || a.includes('switch'))).toBe(false);
+    expect(opened).toEqual([]);
+  });
+
+  test('a review worktree with commits past the new head is not moved', async () => {
+    const run = fakeGit(listing({ path: WORKTREE, branch: 'review/12' }), {
+      ahead: `${'c'.repeat(40)}\n`,
+    });
+    const { deps, opened, calls } = harness([reviewSession('r0und1aa', {}, ended)], run);
+    await expect(startReview(deps, input())).rejects.toMatchObject({
+      message: expect.stringContaining('has commits that are not in the new head'),
+    });
+    expect(gitArgs(calls).some((a) => a.includes('switch'))).toBe(false);
+    expect(opened).toEqual([]);
+  });
+
+  test('a leftover review branch moves forward to the head, and one with its own commits is refused', async () => {
+    const forward = harness([], fakeGit(listing(), { branch: true }));
+    await startReview(forward.deps, input());
+    expect(gitArgs(forward.calls).slice(1, 5)).toEqual([
+      ['-C', PROJECT, 'rev-parse', '--verify', '--quiet', 'refs/heads/review/12'],
+      ['-C', PROJECT, 'fetch', 'origin', 'pull/12/head'],
+      ['-C', PROJECT, 'merge-base', '--is-ancestor', 'review/12', 'FETCH_HEAD'],
+      ['-C', PROJECT, 'branch', '--force', 'review/12', 'FETCH_HEAD'],
+    ]);
+    const diverged = harness([], fakeGit(listing(), { branch: true, diverged: true }));
+    await expect(startReview(diverged.deps, input())).rejects.toMatchObject({
+      message: expect.stringContaining('has commits that are not in #12'),
+    });
+    expect(gitArgs(diverged.calls).some((a) => a.includes('branch'))).toBe(false);
+    expect(diverged.opened).toEqual([]);
   });
 });

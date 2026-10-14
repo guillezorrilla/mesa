@@ -36,14 +36,16 @@ export type ReviewStartInput = {
   sourceBranch?: string;
   /** Post the findings (Post now), else leave them as drafts. */
   post: boolean;
+  /** My Pending drafts already on the pull request: Post now would publish them too, so it is refused. */
+  pendingDrafts: number;
   /** The project's agent: only Claude may post. */
   agent: string;
-  /** The session's first prompt for this round (review-prompt.ts). */
-  goal: (round: number, head: string) => string | Promise<string>;
+  /** The session's first prompt, for its review (round, mode, head) (review-prompt.ts). */
+  goal: (review: SessionReview) => string | Promise<string>;
 };
 
 export type ReviewStart =
-  | { session: string; existing: true }
+  | { session: string; existing: true; mode: SessionReview['mode'] }
   | {
       session: string;
       round: number;
@@ -78,12 +80,17 @@ export async function startReview(
     .filter((r) => r.project === project && r.review?.pr === pr)
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
   const live = earlier.filter((r) => !isOver(r)).at(-1);
-  if (live) return { session: live.id, existing: true };
+  if (live) return { session: live.id, existing: true, mode: live.review?.mode ?? 'drafts' };
   const mode = input.post ? 'post' : 'drafts';
   if (input.post && input.agent !== 'claude')
     throw new MesaError(
       'usage',
       `Post now needs Claude, which publishes through mesa prs publish; ${input.agent} can only leave drafts`,
+    );
+  if (input.post && input.pendingDrafts > 0)
+    throw new MesaError(
+      'usage',
+      `you have ${input.pendingDrafts} pending drafts on #${pr}, which Post now would publish too: submit or discard them first, or choose Leave as drafts`,
     );
   const source = headRef(input);
   const branch = reviewBranch(pr);
@@ -91,14 +98,14 @@ export async function startReview(
   const worktree = (await gitWorktrees(deps.run, deps.projectPath))
     .slice(1)
     .find((w) => w.branch === branch);
-  if (worktree) await moveWorktree(deps.run, worktree.path, branch, source);
-  else
-    await must(
-      deps.run,
-      deps.projectPath,
-      ['fetch', 'origin', `+${source}:${branch}`],
-      `cannot fetch pull request #${pr}`,
+  // Only a worktree a review session of this pull request holds is Mesa's to move.
+  if (worktree && !earlier.some((r) => r.worktree?.path === worktree.path))
+    throw new MesaError(
+      'usage',
+      `${branch} is checked out at ${worktree.path}, which no review of #${pr} holds: remove that worktree or rename its branch, then start the review again`,
     );
+  if (worktree) await moveWorktree(deps.run, worktree.path, branch, source);
+  else await fetchBranch(deps.run, deps.projectPath, branch, source, pr);
   const head = await commitOid(deps.run, deps.projectPath, branch);
   const round = Math.max(0, ...earlier.map((r) => r.review?.round ?? 0)) + 1;
   const parent = earlier.at(-1)?.id;
@@ -107,7 +114,7 @@ export async function startReview(
     agent: input.agent,
     // A worktree an earlier round's session holds is taken over as a checkout (mesa open --checkout).
     ...(worktree ? { checkout: worktree.path } : { branch }),
-    goal: await input.goal(round, head),
+    goal: await input.goal(review),
     review,
     ...(parent ? { parent } : { noParent: true }),
   });
@@ -135,8 +142,44 @@ function headRef(input: ReviewStartInput) {
 }
 
 /**
+ * Points the local `branch`, checked out nowhere, at `source`'s head on origin. A branch already
+ * there (an earlier round's, its worktree removed) is moved only forward: one with commits the
+ * head has not is refused rather than lose them.
+ */
+async function fetchBranch(run: Runner, cwd: string, branch: string, source: string, pr: number) {
+  const exists = await gitCommand(run, cwd, [
+    'rev-parse',
+    '--verify',
+    '--quiet',
+    `refs/heads/${branch}`,
+  ]);
+  if (!exists.ok) {
+    await must(
+      run,
+      cwd,
+      ['fetch', 'origin', `+${source}:${branch}`],
+      `cannot fetch pull request #${pr}`,
+    );
+    return;
+  }
+  await must(run, cwd, ['fetch', 'origin', source], `cannot fetch pull request #${pr}`);
+  const ancestor = await gitCommand(run, cwd, [
+    'merge-base',
+    '--is-ancestor',
+    branch,
+    'FETCH_HEAD',
+  ]);
+  if (!ancestor.ok)
+    throw new MesaError(
+      'usage',
+      `${branch} has commits that are not in #${pr}'s head: rename or delete that branch, then start the review again`,
+    );
+  await must(run, cwd, ['branch', '--force', branch, 'FETCH_HEAD'], `cannot move ${branch}`);
+}
+
+/**
  * Moves the worktree on `branch` to `source`'s head on origin: fetched into FETCH_HEAD, then the
- * branch reset there with switch -C, once the worktree has no changes to lose.
+ * branch reset there with switch -C, once the worktree has no changes and no commits to lose.
  */
 async function moveWorktree(run: Runner, path: string, branch: string, source: string) {
   const status = await must(
@@ -151,6 +194,12 @@ async function moveWorktree(run: Runner, path: string, branch: string, source: s
       `the review worktree ${path} has changes: commit or remove them, then start the review again`,
     );
   await must(run, path, ['fetch', 'origin', source], `cannot fetch ${source}`);
+  const ahead = await must(run, path, ['rev-list', 'FETCH_HEAD..HEAD'], `cannot compare ${path}`);
+  if (ahead.trim())
+    throw new MesaError(
+      'usage',
+      `the review worktree ${path} has commits that are not in the new head: push or remove them, then start the review again`,
+    );
   await must(
     run,
     path,

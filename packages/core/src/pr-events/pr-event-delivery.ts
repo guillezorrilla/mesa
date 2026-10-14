@@ -3,6 +3,7 @@ import type { Overrides } from '../decisions/guardrail.js';
 import type { Decision } from '../decisions/types.js';
 import type { GhState } from '../git/gh.js';
 import { MesaError, toFail } from '../lib/result.js';
+import { UNTRUSTED_FENCE as FENCE } from '../lib/untrusted-text.js';
 import type { Recorded } from '../receipts/recorder.js';
 import type { ManagedRow, SessionRow } from '../sessions/board/rows.js';
 import type { Sent } from '../sessions/input/send.js';
@@ -68,9 +69,6 @@ const REVIEW_STATES: Record<string, string> = {
   COMMENTED: 'commented',
   DISMISSED: 'was dismissed',
 };
-
-/** The fence a trusted author's text is quoted in: GitHub's words, never Mesa's or the person's. */
-export const FENCE = 'untrusted-github-text';
 
 /**
  * The lines of the prompt for one event, with its link. A trusted author's text follows in a

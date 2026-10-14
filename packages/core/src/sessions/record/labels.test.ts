@@ -70,7 +70,9 @@ test('a session is worth naming between turns once it has a goal or a prompt and
 test('a review session reads Review #<n> unless a person named it, and Mesa never names it', () => {
   const review = { pr: 12, round: 2, mode: 'drafts', head: 'a'.repeat(40) } as const;
   const idle = { kind: 'interactive', lastState: { state: 'idle', at: 'x' }, goal: 'Review it' };
-  expect(sessionTitle(managed({ ...idle, review, agentName: 'tide-charts' }))).toBe('Review #12');
+  expect(sessionTitle(managed({ ...idle, review, agentName: 'tide-charts' }))).toBe(
+    'Review #12 · round 2 · drafts',
+  );
   expect(sessionLabel(managed({ review }))).toBe('Review #12');
   expect(sessionTitle(managed({ ...idle, review, name: 'tide notes' }))).toBe('tide notes');
   expect(reviewLabel(review)).toBe('Review #12 · round 2 · drafts');

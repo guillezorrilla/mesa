@@ -208,7 +208,7 @@ test('a PR row in the sidebar opens its detail', async () => {
 /** The PR screen with the board's sessions and the project's agent; the views it opened. */
 async function startable(
   pr: PrDetail,
-  opts: { sessions?: TreeRow[]; agent?: string; start?: () => unknown } = {},
+  opts: { sessions?: TreeRow[]; agent?: string | null; start?: () => unknown } = {},
 ) {
   const views: WorkspaceView[] = [];
   const { bridge, calls } = fakeBridge({
@@ -231,24 +231,27 @@ async function startable(
         project={pr.project}
         number={pr.number}
         sessions={opts.sessions ?? []}
-        agent={opts.agent ?? 'claude'}
+        agent={'agent' in opts ? opts.agent : 'claude'}
       />
     </NavigateContext.Provider>,
     bridge,
   );
   const started = () =>
     calls.filter((c) => c[1] === 'prs' && c[2] === 'start').map((c) => c.slice(1).join(' '));
-  return { byTestId, views, started };
+  const shows = () => calls.filter((c) => c[1] === 'prs' && c[2] === 'show').length;
+  return { byTestId, views, started, shows };
 }
 
 test('Start review leaves drafts by default, then opens the new session on its own, once', async () => {
-  const { byTestId, views, started } = await startable(detail({ bucket: 'need' }));
+  const { byTestId, views, started, shows } = await startable(detail({ bucket: 'need' }));
   expect(byTestId('start-review')[0]?.textContent).toBe('Start review');
   await click(byTestId('start-review')[0]);
   expect(started()).toEqual(['prs start -- storefront 477']);
   expect(byTestId('start-progress')[0]?.textContent).toContain(
-    'Check out the PR head and open the review',
+    'Read the PR and check out its head',
   );
+  // The start reads the PR itself: the screen's own read is the only prs show.
+  expect(shows()).toBe(1);
   expect(views).toEqual([{ kind: 'session', id: 'rev00001' }]);
 });
 
@@ -298,4 +301,27 @@ test('a review already running elsewhere is opened, not started again; a failed 
   await click(failed.byTestId('start-review')[0]);
   expect(failed.views).toEqual([]);
   expect(failed.byTestId('start-progress')[0]?.textContent).toContain('Back');
+});
+
+test('Post now waits for the project: disabled with Loading project until its agent is known', async () => {
+  const { byTestId } = await startable(detail(), { agent: undefined });
+  await click(byTestId('review-mode')[0]);
+  expect(byTestId('review-mode-post')[0]?.hasAttribute('data-disabled')).toBe(true);
+  expect(document.body.textContent).toContain('Loading project');
+});
+
+test('Post now on a PR whose drafts review is running opens it and says Post now was not applied', async () => {
+  const { byTestId, views } = await startable(detail(), {
+    start: () => envelope({ session: 'rev00007', existing: true, mode: 'drafts' }),
+  });
+  await click(byTestId('review-mode')[0]);
+  await click(byTestId('review-mode-post')[0]);
+  await click(byTestId('start-review')[0]);
+  expect(views).toEqual([{ kind: 'session', id: 'rev00007' }]);
+  expect(document.body.textContent).toContain('Post now was not applied');
+});
+
+test('a PR that is not for me offers no Start review', async () => {
+  const { byTestId } = await startable(detail({ bucket: 'other' }));
+  expect(byTestId('start-review')).toHaveLength(0);
 });

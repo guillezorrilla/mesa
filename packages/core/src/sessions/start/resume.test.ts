@@ -7,6 +7,7 @@ import {
   profilePaths,
   projectProfile,
   steppingClock,
+  testStore,
 } from '../../testing/index.js';
 
 const THREAD = '01a0e14e-be41-72f1-a81b-e25d2198602a';
@@ -83,6 +84,18 @@ test('two resumes at once start one successor and refuse the other', async () =>
   expect((await mesa.sessions.list(true)).map((r) => r.id).sort()).toEqual(
     [opened.id, successor.id].sort(),
   );
+});
+
+test('a resumed review session stays a review of its PR, but back in drafts: Post now was for that run', async () => {
+  const world = agentWorld();
+  const { mesa, home } = projectProfile(world.run);
+  const { result: opened } = await mesa.sessions.open('lantern-cove');
+  testStore(home).update(opened.id, {
+    review: { pr: 12, round: 1, mode: 'post', head: 'a'.repeat(40) },
+  });
+  await mesa.sessions.stop(opened.id, true);
+  const { record } = (await mesa.sessions.resume(opened.id)).result;
+  expect(record.review).toEqual({ pr: 12, round: 1, mode: 'drafts', head: 'a'.repeat(40) });
 });
 
 test('a resume whose start fails gives its claim back', async () => {

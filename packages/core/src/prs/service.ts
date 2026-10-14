@@ -5,6 +5,7 @@ import { mapLimit } from '../lib/map-limit.js';
 import { MesaError } from '../lib/result.js';
 import type { JsonRead } from '../lib/run-json.js';
 import { listProjects } from '../projects/projects.js';
+import { isOver } from '../sessions/record/lifecycle.js';
 import { callerOf } from '../sessions/window/caller.js';
 import { bitbucketApi } from './bitbucket.js';
 import {
@@ -151,7 +152,6 @@ export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open'>
       const pr = await show(project, number);
       const entry = listProjects(ctx.open()).find((p) => p.name === project);
       if (!entry?.agent) throw new MesaError('usage', `${project} has no agent to review with`);
-      const mode = opts.post ? 'post' : 'drafts';
       return startReview(
         { run: ctx.run, projectPath: entry.path, sessions: () => ctx.store.list(), ...deps },
         {
@@ -159,12 +159,20 @@ export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open'>
           number,
           provider: pr.provider,
           sourceBranch: pr.branch,
-          post: mode === 'post',
+          post: Boolean(opts.post),
+          pendingDrafts: pr.drafts.length,
           agent: entry.agent,
-          goal: (round, head) =>
+          goal: ({ round, mode, head }) =>
             reviewPrompt({
-              ...{ project, number, title: pr.title, author: pr.author, url: pr.url },
-              ...{ provider: pr.provider, round, mode, head },
+              project,
+              number,
+              title: pr.title,
+              author: pr.author,
+              url: pr.url,
+              provider: pr.provider,
+              round,
+              mode,
+              head,
               ...(round > 1 ? { earlier: pr.threads } : {}),
             }),
         },
@@ -176,12 +184,19 @@ export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open'>
      * PR started with Post now, never as an approval or a change request (ADR-0024).
      */
     publish: async (project: string, number: number) => {
-      const { review } =
-        callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile }).session ?? {};
-      if (review?.pr !== number || review.mode !== 'post')
+      // Only from a live review session of this very PR, in this project, started with Post now.
+      const caller = callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile }).session;
+      const review = caller?.review;
+      if (
+        !caller ||
+        isOver(caller) ||
+        caller.project !== project ||
+        review?.pr !== number ||
+        review.mode !== 'post'
+      )
         throw new MesaError(
           'usage',
-          `publishing #${number} needs a review session of it started with Post now; submit drafts on the provider instead`,
+          `publishing #${number} needs a live review session of it in ${project} started with Post now; submit drafts on the provider instead`,
         );
       const { provider, repo, api, cli } = await reach(project);
       return ctx.record(
