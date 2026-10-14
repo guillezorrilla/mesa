@@ -56,7 +56,7 @@ export function ImpactPanel(props: {
             session={s}
             expanded={s.id === props.session}
             onSession={props.onSession}
-            onMark={(moment, undo) => void mark(moment, undo)}
+            onMark={mark}
           />
         ))}
       </div>

@@ -1,11 +1,11 @@
 import { existsSync } from 'node:fs';
 import { AGENTS } from '../agents/agents.js';
 import type { MesaContext } from '../context.js';
-import type { Mark } from '../decisions/log.js';
+import { isDecision, type Mark } from '../decisions/log.js';
 import { MesaError } from '../lib/result.js';
 import { daysBefore } from '../lib/time.js';
 import { findProject } from '../projects/projects.js';
-import { listReceipts, showReceipt } from '../receipts/store.js';
+import { findReceipt, listReceipts } from '../receipts/store.js';
 import { promptTimes } from '../sessions/native/conversation.js';
 import { projectLabel } from '../sessions/record/general.js';
 import { sessionLabel } from '../sessions/record/labels.js';
@@ -25,27 +25,15 @@ export type ImpactOptions = { days?: number; project?: string; session?: string 
 const WRITE_KINDS = ['capture', 'vault-change', 'decision'] as const;
 
 export function impactService(ctx: MesaContext) {
-  /** The Moment `id` names: a Decision log line that changed something, else a receipt. */
-  const momentOf = (id: string) => {
-    const line = ctx.decisionLog.read().find((e) => e.id === id && e.changed);
+  /** Where the Moment `id` names happened: a decision that changed something, else a vault write. */
+  const momentOf = (id: string): { session: string | null; project: string | null } => {
+    const line = ctx.decisionLog.read().find((e) => isDecision(e) && e.id === id && e.changed);
     if (line) return line;
-    const entry = (() => {
-      try {
-        return showReceipt(ctx.vaultOf(), id);
-      } catch {
-        return undefined;
-      }
-    })();
+    const entry = findReceipt(ctx.vaultOf(), id);
     // A receipt is a Moment only when it wrote notes to the vault.
     if (!entry || !writtenNotes(entry).length)
       throw new MesaError('not_found', `no Moment with id ${id}; see mesa impact --json`);
-    const { receipt } = entry;
-    return {
-      site: 'vault' as const,
-      session: receipt.session ?? null,
-      project: receipt.project ?? null,
-      by: 'rules' as const,
-    };
+    return { session: entry.receipt.session ?? null, project: entry.receipt.project ?? null };
   };
   return {
     /**
@@ -53,21 +41,9 @@ export function impactService(ctx: MesaContext) {
      * newest one stands. Nothing learns from it yet.
      */
     mark: (moment: string, { undo = false }: { undo?: boolean } = {}): Marked => {
-      const about = momentOf(moment);
+      const { session, project } = momentOf(moment);
       const mark: Mark | null = undo ? null : 'not-right';
-      ctx.decisionLog.append({
-        site: about.site,
-        session: about.session,
-        project: about.project,
-        question: 'Was this right?',
-        rules: null,
-        answer: mark,
-        by: about.by,
-        status: 'marked',
-        changed: false,
-        moment,
-        mark,
-      });
+      ctx.decisionLog.append({ session, project, status: 'marked', moment, mark });
       return { moment, mark };
     },
     report: ({ days = 7, project, session }: ImpactOptions = {}) => {

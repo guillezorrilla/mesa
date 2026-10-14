@@ -161,7 +161,7 @@ test('Not right marks a Moment and shows the mark after a refresh; undo clears i
   const { bridge, calls } = fakeBridge({
     impact: (args) => {
       if (args[2] === 'mark') {
-        marked = args.includes('--not-right');
+        marked = !args.includes('--undo');
         return envelope({ moment: args[3], mark: marked ? 'not-right' : null });
       }
       const [first, ...rest] = CHECKOUT.moments;
@@ -176,7 +176,7 @@ test('Not right marks a Moment and shows the mark after a refresh; undo clears i
     byTestId('impact-moment')[0]?.querySelector<HTMLElement>(`[aria-label="${label}"]`) ??
     undefined;
   await click(button('Mark as not right'));
-  expect(calls).toContainEqual(['--json', 'impact', 'mark', 'm1', '--not-right']);
+  expect(calls).toContainEqual(['--json', 'impact', 'mark', 'm1']);
   expect(byTestId('impact-moment')[0]?.textContent).toContain('Marked not right,');
   expect(button('Mark as not right')).toBeUndefined();
   await click(button('Undo the mark'));

@@ -8,15 +8,23 @@ import { columns } from '../../output/columns.js';
 function logText(entries: LogEntry[]) {
   if (!entries.length) return 'no decisions logged in this period';
   return columns(
-    entries.map((e) => [
-      obsidianDateTime(new Date(e.at)).replace('T', ' '),
-      e.site,
-      e.session ?? '',
-      e.by,
-      e.rules && e.rules !== e.answer ? `${e.answer ?? ''} (rules: ${e.rules})` : (e.answer ?? ''),
-      e.status,
-      e.note ?? e.reason ?? '',
-    ]),
+    entries.map((e) => {
+      const at = obsidianDateTime(new Date(e.at)).replace('T', ' ');
+      if (e.status === 'opened') return [at, 'opened', e.session, '', e.note];
+      if (e.status === 'marked')
+        return [at, 'marked', e.session ?? '', '', e.mark ?? 'cleared', e.moment];
+      return [
+        at,
+        e.site,
+        e.session ?? '',
+        e.by,
+        e.rules && e.rules !== e.answer
+          ? `${e.answer ?? ''} (rules: ${e.rules})`
+          : (e.answer ?? ''),
+        e.status,
+        e.note ?? e.reason ?? '',
+      ];
+    }),
   ).join('\n');
 }
 

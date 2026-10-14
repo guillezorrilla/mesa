@@ -7,7 +7,7 @@ export const impactCommands = {
     'impact',
     'mark',
     moment,
-    undo ? '--undo' : '--not-right',
+    ...(undo ? ['--undo'] : []),
   ]),
   'impact.report': commandWith<{ days?: number; project?: string; session?: string }, ImpactReport>(
     ({ days, project, session }) => [

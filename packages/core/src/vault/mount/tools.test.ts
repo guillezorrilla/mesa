@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { decisionLog } from '../../decisions/log.js';
 import {
+  movableClock,
   multiProjectSession,
   newSession,
   profilePaths,
@@ -44,8 +45,7 @@ test("a session's additional project: save_note saves in its folder, and its ses
 
 test('read_note logs an opened note once, only for a note advised to the bound session', async () => {
   // One clock for Mesa and the log, moved by hand: advice, reads, advice again, reads.
-  let now = new Date('2026-10-13T11:00:00.000Z');
-  const clock = () => now;
+  const { clock, set } = movableClock('2026-10-13T11:00:00.000Z');
   const { home, mesa } = projectProfile(scriptedRunner().run, { clock });
   const store = testStore(home);
   const advised = store.create(() => newSession());
@@ -72,7 +72,7 @@ test('read_note logs an opened note once, only for a note advised to the bound s
     note: 'wiki/notes/retry.md',
   } as const;
   log.append(advice);
-  now = new Date('2026-10-13T12:00:00.000Z');
+  set('2026-10-13T12:00:00.000Z');
   const read = (session: typeof advised, path: string) =>
     callVaultTool(mesa.vault, session, 'read_note', { path });
   await read(advised, 'wiki/notes/retry.md');
@@ -83,17 +83,17 @@ test('read_note logs an opened note once, only for a note advised to the bound s
     mesa.decisions.log({ session: id }).filter((e) => e.status === 'opened');
   expect(opened(advised.id)).toEqual([
     expect.objectContaining({
-      site: 'relevance',
+      session: advised.id,
+      project: 'lantern-cove',
+      status: 'opened',
       note: 'wiki/notes/retry.md',
-      by: 'clef',
-      changed: false,
     }),
   ]);
   expect(opened(other.id)).toEqual([]);
   // Advised again after it was opened: the next read is that advice's opened line.
-  now = new Date('2026-10-13T13:00:00.000Z');
+  set('2026-10-13T13:00:00.000Z');
   log.append(advice);
-  now = new Date('2026-10-13T14:00:00.000Z');
+  set('2026-10-13T14:00:00.000Z');
   await read(advised, 'wiki/notes/retry.md');
   await read(advised, 'wiki/notes/retry.md');
   expect(opened(advised.id)).toHaveLength(2);

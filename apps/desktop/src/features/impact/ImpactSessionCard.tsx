@@ -48,7 +48,37 @@ function Thread({ moments }: { moments: Moment[] }) {
 }
 
 /** Marks a Moment not right, or clears the mark (`undo`). */
-type OnMark = (moment: string, undo: boolean) => void;
+type OnMark = (moment: string, undo: boolean) => unknown;
+
+/** A Moment's Not right button, or its mark and an undo. */
+function MarkControl({ moment: m, onMark }: { moment: Moment; onMark: OnMark }) {
+  if (!m.marked)
+    return (
+      <Button
+        variant="ghost"
+        size="xs"
+        aria-label="Mark as not right"
+        className="text-muted-foreground"
+        onClick={() => onMark(m.id, false)}
+      >
+        Not right
+      </Button>
+    );
+  return (
+    <span className="flex items-center gap-1 text-muted-foreground">
+      Marked not right,
+      <Button
+        variant="link"
+        size="xs"
+        className="h-auto p-0"
+        aria-label="Undo the mark"
+        onClick={() => onMark(m.id, true)}
+      >
+        undo
+      </Button>
+    </span>
+  );
+}
 
 function MomentRow({ moment: m, onMark }: { moment: Moment; onMark?: OnMark }) {
   return (
@@ -84,31 +114,7 @@ function MomentRow({ moment: m, onMark }: { moment: Moment; onMark?: OnMark }) {
         >
           {m.outcome?.text ?? NO_OUTCOME}
         </span>
-        {onMark &&
-          (m.marked ? (
-            <span className="flex items-center gap-1 text-muted-foreground">
-              Marked not right,
-              <Button
-                variant="link"
-                size="xs"
-                className="h-auto p-0"
-                aria-label="Undo the mark"
-                onClick={() => onMark(m.id, true)}
-              >
-                undo
-              </Button>
-            </span>
-          ) : (
-            <Button
-              variant="ghost"
-              size="xs"
-              aria-label="Mark as not right"
-              className="text-muted-foreground"
-              onClick={() => onMark(m.id, false)}
-            >
-              Not right
-            </Button>
-          ))}
+        {onMark && <MarkControl moment={m} onMark={onMark} />}
       </div>
     </li>
   );

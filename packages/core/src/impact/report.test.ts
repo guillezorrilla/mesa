@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import type { LogEntry } from '../decisions/log.js';
+import type { DecisionLine, LogEntry } from '../decisions/log.js';
 import type { ReceiptEntry } from '../receipts/store.js';
 import { EMPTY_IMPACT, foldedText, type ImpactRecord, impactReport } from './report.js';
 
@@ -7,7 +7,7 @@ const AT = '2026-10-13T09:00:00.000Z';
 const at = (minutes: number) => new Date(Date.parse(AT) + minutes * 60_000).toISOString();
 
 let n = 0;
-const entry = (over: Partial<LogEntry>): LogEntry => ({
+const entry = (over: Partial<DecisionLine>): DecisionLine => ({
   id: `e${++n}`,
   at: AT,
   site: 'supervision',
@@ -271,26 +271,24 @@ test('an advised note is opened, or not once its session ended; a mark takes a M
       note,
       changed: true,
     });
-  const opened = (session: string, note: string, minutes: number) =>
-    entry({
-      at: at(minutes),
-      session,
-      site: 'relevance',
-      rules: null,
-      answer: note,
-      note,
-      status: 'opened',
-    });
+  const opened = (session: string, note: string, minutes: number): LogEntry => ({
+    id: `o${minutes}`,
+    at: at(minutes),
+    session,
+    project: 'lantern-cove',
+    status: 'opened',
+    note,
+  });
   const catchId = 'catch-1';
-  const mark = (minutes: number, value: 'not-right' | null) =>
-    entry({
-      at: at(minutes),
-      status: 'marked',
-      moment: catchId,
-      mark: value,
-      rules: null,
-      answer: value,
-    });
+  const mark = (minutes: number, value: 'not-right' | null): LogEntry => ({
+    id: `k${minutes}`,
+    at: at(minutes),
+    session: 'a1b2c3d4',
+    project: 'lantern-cove',
+    status: 'marked',
+    moment: catchId,
+    mark: value,
+  });
   const r = report([
     // Log order is newest first.
     mark(50, 'not-right'),

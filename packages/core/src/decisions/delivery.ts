@@ -1,7 +1,7 @@
 import { clip } from '../lib/clip.js';
 import { shellWord } from '../lib/process.js';
 import { notePath, type ScopedContext } from './context.js';
-import type { NewLogEntry } from './log.js';
+import type { NewDecision } from './log.js';
 import type { SystemOneProvider } from './systemone.js';
 
 // Automatic decision advice inside a session (ADR-0019 "Delivery into sessions", #463): the words a
@@ -42,7 +42,7 @@ export function adviceEntry(
   project: string,
   provider: SystemOneProvider,
   sent: boolean,
-): NewLogEntry {
+): NewDecision {
   const { evaluation, sources } = context;
   const note = sent ? notePath(sources[0]?.id) : undefined;
   return {

@@ -217,8 +217,14 @@ export function listReceipts(
 const receiptFileOf = (vault: string, id: string) =>
   receiptFiles(vault).find((f) => f.path.endsWith(`-${id}.md`));
 
-export function showReceipt(vault: string, id: string): ReceiptEntry {
+/** The receipt whose id is `id`, if the vault holds one. */
+export function findReceipt(vault: string, id: string): ReceiptEntry | undefined {
   const file = receiptFileOf(vault, id);
-  if (!file) throw new MesaError('not_found', `no receipt with id ${id}; see mesa receipts`);
-  return readReceipt(vault, file.path);
+  return file && readReceipt(vault, file.path);
+}
+
+export function showReceipt(vault: string, id: string): ReceiptEntry {
+  const entry = findReceipt(vault, id);
+  if (!entry) throw new MesaError('not_found', `no receipt with id ${id}; see mesa receipts`);
+  return entry;
 }

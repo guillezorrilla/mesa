@@ -1,5 +1,5 @@
 import type { AgentState } from '../agents/states.js';
-import { AFTER_A_MOMENT, type LogEntry, type Mark } from '../decisions/log.js';
+import type { DecisionLine, LogEntry, Mark, OpenedLine } from '../decisions/log.js';
 import { counted } from '../lib/format.js';
 import type { ReceiptEntry } from '../receipts/store.js';
 import { type SessionState, WAITING_STATES } from '../sessions/record/states.js';
@@ -26,12 +26,12 @@ export type Outcome =
 export type Moment = {
   id: string;
   at: string;
-  site: LogEntry['site'] | 'vault';
+  site: DecisionLine['site'] | 'vault';
   /** The question in plain words. */
   question: string;
   /** What Mesa did, in a few words. */
   title: string;
-  by: LogEntry['by'];
+  by: DecisionLine['by'];
   /** The probability of the answer that stood, when one was given. */
   confidence?: number;
   /** What the rules alone would have said, when it differs. */
@@ -55,7 +55,7 @@ export type SessionImpact = {
   moments: Moment[];
   folded: Folded;
   /** The model whose agreements `folded` counts, when one was asked. */
-  model?: LogEntry['by'];
+  model?: DecisionLine['by'];
 };
 
 export type ImpactSummary = {
@@ -95,7 +95,7 @@ export type ImpactRecord = {
 };
 
 /** Who answered, in a person's words. */
-export const DECIDERS: Record<LogEntry['by'], string> = {
+export const DECIDERS: Record<DecisionLine['by'], string> = {
   rules: 'Rules',
   jev: 'Jev',
   clef: 'CLEF',
@@ -125,11 +125,7 @@ const words = (state: string | null) =>
 const waiting = (state: string | null) => WAITING_STATES.has(state as SessionState);
 
 /** Which quiet count a line that changed nothing adds to. */
-type AfterAMoment = (typeof AFTER_A_MOMENT)[number];
-const afterAMoment = (status: LogEntry['status']): status is AfterAMoment =>
-  (AFTER_A_MOMENT as readonly string[]).includes(status);
-
-const FOLDED: Record<Exclude<LogEntry['status'], AfterAMoment>, keyof Folded> = {
+const FOLDED: Record<DecisionLine['status'], keyof Folded> = {
   accepted: 'agreed',
   abstained: 'unsure',
   unavailable: 'failed',
@@ -142,7 +138,7 @@ const FOLDED: Record<Exclude<LogEntry['status'], AfterAMoment>, keyof Folded> = 
 const HOOK_WINDOW_MS = 10 * 60_000;
 
 /** A placement's outcome: the person's next prompt after a wait, else the next hook's state. */
-function placementOutcome(entry: LogEntry, record: ImpactRecord | undefined): Outcome | null {
+function placementOutcome(entry: DecisionLine, record: ImpactRecord | undefined): Outcome | null {
   if (waiting(entry.answer)) {
     const next = record?.prompts.find((at) => at > entry.at);
     if (!next) return null;
@@ -157,24 +153,28 @@ function placementOutcome(entry: LogEntry, record: ImpactRecord | undefined): Ou
     : { kind: 'hook-disagreed', text: `A hook said ${words(hook.state)} later` };
 }
 
+/** Whether `line` is the agent opening the note `advice` named, after that advice. */
+export const openedAfter = (
+  advice: Pick<DecisionLine, 'session' | 'note' | 'at'>,
+  line: OpenedLine,
+) => line.session === advice.session && line.note === advice.note && line.at >= advice.at;
+
 /** An advised note's outcome: opened after the advice, else not once the session has ended. */
 function noteOutcome(
-  advice: LogEntry,
+  advice: DecisionLine,
   record: ImpactRecord | undefined,
-  opened: readonly LogEntry[],
+  opened: readonly OpenedLine[],
 ): Outcome | null {
-  if (
-    opened.some((o) => o.session === advice.session && o.note === advice.note && o.at >= advice.at)
-  )
+  if (opened.some((o) => openedAfter(advice, o)))
     return { kind: 'opened', text: 'The agent opened the note' };
   return record?.ended ? { kind: 'not-opened', text: 'The agent did not open it' } : null;
 }
 
 /** A log line's Moment, and the summary count it adds to. */
 function logMoment(
-  entry: LogEntry,
+  entry: DecisionLine,
   record: ImpactRecord | undefined,
-  opened: readonly LogEntry[],
+  opened: readonly OpenedLine[],
 ): [Moment, keyof ImpactSummary] {
   const confidence = entry.answer ? entry.probabilities?.[entry.answer] : undefined;
   const base = {
@@ -308,20 +308,21 @@ export function impactReport(input: {
     sessions: 0,
   };
   // What came after a Moment: a person's newest mark on each, and each note an agent opened.
-  const marks = new Map<string, LogEntry['mark']>();
-  const opened: LogEntry[] = [];
+  const marks = new Map<string, Mark | null>();
+  const opened: OpenedLine[] = [];
+  const decisions: DecisionLine[] = [];
   for (const entry of input.entries) {
     if (entry.status === 'opened') opened.push(entry);
-    if (entry.status === 'marked' && entry.moment && !marks.has(entry.moment))
-      marks.set(entry.moment, entry.mark ?? null);
+    else if (entry.status === 'marked') {
+      if (!marks.has(entry.moment)) marks.set(entry.moment, entry.mark);
+    } else decisions.push(entry);
   }
   const withMark = (moment: Moment): Moment => {
     const mark = marks.get(moment.id);
     return mark ? { ...moment, marked: mark } : moment;
   };
   // The log reads newest first; a thread runs oldest first, ties in the order they were logged.
-  for (const entry of [...input.entries].reverse()) {
-    if (afterAMoment(entry.status)) continue;
+  for (const entry of decisions.reverse()) {
     const g = group(entry.session, entry.project);
     if (entry.by !== 'rules') g.model = entry.by;
     if (!entry.changed) {
