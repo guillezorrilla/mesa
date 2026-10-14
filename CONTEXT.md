@@ -326,6 +326,11 @@ Not: workflow status, session state.
 A review comment that exists on the provider but only its author can see: a comment in a GitHub pending review, or a Bitbucket comment created with `--pending`. A review session writes only these; the person submits them on the provider (GitHub's review page, Bitbucket's Finish review).
 Not: a posted comment, a vault draft.
 
+## Comment verdict
+
+Whether a re-review found one of my earlier threads on a PR addressed, partly addressed, or not: recorded by the review session with `mesa prs verdict`, with a note and the agent's confidence, and kept by Mesa in the profile (`prs/<project>/<number>.json`), the latest per thread winning. Your comments shows it in place of the provider's resolved flag, and the updated callout's bar counts addressed and partly. The agent only replies on partly and not addressed threads and never resolves one.
+Not: resolving a thread, a review state.
+
 ## Weekly Rewind
 
 A read-only summary of the last seven local calendar days: meaningful decision and vault-change notes, ended sessions, and usage readings, with links to the exact evidence. It names missing usage or vault data rather than treating it as zero, and writes no replacement receipt or activity stream.

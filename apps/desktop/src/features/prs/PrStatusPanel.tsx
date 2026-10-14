@@ -1,5 +1,5 @@
 import type { Bucket, PrDetail } from '@mesa/core';
-import { counted, PR_CLIS, prStatus, timeAgo } from '@mesa/core/browser';
+import { counted, PR_CLIS, prStatus, threadProgress, timeAgo } from '@mesa/core/browser';
 import { Check, Clock, ExternalLink, Eye, RefreshCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
@@ -57,7 +57,8 @@ export function PrStatusPanel(props: {
   const status = prStatus(pr);
   const { Icon, say, sub } = STATUS[status](pr, Date.now());
   const tone = PR_TONE[status];
-  const { resolved, threads } = pr.since;
+  const { done, of: threads, by } = threadProgress(pr);
+  const doneWord = by === 'verdicts' ? 'addressed or partly' : 'resolved';
   return (
     <div
       data-testid="pr-status"
@@ -87,10 +88,10 @@ export function PrStatusPanel(props: {
           <span className="h-1.5 w-44 overflow-hidden rounded-full bg-card">
             <span
               className="block h-full bg-state-idle"
-              style={{ width: `${(resolved / threads) * 100}%` }}
+              style={{ width: `${(done / threads) * 100}%` }}
             />
           </span>
-          {resolved} of your {counted(threads, 'thread')} resolved
+          {done} of your {counted(threads, 'thread')} {doneWord}
         </div>
       )}
     </div>

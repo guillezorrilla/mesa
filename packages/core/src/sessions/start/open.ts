@@ -3,6 +3,7 @@ import { supportsAgentCapability, supportsPlanStart } from '../../agents/names.j
 import type { IdSource } from '../../lib/ids.js';
 import { shellWord } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
+import { reviewDeny } from '../../prs/review-guard.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import { isOver } from '../record/lifecycle.js';
 import type { SessionRecord } from '../record/record.js';
@@ -115,7 +116,11 @@ export async function openSession(
       : undefined;
 
   const agentSessionId = input.background ? undefined : newSessionId(agent, deps.newUuid);
-  const command = (id: string, more: Pick<SessionRecord, 'additional'>) =>
+  const command = (
+    id: string,
+    more: Pick<SessionRecord, 'additional'>,
+    disallowed: readonly string[],
+  ) =>
     startCommand(
       agent,
       deps.mounts,
@@ -126,6 +131,7 @@ export async function openSession(
         agentSessionId,
         goal: input.goal,
         mode: input.mode === 'plan' ? 'plan' : undefined,
+        disallowed,
       },
       additionalDirs(more),
     );
@@ -134,7 +140,7 @@ export async function openSession(
       sessionWindowCommand(
         agent,
         'interactive',
-        command('xxxxxxxx', { additional: planned }),
+        command('xxxxxxxx', { additional: planned }, reviewDeny(agent, input.review)),
         goalPreparing(deps, 'interactive', input.goal),
       ),
     );
@@ -164,7 +170,7 @@ export async function openSession(
     deps,
     { ...session, ...(waited ? { after: waited.id } : {}), agentSessionId },
     {
-      command: (record) => command(record.id, record),
+      command: (record, deny) => command(record.id, record, deny),
       branch: input.branch,
       base: input.base,
       ...(additional

@@ -28,6 +28,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     decisionLog: '/h/.mesa/work/decision-log',
     usage: '/h/.mesa/work/usage.json',
     notifications: '/h/.mesa/work/notifications.json',
+    prs: '/h/.mesa/work/prs',
     prEvents: '/h/.mesa/work/pr-events.json',
     placements: '/h/.mesa/work/placements.json',
     prompts: '/h/.mesa/work/prompts.json',

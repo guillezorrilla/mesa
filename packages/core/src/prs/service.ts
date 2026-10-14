@@ -16,9 +16,10 @@ import {
 import { failure, unwrap } from './cli-read.js';
 import { githubApi } from './github.js';
 import { PR_CLIS, type PrProvider, prCli, resolveRemote } from './provider.js';
-import type { DraftInput, PrDraft, PrHead, PrProviderApi, PrRead } from './reader.js';
+import type { DraftInput, PrDraft, PrHead, PrProviderApi, PrRead, PrThread } from './reader.js';
 import { type Reached, reviewActions } from './review.js';
 import type { ReviewStartDeps } from './review-start.js';
+import { prVerdicts, type ThreadVerdict, withVerdicts } from './verdicts.js';
 
 /** A project's PR provider and its CLI's state; `next` is the command that unblocks it, if any. */
 export type PrSetupRow = {
@@ -51,7 +52,12 @@ export type PrList = {
 };
 
 /** One PR in full (mesa prs show): its row, the detail, my threads, my Pending drafts, its files. */
-export type PrDetail = Omit<PrRow, 'bucket'> & Omit<PrRead, 'me' | 'pr'> & { bucket: Bucket };
+export type PrDetail = Omit<PrRow, 'bucket'> &
+  Omit<PrRead, 'me' | 'pr' | 'threads'> & {
+    bucket: Bucket;
+    /** My threads, each with the latest verdict a review round gave it (CONTEXT.md, Comment verdict). */
+    threads: (PrThread & { verdict?: ThreadVerdict })[];
+  };
 
 const APIS: Record<PrProvider, PrProviderApi> = { github: githubApi, bitbucket: bitbucketApi };
 
@@ -123,10 +129,14 @@ export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open'>
   async function read(at: Reached, number: number): Promise<PrDetail> {
     const { provider, repo, api, cli } = at;
     const { me, pr, threads, ...detail } = unwrap(cli, await api.show(ctx.run, repo, number));
+    const verdicts = prVerdicts(ctx.paths.prs, ctx).latest(at.entry.name, number);
     return {
       ...rowOf(at.entry.name, provider, pr, me),
       ...detail,
-      threads: threads.filter((t) => t.author === me),
+      threads: withVerdicts(
+        threads.filter((t) => t.author === me),
+        verdicts,
+      ),
     };
   }
 

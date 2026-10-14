@@ -12,6 +12,7 @@ import { dirname, join } from 'node:path';
 import { expect, test } from 'vitest';
 import type { Env, Runner } from '../../lib/process.js';
 import { createMesa } from '../../mesa.js';
+import { promptGuarded, REVIEW_DENY } from '../../prs/review-guard.js';
 import { listReceipts } from '../../receipts/store.js';
 import {
   agentWorld,
@@ -1369,8 +1370,52 @@ test('the other flags that do not go together are refused, each by name, and not
   ).toEqual({
     code: 'usage',
     message:
-      'a review session runs an agent on a project now: no --general, --terminal, or --after',
+      'a review session runs an agent on a project now: no --general, --terminal, --after, or --background',
   });
   expect(await mesa.sessions.list()).toEqual([]);
   expect(listReceipts(join(home, 'vault'))).toEqual([]);
+});
+
+test('a Claude review session starts and resumes with the deny rules; other sessions and Codex do not', async () => {
+  const world = agentWorld();
+  const { dir, mesa } = await setUp(world);
+  gitRepo(dir);
+  const review = { pr: 12, round: 1, mode: 'drafts', head: 'a'.repeat(40) } as const;
+  const deny = `'--disallowedTools=${REVIEW_DENY.join(',')}'`;
+  const twg = ['bitbucket', 'bb'].flatMap((product) =>
+    ['pull-requests', 'prs'].flatMap((noun) =>
+      ['approve', 'merge', 'decline', 'request-changes', 'comment create'].map(
+        (write) => `Bash(twg ${product} ${noun} ${write}:*)`,
+      ),
+    ),
+  );
+  expect(REVIEW_DENY).toEqual([
+    'Bash(gh pr review:*)',
+    'Bash(gh pr comment:*)',
+    'Bash(gh pr merge:*)',
+    'Bash(gh api:*)',
+    ...twg,
+  ]);
+  expect(twg).toHaveLength(20);
+  // Only its prompt guards a Codex review; a Claude one, or a session that is no review, is not that.
+  expect(promptGuarded('codex', review)).toBe(true);
+  expect(promptGuarded('claude', review)).toBe(false);
+  expect(promptGuarded('codex', undefined)).toBe(false);
+
+  const claude = (await mesa.sessions.open('lantern-cove', { branch: 'review/12', review })).result;
+  expect(world.tmux.windows.at(-1)?.launch).toContain(` ${deny} `);
+
+  await mesa.sessions.open('lantern-cove', { goal: 'plain' });
+  expect(world.tmux.windows.at(-1)?.launch).not.toContain('--disallowedTools');
+
+  await mesa.sessions.open('lantern-cove', {
+    agent: 'codex',
+    branch: 'review/13',
+    review: { ...review, pr: 13 },
+  });
+  expect(world.tmux.windows.at(-1)?.launch).not.toContain('--disallowedTools');
+
+  exitAll(world);
+  await mesa.sessions.resume(claude.id);
+  expect(world.tmux.windows.at(-1)?.launch).toContain(` ${deny} `);
 });

@@ -50,6 +50,13 @@ const addDirs = (agent: Agent, dirs: readonly string[]) =>
     .map((arg) => ` ${shellWord(arg)}`)
     .join('');
 
+/**
+ * Claude Code's deny rules as one shell word (`--disallowedTools=a,b`): the `=` form takes one
+ * value, so the goal after it is never read as another rule.
+ */
+const claudeDeny = (rules: readonly string[]) =>
+  rules.length ? ` ${shellWord(`--disallowedTools=${rules.join(',')}`)}` : '';
+
 /** Claude Code's mounts as shell words (mesa-mount.ts). */
 const claudeMount = (mounts: Mounts) => claudeMountArgs(mounts).map(shellWord).join(' ');
 /** Codex's mounts as four -c overrides each (mesa-mount.ts). */
@@ -99,8 +106,10 @@ export const AGENTS = {
       goal?: string,
       mode?: 'plan',
       dirs: readonly string[] = [],
+      /** Claude Code's deny rules for this session: a review session's (prs/review-guard.ts). */
+      disallowed: readonly string[] = [],
     ) =>
-      `claude --session-id ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(mounts)}${addDirs('claude', dirs)}${goalWord(goal)}`,
+      `claude --session-id ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)}${claudeDeny(disallowed)} ${claudeMount(mounts)}${addDirs('claude', dirs)}${goalWord(goal)}`,
     /**
      * Reopens that conversation; run in the recorded project folder, which keys transcripts. The
      * mount and the launch defaults are not part of the conversation, so they come again.
@@ -112,8 +121,9 @@ export const AGENTS = {
       defaults: LaunchDefaults,
       mode?: 'plan',
       dirs: readonly string[] = [],
+      disallowed: readonly string[] = [],
     ) =>
-      `claude --resume ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(mounts)}${addDirs('claude', dirs)}`,
+      `claude --resume ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)}${claudeDeny(disallowed)} ${claudeMount(mounts)}${addDirs('claude', dirs)}`,
     fork: (
       sessionId: string,
       _folder: string,
@@ -121,8 +131,9 @@ export const AGENTS = {
       defaults: LaunchDefaults,
       mode?: 'plan',
       dirs: readonly string[] = [],
+      disallowed: readonly string[] = [],
     ) =>
-      `claude --resume ${shellWord(sessionId)} --fork-session${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(mounts)}${addDirs('claude', dirs)}`,
+      `claude --resume ${shellWord(sessionId)} --fork-session${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)}${claudeDeny(disallowed)} ${claudeMount(mounts)}${addDirs('claude', dirs)}`,
     /** Typed into the window to end the agent politely. */
     quit: '/exit',
     /** The pause between typed text and its Enter: none. */
@@ -316,6 +327,8 @@ export function startCommand(
     agentSessionId?: string;
     goal?: string;
     mode?: 'plan';
+    /** Claude Code's deny rules (reviewDeny); another agent has none. */
+    disallowed?: readonly string[];
   },
   dirs: readonly string[],
 ) {
@@ -328,5 +341,13 @@ export function startCommand(
   if (s.agentSessionId === undefined) {
     throw new MesaError('internal', `${agent} starts under an agent session id Mesa picks`);
   }
-  return AGENTS.claude.start(s.agentSessionId, mounts, defaults, s.goal, s.mode, dirs);
+  return AGENTS.claude.start(
+    s.agentSessionId,
+    mounts,
+    defaults,
+    s.goal,
+    s.mode,
+    dirs,
+    s.disallowed,
+  );
 }

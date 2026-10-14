@@ -306,6 +306,13 @@ export type NewSession = Omit<SessionRecord, 'id' | 'events'>;
 export type SessionReview = NonNullable<SessionRecord['review']>;
 
 /**
+ * A review carried into a resumed or forked session: still a review of the PR, but Post now was
+ * the yes for one run only, so it drafts.
+ */
+export const carriedReview = (review: SessionReview | undefined): SessionReview | undefined =>
+  review ? { ...review, mode: 'drafts' } : undefined;
+
+/**
  * What ending a record at `at` sets: `endedAt` (when it was seen done or failed, if it was), and
  * `done` unless it had already finished; a `failed` stays failed.
  */

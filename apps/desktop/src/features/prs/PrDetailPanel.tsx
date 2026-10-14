@@ -59,7 +59,11 @@ export function PrDetailPanel(props: {
         {tab === 'comments' &&
           (pr.threads.length ? (
             pr.threads.map((t) => (
-              <Item key={t.id} where={commentPlace(t)} aside={<Resolved resolved={t.resolved} />}>
+              <Item
+                key={t.id}
+                where={commentPlace(t)}
+                aside={<ThreadState resolved={t.resolved} verdict={t.verdict?.state} />}
+              >
                 <p className="whitespace-pre-wrap">{t.body}</p>
                 {t.lastReply && (
                   <p className="mt-1 whitespace-pre-wrap text-muted-foreground text-sm">
@@ -121,21 +125,21 @@ function Item(props: { where: string; aside: React.ReactNode; children: React.Re
   );
 }
 
-function Resolved(props: { resolved: boolean }) {
+// A review round's verdict wins over the provider's resolved flag (CONTEXT.md, Comment verdict).
+const THREAD_STATE = {
+  addressed: { label: 'Addressed', text: 'text-state-idle', dot: 'bg-state-idle' },
+  partly: { label: 'Partly addressed', text: 'text-state-waiting', dot: 'bg-state-waiting' },
+  not: { label: 'Not addressed', text: 'text-state-failed', dot: 'bg-state-failed' },
+  resolved: { label: 'Resolved', text: 'text-state-idle', dot: 'bg-state-idle' },
+  open: { label: 'Open', text: 'text-muted-foreground', dot: 'bg-muted-foreground' },
+} as const;
+
+function ThreadState(props: { resolved: boolean; verdict?: keyof typeof THREAD_STATE }) {
+  const state = THREAD_STATE[props.verdict ?? (props.resolved ? 'resolved' : 'open')];
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 text-xs font-medium',
-        props.resolved ? 'text-state-idle' : 'text-muted-foreground',
-      )}
-    >
-      <span
-        className={cn(
-          'size-1.5 rounded-full',
-          props.resolved ? 'bg-state-idle' : 'bg-muted-foreground',
-        )}
-      />
-      {props.resolved ? 'Resolved' : 'Open'}
+    <span className={cn('inline-flex items-center gap-1.5 text-xs font-medium', state.text)}>
+      <span className={cn('size-1.5 rounded-full', state.dot)} />
+      {state.label}
     </span>
   );
 }

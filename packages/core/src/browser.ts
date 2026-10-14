@@ -74,8 +74,10 @@ export {
   bucketRank,
   commentPlace,
   prStatus,
+  threadProgress,
 } from './prs/buckets.js';
 export { PR_CLIS } from './prs/provider.js';
+export { PROMPT_ONLY, promptGuarded } from './prs/review-guard.js';
 export { canPost, reviewsOf } from './prs/review-sessions.js';
 export { parseChangelog, RELEASE_GROUPS, type ReleaseNotes } from './release/notes.js';
 export { type CommandId, type SearchHit, searchWorkspace } from './search/search.js';
