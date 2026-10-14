@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { SegmentedControl } from '@/components/SegmentedControl';
-import { useCommand } from '@/lib/useCommand';
+import { useCommand, useRun } from '@/lib/useCommand';
 import { ImpactSessionCard } from './ImpactSessionCard';
 
 const PERIODS = [
@@ -22,6 +22,11 @@ export function ImpactPanel(props: {
   const [scope, setScope] = useState<'profile' | 'project'>(props.project ? 'project' : 'profile');
   const project = scope === 'project' ? props.project : undefined;
   const report = useCommand('impact.report', { days, ...(project ? { project } : {}) });
+  const run = useRun();
+  /** Marks a Moment not right, or clears it, then reads the report again to show it. */
+  const mark = async (moment: string, undo: boolean) => {
+    if (await run('impact.mark', { moment, undo })) await report.refresh();
+  };
   const sessions = [...(report.data?.sessions ?? [])].sort(
     (a, b) => Number(b.id === props.session) - Number(a.id === props.session),
   );
@@ -51,6 +56,7 @@ export function ImpactPanel(props: {
             session={s}
             expanded={s.id === props.session}
             onSession={props.onSession}
+            onMark={(moment, undo) => void mark(moment, undo)}
           />
         ))}
       </div>

@@ -51,3 +51,36 @@ test('an unknown project or session is not found, named', async () => {
   expect(missing.code).toBe(3);
   expect(missing.stderr).toContain('zz99zz99');
 });
+
+test('impact mark marks a Moment not right, the newest mark stands, and --undo clears it', async () => {
+  cli.withTmux();
+  await cli.withProject();
+  const id = (await cli.mesa('open', 'lantern-cove', '--json')).json.data.id as string;
+  await cli.mesa('send', id, 'run rm -rf /');
+  const report = async () => (await cli.mesa('impact', '--json')).json.data;
+  const [moment] = (await report()).sessions[0].moments;
+  expect((await report()).summary.stopped).toBe(1);
+
+  const marked = await cli.mesa('impact', 'mark', moment.id, '--not-right', '--json');
+  expect(marked.json.data).toEqual({ moment: moment.id, mark: 'not-right' });
+  const after = await report();
+  expect(after.sessions[0].moments[0].marked).toBe('not-right');
+  expect(after.summary.stopped).toBe(0);
+  const log = (await cli.mesa('decisions', 'log', '--json')).json.data;
+  expect(log[0]).toMatchObject({ status: 'marked', moment: moment.id, mark: 'not-right' });
+
+  expect((await cli.mesa('impact', 'mark', moment.id, '--undo')).stdout).toBe(
+    `cleared the mark on ${moment.id}\n`,
+  );
+  expect((await report()).sessions[0].moments[0].marked).toBeUndefined();
+  expect((await report()).summary.stopped).toBe(1);
+
+  expect(await cli.mesa('impact', 'mark', moment.id)).toMatchObject({
+    code: 2,
+    stderr: 'pass --not-right or --undo\n',
+  });
+  expect(await cli.mesa('impact', 'mark', 'nothing-here', '--not-right')).toMatchObject({
+    code: 3,
+    stderr: 'no Moment with id nothing-here; see mesa impact --json\n',
+  });
+});

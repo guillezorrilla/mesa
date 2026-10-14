@@ -12,14 +12,24 @@ import { SYSTEM_ONE_PROVIDERS } from './systemone.js';
 // Impact reads it; nothing decides from it. Profile data, never the vault: a busy Board asks a
 // model many times a minute, too many for receipts. It never holds a prompt or a screen.
 
-const LOG_SITES = ['supervision', 'relevance', 'guardrail'] as const;
+/** `vault` only on a mark: the Moment it marks was a vault write. */
+const LOG_SITES = ['supervision', 'relevance', 'guardrail', 'vault'] as const;
 
 /**
  * How the entry went. A model ask is accepted, abstained, unavailable (failed, or not asked), or
  * skipped (relevance: no source shared enough words, so no model was asked). A guardrail stop is
- * blocked (it did not go on) or overridden (`--yes`, a person's yes, or `--force`).
+ * blocked (it did not go on) or overridden (`--yes`, a person's yes, or `--force`). Opened: the
+ * agent read a note advice named. Marked: a person marked a Moment (`moment`) not right, or
+ * cleared it.
  */
-const LOG_STATUSES = [...EVALUATION_STATUSES, 'skipped', 'blocked', 'overridden'] as const;
+const LOG_STATUSES = [
+  ...EVALUATION_STATUSES,
+  'skipped',
+  'blocked',
+  'overridden',
+  'opened',
+  'marked',
+] as const;
 
 const EntrySchema = z.object({
   id: z.string(),
@@ -44,6 +54,10 @@ const EntrySchema = z.object({
   /** Why the guardrail stopped, in words. */
   reason: z.string().optional(),
   override: z.enum(['yes', 'confirmed', 'force']).optional(),
+  /** The Moment a mark is about: a log line's id, or a receipt's. */
+  moment: z.string().optional(),
+  /** A person's mark on `moment`; null clears it. */
+  mark: z.enum(['not-right']).nullable().optional(),
 });
 export type LogEntry = z.infer<typeof EntrySchema>;
 export type NewLogEntry = Omit<LogEntry, 'id' | 'at'>;

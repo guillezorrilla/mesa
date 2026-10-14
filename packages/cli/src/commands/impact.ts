@@ -1,4 +1,4 @@
-import { foldedText, type ImpactReport, localClock } from '@mesa/core';
+import { foldedText, type ImpactReport, localClock, MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { wholeNumber } from '../input/flags.js';
 
@@ -36,5 +36,27 @@ export const impact = defineCommand({
       ...(flags.session ? { session: flags.session } : {}),
     });
     return { data: report, text: impactText(report) };
+  },
+});
+
+export const impactMark = defineCommand({
+  name: 'impact mark',
+  summary: 'Mark a Moment of mesa impact not right, or clear the mark, by its id from --json',
+  args: ['moment'],
+  flags: {
+    'not-right': { type: 'boolean', description: 'Mark it not right' },
+    undo: { type: 'boolean', description: 'Clear the mark' },
+  },
+  example: 'mesa impact mark 01K7A2B3C4D5E6F7G8H9J0K1M2 --not-right',
+  run: ({ mesa, args, flags }) => {
+    if (Boolean(flags['not-right']) === Boolean(flags.undo))
+      throw new MesaError('usage', 'pass --not-right or --undo');
+    const marked = mesa.impact.mark(args.moment, { undo: Boolean(flags.undo) });
+    return {
+      data: marked,
+      text: marked.mark
+        ? `marked ${marked.moment} not right`
+        : `cleared the mark on ${marked.moment}`,
+    };
   },
 });

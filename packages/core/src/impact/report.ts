@@ -10,7 +10,16 @@ import { type SessionState, WAITING_STATES } from '../sessions/record/states.js'
 
 /** What happened after a Moment, when Mesa can tell. */
 export type Outcome =
-  | { kind: 'hook-agreed' | 'hook-disagreed' | 'overridden' | 'not-overridden'; text: string }
+  | {
+      kind:
+        | 'hook-agreed'
+        | 'hook-disagreed'
+        | 'overridden'
+        | 'not-overridden'
+        | 'opened'
+        | 'not-opened';
+      text: string;
+    }
   | { kind: 'answered'; minutes: number; text: string };
 
 /** One thing Mesa did for a session that changed something (CONTEXT.md, Moment). */
@@ -30,6 +39,8 @@ export type Moment = {
   /** The vault notes it brought in or kept. */
   notes?: string[];
   outcome: Outcome | null;
+  /** A person marked it not right (`mesa impact mark`): it counts in no summary. */
+  marked?: 'not-right';
 };
 
 /** The log lines of a session that changed nothing: one quiet count each. */
@@ -79,6 +90,8 @@ export type ImpactRecord = {
   prompts: string[];
   /** The states its hooks reported, oldest first. */
   hookStates: { at: string; state: string }[];
+  /** Whether it has ended: an advised note never opened by then never will be. */
+  ended: boolean;
 };
 
 /** Who answered, in a person's words. */
@@ -112,7 +125,7 @@ const words = (state: string | null) =>
 const waiting = (state: string | null) => WAITING_STATES.has(state as SessionState);
 
 /** Which quiet count a line that changed nothing adds to. */
-const FOLDED: Record<LogEntry['status'], keyof Folded> = {
+const FOLDED: Record<Exclude<LogEntry['status'], 'opened' | 'marked'>, keyof Folded> = {
   accepted: 'agreed',
   abstained: 'unsure',
   unavailable: 'failed',
@@ -141,6 +154,19 @@ function placementOutcome(entry: LogEntry, record: ImpactRecord | undefined): Ou
 }
 
 /** A log line's Moment, and the summary count it adds to. */
+/** An advised note's outcome: opened after the advice, else not once the session has ended. */
+function noteOutcome(
+  advice: LogEntry,
+  record: ImpactRecord | undefined,
+  opened: readonly LogEntry[],
+): Outcome | null {
+  if (
+    opened.some((o) => o.session === advice.session && o.note === advice.note && o.at >= advice.at)
+  )
+    return { kind: 'opened', text: 'The agent opened the note' };
+  return record?.ended ? { kind: 'not-opened', text: 'The agent did not open it' } : null;
+}
+
 function logMoment(
   entry: LogEntry,
   record: ImpactRecord | undefined,
@@ -276,8 +302,21 @@ export function impactReport(input: {
     kept: 0,
     sessions: 0,
   };
+  // What came after a Moment: a person's newest mark on each, and each note an agent opened.
+  const marks = new Map<string, LogEntry['mark']>();
+  const opened: LogEntry[] = [];
+  for (const entry of input.entries) {
+    if (entry.status === 'opened') opened.push(entry);
+    if (entry.status === 'marked' && entry.moment && !marks.has(entry.moment))
+      marks.set(entry.moment, entry.mark ?? null);
+  }
+  const markOf = (moment: Moment) => {
+    if (marks.get(moment.id) === 'not-right') moment.marked = 'not-right';
+    return moment;
+  };
   // The log reads newest first; a thread runs oldest first, ties in the order they were logged.
   for (const entry of [...input.entries].reverse()) {
+    if (entry.status === 'opened' || entry.status === 'marked') continue;
     const g = group(entry.session, entry.project);
     if (entry.by !== 'rules') g.model = entry.by;
     if (!entry.changed) {
@@ -289,16 +328,16 @@ export function impactReport(input: {
     }
     const record = entry.session ? input.records.get(entry.session) : undefined;
     const [moment, counts] = logMoment(entry, record);
-    g.moments.push(moment);
-    summary[counts] += 1;
+    if (entry.site === 'relevance') moment.outcome = noteOutcome(entry, record, opened);
+    g.moments.push(markOf(moment));
+    if (!moment.marked) summary[counts] += 1;
   }
   for (const receipt of input.receipts) {
     const notes = writtenNotes(receipt);
     if (!notes.length) continue;
-    group(receipt.receipt.session ?? null, receipt.receipt.project ?? null).moments.push(
-      vaultMoment(receipt, notes),
-    );
-    summary.kept += notes.length;
+    const moment = markOf(vaultMoment(receipt, notes));
+    group(receipt.receipt.session ?? null, receipt.receipt.project ?? null).moments.push(moment);
+    if (!moment.marked) summary.kept += notes.length;
   }
   const sessions = [...groups.values()];
   for (const s of sessions) s.moments.sort((a, b) => a.at.localeCompare(b.at));
