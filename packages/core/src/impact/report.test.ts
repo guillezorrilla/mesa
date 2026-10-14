@@ -43,9 +43,18 @@ const receipt = (over: Record<string, unknown>): ReceiptEntry =>
 const records = new Map<string, ImpactRecord>([
   [
     'a1b2c3d4',
-    { id: 'a1b2c3d4', name: 'checkout-retry', project: 'lantern-cove', prompts: [at(2)] },
+    {
+      id: 'a1b2c3d4',
+      name: 'checkout-retry',
+      project: 'lantern-cove',
+      prompts: [at(2)],
+      hookStates: [],
+    },
   ],
-  ['e5f6a7b8', { id: 'e5f6a7b8', name: 'rate-limits', project: 'harbor', prompts: [] }],
+  [
+    'e5f6a7b8',
+    { id: 'e5f6a7b8', name: 'rate-limits', project: 'harbor', prompts: [], hookStates: [] },
+  ],
 ]);
 
 const report = (
@@ -58,8 +67,7 @@ const report = (
     since: at(-7 * 24 * 60),
     entries,
     receipts,
-    records,
-    hookStates: (id) => hooks[id] ?? [],
+    records: new Map([...records].map(([id, r]) => [id, { ...r, hookStates: hooks[id] ?? [] }])),
   });
 
 test('a changed line is a Moment with its outcome; the rest fold into counts', () => {
@@ -208,7 +216,6 @@ test('nothing that changed anything gives the empty state, and a project names i
     entries: [entry({ answer: 'waiting-permission', changed: true })],
     receipts: [],
     records,
-    hookStates: () => [],
   });
   expect(scoped.sentence).toBe(
     'In the last 30 days in lantern-cove, Mesa caught 1 question the rules missed, across 1 session.',

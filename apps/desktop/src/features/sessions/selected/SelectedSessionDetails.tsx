@@ -49,11 +49,7 @@ const placedText = ({
     .join(', ');
 
 /** Native facts for the selected session, read by id only when its details are opened. */
-export function SelectedSessionDetails(props: {
-  row: ManagedRow;
-  projectPath?: string;
-  onImpact?: (session: string) => void;
-}) {
+export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: string }) {
   const call = useCall();
   const [record, setRecord] = useState<
     SessionRecord & {
@@ -197,13 +193,7 @@ export function SelectedSessionDetails(props: {
               )}
             </dd>
             <dt className="text-muted-foreground">Mesa's part</dt>
-            <dd>
-              {opened ? (
-                <MesasPartField session={row.id} onImpact={props.onImpact} />
-              ) : (
-                'Open details to check'
-              )}
-            </dd>
+            <dd>{opened ? <MesasPartField session={row.id} /> : 'Open details to check'}</dd>
             <dt className="text-muted-foreground">Created</dt>
             <dd>{date(row.startedAt)}</dd>
             <dt className="text-muted-foreground">Last Activity</dt>

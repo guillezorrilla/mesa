@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import type { TreeRow } from '@mesa/core';
+import type { Moment, SessionImpact, TreeRow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
 import {
@@ -14,6 +14,7 @@ import {
   fakePlatform,
   fakeTerminals,
   foreignRow,
+  impactReport,
   managedRow,
   PROJECTS,
   renderWithMesa,
@@ -395,7 +396,7 @@ test("session details show the notes the session's vault capture saved, or why i
 
 test("session details show Mesa's part, and its link opens Impact on the session's thread", async () => {
   const row = managedRow('aaaaaaaa');
-  const moment = {
+  const moment: Moment = {
     id: 'm1',
     at: row.startedAt,
     site: 'guardrail',
@@ -404,7 +405,7 @@ test("session details show Mesa's part, and its link opens Impact on the session
     by: 'rules',
     outcome: { kind: 'not-overridden', text: 'You did not override it' },
   };
-  const session = (id: string, name: string) => ({
+  const session = (id: string, name: string): SessionImpact => ({
     id,
     name,
     project: 'lantern-cove',
@@ -421,13 +422,12 @@ test("session details show Mesa's part, and its link opens Impact on the session
         vault: { state: 'missing', reason: 'Run mesa hooks install' },
       }),
     impact: () =>
-      envelope({
-        days: 7,
-        since: row.startedAt,
-        summary: { caught: 0, corrected: 0, notesIn: 0, stopped: 2, kept: 0, sessions: 2 },
-        sentence: 'In the last 7 days, Mesa stopped 2 risky commands, across 2 sessions.',
-        sessions: [session('bbbbbbbb', 'other'), session('aaaaaaaa', 'tide-feed')],
-      }),
+      envelope(
+        impactReport({
+          sentence: 'In the last 7 days, Mesa stopped 2 risky commands, across 2 sessions.',
+          sessions: [session('bbbbbbbb', 'other'), session('aaaaaaaa', 'tide-feed')],
+        }),
+      ),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);

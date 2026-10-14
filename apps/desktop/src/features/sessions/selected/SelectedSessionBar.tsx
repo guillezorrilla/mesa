@@ -28,7 +28,6 @@ export function SelectedSessionBar({
   panel,
   onProject,
   onSessions,
-  onImpact,
   onSwap,
   onTogglePanel,
   onDialog,
@@ -42,7 +41,6 @@ export function SelectedSessionBar({
   panel?: SidePanel;
   onProject?: (project: string) => void;
   onSessions?: () => void;
-  onImpact?: (session: string) => void;
   onSwap: (id: string, agent: Agent) => void;
   onTogglePanel: (panel: SidePanel) => void;
   onDialog: (dialog: OpenDialog) => void;
@@ -73,7 +71,6 @@ export function SelectedSessionBar({
           key={row.id}
           row={row}
           projectPath={projects?.find((project) => project.name === row.project)?.path}
-          onImpact={onImpact}
         />
       )}
       <span className="ml-auto" />

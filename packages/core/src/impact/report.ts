@@ -1,6 +1,8 @@
+import type { AgentState } from '../agents/states.js';
 import type { LogEntry } from '../decisions/log.js';
 import { counted } from '../lib/format.js';
 import type { ReceiptEntry } from '../receipts/store.js';
+import { type SessionState, WAITING_STATES } from '../sessions/record/states.js';
 
 // Impact (CONTEXT.md): what Mesa decided and kept for a person, as Moments per session, from the
 // Decision log and the vault's receipts. Outcomes are facts read afterwards, never estimates. Pure:
@@ -69,8 +71,15 @@ export type ImpactReport = {
   sessions: SessionImpact[];
 };
 
-/** A session record as Impact reads it: its name, project, and when a person spoke to it. */
-export type ImpactRecord = { id: string; name: string; project: string; prompts: string[] };
+/** A session record as Impact reads it: its name, project, when a person spoke to it, and its hooks. */
+export type ImpactRecord = {
+  id: string;
+  name: string;
+  project: string;
+  prompts: string[];
+  /** The states its hooks reported, oldest first. */
+  hookStates: { at: string; state: string }[];
+};
 
 /** Who answered, in a person's words. */
 export const DECIDERS: Record<LogEntry['by'], string> = {
@@ -90,7 +99,7 @@ export const EMPTY_IMPACT =
   'Nothing yet. Moments appear when Mesa catches a question, brings a note in, stops a command or keeps a note.';
 
 /** A state the model placed, in a person's words. */
-const STATE_WORDS: Record<string, string> = {
+const STATE_WORDS: Record<AgentState, string> = {
   'waiting-question': 'waiting on your answer',
   'waiting-permission': 'waiting for your permission',
   working: 'working',
@@ -98,8 +107,9 @@ const STATE_WORDS: Record<string, string> = {
   done: 'done',
   failed: 'failed',
 };
-const words = (state: string | null) => (state && STATE_WORDS[state]) ?? state ?? 'unknown';
-const waiting = (state: string | null) => state?.startsWith('waiting-') ?? false;
+const words = (state: string | null) =>
+  (state && STATE_WORDS[state as AgentState]) ?? state ?? 'unknown';
+const waiting = (state: string | null) => WAITING_STATES.has(state as SessionState);
 
 /** Which quiet count a line that changed nothing adds to. */
 const FOLDED: Record<LogEntry['status'], keyof Folded> = {
@@ -115,11 +125,7 @@ const FOLDED: Record<LogEntry['status'], keyof Folded> = {
 const HOOK_WINDOW_MS = 10 * 60_000;
 
 /** A placement's outcome: the person's next prompt after a wait, else the next hook's state. */
-function placementOutcome(
-  entry: LogEntry,
-  record: ImpactRecord | undefined,
-  hookStates: readonly { at: string; state: string }[],
-): Outcome | null {
+function placementOutcome(entry: LogEntry, record: ImpactRecord | undefined): Outcome | null {
   if (waiting(entry.answer)) {
     const next = record?.prompts.find((at) => at > entry.at);
     if (!next) return null;
@@ -127,7 +133,7 @@ function placementOutcome(
     return { kind: 'answered', minutes, text: `You answered ${minutes} min later` };
   }
   const limit = Date.parse(entry.at) + HOOK_WINDOW_MS;
-  const hook = hookStates.find((h) => h.at > entry.at && Date.parse(h.at) <= limit);
+  const hook = record?.hookStates.find((h) => h.at > entry.at && Date.parse(h.at) <= limit);
   if (!hook) return null;
   return hook.state === entry.answer
     ? { kind: 'hook-agreed', text: 'A hook agreed later' }
@@ -138,7 +144,6 @@ function placementOutcome(
 function logMoment(
   entry: LogEntry,
   record: ImpactRecord | undefined,
-  hookStates: readonly { at: string; state: string }[],
 ): [Moment, keyof ImpactSummary] {
   const confidence = entry.answer ? entry.probabilities?.[entry.answer] : undefined;
   const base = {
@@ -155,7 +160,7 @@ function logMoment(
         ...base,
         title: `Saw it was ${words(entry.answer)}`,
         ...(entry.rules && entry.rules !== entry.answer ? { rulesAlone: entry.rules } : {}),
-        outcome: placementOutcome(entry, record, hookStates),
+        outcome: placementOutcome(entry, record),
       },
       waiting(entry.answer) ? 'caught' : 'corrected',
     ];
@@ -236,8 +241,7 @@ export function foldedText(session: SessionImpact): string | undefined {
 
 /**
  * The report over `entries` (the Decision log, already filtered, newest first) and `receipts` (the vault's,
- * already filtered), for the records it names; `hookStates` gives a session's hook states, oldest
- * first.
+ * already filtered), for the records it names.
  */
 export function impactReport(input: {
   days: number;
@@ -247,7 +251,6 @@ export function impactReport(input: {
   entries: readonly LogEntry[];
   receipts: readonly ReceiptEntry[];
   records: ReadonlyMap<string, ImpactRecord>;
-  hookStates: (session: string) => readonly { at: string; state: string }[];
 }): ImpactReport {
   const groups = new Map<string | null, SessionImpact>();
   const group = (id: string | null, project: string | null) => {
@@ -285,11 +288,7 @@ export function impactReport(input: {
       continue;
     }
     const record = entry.session ? input.records.get(entry.session) : undefined;
-    const [moment, counts] = logMoment(
-      entry,
-      record,
-      entry.session ? input.hookStates(entry.session) : [],
-    );
+    const [moment, counts] = logMoment(entry, record);
     g.moments.push(moment);
     summary[counts] += 1;
   }

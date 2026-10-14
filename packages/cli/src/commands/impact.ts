@@ -1,4 +1,4 @@
-import { foldedText, type ImpactReport, obsidianDateTime } from '@mesa/core';
+import { foldedText, type ImpactReport, localClock } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { wholeNumber } from '../input/flags.js';
 
@@ -12,7 +12,7 @@ function impactText(report: ImpactReport) {
       `${s.name}${s.project ? ` (${s.project})` : ''}`,
       ...s.moments.map(
         (m) =>
-          `  ${obsidianDateTime(new Date(m.at)).slice(11)}  ${m.title}${m.rulesAlone ? ` (rules: ${m.rulesAlone})` : ''}${m.outcome ? `. ${m.outcome.text}` : ''}`,
+          `  ${localClock(new Date(m.at))}  ${m.title}${m.rulesAlone ? ` (rules: ${m.rulesAlone})` : ''}${m.outcome ? `. ${m.outcome.text}` : ''}`,
       ),
       ...[foldedText(s)].flatMap((line) => (line ? [`  ${line}`] : [])),
     ]),

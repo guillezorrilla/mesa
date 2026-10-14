@@ -6,13 +6,13 @@ import type { TreeRow } from '../sessions/board/tree.js';
 import { projectLabel } from '../sessions/record/general.js';
 import { additionalLabel, sessionLabel } from '../sessions/record/labels.js';
 import { isOver } from '../sessions/record/lifecycle.js';
-import { impactHitId } from './impact-hit.js';
 
 /** A fixed command's hit carries its `CommandId`; the rest an id their kind gives them. */
 export type SearchHit = (
   | { kind: 'navigation' | 'action' | 'setting'; id: CommandId }
-  /** An Impact hit's id is `project:<name>` or `session:<id>`. */
-  | { kind: 'project' | 'session' | 'prompt' | 'vault' | 'impact'; id: string }
+  | { kind: 'project' | 'session' | 'prompt' | 'vault'; id: string }
+  /** The Impact of one project or one session; `id` only keeps hits apart. */
+  | { kind: 'impact'; id: string; project?: string; session?: string }
 ) & {
   label: string;
   detail: string;
@@ -222,7 +222,8 @@ export function searchWorkspace(
           ...projects.map(
             (project): SearchHit => ({
               kind: 'impact',
-              id: impactHitId({ project: project.name }),
+              id: `project:${project.name}`,
+              project: project.name,
               label: `Impact: ${project.label}`,
               detail: 'What Mesa decided and kept in this project',
             }),
@@ -230,7 +231,8 @@ export function searchWorkspace(
           ...sessionHits.map(
             (session): SearchHit => ({
               kind: 'impact',
-              id: impactHitId({ session: session.id }),
+              id: `session:${session.id}`,
+              session: session.id,
               label: `Impact: ${session.label}`,
               detail: 'What Mesa decided and kept in this session',
             }),

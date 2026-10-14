@@ -7,6 +7,7 @@ export {
   deadPane,
   exited,
   foreignRow,
+  impactReport,
   managedRow,
   nativeResponse,
   PROJECTS,

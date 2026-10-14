@@ -97,7 +97,6 @@ export function WorkspaceMain(props: {
           onLoaded={props.onSessionsLoaded}
           onSessions={() => navigate({ kind: 'sessions' })}
           onProject={(name) => navigate({ kind: 'project', name })}
-          onImpact={(session) => navigate({ kind: 'impact', session })}
           archiveSessionRequest={props.archiveSessionRequest}
           dependencySessionRequest={props.dependencySessionRequest}
           terminalPreferences={config.data?.terminal}

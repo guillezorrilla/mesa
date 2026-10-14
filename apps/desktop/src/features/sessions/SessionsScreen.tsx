@@ -41,8 +41,6 @@ export function SessionsScreen(
     onLoaded?: () => void;
     onSessions?: () => void;
     onProject?: (project: string) => void;
-    /** Opens Impact on a session's thread. */
-    onImpact?: (session: string) => void;
     archiveSessionRequest?: { count: number; ids: string[] };
     dependencySessionRequest?: { count: number; ids: string[] };
     terminalPreferences?: Config['terminal'];
@@ -117,7 +115,6 @@ export function SessionsScreen(
           acting={acting}
           panel={side.open}
           onProject={props.onProject}
-          onImpact={props.onImpact}
           onSessions={props.onSessions}
           onSwap={commands.swap}
           onTogglePanel={side.toggle}

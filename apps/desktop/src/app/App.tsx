@@ -21,6 +21,7 @@ import { OpenSettingsContext } from '@/features/settings/useOpenSettings';
 import { useCostAlerts } from '@/features/usage/useCostAlerts';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
+import { NavigateContext } from '@/lib/useNavigate';
 import { useAppearance } from './hooks/useAppearance';
 import { useAppMenu } from './hooks/useAppMenu';
 import { useCloseGuard } from './hooks/useCloseGuard';
@@ -215,29 +216,31 @@ export function App() {
               }}
             />
             <OpenSettingsContext.Provider value={workspace.openSettings}>
-              <WorkspaceMain
-                view={view}
-                project={project}
-                navigate={navigate}
-                config={config}
-                projects={projects}
-                needsProfileSetup={needsProfileSetup}
-                onProfileInitialised={profileInitialised}
-                prompts={prompts}
-                doctor={doctor}
-                sessions={sessions}
-                onRowsChange={setSessions}
-                onSessionsLoaded={onSessionsLoaded}
-                filesDirty={workspace.filesDirty}
-                onFilesDirtyChange={workspace.setFilesDirty}
-                onNewSession={requestNewSession}
-                onAddProject={setProjectAdd}
-                onProjectUnregistered={projectUnregistered}
-                onVaultSettings={() => workspace.openSettings('general')}
-                archiveSessionRequest={archiveSessionRequest}
-                dependencySessionRequest={dependencySessionRequest}
-                promptInsertRequest={promptInsertRequest}
-              />
+              <NavigateContext.Provider value={navigate}>
+                <WorkspaceMain
+                  view={view}
+                  project={project}
+                  navigate={navigate}
+                  config={config}
+                  projects={projects}
+                  needsProfileSetup={needsProfileSetup}
+                  onProfileInitialised={profileInitialised}
+                  prompts={prompts}
+                  doctor={doctor}
+                  sessions={sessions}
+                  onRowsChange={setSessions}
+                  onSessionsLoaded={onSessionsLoaded}
+                  filesDirty={workspace.filesDirty}
+                  onFilesDirtyChange={workspace.setFilesDirty}
+                  onNewSession={requestNewSession}
+                  onAddProject={setProjectAdd}
+                  onProjectUnregistered={projectUnregistered}
+                  onVaultSettings={() => workspace.openSettings('general')}
+                  archiveSessionRequest={archiveSessionRequest}
+                  dependencySessionRequest={dependencySessionRequest}
+                  promptInsertRequest={promptInsertRequest}
+                />
+              </NavigateContext.Provider>
             </OpenSettingsContext.Provider>
           </div>
         </PrsContext.Provider>

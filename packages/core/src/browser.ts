@@ -36,7 +36,7 @@ export {
 } from './impact/report.js';
 export { shortAgo, timeAgo } from './lib/ago.js';
 export * from './lib/format.js';
-export { localDay, validLocalDay } from './lib/time.js';
+export { localClock, localDay, validLocalDay } from './lib/time.js';
 export { mapSession } from './map/map.js';
 export {
   COLOR_VISION_MODES,
@@ -71,7 +71,6 @@ export { PROJECT_SORTS, type ProjectSort } from './projects/sort.js';
 export { actionable, BUCKET_LABELS, bucketRank } from './prs/buckets.js';
 export { PR_CLIS } from './prs/provider.js';
 export { parseChangelog, RELEASE_GROUPS, type ReleaseNotes } from './release/notes.js';
-export { impactHitScope } from './search/impact-hit.js';
 export { type CommandId, type SearchHit, searchWorkspace } from './search/search.js';
 export { descendantOrder } from './sessions/end/descendants.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/record/general.js';

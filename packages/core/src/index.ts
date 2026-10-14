@@ -74,7 +74,7 @@ export { type IdSource, ulidSource } from './lib/ids.js';
 export { type Env, envRunner, type Runner } from './lib/process.js';
 export * from './lib/result.js';
 export { keychainStore, type SecretStore } from './lib/secret-store.js';
-export { localDay, obsidianDateTime } from './lib/time.js';
+export { localClock, localDay, obsidianDateTime } from './lib/time.js';
 export type { MapSaved } from './map/service.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
 export type { NotificationDelivery } from './notifications/background.js';

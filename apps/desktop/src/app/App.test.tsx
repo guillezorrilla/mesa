@@ -21,6 +21,7 @@ import {
   fakePlatform,
   fakeTerminals,
   foreignRow,
+  impactReport,
   managedRow,
   nativeResponse,
   PROJECTS,
@@ -315,14 +316,7 @@ test('sidebar opens Map without creating a missing saved map', async () => {
 
 test('sidebar opens Impact between Daily and Automations', async () => {
   const { bridge, calls } = fakeBridge({
-    impact: () =>
-      envelope({
-        days: 7,
-        since: '2026-10-06T12:00:00.000Z',
-        summary: { caught: 0, corrected: 0, notesIn: 0, stopped: 0, kept: 0, sessions: 0 },
-        sentence: 'Nothing yet.',
-        sessions: [],
-      }),
+    impact: () => envelope(impactReport()),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   const row = byTestId('nav-daily')[0]?.parentElement;

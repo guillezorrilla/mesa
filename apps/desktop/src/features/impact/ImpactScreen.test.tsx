@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import type { ImpactReport, Moment, SessionImpact } from '@mesa/core';
 import { expect, test, vi } from 'vitest';
-import { click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
+import { click, envelope, fakeBridge, impactReport, renderWithMesa } from '@/lib/testing';
+import { NavigateContext } from '@/lib/useNavigate';
 import { ImpactScreen } from './ImpactScreen';
 import { MesasPartField } from './MesasPartField';
 
@@ -43,15 +44,14 @@ const RATES: SessionImpact = {
   folded: { agreed: 0, unsure: 0, failed: 0, skipped: 0 },
 };
 
-const report = (over: Partial<ImpactReport> = {}): ImpactReport => ({
-  days: 7,
-  since: '2026-10-06T12:00:00.000Z',
-  summary: { caught: 6, corrected: 0, notesIn: 1, stopped: 0, kept: 0, sessions: 2 },
-  sentence:
-    'In the last 7 days, Mesa caught 6 questions the rules missed and brought 1 vault note into prompts, across 2 sessions.',
-  sessions: [CHECKOUT, RATES],
-  ...over,
-});
+const report = (over: Partial<ImpactReport> = {}): ImpactReport =>
+  impactReport({
+    summary: { caught: 6, corrected: 0, notesIn: 1, stopped: 0, kept: 0, sessions: 2 },
+    sentence:
+      'In the last 7 days, Mesa caught 6 questions the rules missed and brought 1 vault note into prompts, across 2 sessions.',
+    sessions: [CHECKOUT, RATES],
+    ...over,
+  });
 
 /** A segmented control's option by its words. */
 const option = (name: string) =>
@@ -130,9 +130,11 @@ test('from a project it opens scoped to it with a switch to the profile; a sessi
 
 test("Mesa's part lists a session's newest three Moments and opens its thread", async () => {
   const { bridge, calls } = fakeBridge({ impact: () => envelope(report({ sessions: [RATES] })) });
-  const onImpact = vi.fn();
+  const navigate = vi.fn();
   const byTestId = await renderWithMesa(
-    <MesasPartField session="e5f6a7b8" onImpact={onImpact} />,
+    <NavigateContext.Provider value={navigate}>
+      <MesasPartField session="e5f6a7b8" />
+    </NavigateContext.Provider>,
     bridge,
   );
   expect(impactCalls(calls)[0]).toEqual(['--json', 'impact', '--session', 'e5f6a7b8']);
@@ -147,7 +149,7 @@ test("Mesa's part lists a session's newest three Moments and opens its thread", 
       (b) => b.textContent === 'See the whole thread',
     ),
   );
-  expect(onImpact).toHaveBeenCalledWith('e5f6a7b8');
+  expect(navigate).toHaveBeenCalledWith({ kind: 'impact', session: 'e5f6a7b8' });
 
   const none = fakeBridge({ impact: () => envelope(report({ sessions: [] })) });
   const again = await renderWithMesa(<MesasPartField session="a1b2c3d4" />, none.bridge);

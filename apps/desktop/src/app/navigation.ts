@@ -1,4 +1,4 @@
-import { impactHitScope, type SearchHit } from '@mesa/core/browser';
+import type { SearchHit } from '@mesa/core/browser';
 import type { WorkspaceView } from '@/lib/workspaceView';
 
 /** Usage and Notifications open over the current view, as a dialog and a menu. */
@@ -29,7 +29,12 @@ export function paletteView(hit: SearchHit): WorkspaceView | undefined {
   if (hit.kind === 'project') return { kind: 'project', name: hit.id };
   if (hit.kind === 'session') return { kind: 'session', id: hit.id };
   if (hit.kind === 'vault') return { kind: 'vault', query: hit.id };
-  if (hit.kind === 'impact') return { kind: 'impact', ...impactHitScope(hit.id) };
+  if (hit.kind === 'impact')
+    return {
+      kind: 'impact',
+      ...(hit.project ? { project: hit.project } : {}),
+      ...(hit.session ? { session: hit.session } : {}),
+    };
   const destination = PALETTE_DESTINATIONS.find((kind) => kind === hit.id);
   return destination ? { kind: destination } : undefined;
 }

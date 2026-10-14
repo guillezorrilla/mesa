@@ -6,8 +6,9 @@ import { findProject } from '../projects/projects.js';
 import { listReceipts } from '../receipts/store.js';
 import { promptTimes } from '../sessions/native/conversation.js';
 import { projectLabel } from '../sessions/record/general.js';
+import { sessionLabel } from '../sessions/record/labels.js';
 import type { SessionRecord } from '../sessions/record/record.js';
-import { parentHook, readHookEvents } from '../sessions/signals/hook-events.js';
+import { type HookEvent, parentHook, readHookEvents } from '../sessions/signals/hook-events.js';
 import { type ImpactRecord, impactReport } from './report.js';
 
 // Impact for one profile (`mesa impact`, the Impact screen): the Decision log, the vault's receipts
@@ -32,13 +33,19 @@ export function impactService(ctx: MesaContext) {
         vault && existsSync(vault)
           ? listReceipts(vault, Number.POSITIVE_INFINITY, {
               ...filter,
-              kinds: WRITE_KINDS,
+              kind: WRITE_KINDS,
               profile: ctx.profile,
               since,
             })
           : [];
       const found = new Map<string, SessionRecord>(ctx.store.list().map((r) => [r.id, r]));
-      const events = (id: string) => readHookEvents(ctx.paths.events, id);
+      // Each session's hook log, read once.
+      const logs = new Map<string, HookEvent[]>();
+      const events = (id: string) => {
+        const read = logs.get(id) ?? readHookEvents(ctx.paths.events, id);
+        logs.set(id, read);
+        return read;
+      };
       const records = new Map<string, ImpactRecord>();
       for (const id of new Set([
         ...entries.flatMap((e) => (e.session ? [e.session] : [])),
@@ -46,11 +53,18 @@ export function impactService(ctx: MesaContext) {
       ])) {
         const record = found.get(id);
         if (!record) continue;
+        const state = record.agent === 'terminal' ? undefined : AGENTS[record.agent].hookState;
         records.set(id, {
           id,
-          name: record.name ?? record.agentName ?? id,
+          name: sessionLabel(record),
           project: projectLabel(record.project),
           prompts: promptTimes(record, events(id)),
+          hookStates: state
+            ? events(id).flatMap((e) => {
+                const s = parentHook(e) && state(e.event, e.payload);
+                return s ? [{ at: e.at, state: s }] : [];
+              })
+            : [],
         });
       }
       return impactReport({
@@ -60,16 +74,6 @@ export function impactService(ctx: MesaContext) {
         entries,
         receipts,
         records,
-        hookStates: (id) => {
-          const agent = found.get(id)?.agent;
-          const state = agent && agent !== 'terminal' ? AGENTS[agent].hookState : undefined;
-          return state
-            ? events(id).flatMap((e) => {
-                const s = parentHook(e) && state(e.event, e.payload);
-                return s ? [{ at: e.at, state: s }] : [];
-              })
-            : [];
-        },
       });
     },
   };

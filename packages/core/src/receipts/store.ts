@@ -140,14 +140,14 @@ export async function updateSessionReceipt(
  * Every receipt file, newest first, with the type its name carries; files whose names are not a
  * receipt's are left out.
  */
-function receiptFiles(vault: string): { path: string; type: ReceiptType }[] {
+function receiptFiles(vault: string): { path: string; type: ReceiptType; key: string }[] {
   const root = join(vault, VAULT.receipts);
   if (!existsSync(root)) return [];
   return readdirSync(root, { recursive: true, encoding: 'utf8' })
     .map((p) => ({ p, name: receiptName(basename(p)) }))
     .filter((f): f is { p: string; name: NonNullable<typeof f.name> } => f.name !== undefined)
     .sort((a, b) => b.name.key.localeCompare(a.name.key))
-    .map((f) => ({ path: join(VAULT.receipts, f.p), type: f.name.type }));
+    .map((f) => ({ path: join(VAULT.receipts, f.p), type: f.name.type, key: f.name.key }));
 }
 
 /** A receipt body's first line: its summary. */
@@ -170,9 +170,8 @@ export type ReceiptFilter = {
   type?: ReceiptType;
   session?: string;
   project?: string;
-  kind?: Receipt['kind'];
-  /** Any of these kinds. */
-  kinds?: readonly NonNullable<Receipt['kind']>[];
+  /** One kind, or any of several. */
+  kind?: Receipt['kind'] | readonly NonNullable<Receipt['kind']>[];
   target?: string;
   profile?: string;
   /** Started at or after this ISO time. */
@@ -186,18 +185,27 @@ export type ReceiptFilter = {
 export function listReceipts(
   vault: string,
   limit = DEFAULT_RECEIPT_LIMIT,
-  { type, session, project, kind, kinds, target, profile, since }: ReceiptFilter = {},
+  { type, session, project, kind, target, profile, since }: ReceiptFilter = {},
 ): ReceiptEntry[] {
   const found: ReceiptEntry[] = [];
+  const kinds = kind === undefined || typeof kind === 'string' ? undefined : kind;
+  // File names start with the UTC start time, compact, and list newest first: stop at the first older one.
+  const from =
+    since &&
+    new Date(since)
+      .toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/\.\d+Z$/, 'Z');
   for (const file of receiptFiles(vault)) {
     if (found.length >= limit) break;
+    if (from && file.key.slice(0, from.length) < from) break;
     if (type !== undefined && file.type !== type) continue;
     const entry = readReceipt(vault, file.path);
     if (session !== undefined && entry.receipt.session !== session) continue;
     if (project !== undefined && entry.receipt.project !== project) continue;
-    if (kind !== undefined && entry.receipt.kind !== kind) continue;
+    if (typeof kind === 'string' && entry.receipt.kind !== kind) continue;
     if (target !== undefined && entry.receipt.outputs.target !== target) continue;
-    if (kinds !== undefined && !kinds.some((k) => k === entry.receipt.kind)) continue;
+    if (kinds && !kinds.some((k) => k === entry.receipt.kind)) continue;
     if (profile !== undefined && entry.receipt.profile !== profile) continue;
     if (since !== undefined && entry.receipt.started < since) continue;
     found.push(entry);

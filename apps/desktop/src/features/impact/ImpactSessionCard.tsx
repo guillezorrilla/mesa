@@ -2,11 +2,13 @@ import {
   answeredBy,
   counted,
   foldedText,
+  localClock,
   type Moment,
   NO_OUTCOME,
   type SessionImpact,
 } from '@mesa/core/browser';
 import { useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -19,8 +21,6 @@ const SITE_DOT: Record<Moment['site'], string> = {
 };
 
 const GOOD = new Set(['hook-agreed', 'answered', 'not-overridden']);
-const time = (at: string) =>
-  new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 /** The rows a card shows before Show all. */
 const COLLAPSED = 3;
@@ -50,7 +50,9 @@ function Thread({ moments }: { moments: Moment[] }) {
 function MomentRow({ moment: m }: { moment: Moment }) {
   return (
     <li className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-start gap-3 border-t py-2.5">
-      <span className="pt-0.5 font-mono text-muted-foreground text-xs">{time(m.at)}</span>
+      <span className="pt-0.5 font-mono text-muted-foreground text-xs">
+        {localClock(new Date(m.at))}
+      </span>
       <div className="min-w-0 space-y-0.5">
         <p className="flex items-center gap-2 font-medium text-sm">
           <span aria-hidden className={cn('size-2 shrink-0 rounded-full', SITE_DOT[m.site])} />
@@ -125,7 +127,7 @@ export function ImpactSessionCard(props: {
           Show all {session.moments.length}
         </Button>
       )}
-      {folded && <p className="text-muted-foreground text-xs">{folded}</p>}
+      {folded && <Muted size="xs">{folded}</Muted>}
     </article>
   );
 }

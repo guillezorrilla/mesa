@@ -15,6 +15,9 @@ const pad = (n: number, width = 2) => String(n).padStart(width, '0');
 export const localDay = (date: Date) =>
   `${pad(date.getFullYear(), 4)}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
+/** `date`'s local wall-clock time as HH:mm. */
+export const localClock = (date: Date) => `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+
 /**
  * `date` in local time as YYYY-MM-DDTHH:mm, the form Obsidian infers as a Date & Time property:
  * with seconds it infers text (checked on 1.13.7, docs/spikes/obsidian-cli.md). No zone: Obsidian

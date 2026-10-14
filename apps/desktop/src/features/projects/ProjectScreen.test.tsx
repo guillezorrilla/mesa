@@ -7,6 +7,7 @@ import {
   click,
   envelope,
   fakeBridge,
+  impactReport,
   managedRow,
   PROJECTS,
   press,
@@ -230,14 +231,12 @@ test('the Impact tab, after Vault, shows Impact scoped to the project', async ()
   const { bridge, calls } = fakeBridge({
     'worktrees list': () => envelope([]),
     impact: () =>
-      envelope({
-        days: 7,
-        since: '2026-10-06T12:00:00.000Z',
-        project: PROJECT.name,
-        summary: { caught: 1, corrected: 0, notesIn: 0, stopped: 0, kept: 0, sessions: 1 },
-        sentence: `In the last 7 days in ${PROJECT.name}, Mesa caught 1 question the rules missed, across 1 session.`,
-        sessions: [],
-      }),
+      envelope(
+        impactReport({
+          project: PROJECT.name,
+          sentence: `In the last 7 days in ${PROJECT.name}, Mesa caught 1 question the rules missed, across 1 session.`,
+        }),
+      ),
   });
   const byTestId = await renderScreen(bridge);
   const tabs = [...document.querySelectorAll<HTMLButtonElement>('nav button')].map(
