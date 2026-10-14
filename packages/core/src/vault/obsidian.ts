@@ -76,18 +76,15 @@ export type Opened = { opened: true; method: 'uri' | 'cli'; target: string };
  */
 export type UnknownVault = { unknownVault: true; vault: string; installed: boolean };
 
-const VAULT_MANAGER_URI = 'obsidian://choose-vault';
-
-/**
- * Opens Obsidian's vault manager, where "Open folder as vault" adds a vault. Through macOS `open`,
- * so it launches Obsidian when needed.
- */
-export async function openVaultManager(run: Runner) {
-  const opened = await run('open', [VAULT_MANAGER_URI], OPEN_TIMEOUT_MS);
-  if (!opened.ok)
-    throw new MesaError('internal', `could not open ${VAULT_MANAGER_URI}: ${opened.detail}`);
-  return { opened: true as const, target: VAULT_MANAGER_URI };
+/** Opens an `obsidian://` URI through macOS `open`, which launches Obsidian when needed. */
+async function openUri(run: Runner, uri: string): Promise<Opened> {
+  const opened = await run('open', [uri], OPEN_TIMEOUT_MS);
+  if (!opened.ok) throw new MesaError('internal', `could not open ${uri}: ${opened.detail}`);
+  return { opened: true, method: 'uri', target: uri };
 }
+
+/** Opens Obsidian's vault manager, where "Open folder as vault" adds a vault. */
+export const openVaultManager = (run: Runner) => openUri(run, 'obsidian://choose-vault');
 
 /**
  * Opens the vault, or one item in it (a vault-relative path; a note's `.md` may be left out), in
@@ -139,8 +136,5 @@ export async function openInObsidian(
     const cli = await deps.run(deps.obsidian.registered, args, OPEN_TIMEOUT_MS);
     if (cli.ok) return { opened: true, method: 'cli', target: note };
   }
-  const uri = obsidianUri(vault, note);
-  const opened = await deps.run('open', [uri], OPEN_TIMEOUT_MS);
-  if (!opened.ok) throw new MesaError('internal', `could not open ${uri}: ${opened.detail}`);
-  return { opened: true, method: 'uri', target: uri };
+  return openUri(deps.run, obsidianUri(vault, note));
 }

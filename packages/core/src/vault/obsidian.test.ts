@@ -137,6 +137,7 @@ test('the vault manager opens with macOS open; a failing open is internal', asyn
   const { run, calls } = scriptedRunner();
   expect(await openVaultManager(run)).toEqual({
     opened: true,
+    method: 'uri',
     target: 'obsidian://choose-vault',
   });
   expect(calls.map((c) => [c.file, ...c.args])).toEqual([['open', 'obsidian://choose-vault']]);

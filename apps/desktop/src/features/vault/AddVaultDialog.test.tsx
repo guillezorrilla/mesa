@@ -10,7 +10,7 @@ import {
   renderWithMesa,
   toastTexts,
 } from '@/lib/testing';
-import { AddVaultProvider } from './AddVaultDialog';
+import { AddVaultProvider } from './AddVaultProvider';
 import { useOpenInObsidian } from './useOpenInObsidian';
 
 const VAULT = '/h/Documents/Tidewater';
@@ -37,7 +37,8 @@ function Opener() {
 async function setup(replies: unknown[], options: { guided?: boolean } = {}) {
   const { bridge, calls } = fakeBridge({
     'vault open': () => replies.shift() ?? envelope({ opened: true, method: 'uri', target: 'x' }),
-    'obsidian manager': () => envelope({ opened: true, target: 'obsidian://choose-vault' }),
+    'obsidian manager': () =>
+      envelope({ opened: true, method: 'uri', target: 'obsidian://choose-vault' }),
     'doctor install': () => envelope({ name: 'obsidian', installed: true }),
   });
   const platform = fakePlatform();

@@ -19,7 +19,7 @@ import { useStartSession } from '@/features/sessions/start/useStartSession';
 import { usePrEventDelivery } from '@/features/sessions/usePrEventDelivery';
 import { OpenSettingsContext } from '@/features/settings/useOpenSettings';
 import { useCostAlerts } from '@/features/usage/useCostAlerts';
-import { AddVaultProvider } from '@/features/vault/AddVaultDialog';
+import { AddVaultProvider } from '@/features/vault/AddVaultProvider';
 import { useOpenInObsidian } from '@/features/vault/useOpenInObsidian';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';

@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Kbd } from '@/components/Kbd';
 import { Muted } from '@/components/Muted';
@@ -9,31 +9,14 @@ import { InstallButton } from '@/features/doctor/InstallButton';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
-import { AddVaultContext, type AddVaultRequest, unknownVault } from './useOpenInObsidian';
-
-/** Holds the add-vault guide every Open in Obsidian below it shows on a vault Obsidian does not know. */
-export function AddVaultProvider(props: { children: ReactNode }) {
-  const [request, setRequest] = useState<AddVaultRequest>();
-  return (
-    <AddVaultContext value={setRequest}>
-      {props.children}
-      {request && (
-        <AddVaultDialog
-          key={request.details.vault}
-          request={request}
-          onClose={() => setRequest(undefined)}
-        />
-      )}
-    </AddVaultContext>
-  );
-}
+import { type AddVaultRequest, unknownVault } from './useOpenInObsidian';
 
 /**
  * Walks the person through Obsidian's "Open folder as vault": Mesa copies the path and opens the
  * vault manager, but never writes Obsidian's own vault list. Done retries the open that failed.
  * Without Obsidian it offers to install it first.
  */
-function AddVaultDialog(props: { request: AddVaultRequest; onClose: () => void }) {
+export function AddVaultDialog(props: { request: AddVaultRequest; onClose: () => void }) {
   const { details, retry } = props.request;
   const { clipboard } = usePlatform();
   const run = useRun();
