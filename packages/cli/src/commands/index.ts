@@ -72,7 +72,7 @@ import {
   projectsVisit,
 } from './projects.js';
 import { prompts, promptsRemove, promptsSave } from './prompts.js';
-import { prs, prsSetup } from './prs.js';
+import { prs, prsDiscard, prsDraft, prsDrafts, prsSetup, prsShow } from './prs.js';
 import { receipts, receiptsShow } from './receipts.js';
 import { register } from './register.js';
 import { rename } from './rename.js';
@@ -190,6 +190,10 @@ export const COMMANDS: Command[] = [
   prEvents,
   prs,
   prsSetup,
+  prsShow,
+  prsDraft,
+  prsDrafts,
+  prsDiscard,
   profile,
   profileList,
   profileCreate,

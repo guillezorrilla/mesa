@@ -110,7 +110,8 @@ export {
 export type { SavedPrompt } from './prompts/prompts.js';
 export { BUCKET_LABELS, type Bucket, type Since } from './prs/buckets.js';
 export type { PrProvider } from './prs/provider.js';
-export type { PrList, PrRow, PrSetupRow } from './prs/service.js';
+export type { DraftInput, PrDraft, PrFile, PrThread } from './prs/reader.js';
+export type { PrDetail, PrList, PrRow, PrSetupRow } from './prs/service.js';
 export { RECORD_KINDS } from './receipts/policy.js';
 export type { Recorded } from './receipts/recorder.js';
 export { DEFAULT_RECEIPT_LIMIT, type ReceiptEntry } from './receipts/store.js';

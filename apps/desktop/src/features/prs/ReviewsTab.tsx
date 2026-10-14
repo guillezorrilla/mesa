@@ -1,4 +1,4 @@
-import type { PrSetupRow } from '@mesa/core';
+import type { PrRow, PrSetupRow } from '@mesa/core';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { CheckedLine } from './CheckedLine';
@@ -14,6 +14,7 @@ export function ReviewsTab(props: {
   all: boolean;
   onAll: (all: boolean) => void;
   onSetup: (row: PrSetupRow) => void;
+  onOpen: (pr: PrRow) => void;
 }) {
   const prs = usePrs({ project: props.project, ...(props.all ? { all: true } : {}) });
   const now = Date.now();
@@ -24,7 +25,13 @@ export function ReviewsTab(props: {
         <Label htmlFor="reviews-all">All open PRs</Label>
         <CheckedLine prs={prs} now={now} className="ml-auto" />
       </div>
-      <ReviewsList read={prs.list} by="status" onSetup={props.onSetup} now={now} />
+      <ReviewsList
+        read={prs.list}
+        by="status"
+        onSetup={props.onSetup}
+        onOpen={props.onOpen}
+        now={now}
+      />
     </div>
   );
 }

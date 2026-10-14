@@ -3,12 +3,21 @@ import { gitCommand } from '../git/command.js';
 import type { CliState } from '../lib/cli-state.js';
 import { mapLimit } from '../lib/map-limit.js';
 import { MesaError } from '../lib/result.js';
+import type { JsonRead } from '../lib/run-json.js';
 import { listProjects } from '../projects/projects.js';
-import { readBitbucket } from './bitbucket.js';
+import { bitbucketApi } from './bitbucket.js';
 import { type Bucket, bucketOf, bucketRank, type Since } from './buckets.js';
-import { readGithub } from './github.js';
+import { githubApi } from './github.js';
 import { PR_CLIS, type PrProvider, prCli, resolveRemote } from './provider.js';
-import type { PrHead, PrReader } from './reader.js';
+import type {
+  DraftInput,
+  PrDraft,
+  PrFile,
+  PrHead,
+  PrProviderApi,
+  PrRead,
+  PrThread,
+} from './reader.js';
 
 /** A project's PR provider and its CLI's state; `next` is the command that unblocks it, if any. */
 export type PrSetupRow = {
@@ -40,7 +49,22 @@ export type PrList = {
   quiet: string[];
 };
 
-const READERS: Record<PrProvider, PrReader> = { github: readGithub, bitbucket: readBitbucket };
+/** One PR in full (mesa prs show): its row, the detail, my threads, my Pending drafts, its files. */
+export type PrDetail = Omit<PrRow, 'bucket'> &
+  Pick<PrRead, 'base' | 'additions' | 'deletions' | 'checks'> & {
+    bucket: Bucket;
+    threads: PrThread[];
+    drafts: PrDraft[];
+    files: PrFile[];
+  };
+
+const APIS: Record<PrProvider, PrProviderApi> = { github: githubApi, bitbucket: bitbucketApi };
+
+/** A CLI read's value, or its failure as an error naming the CLI. */
+function unwrap<T>(cli: string, read: JsonRead<T>): T {
+  if (read.ok) return read.value;
+  throw new MesaError('internal', `${cli} ${read.reason}${read.detail ? `: ${read.detail}` : ''}`);
+}
 
 // What unblocks a CLI: install it, sign in, or (not answering) ask it its version by hand.
 const nextStep = (provider: PrProvider, cli: CliState) =>
@@ -80,7 +104,92 @@ export function prsService(ctx: MesaContext) {
     );
   }
 
+  /** The project's provider, repo and CLI, ready; refused, naming what unblocks it, otherwise. */
+  async function reach(project: string) {
+    const [p] = await projects(project);
+    if (!p || !('provider' in p) || !p.provider)
+      throw new MesaError('usage', `${project}'s origin remote is not on GitHub or Bitbucket`);
+    if (p.cli.state !== 'ready')
+      throw new MesaError(
+        'usage',
+        `${p.setup.cli} is ${p.cli.state}${p.setup.next ? `; run ${p.setup.next}` : ''}`,
+      );
+    return {
+      provider: p.provider,
+      repo: p.repo,
+      api: APIS[p.provider],
+      cli: PR_CLIS[p.provider].cli,
+    };
+  }
+
+  async function show(project: string, number: number): Promise<PrDetail> {
+    const { provider, repo, api, cli } = await reach(project);
+    const read = unwrap(cli, await api.show(ctx.run, repo, number));
+    const { pr, me } = read;
+    const { bucket, since } = bucketOf(pr, me);
+    return {
+      ...{ project, provider, number: pr.number, title: pr.title, url: pr.url, branch: pr.branch },
+      ...{ updatedAt: pr.updatedAt, author: pr.authorName, bucket, since },
+      ...{ base: read.base, additions: read.additions, deletions: read.deletions },
+      checks: read.checks,
+      threads: read.threads.filter((t) => t.author === me),
+      drafts: read.drafts,
+      files: read.files,
+    };
+  }
+
   return {
+    show,
+
+    /** My Pending drafts on the PR (mesa prs drafts). */
+    drafts: async (project: string, number: number) => (await show(project, number)).drafts,
+
+    /**
+     * Leaves one Pending draft on the PR (mesa prs draft): inline, a reply, or the summary. No one
+     * sees it until I submit the review on the provider; Mesa never submits.
+     */
+    draft: async (project: string, number: number, input: DraftInput) => {
+      if (!input.text.trim()) throw new MesaError('usage', 'a draft needs --text');
+      if (input.replyTo === undefined && (input.path === undefined) !== (input.line === undefined))
+        throw new MesaError('usage', 'an inline draft needs both --path and --line');
+      if (input.line !== undefined && (!Number.isInteger(input.line) || input.line < 1))
+        throw new MesaError('usage', '--line must be a positive whole number');
+      const { provider, repo, api, cli } = await reach(project);
+      return ctx.record(
+        {
+          kind: 'connection',
+          summary: (d: PrDraft) =>
+            `Drafted a pending comment on ${project} #${number}${d.path ? ` at ${d.path}${d.line ? `:${d.line}` : ''}` : ''}`,
+          failure: `Could not draft a comment on ${project} #${number}`,
+          inputs: {
+            project,
+            number,
+            ...(input.path ? { path: input.path, line: input.line } : {}),
+            ...(input.replyTo ? { replyTo: input.replyTo } : {}),
+          },
+          outputs: (d) => ({ provider, id: d.id, pending: true }),
+          project: () => project,
+        },
+        async () => unwrap(cli, await api.draft(ctx.run, repo, number, input)),
+      );
+    },
+
+    /** Deletes one of my Pending drafts (mesa prs discard). */
+    discard: async (project: string, number: number, id: string) => {
+      const { provider, repo, api, cli } = await reach(project);
+      return ctx.record(
+        {
+          kind: 'connection',
+          summary: () => `Discarded a pending comment on ${project} #${number}`,
+          failure: `Could not discard a pending comment on ${project} #${number}`,
+          inputs: { project, number, id },
+          outputs: () => ({ provider, id }),
+          project: () => project,
+        },
+        async () => unwrap(cli, await api.discard(ctx.run, repo, number, id)),
+      );
+    },
+
     /** Each registered project's (or the one asked for) provider, from its origin remote, and its CLI's state (mesa prs setup). */
     async setup(project?: string): Promise<PrSetupRow[]> {
       return (await projects(project)).map((p) => p.setup);
@@ -95,7 +204,7 @@ export function prsService(ctx: MesaContext) {
       await mapLimit(await projects(opts.project), AT_ONCE, async (p) => {
         if (!('provider' in p) || !p.provider) return;
         if (p.cli.state !== 'ready') return void list.blocked.push(p.setup);
-        const read = await READERS[p.provider](ctx.run, p.repo);
+        const read = await APIS[p.provider].list(ctx.run, p.repo);
         if (!read.ok)
           return void list.problems.push({
             project: p.name,

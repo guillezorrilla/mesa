@@ -1,4 +1,4 @@
-import type { PrSetupRow } from '@mesa/core';
+import type { PrRow, PrSetupRow } from '@mesa/core';
 import { actionable, PR_CLIS } from '@mesa/core/browser';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
@@ -19,6 +19,9 @@ export function ReviewsList(props: {
   read: Prs['list'];
   by: PrGrouping;
   onSetup: (row: PrSetupRow) => void;
+  onOpen: (pr: PrRow) => void;
+  /** The PR whose detail is shown, marked in the list. */
+  current?: { project: string; number: number };
   now: number;
 }) {
   const [closed, setClosed] = useState<string[]>([]);
@@ -88,6 +91,10 @@ export function ReviewsList(props: {
                     pr={pr}
                     showProject={byStatus}
                     now={props.now}
+                    current={
+                      props.current?.project === pr.project && props.current.number === pr.number
+                    }
+                    onOpen={props.onOpen}
                   />
                 ))}
                 {group.problem && (

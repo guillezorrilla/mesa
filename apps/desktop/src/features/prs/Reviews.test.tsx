@@ -65,16 +65,32 @@ const button = (label: string) =>
 
 beforeEach(() => localStorage.clear());
 
-function Section(props: { onSetup?: (row: PrSetupRow) => void }) {
+function Section(props: {
+  onSetup?: (row: PrSetupRow) => void;
+  onOpen?: (pr: PrRow) => void;
+  current?: { project: string; number: number };
+}) {
   const prs = usePrs();
-  return <ReviewsSection prs={prs} onSetup={props.onSetup ?? (() => undefined)} />;
+  return (
+    <ReviewsSection
+      prs={prs}
+      onSetup={props.onSetup ?? (() => undefined)}
+      onOpen={props.onOpen ?? (() => undefined)}
+      current={props.current}
+    />
+  );
 }
 
 test('the sidebar list groups by project, most urgent first, with a Set up row and the quiet projects', async () => {
   const setups: string[] = [];
+  const opened: string[] = [];
   const { bridge, calls } = fakeBridge({ prs: () => envelope(LIST) });
   const byTestId = await renderWithMesa(
-    <Section onSetup={(row) => setups.push(row.project)} />,
+    <Section
+      onSetup={(row) => setups.push(row.project)}
+      onOpen={(row) => opened.push(`${row.project}#${row.number}`)}
+      current={{ project: 'storefront', number: 477 }}
+    />,
     bridge,
   );
   expect(groupTitles()).toEqual(['atlas-api', 'storefront', 'pos-bridge']);
@@ -86,9 +102,15 @@ test('the sidebar list groups by project, most urgent first, with a Set up row a
     'Change 482Review#4',
     'Change 477Updated#',
   ]);
-  expect(byTestId('pr-row')[0]?.getAttribute('href')).toBe(
-    'https://example.test/atlas-api/pull/91',
-  );
+  // A row opens the PR's detail, and the one shown is marked.
+  await click(byTestId('pr-row')[0]);
+  expect(opened).toEqual(['atlas-api#91']);
+  expect(byTestId('pr-row').map((row) => row.getAttribute('aria-current'))).toEqual([
+    null,
+    null,
+    null,
+    'page',
+  ]);
   expect(document.body.textContent).toContain('No open PRs for you in kiosk');
 
   await click(byTestId('pr-setup-row')[0]);
@@ -122,7 +144,15 @@ test("By status groups the buckets, names each row's project, and is kept for th
 
 function ProjectReviews() {
   const [all, setAll] = useState(false);
-  return <ReviewsTab project="storefront" all={all} onAll={setAll} onSetup={() => undefined} />;
+  return (
+    <ReviewsTab
+      project="storefront"
+      all={all}
+      onAll={setAll}
+      onSetup={() => undefined}
+      onOpen={() => undefined}
+    />
+  );
 }
 
 test("a project's Reviews tab reads that project's PRs; All open PRs adds the ones not for me", async () => {

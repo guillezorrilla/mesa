@@ -14,6 +14,7 @@ import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { ProjectScreen, type ProjectTab } from '@/features/projects/ProjectScreen';
 import { SavedPromptsScreen } from '@/features/prompts/SavedPromptsScreen';
+import { PrScreen } from '@/features/prs/PrScreen';
 import { PrSetupScreen } from '@/features/prs/PrSetupScreen';
 import { SessionsScreen } from '@/features/sessions/SessionsScreen';
 import type { SessionPreset } from '@/features/sessions/start/useStartSession';
@@ -127,6 +128,7 @@ export function WorkspaceMain(props: {
             }
             onAgentSettings={() => navigate({ kind: 'doctor' })}
             onPrSetup={(name) => navigate({ kind: 'prs-setup', project: name })}
+            onPr={(number) => navigate({ kind: 'pr', project: project.name, number })}
             onChanged={() => void projects.refresh()}
             onUnregistered={() => props.onProjectUnregistered(project.name)}
           />
@@ -141,6 +143,13 @@ export function WorkspaceMain(props: {
           key={view.project}
           project={view.project}
           onSession={(id) => navigate({ kind: 'session', id })}
+        />
+      )}
+      {view.kind === 'pr' && (
+        <PrScreen
+          key={`${view.project}#${view.number}`}
+          project={view.project}
+          number={view.number}
         />
       )}
       {view.kind === 'map' && (

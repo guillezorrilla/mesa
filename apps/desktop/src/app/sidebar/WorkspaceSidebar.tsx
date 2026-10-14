@@ -73,7 +73,7 @@ export function WorkspaceSidebar(props: {
   useEffect(() => {
     if (view.kind === 'project') setTab('projects');
     if (view.kind === 'session' || view.kind === 'sessions') setTab('sessions');
-    if (view.kind === 'prs-setup') setTab('reviews');
+    if (view.kind === 'prs-setup' || view.kind === 'pr') setTab('reviews');
   }, [view.kind]);
   const groups = sidebarGroups(props.projects, props.sessions);
   const { visible, active, stranded } = groups;
@@ -178,6 +178,8 @@ export function WorkspaceSidebar(props: {
             <ReviewsSection
               prs={prs}
               onSetup={(row) => onView({ kind: 'prs-setup', project: row.project })}
+              onOpen={(pr) => onView({ kind: 'pr', project: pr.project, number: pr.number })}
+              current={view.kind === 'pr' ? view : undefined}
             />
           )
         ) : tab === 'projects' ? (

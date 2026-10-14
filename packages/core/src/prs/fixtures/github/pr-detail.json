@@ -1,0 +1,134 @@
+{
+  "data": {
+    "viewer": { "login": "ana-r" },
+    "repository": {
+      "pullRequest": {
+        "number": 477,
+        "title": "Cache menu images at the edge",
+        "url": "https://github.com/acme/storefront/pull/477",
+        "headRefName": "feat/edge-image-cache",
+        "updatedAt": "2026-10-13T11:40:00Z",
+        "state": "MERGED",
+        "author": { "login": "lee-park" },
+        "reviewRequests": { "nodes": [] },
+        "reviews": {
+          "nodes": [
+            {
+              "author": { "login": "ana-r" },
+              "state": "CHANGES_REQUESTED",
+              "submittedAt": "2026-10-12T15:00:00Z"
+            },
+            { "author": { "login": "ana-r" }, "state": "PENDING", "submittedAt": null }
+          ]
+        },
+        "comments": { "nodes": [] },
+        "commits": { "nodes": [{ "commit": { "committedDate": "2026-10-13T10:00:00Z" } }] },
+        "reviewThreads": {
+          "nodes": [
+            {
+              "id": "PRRT_thread1",
+              "path": "src/edge/cache.ts",
+              "line": 42,
+              "isResolved": false,
+              "comments": {
+                "nodes": [
+                  {
+                    "id": "PRRC_c1",
+                    "author": { "login": "ana-r" },
+                    "createdAt": "2026-10-12T14:55:00Z",
+                    "state": "SUBMITTED",
+                    "body": "Should this key include the locale?"
+                  },
+                  {
+                    "id": "PRRC_c2",
+                    "author": { "login": "lee-park" },
+                    "createdAt": "2026-10-13T09:30:00Z",
+                    "state": "SUBMITTED",
+                    "body": "Good catch, added it."
+                  },
+                  {
+                    "id": "PRRC_c3",
+                    "author": { "login": "ana-r" },
+                    "createdAt": "2026-10-13T11:00:00Z",
+                    "state": "PENDING",
+                    "body": "Thanks, looks right now."
+                  }
+                ]
+              }
+            },
+            {
+              "id": "PRRT_thread2",
+              "path": "src/edge/headers.ts",
+              "line": null,
+              "isResolved": true,
+              "comments": {
+                "nodes": [
+                  {
+                    "id": "PRRC_c4",
+                    "author": null,
+                    "createdAt": "2026-10-12T14:58:00Z",
+                    "state": "SUBMITTED",
+                    "body": "Max-age looks short."
+                  }
+                ]
+              }
+            },
+            {
+              "id": "PRRT_thread3",
+              "path": "src/edge/purge.ts",
+              "line": 7,
+              "isResolved": false,
+              "comments": {
+                "nodes": [
+                  {
+                    "id": "PRRC_c5",
+                    "author": { "login": "ana-r" },
+                    "createdAt": "2026-10-13T11:05:00Z",
+                    "state": "PENDING",
+                    "body": "Purge on deploy too?"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "baseRefName": "main",
+        "additions": 120,
+        "deletions": 14,
+        "files": {
+          "nodes": [
+            { "path": "src/edge/cache.ts", "additions": 90, "deletions": 10 },
+            { "path": "src/edge/purge.ts", "additions": 30, "deletions": 4 }
+          ]
+        },
+        "head": { "nodes": [{ "commit": { "statusCheckRollup": { "state": "FAILURE" } } }] },
+        "pending": {
+          "nodes": [
+            {
+              "id": "PRR_review1",
+              "body": "Close; two small things.",
+              "comments": {
+                "nodes": [
+                  {
+                    "id": "PRRC_c3",
+                    "path": "src/edge/cache.ts",
+                    "line": 42,
+                    "body": "Thanks, looks right now.",
+                    "replyTo": { "id": "PRRC_c1" }
+                  },
+                  {
+                    "id": "PRRC_c5",
+                    "path": "src/edge/purge.ts",
+                    "line": 7,
+                    "body": "Purge on deploy too?",
+                    "replyTo": null
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

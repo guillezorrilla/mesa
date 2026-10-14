@@ -43,6 +43,7 @@ const renderScreen = (bridge: ReturnType<typeof fakeBridge>['bridge']) =>
       onNewSession={() => undefined}
       onAgentSettings={() => undefined}
       onPrSetup={() => undefined}
+      onPr={() => undefined}
     />,
     bridge,
   );
@@ -216,6 +217,7 @@ test('the Overview lists a session where the project is additional, marked from 
       onNewSession={() => undefined}
       onAgentSettings={() => undefined}
       onPrSetup={() => undefined}
+      onPr={() => undefined}
     />,
     bridge,
   );

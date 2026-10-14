@@ -1,0 +1,33 @@
+{
+  "id": 720,
+  "created_on": "2026-10-13T10:00:00.000000+00:00",
+  "updated_on": "2026-10-13T10:00:00.000000+00:00",
+  "content": {
+    "type": "rendered",
+    "raw": "Close the stream on error too.",
+    "markup": "markdown",
+    "html": ""
+  },
+  "user": {
+    "display_name": "Kofi Mensah",
+    "type": "user",
+    "uuid": "{0a1b2c3d-1111-4aaa-8bbb-000000000001}",
+    "account_id": "5f1a2b3c4d5e6f7a8b9c0d1e",
+    "nickname": "Kofi Mensah"
+  },
+  "deleted": false,
+  "pending": true,
+  "type": "pullrequest_comment",
+  "inline": {
+    "from": null,
+    "to": 30,
+    "path": "src/export/stream.ts",
+    "start_from": null,
+    "start_to": null
+  },
+  "pullrequest": {
+    "type": "pullrequest",
+    "id": 214,
+    "title": "Stream large exports"
+  }
+}

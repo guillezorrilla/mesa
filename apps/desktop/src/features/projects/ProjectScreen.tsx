@@ -60,6 +60,8 @@ export function ProjectScreen(props: {
   onAgentSettings: () => void;
   /** Opens the screen that connects the project's PR provider (gh or twg). */
   onPrSetup: (project: string) => void;
+  /** Opens one of the project's pull requests. */
+  onPr: (number: number) => void;
 }) {
   const { project } = props;
   const [tab, setTab] = useState<ProjectTab>(props.initialTab ?? 'overview');
@@ -150,6 +152,7 @@ export function ProjectScreen(props: {
           all={allPrs}
           onAll={setAllPrs}
           onSetup={(row) => props.onPrSetup(row.project)}
+          onOpen={(pr) => props.onPr(pr.number)}
         />
       ) : tab === 'git' ? (
         <GitTab

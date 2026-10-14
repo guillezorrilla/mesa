@@ -1,0 +1,42 @@
+[
+  {
+    "type": "diffstat",
+    "lines_added": 40,
+    "lines_removed": 12,
+    "status": "modified",
+    "old": {
+      "path": "src/export/stream.ts",
+      "type": "commit_file",
+      "escaped_path": "src/export/stream.ts"
+    },
+    "new": {
+      "path": "src/export/stream.ts",
+      "type": "commit_file",
+      "escaped_path": "src/export/stream.ts"
+    }
+  },
+  {
+    "type": "diffstat",
+    "lines_added": 25,
+    "lines_removed": 0,
+    "status": "added",
+    "old": null,
+    "new": {
+      "path": "src/export/chunk.ts",
+      "type": "commit_file",
+      "escaped_path": "src/export/chunk.ts"
+    }
+  },
+  {
+    "type": "diffstat",
+    "lines_added": 0,
+    "lines_removed": 9,
+    "status": "removed",
+    "old": {
+      "path": "src/export/buffer.ts",
+      "type": "commit_file",
+      "escaped_path": "src/export/buffer.ts"
+    },
+    "new": null
+  }
+]
