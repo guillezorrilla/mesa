@@ -1,6 +1,7 @@
 import { existsSync, lstatSync, mkdirSync, readdirSync, realpathSync, rmSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import { gitCommand } from '../../git/command.js';
+import { gitCommand, mustGit } from '../../git/command.js';
+import { branchExists } from '../../git/ref.js';
 import { type AsyncLockDeps, lockedBy, withLock } from '../../lib/lock-file.js';
 import type { Runner } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
@@ -21,9 +22,11 @@ export type Worktree = {
 const ADD_MS = 60_000;
 const ASK_MS = 5_000;
 
+const GIT_MISSING = 'git not found on PATH; --branch needs it';
+
 /** One git call in `repo`. A missing or hung git throws; a failed command returns. */
 async function git(run: Runner, repo: string, args: string[], ms = ASK_MS) {
-  return gitCommand(run, repo, args, ms, 'git not found on PATH; --branch needs it');
+  return gitCommand(run, repo, args, ms, GIT_MISSING);
 }
 
 /** git's answer, or undefined when it says no. */
@@ -32,12 +35,9 @@ async function ask(run: Runner, repo: string, args: string[]) {
   return res.ok ? res.stdout.trim() : undefined;
 }
 
-/** A git call that must succeed: its failure is `usage`, `why` then git's reason. */
-async function must(run: Runner, repo: string, args: string[], why: string, ms = ASK_MS) {
-  const res = await git(run, repo, args, ms);
-  if (!res.ok) throw new MesaError('usage', `${why}: ${res.detail}`);
-  return res.stdout.trim();
-}
+/** A git call that must succeed (mustGit), its answer trimmed. */
+const must = async (run: Runner, repo: string, args: string[], why: string, ms = ASK_MS) =>
+  (await mustGit(run, repo, args, why, ms, GIT_MISSING)).trim();
 
 /** A new branch's default start: the branch on origin, else origin/HEAD, else the current one. */
 async function defaultBase(run: Runner, repo: string, branch: string) {
@@ -246,8 +246,7 @@ export async function hasSubmodules(run: Runner, path: string) {
  * already gone (an rm retried after a git failure) is left as it is.
  */
 export async function deleteBranch(run: Runner, repo: string, branch: string) {
-  if ((await ask(run, repo, ['show-ref', '--verify', `refs/heads/${branch}`])) === undefined)
-    return;
+  if (!(await branchExists(run, repo, branch))) return;
   await must(
     run,
     repo,

@@ -19,6 +19,7 @@ const detail = (over: Partial<PrDetail> = {}): PrDetail => ({
   url: 'https://example.test/storefront/pull/477',
   branch: 'feat/edge-image-cache',
   base: 'main',
+  headRef: 'pull/477/head',
   updatedAt: hoursAgo(3),
   author: 'lee-park',
   bucket: 'updated',

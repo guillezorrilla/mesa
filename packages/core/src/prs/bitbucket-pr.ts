@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { HttpsUrl } from '../git/pull-requests.js';
 import type { Runner } from '../lib/process.js';
-import { runJson } from '../lib/run-json.js';
+import { type JsonRead, runJson } from '../lib/run-json.js';
 import type { PrFacts } from './buckets.js';
 import type { PrDraft, PrHead } from './reader.js';
 
@@ -112,3 +112,22 @@ export const draftOf = (c: Comment): PrDraft => ({
 /** My pending comments on the PR, as drafts: what only I see until they are posted. */
 export const myDrafts = (pr: Pr, me: string): PrDraft[] =>
   pr._comments.filter((c) => c.pending && !c.deleted && c.user.id === me).map(draftOf);
+
+/** Who I am and one PR with its comments, read together through `twg`. */
+export async function readPr(
+  run: Runner,
+  repo: string,
+  number: number,
+): Promise<JsonRead<{ me: string; pr: Pr }>> {
+  const [who, got] = await Promise.all([
+    twg(run, ['whoami'], Whoami),
+    twg(
+      run,
+      ['bitbucket', 'pull-requests', 'get', String(number), '--comments', '--repo', repo],
+      Pr,
+    ),
+  ]);
+  if (!who.ok) return who;
+  if (!got.ok) return got;
+  return { ok: true, value: { me: who.value.data.accountId, pr: got.value } };
+}

@@ -19,22 +19,22 @@ const FAILED: RunResult = { ok: false, reason: 'failed', detail: 'exit 1' };
 
 /**
  * A git that lists `worktrees`, says `status` for a worktree's changes and `ahead` for its commits
- * past the new head, has a local review branch when `branch` is set (an ancestor of the head unless
- * `diverged`), and answers rev-parse with HEAD.
+ * past the new head, refuses to fetch into a review branch that has `diverged` from the head, takes
+ * any branch name without `:`, and answers rev-parse with HEAD.
  */
 function fakeGit(
   worktrees = listing(),
-  opts: { status?: string; ahead?: string; branch?: boolean; diverged?: boolean } = {},
+  opts: { status?: string; ahead?: string; diverged?: boolean } = {},
 ) {
   return scriptedRunner({
     git: (args): string | RunResult => {
       const sub = args[2];
       if (sub === 'worktree') return worktrees;
+      if (sub === 'check-ref-format') return args[4]?.includes(':') ? FAILED : `${args[4]}\n`;
       if (sub === 'status') return opts.status ?? '';
       if (sub === 'rev-list') return opts.ahead ?? '';
-      if (sub === 'merge-base') return opts.diverged ? FAILED : '';
-      if (sub === 'rev-parse' && args.includes('--quiet'))
-        return opts.branch ? `${HEAD}\n` : FAILED;
+      if (sub === 'fetch' && opts.diverged && args.at(-1)?.includes(':'))
+        return { ok: false, reason: 'failed', detail: '! [rejected] (non-fast-forward)' };
       if (sub === 'rev-parse') return `${HEAD}\n`;
       return '';
     },
@@ -87,13 +87,15 @@ function harness(records: SessionRecord[] = [], run = fakeGit()) {
   return { deps, opened, calls: run.calls };
 }
 
-const input = (fields: Partial<ReviewStartInput> = {}): ReviewStartInput => ({
+const input = (
+  fields: Partial<ReviewStartInput> = {},
+  read = { headRef: 'pull/12/head', pendingDrafts: 0 },
+): ReviewStartInput => ({
   project: 'lantern-cove',
   number: 12,
-  provider: 'github',
   post: false,
-  pendingDrafts: 0,
   agent: 'claude',
+  read: async () => read,
   goal: (review) => `Review round ${review.round}`,
   ...fields,
 });
@@ -110,7 +112,7 @@ describe('startReview', () => {
       PROJECT,
       'fetch',
       'origin',
-      '+pull/12/head:review/12',
+      'pull/12/head:review/12',
     ]);
     expect(opened).toEqual([
       {
@@ -136,17 +138,20 @@ describe('startReview', () => {
 
   test('a Bitbucket pull request fetches its source branch', async () => {
     const { deps, calls } = harness();
-    await startReview(deps, input({ provider: 'bitbucket', sourceBranch: 'feature/tide-chart' }));
+    const bitbucket = (headRef: string) => input({}, { headRef, pendingDrafts: 0 });
+    await startReview(deps, bitbucket('feature/tide-chart'));
     expect(gitArgs(calls)).toContainEqual([
       '-C',
       PROJECT,
       'fetch',
       'origin',
-      '+feature/tide-chart:review/12',
+      'feature/tide-chart:review/12',
     ]);
-    await expect(
-      startReview(deps, input({ provider: 'bitbucket', sourceBranch: 'x:refs/heads/main' })),
-    ).rejects.toMatchObject({ code: 'usage' });
+    // git refuses a refspec as a branch name, so it is never fetched.
+    await expect(startReview(deps, bitbucket('x:refs/heads/main'))).rejects.toMatchObject({
+      code: 'usage',
+      message: expect.stringContaining('names no head Mesa can fetch'),
+    });
   });
 
   test('a live review session of the pull request is returned, and nothing starts', async () => {
@@ -165,6 +170,7 @@ describe('startReview', () => {
     const { deps, opened, calls } = harness([reviewSession('r0und1aa', {}, ended)], run);
     const started = await startReview(deps, input());
     expect(gitArgs(calls)).toEqual([
+      ['-C', PROJECT, 'check-ref-format', '--branch', 'pull/12/head'],
       ['-C', PROJECT, 'worktree', 'list', '--porcelain', '-z'],
       ['-C', WORKTREE, 'status', '--porcelain=v1', '-z'],
       ['-C', WORKTREE, 'fetch', 'origin', 'pull/12/head'],
@@ -206,7 +212,8 @@ describe('startReview', () => {
 
   test('Post now is refused while I have pending drafts on the pull request, before any git runs', async () => {
     const { deps, calls } = harness();
-    await expect(startReview(deps, input({ post: true, pendingDrafts: 2 }))).rejects.toMatchObject({
+    const pending = input({ post: true }, { headRef: 'pull/12/head', pendingDrafts: 2 });
+    await expect(startReview(deps, pending)).rejects.toMatchObject({
       code: 'usage',
       message: expect.stringContaining('2 pending drafts'),
     });
@@ -237,15 +244,13 @@ describe('startReview', () => {
   });
 
   test('a leftover review branch moves forward to the head, and one with its own commits is refused', async () => {
-    const forward = harness([], fakeGit(listing(), { branch: true }));
+    // One fetch without `+`: git makes or fast-forwards the branch, and refuses anything else.
+    const forward = harness([], fakeGit(listing()));
     await startReview(forward.deps, input());
-    expect(gitArgs(forward.calls).slice(1, 5)).toEqual([
-      ['-C', PROJECT, 'rev-parse', '--verify', '--quiet', 'refs/heads/review/12'],
-      ['-C', PROJECT, 'fetch', 'origin', 'pull/12/head'],
-      ['-C', PROJECT, 'merge-base', '--is-ancestor', 'review/12', 'FETCH_HEAD'],
-      ['-C', PROJECT, 'branch', '--force', 'review/12', 'FETCH_HEAD'],
+    expect(gitArgs(forward.calls).filter((a) => a[2] === 'fetch')).toEqual([
+      ['-C', PROJECT, 'fetch', 'origin', 'pull/12/head:review/12'],
     ]);
-    const diverged = harness([], fakeGit(listing(), { branch: true, diverged: true }));
+    const diverged = harness([], fakeGit(listing(), { diverged: true }));
     await expect(startReview(diverged.deps, input())).rejects.toMatchObject({
       message: expect.stringContaining('has commits that are not in #12'),
     });

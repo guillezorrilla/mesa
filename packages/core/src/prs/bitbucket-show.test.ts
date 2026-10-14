@@ -38,6 +38,7 @@ test('show reads whoami, the PR with comments and its diffstat', async () => {
   expect(read.value).toMatchObject({
     me: KOFI,
     base: 'main',
+    headRef: 'feat/stream-exports',
     additions: 65,
     deletions: 21,
     checks: 'pending',

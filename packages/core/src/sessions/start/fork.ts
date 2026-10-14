@@ -3,6 +3,7 @@ import { AGENTS } from '../../agents/agents.js';
 import { supportsAgentCapability } from '../../agents/names.js';
 import { readyAgent } from '../../doctor/probe.js';
 import { gitCommand } from '../../git/command.js';
+import { branchExists } from '../../git/ref.js';
 import { MesaError } from '../../lib/result.js';
 import { findProject } from '../../projects/projects.js';
 import { GENERAL_PROJECT } from '../record/general.js';
@@ -100,12 +101,7 @@ export async function forkSession(
  * none when `repo` has the branch already, which is reused as it is.
  */
 async function headBase(deps: LaunchDeps, repo: string, folder: string, branch: string) {
-  const existing = await gitCommand(deps.run, repo, [
-    'show-ref',
-    '--verify',
-    `refs/heads/${branch}`,
-  ]);
-  if (existing.ok) return undefined;
+  if (await branchExists(deps.run, repo, branch)) return undefined;
   const head = await gitCommand(deps.run, folder, ['rev-parse', 'HEAD']);
   if (!head.ok) throw new MesaError('usage', `cannot fork from ${folder}: ${head.detail}`);
   return head.stdout.trim();

@@ -1,6 +1,6 @@
 import { branchOf, type TicketStart } from '@mesa/core/browser';
 import { useState } from 'react';
-import { runSteps, type StartStep } from '@/components/StartProgress';
+import { runSteps, type StartStep } from '@/lib/runSteps';
 import { useRun } from '@/lib/useCommand';
 import { placeOf, type StartOptions, type StartTicket } from './startOptions';
 import { STARTS } from './starts';

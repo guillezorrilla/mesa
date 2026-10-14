@@ -1,12 +1,12 @@
 import { gitWorktrees } from '../git/checkout.js';
-import { gitCommand } from '../git/command.js';
-import { commitOid } from '../git/ref.js';
+import { gitCommand, mustGit } from '../git/command.js';
+import { branchName, commitOid } from '../git/ref.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import { isOver } from '../sessions/record/lifecycle.js';
 import type { SessionRecord, SessionReview } from '../sessions/record/record.js';
 import type { OpenFlags } from '../sessions/start/open-input.js';
-import type { PrProvider } from './provider.js';
+import { canPost, reviewsOf } from './review-sessions.js';
 
 // Starting a review session on a pull request (mesa prs start): its head fetched into the local
 // branch review/<n>, a worktree on that branch made or moved to it, and a session opened there
@@ -31,15 +31,15 @@ export type ReviewStartDeps = {
 export type ReviewStartInput = {
   project: string;
   number: number;
-  provider: PrProvider;
-  /** A Bitbucket pull request's source branch, from its read; GitHub's head is pull/<n>/head. */
-  sourceBranch?: string;
   /** Post the findings (Post now), else leave them as drafts. */
   post: boolean;
-  /** My Pending drafts already on the pull request: Post now would publish them too, so it is refused. */
-  pendingDrafts: number;
-  /** The project's agent: only Claude may post. */
+  /** The project's agent: only Claude may post (canPost). */
   agent: string;
+  /**
+   * Reads the pull request once nothing is running: the ref on origin its head is fetched from,
+   * and how many Pending drafts of mine it has (Post now would publish them too, so is refused).
+   */
+  read: () => Promise<{ headRef: string; pendingDrafts: number }>;
   /** The session's first prompt, for its review (round, mode, head) (review-prompt.ts). */
   goal: (review: SessionReview) => string | Promise<string>;
 };
@@ -75,24 +75,24 @@ export async function startReview(
   const { project, number: pr } = input;
   if (!Number.isInteger(pr) || pr < 1)
     throw new MesaError('usage', `${pr} is not a pull request number`);
-  const earlier = deps
-    .sessions()
-    .filter((r) => r.project === project && r.review?.pr === pr)
-    .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
-  const live = earlier.filter((r) => !isOver(r)).at(-1);
-  if (live) return { session: live.id, existing: true, mode: live.review?.mode ?? 'drafts' };
+  const { all: earlier, live } = reviewsOf(deps.sessions(), project, pr, (r) => !isOver(r));
+  if (live?.review) return { session: live.id, existing: true, mode: live.review.mode };
   const mode = input.post ? 'post' : 'drafts';
-  if (input.post && input.agent !== 'claude')
+  if (input.post && !canPost(input.agent))
     throw new MesaError(
       'usage',
       `Post now needs Claude, which publishes through mesa prs publish; ${input.agent} can only leave drafts`,
     );
-  if (input.post && input.pendingDrafts > 0)
+  const { headRef, pendingDrafts } = await input.read();
+  if (input.post && pendingDrafts > 0)
     throw new MesaError(
       'usage',
-      `you have ${input.pendingDrafts} pending drafts on #${pr}, which Post now would publish too: submit or discard them first, or choose Leave as drafts`,
+      `you have ${pendingDrafts} pending drafts on #${pr}, which Post now would publish too: submit or discard them first, or choose Leave as drafts`,
     );
-  const source = headRef(input);
+  // Read from the provider: git checks it is a branch name, never an option or a refspec.
+  const source = await branchName(deps.run, deps.projectPath, headRef).catch(() => {
+    throw new MesaError('usage', `pull request #${pr} names no head Mesa can fetch: ${headRef}`);
+  });
   const branch = reviewBranch(pr);
   // The project's own checkout is listed first: Mesa never moves it.
   const worktree = (await gitWorktrees(deps.run, deps.projectPath))
@@ -128,53 +128,21 @@ export async function startReview(
   };
 }
 
-/** The ref on origin a pull request's head is: GitHub's pull/<n>/head, Bitbucket's source branch. */
-function headRef(input: ReviewStartInput) {
-  if (input.provider === 'github') return `pull/${input.number}/head`;
-  const branch = input.sourceBranch?.trim();
-  // Read from the provider: never an option, nor a refspec that writes elsewhere.
-  if (!branch || branch.startsWith('-') || /[:\s]/.test(branch))
-    throw new MesaError(
-      'usage',
-      `pull request #${input.number} names no source branch Mesa can fetch: ${branch || 'none'}`,
-    );
-  return branch;
-}
-
 /**
  * Points the local `branch`, checked out nowhere, at `source`'s head on origin. A branch already
  * there (an earlier round's, its worktree removed) is moved only forward: one with commits the
  * head has not is refused rather than lose them.
  */
 async function fetchBranch(run: Runner, cwd: string, branch: string, source: string, pr: number) {
-  const exists = await gitCommand(run, cwd, [
-    'rev-parse',
-    '--verify',
-    '--quiet',
-    `refs/heads/${branch}`,
-  ]);
-  if (!exists.ok) {
-    await must(
-      run,
-      cwd,
-      ['fetch', 'origin', `+${source}:${branch}`],
-      `cannot fetch pull request #${pr}`,
-    );
-    return;
-  }
-  await must(run, cwd, ['fetch', 'origin', source], `cannot fetch pull request #${pr}`);
-  const ancestor = await gitCommand(run, cwd, [
-    'merge-base',
-    '--is-ancestor',
-    branch,
-    'FETCH_HEAD',
-  ]);
-  if (!ancestor.ok)
-    throw new MesaError(
-      'usage',
-      `${branch} has commits that are not in #${pr}'s head: rename or delete that branch, then start the review again`,
-    );
-  await must(run, cwd, ['branch', '--force', branch, 'FETCH_HEAD'], `cannot move ${branch}`);
+  // No `+`: git makes the branch, or moves one already there only forward.
+  const fetched = await gitCommand(run, cwd, ['fetch', 'origin', `${source}:${branch}`], FETCH_MS);
+  if (fetched.ok) return;
+  throw new MesaError(
+    'usage',
+    /non-fast-forward|rejected/.test(fetched.detail)
+      ? `${branch} has commits that are not in #${pr}'s head: rename or delete that branch, then start the review again`
+      : `cannot fetch pull request #${pr}: ${fetched.detail}`,
+  );
 }
 
 /**
@@ -208,9 +176,6 @@ async function moveWorktree(run: Runner, path: string, branch: string, source: s
   );
 }
 
-/** A git call that must succeed: its failure is `usage`, `why` then git's reason. */
-async function must(run: Runner, cwd: string, args: string[], why: string) {
-  const res = await gitCommand(run, cwd, args, FETCH_MS);
-  if (!res.ok) throw new MesaError('usage', `${why}: ${res.detail}`);
-  return res.stdout;
-}
+/** A git call that must succeed (mustGit), given a fetch's time. */
+const must = (run: Runner, cwd: string, args: string[], why: string) =>
+  mustGit(run, cwd, args, why, FETCH_MS);

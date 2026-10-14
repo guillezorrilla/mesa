@@ -3,10 +3,7 @@ import { gitCommand } from '../git/command.js';
 import type { CliState } from '../lib/cli-state.js';
 import { mapLimit } from '../lib/map-limit.js';
 import { MesaError } from '../lib/result.js';
-import type { JsonRead } from '../lib/run-json.js';
 import { listProjects } from '../projects/projects.js';
-import { isOver } from '../sessions/record/lifecycle.js';
-import { callerOf } from '../sessions/window/caller.js';
 import { bitbucketApi } from './bitbucket.js';
 import {
   type Bucket,
@@ -16,11 +13,12 @@ import {
   type PrFacts,
   type Since,
 } from './buckets.js';
+import { failure, unwrap } from './cli-read.js';
 import { githubApi } from './github.js';
 import { PR_CLIS, type PrProvider, prCli, resolveRemote } from './provider.js';
 import type { DraftInput, PrDraft, PrHead, PrProviderApi, PrRead } from './reader.js';
-import { reviewPrompt } from './review-prompt.js';
-import { type ReviewStartDeps, startReview } from './review-start.js';
+import { type Reached, reviewActions } from './review.js';
+import type { ReviewStartDeps } from './review-start.js';
 
 /** A project's PR provider and its CLI's state; `next` is the command that unblocks it, if any. */
 export type PrSetupRow = {
@@ -56,16 +54,6 @@ export type PrList = {
 export type PrDetail = Omit<PrRow, 'bucket'> & Omit<PrRead, 'me' | 'pr'> & { bucket: Bucket };
 
 const APIS: Record<PrProvider, PrProviderApi> = { github: githubApi, bitbucket: bitbucketApi };
-
-/** Why a CLI read failed, naming the CLI. */
-const failure = (cli: string, read: { reason: string; detail?: string }) =>
-  `${cli} ${read.reason}${read.detail ? `: ${read.detail}` : ''}`;
-
-/** A CLI read's value, or its failure as an error naming the CLI and where to fix it. */
-function unwrap<T>(cli: string, read: JsonRead<T>): T {
-  if (read.ok) return read.value;
-  throw new MesaError('internal', `${failure(cli, read)}; see mesa prs setup`);
-}
 
 /** A provider's PR as the list and the detail both name it, in my bucket. */
 function rowOf(
@@ -121,97 +109,32 @@ export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open'>
    * The project's provider and repo from its origin remote; refused when it has none. The CLI is
    * not probed here: a missing or signed-out one fails the provider call itself (unwrap).
    */
-  async function reach(project: string) {
+  async function reach(project: string): Promise<Reached> {
     const entry = listProjects(ctx.open()).find((p) => p.name === project);
     if (!entry) throw new MesaError('not_found', `no project named ${project}`);
     const remote = await gitCommand(ctx.run, entry.path, ['remote', 'get-url', 'origin']);
     const found = remote.ok ? await resolveRemote(ctx.run, remote.stdout) : undefined;
     if (!found)
       throw new MesaError('usage', `${project}'s origin remote is not on GitHub or Bitbucket`);
-    return { ...found, api: APIS[found.provider], cli: PR_CLIS[found.provider].cli };
+    return { entry, ...found, api: APIS[found.provider], cli: PR_CLIS[found.provider].cli };
   }
 
-  async function show(project: string, number: number): Promise<PrDetail> {
-    const { provider, repo, api, cli } = await reach(project);
+  /** The PR read in full through the reached project's provider. */
+  async function read(at: Reached, number: number): Promise<PrDetail> {
+    const { provider, repo, api, cli } = at;
     const { me, pr, threads, ...detail } = unwrap(cli, await api.show(ctx.run, repo, number));
     return {
-      ...rowOf(project, provider, pr, me),
+      ...rowOf(at.entry.name, provider, pr, me),
       ...detail,
       threads: threads.filter((t) => t.author === me),
     };
   }
 
+  const show = async (project: string, number: number) => read(await reach(project), number);
+
   return {
     show,
-
-    /**
-     * Starts a review session on the PR (mesa prs start), in a worktree at its head; or names the
-     * one already running. `post` is the person's yes to publish this review when it is written.
-     */
-    start: async (project: string, number: number, opts: { post?: boolean } = {}) => {
-      const pr = await show(project, number);
-      const entry = listProjects(ctx.open()).find((p) => p.name === project);
-      if (!entry?.agent) throw new MesaError('usage', `${project} has no agent to review with`);
-      return startReview(
-        { run: ctx.run, projectPath: entry.path, sessions: () => ctx.store.list(), ...deps },
-        {
-          project,
-          number,
-          provider: pr.provider,
-          sourceBranch: pr.branch,
-          post: Boolean(opts.post),
-          pendingDrafts: pr.drafts.length,
-          agent: entry.agent,
-          goal: ({ round, mode, head }) =>
-            reviewPrompt({
-              project,
-              number,
-              title: pr.title,
-              author: pr.author,
-              url: pr.url,
-              provider: pr.provider,
-              round,
-              mode,
-              head,
-              ...(round > 1 ? { earlier: pr.threads } : {}),
-            }),
-        },
-      );
-    },
-
-    /**
-     * Publishes my Pending drafts on the PR (mesa prs publish): only from a review session of this
-     * PR started with Post now, never as an approval or a change request (ADR-0024).
-     */
-    publish: async (project: string, number: number) => {
-      // Only from a live review session of this very PR, in this project, started with Post now.
-      const caller = callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile }).session;
-      const review = caller?.review;
-      if (
-        !caller ||
-        isOver(caller) ||
-        caller.project !== project ||
-        review?.pr !== number ||
-        review.mode !== 'post'
-      )
-        throw new MesaError(
-          'usage',
-          `publishing #${number} needs a live review session of it in ${project} started with Post now; submit drafts on the provider instead`,
-        );
-      const { provider, repo, api, cli } = await reach(project);
-      return ctx.record(
-        {
-          kind: 'connection',
-          summary: (r: { published: number }) =>
-            `Published ${r.published} review comments on ${project} #${number}`,
-          failure: `Could not publish the review of ${project} #${number}`,
-          inputs: { project, number, round: review.round },
-          outputs: (r) => ({ provider, published: r.published }),
-          project: () => project,
-        },
-        async () => unwrap(cli, await api.publish(ctx.run, repo, number)),
-      );
-    },
+    ...reviewActions(ctx, deps, { reach, read }),
 
     /** My Pending drafts on the PR (mesa prs drafts). */
     drafts: async (project: string, number: number) => (await show(project, number)).drafts,

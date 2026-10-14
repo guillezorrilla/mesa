@@ -19,6 +19,7 @@ test('show reads one PR in one gh api graphql call: threads, my drafts, files an
   expect(detail).toMatchObject({
     me: 'ana-r',
     base: 'main',
+    headRef: 'pull/477/head',
     additions: 120,
     deletions: 14,
     checks: 'failing',

@@ -24,3 +24,9 @@ export async function branchName(run: Runner, cwd: string, name: string): Promis
   }
   return name;
 }
+
+/** Whether `repo` has the local branch `branch`. */
+export async function branchExists(run: Runner, cwd: string, branch: string) {
+  return (await gitCommand(run, cwd, ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`]))
+    .ok;
+}

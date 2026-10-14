@@ -1,7 +1,7 @@
 import type { Runner } from '../lib/process.js';
 import type { JsonRead } from '../lib/run-json.js';
 import { createComment, deleteComment } from './bitbucket-drafts.js';
-import { myDrafts, Pr, twg, Whoami } from './bitbucket-pr.js';
+import { myDrafts, readPr } from './bitbucket-pr.js';
 import type { PrDraft } from './reader.js';
 
 type Failed = Extract<JsonRead<unknown>, { ok: false }>;
@@ -36,17 +36,9 @@ export async function publishBitbucket(
   repo: string,
   number: number,
 ): Promise<JsonRead<{ published: number }>> {
-  const [who, got] = await Promise.all([
-    twg(run, ['whoami'], Whoami),
-    twg(
-      run,
-      ['bitbucket', 'pull-requests', 'get', String(number), '--comments', '--repo', repo],
-      Pr,
-    ),
-  ]);
-  if (!who.ok) return who;
-  if (!got.ok) return got;
-  const drafts = postingOrder(myDrafts(got.value, who.value.data.accountId));
+  const read = await readPr(run, repo, number);
+  if (!read.ok) return read;
+  const drafts = postingOrder(myDrafts(read.value.pr, read.value.me));
   // A reply to a draft posted just now answers the posted comment, not its deleted pending copy.
   const postedAs = new Map<string, string>();
   let published = 0;

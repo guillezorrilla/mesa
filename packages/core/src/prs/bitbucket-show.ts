@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { Runner } from '../lib/process.js';
 import type { JsonRead } from '../lib/run-json.js';
-import { facts, myDrafts, Pr, posted, twg, Whoami } from './bitbucket-pr.js';
+import { facts, myDrafts, type Pr, posted, readPr, twg } from './bitbucket-pr.js';
 import type { PrRead, PrThread } from './reader.js';
 
 // An added file has no `old`, a deleted one no `new`.
@@ -73,17 +73,13 @@ export async function showBitbucket(
   repo: string,
   number: number,
 ): Promise<JsonRead<PrRead>> {
-  const id = String(number);
-  const [who, got, stat] = await Promise.all([
-    twg(run, ['whoami'], Whoami),
-    twg(run, ['bitbucket', 'pull-requests', 'get', id, '--comments', '--repo', repo], Pr),
-    twg(run, ['bitbucket', 'pull-requests', 'diffstat', id, '--repo', repo], Diffstat),
+  const [read, stat] = await Promise.all([
+    readPr(run, repo, number),
+    twg(run, ['bitbucket', 'pull-requests', 'diffstat', String(number), '--repo', repo], Diffstat),
   ]);
-  if (!who.ok) return who;
-  if (!got.ok) return got;
+  if (!read.ok) return read;
   if (!stat.ok) return stat;
-  const me = who.value.data.accountId;
-  const pr = got.value;
+  const { me, pr } = read.value;
   const files = stat.value;
   return {
     ok: true,
@@ -91,6 +87,7 @@ export async function showBitbucket(
       me,
       pr: facts(pr, me),
       base: pr.destination.branch.name,
+      headRef: pr.source.branch.name,
       additions: files.reduce((n, f) => n + f.additions, 0),
       deletions: files.reduce((n, f) => n + f.deletions, 0),
       checks: checksOf(pr),

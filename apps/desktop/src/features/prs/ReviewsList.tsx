@@ -6,6 +6,7 @@ import type { PrRef } from '@/lib/client/prs';
 import { cn } from '@/lib/utils';
 import { PullRequestRow } from './PullRequestRow';
 import { type PrGrouping, prGroups } from './prGroups';
+import { prKey } from './prKey';
 import { useClosedGroups } from './useGrouping';
 import type { Prs } from './usePrs';
 
@@ -84,14 +85,14 @@ export function ReviewsList(props: {
                 )}
                 {group.prs.map((pr) => (
                   <PullRequestRow
-                    key={`${pr.project}#${pr.number}`}
+                    key={prKey(pr)}
                     pr={pr}
                     showProject={byStatus}
                     now={props.now}
                     current={
                       props.current?.project === pr.project && props.current.number === pr.number
                     }
-                    reviewing={props.reviewing?.has(`${pr.project}#${pr.number}`)}
+                    reviewing={props.reviewing?.has(prKey(pr))}
                     onOpen={props.onOpen}
                   />
                 ))}

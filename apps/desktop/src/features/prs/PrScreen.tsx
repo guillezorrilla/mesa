@@ -1,5 +1,5 @@
 import type { PrDetail, PrDraft, TreeRow } from '@mesa/core';
-import { counted, PR_CLIS, reviewLabel } from '@mesa/core/browser';
+import { canPost, counted, PR_CLIS, reviewLabel } from '@mesa/core/browser';
 import { ExternalLink as ExternalIcon } from 'lucide-react';
 import { ExternalLink } from '@/components/ExternalLink';
 import { Muted } from '@/components/Muted';
@@ -47,11 +47,7 @@ export function PrScreen(
   const run = useRun();
   const navigate = useNavigate();
   const pr = show.data;
-  const review = useStartReview({
-    project: props.project,
-    number: props.number,
-    bucket: pr?.bucket ?? 'need',
-  });
+  const review = useStartReview({ project: props.project, number: props.number });
   if (!pr) return <Muted>{show.error ? show.error.message : 'Reading the pull request...'}</Muted>;
   // A draft never changes the Reviews list, so only this PR is read again.
   const discard = async (draft: PrDraft) => {
@@ -62,22 +58,27 @@ export function PrScreen(
   const open = (id: string) => navigate?.({ kind: 'session', id });
   const reviews = reviewSessionsOf(props.sessions ?? [], pr);
   const label = START_LABEL[pr.bucket];
+  // One step: `mesa prs start` reads the PR, checks out its head and opens the session at once.
+  const step =
+    pr.bucket === 'need'
+      ? 'Read the PR and check out its head'
+      : 'Read the PR and your last comments, and check out its new head';
   const action = label && !review.steps && (
     <ReviewStartButton
       label={label}
-      live={reviews.find((r) => r.alive)?.id}
+      live={reviews.live?.id}
       noPost={
-        props.agent === 'claude'
+        canPost(props.agent)
           ? undefined
           : props.agent === undefined
             ? 'Loading project'
             : `Post now needs Claude; ${pr.project} reviews with ${props.agent ?? 'no agent'}.`
       }
-      onStart={(post) => void review.start(post)}
+      onStart={(post) => void review.start(post, step)}
       onOpen={open}
     />
   );
-  const last = reviews.at(-1);
+  const last = reviews.all.at(-1);
   return (
     <div data-testid="pr-screen" className="max-w-3xl space-y-5">
       <div className="flex items-center gap-2 text-muted-foreground text-xs">
@@ -114,7 +115,7 @@ export function PrScreen(
       </div>
       {last && (
         <p data-testid="review-label" className="text-muted-foreground text-xs">
-          {reviewLabel(last.review)}
+          {last.review && reviewLabel(last.review)}
           {last.alive ? ' · running' : ''}
         </p>
       )}

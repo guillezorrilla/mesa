@@ -50,6 +50,8 @@ export type PrRead = {
   me: string;
   pr: PrHead & PrFacts;
   base: string;
+  /** The ref on origin a review fetches its head from: GitHub's pull/<n>/head, Bitbucket's source branch. */
+  headRef: string;
   additions: number;
   deletions: number;
   /** The head commit's checks rolled up; null when it has none. */

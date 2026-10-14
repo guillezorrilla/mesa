@@ -1,32 +1,8 @@
 import { Check, Loader2, X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
+import type { StartStep } from '@/lib/runSteps';
 import { cn } from '@/lib/utils';
-
-export type StartStep = { label: string; state: 'todo' | 'now' | 'done' | 'failed' };
-
-/**
- * Runs `plan` one step after another, reporting each step's state through `onSteps`; a step that
- * returns nothing (its error already toasted) stops the run. True when every step ran.
- */
-export async function runSteps(
-  plan: readonly { label: string; run: () => Promise<unknown> }[],
-  onSteps: (steps: StartStep[]) => void,
-) {
-  let shown: StartStep[] = plan.map(({ label }) => ({ label, state: 'todo' }));
-  const mark = (at: number, state: StartStep['state']) => {
-    shown = shown.map((step, i) => (i === at ? { ...step, state } : step));
-    onSteps(shown);
-  };
-  onSteps(shown);
-  for (const [at, step] of plan.entries()) {
-    mark(at, 'now');
-    const ok = Boolean(await step.run());
-    mark(at, ok ? 'done' : 'failed');
-    if (!ok) return false;
-  }
-  return true;
-}
 
 /**
  * Each step of a start as it runs, then the session it opened, shown on its own (Open session

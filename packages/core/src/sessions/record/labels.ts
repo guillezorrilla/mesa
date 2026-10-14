@@ -7,13 +7,16 @@ import { WAITING_STATES } from './states.js';
 // How Mesa shows a session row and its log to a person, the same in the CLI and on the Board.
 // Pure, importing only pure modules, so the app bundles it (`@mesa/core/browser`).
 
+/** A review's title: `Review #12`. */
+const reviewTitle = (pr: number) => `Review #${pr}`;
+
 /** A review session's name (mesa prs start): `Review #12`. */
 const reviewName = (s: { review?: Pick<SessionReview, 'pr'> }) =>
-  s.review ? `Review #${s.review.pr}` : undefined;
+  s.review ? reviewTitle(s.review.pr) : undefined;
 
 /** What a review session reviews, as its card and the PR's detail say it: `Review #12 · round 2 · drafts`. */
 export const reviewLabel = (r: SessionReview) =>
-  `${reviewName({ review: r })} · round ${r.round} · ${r.mode}`;
+  `${reviewTitle(r.pr)} · round ${r.round} · ${r.mode}`;
 
 /**
  * A session's name when a person gave it one, else a review session's (`Review #12`), else the one

@@ -16,6 +16,7 @@ import { ProjectScreen, type ProjectTab } from '@/features/projects/ProjectScree
 import { SavedPromptsScreen } from '@/features/prompts/SavedPromptsScreen';
 import { PrScreen } from '@/features/prs/PrScreen';
 import { PrSetupScreen } from '@/features/prs/PrSetupScreen';
+import { prKey } from '@/features/prs/prKey';
 import { SessionsScreen } from '@/features/sessions/SessionsScreen';
 import type { SessionPreset } from '@/features/sessions/start/useStartSession';
 import { SmarterDecisionsTip } from '@/features/settings/decisions/SmarterDecisionsTip';
@@ -150,13 +151,13 @@ export function WorkspaceMain(props: {
       )}
       {view.kind === 'pr' && (
         <PrScreen
-          key={`${view.project}#${view.number}`}
+          key={prKey(view)}
           project={view.project}
           number={view.number}
           sessions={props.sessions}
           agent={projects.data?.find((p) => p.name === view.project)?.agent}
-          tab={props.prTabs?.[`${view.project}#${view.number}`]}
-          onTab={(tab) => props.onPrTab?.(`${view.project}#${view.number}`, tab)}
+          tab={props.prTabs?.[prKey(view)]}
+          onTab={(tab) => props.onPrTab?.(prKey(view), tab)}
         />
       )}
       {view.kind === 'map' && (

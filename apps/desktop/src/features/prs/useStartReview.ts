@@ -1,6 +1,6 @@
-import type { PrDetail } from '@mesa/core';
 import { useState } from 'react';
-import { runSteps, type StartStep } from '@/components/StartProgress';
+import type { PrRef } from '@/lib/client/prs';
+import { runSteps, type StartStep } from '@/lib/runSteps';
 import { useRun } from '@/lib/useCommand';
 
 /**
@@ -9,22 +9,19 @@ import { useRun } from '@/lib/useCommand';
  * `steps` is what StartProgress shows; it opens `session` on its own once done. `note` says when
  * Post now was asked but a drafts review was already running, so it was not applied.
  */
-export function useStartReview(pr: Pick<PrDetail, 'project' | 'number' | 'bucket'>) {
+export function useStartReview(ref: PrRef) {
   const run = useRun();
   const [steps, setSteps] = useState<StartStep[]>();
   const [session, setSession] = useState<string>();
   const [note, setNote] = useState<string>();
-  const ref = { project: pr.project, number: pr.number };
-  const start = (post: boolean) => {
+  /** Starts the review as `label` says the one step does. */
+  const start = (post: boolean, label: string) => {
     setSession(undefined);
     setNote(undefined);
     return runSteps(
       [
         {
-          label:
-            pr.bucket === 'need'
-              ? 'Read the PR and check out its head'
-              : 'Read the PR and your last comments, and check out its new head',
+          label,
           run: async () => {
             const started = await run('prs.start', { ...ref, ...(post ? { post: true } : {}) });
             if (started?.existing && post && started.mode === 'drafts')

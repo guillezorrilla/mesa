@@ -1,13 +1,10 @@
 import { UNTRUSTED_FENCE as FENCE, short } from '../lib/untrusted-text.js';
+import type { SessionReview } from '../sessions/record/record.js';
+import { PR_CLIS, type PrProvider } from './provider.js';
+import type { PrThread } from './reader.js';
 
 /** One of my earlier threads on the PR, as a round 2 review checks it. */
-export type EarlierThread = {
-  id: string;
-  path: string;
-  line: number | null;
-  body: string;
-  lastReply?: { author: string; body: string };
-};
+export type EarlierThread = Pick<PrThread, 'id' | 'path' | 'line' | 'body' | 'lastReply'>;
 
 export type ReviewPromptInput = {
   project: string;
@@ -15,14 +12,12 @@ export type ReviewPromptInput = {
   title: string;
   author: string;
   url: string;
-  provider: 'github' | 'bitbucket';
+  provider: PrProvider;
   round: number;
-  mode: 'drafts' | 'post';
+  mode: SessionReview['mode'];
   head: string;
   earlier?: EarlierThread[];
 };
-
-const PROVIDER = { github: 'GitHub', bitbucket: 'Bitbucket' } as const;
 
 /** How much of a thread's text the prompt quotes; the rest is in `mesa prs show`. */
 const QUOTED = 500;
@@ -68,7 +63,7 @@ function earlierSection(input: ReviewPromptInput): string[] {
  */
 export function reviewPrompt(input: ReviewPromptInput): string {
   const { project, number } = input;
-  const provider = PROVIDER[input.provider];
+  const provider = PR_CLIS[input.provider].name;
   const last =
     input.mode === 'post'
       ? `Last step: \`mesa prs publish ${project} ${number}\`, which posts your drafts as comments, never an approval.`
