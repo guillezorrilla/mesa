@@ -35,6 +35,9 @@ export type About = {
   note?: string;
 };
 
+/** The build number a release carries, or `dev` outside one. */
+export const buildNumber = (release: ReleaseBuild | undefined) => release?.build ?? 'dev';
+
 /** Mesa's version, build, links and the third-party attributions of what it ships (#478). */
 export function about(version: string, release: ReleaseBuild | undefined): About {
   const known = {
@@ -49,7 +52,7 @@ export function about(version: string, release: ReleaseBuild | undefined): About
   if (!release) {
     return {
       ...known,
-      build: 'dev',
+      build: buildNumber(release),
       attributions: [],
       note: 'A development build carries no attributions; node scripts/release/licenses.mjs <file> writes them.',
     };

@@ -1,7 +1,7 @@
 import type { SearchHit } from '@mesa/core/browser';
 import type { WorkspaceView } from '@/lib/workspaceView';
 
-/** Usage and Notifications open over the current view, as a dialog and a menu. */
+/** What opens over the current view: Usage, Settings, Keyboard shortcuts and Feedback as dialogs, Notifications as a menu. */
 export type Overlay = 'usage' | 'inbox' | 'settings' | 'shortcuts' | 'feedback';
 
 /** The command palette's action and setting ids that open the view of the same kind. */

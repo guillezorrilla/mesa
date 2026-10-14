@@ -1,4 +1,4 @@
-import { FEEDBACK_MAX } from '@mesa/core/browser';
+import { FEEDBACK_MAX, FIXED_SHORTCUTS } from '@mesa/core/browser';
 import { Paperclip, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
@@ -11,7 +11,7 @@ import { pressed } from '@/lib/shortcutKeys';
 import { useAct } from '@/lib/useAct';
 import { useCall, useCommand } from '@/lib/useCommand';
 
-const SEND = 'Mod+Enter';
+const SEND = FIXED_SHORTCUTS.sendFeedback;
 /** How close to the limit the count of characters left shows. */
 const COUNT_FROM = FEEDBACK_MAX - 500;
 

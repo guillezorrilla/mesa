@@ -1,13 +1,13 @@
 import type { Http } from '../lib/http.js';
 import { MesaError } from '../lib/result.js';
 
-/** The longest feedback the broker takes, after trimming (ADR-0025). */
+/** The longest feedback the broker takes, after trimming (ADR-0025): the broker's MESSAGE_MAX. */
 export const FEEDBACK_MAX = 5000;
 
 export type FeedbackInput = {
   message: string;
-  /** Where it was written: the app screen's name, or `cli`. */
-  from: string;
+  /** Where it was written: the app screen's kind; `cli` when not given. */
+  from?: string;
 };
 
 /**
@@ -16,7 +16,7 @@ export type FeedbackInput = {
  */
 export async function sendFeedback(
   deps: { http: Http; broker: string; version: string; build: string },
-  { message, from }: FeedbackInput,
+  { message, from = 'cli' }: FeedbackInput,
 ): Promise<{ sent: true }> {
   const text = message.trim();
   if (!text) throw new MesaError('usage', 'feedback needs a message');

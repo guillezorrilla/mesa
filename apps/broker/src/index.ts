@@ -6,13 +6,13 @@ type RateLimiter = { limit: (options: { key: string }) => Promise<{ success: boo
 
 export default {
   fetch: (request: Request, env: Env) => {
-    // Bindings arrive on env beside the string secrets; without one (self-hosted), none is limited.
+    // Bindings arrive on env beside the string secrets; without one (self-hosted), handle limits none.
     const limiter = (env as unknown as { FEEDBACK_LIMIT?: RateLimiter }).FEEDBACK_LIMIT;
     return handle(
       request,
       env,
       (url, init) => fetch(url, init),
-      async (key) => (await limiter?.limit({ key }))?.success ?? true,
+      limiter && (async (key) => (await limiter.limit({ key })).success),
     );
   },
 };
