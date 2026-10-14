@@ -328,14 +328,13 @@ test('a PR that is not for me offers no Start review', async () => {
 });
 
 test("a re-review's verdicts label my threads and fill the bar; without them, resolved counts", async () => {
-  const at = hoursAgo(1);
   const base = detail();
   const [t1, t2] = base.threads as [PrDetail['threads'][0], PrDetail['threads'][0]];
   await show(
     detail({
       threads: [
-        { ...t1, verdict: { thread: 'T1', state: 'partly', round: 2, at } },
-        { ...t2, verdict: { thread: 'T2', state: 'not', round: 2, at } },
+        { ...t1, verdict: { state: 'partly', round: 2 } },
+        { ...t2, verdict: { state: 'not', round: 2 } },
       ],
     }),
   );

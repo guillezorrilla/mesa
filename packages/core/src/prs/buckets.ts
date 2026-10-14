@@ -34,6 +34,24 @@ export const bucketRank = (bucket: Exclude<Bucket, 'done'>) =>
 export const prStatus = (pr: { bucket: Bucket; drafts: readonly unknown[] }): 'drafts' | Bucket =>
   pr.drafts.length ? 'drafts' : pr.bucket;
 
+/**
+ * How far the author got with my threads: with verdicts from a re-review (CONTEXT.md, Comment
+ * verdict), the ones addressed or partly addressed; else the ones resolved on the provider.
+ */
+export function threadProgress(pr: {
+  since: Pick<Since, 'resolved' | 'threads'>;
+  threads: readonly { verdict?: { state: string } }[];
+}): { done: number; of: number; by: 'verdicts' | 'resolved' } {
+  const judged = pr.threads.filter((t) => t.verdict);
+  return judged.length
+    ? {
+        done: judged.filter((t) => t.verdict?.state !== 'not').length,
+        of: pr.since.threads,
+        by: 'verdicts',
+      }
+    : { done: pr.since.resolved, of: pr.since.threads, by: 'resolved' };
+}
+
 /** The bucket asks something of me: a first review, or a look at what changed since mine. */
 export const actionable = (bucket: Bucket) => bucket === 'need' || bucket === 'updated';
 

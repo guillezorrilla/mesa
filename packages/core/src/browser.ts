@@ -74,6 +74,7 @@ export {
   bucketRank,
   commentPlace,
   prStatus,
+  threadProgress,
 } from './prs/buckets.js';
 export { PR_CLIS } from './prs/provider.js';
 export { promptGuarded } from './prs/review-guard.js';

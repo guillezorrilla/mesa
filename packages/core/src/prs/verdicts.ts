@@ -17,6 +17,22 @@ const Verdict = z.strictObject({
 });
 export type CommentVerdict = z.infer<typeof Verdict>;
 
+/** A thread's verdict as `mesa prs show` carries it: the stored one, less its thread and time. */
+export type ThreadVerdict = Omit<CommentVerdict, 'thread' | 'at'>;
+
+/** `threads`, each with the latest verdict `latest` holds for it, when there is one. */
+export function withVerdicts<T extends { id: string }>(
+  threads: readonly T[],
+  latest: ReadonlyMap<string, CommentVerdict>,
+): (T & { verdict?: ThreadVerdict })[] {
+  return threads.map((t) => {
+    const found = latest.get(t.id);
+    if (!found) return t;
+    const { thread: _thread, at: _at, ...verdict } = found;
+    return { ...t, verdict };
+  });
+}
+
 const Verdicts = z
   .strictObject({ verdicts: z.array(Verdict).default([]) })
   .describe('PR comment verdicts');

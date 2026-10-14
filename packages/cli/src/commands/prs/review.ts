@@ -21,9 +21,11 @@ export const prsStart = defineCommand({
     });
     return {
       data,
-      text: data.existing
-        ? `Review of #${args.number} is already running: ${data.session}`
-        : `Started ${data.session}: review #${args.number}, round ${data.round}, ${data.mode}, at ${data.head.slice(0, 7)} in ${data.worktree}`,
+      text: `${
+        data.existing
+          ? `Review of #${args.number} is already running: ${data.session}`
+          : `Started ${data.session}: review #${args.number}, round ${data.round}, ${data.mode}, at ${data.head.slice(0, 7)} in ${data.worktree}`
+      }${data.guard === 'prompt' ? '; guarded by its prompt only (no deny rules for this agent)' : ''}`,
     };
   },
 });

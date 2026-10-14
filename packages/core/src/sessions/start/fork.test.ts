@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { REVIEW_DENY } from '../../prs/review-guard.js';
 import {
   agentWorld,
   CLAUDE_MOUNT,
@@ -35,6 +36,25 @@ test('Claude fork keeps the source and opens a new native conversation in the ch
   await expect(mesa.sessions.fork(source.id, { base: 'main' })).rejects.toMatchObject({
     code: 'usage',
   });
+});
+
+test('a fork of a review session stays a guarded review, dropped back to drafts; a plain fork is not', async () => {
+  const world = agentWorld();
+  const { mesa, dir } = projectProfile(withRealGit(world.run));
+  gitRepo(dir);
+  const review = { pr: 12, round: 1, mode: 'post', head: 'a'.repeat(40) } as const;
+  const source = (await mesa.sessions.open('lantern-cove', { branch: 'review/12', review })).result;
+  const fork = (await mesa.sessions.fork(source.id)).result;
+  // Post now was the yes for the source's run only.
+  expect(fork.review).toEqual({ ...review, mode: 'drafts' });
+  expect(world.tmux.windows.at(-1)?.launch).toContain(
+    `'--disallowedTools=${REVIEW_DENY.join(',')}'`,
+  );
+
+  const plain = (await mesa.sessions.open('lantern-cove', { goal: 'plain' })).result;
+  const plainFork = (await mesa.sessions.fork(plain.id)).result;
+  expect(plainFork.review).toBeUndefined();
+  expect(world.tmux.windows.at(-1)?.launch).not.toContain('--disallowedTools');
 });
 
 test('Codex fork uses its native thread and refuses unqualified sources', async () => {

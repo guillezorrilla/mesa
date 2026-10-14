@@ -1,5 +1,5 @@
 import type { Bucket, PrDetail } from '@mesa/core';
-import { counted, PR_CLIS, prStatus, timeAgo } from '@mesa/core/browser';
+import { counted, PR_CLIS, prStatus, threadProgress, timeAgo } from '@mesa/core/browser';
 import { Check, Clock, ExternalLink, Eye, RefreshCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
@@ -57,13 +57,8 @@ export function PrStatusPanel(props: {
   const status = prStatus(pr);
   const { Icon, say, sub } = STATUS[status](pr, Date.now());
   const tone = PR_TONE[status];
-  const { threads } = pr.since;
-  // With verdicts from a re-review, addressed and partly count; else the provider's resolved.
-  const judged = pr.threads.filter((t) => t.verdict);
-  const done = judged.length
-    ? judged.filter((t) => t.verdict?.state !== 'not').length
-    : pr.since.resolved;
-  const doneWord = judged.length ? 'addressed or partly' : 'resolved';
+  const { done, of: threads, by } = threadProgress(pr);
+  const doneWord = by === 'verdicts' ? 'addressed or partly' : 'resolved';
   return (
     <div
       data-testid="pr-status"

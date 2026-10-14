@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { newSession, scriptedRunner, testStore } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
@@ -319,6 +319,21 @@ test('prs verdict keeps one thread verdict for the review round, only from a liv
   const review = (pr: number, round = 2) =>
     store.create(() => newSession({ review: { pr, round, mode: 'drafts', head: 'a'.repeat(40) } }))
       .id;
+
+  // Outside any session: refused, nothing kept.
+  const outside = await cli.mesa(
+    'prs',
+    'verdict',
+    'lantern-cove',
+    '12',
+    '--thread',
+    'PRRT_1',
+    '--state',
+    'addressed',
+    '--json',
+  );
+  expect(outside.code).toBe(2);
+  expect(existsSync(join(cli.paths.prs, 'lantern-cove', '12.json'))).toBe(false);
 
   cli.env = { MESA_SESSION_ID: review(13), MESA_PROFILE: 'default' };
   const otherPr = await cli.mesa(

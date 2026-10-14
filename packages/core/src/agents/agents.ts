@@ -131,8 +131,9 @@ export const AGENTS = {
       defaults: LaunchDefaults,
       mode?: 'plan',
       dirs: readonly string[] = [],
+      disallowed: readonly string[] = [],
     ) =>
-      `claude --resume ${shellWord(sessionId)} --fork-session${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(mounts)}${addDirs('claude', dirs)}`,
+      `claude --resume ${shellWord(sessionId)} --fork-session${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)}${claudeDeny(disallowed)} ${claudeMount(mounts)}${addDirs('claude', dirs)}`,
     /** Typed into the window to end the agent politely. */
     quit: '/exit',
     /** The pause between typed text and its Enter: none. */

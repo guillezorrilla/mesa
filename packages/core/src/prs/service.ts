@@ -19,7 +19,7 @@ import { PR_CLIS, type PrProvider, prCli, resolveRemote } from './provider.js';
 import type { DraftInput, PrDraft, PrHead, PrProviderApi, PrRead, PrThread } from './reader.js';
 import { type Reached, reviewActions } from './review.js';
 import type { ReviewStartDeps } from './review-start.js';
-import { type CommentVerdict, prVerdicts } from './verdicts.js';
+import { prVerdicts, type ThreadVerdict, withVerdicts } from './verdicts.js';
 
 /** A project's PR provider and its CLI's state; `next` is the command that unblocks it, if any. */
 export type PrSetupRow = {
@@ -56,7 +56,7 @@ export type PrDetail = Omit<PrRow, 'bucket'> &
   Omit<PrRead, 'me' | 'pr' | 'threads'> & {
     bucket: Bucket;
     /** My threads, each with the latest verdict a review round gave it (CONTEXT.md, Comment verdict). */
-    threads: (PrThread & { verdict?: CommentVerdict })[];
+    threads: (PrThread & { verdict?: ThreadVerdict })[];
   };
 
 const APIS: Record<PrProvider, PrProviderApi> = { github: githubApi, bitbucket: bitbucketApi };
@@ -133,12 +133,10 @@ export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open'>
     return {
       ...rowOf(at.entry.name, provider, pr, me),
       ...detail,
-      threads: threads
-        .filter((t) => t.author === me)
-        .map((t) => {
-          const verdict = verdicts.get(t.id);
-          return verdict ? { ...t, verdict } : t;
-        }),
+      threads: withVerdicts(
+        threads.filter((t) => t.author === me),
+        verdicts,
+      ),
     };
   }
 

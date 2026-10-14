@@ -6,6 +6,7 @@ import { gitCommand } from '../../git/command.js';
 import { branchExists } from '../../git/ref.js';
 import { MesaError } from '../../lib/result.js';
 import { findProject } from '../../projects/projects.js';
+import { reviewDeny } from '../../prs/review-guard.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import { type AdditionalStart, additionalDirs, additionalProjects } from './additional.js';
 import { folderOf, type LaunchDeps, launchSession } from './launch.js';
@@ -53,6 +54,9 @@ export async function forkSession(
   const native = AGENTS[agent];
   if (!('fork' in native)) throw new MesaError('internal', `${agent} has no native fork command`);
   const { branch } = opts;
+  // A fork of a review is still a review of the PR, so it keeps the guard; Post now was the yes
+  // for the source's run only, so the fork drafts (as a resume does).
+  const review = source.review ? { ...source.review, mode: 'drafts' as const } : undefined;
   /** Where `branch` starts in `repo`: --base, else HEAD of the source's checkout `from` there. */
   const startOf = async (repo: string, from: string) =>
     branch && opts.base === undefined ? headBase(deps, repo, from, branch) : opts.base;
@@ -78,6 +82,7 @@ export async function forkSession(
       goal: source.goal,
       parent: source.id,
       ...(!branch ? { cwd: folder } : {}),
+      ...(review ? { review } : {}),
     },
     {
       command: (record) =>
@@ -88,6 +93,7 @@ export async function forkSession(
           deps.profile.config.agents,
           source.mode,
           additionalDirs(record),
+          reviewDeny(agent, review),
         ),
       branch,
       base,

@@ -6,6 +6,7 @@ import { callerOf } from '../sessions/window/caller.js';
 import { unwrap } from './cli-read.js';
 import type { PrProvider } from './provider.js';
 import type { PrProviderApi } from './reader.js';
+import { reviewGuard } from './review-guard.js';
 import { reviewPrompt } from './review-prompt.js';
 import { reviewsOf } from './review-sessions.js';
 import { type ReviewStartDeps, startReview } from './review-start.js';
@@ -33,6 +34,12 @@ export function reviewActions(
     read: (at: Reached, number: number) => Promise<PrDetail>;
   },
 ) {
+  /** What keeps the session from writing to the PR outside `mesa prs` (prs/review-guard.ts). */
+  const guardOf = (id: string) => {
+    const record = ctx.store.get(id);
+    return reviewGuard(record.agent, record.review) ?? 'prompt';
+  };
+
   return {
     /**
      * Starts a review session on the PR (mesa prs start), in a worktree at its head; or names the
@@ -41,11 +48,16 @@ export function reviewActions(
     start: async (project: string, number: number, opts: { post?: boolean } = {}) => {
       const { live } = reviewsOf(ctx.store.list(), project, number, (r) => !isOver(r));
       if (live?.review)
-        return { session: live.id, existing: true as const, mode: live.review.mode };
+        return {
+          session: live.id,
+          existing: true as const,
+          mode: live.review.mode,
+          guard: guardOf(live.id),
+        };
       const at = await prs.reach(project);
       if (!at.entry.agent) throw new MesaError('usage', `${project} has no agent to review with`);
       let pr: PrDetail | undefined;
-      return startReview(
+      const started = await startReview(
         { run: ctx.run, projectPath: at.entry.path, sessions: () => ctx.store.list(), ...deps },
         {
           project,
@@ -68,6 +80,7 @@ export function reviewActions(
           },
         },
       );
+      return { ...started, guard: guardOf(started.session) };
     },
 
     /**
