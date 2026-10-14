@@ -1,4 +1,4 @@
-import { VERDICT_STATES } from '@mesa/core';
+import { PROMPT_ONLY, VERDICT_STATES } from '@mesa/core';
 import { defineCommand } from '../../command.js';
 import { decimal, wholeNumber } from '../../input/flags.js';
 import { recordedOutput } from '../../output/recorded.js';
@@ -25,7 +25,7 @@ export const prsStart = defineCommand({
         data.existing
           ? `Review of #${args.number} is already running: ${data.session}`
           : `Started ${data.session}: review #${args.number}, round ${data.round}, ${data.mode}, at ${data.head.slice(0, 7)} in ${data.worktree}`
-      }${data.guard === 'prompt' ? '; guarded by its prompt only (no deny rules for this agent)' : ''}`,
+      }${data.guard === 'prompt' ? `; ${PROMPT_ONLY}` : ''}`,
     };
   },
 });

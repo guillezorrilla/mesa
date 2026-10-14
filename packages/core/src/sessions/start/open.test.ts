@@ -12,7 +12,7 @@ import { dirname, join } from 'node:path';
 import { expect, test } from 'vitest';
 import type { Env, Runner } from '../../lib/process.js';
 import { createMesa } from '../../mesa.js';
-import { REVIEW_DENY, reviewGuard } from '../../prs/review-guard.js';
+import { promptGuarded, REVIEW_DENY } from '../../prs/review-guard.js';
 import { listReceipts } from '../../receipts/store.js';
 import {
   agentWorld,
@@ -1397,10 +1397,10 @@ test('a Claude review session starts and resumes with the deny rules; other sess
     ...twg,
   ]);
   expect(twg).toHaveLength(20);
-  // What `mesa prs start` reports: deny rules for Claude, the prompt alone for Codex.
-  expect(reviewGuard('claude', review)).toBe('deny-rules');
-  expect(reviewGuard('codex', review)).toBe('prompt');
-  expect(reviewGuard('claude', undefined)).toBeUndefined();
+  // Only its prompt guards a Codex review; a Claude one, or a session that is no review, is not that.
+  expect(promptGuarded('codex', review)).toBe(true);
+  expect(promptGuarded('claude', review)).toBe(false);
+  expect(promptGuarded('codex', undefined)).toBe(false);
 
   const claude = (await mesa.sessions.open('lantern-cove', { branch: 'review/12', review })).result;
   expect(world.tmux.windows.at(-1)?.launch).toContain(` ${deny} `);

@@ -1,5 +1,5 @@
-import type { Agent } from '../agents/names.js';
 import type { SessionReview } from '../sessions/record/record.js';
+import { canPost } from './review-sessions.js';
 
 // The direct PR writes a review session must leave to `mesa prs` (ADR-0024): posting, approving,
 // merging or declining through `gh` or `twg`. Claude Code refuses these commands at launch
@@ -17,20 +17,14 @@ const TWG = ['bitbucket', 'bb'].flatMap((product) =>
 /** Claude Code's deny rules for a review session, as `Bash(<prefix>:*)`. */
 export const REVIEW_DENY = [...GH, ...TWG].map((prefix) => `Bash(${prefix}:*)`);
 
-/** The deny rules a session starts with: a Claude review session's, else none. */
-export const reviewDeny = (agent: Agent, review: SessionReview | undefined): readonly string[] =>
-  agent === 'claude' && review ? REVIEW_DENY : [];
+type Review = SessionReview | null | undefined;
 
-/**
- * What keeps a review session from writing to the PR outside `mesa prs`: deny rules at launch,
- * or only its prompt when its agent has no such switch. None for a session that is no review.
- */
-export const reviewGuard = (
-  agent: string,
-  review: SessionReview | undefined,
-): 'deny-rules' | 'prompt' | undefined =>
-  review ? (reviewDeny(agent as Agent, review).length ? 'deny-rules' : 'prompt') : undefined;
+/** The deny rules a session starts with: a review session's on an agent that takes them, else none. */
+export const reviewDeny = (agent: string, review: Review): readonly string[] =>
+  review && canPost(agent) ? REVIEW_DENY : [];
 
-/** A review session that only its prompt keeps from posting: an agent without deny rules. */
-export const promptGuarded = (agent: string, review: SessionReview | undefined) =>
-  reviewGuard(agent, review) === 'prompt';
+/** A review session that only its prompt keeps from posting: its agent takes no deny rules. */
+export const promptGuarded = (agent: string, review: Review) => Boolean(review) && !canPost(agent);
+
+/** What the CLI and the app say of a review session that only its prompt guards. */
+export const PROMPT_ONLY = 'guarded by its prompt only (no deny rules for this agent)';

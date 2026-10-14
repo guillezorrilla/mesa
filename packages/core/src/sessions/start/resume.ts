@@ -5,11 +5,10 @@ import { claudeBackgroundAttach } from '../../agents/claude/background.js';
 import { readyAgent } from '../../doctor/probe.js';
 import { MesaError, toFail } from '../../lib/result.js';
 import { findProject } from '../../projects/projects.js';
-import { reviewDeny } from '../../prs/review-guard.js';
 import { joinWarnings } from '../../receipts/recorder.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import { requireOwnWorktree, resumerOf } from '../record/holders.js';
-import { ending, type SessionRecord } from '../record/record.js';
+import { carriedReview, ending, type SessionRecord } from '../record/record.js';
 import { killIfThere, type TmuxBackend } from '../tmux/backend.js';
 import { windowOf } from '../window/window-name.js';
 import { additionalDirs } from './additional.js';
@@ -95,12 +94,12 @@ export async function resumeSession(
       decisionsMounted: old.decisionsMounted,
       from: old.from,
       // Still a review of the PR, but Post now was the yes for that run only: back to drafts.
-      ...(old.review ? { review: { ...old.review, mode: 'drafts' as const } } : {}),
+      ...(old.review ? { review: carriedReview(old.review) } : {}),
       resumedFrom: old.id,
     },
     {
       prepare: claim,
-      command: (record) => {
+      command: (record, deny) => {
         if (old.backgroundId) return claudeBackgroundAttach(old.backgroundId);
         if (agent === 'antigravity')
           return AGENTS.antigravity.resume(
@@ -110,17 +109,6 @@ export async function resumeSession(
             old.mode,
             additionalDirs(old),
           );
-        if (agent === 'claude')
-          return AGENTS.claude.resume(
-            agentId,
-            folder,
-            deps.mounts,
-            deps.profile.config.agents,
-            old.mode,
-            additionalDirs(old),
-            // Still a review: the same deny rules as its first start.
-            reviewDeny(agent, old.review),
-          );
         return AGENTS[agent].resume(
           agentId,
           folder,
@@ -128,6 +116,8 @@ export async function resumeSession(
           deps.profile.config.agents,
           old.mode,
           additionalDirs(old),
+          // Still a review: the same deny rules as its first start.
+          deny,
         );
       },
     },

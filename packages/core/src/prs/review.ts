@@ -6,9 +6,8 @@ import { callerOf } from '../sessions/window/caller.js';
 import { unwrap } from './cli-read.js';
 import type { PrProvider } from './provider.js';
 import type { PrProviderApi } from './reader.js';
-import { reviewGuard } from './review-guard.js';
 import { reviewPrompt } from './review-prompt.js';
-import { reviewsOf } from './review-sessions.js';
+import { canPost, reviewsOf } from './review-sessions.js';
 import { type ReviewStartDeps, startReview } from './review-start.js';
 import type { PrDetail } from './service.js';
 import { type CommentVerdict, prVerdicts, VERDICT_STATES } from './verdicts.js';
@@ -34,11 +33,9 @@ export function reviewActions(
     read: (at: Reached, number: number) => Promise<PrDetail>;
   },
 ) {
-  /** What keeps the session from writing to the PR outside `mesa prs` (prs/review-guard.ts). */
-  const guardOf = (id: string) => {
-    const record = ctx.store.get(id);
-    return reviewGuard(record.agent, record.review) ?? 'prompt';
-  };
+  /** What keeps a review session on `agent` from writing to the PR outside `mesa prs`. */
+  const guardOf = (agent: string) =>
+    canPost(agent) ? ('deny-rules' as const) : ('prompt' as const);
 
   return {
     /**
@@ -52,7 +49,7 @@ export function reviewActions(
           session: live.id,
           existing: true as const,
           mode: live.review.mode,
-          guard: guardOf(live.id),
+          guard: guardOf(live.agent),
         };
       const at = await prs.reach(project);
       if (!at.entry.agent) throw new MesaError('usage', `${project} has no agent to review with`);
@@ -80,7 +77,7 @@ export function reviewActions(
           },
         },
       );
-      return { ...started, guard: guardOf(started.session) };
+      return { ...started, guard: guardOf(at.entry.agent) };
     },
 
     /**

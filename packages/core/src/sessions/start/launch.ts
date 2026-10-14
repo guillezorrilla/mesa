@@ -21,6 +21,7 @@ import type { Profile } from '../../profile/profile.js';
 import { type Project, readProjectFile } from '../../projects/project-file.js';
 import { findProject, restoreProjectFile } from '../../projects/projects.js';
 import type { RegistryEntry } from '../../projects/registry.js';
+import { reviewDeny } from '../../prs/review-guard.js';
 import { joinWarnings } from '../../receipts/recorder.js';
 import { sessionWorktree } from '../../worktrees/create.js';
 import type { SessionRecord } from '../record/record.js';
@@ -102,8 +103,11 @@ export const folderOf = (
 
 /** How a session's agent starts. */
 type Start = {
-  /** The agent's command line, for the record as it stands when its window opens. */
-  command: (record: SessionRecord) => string;
+  /**
+   * The agent's command line, for the record as it stands when its window opens, with the deny
+   * rules its record calls for (a review session's, prs/review-guard.ts).
+   */
+  command: (record: SessionRecord, deny: readonly string[]) => string;
   /** Its own worktree on this branch first (CONTEXT.md, Worktree), from `base` if new. */
   branch?: string;
   base?: string;
@@ -174,11 +178,12 @@ export async function startSession(
       record = deps.store.update(record.id, { backgroundId });
     }
     const { paths, config } = deps.profile;
+    const deny = reviewDeny(record.agent, record.review);
     const command = record.backgroundId
       ? claudeBackgroundAttach(record.backgroundId)
       : record.agent === 'claude' && record.kind === 'interactive' && config.sessions.statusLineCost
-        ? withMesaStatusLine(start.command(record), deps.self)
-        : start.command(record);
+        ? withMesaStatusLine(start.command(record, deny), deps.self)
+        : start.command(record, deny);
     // What this launch mounts; a process it attaches to keeps what it was started with.
     const decisionsMounted = deps.mounts.decisions ? (true as const) : undefined;
     if (
