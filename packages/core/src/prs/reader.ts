@@ -71,6 +71,8 @@ export type DraftInput = { text: string; path?: string; line?: number; replyTo?:
 export type PrProviderApi = {
   list: PrReader;
   show: (run: Runner, repo: string, number: number) => Promise<JsonRead<PrRead>>;
+  /** The PR's unified diff, base to head, as one patch; read apart from `show`, only when asked. */
+  diff: (run: Runner, repo: string, number: number) => Promise<JsonRead<string>>;
   draft: (
     run: Runner,
     repo: string,

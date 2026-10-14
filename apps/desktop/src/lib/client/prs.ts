@@ -1,4 +1,4 @@
-import type { Mesa, PrDetail, PrList, PrSetupRow } from '@mesa/core';
+import type { Mesa, PrDetail, PrList, PrPatch, PrSetupRow } from '@mesa/core';
 import { commandWith } from './spec';
 
 /** What `mesa prs start` answers: the session it opened, or the review of that PR already running. */
@@ -25,6 +25,14 @@ export const prsCommands = {
   'prs.show': commandWith<PrRef, PrDetail>(({ project, number }) => [
     'prs',
     'show',
+    '--',
+    project,
+    String(number),
+  ]),
+  /** The PR's changes as diff rows, read when its Files tab opens (mesa prs diff leaves the patch out). */
+  'prs.diff': commandWith<PrRef, Omit<PrPatch, 'patch'>>(({ project, number }) => [
+    'prs',
+    'diff',
     '--',
     project,
     String(number),

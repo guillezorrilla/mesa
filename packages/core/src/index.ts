@@ -121,7 +121,7 @@ export {
 export { PR_CLIS, type PrProvider } from './prs/provider.js';
 export type { PrDraft } from './prs/reader.js';
 export { PROMPT_ONLY } from './prs/review-guard.js';
-export type { PrDetail, PrList, PrRow, PrSetupRow } from './prs/service.js';
+export type { PrDetail, PrList, PrPatch, PrRow, PrSetupRow } from './prs/service.js';
 export { type CommentVerdict, type ThreadVerdict, VERDICT_STATES } from './prs/verdicts.js';
 export { RECORD_KINDS } from './receipts/policy.js';
 export type { Recorded } from './receipts/recorder.js';

@@ -9,6 +9,7 @@ import { branchOf } from '../../tickets/ticket-start.js';
 import { nameAsk, nameable } from '../record/labels.js';
 import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
+import { readHookEvents } from '../signals/hook-events.js';
 
 // A name for a session no one has named (CONTEXT.md, Session): one Haiku call over what the person
 // asked it, as a short slug such as fix-login-redirect, or over its ticket's title, after the
@@ -35,9 +36,13 @@ export function slugName(reply: string): string | undefined {
 
 /**
  * What a session is named from: its ticket's title, else the person's first prompts in its
- * transcript (commands, their output, and tool results left out), else its goal.
+ * transcript (commands, their output, and tool results left out), else those its prompt hook
+ * logged (a first prompt reaches the hook before the transcript), else its goal.
  */
-function sourceOf(deps: Pick<MesaContext, 'home' | 'env'>, record: SessionRecord): string[] {
+function sourceOf(
+  deps: Pick<MesaContext, 'home' | 'env' | 'paths'>,
+  record: SessionRecord,
+): string[] {
   if (record.from?.title) return [record.from.title];
   const transcripts = record.agent === 'terminal' ? undefined : AGENTS[record.agent].transcripts;
   if (transcripts && record.agentSessionId) {
@@ -46,9 +51,18 @@ function sourceOf(deps: Pick<MesaContext, 'home' | 'env'>, record: SessionRecord
       const said = file ? transcripts.prompts(file, PROMPTS) : [];
       if (said.length) return said;
     } catch {
-      // A transcript may disappear while it is read: the goal stands in.
+      // A transcript may disappear while it is read: the hook's prompts or the goal stand in.
     }
   }
+  const hooked = readHookEvents(deps.paths.events, record.id).flatMap((event) => {
+    const prompt = (event.payload as { prompt?: unknown } | null)?.prompt;
+    return event.event === 'UserPromptSubmit' &&
+      typeof prompt === 'string' &&
+      !prompt.startsWith('/')
+      ? [prompt]
+      : [];
+  });
+  if (hooked.length) return hooked.slice(0, PROMPTS);
   return record.goal?.trim() ? [record.goal] : [];
 }
 
@@ -60,7 +74,7 @@ function sourceOf(deps: Pick<MesaContext, 'home' | 'env'>, record: SessionRecord
  * from, or that Haiku answers with no name, is still marked made.
  */
 export async function autoName(
-  deps: Pick<MesaContext, 'run' | 'home' | 'env' | 'secrets'> & { store: SessionStore },
+  deps: Pick<MesaContext, 'run' | 'home' | 'env' | 'secrets' | 'paths'> & { store: SessionStore },
   id: string,
 ): Promise<SessionRecord> {
   const found = deps.store.get(id);

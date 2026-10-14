@@ -1,4 +1,6 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
+import { profilePaths } from '../../profile/paths.js';
 import {
   newSession,
   plantTranscript,
@@ -7,6 +9,7 @@ import {
   testStore,
 } from '../../testing/index.js';
 import type { NewSession } from '../record/record.js';
+import { eventsLog } from '../signals/hook-events.js';
 import { autoName, slugName } from './auto-name.js';
 
 const AGENT_ID = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
@@ -26,11 +29,19 @@ function setUp(fields: Partial<NewSession>, reply: string | false, ...prompts: s
     { claude: reply || '' },
     { failing: reply === false ? ['claude'] : [] },
   );
-  const deps = { store, run, home, env: { MESA_SESSION_ID: 'outer123' }, secrets: () => [SECRET] };
+  const paths = profilePaths(home, 'default');
+  const deps = {
+    store,
+    run,
+    home,
+    paths,
+    env: { MESA_SESSION_ID: 'outer123' },
+    secrets: () => [SECRET],
+  };
   const name = () => autoName(deps, id);
   /** A turn later: its state's time moves on, a new ask. */
   const turn = (at: string) => store.update(id, { lastState: { ...store.get(id).lastState, at } });
-  return { name, asks, turn };
+  return { id, name, asks, turn, paths };
 }
 
 test('an unnamed session is named from its prompts by one bare Haiku call', async () => {
@@ -109,4 +120,23 @@ test('a reply becomes a short lowercase slug', () => {
   expect(slugName('None')).toBeUndefined();
   expect(slugName('')).toBeUndefined();
   expect(slugName('a'.repeat(80))).toHaveLength(60);
+});
+
+test('a first prompt not yet in the transcript names the session from its prompt hook', async () => {
+  const { id, name, asks, paths } = setUp({ agentSessionId: AGENT_ID }, 'chart-the-tide');
+  const hook = (prompt: string) =>
+    JSON.stringify({
+      at: '2026-09-24T12:00:01.000Z',
+      agent: 'claude',
+      event: 'UserPromptSubmit',
+      payload: { prompt },
+    });
+  mkdirSync(paths.events, { recursive: true });
+  writeFileSync(
+    eventsLog(paths.events, id),
+    `${hook('/model')}\n${hook('chart the tide for the harbor')}\n`,
+  );
+  expect((await name()).agentName).toBe('chart-the-tide');
+  expect(asks[0]?.options?.input).toContain('<message>\nchart the tide for the harbor\n</message>');
+  expect(asks[0]?.options?.input).not.toContain('/model');
 });

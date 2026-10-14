@@ -63,8 +63,9 @@ export function TicketStartPanel(props: {
     );
   return (
     <StartBar
-      ticketKey={ticket.label}
+      ticket={ticket}
       options={options}
+      onChange={change}
       onStart={start}
       onCustomize={() => setCustomizing(true)}
     />

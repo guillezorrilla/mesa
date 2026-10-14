@@ -1,5 +1,4 @@
 import type { Config, GridGroup, ProjectRow, SavedPrompt, TreeRow } from '@mesa/core';
-import { diffable, GENERAL_PROJECT } from '@mesa/core/browser';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
@@ -8,15 +7,13 @@ import { Button } from '@/components/ui/button';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { type OpenDialog, SessionDialogs } from './dialogs/SessionDialogs';
 import { useDialogRequest } from './dialogs/useDialogRequest';
-import { DiffPanel } from './diff/DiffPanel';
 import { GridToolbar } from './grid/GridToolbar';
 import { useGrid } from './grid/useGrid';
-import { BrowserPanel } from './review/BrowserPanel';
-import { RepliesPanel } from './review/RepliesPanel';
 import { SessionStart } from './SessionStart';
 import { SelectedSessionBar } from './selected/SelectedSessionBar';
 import { SessionActionsMenu } from './selected/SessionActionsMenu';
 import { SessionRecovery } from './selected/SessionRecovery';
+import { SidePanels } from './selected/SidePanels';
 import { usePromptInsert } from './selected/usePromptInsert';
 import { useSessionPrompt } from './selected/useSessionPrompt';
 import { useSidePanel } from './selected/useSidePanel';
@@ -211,32 +208,12 @@ export function SessionsScreen(
             props.onSelectSession?.(id);
           }}
         />
-        {selected?.managed && side.open === 'review' && (
-          <RepliesPanel
-            key={`${selected.id}:${side.reviewResponse?.source ?? ''}`}
-            sessionId={selected.id}
-            initialResponse={side.reviewResponse}
-            project={selected.project === GENERAL_PROJECT ? undefined : selected.project}
-            checkout={selected.worktree?.path ?? selected.cwd}
-          />
-        )}
-        {selected && diffable(selected) && side.open === 'diff' && (
-          <DiffPanel
-            key={selected.id}
-            sessionId={selected.id}
-            branch={selected.worktree?.branch}
-            state={selected.lastState.state}
-            onClose={side.close}
-          />
-        )}
-        {selected?.managed && side.open === 'browser' && (
-          <BrowserPanel
-            key={selected.id}
-            sessionId={selected.id}
-            initialUrl={side.browserTarget}
-            onClose={side.close}
-          />
-        )}
+        <SidePanels
+          rows={data}
+          panels={side.panels}
+          selectedSession={props.selectedSession}
+          onClose={side.close}
+        />
       </div>
     </section>
   );

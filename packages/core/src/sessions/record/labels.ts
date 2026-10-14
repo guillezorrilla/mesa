@@ -79,14 +79,21 @@ export const nameAsk = (s: Pick<SessionRecord, 'from' | 'lastState'>) =>
 
 /**
  * A Mesa session worth one autoName now: nameable, with a goal or a prompt, not yet asked at this
- * ask (nameAsk), and either started from an item, whose title it is named from at once, or between
- * turns (idle, or waiting on a person), so its prompts are read once per turn, never during one.
+ * ask (nameAsk), and either started from an item, whose title it is named from at once, or never
+ * asked yet, so its first prompt names it while its first turn works, or between turns (idle, or
+ * waiting on a person). After the first ask its prompts are read once per turn, never during one:
+ * a working session's state time moves with each tool call.
  */
 export const wantsName = (s: SessionRow) =>
   s.managed &&
   nameable(s) &&
   s.nameAsked !== nameAsk(s) &&
-  Boolean(s.from?.title || s.lastState.state === 'idle' || WAITING_STATES.has(s.lastState.state)) &&
+  Boolean(
+    s.from?.title ||
+      !s.nameAsked ||
+      s.lastState.state === 'idle' ||
+      WAITING_STATES.has(s.lastState.state),
+  ) &&
   Boolean(s.goal?.trim() || s.conversation);
 
 /** A number of sessions as it reads: `1 session`, `2 sessions`. */

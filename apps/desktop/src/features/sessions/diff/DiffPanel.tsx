@@ -1,28 +1,18 @@
 import { counted, DEFAULT_APPEARANCE } from '@mesa/core/browser';
-import {
-  Columns2,
-  GitBranch,
-  Maximize2,
-  Minimize2,
-  PanelLeft,
-  RefreshCw,
-  Rows2,
-  SquareArrowOutUpRight,
-  X,
-} from 'lucide-react';
+import { GitBranch, Maximize2, Minimize2, RefreshCw, SquareArrowOutUpRight, X } from 'lucide-react';
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
 import { ResizeHandle } from '@/components/ResizeHandle';
 import { Stat } from '@/components/Stat';
 import { Button } from '@/components/ui/button';
-import { GitDiffHeader } from '@/features/git/diff/GitDiffHeader';
-import { GitDiffRows } from '@/features/git/diff/GitDiffRows';
+import { DiffViewToggles } from '@/features/git/diff/DiffViewToggles';
+import { diffFiles } from '@/features/git/diff/diffFiles';
+import { GitDiffFiles } from '@/features/git/diff/GitDiffFiles';
+import { useDiffView } from '@/features/git/diff/useDiffView';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { useKeptWidth } from '@/lib/useKeptWidth';
 import { cn } from '@/lib/utils';
-import { DiffFileList } from './DiffFileList';
-import { diffFiles } from './diffFiles';
 
 /** The panel's width bounds beside the terminal, which always keeps TERMINAL_MIN pixels. */
 const DIFF_WIDTH = { min: 360, max: 1600, initial: 720, step: 32 };
@@ -51,40 +41,34 @@ export function DiffPanel(props: {
     setWidth(room ? Math.min(next, room - TERMINAL_MIN) : next);
   };
   const [expanded, setExpanded] = useState(false);
-  const [listOpen, setListOpen] = useState(true);
-  const [layout, setLayout] = useState<'inline' | 'side-by-side'>('inline');
-  const [openPath, setOpenPath] = useState<string>();
-  const seenState = useRef(props.state);
+  const seenState = useRef<string | undefined>(props.state);
   // biome-ignore lint/correctness/useExhaustiveDependencies: only a new session state reads again.
   useEffect(() => {
-    if (props.state === seenState.current) return;
+    if (seenState.current !== undefined && props.state !== seenState.current)
+      void changes.refresh();
     seenState.current = props.state;
-    void changes.refresh();
   }, [props.state]);
+  // Hidden while another session is selected (SidePanels): showing it again reads anew
+  // (useCommand), so a state it missed while hidden needs no read of its own.
+  useEffect(
+    () => () => {
+      seenState.current = undefined;
+    },
+    [],
+  );
 
   // Kept across renders, so a resize drag hands GitDiffRows the same rows and it skips the work.
   const files = useMemo(() => diffFiles(data?.rows ?? []), [data]);
-  const at = Math.max(
-    0,
-    files.findIndex((file) => file.path === openPath),
-  );
-  const file = files[at];
-  const move = (step: -1 | 1) => {
-    const next = files[at + step];
-    if (next) setOpenPath(next.path);
-  };
+  const view = useDiffView(files);
+  const { file } = view;
   const added = files.reduce((sum, each) => sum + each.added, 0);
   const removed = files.reduce((sum, each) => sum + each.removed, 0);
   const expand = (next: boolean) => {
     setExpanded(next);
-    setLayout(next ? 'side-by-side' : 'inline');
+    view.setLayout(next ? 'side-by-side' : 'inline');
   };
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.target instanceof HTMLInputElement || event.metaKey || event.ctrlKey) return;
-    if (event.key === 'j' || event.key === 'k') {
-      event.preventDefault();
-      move(event.key === 'j' ? 1 : -1);
-    } else if (event.key === 'Escape' && expanded) expand(false);
+    if (!view.walk(event) && event.key === 'Escape' && expanded) expand(false);
   };
 
   return (
@@ -128,17 +112,7 @@ export function DiffPanel(props: {
             className={cn(changes.busy && '[&_svg]:animate-spin')}
             onClick={() => void changes.refresh()}
           />
-          <IconButton
-            label={listOpen ? 'Hide file list' : 'Show file list'}
-            icon={PanelLeft}
-            active={listOpen}
-            onClick={() => setListOpen(!listOpen)}
-          />
-          <IconButton
-            label={layout === 'inline' ? 'Side-by-side diff' : 'Inline diff'}
-            icon={layout === 'inline' ? Columns2 : Rows2}
-            onClick={() => setLayout(layout === 'inline' ? 'side-by-side' : 'inline')}
-          />
+          <DiffViewToggles view={view} />
           <IconButton
             label={expanded ? 'Shrink beside terminal' : 'Expand over terminal'}
             icon={expanded ? Minimize2 : Maximize2}
@@ -174,51 +148,30 @@ export function DiffPanel(props: {
           </Muted>
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1">
-          {listOpen && (
-            <DiffFileList
-              files={files}
-              open={file.path}
-              onOpen={setOpenPath}
-              className={expanded ? 'w-72' : 'w-56'}
-            />
-          )}
-          <section aria-label={file.path} className="flex min-w-0 flex-1 flex-col">
-            <GitDiffHeader
-              code={file.status}
-              path={file.path}
-              at={at}
-              total={files.length}
-              onMove={move}
-            >
-              <Stat added={file.added} removed={file.removed} />
-              {file.status !== 'D' && (
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  onClick={() =>
-                    void run('files.open', {
-                      project: data.checkout.project,
-                      checkout: data.checkout.path,
-                      path: file.path,
-                      line: file.firstLine,
-                    })
-                  }
-                >
-                  <SquareArrowOutUpRight aria-hidden /> Open in editor
-                </Button>
-              )}
-            </GitDiffHeader>
-            <div className="min-h-0 flex-1 overflow-auto p-3">
-              <GitDiffRows
-                key={`${file.path}:${layout}`}
-                rows={file.rows}
-                layout={layout}
-                fontSize={appearance.diffFontSize}
-              />
-            </div>
-          </section>
-        </div>
+        <GitDiffFiles
+          files={files}
+          view={view}
+          fontSize={appearance.diffFontSize}
+          listClassName={expanded ? 'w-72' : 'w-56'}
+          actions={
+            file.status !== 'D' && (
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={() =>
+                  void run('files.open', {
+                    project: data.checkout.project,
+                    checkout: data.checkout.path,
+                    path: file.path,
+                    line: file.firstLine,
+                  })
+                }
+              >
+                <SquareArrowOutUpRight aria-hidden /> Open in editor
+              </Button>
+            )
+          }
+        />
       )}
     </aside>
   );

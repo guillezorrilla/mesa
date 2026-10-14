@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { PromptField } from '@/features/prompts/PromptField';
 import { StartButtons } from './StartButtons';
 import { StartPreviewPanel } from './StartPreviewPanel';
-import type { StartOptions, StartTicket } from './startOptions';
+import { assignLabel, type StartOptions, type StartTicket } from './startOptions';
 import { DEFAULT_START, STARTS } from './starts';
 
 /** A labelled switch with a line under it saying what it does. */
@@ -99,7 +99,7 @@ export function StartSheet(props: {
         {!ticket.mine && (
           <Toggle
             id="start-assign"
-            label={ticket.several ? `Add me to ${ticket.label}` : `Assign ${ticket.label} to me`}
+            label={assignLabel(ticket)}
             hint={
               ticket.assignee
                 ? `Now assigned to ${ticket.assignee}`

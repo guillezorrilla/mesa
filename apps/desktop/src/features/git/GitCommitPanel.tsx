@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
 import { cn } from '@/lib/utils';
+import type { DiffLayout } from './diff/GitDiffRows';
 import { GitDiffRows } from './diff/GitDiffRows';
 import { patchFiles } from './diff/patchFiles';
 import { branchRefs } from './GitCommitGraph';
@@ -13,7 +14,7 @@ export function GitCommitPanel(props: {
   comparison: GitComparison;
   /** The graph commit compared with its first parent, when the panel shows one commit. */
   commit?: GitGraphCommit;
-  layout: 'inline' | 'side-by-side';
+  layout: DiffLayout;
   /** The profile's diff text size in px. */
   diffFontSize: number;
   onClose: () => void;

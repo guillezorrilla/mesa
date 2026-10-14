@@ -24,6 +24,8 @@ test('browser annotation previews its target, rechecks the element, and sends on
     },
     navigate: async (session, url) => onLoad({ session, url }),
     bounds: async () => {},
+    hide: async () => {},
+    show: async () => {},
     close: async () => {},
     probe: async () => ({ url: picked.url, title: picked.title, heading: picked.text }),
     back: async () => {},

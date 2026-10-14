@@ -38,6 +38,9 @@ export type BrowserHost = {
   open: (sessionId: string, url: string, bounds: BrowserBounds) => Promise<string>;
   navigate: (sessionId: string, url: string) => Promise<void>;
   bounds: (sessionId: string, bounds: BrowserBounds) => Promise<void>;
+  /** Hides the view, page and history kept, while its panel is hidden. */
+  hide: (sessionId: string) => Promise<void>;
+  show: (sessionId: string) => Promise<void>;
   close: (sessionId: string) => Promise<void>;
   probe: (sessionId: string) => Promise<BrowserProbe>;
   back: (sessionId: string) => Promise<void>;

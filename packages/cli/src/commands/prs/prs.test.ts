@@ -172,6 +172,50 @@ test('prs --json keeps listing when a repo fails to read, and names the quiet pr
   expect((await cli.mesa('prs', '--json')).json.data.quiet).toEqual(['lantern-cove']);
 });
 
+test('prs diff --json reads the PR patch through its provider as diff rows, the text as the patch', async () => {
+  await world();
+  const run = cli.run;
+  const patch = [
+    'diff --git a/src/cart.ts b/src/cart.ts',
+    '--- a/src/cart.ts',
+    '+++ b/src/cart.ts',
+    '@@ -57 +57 @@',
+    '-const total = round(sum) + round(tax);',
+    '+const total = round(sum + tax);',
+    '',
+  ].join('\n');
+  const asked: string[][] = [];
+  cli.run = (file, args, ...rest) => {
+    if (file !== 'gh' || args[0] !== 'pr') return run(file, args, ...rest);
+    asked.push(args);
+    return Promise.resolve({ ok: true, stdout: patch });
+  };
+
+  const read = await cli.mesa('prs', 'diff', 'lantern-cove', '12', '--json');
+  expect(read.code, read.stdout).toBe(0);
+  expect(asked).toEqual([
+    ['pr', 'diff', '--repo', 'acme/lantern-cove', '--color', 'never', '--', '12'],
+  ]);
+  expect(read.json.data.patch).toBeUndefined();
+  expect(read.json.data.rows.at(-1)).toEqual({
+    kind: 'change',
+    left: 'const total = round(sum) + round(tax);',
+    right: 'const total = round(sum + tax);',
+    oldLine: 57,
+    newLine: 57,
+  });
+  expect(read.json.data.rows[0]).toMatchObject({
+    kind: 'meta',
+    left: 'diff --git a/src/cart.ts b/src/cart.ts',
+  });
+  expect((await cli.mesa('prs', 'diff', 'lantern-cove', '12')).stdout).toContain(patch.trim());
+
+  // tide-pool's twg is missing: the read fails naming it, never an empty diff.
+  const blocked = await cli.mesa('prs', 'diff', 'tide-pool', '3', '--json');
+  expect(blocked.code).not.toBe(0);
+  expect(blocked.stdout).toContain('twg');
+});
+
 test('prs draft leaves one pending inline comment, never submitting, and refuses half an anchor', async () => {
   await world();
   const run = cli.run;

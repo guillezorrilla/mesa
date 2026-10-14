@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { useCommand, useRun } from '@/lib/useCommand';
+import type { DiffLayout } from './diff/GitDiffRows';
 import { GitCommitGraph } from './GitCommitGraph';
 import { GitCommitPanel } from './GitCommitPanel';
 import { GitInsight } from './GitInsight';
@@ -19,7 +20,7 @@ export function GitHistory(props: {
   switcher: ReactNode;
   /** Toolbar buttons the Status view shares, before this view's own. */
   tools: ReactNode;
-  layout: 'inline' | 'side-by-side';
+  layout: DiffLayout;
   /** The profile's diff text size in px, for the comparison's patch. */
   diffFontSize: number;
 }) {

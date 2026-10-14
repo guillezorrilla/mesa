@@ -5,6 +5,7 @@ import { branchExists } from '../../git/ref.js';
 import { type AsyncLockDeps, lockedBy, withLock } from '../../lib/lock-file.js';
 import type { Runner } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
+import { checkoutDefault } from '../../worktrees/base.js';
 
 // A session's own git worktree (CONTEXT.md, Worktree): git through the injected Runner.
 // ponytail: git inherits mesa's environment, so a GIT_DIR exported around mesa (a git hook runs
@@ -39,13 +40,10 @@ async function ask(run: Runner, repo: string, args: string[]) {
 const must = async (run: Runner, repo: string, args: string[], why: string, ms = ASK_MS) =>
   (await mustGit(run, repo, args, why, ms, GIT_MISSING)).trim();
 
-/** A new branch's default start: the branch on origin, else origin/HEAD, else the current one. */
+/** A new branch's default start: the branch on origin, else the checkout's default (checkoutDefault). */
 async function defaultBase(run: Runner, repo: string, branch: string) {
   const onOrigin = await ask(run, repo, ['show-ref', '--verify', `refs/remotes/origin/${branch}`]);
-  const base =
-    (onOrigin && `origin/${branch}`) ||
-    (await ask(run, repo, ['symbolic-ref', '--short', '-q', 'refs/remotes/origin/HEAD'])) ||
-    (await ask(run, repo, ['symbolic-ref', '--short', '-q', 'HEAD']));
+  const base = (onOrigin && `origin/${branch}`) || (await checkoutDefault(run, repo));
   if (!base) {
     throw new MesaError('usage', `${repo} has no default branch to start from: pass --base`);
   }

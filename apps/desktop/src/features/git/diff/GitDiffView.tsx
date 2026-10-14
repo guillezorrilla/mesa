@@ -1,12 +1,13 @@
 import { Muted } from '@/components/Muted';
 import { useCommand } from '@/lib/useCommand';
+import type { DiffLayout } from './GitDiffRows';
 import { GitDiffRows } from './GitDiffRows';
 
 type Target = {
   project: string;
   checkout?: string;
   path: string;
-  layout: 'inline' | 'side-by-side';
+  layout: DiffLayout;
   /** The profile's diff text size in px. */
   fontSize: number;
 };

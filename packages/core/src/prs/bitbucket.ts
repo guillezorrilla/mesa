@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { diffBitbucket } from './bitbucket-diff.js';
 import { discardBitbucket, draftBitbucket } from './bitbucket-drafts.js';
 import { facts, Pr, twg, Whoami } from './bitbucket-pr.js';
 import { publishBitbucket } from './bitbucket-publish.js';
@@ -59,6 +60,7 @@ export const readBitbucket: PrReader = async (run, repo) => {
 export const bitbucketApi: PrProviderApi = {
   list: readBitbucket,
   show: showBitbucket,
+  diff: diffBitbucket,
   draft: draftBitbucket,
   discard: discardBitbucket,
   publish: publishBitbucket,

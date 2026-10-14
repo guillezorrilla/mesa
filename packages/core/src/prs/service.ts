@@ -1,5 +1,6 @@
 import type { MesaContext } from '../context.js';
 import { gitCommand } from '../git/command.js';
+import { type DiffRow, diffRows } from '../git/diff.js';
 import type { CliState } from '../lib/cli-state.js';
 import { mapLimit } from '../lib/map-limit.js';
 import { MesaError } from '../lib/result.js';
@@ -58,6 +59,9 @@ export type PrDetail = Omit<PrRow, 'bucket'> &
     /** My threads, each with the latest verdict a review round gave it (CONTEXT.md, Comment verdict). */
     threads: (PrThread & { verdict?: ThreadVerdict })[];
   };
+
+/** One PR's changes (mesa prs diff): its patch, base to head, and the rows the diff views draw. */
+export type PrPatch = { patch: string; rows: DiffRow[] };
 
 const APIS: Record<PrProvider, PrProviderApi> = { github: githubApi, bitbucket: bitbucketApi };
 
@@ -145,6 +149,13 @@ export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open'>
   return {
     show,
     ...reviewActions(ctx, deps, { reach, read }),
+
+    /** The PR's changes as one patch and its rows, read apart from `show` so the detail stays light. */
+    async diff(project: string, number: number): Promise<PrPatch> {
+      const { repo, api, cli } = await reach(project);
+      const patch = unwrap(cli, await api.diff(ctx.run, repo, number));
+      return { patch, rows: diffRows(patch) };
+    },
 
     /** My Pending drafts on the PR (mesa prs drafts). */
     drafts: async (project: string, number: number) => (await show(project, number)).drafts,

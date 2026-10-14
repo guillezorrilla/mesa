@@ -42,15 +42,21 @@ export const initialOptions = (
   start: defaults.start,
 });
 
+/** The Assign to me choice for `ticket`: a tracker with several assignees adds me beside them. */
+export const assignLabel = (ticket: Pick<StartTicket, 'label' | 'several'>) =>
+  ticket.several ? `Add me to ${ticket.label}` : `Assign ${ticket.label} to me`;
+
 /** Where the session runs, as a phrase: a new worktree on the ticket's branch, or the checkout. */
 export const placeOf = (key: string, start: StartOptions['start']) =>
   start === 'worktree' ? `a new worktree on ${branchOf(key)}` : 'the main checkout';
 
-/** `options` in a few words, for the footer: what each start button does with one click. */
+/**
+ * `options` in a few words, for the footer: what each start button does with one click. Assign
+ * to me is left out: the footer shows it as its own check.
+ */
 export const describeOptions = (key: string, options: StartOptions) =>
   [
     `Runs in ${placeOf(key, options.start)}`,
-    options.assign && 'assign to me',
     options.notes && 'notes first',
     options.prompt && `your rules: ${options.prompt}`,
   ]

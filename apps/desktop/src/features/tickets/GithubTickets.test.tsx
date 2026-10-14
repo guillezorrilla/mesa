@@ -94,7 +94,7 @@ test('a GitHub project lists issues as Open and Closed, and the panel shows stat
     (g) => g.textContent,
   );
   expect(groups).toEqual(['Open1', 'Closed1']);
-  expect(byTestId('ticket-row')[0]?.textContent).toBe('#412Tide chart shows UTCM');
+  expect(byTestId('ticket-row')[0]?.textContent).toBe('#412Tide chart shows UTCMK');
   expect(byTestId('view-switcher')[0]?.textContent).toContain(
     'harbor-apiharbor-co, assigned to me',
   );
@@ -105,16 +105,14 @@ test('a GitHub project lists issues as Open and Closed, and the panel shows stat
   expect(panel?.querySelector('svg + .font-mono')?.textContent).toBe('#412');
   expect(panel?.textContent).toContain('#412Open in GitHub');
   expect(panel?.textContent).toContain(
-    `StateOpenAssigneesMmira-keelAssign to meLabelsbugfrontendMilestonev2.4Repository${REPO}`,
+    `StateOpenAssigneesMKmira-keelAssign to meLabelsbugfrontendMilestonev2.4Repository${REPO}`,
   );
   expect(panel?.textContent).toContain('Show times in the harbor zone.');
   expect(panel?.textContent).toContain('Seen on 14.');
   await click(button('Assign to me'));
   expect(words(calls)).toContain(`tickets assign -- github:${REPO}#412`);
   // Starting adds the person beside the assignee, on a branch named after the issue.
-  expect(byTestId('start-summary')[0]?.textContent).toBe(
-    'Runs in a new worktree on issue-412 · assign to me',
-  );
+  expect(byTestId('start-summary')[0]?.textContent).toBe('Runs in a new worktree on issue-412');
 });
 
 test("Follow a repo picks this project's remote, narrows by label and milestone with a live count, and gives Mesa access to a new repo", async () => {
@@ -190,7 +188,7 @@ test("Follow a repo picks this project's remote, narrows by label and milestone 
   // One milestone: picking it closes the list.
   expect(item('Any milestone')).toBeUndefined();
   expect(words(calls)).toContain(
-    `tickets preview --provider github --repo ${REPO} --label=bug --milestone 3`,
+    `tickets preview --provider github --repo ${REPO} --label=bug --milestone 3 --everyone`,
   );
   expect(dialog()).toContain(
     '2 issues right now, pull requests left out, shown as "harbor-api 2".',
@@ -217,7 +215,7 @@ test("Follow a repo picks this project's remote, narrows by label and milestone 
   expect(
     words(calls).filter((w) => w.startsWith('tickets views add') || w.startsWith('tickets follow')),
   ).toEqual([
-    'tickets views add --provider github --repo harbor-co/berth-planner -- berth-planner',
+    'tickets views add --provider github --repo harbor-co/berth-planner --everyone -- berth-planner',
     'tickets follow -- lantern-cove berth-planner',
   ]);
 });

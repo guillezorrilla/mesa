@@ -1,8 +1,9 @@
 import type { PrRow, PrSetupRow } from '@mesa/core';
 import { actionable, PR_CLIS } from '@mesa/core/browser';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Folder } from 'lucide-react';
 import { Muted } from '@/components/Muted';
 import type { PrRef } from '@/lib/client/prs';
+import { nameColor } from '@/lib/nameColor';
 import { cn } from '@/lib/utils';
 import { PullRequestRow } from './PullRequestRow';
 import { type PrGrouping, prGroups } from './prGroups';
@@ -51,22 +52,39 @@ export function ReviewsList(props: {
               type="button"
               aria-expanded={open}
               disabled={byStatus}
-              className="flex w-full items-center gap-1.5 px-2 py-1 text-left text-xs font-semibold text-muted-foreground"
+              className={cn(
+                'flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left',
+                group.status
+                  ? 'text-xs font-semibold text-muted-foreground'
+                  : 'text-[13px] text-foreground hover:bg-accent',
+              )}
               onClick={() => toggleClosed(group.key)}
             >
               {!byStatus && (
                 <ChevronDown
                   aria-hidden
-                  className={cn('size-3 transition-transform', !open && '-rotate-90')}
+                  className={cn(
+                    'size-3 shrink-0 text-muted-foreground transition-transform',
+                    !open && '-rotate-90',
+                  )}
                 />
               )}
-              <span>{group.title}</span>
+              {!group.status && (
+                <Folder
+                  aria-hidden
+                  className="size-3.5 shrink-0"
+                  style={{ color: nameColor(group.title) }}
+                />
+              )}
+              <span className={cn('truncate', !group.status && 'font-semibold tracking-tight')}>
+                {group.title}
+              </span>
               {group.provider && !group.status && (
-                <span className="font-mono text-[10px] font-medium opacity-70">
+                <span className="font-mono text-[10px] font-medium text-muted-foreground">
                   {PROVIDER[group.provider]}
                 </span>
               )}
-              <span className="ml-auto font-medium tabular-nums">
+              <span className="ml-auto text-xs font-medium text-muted-foreground tabular-nums">
                 {group.status ? group.prs.length : toAct || ''}
               </span>
             </button>

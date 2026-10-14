@@ -3,10 +3,10 @@ import { timeAgo } from '@mesa/core/browser';
 import { ArrowLeft, CornerDownRight, ExternalLink } from 'lucide-react';
 import { MarkdownView } from '@/components/MarkdownView';
 import { Muted } from '@/components/Muted';
+import { PersonAvatar } from '@/components/PersonAvatar';
 import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
-import { AssigneeAvatar } from './AssigneeAvatar';
 import { FieldRow } from './FieldRow';
 import { LiveDot } from './LiveDot';
 import { TicketStartPanel } from './start/TicketStartPanel';
@@ -111,13 +111,13 @@ export function TicketPanel(props: {
             {assignees.length ? (
               assignees.map((name) => (
                 <span key={name} className="inline-flex items-center gap-2">
-                  <AssigneeAvatar name={name} />
+                  <PersonAvatar name={name} />
                   {name}
                 </span>
               ))
             ) : (
               <>
-                <AssigneeAvatar />
+                <PersonAvatar />
                 <span className="text-muted-foreground">Unassigned</span>
               </>
             )}
@@ -163,7 +163,7 @@ export function TicketPanel(props: {
                   key={at}
                   className="grid grid-cols-[auto_minmax(0,1fr)] gap-2.5 text-sm"
                 >
-                  <AssigneeAvatar name={comment.author} />
+                  <PersonAvatar name={comment.author} />
                   <div>
                     <span className="font-medium">{comment.author}</span>{' '}
                     <span className="text-xs text-muted-foreground">
