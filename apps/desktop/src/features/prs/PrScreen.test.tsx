@@ -109,8 +109,24 @@ test('pending drafts come first, with the submit link on their provider', async 
   ]);
 
   await show(detail({ provider: 'bitbucket', drafts: DRAFTS.slice(0, 1) }));
-  expect(status()).toContain('1 draft comment is waiting on Bitbucket.');
+  expect(status()).toContain('1 draft comment is waiting on Bitbucket. Only you can see it.');
   expect(status()).toContain('Finish review in Bitbucket');
+});
+
+test("drafts never hide the author's news, and older ages stay relative", async () => {
+  await show(
+    detail({
+      drafts: DRAFTS,
+      since: { lastWord: hoursAgo(72), commits: 3, replies: 2, resolved: 1, threads: 2 },
+    }),
+  );
+  expect(status()).toContain('2 draft comments are waiting on GitHub.');
+  expect(status()).toContain(
+    'lee-park pushed 3 commits and replied 2 times since your review 3d ago.',
+  );
+  expect(status()).toContain('1 of your 2 threads resolved');
+  await show(detail({ bucket: 'need', updatedAt: hoursAgo(24 * 21) }));
+  expect(status()).toContain('Updated 3w ago.');
 });
 
 test('the tabs open on drafts, else my comments, else files, and switch on click', async () => {
@@ -138,7 +154,7 @@ test('the tabs open on drafts, else my comments, else files, and switch on click
   expect(selectedTab()).toBe('Files2');
 });
 
-test('Discard deletes the draft by its id and reads the PR again', async () => {
+test('Discard asks first, then deletes the draft by its id and reads the PR again', async () => {
   let drafts = DRAFTS;
   const { bridge, calls } = fakeBridge({
     'prs show': () => envelope(detail({ drafts })),
@@ -147,8 +163,20 @@ test('Discard deletes the draft by its id and reads the PR again', async () => {
       return envelope({ id: args.at(-1), receipt: null });
     },
   });
-  await renderWithMesa(<PrScreen project="storefront" number={477} />, bridge);
+  const byTestId = await renderWithMesa(<PrScreen project="storefront" number={477} />, bridge);
+  const confirm = () =>
+    document.querySelector<HTMLButtonElement>('[data-testid="confirm-discard-draft"]') ?? undefined;
+
+  // Cancel leaves the draft alone.
   await click(button('Discard'));
+  expect(byTestId('discard-draft-dialog')[0]?.textContent).toContain(
+    'It is deleted on GitHub and cannot be restored.',
+  );
+  await click(button('Cancel'));
+  expect(calls.some((c) => c[2] === 'discard')).toBe(false);
+
+  await click(button('Discard'));
+  await click(confirm());
   expect(calls.find((c) => c[2] === 'discard')?.slice(-3)).toEqual(['storefront', '477', 'D1']);
   expect(calls.filter((c) => c[2] === 'show')).toHaveLength(2);
   expect(selectedTab()).toBe('Drafts1');
@@ -343,6 +371,10 @@ test("a re-review's verdicts label my threads and fill the bar; without them, re
   const text = document.querySelector('[data-testid="pr-screen"]')?.textContent ?? '';
   expect(text).toContain('Partly addressed');
   expect(text).toContain('Not addressed');
+
+  // A thread the re-review left unjudged counts by its resolved state.
+  await show(detail({ threads: [t1, { ...t2, verdict: { state: 'partly', round: 2 } }] }));
+  expect(status()).toContain('2 of your 2 threads addressed or partly');
 
   await show(detail());
   expect(status()).toContain('1 of your 2 threads resolved');

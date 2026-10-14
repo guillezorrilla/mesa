@@ -100,7 +100,12 @@ export function PrSetupScreen(props: { project: string; onSession: (id: string) 
       ) : (
         <>Installs it with Homebrew.</>
       ),
-      action: (
+      // Without Homebrew, Install would only fail again: checking for the CLI is the next step.
+      action: noBrew ? (
+        <Button size="sm" disabled={setup.busy} onClick={() => void setup.refresh()}>
+          {setup.busy && <Loader2 aria-hidden className="animate-spin" />}Check again
+        </Button>
+      ) : (
         <Button size="sm" disabled={busy} onClick={() => void install()}>
           {busy && <Loader2 aria-hidden className="animate-spin" />}Install
         </Button>

@@ -12,6 +12,8 @@ export type PrGroup = {
   prs: PrRow[];
   blocked?: PrSetupRow;
   problem?: string;
+  /** A status heading (By status) rather than a project; it counts its PRs. */
+  status?: boolean;
 };
 
 const BUCKETS = Object.keys(BUCKET_LABELS) as PrRow['bucket'][];
@@ -28,11 +30,13 @@ export function prGroups(list: PrList, by: PrGrouping): PrGroup[] {
         key: bucket,
         title: BUCKET_LABELS[bucket],
         prs: list.prs.filter((pr) => pr.bucket === bucket),
+        status: true,
       })).filter((group) => group.prs.length > 0),
-      // A project that cannot be read has no status: it follows, by name, with its fix.
+      // A project that cannot be read has no status: it follows as a project row, with its fix.
       ...list.blocked.map((row) => ({
         key: `blocked:${row.project}`,
         title: row.project,
+        ...(row.provider ? { provider: row.provider } : {}),
         prs: [],
         blocked: row,
       })),

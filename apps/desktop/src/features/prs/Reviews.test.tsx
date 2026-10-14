@@ -140,6 +140,11 @@ test("By status groups the buckets, names each row's project, and is kept for th
     'pos-bridge',
   ]);
   expect(texts(byTestId('pr-row'))[0]).toContain('storefront · #482');
+  // A blocked project is a project row with its fix, never a "0" status heading.
+  const heads = [...document.querySelectorAll<HTMLElement>('[data-testid="pr-group"] > button')];
+  expect(heads.at(-1)?.textContent).toBe('pos-bridgeBB');
+  expect(texts(byTestId('pr-setup-row'))).toEqual(['Connect Bitbucket to see PRsSet up']);
+  expect(document.body.textContent).toContain('No open PRs for you in kiosk');
 
   await renderWithMesa(<Section />, bridge);
   expect(radio('By status')?.getAttribute('aria-checked')).toBe('true');
@@ -238,8 +243,8 @@ test('setup walks Install, Sign in, Connect Bitbucket and Check, resuming from w
   expect(document.body.textContent).toContain('Bitbucket is connected.');
 });
 
-test('without Homebrew, Install shows the official installer to copy', async () => {
-  const { bridge } = fakeBridge({
+test('without Homebrew, Install shows the official installer to copy, then Check again leads', async () => {
+  const { bridge, calls } = fakeBridge({
     'prs setup': () => envelope([blocked]),
     'doctor install': () => ({
       ok: false,
@@ -251,4 +256,9 @@ test('without Homebrew, Install shows the official installer to copy', async () 
   expect(document.body.textContent).toContain(
     'bash <(curl -fsSL https://teamwork-graph.atlassian.com/cli/install)',
   );
+  // Install would only fail again: it gives way to Check again, which reads the setup.
+  expect(button('Install')).toBeUndefined();
+  const reads = calls.filter((c) => c[1] === 'prs' && c[2] === 'setup').length;
+  await click(button('Check again'));
+  expect(calls.filter((c) => c[1] === 'prs' && c[2] === 'setup').length).toBeGreaterThan(reads);
 });

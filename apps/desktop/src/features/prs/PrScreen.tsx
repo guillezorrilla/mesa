@@ -8,6 +8,8 @@ import {
   reviewLabel,
 } from '@mesa/core/browser';
 import { ExternalLink as ExternalIcon } from 'lucide-react';
+import { useState } from 'react';
+import { ActionDialog } from '@/components/ActionDialog';
 import { ExternalLink } from '@/components/ExternalLink';
 import { Muted } from '@/components/Muted';
 import { StartProgress } from '@/components/StartProgress';
@@ -55,9 +57,12 @@ export function PrScreen(
   const navigate = useNavigate();
   const pr = show.data;
   const review = useStartReview({ project: props.project, number: props.number });
+  // The draft a Discard click asks about: it is deleted on the provider, with no undo.
+  const [discarding, setDiscarding] = useState<PrDraft>();
   if (!pr) return <Muted>{show.error ? show.error.message : 'Reading the pull request...'}</Muted>;
   // A draft never changes the Reviews list, so only this PR is read again.
   const discard = async (draft: PrDraft) => {
+    setDiscarding(undefined);
     if (await run('prs.discard', { project: pr.project, number: pr.number, id: draft.id }))
       await show.refresh();
   };
@@ -138,7 +143,22 @@ export function PrScreen(
           onSession={open}
         />
       )}
-      <PrDetailPanel pr={pr} onDiscard={discard} tab={props.tab} onTab={props.onTab} />
+      <PrDetailPanel pr={pr} onDiscard={setDiscarding} tab={props.tab} onTab={props.onTab} />
+      {discarding && (
+        <ActionDialog
+          testId="discard-draft-dialog"
+          title="Discard this draft?"
+          description={`It is deleted on ${PR_CLIS[pr.provider].name} and cannot be restored.`}
+          submit={{
+            label: 'Discard draft',
+            testId: 'confirm-discard-draft',
+            disabled: false,
+            variant: 'destructive',
+          }}
+          onSubmit={() => discard(discarding)}
+          onCancel={() => setDiscarding(undefined)}
+        />
+      )}
     </div>
   );
 }

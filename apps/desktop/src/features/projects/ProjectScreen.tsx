@@ -147,6 +147,7 @@ export function ProjectScreen(props: {
         <TicketsTab key={project.name} project={project.name} onSession={props.onSession} />
       ) : tab === 'reviews' ? (
         <ReviewsTab
+          key={project.name}
           project={project.name}
           onSetup={(row) => props.onPrSetup(row.project)}
           onOpen={(pr) => props.onPr(pr.number)}
