@@ -292,6 +292,7 @@ function AppShell() {
           doctor={doctor}
           onProjectsChanged={() => void projects.refresh()}
           navigate={navigate}
+          screen={view.kind}
           onReplayTour={startOnboarding}
         />
         {cloneLink && (

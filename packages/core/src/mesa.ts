@@ -9,6 +9,7 @@ import { decisionAssistance } from './decisions/service.js';
 import { boardPlacing } from './decisions/supervision.js';
 import { diagnosticsService } from './diagnostics/service.js';
 import { doctorService } from './doctor/service.js';
+import { feedbackService } from './feedback/service.js';
 import { filesService } from './files/service.js';
 import { gitService } from './git/service.js';
 import { impactService } from './impact/service.js';
@@ -79,6 +80,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const worktrees = worktreesService(ctx);
   return {
     about: () => about(deps.version, deps.release),
+    /** A person's feedback, sent through the broker to a private repo (ADR-0025). */
+    feedback: feedbackService(ctx),
     /** A version's release notes, the running one's by default. */
     whatsNew: (version = deps.version) => whatsNew(deps.changelog, version),
     ...profileApi,

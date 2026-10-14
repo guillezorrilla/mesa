@@ -466,6 +466,11 @@ Not: event, activity, highlight.
 What Mesa decided and kept for a person and what happened next (#778): Moments per session under a one-sentence summary, with facts only for outcomes, never estimated savings (`impact/report.ts`). An outcome is the person's next prompt after a session was seen waiting, a hook within 10 minutes agreeing or not with a placement, a guardrail override, or the agent opening an advised note (or not, once its session ended); otherwise none yet. A person can mark any Moment not right (`mesa impact mark <id> [--undo]`, or Not right on its row); a marked Moment counts in no summary, and nothing learns from marks yet. Read with `mesa impact [--days <n>] [--project <p>] [--session <id>] --json`, and in the app from the title bar's Impact button (beside Cost and Help), a project's Impact tab, Mesa's part in session details, and Search Mesa (Impact, and once text is typed Impact: <project> and Impact: <session>).
 Not: analytics, ROI, stats.
 
+## Feedback
+
+What a person writes to Mesa's maker about Mesa itself, from Help > Send feedback or `mesa feedback "<message>"` (#812, ADR-0025): sent through the broker as an issue in a private repo, with only the Mesa version, build, and the screen it was written from (`from`, or `cli`). Mesa keeps no copy and writes no receipt. Not what a person sends an agent about its work: that is a review, a comment, or a browser annotation.
+Not: review, receipt, annotation, telemetry.
+
 ## Composition root
 
 `createMesa(profile, deps)` in `packages/core/src/mesa.ts`: composes every Mesa service for one profile, each domain's built by its own service factory over one shared context (`createContext`, ADR-0008 amendment), from `MesaDeps` (home, cwd, clock, id source, UUID source (the agent session ids Mesa hands to claude), `self` (the argv that runs this mesa, for the hooks and for tmux), sleep, environment, process runner, HTTP, the sign-in listener, the secret store, Obsidian paths, the invocation's argv for receipts, and `skillsDir`, the skill library). The CLI entrypoint (`packages/cli/src/mesa.ts`) builds the real deps; tests build them with `testDeps`. The app never builds them: it reaches Mesa through the bridge, and its entrypoint `main.tsx` only picks the real bridge and platform (dialogs, terminals, the pasteboard). ADR-0008.

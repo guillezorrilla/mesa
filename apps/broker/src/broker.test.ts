@@ -1,5 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { type Env, handle, type Upstream } from './broker.js';
+import type { Limit } from './feedback.js';
 
 const ENV: Env = {
   ATLASSIAN_CLIENT_ID: 'client-1',
@@ -355,4 +356,96 @@ test('no console call carries the code, a token, or the secret across exchange, 
   const said = spies.flatMap((spy) => spy.mock.calls.map((args) => JSON.stringify(args)));
   for (const secret of ['c1', 'at-1', 'rt-1', 'rt-2', 'secret-1'])
     expect(said.filter((line) => line.includes(secret))).toEqual([]);
+});
+
+const FEEDBACK = {
+  message: 'The board\nloses my place',
+  version: '0.2.15',
+  build: '512',
+  from: 'sessions',
+};
+const FEEDBACK_ENV: Env = { ...ENV, FEEDBACK_GITHUB_TOKEN: 'feedback-token' };
+/** GitHub's issues endpoint, recording each request's URL, headers, and JSON body. */
+function github(status = 201) {
+  const calls: { url: string; headers: Headers; body: unknown }[] = [];
+  const upstream: Upstream = async (url, init) => {
+    calls.push({ url, headers: new Headers(init.headers), body: JSON.parse(String(init.body)) });
+    return new Response(JSON.stringify({ number: 7, html_url: 'https://github.test/7' }), {
+      status,
+    });
+  };
+  return { upstream, calls };
+}
+const sendFeedback = (body: unknown, upstream: Upstream, env = FEEDBACK_ENV, limit?: Limit) =>
+  handle(
+    new Request(`${BROKER}/feedback`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'cf-connecting-ip': '203.0.113.9' },
+    }),
+    env,
+    upstream,
+    limit,
+  );
+
+test('feedback opens an issue in the private repo and answers only that it did', async () => {
+  const gh = github();
+  const answer = await sendFeedback(FEEDBACK, gh.upstream);
+  expect(answer.status).toBe(201);
+  expect(await answer.json()).toEqual({});
+  expect(gh.calls).toHaveLength(1);
+  expect(gh.calls[0]?.url).toBe('https://api.github.com/repos/guillezorrilla/mesa-feedback/issues');
+  expect(gh.calls[0]?.headers.get('authorization')).toBe('Bearer feedback-token');
+  expect(gh.calls[0]?.headers.get('user-agent')).toBe('mesa-broker');
+  expect(gh.calls[0]?.body).toEqual({
+    title: 'The board',
+    body: 'The board\nloses my place\n\n---\nMesa 0.2.15 (build 512), from sessions',
+  });
+});
+
+test('feedback goes to FEEDBACK_REPO when set, and its title is cut to 70 characters', async () => {
+  const gh = github();
+  const long = 'x'.repeat(90);
+  await sendFeedback({ ...FEEDBACK, message: `  ${long}  ` }, gh.upstream, {
+    ...FEEDBACK_ENV,
+    FEEDBACK_REPO: 'someone/inbox',
+  });
+  expect(gh.calls[0]?.url).toBe('https://api.github.com/repos/someone/inbox/issues');
+  expect(gh.calls[0]?.body).toMatchObject({ title: 'x'.repeat(70) });
+});
+
+test.each([
+  ['an empty message', { ...FEEDBACK, message: '   ' }],
+  ['a message over 5000 characters', { ...FEEDBACK, message: 'x'.repeat(5001) }],
+  ['no version', { ...FEEDBACK, version: undefined }],
+  ['a from over 40 characters', { ...FEEDBACK, from: 'x'.repeat(41) }],
+  ['no body', undefined],
+])('feedback with %s is 400 and reaches no one', async (_, body) => {
+  const gh = github();
+  const answer = await sendFeedback(body, gh.upstream);
+  expect(answer.status).toBe(400);
+  expect(gh.calls).toHaveLength(0);
+});
+
+test('feedback with no token is 500 not_configured; a GitHub failure is 502', async () => {
+  const missing = await sendFeedback(FEEDBACK, github().upstream, ENV);
+  expect(missing.status).toBe(500);
+  expect(await missing.json()).toEqual({ error: 'not_configured' });
+  expect((await sendFeedback(FEEDBACK, github(403).upstream)).status).toBe(502);
+  const down: Upstream = async () => {
+    throw new Error('offline');
+  };
+  expect((await sendFeedback(FEEDBACK, down)).status).toBe(502);
+});
+
+test('feedback past the limit for its IP is 429 and reaches no one', async () => {
+  const gh = github();
+  const keys: string[] = [];
+  const answer = await sendFeedback(FEEDBACK, gh.upstream, FEEDBACK_ENV, async (key) => {
+    keys.push(key);
+    return false;
+  });
+  expect(answer.status).toBe(429);
+  expect(keys).toEqual(['203.0.113.9']);
+  expect(gh.calls).toHaveLength(0);
 });

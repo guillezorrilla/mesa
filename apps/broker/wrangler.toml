@@ -1,5 +1,14 @@
-# Mesa's OAuth broker (ADR-0014). Secrets: wrangler secret put ATLASSIAN_CLIENT_ID, then
-# ATLASSIAN_CLIENT_SECRET.
+# Mesa's OAuth broker (ADR-0014) and feedback relay (ADR-0025). Secrets: wrangler secret put
+# ATLASSIAN_CLIENT_ID, then ATLASSIAN_CLIENT_SECRET, and so on; FEEDBACK_GITHUB_TOKEN for feedback.
 name = "mesa-broker"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
+
+# Five feedback requests a minute from one IP address.
+[[ratelimits]]
+name = "FEEDBACK_LIMIT"
+namespace_id = "1001"
+
+  [ratelimits.simple]
+  limit = 5
+  period = 60

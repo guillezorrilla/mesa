@@ -30,6 +30,7 @@ const PROJECT = [
 /** Every fixed shortcut by its name, so a customized one cannot take it. */
 const FIXED: (readonly [string, string])[] = [
   ['Keyboard shortcuts', FIXED_SHORTCUTS.keyboardShortcuts],
+  ['Send feedback', FIXED_SHORTCUTS.sendFeedback],
   ...PROJECT,
 ];
 
@@ -83,6 +84,10 @@ export function KeyboardShortcutsDialog(props: {
               />
             ))}
             <ShortcutRow label="Keyboard shortcuts" shortcut={FIXED_SHORTCUTS.keyboardShortcuts} />
+            <ShortcutRow
+              label="Send feedback, in its dialog"
+              shortcut={FIXED_SHORTCUTS.sendFeedback}
+            />
           </section>
           <section aria-label="Project view">
             <SectionLabel className="mb-3">Project view</SectionLabel>

@@ -16,13 +16,14 @@ ${body}
 
 export const PRIVACY = page(
   'Privacy policy',
-  `<p>Mesa is a local macOS app. This service, the Mesa broker, only relays the OAuth sign-in between Mesa and a source you connect, such as Atlassian.</p>
+  `<p>Mesa is a local macOS app. This service, the Mesa broker, relays the OAuth sign-in between Mesa and a source you connect, such as Atlassian, and the feedback you choose to send.</p>
 <ul>
 <li>The broker sees the authorization code and the tokens it exchanges or refreshes with the source, and passes them straight back to Mesa on your Mac. It stores nothing.</li>
 <li>The broker never receives your source content or Mesa's API calls to the source. Mesa calls the source directly.</li>
 <li>The broker does not log request or response bodies.</li>
 <li>Mesa stores no personal data from your source account: only the tokens, their expiry, and the sites they reach (each site's id, name, and address), in your macOS Keychain.</li>
 <li>Mesa reads the connected source and never writes to it. Content you import stays in your own vault on your Mac.</li>
+<li>Feedback you send from Mesa goes through the broker to a private GitHub repository only Mesa's maker reads, as an issue: your message, your Mesa version and build, and the screen you sent it from. Nothing else is sent, and the broker keeps no copy.</li>
 <li>There are no analytics and no accounts. No data is sold or shared.</li>
 <li>Disconnecting in Mesa removes the token from your Keychain. You can also revoke Mesa in the source's account settings at any time.</li>
 </ul>

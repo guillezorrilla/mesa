@@ -13,6 +13,7 @@ import {
   fakeBridge,
   fakePlatform,
   fakeTerminals,
+  fill,
   foreignRow,
   impactReport,
   managedRow,
@@ -22,14 +23,6 @@ import {
 } from '@/lib/testing';
 import { App } from './App';
 
-const fill = (field: HTMLTextAreaElement, value: string) =>
-  act(async () => {
-    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set?.call(
-      field,
-      value,
-    );
-    field.dispatchEvent(new Event('input', { bubbles: true }));
-  });
 const tab = (name: string) =>
   [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find((element) =>
     element.textContent?.trim().startsWith(name),

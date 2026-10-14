@@ -2,7 +2,17 @@
 import type { About, CommandReference } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
-import { click, envelope, fakeBridge, fakePlatform, renderWithMesa } from '@/lib/testing';
+import {
+  click,
+  envelope,
+  failure,
+  fakeBridge,
+  fakePlatform,
+  fill,
+  press,
+  renderWithMesa,
+  toastTexts,
+} from '@/lib/testing';
 import { App } from './App';
 
 test('the Help screen lists every command from mesa help --agent, with its flags and example', async () => {
@@ -94,4 +104,51 @@ test('About Mesa opens from the Help menu and from the macOS app menu', async ()
   expect(byTestId('about-screen')).toEqual([]);
   await act(async () => aboutMenu());
   expect(byTestId('about-screen')).toHaveLength(1);
+});
+
+const helpItem = (label: string) =>
+  [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+    (item) => item.textContent?.trim() === label,
+  );
+
+test('Send feedback in the Help menu sends from the screen in view and thanks; a failure keeps the text', async () => {
+  let answer: unknown = failure(
+    "Couldn't send feedback, check your connection and try again",
+    'internal',
+  );
+  const { bridge, calls } = fakeBridge({
+    about: () => envelope(ABOUT),
+    feedback: () => answer,
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-help')[0]);
+  await click(helpItem('Send feedback'));
+
+  const dialog = byTestId('feedback-dialog')[0];
+  expect(dialog?.textContent).toContain('Nothing else is sent.');
+  expect(byTestId('feedback-attached')[0]?.textContent).toBe(
+    'Mesa 0.1.0-beta.6 (build 512), from sessions',
+  );
+  const send = byTestId('send-feedback')[0] as HTMLButtonElement;
+  expect(send.disabled).toBe(true);
+  await fill('feedback-message', 'The board loses my place');
+  expect(send.disabled).toBe(false);
+
+  await click(send);
+  expect(calls).toContainEqual([
+    '--json',
+    'feedback',
+    '--from=sessions',
+    '--',
+    'The board loses my place',
+  ]);
+  expect(byTestId('feedback-error')[0]?.textContent).toContain('check your connection');
+  expect((document.getElementById('feedback-message') as HTMLTextAreaElement).value).toBe(
+    'The board loses my place',
+  );
+
+  answer = envelope({ sent: true });
+  await press(document.getElementById('feedback-message'), 'Enter', { metaKey: true });
+  expect(byTestId('feedback-dialog')).toEqual([]);
+  expect(toastTexts(byTestId)).toContain('Thanks, feedback sent');
 });
