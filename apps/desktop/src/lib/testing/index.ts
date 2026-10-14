@@ -5,6 +5,7 @@ export {
   asking,
   busy,
   deadPane,
+  diffMeta,
   exited,
   foreignRow,
   impactReport,
@@ -12,6 +13,8 @@ export {
   nativeResponse,
   PROJECTS,
   report,
+  sessionDiff,
+  TWO_FILE_DIFF,
 } from './fixtures';
 export { appearanceConfig, profileRow } from './healthy';
 export { renderWithMesa } from './renderWithMesa';

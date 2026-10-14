@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePlatform } from '@/lib/MesaRoot';
+import type { BrowserBounds } from '@/lib/platform';
+
+/** Where the native view goes: the surface's box in the window. */
+function surfaceRect(element: HTMLElement | null): BrowserBounds | undefined {
+  const box = element?.getBoundingClientRect();
+  return box && { x: box.x, y: box.y, width: box.width, height: box.height };
+}
 
 /**
  * The page in a session's native browser: its address, the URL loaded, and the surface the
- * WKWebView is laid over, kept to its bounds until the panel closes. The native view sits over the
- * window, so a panel hidden while another session is selected (SidePanels) closes it, and opens
- * it again on the page it was on when shown. Every navigation clears the page selection first.
+ * WKWebView is laid over, kept to its bounds. The native view sits over the window, so while the
+ * panel is hidden (SidePanels hides it when another session is selected) the view is hidden too,
+ * and shown again as it was: same page, history and scroll. It is closed only when the panel
+ * really goes: unmounted (closed, switched to another panel, its session gone, the screen gone),
+ * which removes the surface from the document, or moved to another session. Every navigation
+ * clears the page selection first.
  */
 export function useBrowserPage({
   sessionId,
@@ -25,10 +35,8 @@ export function useBrowserPage({
   const [opened, setOpened] = useState(false);
   const [busy, setBusy] = useState(false);
   const lastInitialUrl = useRef<typeof initialUrl>(undefined);
-  const currentUrl = useRef('');
-  currentUrl.current = current;
-  // The page to open again once a hidden panel shows: set when hiding closed the native view.
-  const reopenAt = useRef<string>(undefined);
+  // The session whose native view this panel owns, to close it when the panel moves on.
+  const viewSession = useRef<string>(undefined);
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -51,34 +59,43 @@ export function useBrowserPage({
     };
   }, [clearSelection, platform.browser, sessionId, setError]);
 
+  // Shown with the panel, at the surface's bounds; hidden with it, the page kept loaded.
   useEffect(() => {
-    if (!opened || !surface.current) return;
-    const box = () => {
-      const rect = surface.current?.getBoundingClientRect();
-      return rect && { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
-    };
-    const url = reopenAt.current;
-    const rect = box();
-    reopenAt.current = undefined;
-    if (url && rect)
-      void platform.browser.open(sessionId, url, rect).catch((cause) => setError(String(cause)));
-    const observer = new ResizeObserver(() => {
-      const rect = box();
+    const element = surface.current;
+    if (!opened || !element) return;
+    const fit = () => {
+      const rect = surfaceRect(element);
       if (rect) void platform.browser.bounds(sessionId, rect);
-    });
-    observer.observe(surface.current);
+    };
+    fit();
+    void platform.browser.show(sessionId).catch((cause) => setError(String(cause)));
+    const observer = new ResizeObserver(fit);
+    observer.observe(element);
     return () => {
       observer.disconnect();
-      void platform.browser.close(sessionId);
-      reopenAt.current = currentUrl.current;
+      void platform.browser.hide(sessionId).catch(() => undefined);
     };
   }, [opened, platform.browser, sessionId, setError]);
 
+  // React gives a cleanup no sign of why it runs. Activity hides a panel by keeping its DOM in
+  // the document, so a surface still connected means hidden (the effect above hides the view);
+  // a detached one means unmounted. Close runs even before the view opened: it queues after an
+  // open still in flight, and closing no view is a no-op.
+  useEffect(() => {
+    const element = surface.current;
+    const previous = viewSession.current;
+    if (previous && previous !== sessionId)
+      void platform.browser.close(previous).catch(() => undefined);
+    viewSession.current = sessionId;
+    return () => {
+      if (!element?.isConnected) void platform.browser.close(sessionId).catch(() => undefined);
+    };
+  }, [platform.browser, sessionId]);
+
   const navigate = useCallback(
     async (url: string) => {
-      const box = surface.current?.getBoundingClientRect();
-      if (!box) return;
-      const rect = { x: box.x, y: box.y, width: box.width, height: box.height };
+      const rect = surfaceRect(surface.current);
+      if (!rect) return;
       setBusy(true);
       setError('');
       try {
@@ -86,6 +103,9 @@ export function useBrowserPage({
         if (opened) await platform.browser.navigate(sessionId, url);
         else {
           await platform.browser.open(sessionId, url, rect);
+          // Hidden while it opened (another session selected): the visibility effect shows it later.
+          if (surface.current && !surface.current.checkVisibility())
+            await platform.browser.hide(sessionId);
           setOpened(true);
         }
       } catch (cause) {

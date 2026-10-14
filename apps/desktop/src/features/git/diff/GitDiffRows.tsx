@@ -64,13 +64,16 @@ function unified(lines: Line[]): Line[] {
   return out;
 }
 
+/** How a diff's rows are laid out. */
+export type DiffLayout = 'inline' | 'side-by-side';
+
 /**
  * Side-by-side or inline rows of one file's diff, unchanged runs folded; memoized, so a parent
  * that re-renders on every frame (a resize drag) leaves a large diff alone.
  */
 export const GitDiffRows = memo(function GitDiffRows(props: {
   rows: DiffRow[];
-  layout: 'inline' | 'side-by-side';
+  layout: DiffLayout;
   /** The profile's diff text size in px. */
   fontSize: number;
 }) {

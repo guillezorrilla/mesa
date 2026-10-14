@@ -2,7 +2,15 @@
 import type { PrDetail, PrList, TreeRow } from '@mesa/core';
 import { beforeEach, expect, test } from 'vitest';
 import { App } from '@/app/App';
-import { click, envelope, failure, fakeBridge, managedRow, renderWithMesa } from '@/lib/testing';
+import {
+  click,
+  diffMeta,
+  envelope,
+  failure,
+  fakeBridge,
+  managedRow,
+  renderWithMesa,
+} from '@/lib/testing';
 import { NavigateContext } from '@/lib/useNavigate';
 import type { WorkspaceView } from '@/lib/workspaceView';
 import { PrScreen } from './PrScreen';
@@ -156,10 +164,9 @@ test('the tabs open on drafts, else my comments, else files, and switch on click
 });
 
 test("the Files tab reads the PR's patch only when opened and shows each file's diff", async () => {
-  const meta = (left: string) => ({ kind: 'meta', left, right: left });
   const rows = [
-    meta('diff --git a/src/edge/cache.ts b/src/edge/cache.ts'),
-    meta('@@ -41,2 +41,2 @@'),
+    diffMeta('diff --git a/src/edge/cache.ts b/src/edge/cache.ts'),
+    diffMeta('@@ -41,2 +41,2 @@'),
     {
       kind: 'context',
       left: 'const ttl = 60;',
@@ -168,9 +175,9 @@ test("the Files tab reads the PR's patch only when opened and shows each file's 
       newLine: 41,
     },
     { kind: 'change', left: 'key(item)', right: 'key(item, width)', oldLine: 42, newLine: 42 },
-    meta('diff --git a/test/edge/cache.test.ts b/test/edge/cache.test.ts'),
-    meta('new file mode 100644'),
-    meta('@@ -0,0 +1 @@'),
+    diffMeta('diff --git a/test/edge/cache.test.ts b/test/edge/cache.test.ts'),
+    diffMeta('new file mode 100644'),
+    diffMeta('@@ -0,0 +1 @@'),
     { kind: 'change', left: '', right: "test('304 keeps the body')", newLine: 1 },
   ];
   const { bridge, calls } = fakeBridge({

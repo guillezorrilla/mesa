@@ -177,6 +177,23 @@ pub fn browser_bounds(
         .map_err(|error| error.to_string())
 }
 
+/// Hides the view while its panel is hidden (another session selected); the page stays loaded.
+#[tauri::command]
+pub fn browser_hide(app: AppHandle, session: String) -> Result<(), String> {
+    let view = app
+        .get_webview(&label(&session)?)
+        .ok_or("browser is closed")?;
+    view.hide().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn browser_show(app: AppHandle, session: String) -> Result<(), String> {
+    let view = app
+        .get_webview(&label(&session)?)
+        .ok_or("browser is closed")?;
+    view.show().map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 pub fn browser_close(app: AppHandle, session: String) -> Result<(), String> {
     if let Some(view) = app.get_webview(&label(&session)?) {

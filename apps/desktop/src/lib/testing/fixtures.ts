@@ -1,5 +1,6 @@
 import type {
   Check,
+  DiffRow,
   DoctorReport,
   ForeignRow,
   ImpactReport,
@@ -7,6 +8,7 @@ import type {
   NativeResponse,
   ProjectRow,
 } from '@mesa/core';
+import { envelope } from './replies';
 
 // Fixtures the screens' tests share: projects, doctor checks, board rows, and session replies.
 
@@ -146,3 +148,31 @@ export const impactReport = (extra: Partial<ImpactReport> = {}): ImpactReport =>
   sessions: [],
   ...extra,
 });
+
+/** A diff's meta line (a file header, a hunk mark), as the diff views receive it. */
+export const diffMeta = (left: string): DiffRow => ({ kind: 'meta', left, right: left });
+
+/** Two changed files: src/tide.ts (one line changed, one kept) and a new notes.txt of two lines. */
+export const TWO_FILE_DIFF: DiffRow[] = [
+  diffMeta('diff --git a/src/tide.ts b/src/tide.ts'),
+  diffMeta('@@ -1,2 +1,2 @@'),
+  { kind: 'context', left: 'const sea = 1;', right: 'const sea = 1;', oldLine: 1, newLine: 1 },
+  { kind: 'change', left: 'low', right: 'high', oldLine: 2, newLine: 2 },
+  diffMeta('diff --git a/notes.txt b/notes.txt'),
+  diffMeta('new file mode 100644'),
+  diffMeta('@@ -0,0 +1,2 @@'),
+  { kind: 'change', left: '', right: 'gull', newLine: 1 },
+  { kind: 'change', left: '', right: 'kelp', newLine: 2 },
+];
+
+/** A session's changes as `mesa diff` answers, over TWO_FILE_DIFF unless `data` says otherwise. */
+export const sessionDiff = (data: object = {}) =>
+  envelope({
+    checkout: { project: 'lantern-cove', path: '/w/reef', registered: false },
+    base: 'main',
+    mergeBase: 'abc',
+    ahead: 2,
+    omitted: 0,
+    rows: TWO_FILE_DIFF,
+    ...data,
+  });

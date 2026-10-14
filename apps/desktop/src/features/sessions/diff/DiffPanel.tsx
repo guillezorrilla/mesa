@@ -41,18 +41,26 @@ export function DiffPanel(props: {
     setWidth(room ? Math.min(next, room - TERMINAL_MIN) : next);
   };
   const [expanded, setExpanded] = useState(false);
-  const seenState = useRef(props.state);
+  const seenState = useRef<string | undefined>(props.state);
   // biome-ignore lint/correctness/useExhaustiveDependencies: only a new session state reads again.
   useEffect(() => {
-    if (props.state === seenState.current) return;
+    if (seenState.current !== undefined && props.state !== seenState.current)
+      void changes.refresh();
     seenState.current = props.state;
-    void changes.refresh();
   }, [props.state]);
+  // Hidden while another session is selected (SidePanels): showing it again reads anew
+  // (useCommand), so a state it missed while hidden needs no read of its own.
+  useEffect(
+    () => () => {
+      seenState.current = undefined;
+    },
+    [],
+  );
 
   // Kept across renders, so a resize drag hands GitDiffRows the same rows and it skips the work.
   const files = useMemo(() => diffFiles(data?.rows ?? []), [data]);
   const view = useDiffView(files);
-  const { at, file } = view;
+  const { file } = view;
   const added = files.reduce((sum, each) => sum + each.added, 0);
   const removed = files.reduce((sum, each) => sum + each.removed, 0);
   const expand = (next: boolean) => {
@@ -142,12 +150,8 @@ export function DiffPanel(props: {
       ) : (
         <GitDiffFiles
           files={files}
-          at={at}
-          onOpen={view.open}
-          onMove={view.move}
-          layout={view.layout}
+          view={view}
           fontSize={appearance.diffFontSize}
-          list={view.list}
           listClassName={expanded ? 'w-72' : 'w-56'}
           actions={
             file.status !== 'D' && (

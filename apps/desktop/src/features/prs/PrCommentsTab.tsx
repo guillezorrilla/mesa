@@ -2,6 +2,7 @@ import type { PrDetail } from '@mesa/core';
 import { FileCode2, MessageSquareText } from 'lucide-react';
 import { Muted } from '@/components/Muted';
 import { PersonAvatar } from '@/components/PersonAvatar';
+import { Badge } from '@/components/ui/badge';
 import { folderOf, nameOf } from '@/features/git/gitChanges';
 import { cn } from '@/lib/utils';
 
@@ -25,8 +26,9 @@ export function PrCommentsTab(props: { threads: readonly Thread[] }) {
 
 function ThreadCard({ thread }: { thread: Thread }) {
   const state = THREAD_STATE[thread.verdict?.state ?? (thread.resolved ? 'resolved' : 'open')];
+  const tone = TONE[state.tone];
   return (
-    <li className={cn('overflow-hidden rounded-lg border border-l-2 bg-card', state.edge)}>
+    <li className={cn('overflow-hidden rounded-lg border border-l-2 bg-card', tone.edge)}>
       <header className="flex items-center gap-2 border-b bg-muted/40 px-3 py-2">
         <FileCode2 aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="min-w-0 truncate font-mono text-xs" title={thread.path}>
@@ -34,15 +36,10 @@ function ThreadCard({ thread }: { thread: Thread }) {
           <span className="font-medium text-foreground">{nameOf(thread.path)}</span>
           {thread.line && <span className="text-muted-foreground">:{thread.line}</span>}
         </span>
-        <span
-          className={cn(
-            'ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 font-medium text-xs',
-            state.pill,
-          )}
-        >
-          <span className={cn('size-1.5 rounded-full', state.dot)} />
+        <Badge variant="secondary" className={cn('ml-auto', tone.pill)}>
+          <span className={cn('size-1.5 rounded-full', tone.dot)} />
           {state.label}
-        </span>
+        </Badge>
       </header>
       <div className="px-3 py-3">
         <Comment who="You" body={thread.body} rail={!!thread.lastReply} />
@@ -83,32 +80,31 @@ function Comment(props: { who: string; body: string; note?: string; rail?: boole
 
 // A review round's verdict wins over the provider's resolved flag (CONTEXT.md, Comment verdict).
 const THREAD_STATE = {
-  addressed: {
-    label: 'Addressed',
+  addressed: { label: 'Addressed', tone: 'idle' },
+  partly: { label: 'Partly addressed', tone: 'waiting' },
+  not: { label: 'Not addressed', tone: 'failed' },
+  resolved: { label: 'Resolved', tone: 'idle' },
+  open: { label: 'Open', tone: 'muted' },
+} as const;
+
+// Literal class names, so Tailwind finds them.
+const TONE = {
+  idle: {
     edge: 'border-l-state-idle',
     pill: 'bg-state-idle/15 text-state-idle',
     dot: 'bg-state-idle',
   },
-  partly: {
-    label: 'Partly addressed',
+  waiting: {
     edge: 'border-l-state-waiting',
     pill: 'bg-state-waiting/15 text-state-waiting',
     dot: 'bg-state-waiting',
   },
-  not: {
-    label: 'Not addressed',
+  failed: {
     edge: 'border-l-state-failed',
     pill: 'bg-state-failed/15 text-state-failed',
     dot: 'bg-state-failed',
   },
-  resolved: {
-    label: 'Resolved',
-    edge: 'border-l-state-idle',
-    pill: 'bg-state-idle/15 text-state-idle',
-    dot: 'bg-state-idle',
-  },
-  open: {
-    label: 'Open',
+  muted: {
     edge: 'border-l-muted-foreground/60',
     pill: 'bg-muted text-muted-foreground',
     dot: 'bg-muted-foreground',

@@ -54,12 +54,8 @@ export function PrFilesTab(props: { pr: PrDetail }) {
       >
         <GitDiffFiles
           files={files}
-          at={view.at}
-          onOpen={view.open}
-          onMove={view.move}
-          layout={view.layout}
+          view={view}
           fontSize={appearance.diffFontSize}
-          list={view.list}
           listClassName="w-56"
         />
       </div>

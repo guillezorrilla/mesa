@@ -77,6 +77,10 @@ export const tauriPlatform: Platform = {
       withBrowserLifecycle(sessionId, () =>
         invoke('browser_bounds', { session: sessionId, ...bounds }),
       ),
+    hide: (sessionId) =>
+      withBrowserLifecycle(sessionId, () => invoke('browser_hide', { session: sessionId })),
+    show: (sessionId) =>
+      withBrowserLifecycle(sessionId, () => invoke('browser_show', { session: sessionId })),
     close: (sessionId) =>
       withBrowserLifecycle(sessionId, () => invoke('browser_close', { session: sessionId })),
     probe: (sessionId) =>

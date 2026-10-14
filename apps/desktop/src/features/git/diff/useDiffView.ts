@@ -1,7 +1,6 @@
 import { type KeyboardEvent, useState } from 'react';
 import type { DiffFile } from './diffFiles';
-
-export type DiffLayout = 'inline' | 'side-by-side';
+import type { DiffLayout } from './GitDiffRows';
 
 /**
  * How a patch's files are viewed: which one is open (the first until one is picked), whether the

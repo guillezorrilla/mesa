@@ -2,31 +2,10 @@
 import type { DiffRow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
-import { click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
+import { click, diffMeta, envelope, fakeBridge, renderWithMesa, sessionDiff } from '@/lib/testing';
 import { DiffPanel } from './DiffPanel';
 
-const meta = (left: string): DiffRow => ({ kind: 'meta', left, right: left });
-const rows: DiffRow[] = [
-  meta('diff --git a/src/tide.ts b/src/tide.ts'),
-  meta('@@ -1,2 +1,2 @@'),
-  { kind: 'context', left: 'const sea = 1;', right: 'const sea = 1;', oldLine: 1, newLine: 1 },
-  { kind: 'change', left: 'low', right: 'high', oldLine: 2, newLine: 2 },
-  meta('diff --git a/notes.txt b/notes.txt'),
-  meta('new file mode 100644'),
-  meta('@@ -0,0 +1,2 @@'),
-  { kind: 'change', left: '', right: 'gull', newLine: 1 },
-  { kind: 'change', left: '', right: 'kelp', newLine: 2 },
-];
-const diff = (data: object) => () =>
-  envelope({
-    checkout: { project: 'lantern-cove', path: '/w/reef', registered: false },
-    base: 'main',
-    mergeBase: 'abc',
-    ahead: 2,
-    omitted: 0,
-    rows,
-    ...data,
-  });
+const diff = (data: object) => () => sessionDiff(data);
 const buttons = () => [...document.querySelectorAll<HTMLElement>('button')];
 
 test('the session diff lists every changed file, walks them with j and k, and opens one in the editor', async () => {
@@ -88,8 +67,8 @@ test('dragging the edge widens the panel only as far as the terminal keeps 256px
 
 test('Expand covers the terminal side by side, Escape shrinks it back, and left-out new files are named', async () => {
   const removal: DiffRow[] = [
-    meta('diff --git a/tide.ts b/tide.ts'),
-    meta('@@ -4,1 +3,0 @@'),
+    diffMeta('diff --git a/tide.ts b/tide.ts'),
+    diffMeta('@@ -4,1 +3,0 @@'),
     { kind: 'change', left: 'gone', right: '', oldLine: 4 },
   ];
   const { bridge, calls } = fakeBridge({

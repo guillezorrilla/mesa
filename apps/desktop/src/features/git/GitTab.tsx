@@ -18,6 +18,7 @@ import { CheckoutPicker } from '@/features/worktrees/CheckoutPicker';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { GitDiffHeader } from './diff/GitDiffHeader';
+import type { DiffLayout } from './diff/GitDiffRows';
 import { GitDiffView } from './diff/GitDiffView';
 import { GitBranches } from './GitBranches';
 import { GitChangeList } from './GitChangeList';
@@ -41,7 +42,7 @@ export function GitTab(props: {
   const [checkout, setCheckout] = useState('');
   const [view, setView] = useState<'status' | 'graph'>('status');
   const [selected, setSelected] = useState<GitSelection>();
-  const [layout, setLayout] = useState<'inline' | 'side-by-side'>('side-by-side');
+  const [layout, setLayout] = useState<DiffLayout>('side-by-side');
   const [panel, setPanel] = useState<'stashes' | 'remote'>();
   const [filter, setFilter] = useState('');
   const [revision, setRevision] = useState(0);

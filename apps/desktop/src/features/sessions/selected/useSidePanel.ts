@@ -1,5 +1,5 @@
 import type { NativeResponse } from '@mesa/core';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export type SidePanel = 'review' | 'browser' | 'diff';
 
@@ -38,6 +38,7 @@ export function useSidePanel(selectedSession: string | undefined) {
     setPanels(withPanel(pendingBrowser.session, { panel: 'browser', browserTarget }));
     setPendingBrowser(undefined);
   }, [pendingBrowser, selectedSession]);
+  const close = useCallback((session: string) => setPanels(withPanel(session, undefined)), []);
   return {
     /** The selected session's open panel. */
     open: selectedSession ? panels[selectedSession]?.panel : undefined,
@@ -53,7 +54,7 @@ export function useSidePanel(selectedSession: string | undefined) {
           ),
         );
     },
-    close: (session: string) => setPanels(withPanel(session, undefined)),
+    close,
     /** Opens Review on `response` once its session is selected. */
     requestReview: (response: NativeResponse) => setPendingReview(response),
     /** Opens Browser at `url` once `session` is selected. */
