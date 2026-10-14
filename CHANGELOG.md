@@ -2,6 +2,26 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.3.1 - 2026-10-14
+
+### Added
+
+- Diffs in a pull request's Files tab: opening it lists the changed files and shows each one's diff, inline or side by side, as the session changes panel does, and `mesa prs diff` prints the same patch. (#822)
+
+### Changed
+
+- Following a board, list, repo or view now shows everyone's tickets at first: Only mine starts off, so turn it on to see just the tickets assigned to you. (#822)
+- Searching for a Jira board or saved filter to follow now searches as you type, a moment after you pause, instead of waiting for Enter. (#822)
+- Your comments on a pull request read as conversations: each thread is a card with its file and line, your comment and the latest reply on one rail, and its state as a colored pill and edge. (#822)
+- Project names in the Reviews list stand out like they do in the Sessions list: each one has its folder in the project's color and reads in full contrast. (#822)
+- Each session keeps its side panel: open Diff, Replies or Browser on one session, switch to another, and when you come back the panel is still open as you left it, on the same file and scroll. (#822)
+- Assign to me is a check beside a ticket's start buttons, always in view, instead of only under Options; it keeps the project's choice for the next ticket as before. (#822)
+
+### Fixed
+
+- A project's configured worktree base now decides what its diff and recycle compare against, even when the clone's remembered default branch on origin is out of date. (#822)
+- A new session gets its name from your first message right away, while its first turn is still working, instead of only after that turn ends. (#822)
+
 ## 0.3.0 - 2026-10-14
 
 ### Added
