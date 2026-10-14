@@ -1,4 +1,5 @@
 import { gitCommand } from '../git/command.js';
+import { currentBranch } from '../git/ref.js';
 import type { Runner } from '../lib/process.js';
 import type { Profile } from '../profile/profile.js';
 import { findProject } from '../projects/projects.js';
@@ -31,4 +32,16 @@ export async function defaultBranchRef(
     worktreeSettings(profile, findProject(profile, project)).base ??
     (await checkoutDefault(run, root))
   );
+}
+
+/**
+ * The base a worktree was made from, while it is still on the branch it was made with. Once its
+ * agent moves it to another branch, or detaches it, that branch's start is not known: none, so
+ * the project's default stands in.
+ */
+export async function recordedBase(
+  run: Runner,
+  worktree: { path: string; branch: string; base?: string },
+): Promise<string | undefined> {
+  return (await currentBranch(run, worktree.path)) === worktree.branch ? worktree.base : undefined;
 }

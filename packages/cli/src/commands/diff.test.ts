@@ -100,4 +100,8 @@ test("once its agent moves the checkout to another branch, diff uses the project
   expect(moved.json.data).toMatchObject({ base: 'develop', ahead: 1 });
   const picked = await cli.mesa('diff', 'dddddddd', '--base', 'main', '--json');
   expect(picked.json.data).toMatchObject({ base: 'main', ahead: 2 });
+  // Detached, it is on no branch it was made with either.
+  testGit(linked, 'switch', '-q', '--detach');
+  const detached = await cli.mesa('diff', 'dddddddd', '--json');
+  expect(detached.json.data).toMatchObject({ base: 'develop', ahead: 1 });
 });

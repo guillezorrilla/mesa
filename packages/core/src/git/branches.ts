@@ -7,7 +7,7 @@ import { checkoutHolder } from '../sessions/record/holders.js';
 import type { SessionStore } from '../sessions/record/store.js';
 import { gitWorktrees } from './checkout.js';
 import { gitCommand } from './command.js';
-import { branchName, commitOid } from './ref.js';
+import { branchName, commitOid, currentBranch } from './ref.js';
 
 export type GitBranch = {
   name: string;
@@ -27,10 +27,10 @@ export async function listGitBranches(
   run: Runner,
   project: string,
   selected?: string,
-): Promise<{ checkout: Checkout; branches: GitBranch[] }> {
+): Promise<{ checkout: Checkout; branches: GitBranch[]; remotes: string[] }> {
   const checkout = await resolveCheckout(profile, run, project, selected);
   const root = findProject(profile, project).path;
-  const [refs, worktrees, current] = await Promise.all([
+  const [refs, worktrees, current, remoteRefs] = await Promise.all([
     gitCommand(run, checkout.path, [
       'for-each-ref',
       // lstrip=2, not :short, which says heads/x when a tag x exists too.
@@ -38,7 +38,12 @@ export async function listGitBranches(
       'refs/heads/',
     ]),
     gitWorktrees(run, root),
-    gitCommand(run, checkout.path, ['symbolic-ref', '--quiet', '--short', 'HEAD']),
+    currentBranch(run, checkout.path),
+    gitCommand(run, checkout.path, [
+      'for-each-ref',
+      '--format=%(refname:lstrip=2)',
+      'refs/remotes/',
+    ]),
   ]);
   if (!refs.ok) throw new MesaError('usage', `cannot list branches: ${refs.detail}`);
   const byBranch = new Map(
@@ -55,10 +60,14 @@ export async function listGitBranches(
         oid,
         ...(upstream ? { upstream } : {}),
         ...(byBranch.has(name) ? { checkedOutAt: byBranch.get(name) } : {}),
-        current: current.ok && current.stdout.trim() === name,
+        current: current === name,
       };
     });
-  return { checkout, branches };
+  // Each remote's branches, its HEAD alias left out: what a branch can be compared with.
+  const remotes = remoteRefs.ok
+    ? remoteRefs.stdout.split('\n').filter((ref) => ref && !ref.endsWith('/HEAD'))
+    : [];
+  return { checkout, branches, remotes };
 }
 
 export async function changeGitBranch(

@@ -2,7 +2,15 @@
 import type { DiffRow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
-import { click, diffMeta, envelope, fakeBridge, renderWithMesa, sessionDiff } from '@/lib/testing';
+import {
+  click,
+  diffMeta,
+  envelope,
+  failure,
+  fakeBridge,
+  renderWithMesa,
+  sessionDiff,
+} from '@/lib/testing';
 import { DiffPanel } from './DiffPanel';
 
 const diff = (data: object) => () => sessionDiff(data);
@@ -93,25 +101,35 @@ test('Expand covers the terminal side by side, Escape shrinks it back, and left-
 
 test("picking a branch to compare with reads the session's changes against it", async () => {
   const { bridge, calls } = fakeBridge({
-    diff: (args) =>
-      sessionDiff({ base: args.includes('--base') ? 'origin/develop' : 'origin/main' }),
+    diff: (args) => {
+      const at = args.indexOf('--base');
+      if (at < 0) return sessionDiff({ base: 'origin/main' });
+      const base = args[at + 1] ?? '';
+      return base === 'origin/trunk'
+        ? failure('base branch origin/trunk is not in this checkout', 'usage')
+        : sessionDiff({ base });
+    },
     'git branches': () =>
       envelope({
         checkout: { project: 'lantern-cove', path: '/w/reef', registered: false },
-        branches: [
-          { name: 'develop', oid: 'a', upstream: 'origin/develop', current: false },
-          { name: 'session/reef', oid: 'b', current: true },
-        ],
+        branches: [{ name: 'session/reef', oid: 'b', current: true }],
+        // origin/develop has no local branch tracking it: listed all the same.
+        remotes: ['origin/develop', 'origin/main', 'origin/trunk'],
       }),
   });
   await renderWithMesa(<DiffPanel sessionId="aaaaaaaa" state="idle" onClose={() => {}} />, bridge);
-  await click(
-    document.querySelector<HTMLElement>('[aria-label="Compare with origin/main"]') ?? undefined,
-  );
+  const picker = (base: string) =>
+    document.querySelector<HTMLElement>(`[aria-label="Compare with ${base}"]`) ?? undefined;
   const item = (name: string) =>
     [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].find((i) => i.textContent === name);
+  await click(picker('origin/main'));
   expect(item('session/reef')).toBeDefined();
   await click(item('origin/develop'));
   expect(calls).toContainEqual(expect.arrayContaining(['diff', '--base', 'origin/develop']));
   expect(document.body.textContent).toContain('since origin/develop');
+
+  // A base that fails to read keeps the picker, so another can be picked.
+  await click(picker('origin/develop'));
+  await click(item('origin/trunk'));
+  expect(picker('origin/trunk')).toBeDefined();
 });

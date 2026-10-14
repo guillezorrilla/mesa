@@ -2,8 +2,8 @@ import { antigravitySessionId } from '../../agents/antigravity/log.js';
 import { listAgentProcesses } from '../../agents/listing.js';
 import type { MesaContext } from '../../context.js';
 import { readBranchDiff } from '../../git/branch-diff.js';
-import { gitCommand } from '../../git/command.js';
 import { MesaError } from '../../lib/result.js';
+import { recordedBase } from '../../worktrees/base.js';
 import { sessionTree } from '../board/tree.js';
 import { autoName } from '../native/auto-name.js';
 import { decisionStatus } from '../native/decision-status.js';
@@ -122,8 +122,7 @@ export function inspectActions(
     },
     /**
      * Everything the session's checkout holds that `base` lacks (readBranchDiff). Without `base`,
-     * the base its worktree was made from, unless its agent has since moved the checkout to
-     * another branch: that branch's start is not known, so the project's default stands in.
+     * its worktree's recorded base (recordedBase), else the project's default.
      */
     diff: async (id: string, base?: string) => {
       const found = store.get(id);
@@ -131,17 +130,12 @@ export function inspectActions(
       if (!project)
         throw new MesaError('usage', 'a General session has no project checkout to diff');
       const { worktree } = found;
-      const checkout = worktree?.path ?? found.cwd;
-      const on =
-        worktree &&
-        (await gitCommand(ctx.run, worktree.path, ['symbolic-ref', '--quiet', '--short', 'HEAD']));
-      const moved = on?.ok && on.stdout.trim() !== worktree?.branch;
       return readBranchDiff(
         ctx.open(),
         ctx.run,
         project,
-        base ?? (moved ? undefined : worktree?.base),
-        checkout,
+        base ?? (worktree && (await recordedBase(ctx.run, worktree))),
+        worktree?.path ?? found.cwd,
       );
     },
     /** Gives a session the name a person calls it by; the board shows it in place of the id. */

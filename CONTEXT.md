@@ -202,7 +202,7 @@ Not: workspace, secondary project, linked project.
 
 ## Session diff
 
-Everything a project session's checkout holds that its base branch lacks: its commits since the merge-base with the base, staged and unstaged edits, and untracked files, as one patch. The base is the worktree's recorded `base` while the worktree is still on the branch it was made with, else the project's default branch (its agent moved to a branch whose start Mesa does not know), so a session in the main checkout shows its unpushed and uncommitted work; `--base <ref>` compares with any ref instead. `mesa diff <session> [--base <ref>] --json` reads it; the app's Diff button beside Replies and Browser shows it as a file list and the open file's diff, with Open in editor, and its base as a menu of the checkout's branches and the remote branches they track. General sessions have none.
+Everything a project session's checkout holds that its base branch lacks: its commits since the merge-base with the base, staged and unstaged edits, and untracked files, as one patch. The base is the worktree's recorded `base` while the worktree is still on the branch it was made with, else the project's default branch (its agent moved to another branch, or detached it, and that start is not known), so a session in the main checkout shows its unpushed and uncommitted work; `--base <ref>` compares with any ref instead. `mesa diff <session> [--base <ref>] --json` reads it; the app's Diff button beside Replies and Browser shows it as a file list and the open file's diff, with Open in editor, and its base as a menu of the checkout's remote branches and its own (`mesa git branches` lists both). General sessions have none.
 
 ## Selected checkout
 

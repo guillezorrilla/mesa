@@ -34,6 +34,10 @@ export function DiffPanel(props: {
   const [base, setBase] = useState<string>();
   const changes = useCommand('sessions.diff', { id: props.sessionId, ...(base ? { base } : {}) });
   const data = changes.data;
+  // The last read's checkout and base, so the picker stays while a picked base is read, or fails.
+  const lastRead = useRef(data);
+  if (data) lastRead.current = data;
+  const header = data ?? lastRead.current;
   const appearance = useCommand('config.get').data?.appearance ?? DEFAULT_APPEARANCE;
   const run = useRun();
   const [width, setWidth] = useKeptWidth('mesa.diff.width', DIFF_WIDTH);
@@ -101,13 +105,13 @@ export function DiffPanel(props: {
             <span className="truncate font-mono font-medium" title={props.branch}>
               {props.branch ?? 'This checkout'}
             </span>
-            {data && (
+            {header && (
               <span className="shrink-0 text-muted-foreground">
                 since{' '}
                 <DiffBasePicker
-                  project={data.checkout.project}
-                  checkout={data.checkout.path}
-                  base={data.base}
+                  project={header.checkout.project}
+                  checkout={header.checkout.path}
+                  base={base ?? header.base}
                   onPick={setBase}
                 />
               </span>

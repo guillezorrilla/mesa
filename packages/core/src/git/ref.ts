@@ -25,6 +25,12 @@ export async function branchName(run: Runner, cwd: string, name: string): Promis
   return name;
 }
 
+/** The branch checked out at `cwd`, or null for a detached HEAD (or no repository). */
+export async function currentBranch(run: Runner, cwd: string): Promise<string | null> {
+  const result = await gitCommand(run, cwd, ['symbolic-ref', '--quiet', '--short', 'HEAD']);
+  return result.ok ? result.stdout.trim() : null;
+}
+
 /** Whether `repo` has the local branch `branch`. */
 export async function branchExists(run: Runner, cwd: string, branch: string) {
   return (await gitCommand(run, cwd, ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`]))

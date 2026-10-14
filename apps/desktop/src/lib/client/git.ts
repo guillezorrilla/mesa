@@ -85,7 +85,7 @@ export const gitCommands = {
   ]),
   'git.branches': commandWith<
     { project: string; checkout?: string },
-    { checkout: Checkout; branches: GitBranch[] }
+    { checkout: Checkout; branches: GitBranch[]; remotes: string[] }
   >(({ project, checkout }) => [
     'git',
     'branches',

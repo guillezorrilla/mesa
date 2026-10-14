@@ -3,8 +3,8 @@ import { PickMenu } from '@/components/PickMenu';
 import { useCommand } from '@/lib/useCommand';
 
 /**
- * The ref a session's changes are compared with, as a menu of the checkout's branches and the
- * remote branches they track; picking one compares with it instead.
+ * The ref a session's changes are compared with, as a menu of the checkout's remote branches and
+ * its own; picking one compares with it instead.
  */
 export function DiffBasePicker(props: {
   project: string;
@@ -12,18 +12,24 @@ export function DiffBasePicker(props: {
   base: string;
   onPick: (base: string) => void;
 }) {
-  const read = useCommand('git.branches', { project: props.project, checkout: props.checkout });
+  const branches = useCommand('git.branches', {
+    project: props.project,
+    checkout: props.checkout,
+  });
   const refs = [
     ...new Set([
       props.base,
-      ...(read.data?.branches ?? []).flatMap((b) => (b.upstream ? [b.upstream, b.name] : [b.name])),
+      ...(branches.data?.remotes ?? []),
+      ...(branches.data?.branches ?? []).map((branch) => branch.name),
     ]),
   ];
   return (
     <PickMenu
       label="Compare with"
       search="Search branches"
-      empty={read.error ? `Could not list branches: ${read.error.message}` : 'No branch matches.'}
+      empty={
+        branches.error ? `Could not list branches: ${branches.error.message}` : 'No branch matches.'
+      }
       items={refs.map((ref) => ({ value: ref, name: ref }))}
       picked={[props.base]}
       onPick={props.onPick}
