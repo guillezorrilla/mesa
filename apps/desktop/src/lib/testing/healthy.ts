@@ -172,7 +172,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
       events: [],
       problems: [],
     } satisfies PrEventList),
-  prs: () => envelope({ prs: [], blocked: [], problems: [] } satisfies PrList),
+  prs: () => envelope({ prs: [], blocked: [], problems: [], quiet: [] } satisfies PrList),
   'prs setup': () => envelope([]),
   'hooks status': () =>
     envelope({

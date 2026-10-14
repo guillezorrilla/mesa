@@ -15,6 +15,11 @@ export const open = defineCommand({
     },
     attach: { type: 'boolean', description: 'Attach this terminal to the new window' },
     terminal: { type: 'boolean', description: 'Start a plain shell session with no coding agent' },
+    run: {
+      type: 'string',
+      description:
+        'With --terminal: a command line the shell runs first, then the shell stays open',
+    },
     background: { type: 'boolean', description: 'Run Claude in its native background mode' },
     mode: {
       type: 'string',
@@ -95,6 +100,7 @@ export const open = defineCommand({
       base: flags.base,
       with: flags.with,
       terminal: flags.terminal,
+      run: flags.run,
       general: flags.general,
       from: flags.from,
       notes: !flags['no-notes'],

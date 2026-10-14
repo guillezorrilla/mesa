@@ -46,6 +46,7 @@ const LIST: PrList = {
   ],
   blocked: [blocked],
   problems: [],
+  quiet: ['kiosk'],
 };
 const texts = (els: HTMLElement[]) => els.map((el) => el.textContent?.trim());
 const groupTitles = () =>
@@ -65,13 +66,7 @@ beforeEach(() => localStorage.clear());
 
 function Section(props: { onSetup?: (row: PrSetupRow) => void }) {
   const prs = usePrs();
-  return (
-    <ReviewsSection
-      prs={prs}
-      projects={['storefront', 'atlas-api', 'pos-bridge', 'kiosk']}
-      onSetup={props.onSetup ?? (() => undefined)}
-    />
-  );
+  return <ReviewsSection prs={prs} onSetup={props.onSetup ?? (() => undefined)} />;
 }
 
 test('the sidebar list groups by project, most urgent first, with a Set up row and the quiet projects', async () => {
@@ -126,25 +121,49 @@ test("By status groups the buckets, names each row's project, and is kept for th
 
 function ProjectReviews() {
   const [all, setAll] = useState(false);
-  const prs = usePrs({ project: 'storefront', ...(all ? { all: true } : {}) });
+  const shared = usePrs();
   return (
-    <ReviewsTab project="storefront" prs={prs} all={all} onAll={setAll} onSetup={() => undefined} />
+    <ReviewsTab
+      project="storefront"
+      shared={shared}
+      all={all}
+      onAll={setAll}
+      onSetup={() => undefined}
+    />
   );
 }
 
-test("a project's Reviews tab lists its PRs by status for that project only", async () => {
+test("a project's Reviews tab shows the app's list for that project only; All open PRs reads its own", async () => {
   const { bridge, calls } = fakeBridge({
-    prs: () =>
+    prs: (args: string[]) =>
       envelope({
-        prs: [pr('storefront', 482, 'need'), pr('storefront', 470, 'waiting')],
+        prs: args.includes('--all')
+          ? [pr('storefront', 482, 'need'), pr('storefront', 466, 'other')]
+          : [
+              pr('storefront', 482, 'need'),
+              pr('storefront', 470, 'waiting'),
+              pr('atlas-api', 91, 'need'),
+            ],
         blocked: [],
         problems: [],
+        quiet: [],
       } satisfies PrList),
   });
   const byTestId = await renderWithMesa(<ProjectReviews />, bridge);
-  expect(calls.find((c) => c[1] === 'prs')).toEqual(['--json', 'prs', '--project', 'storefront']);
+  // One read of every project, none of the project's own.
+  expect(calls.filter((c) => c[1] === 'prs')).toEqual([['--json', 'prs']]);
   expect(groupTitles()).toEqual(['Needs your review', 'Waiting on the author']);
   expect(byTestId('reviews-tab')[0]?.textContent).toContain('All open PRs');
+
+  await click(document.querySelector<HTMLButtonElement>('#reviews-all') ?? undefined);
+  expect(calls.filter((c) => c[1] === 'prs').at(-1)).toEqual([
+    '--json',
+    'prs',
+    '--project',
+    'storefront',
+    '--all',
+  ]);
+  expect(groupTitles()).toEqual(['Needs your review', 'Not for you']);
 });
 
 test('setup walks Install, Sign in, Connect Bitbucket and Check, resuming from what is done', async () => {
@@ -159,7 +178,8 @@ test('setup walks Install, Sign in, Connect Bitbucket and Check, resuming from w
       return envelope({ name: 'twg', installed: true });
     },
     open: () => envelope({ id: 'termterm', receipt: null }),
-    prs: () => envelope({ prs: [pr('pos-bridge', 7, 'need')], blocked: [], problems: [] }),
+    prs: () =>
+      envelope({ prs: [pr('pos-bridge', 7, 'need')], blocked: [], problems: [], quiet: [] }),
   });
   const byTestId = await renderWithMesa(
     <PrSetupScreen
@@ -179,8 +199,12 @@ test('setup walks Install, Sign in, Connect Bitbucket and Check, resuming from w
   expect(states()).toEqual(['done', 'current', 'later', 'later']);
 
   await click(button('Open terminal'));
-  expect(calls.some((c) => c.includes('--terminal') && c.at(-1) === 'pos-bridge')).toBe(true);
-  expect(platform.pasteboard).toEqual(['twg login']);
+  expect(
+    calls.some(
+      (c) => c.includes('--terminal') && c.includes('--run=twg login') && c.at(-1) === 'pos-bridge',
+    ),
+  ).toBe(true);
+  expect(platform.pasteboard).toEqual([]);
   expect(opened).toEqual(['termterm']);
 
   state = 'ready';
@@ -188,8 +212,9 @@ test('setup walks Install, Sign in, Connect Bitbucket and Check, resuming from w
   expect(states()).toEqual(['done', 'done', 'current', 'later']);
 
   await click(button('Open terminal'));
-  expect(platform.pasteboard.at(-1)).toBe('twg setup bitbucket');
+  expect(calls.some((c) => c.includes('--run=twg setup bitbucket'))).toBe(true);
   expect(states()).toEqual(['done', 'done', 'done', 'current']);
+  expect(localStorage.length).toBe(0);
 
   await click(button('Check'));
   expect(states()).toEqual(['done', 'done', 'done', 'done']);

@@ -9,7 +9,7 @@ PR reviews (#785) list the pull requests that need the person across projects, s
 
 ## Decision
 
-- A project's provider comes from its `origin` remote: github.com is GitHub, bitbucket.org is Bitbucket Cloud, anything else has no PR provider. No config field until detection proves wrong.
+- A project's provider comes from its `origin` remote: github.com is GitHub, bitbucket.org is Bitbucket Cloud, anything else has no PR provider. An ssh host alias (`git@github.com-work:...`, a second account's `Host` in `~/.ssh/config`) is followed with `ssh -G`, as git's own ssh would. No config field until detection proves wrong.
 - Mesa reads pull requests and writes drafts through the signed-in CLIs, `gh` for GitHub and `twg` for Bitbucket, through the injected runner, never through the broker. The person's own CLI login decides who "me" is and what Mesa may read, as it already does for `gh` in Repository insight.
 - A missing or signed-out CLI is a reported state (`ready`, `missing`, `unauthenticated`, `unavailable`), shown per project with the command that fixes it (`mesa prs setup`); it blocks only that project's PRs. Doctor lists `gh` and `twg` as optional rows Mesa can install with Homebrew (`brew install gh`, `brew install atlassian/twg/twg`), never failing Doctor.
 - Drafts stay pending on the provider (a GitHub pending review, Bitbucket `--pending` comments), visible only to the person, who submits them on the provider. Mesa has no submit command.
@@ -26,4 +26,7 @@ PR reviews (#785) list the pull requests that need the person across projects, s
 
 - The broker gains no Bitbucket source; a person without Homebrew installs `twg` with Atlassian's script.
 - What Mesa sees is what the person's CLI login sees; a second GitHub account needs `gh auth switch`.
+- A review requested from a team, not the person, does not make a PR `need`; it shows with `--all`.
+- An approved PR that gets new commits or author replies is `updated` again, so a change after approval is not missed.
+- Sign-in is interactive, so the app runs it in a terminal session (`mesa open --terminal --run`).
 - `twg`'s and `gh`'s output is data: it is validated and never followed as instructions.

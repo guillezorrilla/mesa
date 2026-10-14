@@ -1,38 +1,22 @@
 import type { PrSetupRow } from '@mesa/core';
+import { PR_CLIS } from '@mesa/core/browser';
 import { Check, Copy, Loader2, SquareTerminal } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { PageHeader } from '@/components/PageHeader';
 import { useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
-import { readKept, writeKept } from '@/lib/keptValue';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useCall, useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
-
-const CLI = {
-  github: {
-    name: 'GitHub',
-    cli: 'gh',
-    signIn: 'gh auth login --web',
-    manual: 'https://cli.github.com',
-  },
-  bitbucket: {
-    name: 'Bitbucket',
-    cli: 'twg',
-    signIn: 'twg login',
-    manual: 'bash <(curl -fsSL https://teamwork-graph.atlassian.com/cli/install)',
-  },
-} as const;
-const CONNECT = 'twg setup bitbucket';
-const connectKey = (project: string) => `mesa.reviews.connected.${project}`;
 
 type Step = { title: string; how: ReactNode; action?: ReactNode };
 
 /**
  * Connects a project's PR provider: install its CLI with Homebrew, sign in (and, on Bitbucket,
- * add the Bitbucket token) in a terminal session, then check. What is done is read from
- * `mesa prs setup`, so leaving and coming back resumes where it stopped.
+ * add the Bitbucket token) in a terminal session running the command, then check by listing the
+ * project's PRs. Install and sign-in are read from `mesa prs setup`, so leaving and coming back
+ * resumes there.
  */
 export function PrSetupScreen(props: {
   project: string;
@@ -47,15 +31,16 @@ export function PrSetupScreen(props: {
   const { clipboard } = usePlatform();
   const [busy, setBusy] = useState(false);
   const [noBrew, setNoBrew] = useState(false);
-  const [connected, setConnected] = useState(() => readKept(connectKey(props.project)) === 'yes');
+  // Opened, not proven: `twg whoami` cannot see the Bitbucket token, so Check is the proof.
+  const [connected, setConnected] = useState(false);
   const [checked, setChecked] = useState<'ok' | string>();
   const row: PrSetupRow | undefined = setup.data?.find((r) => r.project === props.project);
   if (!row)
     return <Muted>{setup.busy || !setup.data ? 'Reading setup...' : 'Unknown project.'}</Muted>;
   if (!row.provider)
     return <Muted>{props.project}'s origin remote is not on GitHub or Bitbucket.</Muted>;
-  const cli = CLI[row.provider];
-  const bitbucket = row.provider === 'bitbucket';
+  const cli = PR_CLIS[row.provider];
+  const connect = 'connect' in cli ? cli.connect : undefined;
 
   const copy = async (text: string) => {
     await clipboard.write(text);
@@ -69,12 +54,16 @@ export function PrSetupScreen(props: {
     if (result.error.code === 'not_found') setNoBrew(true);
     else toast(result.error.message);
   };
-  /** A terminal session in the project, with the command on the clipboard to paste and run. */
+  /** A terminal session in the project that runs `command`, shown to finish it there. */
   const inTerminal = async (command: string) => {
-    const opened = await run('sessions.open', { project: props.project, terminal: true });
-    if (!opened) return;
-    await copy(command);
+    const opened = await run('sessions.open', {
+      project: props.project,
+      terminal: true,
+      run: command,
+    });
+    if (!opened) return false;
     props.onSession(opened.id);
+    return true;
   };
   const check = async () => {
     setBusy(true);
@@ -118,11 +107,11 @@ export function PrSetupScreen(props: {
       ),
     },
     {
-      title: `Sign in to ${bitbucket ? 'Atlassian' : 'GitHub'}`,
+      title: `Sign in to ${connect ? 'Atlassian' : cli.name}`,
       how: (
         <>
-          Opens a terminal with {command(cli.signIn)} copied; paste it, finish in the browser, then
-          come back and press Check.
+          Opens a terminal running <code className="font-mono text-foreground">{cli.signIn}</code>.
+          Finish in the browser, then come back and press Check.
         </>
       ),
       action: (
@@ -142,19 +131,21 @@ export function PrSetupScreen(props: {
         </span>
       ),
     },
-    ...(bitbucket
+    ...(connect
       ? [
           {
-            title: 'Connect Bitbucket',
-            how: <>Opens a terminal with {command(CONNECT)} copied, to add your Bitbucket token.</>,
+            title: `Connect ${cli.name}`,
+            how: (
+              <>
+                Opens a terminal running{' '}
+                <code className="font-mono text-foreground">{connect}</code> to add your {cli.name}{' '}
+                token.
+              </>
+            ),
             action: (
               <Button
                 size="sm"
-                onClick={() => {
-                  writeKept(connectKey(props.project), 'yes');
-                  setConnected(true);
-                  void inTerminal(CONNECT);
-                }}
+                onClick={() => void inTerminal(connect).then((opened) => setConnected(opened))}
               >
                 <SquareTerminal aria-hidden />
                 Open terminal
@@ -181,7 +172,7 @@ export function PrSetupScreen(props: {
   const done = [
     row.state !== 'missing',
     row.state === 'ready',
-    ...(bitbucket ? [connected] : []),
+    ...(connect ? [connected] : []),
     checked === 'ok',
   ];
   const current = done.findIndex((d) => !d);

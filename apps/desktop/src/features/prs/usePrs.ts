@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { useOptional } from '@/lib/useCommand';
 import { actionable } from './prGroups';
 
@@ -16,3 +16,9 @@ export function usePrs(args: { project?: string; all?: boolean } = {}) {
   const toAct = list.data?.prs.filter(actionable).length ?? 0;
   return { list, readAt, toAct };
 }
+
+/** The app's one read of every project's list (App), so a project screen reads nothing of its own. */
+export const PrsContext = createContext<ReturnType<typeof usePrs> | undefined>(undefined);
+
+/** The app's list, when App provides it. */
+export const useSharedPrs = () => useContext(PrsContext);

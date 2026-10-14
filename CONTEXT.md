@@ -122,7 +122,7 @@ Not: task, job, run (`kind: run` qualifies a session, it is not another name for
 
 ## Plain terminal session
 
-`mesa open <project> --terminal` starts the profile's login shell in a project checkout, or in its own worktree with `--branch`. It uses `kind: terminal` and `agent: terminal` in the session record, with no agent session id, goal, provider, context use, or skill links. The Board observes its tmux window directly; it does not ask Faro to infer a coding-agent state. Attach and stop work as for other windows. Send, resume, and handoff refuse it because there is no coding-agent conversation. The app's quick Terminal choice uses this path.
+`mesa open <project> --terminal` starts the profile's login shell in a project checkout, or in its own worktree with `--branch`. It uses `kind: terminal` and `agent: terminal` in the session record, with no agent session id, goal, provider, context use, or skill links. The Board observes its tmux window directly; it does not ask Faro to infer a coding-agent state. Attach and stop work as for other windows. Send, resume, and handoff refuse it because there is no coding-agent conversation. The app's quick Terminal choice uses this path. `--run <command>` has the shell run a command line first and then stay open, as the Reviews setup does for `gh auth login --web` or `twg login`.
 
 ## Archived session
 
@@ -318,7 +318,7 @@ Not: code review of a session, PR event.
 
 ## Review bucket
 
-Where a PR stands for the person, computed from its events by one rule for both providers: `need` (their review is requested and they have not reviewed or commented), `updated` (commits or the author's comments after their last review or comment), `waiting` (nothing new since), `done` (they approved with nothing new, or it is merged or closed; not listed), and `other` (not for them; listed only with `--all`). `since` is the evidence: commits and author replies since their last word, and their inline threads resolved out of total. Whether each earlier comment was addressed is judged only by a re-review session.
+Where a PR stands for the person, computed from its events by one rule for both providers: `need` (their review is requested and they have not reviewed; a comment is not a review), `updated` (commits or the author's comments after their last review or comment), `waiting` (nothing new since), `done` (they approved with nothing new since, or it is merged or closed; not listed; an approved PR that gets new commits or replies is `updated` again), and `other` (not for them; listed only with `--all`). `since` is the evidence: commits and author replies since their last word, and their inline threads resolved out of total. Whether each earlier comment was addressed is judged only by a re-review session.
 Not: workflow status, session state.
 
 ## Pending draft

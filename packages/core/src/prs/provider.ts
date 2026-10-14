@@ -4,23 +4,39 @@ import type { Runner } from '../lib/process.js';
 /** Where a project's pull requests live, from its origin remote (CONTEXT.md, PR review). */
 export type PrProvider = 'github' | 'bitbucket';
 
-/** The CLI Mesa reads and drafts through per provider, how to install it, and how to sign in. */
+/**
+ * The CLI Mesa reads and drafts through per provider: how to install it (with Homebrew, or by hand
+ * without it), sign in, and, on Bitbucket, add the Bitbucket token `whoami` cannot see.
+ */
 export const PR_CLIS = {
   github: {
+    name: 'GitHub',
     cli: 'gh',
     auth: ['auth', 'status'],
     install: 'brew install gh',
+    manual: 'https://cli.github.com',
     signIn: 'gh auth login --web',
   },
   bitbucket: {
+    name: 'Bitbucket',
     cli: 'twg',
     auth: ['whoami'],
     install: 'brew install atlassian/twg/twg',
+    manual: 'bash <(curl -fsSL https://teamwork-graph.atlassian.com/cli/install)',
     signIn: 'twg login',
+    connect: 'twg setup bitbucket',
   },
 } as const satisfies Record<
   PrProvider,
-  { cli: string; auth: string[]; install: string; signIn: string }
+  {
+    name: string;
+    cli: string;
+    auth: string[];
+    install: string;
+    manual: string;
+    signIn: string;
+    connect?: string;
+  }
 >;
 
 // The host right after `https://`, `ssh://`, an optional user, or the `git@` of scp-like ssh;
@@ -51,7 +67,7 @@ export async function resolveRemote(run: Runner, remoteUrl: string): Promise<Rem
   const direct = prRemote(remoteUrl);
   const alias = REMOTE.exec(remoteUrl.trim())?.[1];
   if (direct || !alias || /^https?:/i.test(remoteUrl.trim())) return direct;
-  const config = await run('ssh', ['-G', alias], 5_000);
+  const config = await run('ssh', ['-G', '--', alias], 5_000);
   const host = config.ok ? /^hostname (\S+)$/m.exec(config.stdout)?.[1] : undefined;
   return host ? prRemote(remoteUrl, host) : undefined;
 }

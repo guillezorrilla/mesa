@@ -67,7 +67,8 @@ export const readGithub: PrReader = async (run, repo) => {
   const [owner = '', name = ''] = repo.split('/');
   const res = await run(
     'gh',
-    ['api', 'graphql', '-f', `query=${QUERY}`, '-F', `owner=${owner}`, '-F', `name=${name}`],
+    // -f, never -F: a repo named `2048` stays a string, and `@file` is never read.
+    ['api', 'graphql', '-f', `query=${QUERY}`, '-f', `owner=${owner}`, '-f', `name=${name}`],
     30_000,
   );
   if (!res.ok)

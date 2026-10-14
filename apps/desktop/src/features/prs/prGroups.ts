@@ -1,4 +1,5 @@
 import type { PrList, PrRow, PrSetupRow } from '@mesa/core';
+import { BUCKET_LABELS } from '@mesa/core/browser';
 
 export type PrGrouping = 'project' | 'status';
 
@@ -13,17 +14,20 @@ export type PrGroup = {
   problem?: string;
 };
 
-const RANK: Record<PrRow['bucket'], number> = { need: 0, updated: 1, waiting: 2, other: 3 };
+// Core's buckets, most urgent first: their order is the rank.
+const BUCKETS = Object.keys(BUCKET_LABELS) as PrRow['bucket'][];
+const rank = (pr: PrRow) => BUCKETS.indexOf(pr.bucket);
 
 /** A PR asks something of me: a review, or a look at what changed since mine. */
 export const actionable = (pr: PrRow) => pr.bucket === 'need' || pr.bucket === 'updated';
 
-const STATUS: readonly [PrRow['bucket'], string][] = [
-  ['need', 'Needs your review'],
-  ['updated', 'Updated since your review'],
-  ['waiting', 'Waiting on the author'],
-  ['other', 'Not for you'],
-];
+/** The list for one project: its PRs, setup row, read problem, and whether it is quiet. */
+export const projectList = (list: PrList, project: string): PrList => ({
+  prs: list.prs.filter((pr) => pr.project === project),
+  blocked: list.blocked.filter((row) => row.project === project),
+  problems: list.problems.filter((p) => p.project === project),
+  quiet: list.quiet.filter((name) => name === project),
+});
 
 /**
  * The list's groups. By project, each project with a PR, a blocked CLI or a read problem, sorted
@@ -32,9 +36,9 @@ const STATUS: readonly [PrRow['bucket'], string][] = [
 export function prGroups(list: PrList, by: PrGrouping): PrGroup[] {
   if (by === 'status')
     return [
-      ...STATUS.map(([bucket, title]) => ({
+      ...BUCKETS.map((bucket) => ({
         key: bucket,
-        title,
+        title: BUCKET_LABELS[bucket],
         prs: list.prs.filter((pr) => pr.bucket === bucket),
       })).filter((group) => group.prs.length > 0),
       // A project that cannot be read has no status: it follows, by name, with its fix.
@@ -68,13 +72,8 @@ export function prGroups(list: PrList, by: PrGrouping): PrGroup[] {
     if (row.provider) found.provider = row.provider;
   }
   for (const problem of list.problems) group(problem.project).problem = problem.reason;
-  const urgency = (g: PrGroup) =>
-    g.blocked ? 9 : Math.min(8, ...g.prs.map((pr) => RANK[pr.bucket]));
+  const urgency = (g: PrGroup) => (g.blocked ? 9 : Math.min(8, ...g.prs.map(rank)));
   return [...groups.values()]
-    .map((g) => ({ ...g, prs: [...g.prs].sort((a, b) => RANK[a.bucket] - RANK[b.bucket]) }))
+    .map((g) => ({ ...g, prs: [...g.prs].sort((a, b) => rank(a) - rank(b)) }))
     .sort((a, b) => urgency(a) - urgency(b) || a.title.localeCompare(b.title));
 }
-
-/** The projects that have nothing for me: every one given, less those with a group. */
-export const quietProjects = (projects: readonly string[], groups: readonly PrGroup[]) =>
-  projects.filter((name) => !groups.some((g) => g.key === name));

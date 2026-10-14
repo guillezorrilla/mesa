@@ -1,13 +1,13 @@
 import type { PrList, PrSetupRow } from '@mesa/core';
+import { PR_CLIS } from '@mesa/core/browser';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { cn } from '@/lib/utils';
 import { PullRequestRow } from './PullRequestRow';
-import { actionable, type PrGrouping, prGroups, quietProjects } from './prGroups';
+import { actionable, type PrGrouping, prGroups } from './prGroups';
 
 const PROVIDER = { github: 'GH', bitbucket: 'BB' } as const;
-const NAME = { github: 'GitHub', bitbucket: 'Bitbucket' } as const;
 
 /**
  * The Reviews list, grouped by project (collapsible, most urgent first) or by status, with a Set
@@ -16,14 +16,12 @@ const NAME = { github: 'GitHub', bitbucket: 'Bitbucket' } as const;
 export function ReviewsList(props: {
   list: PrList;
   by: PrGrouping;
-  /** The projects to name in "No open PRs for you in ..." when they have nothing. */
-  projects: readonly string[];
   onSetup: (row: PrSetupRow) => void;
   now: number;
 }) {
   const [closed, setClosed] = useState<string[]>([]);
   const groups = prGroups(props.list, props.by);
-  const quiet = props.by === 'project' ? quietProjects(props.projects, groups) : [];
+  const quiet = props.by === 'project' ? props.list.quiet : [];
   const byStatus = props.by === 'status';
   return (
     <div data-testid="reviews-list" className="space-y-3">
@@ -70,8 +68,8 @@ export function ReviewsList(props: {
                     className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                     onClick={() => group.blocked && props.onSetup(group.blocked)}
                   >
-                    Connect {group.blocked.provider ? NAME[group.blocked.provider] : 'it'} to see
-                    PRs
+                    Connect {group.blocked.provider ? PR_CLIS[group.blocked.provider].name : 'it'}{' '}
+                    to see PRs
                     <span className="ml-auto font-semibold text-state-working">Set up</span>
                   </button>
                 )}

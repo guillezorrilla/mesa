@@ -36,7 +36,7 @@ test('prRemote names the repo', () => {
 test('resolveRemote follows an ssh host alias to its real host, and asks ssh only for one', async () => {
   const { run, calls } = scriptedRunner({
     ssh: (args) =>
-      args[1] === 'github.com-work'
+      args[2] === 'github.com-work'
         ? 'user git\nhostname github.com\nport 22\n'
         : 'hostname gitlab.example.com\n',
   });
@@ -51,8 +51,8 @@ test('resolveRemote follows an ssh host alias to its real host, and asks ssh onl
   });
   expect(await resolveRemote(run, 'https://gitlab.com/acme/web.git')).toBeUndefined();
   expect(calls.map((c) => c.args)).toEqual([
-    ['-G', 'github.com-work'],
-    ['-G', 'code-mirror'],
+    ['-G', '--', 'github.com-work'],
+    ['-G', '--', 'code-mirror'],
   ]);
 });
 

@@ -4,7 +4,7 @@ import type { CliState } from '../lib/cli-state.js';
 import { MesaError } from '../lib/result.js';
 import { listProjects } from '../projects/projects.js';
 import { readBitbucket } from './bitbucket.js';
-import { type Bucket, bucketOf, type Since } from './buckets.js';
+import { BUCKET_LABELS, type Bucket, bucketOf, type Since } from './buckets.js';
 import { readGithub } from './github.js';
 import { PR_CLIS, type PrProvider, prCli, resolveRemote } from './provider.js';
 import type { PrHead, PrReader } from './reader.js';
@@ -28,24 +28,35 @@ export type PrRow = Omit<PrHead, 'authorName'> & {
   since: Since;
 };
 
-/** The list: PRs most urgent first, projects whose CLI is not ready, and repos that failed to read. */
+/**
+ * The list: PRs most urgent first, projects whose CLI is not ready, repos that failed to read,
+ * and the projects read with nothing listed.
+ */
 export type PrList = {
   prs: PrRow[];
   blocked: PrSetupRow[];
   problems: { project: string; reason: string }[];
+  quiet: string[];
 };
 
-const nextStep = (provider: PrProvider, cli: CliState) =>
-  cli.state === 'missing'
-    ? PR_CLIS[provider].install
-    : cli.state === 'unauthenticated'
-      ? PR_CLIS[provider].signIn
-      : null;
+const READERS: Record<PrProvider, PrReader> = { github: readGithub, bitbucket: readBitbucket };
 
-const RANK: Record<PrRow['bucket'], number> = { need: 0, updated: 1, waiting: 2, other: 3 };
+// What unblocks a CLI: install it, sign in, or (not answering) ask it its version by hand.
+const nextStep = (provider: PrProvider, cli: CliState) =>
+  ({
+    ready: null,
+    missing: PR_CLIS[provider].install,
+    unauthenticated: PR_CLIS[provider].signIn,
+    unavailable: `${PR_CLIS[provider].cli} --version`,
+  })[cli.state];
+
+const RANK = Object.fromEntries(Object.keys(BUCKET_LABELS).map((b, i) => [b, i])) as Record<
+  PrRow['bucket'],
+  number
+>;
 
 /** PR reviews (#785): which provider each project uses, and the PRs that need me. */
-export function prsService(ctx: MesaContext, readers: Record<PrProvider, PrReader>) {
+export function prsService(ctx: MesaContext) {
   /** Registered projects (or the one asked for) with their provider and repo from origin, and a CLI probe each provider shares. */
   async function projects(only?: string) {
     const rows = listProjects(ctx.open());
@@ -77,21 +88,22 @@ export function prsService(ctx: MesaContext, readers: Record<PrProvider, PrReade
     },
 
     /**
-     * The open PRs that need me across projects (mesa prs list): mine are never listed, done ones
+     * The open PRs that need me across projects (mesa prs): mine are never listed, done ones
      * drop out, and `all` keeps the ones not for me. Nothing is cached; every call reads.
      */
     async list(opts: { project?: string; all?: boolean } = {}): Promise<PrList> {
-      const list: PrList = { prs: [], blocked: [], problems: [] };
+      const list: PrList = { prs: [], blocked: [], problems: [], quiet: [] };
       await Promise.all(
         (await projects(opts.project)).map(async (p) => {
           if (!('provider' in p) || !p.provider) return;
           if (p.cli.state !== 'ready') return void list.blocked.push(p.setup);
-          const read = await readers[p.provider](ctx.run, p.repo);
+          const read = await READERS[p.provider](ctx.run, p.repo);
           if (!read.ok)
             return void list.problems.push({
               project: p.name,
               reason: `${PR_CLIS[p.provider].cli} ${read.reason}${read.detail ? `: ${read.detail}` : ''}`,
             });
+          const before = list.prs.length;
           for (const pr of read.prs) {
             if (pr.author === read.me) continue;
             const { bucket, since } = bucketOf(pr, read.me);
@@ -102,8 +114,10 @@ export function prsService(ctx: MesaContext, readers: Record<PrProvider, PrReade
               ...{ updatedAt, author, bucket, since },
             });
           }
+          if (list.prs.length === before) list.quiet.push(p.name);
         }),
       );
+      list.quiet.sort();
       list.prs.sort(
         (a, b) => RANK[a.bucket] - RANK[b.bucket] || b.updatedAt.localeCompare(a.updatedAt),
       );
@@ -123,9 +137,3 @@ function setupRow(project: string, provider?: PrProvider, cli?: CliState): PrSet
     next: nextStep(provider, cli),
   };
 }
-
-/** The readers the composition root wires: one per provider. */
-export const PR_READERS: Record<PrProvider, PrReader> = {
-  github: readGithub,
-  bitbucket: readBitbucket,
-};

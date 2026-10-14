@@ -1,12 +1,6 @@
+import { BUCKET_LABELS } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
-
-const BUCKET = {
-  need: 'needs review',
-  updated: 'updated',
-  waiting: 'waiting',
-  other: 'not for you',
-} as const;
 
 export const prs = defineCommand({
   name: 'prs',
@@ -26,7 +20,7 @@ export const prs = defineCommand({
       data.prs.map((p) => [
         p.project,
         `#${p.number}`,
-        BUCKET[p.bucket],
+        BUCKET_LABELS[p.bucket],
         p.author,
         p.bucket === 'updated'
           ? `${p.since.commits} commits, ${p.since.replies} replies, ${p.since.resolved}/${p.since.threads} resolved`
@@ -39,7 +33,7 @@ export const prs = defineCommand({
       text: [
         ...(rows.length ? rows : ['No pull requests need you.']),
         ...data.blocked.map(
-          (b) => `${b.project}: ${b.cli} ${b.state}; run ${b.next ?? 'mesa prs setup'}`,
+          (b) => `${b.project}: ${b.cli} ${b.state}${b.next ? `; run ${b.next}` : ''}`,
         ),
         ...data.problems.map((p) => `${p.project}: ${p.reason}`),
       ].join('\n'),

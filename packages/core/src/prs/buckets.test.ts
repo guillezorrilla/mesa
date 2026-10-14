@@ -52,6 +52,14 @@ test('commits after my review: updated, with the evidence', () => {
   });
 });
 
+test('requested and only commented on: still needs my review', () => {
+  const got = bucketOf(
+    pr({ requested: true, comments: [{ author: 'ana', at: '2026-10-01T10:00:00Z' }] }),
+    'ana',
+  );
+  expect(got.bucket).toBe('need');
+});
+
 test('an author reply after my comment alone makes it updated', () => {
   const got = bucketOf(
     pr({

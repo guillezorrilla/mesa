@@ -175,7 +175,6 @@ export function WorkspaceSidebar(props: {
         ) : tab === 'reviews' ? (
           <ReviewsSection
             prs={props.prs}
-            projects={visible.map((project) => project.name)}
             onSetup={(row) => onView({ kind: 'prs-setup', project: row.project })}
           />
         ) : tab === 'projects' ? (

@@ -136,9 +136,37 @@ test('prs --json lists the PRs that need me, most urgent first, and the blocked 
   expect(all.json.data.blocked).toEqual([]);
 
   const text = await cli.mesa('prs');
-  expect(text.stdout).toMatch(/lantern-cove\s+#12\s+needs review\s+dana-ruiz/);
+  expect(text.stdout).toMatch(/lantern-cove\s+#12\s+Needs your review\s+dana-ruiz/);
   expect(text.stdout).toContain('tide-pool: twg missing; run brew install atlassian/twg/twg');
 
   const unknown = await cli.mesa('prs', '--project', 'nowhere', '--json');
   expect(unknown.code).not.toBe(0);
+});
+
+test('prs --json keeps listing when a repo fails to read, and names the quiet projects', async () => {
+  await world();
+  const run = cli.run;
+  let failing = true;
+  cli.run = (file, args, ...rest) =>
+    file === 'gh' && args[0] === 'api' && failing
+      ? Promise.resolve({ ok: false, reason: 'failed', detail: 'HTTP 502' })
+      : run(file, args, ...rest);
+  const failed = await cli.mesa('prs', '--json');
+  expect(failed.code, failed.stdout).toBe(0);
+  expect(failed.json.data).toMatchObject({
+    prs: [],
+    problems: [{ project: 'lantern-cove', reason: 'gh failed: HTTP 502' }],
+    blocked: [{ project: 'tide-pool' }],
+    quiet: [],
+  });
+
+  // Read fine but with only my own PR: lantern-cove is quiet; driftwood has no provider, so is not.
+  failing = false;
+  const mineOnly = JSON.parse(OPEN_PRS);
+  mineOnly.data.repository.pullRequests.nodes = [pr(13, 'ana-r')];
+  cli.run = (file, args, ...rest) =>
+    file === 'gh' && args[0] === 'api'
+      ? Promise.resolve({ ok: true, stdout: JSON.stringify(mineOnly) })
+      : run(file, args, ...rest);
+  expect((await cli.mesa('prs', '--json')).json.data.quiet).toEqual(['lantern-cove']);
 });

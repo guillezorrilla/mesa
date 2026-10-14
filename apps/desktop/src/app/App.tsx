@@ -11,7 +11,7 @@ import { nearestProject } from '@/features/projects/nearestProject';
 import { ProjectAddDialog } from '@/features/projects/ProjectAddDialog';
 import { useDiscoveryOffer } from '@/features/projects/useDiscoveryOffer';
 import { useSortedProjects } from '@/features/projects/useSortedProjects';
-import { usePrs } from '@/features/prs/usePrs';
+import { PrsContext, usePrs } from '@/features/prs/usePrs';
 import { CommandPalette } from '@/features/search/CommandPalette';
 import { useSearchPalette } from '@/features/search/useSearchPalette';
 import { sidebarGroups } from '@/features/sessions/sidebar/sidebarGroups';
@@ -215,30 +215,32 @@ export function App() {
             }}
           />
           <OpenSettingsContext.Provider value={workspace.openSettings}>
-            <WorkspaceMain
-              view={view}
-              project={project}
-              navigate={navigate}
-              config={config}
-              projects={projects}
-              needsProfileSetup={needsProfileSetup}
-              onProfileInitialised={profileInitialised}
-              prompts={prompts}
-              doctor={doctor}
-              sessions={sessions}
-              onRowsChange={setSessions}
-              onSessionsLoaded={onSessionsLoaded}
-              filesDirty={workspace.filesDirty}
-              onFilesDirtyChange={workspace.setFilesDirty}
-              onNewSession={requestNewSession}
-              onAddProject={setProjectAdd}
-              onProjectUnregistered={projectUnregistered}
-              onVaultSettings={() => workspace.openSettings('general')}
-              archiveSessionRequest={archiveSessionRequest}
-              dependencySessionRequest={dependencySessionRequest}
-              promptInsertRequest={promptInsertRequest}
-              onPrsChanged={() => void prs.list.refresh()}
-            />
+            <PrsContext.Provider value={prs}>
+              <WorkspaceMain
+                view={view}
+                project={project}
+                navigate={navigate}
+                config={config}
+                projects={projects}
+                needsProfileSetup={needsProfileSetup}
+                onProfileInitialised={profileInitialised}
+                prompts={prompts}
+                doctor={doctor}
+                sessions={sessions}
+                onRowsChange={setSessions}
+                onSessionsLoaded={onSessionsLoaded}
+                filesDirty={workspace.filesDirty}
+                onFilesDirtyChange={workspace.setFilesDirty}
+                onNewSession={requestNewSession}
+                onAddProject={setProjectAdd}
+                onProjectUnregistered={projectUnregistered}
+                onVaultSettings={() => workspace.openSettings('general')}
+                archiveSessionRequest={archiveSessionRequest}
+                dependencySessionRequest={dependencySessionRequest}
+                promptInsertRequest={promptInsertRequest}
+                onPrsChanged={() => void prs.list.refresh()}
+              />
+            </PrsContext.Provider>
           </OpenSettingsContext.Provider>
         </div>
         <CommandPalette
