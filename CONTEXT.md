@@ -458,7 +458,7 @@ Not: event, activity, highlight.
 
 ## Impact
 
-What Mesa decided and kept for a person and what happened next (#778): Moments per session under a one-sentence summary, with facts only for outcomes, never estimated savings (`impact/report.ts`). An outcome is the person's next prompt after a session was seen waiting, a hook within 10 minutes agreeing or not with a placement, or a guardrail override; otherwise none yet. Read with `mesa impact [--days <n>] [--project <p>] [--session <id>] --json`, and in the app from the title bar's Impact button (beside Cost), a project's Impact tab, Mesa's part in session details, and Search Mesa (Impact, and once text is typed Impact: <project> and Impact: <session>).
+What Mesa decided and kept for a person and what happened next (#778): Moments per session under a one-sentence summary, with facts only for outcomes, never estimated savings (`impact/report.ts`). An outcome is the person's next prompt after a session was seen waiting, a hook within 10 minutes agreeing or not with a placement, or a guardrail override; otherwise none yet. Read with `mesa impact [--days <n>] [--project <p>] [--session <id>] --json`, and in the app from the title bar's Impact button (beside Cost and Help), a project's Impact tab, Mesa's part in session details, and Search Mesa (Impact, and once text is typed Impact: <project> and Impact: <session>).
 Not: analytics, ROI, stats.
 
 ## Composition root
