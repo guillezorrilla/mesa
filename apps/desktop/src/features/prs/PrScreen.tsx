@@ -92,15 +92,15 @@ export function PrScreen(
   );
   const last = reviews.all.at(-1);
   return (
-    <div data-testid="pr-screen" className="max-w-3xl space-y-5">
-      <div className="flex items-center gap-2 text-muted-foreground text-xs">
-        <span>{pr.project}</span>
+    <div data-testid="pr-screen" className="space-y-5">
+      <div className="flex min-w-0 items-center gap-2 text-muted-foreground text-xs">
+        <span className="shrink-0">{pr.project}</span>
         <span>·</span>
-        <span className="font-mono">
+        <span className="min-w-0 truncate font-mono">
           {pr.branch} {'->'} {pr.base}
         </span>
         <ExternalLink
-          className="ml-auto inline-flex items-center gap-1 hover:text-foreground"
+          className="ml-auto inline-flex shrink-0 items-center gap-1 whitespace-nowrap hover:text-foreground"
           href={pr.url}
         >
           Open on {PR_CLIS[pr.provider].name}
@@ -108,7 +108,7 @@ export function PrScreen(
         </ExternalLink>
       </div>
       <div className="space-y-1.5">
-        <h2 className="text-balance font-semibold text-xl tracking-tight">
+        <h2 className="text-balance break-words font-semibold text-xl tracking-tight">
           {pr.title} <span className="font-normal text-muted-foreground">#{pr.number}</span>
         </h2>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-sm">
