@@ -2,6 +2,16 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.3.2 - 2026-10-14
+
+### Added
+
+- Pick what a session's Diff compares with: the base beside the branch name is now a menu of the checkout's remote and local branches, and `mesa diff --base <ref>` does the same. A session whose agent moved to its own branch now compares with the project's default branch, not the branch its worktree started from. (#824)
+
+### Changed
+
+- A review session now just runs /code-review on the pull request, the same review you get by asking for one, and adds what it finds as draft comments only you can see (or posts them with Post now). Inside a session, `mesa prs draft`, `publish` and `verdict` take the PR number alone. (#824)
+
 ## 0.3.1 - 2026-10-14
 
 ### Added
