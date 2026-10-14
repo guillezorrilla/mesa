@@ -14,6 +14,7 @@ import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { ProjectScreen, type ProjectTab } from '@/features/projects/ProjectScreen';
 import { SavedPromptsScreen } from '@/features/prompts/SavedPromptsScreen';
+import { PrScreen } from '@/features/prs/PrScreen';
 import { PrSetupScreen } from '@/features/prs/PrSetupScreen';
 import { SessionsScreen } from '@/features/sessions/SessionsScreen';
 import type { SessionPreset } from '@/features/sessions/start/useStartSession';
@@ -43,6 +44,9 @@ export function WorkspaceMain(props: {
   onSessionsLoaded: () => void;
   filesDirty: boolean;
   onFilesDirtyChange: (dirty: boolean) => void;
+  /** Each pull request's detail tab last picked, by project#number. */
+  prTabs?: Record<string, string>;
+  onPrTab?: (key: string, tab: string) => void;
   onNewSession: (preset: SessionPreset) => void;
   onAddProject: (request: ProjectAddRequest) => void;
   onProjectUnregistered: (name: string) => void;
@@ -127,6 +131,7 @@ export function WorkspaceMain(props: {
             }
             onAgentSettings={() => navigate({ kind: 'doctor' })}
             onPrSetup={(name) => navigate({ kind: 'prs-setup', project: name })}
+            onPr={(number) => navigate({ kind: 'pr', project: project.name, number })}
             onChanged={() => void projects.refresh()}
             onUnregistered={() => props.onProjectUnregistered(project.name)}
           />
@@ -141,6 +146,15 @@ export function WorkspaceMain(props: {
           key={view.project}
           project={view.project}
           onSession={(id) => navigate({ kind: 'session', id })}
+        />
+      )}
+      {view.kind === 'pr' && (
+        <PrScreen
+          key={`${view.project}#${view.number}`}
+          project={view.project}
+          number={view.number}
+          tab={props.prTabs?.[`${view.project}#${view.number}`]}
+          onTab={(tab) => props.onPrTab?.(`${view.project}#${view.number}`, tab)}
         />
       )}
       {view.kind === 'map' && (

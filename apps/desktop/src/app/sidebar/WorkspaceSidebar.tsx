@@ -23,6 +23,7 @@ import { SessionsSection } from '@/features/sessions/sidebar/SessionsSection';
 import { sidebarGroups, sidebarOrder } from '@/features/sessions/sidebar/sidebarGroups';
 import { useUnfoldOnNewSession } from '@/features/sessions/sidebar/useUnfoldOnNewSession';
 import type { SessionLocation } from '@/features/sessions/start/useStartSession';
+import type { PrRef } from '@/lib/client/prs';
 import { useKeptWidth } from '@/lib/useKeptWidth';
 import { cn } from '@/lib/utils';
 import type { WorkspaceView } from '@/lib/workspaceView';
@@ -54,6 +55,8 @@ export function WorkspaceSidebar(props: {
   /** The session and project last shown: the Sessions and Projects tabs go back to them. */
   lastSession?: string;
   lastProject?: string;
+  /** The pull request last shown: the Reviews tab goes back to it while it is still listed. */
+  lastPr?: PrRef;
   /** Sessions starting, by project (GENERAL_PROJECT for General), shown until they open. */
   starting?: readonly string[];
   onNewSession?: (project: string, kind: SessionLocation, parent?: string) => void;
@@ -72,7 +75,7 @@ export function WorkspaceSidebar(props: {
   useEffect(() => {
     if (view.kind === 'project') setTab('projects');
     if (view.kind === 'session' || view.kind === 'sessions') setTab('sessions');
-    if (view.kind === 'prs-setup') setTab('reviews');
+    if (view.kind === 'prs-setup' || view.kind === 'pr') setTab('reviews');
   }, [view.kind]);
   const groups = sidebarGroups(props.projects, props.sessions);
   const { visible, active, stranded } = groups;
@@ -92,6 +95,15 @@ export function WorkspaceSidebar(props: {
     setTab('projects');
     const last = visible.find((project) => project.name === props.lastProject);
     if (last && view.kind !== 'project') onView({ kind: 'project', name: last.name });
+  };
+  /** The Reviews tab, back on the pull request last shown while it is still listed. */
+  const openReviews = () => {
+    setTab('reviews');
+    const last = props.lastPr;
+    const listed = prs?.list.data?.prs.some(
+      (pr) => pr.project === last?.project && pr.number === last?.number,
+    );
+    if (last && listed && view.kind !== 'pr') onView({ kind: 'pr', ...last });
   };
   const pendingRuns = usePendingRuns();
   const nav = (label: string, icon: LucideIcon, target: WorkspaceView, count = 0) => (
@@ -131,7 +143,7 @@ export function WorkspaceSidebar(props: {
             reviewCount={prs?.toAct ?? 0}
             onSessions={openSessions}
             onProjects={openProjects}
-            onReviews={() => setTab('reviews')}
+            onReviews={openReviews}
           />
         )}
         <Button
@@ -165,7 +177,7 @@ export function WorkspaceSidebar(props: {
               aria-label="Reviews"
               title="Reviews"
               onClick={() => {
-                setTab('reviews');
+                openReviews();
                 props.onCollapse();
               }}
             >
@@ -177,6 +189,8 @@ export function WorkspaceSidebar(props: {
             <ReviewsSection
               prs={prs}
               onSetup={(row) => onView({ kind: 'prs-setup', project: row.project })}
+              onOpen={(pr) => onView({ kind: 'pr', project: pr.project, number: pr.number })}
+              current={view.kind === 'pr' ? view : undefined}
             />
           )
         ) : tab === 'projects' ? (

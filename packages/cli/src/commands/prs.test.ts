@@ -21,6 +21,7 @@ const pr = (number: number, author: string, over: object = {}) => ({
   title: `Change ${number}`,
   url: `https://github.com/acme/lantern-cove/pull/${number}`,
   headRefName: `feat/${number}`,
+  state: 'OPEN',
   updatedAt: `2026-10-1${number % 10}T09:00:00Z`,
   author: { login: author },
   reviewRequests: { nodes: [] },
@@ -169,4 +170,68 @@ test('prs --json keeps listing when a repo fails to read, and names the quiet pr
       ? Promise.resolve({ ok: true, stdout: JSON.stringify(mineOnly) })
       : run(file, args, ...rest);
   expect((await cli.mesa('prs', '--json')).json.data.quiet).toEqual(['lantern-cove']);
+});
+
+test('prs draft leaves one pending inline comment, never submitting, and refuses half an anchor', async () => {
+  await world();
+  const run = cli.run;
+  const queries: string[] = [];
+  const data = (d: unknown) => ({ ok: true as const, stdout: JSON.stringify({ data: d }) });
+  cli.run = (file, args, ...rest) => {
+    if (file !== 'gh' || args[0] !== 'api') return run(file, args, ...rest);
+    const query = args[3] ?? '';
+    queries.push(query);
+    if (query.includes('pending: reviews'))
+      return Promise.resolve(
+        data({ repository: { pullRequest: { id: 'PR_1', pending: { nodes: [] } } } }),
+      );
+    if (query.includes('addPullRequestReview('))
+      return Promise.resolve(
+        data({ addPullRequestReview: { pullRequestReview: { id: 'PRR_1', body: '' } } }),
+      );
+    return Promise.resolve(
+      data({
+        addPullRequestReviewThread: {
+          thread: {
+            comments: {
+              nodes: [{ id: 'PRRC_1', path: 'src/cart.ts', line: 57, body: 'Round once' }],
+            },
+          },
+        },
+      }),
+    );
+  };
+
+  const half = await cli.mesa(
+    'prs',
+    'draft',
+    'lantern-cove',
+    '12',
+    '--path',
+    'src/cart.ts',
+    '--text',
+    'x',
+  );
+  expect(half.code).toBe(2);
+  expect(queries).toEqual([]);
+
+  const drafted = await cli.mesa(
+    'prs',
+    'draft',
+    'lantern-cove',
+    '12',
+    '--path',
+    'src/cart.ts',
+    '--line',
+    '57',
+    '--text',
+    'Round once',
+    '--json',
+  );
+  expect(drafted.code, drafted.stdout).toBe(0);
+  expect(drafted.json.data).toMatchObject({ id: 'PRRC_1', path: 'src/cart.ts', line: 57 });
+  // The provider write keeps a receipt, as a ticket assign does.
+  expect(drafted.json.data.receipt).toMatchObject({ id: expect.any(String) });
+  expect(queries).toHaveLength(3);
+  for (const query of queries) expect(query).not.toMatch(/submitPullRequestReview|event/);
 });

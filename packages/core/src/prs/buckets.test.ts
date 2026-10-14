@@ -48,7 +48,13 @@ test('commits after my review: updated, with the evidence', () => {
   );
   expect(got).toEqual({
     bucket: 'updated',
-    since: { commits: 2, replies: 1, resolved: 1, threads: 2 },
+    since: {
+      lastWord: '2026-10-01T10:00:00.000Z',
+      commits: 2,
+      replies: 1,
+      resolved: 1,
+      threads: 2,
+    },
   });
 });
 

@@ -105,7 +105,13 @@ test('a PR I asked changes on, with later commits, author replies and my two thr
   });
   expect(bucketOf(pr, KOFI)).toEqual({
     bucket: 'updated',
-    since: { commits: 1, replies: 2, resolved: 1, threads: 2 },
+    since: {
+      lastWord: '2026-10-10T14:05:00.000Z',
+      commits: 1,
+      replies: 2,
+      resolved: 1,
+      threads: 2,
+    },
   });
   expect(read.prs[2]?.reviews).toEqual([
     { author: AMARA, state: 'approved', at: '2026-10-10T16:00:00.000000+00:00' },

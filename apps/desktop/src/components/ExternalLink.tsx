@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 
-/** A link that opens in the browser. */
-export function ExternalLink(props: { href: string; children: ReactNode }) {
+/** A link that opens in the browser; `className` replaces its default underlined look. */
+export function ExternalLink(props: { href: string; children: ReactNode; className?: string }) {
   return (
     <a
-      className="text-primary underline"
+      className={props.className ?? 'text-primary underline'}
       href={props.href}
       target="_blank"
       rel="noopener noreferrer"

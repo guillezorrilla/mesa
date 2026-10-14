@@ -1,28 +1,35 @@
 import type { PrRow } from '@mesa/core';
 import { shortAgo } from '@mesa/core/browser';
 import { cn } from '@/lib/utils';
+import { PR_TONE } from './prTone';
 
 const TAG: Partial<Record<PrRow['bucket'], { label: string; className: string }>> = {
-  need: { label: 'Review', className: 'bg-state-working/10 text-state-working' },
-  updated: { label: 'Updated', className: 'bg-state-waiting/15 text-state-waiting' },
+  need: { label: 'Review', className: cn(PR_TONE.need.box, PR_TONE.need.text) },
+  updated: { label: 'Updated', className: cn(PR_TONE.updated.box, PR_TONE.updated.text) },
 };
 
 /**
  * One PR in the Reviews list: its title, then `#n · author · age`, with a tag only when it asks
- * something of me; waiting rows are dimmed. Opens the PR on its provider until the detail exists.
+ * something of me; waiting rows are dimmed. Opens its detail; marked while that is shown.
  */
-export function PullRequestRow(props: { pr: PrRow; showProject?: boolean; now: number }) {
+export function PullRequestRow(props: {
+  pr: PrRow;
+  showProject?: boolean;
+  now: number;
+  current?: boolean;
+  onOpen: (pr: PrRow) => void;
+}) {
   const { pr } = props;
   const tag = TAG[pr.bucket];
   const quiet = pr.bucket === 'waiting' || pr.bucket === 'other';
   return (
-    <a
+    <button
+      type="button"
       data-testid="pr-row"
-      href={pr.url}
-      target="_blank"
-      rel="noopener noreferrer"
+      aria-current={props.current ? 'page' : undefined}
       title={pr.title}
-      className="grid grid-cols-[1fr_auto] items-center gap-x-2 rounded-md px-2 py-1.5 hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+      className="grid w-full grid-cols-[1fr_auto] items-center gap-x-2 rounded-md px-2 py-1.5 text-left hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:bg-accent"
+      onClick={() => props.onOpen(pr)}
     >
       <span
         className={cn('truncate text-sm font-medium', quiet && 'font-normal text-muted-foreground')}
@@ -45,6 +52,6 @@ export function PullRequestRow(props: { pr: PrRow; showProject?: boolean; now: n
         {props.showProject ? `${pr.project} · ` : ''}#{pr.number} · {pr.author} ·{' '}
         {shortAgo(pr.updatedAt, props.now)}
       </span>
-    </a>
+    </button>
   );
 }

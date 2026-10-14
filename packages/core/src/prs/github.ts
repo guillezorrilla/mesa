@@ -1,115 +1,45 @@
 import { z } from 'zod';
-import { HttpsUrl } from '../git/pull-requests.js';
-import { runJson } from '../lib/run-json.js';
-import type { PrReader } from './reader.js';
+import { discardGithub, draftGithub } from './github-draft.js';
+import { ghGraphql, repoVars } from './github-graphql.js';
+import { Nodes, PR_FACTS, PrNode, toPr } from './github-pr.js';
+import { showGithub } from './github-show.js';
+import type { PrProviderApi, PrReader } from './reader.js';
 
 // One GraphQL call per repo: its open PRs with what the bucket rule needs, and who I am.
-// ponytail: the last 50 of each event list per PR and 50 PRs per repo; page when a repo outgrows it.
+// ponytail: 50 PRs per repo; page when a repo outgrows it.
 const QUERY = `query($owner: String!, $name: String!) {
   viewer { login }
   repository(owner: $owner, name: $name) {
     pullRequests(states: OPEN, first: 50, orderBy: {field: UPDATED_AT, direction: DESC}) {
-      nodes {
-        number title url headRefName updatedAt
-        author { login }
-        reviewRequests(first: 20) { nodes { requestedReviewer { ... on User { login } } } }
-        reviews(last: 50) { nodes { author { login } state submittedAt } }
-        comments(last: 50) { nodes { author { login } createdAt } }
-        commits(last: 50) { nodes { commit { committedDate } } }
-        reviewThreads(first: 100) {
-          nodes { isResolved comments(last: 50) { nodes { author { login } createdAt } } }
-        }
-      }
+      nodes { ...PrFacts }
     }
   }
-}`;
-
-// A deleted account comes back as a null author.
-const Login = z
-  .object({ login: z.string() })
-  .nullable()
-  .transform((a) => a?.login ?? 'ghost');
-const Nodes = <T extends z.ZodType>(node: T) => z.object({ nodes: z.array(node) });
-const Comment = z.object({ author: Login, createdAt: z.string() });
+}
+${PR_FACTS}`;
 
 const Response = z.object({
   data: z.object({
     viewer: z.object({ login: z.string() }),
-    repository: z.object({
-      pullRequests: Nodes(
-        z.object({
-          number: z.number().int(),
-          title: z.string(),
-          url: HttpsUrl,
-          headRefName: z.string(),
-          updatedAt: z.string(),
-          author: Login,
-          reviewRequests: Nodes(
-            z.object({
-              requestedReviewer: z.object({ login: z.string().optional() }).nullable(),
-            }),
-          ),
-          reviews: Nodes(
-            z.object({ author: Login, state: z.string(), submittedAt: z.string().nullable() }),
-          ),
-          comments: Nodes(Comment),
-          commits: Nodes(z.object({ commit: z.object({ committedDate: z.string() }) })),
-          reviewThreads: Nodes(z.object({ isResolved: z.boolean(), comments: Nodes(Comment) })),
-        }),
-      ),
-    }),
+    repository: z.object({ pullRequests: Nodes(PrNode) }),
   }),
 });
 
-const REVIEW_STATE = { APPROVED: 'approved', CHANGES_REQUESTED: 'changes' } as const;
-
 /** A GitHub repo's open PRs through `gh api graphql`; `repo` is `owner/name`. */
 export const readGithub: PrReader = async (run, repo) => {
-  const [owner = '', name = ''] = repo.split('/');
-  const read = await runJson(
-    run,
-    'gh',
-    // -f, never -F: a repo named `2048` stays a string, and `@file` is never read.
-    ['api', 'graphql', '-f', `query=${QUERY}`, '-f', `owner=${owner}`, '-f', `name=${name}`],
-    Response,
-    30_000,
-  );
+  const read = await ghGraphql(run, QUERY, { strings: repoVars(repo) }, Response);
   if (!read.ok) return read;
   const { viewer, repository } = read.value.data;
-  const me = viewer.login;
   return {
     ok: true,
-    me,
-    prs: repository.pullRequests.nodes.map((pr) => ({
-      number: pr.number,
-      title: pr.title,
-      url: pr.url,
-      branch: pr.headRefName,
-      updatedAt: pr.updatedAt,
-      author: pr.author,
-      authorName: pr.author,
-      state: 'open' as const,
-      requested: pr.reviewRequests.nodes.some((r) => r.requestedReviewer?.login === me),
-      reviews: pr.reviews.nodes.flatMap((r) =>
-        r.submittedAt && r.state !== 'PENDING' && r.state !== 'DISMISSED'
-          ? [
-              {
-                author: r.author,
-                state: REVIEW_STATE[r.state as keyof typeof REVIEW_STATE] ?? 'commented',
-                at: r.submittedAt,
-              },
-            ]
-          : [],
-      ),
-      comments: [
-        ...pr.comments.nodes,
-        ...pr.reviewThreads.nodes.flatMap((t) => t.comments.nodes),
-      ].map((c) => ({ author: c.author, at: c.createdAt })),
-      commits: pr.commits.nodes.map((c) => c.commit.committedDate),
-      threads: pr.reviewThreads.nodes.map((t) => ({
-        author: t.comments.nodes[0]?.author ?? 'ghost',
-        resolved: t.isResolved,
-      })),
-    })),
+    me: viewer.login,
+    prs: repository.pullRequests.nodes.map((pr) => toPr(pr, viewer.login)),
   };
+};
+
+/** GitHub through `gh api graphql`: reads, and drafts that stay in my pending review (ADR-0024). */
+export const githubApi: PrProviderApi = {
+  list: readGithub,
+  show: showGithub,
+  draft: draftGithub,
+  discard: discardGithub,
 };

@@ -17,16 +17,6 @@ export function tally(added: number, removed: number): ('added' | 'removed' | 'e
   );
 }
 
-/** Added and removed line counts, as +12 -3. */
-export function Stat(props: { added: number; removed: number }) {
-  return (
-    <span className="shrink-0 font-mono text-xs tabular-nums">
-      <span className="text-state-idle">+{props.added}</span>{' '}
-      <span className="text-state-failed">-{props.removed}</span>
-    </span>
-  );
-}
-
 /** The changed files: name over folder, status letter, and each one's five-cell diffstat. */
 export function DiffFileList(props: {
   files: DiffFile[];

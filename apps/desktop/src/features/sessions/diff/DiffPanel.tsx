@@ -14,13 +14,14 @@ import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
 import { ResizeHandle } from '@/components/ResizeHandle';
+import { Stat } from '@/components/Stat';
 import { Button } from '@/components/ui/button';
 import { GitDiffHeader } from '@/features/git/diff/GitDiffHeader';
 import { GitDiffRows } from '@/features/git/diff/GitDiffRows';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { useKeptWidth } from '@/lib/useKeptWidth';
 import { cn } from '@/lib/utils';
-import { DiffFileList, Stat } from './DiffFileList';
+import { DiffFileList } from './DiffFileList';
 import { diffFiles } from './diffFiles';
 
 /** The panel's width bounds beside the terminal, which always keeps TERMINAL_MIN pixels. */

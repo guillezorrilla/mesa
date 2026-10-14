@@ -1,12 +1,18 @@
-import type { PrSetupRow } from '@mesa/core';
+import type { PrRow, PrSetupRow } from '@mesa/core';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import type { PrRef } from '@/lib/client/prs';
 import { CheckedLine } from './CheckedLine';
 import { ReviewsList } from './ReviewsList';
 import { useGrouping } from './useGrouping';
 import type { Prs } from './usePrs';
 
 /** The sidebar's Reviews tab: the grouping toggle, the list, and when it was read with Refresh. */
-export function ReviewsSection(props: { prs: Prs; onSetup: (row: PrSetupRow) => void }) {
+export function ReviewsSection(props: {
+  prs: Prs;
+  onSetup: (row: PrSetupRow) => void;
+  onOpen: (pr: PrRow) => void;
+  current?: PrRef;
+}) {
   const [by, setBy] = useGrouping();
   const now = Date.now();
   return (
@@ -22,7 +28,14 @@ export function ReviewsSection(props: { prs: Prs; onSetup: (row: PrSetupRow) => 
         onChange={setBy}
       />
       <div className="min-h-0 flex-1">
-        <ReviewsList read={props.prs.list} by={by} onSetup={props.onSetup} now={now} />
+        <ReviewsList
+          read={props.prs.list}
+          by={by}
+          onSetup={props.onSetup}
+          onOpen={props.onOpen}
+          current={props.current}
+          now={now}
+        />
       </div>
       <CheckedLine prs={props.prs} now={now} className="border-t px-1 pt-2" />
     </div>

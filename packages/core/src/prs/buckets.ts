@@ -30,11 +30,28 @@ export const BUCKET_LABELS = {
 export const bucketRank = (bucket: Exclude<Bucket, 'done'>) =>
   Object.keys(BUCKET_LABELS).indexOf(bucket);
 
+/** Where one PR stands for me: my pending drafts waiting to be submitted first, else its bucket. */
+export const prStatus = (pr: { bucket: Bucket; drafts: readonly unknown[] }): 'drafts' | Bucket =>
+  pr.drafts.length ? 'drafts' : pr.bucket;
+
 /** The bucket asks something of me: a first review, or a look at what changed since mine. */
 export const actionable = (bucket: Bucket) => bucket === 'need' || bucket === 'updated';
 
-/** The evidence a row shows: commits and author replies since my last word, my threads resolved. */
-export type Since = { commits: number; replies: number; resolved: number; threads: number };
+/**
+ * The evidence a row shows: when I last reviewed or commented (null: never), the commits and
+ * author replies since, and my threads resolved.
+ */
+export type Since = {
+  lastWord: string | null;
+  commits: number;
+  replies: number;
+  resolved: number;
+  threads: number;
+};
+
+/** Where a comment sits, as people read it: `path:line`, the file alone, or the review summary. */
+export const commentPlace = (c: { path: string | null; line: number | null }) =>
+  c.path ? `${c.path}${c.line ? `:${c.line}` : ''}` : 'Review summary';
 
 const latest = (times: string[]) => Math.max(-Infinity, ...times.map((t) => Date.parse(t)));
 
@@ -47,6 +64,7 @@ export function bucketOf(pr: PrFacts, me: string): { bucket: Bucket; since: Sinc
   ]);
   const after = (t: string) => Date.parse(t) > lastWord;
   const since: Since = {
+    lastWord: lastWord === -Infinity ? null : new Date(lastWord).toISOString(),
     commits: pr.commits.filter(after).length,
     replies: pr.comments.filter((c) => c.author === pr.author && after(c.at)).length,
     resolved: mine.filter((t) => t.resolved).length,

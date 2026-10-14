@@ -190,6 +190,7 @@ export function App() {
               starting={starting}
               lastSession={workspace.lastSession}
               lastProject={workspace.lastProject}
+              lastPr={workspace.lastPr}
               onNewSession={(project, location, parent) =>
                 requestNewSession({
                   ...(project === GENERAL_PROJECT ? { general: true } : { project }),
@@ -232,6 +233,8 @@ export function App() {
                   onSessionsLoaded={onSessionsLoaded}
                   filesDirty={workspace.filesDirty}
                   onFilesDirtyChange={workspace.setFilesDirty}
+                  prTabs={workspace.prTabs}
+                  onPrTab={workspace.setPrTab}
                   onNewSession={requestNewSession}
                   onAddProject={setProjectAdd}
                   onProjectUnregistered={projectUnregistered}

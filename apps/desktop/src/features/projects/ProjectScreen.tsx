@@ -60,6 +60,8 @@ export function ProjectScreen(props: {
   onAgentSettings: () => void;
   /** Opens the screen that connects the project's PR provider (gh or twg). */
   onPrSetup: (project: string) => void;
+  /** Opens one of the project's pull requests. */
+  onPr: (number: number) => void;
 }) {
   const { project } = props;
   const [tab, setTab] = useState<ProjectTab>(props.initialTab ?? 'overview');
@@ -73,7 +75,6 @@ export function ProjectScreen(props: {
   const worktrees = useCommand('worktrees.list', { project: project.name });
   const [gitRevision, setGitRevision] = useState(0);
   const gitChanges = useGitChangeCount(project.name, gitRevision);
-  const [allPrs, setAllPrs] = useState(false);
   // The count comes from the app's one read of every project; only the Reviews tab reads its own.
   const prs = useSharedPrs();
   const reviews =
@@ -147,9 +148,8 @@ export function ProjectScreen(props: {
       ) : tab === 'reviews' ? (
         <ReviewsTab
           project={project.name}
-          all={allPrs}
-          onAll={setAllPrs}
           onSetup={(row) => props.onPrSetup(row.project)}
+          onOpen={(pr) => props.onPr(pr.number)}
         />
       ) : tab === 'git' ? (
         <GitTab
