@@ -1,10 +1,11 @@
 import type { PrRow } from '@mesa/core';
 import { shortAgo } from '@mesa/core/browser';
 import { cn } from '@/lib/utils';
+import { PR_TONE } from './prTone';
 
 const TAG: Partial<Record<PrRow['bucket'], { label: string; className: string }>> = {
-  need: { label: 'Review', className: 'bg-state-working/10 text-state-working' },
-  updated: { label: 'Updated', className: 'bg-state-waiting/15 text-state-waiting' },
+  need: { label: 'Review', className: cn(PR_TONE.need.box, PR_TONE.need.text) },
+  updated: { label: 'Updated', className: cn(PR_TONE.updated.box, PR_TONE.updated.text) },
 };
 
 /**

@@ -1,6 +1,15 @@
 import { z } from 'zod';
 import { ghGraphql, repoVars } from './github-graphql.js';
-import { Nodes, PR_FACTS, PrNode, submitted, Thread, ThreadComment, toPr } from './github-pr.js';
+import {
+  Nodes,
+  PR_FACTS,
+  PrNode,
+  submitted,
+  summaryDraft,
+  Thread,
+  ThreadComment,
+  toPr,
+} from './github-pr.js';
 import type { PrDraft, PrProviderApi, PrRead, PrThread } from './reader.js';
 
 // One PR in full: the list's facts, plus its threads, my pending review and its files. Fields named
@@ -77,9 +86,6 @@ const CHECKS: Record<string, PrRead['checks']> = {
   EXPECTED: 'pending',
 };
 
-/** A summary draft's id: the pending review's, marked so discard clears the body, not a comment. */
-export const SUMMARY_PREFIX = 'review:';
-
 /** One GitHub PR in full through one `gh api graphql` call. */
 export const showGithub: PrProviderApi['show'] = async (run, repo, number) => {
   const read = await ghGraphql(run, QUERY, { strings: repoVars(repo), ints: { number } }, Response);
@@ -110,9 +116,7 @@ export const showGithub: PrProviderApi['show'] = async (run, repo, number) => {
   const review = pr.pending.nodes[0];
   const drafts: PrDraft[] = review
     ? [
-        ...(review.body.trim()
-          ? [{ id: `${SUMMARY_PREFIX}${review.id}`, path: null, line: null, body: review.body }]
-          : []),
+        ...(review.body.trim() ? [summaryDraft(review)] : []),
         ...review.comments.nodes.map((c) => ({
           id: c.id,
           path: c.path,

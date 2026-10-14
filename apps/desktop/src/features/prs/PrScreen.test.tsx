@@ -128,7 +128,7 @@ test('the tabs open on drafts, else my comments, else files, and switch on click
   await click(tab('Files'));
   expect(selectedTab()).toBe('Files2');
   expect(document.querySelector('[data-testid="pr-tab-files"]')?.textContent).toContain(
-    'test/edge/cache.test.ts+83-19',
+    'test/edge/cache.test.ts+83 -19',
   );
 
   await show(detail({ threads: [] }));

@@ -108,9 +108,15 @@ export {
   trustCommand,
 } from './projects/trust.js';
 export type { SavedPrompt } from './prompts/prompts.js';
-export { BUCKET_LABELS, type Bucket, commentPlace, type Since } from './prs/buckets.js';
-export type { PrProvider } from './prs/provider.js';
-export type { DraftInput, PrDraft, PrFile, PrThread } from './prs/reader.js';
+export {
+  BUCKET_LABELS,
+  type Bucket,
+  commentPlace,
+  prStatus,
+  type Since,
+} from './prs/buckets.js';
+export { PR_CLIS, type PrProvider } from './prs/provider.js';
+export type { PrDraft } from './prs/reader.js';
 export type { PrDetail, PrList, PrRow, PrSetupRow } from './prs/service.js';
 export { RECORD_KINDS } from './receipts/policy.js';
 export type { Recorded } from './receipts/recorder.js';

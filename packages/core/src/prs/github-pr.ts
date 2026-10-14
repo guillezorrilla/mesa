@@ -1,7 +1,18 @@
 import { z } from 'zod';
 import { HttpsUrl } from '../git/pull-requests.js';
 import type { PrFacts } from './buckets.js';
-import type { PrHead } from './reader.js';
+import type { PrDraft, PrHead } from './reader.js';
+
+/** A summary draft's id: the pending review's, marked so discard clears the body, not a comment. */
+export const SUMMARY_PREFIX = 'review:';
+
+/** My pending review's body as a draft with no place: the review summary. */
+export const summaryDraft = (review: { id: string; body: string }): PrDraft => ({
+  id: `${SUMMARY_PREFIX}${review.id}`,
+  path: null,
+  line: null,
+  body: review.body,
+});
 
 // What a PR tells the bucket rule, read the same way by the list and the detail.
 // ponytail: the last 50 of each event list per PR; page when a PR outgrows it.

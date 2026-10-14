@@ -16,6 +16,7 @@ export const PR_CLIS = {
     install: 'brew install gh',
     manual: 'https://cli.github.com',
     signIn: 'gh auth login --web',
+    submit: 'Submit on GitHub',
   },
   bitbucket: {
     name: 'Bitbucket',
@@ -24,6 +25,7 @@ export const PR_CLIS = {
     install: 'brew install atlassian/twg/twg',
     manual: 'bash <(curl -fsSL https://teamwork-graph.atlassian.com/cli/install)',
     signIn: 'twg login',
+    submit: 'Finish review in Bitbucket',
     connect: 'twg setup bitbucket',
   },
 } as const satisfies Record<
@@ -35,6 +37,8 @@ export const PR_CLIS = {
     install: string;
     manual: string;
     signIn: string;
+    /** Where I publish my pending drafts, on the provider. */
+    submit: string;
     connect?: string;
   }
 >;

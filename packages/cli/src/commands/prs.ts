@@ -1,4 +1,11 @@
-import { BUCKET_LABELS, type PrDraft, commentPlace as where } from '@mesa/core';
+import {
+  BUCKET_LABELS,
+  counted,
+  PR_CLIS,
+  type PrDraft,
+  prStatus,
+  commentPlace as where,
+} from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { wholeNumber } from '../input/flags.js';
 import { columns } from '../output/columns.js';
@@ -17,10 +24,16 @@ export const prsShow = defineCommand({
   example: 'mesa prs show lantern-cove 482',
   run: async ({ mesa, args }) => {
     const data = await mesa.prs.show(args.project, wholeNumber(args.number, 'number'));
+    const status = prStatus(data);
     return {
       data,
       text: [
-        `#${data.number} ${data.title} (${data.bucket === 'done' ? 'Done' : BUCKET_LABELS[data.bucket]})`,
+        `#${data.number} ${data.title}`,
+        status === 'drafts'
+          ? `${counted(data.drafts.length, 'pending draft')}: ${PR_CLIS[data.provider].submit}`
+          : status === 'done'
+            ? 'Done'
+            : BUCKET_LABELS[status],
         `${data.author} · ${data.branch} -> ${data.base} · +${data.additions} -${data.deletions} · checks ${data.checks ?? 'none'}`,
         data.url,
         '',

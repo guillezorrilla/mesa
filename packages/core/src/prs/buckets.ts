@@ -30,6 +30,10 @@ export const BUCKET_LABELS = {
 export const bucketRank = (bucket: Exclude<Bucket, 'done'>) =>
   Object.keys(BUCKET_LABELS).indexOf(bucket);
 
+/** Where one PR stands for me: my pending drafts waiting to be submitted first, else its bucket. */
+export const prStatus = (pr: { bucket: Bucket; drafts: readonly unknown[] }): 'drafts' | Bucket =>
+  pr.drafts.length ? 'drafts' : pr.bucket;
+
 /** The bucket asks something of me: a first review, or a look at what changed since mine. */
 export const actionable = (bucket: Bucket) => bucket === 'need' || bucket === 'updated';
 

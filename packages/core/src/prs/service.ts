@@ -6,18 +6,17 @@ import { MesaError } from '../lib/result.js';
 import type { JsonRead } from '../lib/run-json.js';
 import { listProjects } from '../projects/projects.js';
 import { bitbucketApi } from './bitbucket.js';
-import { type Bucket, bucketOf, bucketRank, commentPlace, type Since } from './buckets.js';
+import {
+  type Bucket,
+  bucketOf,
+  bucketRank,
+  commentPlace,
+  type PrFacts,
+  type Since,
+} from './buckets.js';
 import { githubApi } from './github.js';
 import { PR_CLIS, type PrProvider, prCli, resolveRemote } from './provider.js';
-import type {
-  DraftInput,
-  PrDraft,
-  PrFile,
-  PrHead,
-  PrProviderApi,
-  PrRead,
-  PrThread,
-} from './reader.js';
+import type { DraftInput, PrDraft, PrHead, PrProviderApi, PrRead } from './reader.js';
 
 /** A project's PR provider and its CLI's state; `next` is the command that unblocks it, if any. */
 export type PrSetupRow = {
@@ -50,20 +49,30 @@ export type PrList = {
 };
 
 /** One PR in full (mesa prs show): its row, the detail, my threads, my Pending drafts, its files. */
-export type PrDetail = Omit<PrRow, 'bucket'> &
-  Pick<PrRead, 'base' | 'additions' | 'deletions' | 'checks'> & {
-    bucket: Bucket;
-    threads: PrThread[];
-    drafts: PrDraft[];
-    files: PrFile[];
-  };
+export type PrDetail = Omit<PrRow, 'bucket'> & Omit<PrRead, 'me' | 'pr'> & { bucket: Bucket };
 
 const APIS: Record<PrProvider, PrProviderApi> = { github: githubApi, bitbucket: bitbucketApi };
 
-/** A CLI read's value, or its failure as an error naming the CLI. */
+/** Why a CLI read failed, naming the CLI. */
+const failure = (cli: string, read: { reason: string; detail?: string }) =>
+  `${cli} ${read.reason}${read.detail ? `: ${read.detail}` : ''}`;
+
+/** A CLI read's value, or its failure as an error naming the CLI and where to fix it. */
 function unwrap<T>(cli: string, read: JsonRead<T>): T {
   if (read.ok) return read.value;
-  throw new MesaError('internal', `${cli} ${read.reason}${read.detail ? `: ${read.detail}` : ''}`);
+  throw new MesaError('internal', `${failure(cli, read)}; see mesa prs setup`);
+}
+
+/** A provider's PR as the list and the detail both name it, in my bucket. */
+function rowOf(
+  project: string,
+  provider: PrProvider,
+  pr: PrHead & PrFacts,
+  me: string,
+): Omit<PrRow, 'bucket'> & { bucket: Bucket } {
+  const { bucket, since } = bucketOf(pr, me);
+  const { number, title, url, branch, updatedAt, authorName: author } = pr;
+  return { project, provider, number, title, url, branch, updatedAt, author, bucket, since };
 }
 
 // What unblocks a CLI: install it, sign in, or (not answering) ask it its version by hand.
@@ -104,37 +113,27 @@ export function prsService(ctx: MesaContext) {
     );
   }
 
-  /** The project's provider, repo and CLI, ready; refused, naming what unblocks it, otherwise. */
+  /**
+   * The project's provider and repo from its origin remote; refused when it has none. The CLI is
+   * not probed here: a missing or signed-out one fails the provider call itself (unwrap).
+   */
   async function reach(project: string) {
-    const [p] = await projects(project);
-    if (!p || !('provider' in p) || !p.provider)
+    const entry = listProjects(ctx.open()).find((p) => p.name === project);
+    if (!entry) throw new MesaError('not_found', `no project named ${project}`);
+    const remote = await gitCommand(ctx.run, entry.path, ['remote', 'get-url', 'origin']);
+    const found = remote.ok ? await resolveRemote(ctx.run, remote.stdout) : undefined;
+    if (!found)
       throw new MesaError('usage', `${project}'s origin remote is not on GitHub or Bitbucket`);
-    if (p.cli.state !== 'ready')
-      throw new MesaError(
-        'usage',
-        `${p.setup.cli} is ${p.cli.state}${p.setup.next ? `; run ${p.setup.next}` : ''}`,
-      );
-    return {
-      provider: p.provider,
-      repo: p.repo,
-      api: APIS[p.provider],
-      cli: PR_CLIS[p.provider].cli,
-    };
+    return { ...found, api: APIS[found.provider], cli: PR_CLIS[found.provider].cli };
   }
 
   async function show(project: string, number: number): Promise<PrDetail> {
     const { provider, repo, api, cli } = await reach(project);
-    const read = unwrap(cli, await api.show(ctx.run, repo, number));
-    const { pr, me } = read;
-    const { bucket, since } = bucketOf(pr, me);
+    const { me, pr, threads, ...detail } = unwrap(cli, await api.show(ctx.run, repo, number));
     return {
-      ...{ project, provider, number: pr.number, title: pr.title, url: pr.url, branch: pr.branch },
-      ...{ updatedAt: pr.updatedAt, author: pr.authorName, bucket, since },
-      ...{ base: read.base, additions: read.additions, deletions: read.deletions },
-      checks: read.checks,
-      threads: read.threads.filter((t) => t.author === me),
-      drafts: read.drafts,
-      files: read.files,
+      ...rowOf(project, provider, pr, me),
+      ...detail,
+      threads: threads.filter((t) => t.author === me),
     };
   }
 
@@ -213,18 +212,14 @@ export function prsService(ctx: MesaContext) {
         if (!read.ok)
           return void list.problems.push({
             project: p.name,
-            reason: `${PR_CLIS[p.provider].cli} ${read.reason}${read.detail ? `: ${read.detail}` : ''}`,
+            reason: failure(PR_CLIS[p.provider].cli, read),
           });
         const before = list.prs.length;
         for (const pr of read.prs) {
           if (pr.author === read.me) continue;
-          const { bucket, since } = bucketOf(pr, read.me);
-          if (bucket === 'done' || (bucket === 'other' && !opts.all)) continue;
-          const { number, title, url, branch, updatedAt, authorName: author } = pr;
-          list.prs.push({
-            ...{ project: p.name, provider: p.provider, number, title, url, branch },
-            ...{ updatedAt, author, bucket, since },
-          });
+          const row = rowOf(p.name, p.provider, pr, read.me);
+          if (row.bucket === 'done' || (row.bucket === 'other' && !opts.all)) continue;
+          list.prs.push({ ...row, bucket: row.bucket });
         }
         if (list.prs.length === before) list.quiet.push(p.name);
       });

@@ -2,6 +2,7 @@ import type { PrDetail, PrDraft } from '@mesa/core';
 import { commentPlace } from '@mesa/core/browser';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
+import { Stat } from '@/components/Stat';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -81,11 +82,10 @@ export function PrDetailPanel(props: { pr: PrDetail; onDiscard: (draft: PrDraft)
             pr.files.map((f) => (
               <div
                 key={f.path}
-                className="grid grid-cols-[1fr_auto_auto] gap-4 border-b py-2 font-mono text-xs last:border-b-0"
+                className="grid grid-cols-[1fr_auto] gap-4 border-b py-2 font-mono text-xs last:border-b-0"
               >
                 <span className="truncate">{f.path}</span>
-                <span className="text-state-idle tabular-nums">+{f.additions}</span>
-                <span className="text-state-failed tabular-nums">-{f.deletions}</span>
+                <Stat added={f.additions} removed={f.deletions} />
               </div>
             ))
           ) : (

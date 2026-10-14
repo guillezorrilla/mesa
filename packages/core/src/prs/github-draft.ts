@@ -2,23 +2,22 @@ import { z } from 'zod';
 import type { Runner } from '../lib/process.js';
 import type { JsonRead } from '../lib/run-json.js';
 import { ghGraphql, repoVars } from './github-graphql.js';
-import { SUMMARY_PREFIX } from './github-show.js';
-import type { PrDraft, PrProviderApi } from './reader.js';
+import { Nodes, SUMMARY_PREFIX, summaryDraft } from './github-pr.js';
+import type { PrProviderApi } from './reader.js';
 
 // Every write lands in my pending review, which only I see until I submit it on GitHub. None of
 // these mutations takes a review event, so nothing here can post, approve or submit (ADR-0024).
 
+// The PR and my pending review, if any, with its draft comments: what draft writes into and what
+// discard checks an id against.
+// ponytail: a pending review's first 100 comments; a review with more drafts than that is unlikely.
 const PENDING = `query($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
-    pullRequest(number: $number) { id pending: reviews(states: PENDING, first: 1) { nodes { id body } } }
-  }
-}`;
-
-// ponytail: a pending review's first 100 comments; a review with more drafts than that is unlikely.
-const MINE = `query($owner: String!, $name: String!, $number: Int!) {
-  repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
-      pending: reviews(states: PENDING, first: 1) { nodes { id comments(first: 100) { nodes { id } } } }
+      id
+      pending: reviews(states: PENDING, first: 1) {
+        nodes { id body comments(first: 100) { nodes { id } } }
+      }
     }
   }
 }`;
@@ -74,34 +73,20 @@ const Left = z.object({
 const PendingRes = z.object({
   data: z.object({
     repository: z.object({
-      pullRequest: z.object({ id: z.string(), pending: z.object({ nodes: z.array(Review) }) }),
-    }),
-  }),
-});
-const MineRes = z.object({
-  data: z.object({
-    repository: z.object({
       pullRequest: z.object({
-        pending: z.object({
-          nodes: z.array(
-            z.object({
-              id: z.string(),
-              comments: z.object({ nodes: z.array(z.object({ id: z.string() })) }),
-            }),
-          ),
-        }),
+        id: z.string(),
+        pending: Nodes(Review.extend({ comments: Nodes(z.object({ id: z.string() })) })),
       }),
     }),
   }),
 });
+type Pending = z.infer<typeof PendingRes>['data']['repository']['pullRequest'];
 const StartRes = z.object({
   data: z.object({ addPullRequestReview: z.object({ pullRequestReview: Review }) }),
 });
 const InlineRes = z.object({
   data: z.object({
-    addPullRequestReviewThread: z.object({
-      thread: z.object({ comments: z.object({ nodes: z.array(Comment) }) }),
-    }),
+    addPullRequestReviewThread: z.object({ thread: z.object({ comments: Nodes(Comment) }) }),
   }),
 });
 const ReplyRes = z.object({
@@ -115,6 +100,17 @@ const DeleteRes = z.object({
 });
 const DeleteEmptyRes = z.object({ data: z.object({ deletePullRequestReview: z.unknown() }) });
 
+/** The PR's id and my pending review on it, if I have one. */
+async function pendingOf(run: Runner, repo: string, number: number): Promise<JsonRead<Pending>> {
+  const read = await ghGraphql(
+    run,
+    PENDING,
+    { strings: repoVars(repo), ints: { number } },
+    PendingRes,
+  );
+  return read.ok ? { ok: true, value: read.value.data.repository.pullRequest } : read;
+}
+
 /** My pending review on the PR, started (with no event, so it stays pending) when I have none. */
 async function pendingReview(
   run: Runner,
@@ -122,17 +118,11 @@ async function pendingReview(
   number: number,
   summary: string | undefined,
 ): Promise<JsonRead<z.infer<typeof Review> & { started: boolean }>> {
-  const read = await ghGraphql(
-    run,
-    PENDING,
-    { strings: repoVars(repo), ints: { number } },
-    PendingRes,
-  );
+  const read = await pendingOf(run, repo, number);
   if (!read.ok) return read;
-  const pr = read.value.data.repository.pullRequest;
-  const mine = pr.pending.nodes[0];
-  if (mine) return { ok: true, value: { ...mine, started: false } };
-  const vars = { pr: pr.id, ...(summary === undefined ? {} : { body: summary }) };
+  const mine = read.value.pending.nodes[0];
+  if (mine) return { ok: true, value: { id: mine.id, body: mine.body, started: false } };
+  const vars = { pr: read.value.id, ...(summary === undefined ? {} : { body: summary }) };
   const started = await ghGraphql(run, START, { strings: vars }, StartRes);
   return started.ok
     ? {
@@ -141,13 +131,6 @@ async function pendingReview(
       }
     : started;
 }
-
-const summaryDraft = (review: { id: string; body: string }): PrDraft => ({
-  id: `${SUMMARY_PREFIX}${review.id}`,
-  path: null,
-  line: null,
-  body: review.body,
-});
 
 /** Leaves one draft in my pending review: inline, a reply, or the review's summary. */
 export const draftGithub: PrProviderApi['draft'] = async (run, repo, number, input) => {
@@ -167,8 +150,7 @@ export const draftGithub: PrProviderApi['draft'] = async (run, repo, number, inp
     );
     if (!read.ok) return read;
     const [c] = read.value.data.addPullRequestReviewThread.thread.comments.nodes;
-    if (!c) return { ok: false, reason: 'invalid-data' };
-    return { ok: true, value: { id: c.id, path: c.path, line: c.line, body: c.body } };
+    return c ? { ok: true, value: c } : { ok: false, reason: 'invalid-data' };
   }
   if (input.replyTo) {
     const read = await ghGraphql(
@@ -179,8 +161,7 @@ export const draftGithub: PrProviderApi['draft'] = async (run, repo, number, inp
     );
     if (!read.ok) return read;
     const c = read.value.data.addPullRequestReviewThreadReply.comment;
-    const draft: PrDraft = { id: c.id, path: c.path, line: c.line, body: c.body };
-    return { ok: true, value: { ...draft, replyTo: input.replyTo } };
+    return { ok: true, value: { ...c, replyTo: input.replyTo } };
   }
   if (review.started) return { ok: true, value: summaryDraft(review) };
   if (!review.body.trim())
@@ -202,9 +183,9 @@ export const draftGithub: PrProviderApi['draft'] = async (run, repo, number, inp
 /** Removes one draft: a comment from my pending review, or the summary (`review:<id>`) cleared. */
 export const discardGithub: PrProviderApi['discard'] = async (run, repo, number, id) => {
   // Only a draft of mine on this PR: a posted comment or a submitted review is never touched.
-  const mine = await ghGraphql(run, MINE, { strings: repoVars(repo), ints: { number } }, MineRes);
+  const mine = await pendingOf(run, repo, number);
   if (!mine.ok) return mine;
-  const pending = mine.value.data.repository.pullRequest.pending.nodes[0];
+  const pending = mine.value.pending.nodes[0];
   const isPending = id.startsWith(SUMMARY_PREFIX)
     ? pending?.id === id.slice(SUMMARY_PREFIX.length)
     : Boolean(pending?.comments.nodes.some((c) => c.id === id));
