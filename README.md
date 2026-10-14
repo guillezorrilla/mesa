@@ -1,25 +1,20 @@
 <p align="center">
-  <img src="docs/assets/mesa-mark.png" width="128" height="128" alt="The Mesa mark">
+  <img src="docs/assets/mesa-mark.png" width="112" height="112" alt="The Mesa mark">
 </p>
 
-<h1 align="center">Mesa</h1>
+<h1 align="center">Every agent remembers your project.</h1>
 
 <p align="center">
-  <strong>The vendor-neutral workspace for AI coding agents.</strong><br>
-  Run Claude Code, Codex and Gemini side by side, keep their context, and never get locked in.
-</p>
-
-<p align="center">
-  Every agent, every project and one second brain, in a single Mac app.<br>
-  Pick a ticket from Jira, Linear, ClickUp or GitHub Issues and start a session, an investigation or a goal that finishes it on its own branch.
+  <strong>Mesa</strong> is the Mac app above Claude Code, Codex and Gemini.<br>
+  One shared memory across every project, your tickets and pull requests in one place, and proof of what it changed.
 </p>
 
 <p align="center">
-  <a href="https://github.com/guillezorrilla/mesa/releases/latest"><strong>Download for macOS</strong></a>
+  <a href="https://github.com/guillezorrilla/mesa/releases/latest/download/Mesa_universal.dmg"><strong>Download for macOS</strong></a>
+  &nbsp;&middot;&nbsp;
+  <a href="https://mesa-hq.pages.dev">Website</a>
   &nbsp;&middot;&nbsp;
   <a href="#quick-start">Quick start</a>
-  &nbsp;&middot;&nbsp;
-  <a href="#features">Features</a>
 </p>
 
 <p align="center">
@@ -30,137 +25,105 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/board.png" alt="Mesa with sessions from three projects in the sidebar and two Claude Code sessions side by side in the terminal grid">
+  <img src="site/img/02-diff.webp" alt="A Claude Code session reads the team's decision from the vault before writing code, with the Diff panel showing everything it changed since main">
 </p>
 
 ## Why Mesa
 
-One agent in one terminal is easy. Six agents across four repositories is not: you lose track of which one is waiting for you, which one finished, and what each one decided last week. Your work sits in Jira, Linear, ClickUp or GitHub Issues, and your team's knowledge in Confluence and Notion, where no agent looks. And every vendor wants you inside their own app.
+Running agents side by side is solved: every agent manager gives you a board of terminals, and Claude Code and Codex now ship one of their own. Mesa works on what they leave out: **what each agent knows when it starts, and whether that help actually works.**
 
-Mesa is the layer above the agents: an all-in-one agentic workspace for your Mac, sometimes called an agentic development environment or a multi-agent orchestrator. It is a Mac app and a `mesa` CLI for engineers who already work with AI coding agents and want to run several at once, across every project, without starting from zero each time.
+> In paired tests, Claude Code solved **12 of 12** tasks with Mesa and **0 of 12** without it. Codex went from **3 to 10 of 12**, in about a fifth of the time per solved task. ([evaluation](docs/spikes/decision-assistance-evaluation.md))
 
-- **Use every agent, depend on none.** Claude Code, Codex and Gemini (through Antigravity CLI) run as their own unchanged terminal apps, signed in with your own subscriptions. Mesa has no account and needs no API key to run your agents. Switch tools whenever a better one ships.
-- **A second brain that spans your projects.** What your agents learn lives in one Obsidian vault of plain Markdown on your Mac: project hubs, notes, decisions and session summaries, with a map that links them. Every agent reads and writes the same memory, so the next session, in any tool and any project, starts where the last one stopped. No vendor's cloud holds it, and it outlives any tool.
-- **From ticket to pushed branch.** Follow your Jira boards, Linear cycles, ClickUp lists or GitHub repos in each project's Tickets tab. Open a ticket, assign it to yourself, and start it one of three ways: a plain session, **Investigate**, which proves the cause or the answer before any fix, or **Start goal**, which holds the agent to finishing the ticket on its branch and pushing it, with the proof (each check, the commit, the push) in the conversation. Claude Code and Codex both run goals.
-- **Your team's knowledge, one click away.** Connect Atlassian, Notion, ClickUp, Linear and GitHub once, then import Jira issues, Confluence pages, Notion pages, ClickUp tasks and Docs, Linear issues, projects and documents, and GitHub issues straight into a project's vault, where every agent can use them. An import can start a session on its own.
-- **Smarter sessions, with a decision model.** Mesa can ask a fast hosted decision model (CLEF on Cloudflare, free for about 1,000 decisions a day, or Jev from TypeSafe) which project note matters for the prompt you just sent, and hands it to the agent before it starts. On six invented coding tasks that each hinged on a team convention, Claude Code solved 0 of 12 runs without it and 12 of 12 with it, and Codex went from 3 of 12 to 10 of 12 while taking about a fifth of the time per solved task ([evaluation](docs/spikes/decision-assistance-evaluation.md)). With CLEF the Board also reads the screen of a Codex session whose hooks are silent, so a question the rules take for a finished turn shows as waiting for you: on six tasks that each stopped once for a person, Codex solved 8 of 12 with it against 6 of 12 without, in 44% less time per solved task ([Board placement](docs/spikes/decision-assistance-evaluation.md#board-placement-2026-10-08)). It is optional: with no key, nothing leaves your Mac and your agents work exactly as before.
-- **Run many sessions at once.** Start sessions across all your projects, each in its own Git worktree or branch if you want, and see them all on one Board. Mesa tells you which ones are working, finished, or waiting for an answer.
-- **Keep context when you switch tools.** Hand a session's work to another agent with its goal and a handoff note (`mesa handoff <id> --agent codex`), before its context fills.
-- **Proven before it ships.** A feature meant to make agents work better ships only if it beats plain Claude Code or Codex on the same tasks in a paired test, with frozen gates that are never lowered. Anything that cannot clear that bar stays out, so Mesa never slows your agents down for nothing.
+- **One memory, every agent.** Decisions, notes and session summaries land in one Obsidian vault of plain Markdown on your Mac. The next session reads it, in any project, with any agent. Import context from Jira, Confluence, Notion, Linear, ClickUp and GitHub.
+- **Proof, not promises.** A feature that claims to make agents better ships only if it beats plain Claude Code or Codex in a paired test. **Impact** shows what Mesa decided and kept for you, and what happened next; mark any moment **Not right**.
+- **Your whole workday.** Tickets from Jira, Linear, ClickUp and GitHub Issues, PR reviews on GitHub and Bitbucket, and a diff for every session, next to the agents doing the work.
+- **Use every agent, depend on none.** Claude Code, Codex and Gemini (through Antigravity CLI) run unchanged with your own subscriptions. No Mesa account, no API key, nothing leaves your Mac unless you connect a decision model.
 
 ## Features
 
-- **One Board for every session.** Sessions from all your projects in one sidebar, grouped by project, with what each one is doing. Open one for its live terminal, or tile several in a grid. Shift-click or Cmd-click several sessions and archive them together from a right-click menu, or select with the keyboard: Shift+Arrow for a range, Cmd+Enter to toggle.
-- **Bring the sessions you already have.** Mesa finds the Claude Code and Codex conversations of the last 30 days on your Mac, with the folders they ran in and the names you gave them. On first run it offers to add those projects and adopt their conversations in one step, so each one is a session you can resume. A session still running outside Mesa in a registered project can be adopted from the same dialog. Later, **Add project > Find from sessions** or `mesa discover` does the same.
-- **One session across several repositories.** Work that spans an API and its web client, or a library and the app using it, runs as one session: `mesa open api --with web` gives every repository a worktree on the same branch and lets the agent read and change them all, Codex included. Queue, fork and remove act on every worktree together, and nothing is removed while any of them has unsaved work or submodules (unless `--force`), a locked worktree, or, when deleting the branch, a branch checked out elsewhere. Each additional repository also shows the session on its Overview, marked "from" the primary one.
-- **Every agent, the same controls.** Start Claude Code, Codex or Antigravity CLI in a project, a new worktree or a branch. Swap the agent of a fresh session, queue a session to start after another ends, and hand work to a successor, in the same agent or another, before its context fills.
-- **Shared memory in your vault.** Each profile owns an Obsidian vault: project hubs, notes, decisions, session summaries and a project map. Every agent reaches it through the same `mesa-vault` tools, a session's decisions are captured into it when the session ends, and Obsidian opens it as is.
-- **Smarter decisions (optional).** Connect a decision model in **Settings > Smarter decisions**, or from the tip Mesa shows until you do: CLEF with a free Cloudflare account, or Jev with a TypeSafe key, kept only in the macOS Keychain. Mesa then hands Claude Code and Codex the project note that matters for each prompt (Antigravity gets it for the session's goal), and gives every agent an on-demand `decision_evaluate` tool to pick a next step or check that evidence backs a claim of done. With CLEF, the Board places a session no hook or listing speaks for (a Codex session whose Mesa hooks are not installed or not reviewed yet) from its screen. A use runs automatically only where it passed Mesa's quality and paired-workflow gates; the results are shown in Settings. See [docs/decisions.md](docs/decisions.md).
-- **Guardrails you can check.** Prompts sent into a session and other outside actions pass a guardrail that can allow, ask or block, and each block or override is saved as a Receipt in your vault with the evidence behind it.
-- **Light on your context.** Mesa adds a few hundred tokens to a session: a short note, four skills and the vault tools. The rest of the window stays for your work.
-- **Your project knowledge, imported.** Connect Atlassian, Notion, ClickUp, Linear and GitHub once, then pick the Jira issues, Confluence pages, Notion pages, ClickUp tasks and Docs, Linear issues, projects and documents, and GitHub issues to import, or paste any public link. Each import lands in the vault, and can start a session. Picker imports run in the background, with progress in the Context tab.
-- **Tickets from Jira, Linear, ClickUp and GitHub Issues.** Each project picks where it tracks work and follows the views that matter: a Jira board's sprint or a filter, a Linear cycle, project or saved view, a ClickUp List, Folder, Space or view, or a GitHub repo narrowed by labels and milestone. A ticket's panel shows its description, comments and the fields you pick, and one click assigns it to you and starts **Start session**, **Investigate** or **Start goal** on it, in a worktree or the checkout. The options you choose stay as the project's default, and `mesa tickets` and `mesa open --from <ticket> --as goal` do the same from a terminal.
-- **A terminal that feels like home.** Each session's terminal edits the line like a macOS terminal (Cmd+Left/Right, Cmd+Backspace, Option+Left/Right), Shift+Enter adds a newline, and color palettes come as presets or your own colors.
-- **Profiles.** Keep work and personal apart: each profile has its own projects, sessions, vault and settings, created and switched from the app.
-- **Automations.** Per project, run a skill, start a session, message one, or refresh imported knowledge on a schedule, when a file changes, or when a session reaches a state, asking you first when you want it to.
-- **Stays current.** Mesa updates itself, and after an update the Notifications menu lists what is new, changed and fixed in each version since the last one you saw (`mesa whats-new`).
-- **A CLI for everything.** Every screen is backed by a `mesa` command with `--json`, so scripts and agents can drive Mesa too. Bulk commands (archive, `stop` and `rm --descendants`, `discover adopt`) report every item and exit 2 when any failed.
+| | |
+| --- | --- |
+| **Shared vault** | Project hubs, decisions with confidence, session summaries and a project map, captured when a session ends and read by every agent through the same `mesa-vault` tools. Adds only a few hundred tokens to a session. |
+| **Decision model** (optional) | CLEF (free on Cloudflare, about 1,000 decisions a day) or Jev hands each agent the project note that matters for your prompt, and spots a session waiting for you when hooks are silent. |
+| **Impact** | What Mesa decided for you (a note brought into a prompt, a question the rules missed, a risky command stopped), who decided, how sure, and what happened next. `mesa impact` |
+| **Tickets** | Follow a Jira sprint, Linear cycle, ClickUp list or GitHub repo. **Investigate** finds the root cause with proof and leaves the code as it was; **Start goal** finishes the ticket, proven by tests and checks, then commits on a branch and pushes it. |
+| **PR reviews** | Every GitHub and Bitbucket pull request that needs you, across projects. Review sessions leave drafts only you can see, never approve or merge, and a re-review marks your earlier comments addressed or not. |
+| **Diff per session** | Each session in its own worktree or branch; the Diff panel shows everything it changed since its base branch. One session can span several repositories on the same branch. |
+| **Handoff** | Pass a session to another agent, in the same tool or a different one, with its goal and a note, before its context fills. |
+| **Board** | Every session from every project, working, idle, done or waiting for you, with its branch. Tile several in a grid; sessions keep running when the app closes. |
+| **Bring what you have** | Mesa finds your last 30 days of Claude Code and Codex conversations and adopts them as sessions you can resume. |
+| **Guardrails** | Risky actions are allowed, asked or blocked, and every block is saved as a Receipt with its evidence. |
+| **Automations** | Run a skill, start a session or refresh imported knowledge on a schedule, a file change or a session state. |
+| **Cost** | Estimated cost per day, model and agent, from public list prices. |
+| **CLI** | Every screen has a `mesa` command with `--json`, so scripts and agents can drive Mesa too. |
 
 <table>
   <tr>
-    <td width="33%"><img src="docs/assets/session.png" alt="A Claude Code session in Mesa showing its diff and summary"></td>
-    <td width="33%"><img src="docs/assets/vault.png" alt="The Vault screen with a decision note and its confidence"></td>
-    <td width="33%"><img src="docs/assets/map.png" alt="The map of projects and their sessions"></td>
+    <td width="33%"><img src="site/img/05-impact.webp" alt="Impact: what Mesa decided and kept for you, and what happened next"></td>
+    <td width="33%"><img src="site/img/03c-pr-comments.webp" alt="A PR review with drafts only you can see and earlier comments marked addressed, partly addressed or not addressed"></td>
+    <td width="33%"><img src="site/img/04-tickets.webp" alt="A project's Linear tickets with Start session, Investigate and Start goal"></td>
   </tr>
   <tr>
-    <td align="center">A session's live terminal</td>
-    <td align="center">The vault, with a saved decision</td>
-    <td align="center">The map of projects and sessions</td>
+    <td align="center">Impact</td>
+    <td align="center">PR reviews</td>
+    <td align="center">Tickets</td>
   </tr>
 </table>
 
 ## Install
 
-**Download** the DMG from the [latest release](https://github.com/guillezorrilla/mesa/releases/latest), open it, and drag Mesa to Applications. On first launch, a short setup picks your vault, installs what sessions need, adds your projects, and starts your first session.
+[Download the DMG](https://github.com/guillezorrilla/mesa/releases/latest/download/Mesa_universal.dmg), open it, and drag Mesa to Applications. The first run picks your vault, installs tmux, Obsidian and the session hooks with a click each, adds your projects and starts your first session. Mesa updates itself.
 
-The `mesa` command ships inside the app. To use it from a terminal, link it onto your PATH:
+**Needs:** macOS 14 or later, [tmux](https://github.com/tmux/tmux), and at least one agent signed in: [Claude Code](https://docs.claude.com/en/docs/claude-code), [Codex](https://github.com/openai/codex) or Antigravity CLI. [Obsidian](https://obsidian.md) and a decision model are optional.
+
+The `mesa` CLI ships inside the app:
 
 ```sh
 mkdir -p ~/.local/bin && ln -s /Applications/Mesa.app/Contents/MacOS/mesa ~/.local/bin/mesa
 ```
 
-**Requirements:**
-
-- macOS 14 or later.
-- [tmux](https://github.com/tmux/tmux): `brew install tmux`.
-- At least one coding agent, signed in with its own subscription: [Claude Code](https://docs.claude.com/en/docs/claude-code), [Codex](https://github.com/openai/codex), or Antigravity CLI for Gemini. Mesa has no account of its own and needs no API key to run them.
-- Optional, for smarter decisions: a free Cloudflare account (CLEF) or a TypeSafe API key (Jev).
-- [Obsidian](https://obsidian.md) is optional: the vault is plain Markdown, and Obsidian is only needed to open it there.
-
 ## Quick start
 
-1. **First run.** Open Mesa. Pick a vault (one of your Obsidian vaults, or a new one), install tmux, an agent and Mesa's session hooks with a click each, choose your projects, and start your first session. You can leave and resume it later.
-2. **Add your projects.** If you already use Claude Code or Codex, the first run lists the folders you used them in; later, **Add project > Find from sessions** adopts their conversations as sessions you can resume, under their own names. Otherwise, in Projects, choose **Add project** and pick a Git repository, or **Import workspace** to find every repository under a folder.
-3. **Start a session.** Press **+** beside the project. A session starts at once with the project's agent (Claude Code unless you chose another) and opens in its own terminal. The sidebar shows its state: working, waiting for an answer, idle, or queued.
-4. **Work from tickets.** Connect your tracker in Connections, open a project's **Tickets** tab, follow a view, and start a session, an investigation or a goal from any ticket.
-5. **Use the CLI.** Everything above works from a terminal too:
-
 ```sh
-mesa --help                                  # every command
-mesa doctor                                  # check tmux, the agents, Obsidian, and the hooks
-mesa hooks install                           # let Mesa follow each agent's state
-mesa register ~/code/my-app --create         # add a project
-mesa open my-app --goal "Fix the flaky login test"
-mesa open my-api --with my-web --worktree    # one session in two repositories, one branch
+mesa doctor                                  # check tmux, the agents, Obsidian and the hooks
 mesa discover                                # recent Claude Code and Codex conversations on this Mac
-mesa sessions                                # every session, highest attention first
-mesa tickets my-app                          # the tickets in the views my-app follows
+mesa open my-app --goal "Fix the flaky login test"
 mesa open my-app --from ENG-123 --as goal    # finish a ticket on its own branch
-mesa attach <session>                        # its terminal, right here
+mesa open my-api --with my-web --worktree    # one session in two repositories, one branch
+mesa sessions                                # every session, highest attention first
+mesa handoff <session> --agent codex         # switch agents, keep the context
+mesa impact                                  # what Mesa decided for you
 ```
 
 ## How it works
 
-`packages/core` holds all of Mesa's logic. `packages/cli` is the `mesa` command on top of it, and `apps/desktop` is a [Tauri 2](https://tauri.app) app whose every action runs that same CLI. Each session is a tmux window on the profile's own tmux server, so sessions keep running when the app closes and `mesa attach` reaches them from any terminal. The agents' hooks report each session's state back to Mesa. A profile (`~/.mesa/<profile>/`) holds the settings, the registered projects and the session records; its vault holds what should be remembered.
+`packages/core` holds all of Mesa's logic, `packages/cli` is the `mesa` command, and `apps/desktop` is a [Tauri 2](https://tauri.app) app whose every action runs that same CLI. Each session is a tmux window on the profile's own tmux server, and the agents' hooks report each session's state back. A profile (`~/.mesa/<profile>/`) holds settings, projects and session records; its vault holds what should be remembered.
 
-The terms Mesa uses are defined in [CONTEXT.md](CONTEXT.md). The decisions behind the design, with their evidence, are in [docs/adr/](docs/adr/).
+Terms are defined in [CONTEXT.md](CONTEXT.md), and the decisions behind the design, with their evidence, in [docs/adr/](docs/adr/).
 
 ## Privacy
 
-- **Everything stays on your Mac:** your profile, session records and logs, Receipts, and the vault. Mesa has no server for any of them, no account, and no analytics.
-- **The agents run as you,** with your own Claude Code, Codex or Antigravity sign-in. Mesa never handles those credentials.
-- **A decision model is opt-in.** With no key, Mesa makes no model call and nothing leaves your Mac. With CLEF or Jev connected, Mesa sends that provider short, bounded text for each decision (a prompt with capped excerpts of your project notes, a session's screen tail, or the candidates and evidence an agent supplies) and nothing else. The key stays in the macOS Keychain, and you can turn it off per session or for the whole profile ([what leaves your Mac](docs/decisions.md#what-text-leaves-your-mac)).
-- **Connecting Atlassian, Notion, ClickUp, Linear or GitHub** goes through a small OAuth broker, a Cloudflare Worker ([ADR-0014](docs/adr/0014-oauth-broker-and-keychain-tokens.md)), because those vendors need a client secret that a desktop app cannot keep. The broker sees the sign-in code and the tokens as it passes them back to your Mac; it stores nothing and logs nothing. It never sees your pages, issues or tasks: Mesa calls the vendor's API directly from your Mac. Tokens are kept in the macOS Keychain, never in files. You can run your own broker and point Mesa at it with `MESA_BROKER_URL` (see ADR-0014).
+- **Local by default.** Your profile, session records, Receipts and vault stay on your Mac. No account, no analytics, no Mesa server.
+- **Agents run as you,** with your own sign-in. Mesa never handles those credentials.
+- **The decision model is opt-in.** Without a key, Mesa makes no model call. With CLEF or Jev, it sends short, capped excerpts for each decision; the key stays in the macOS Keychain ([what leaves your Mac](docs/decisions.md#what-text-leaves-your-mac)).
+- **Connections** to Atlassian, Notion, ClickUp, Linear and GitHub keep their tokens in the Keychain. The OAuth broker that hands them over stores and logs nothing ([ADR-0014](docs/adr/0014-oauth-broker-and-keychain-tokens.md)), and you can run your own with `MESA_BROKER_URL`.
 
 ## Building from source
 
-Requires Node 24, pnpm 11, Rust stable, and tmux.
+Requires Node 24, pnpm 11, Rust stable and tmux.
 
 ```sh
 pnpm install
 pnpm dev          # build core and the CLI, watch them, and launch the app
 pnpm verify       # lint, typecheck, test, build: the gate every change passes
+pnpm dev:link     # use this checkout's CLI as `mesa` (after pnpm build)
 ```
 
-`pnpm dev` hot-reloads React and CSS edits. Core and CLI edits rebuild automatically and apply on the app's next action (reload or reopen a view to rerun its read). Rust edits rebuild and restart the app. Stop everything with Ctrl-C. Native notifications need a bundled `.app`, so they are off in `pnpm dev`. Use `MESA_PROFILE=<name> pnpm dev` to run against another profile. `pnpm dev:cli` runs only the core and CLI watcher, and `pnpm dev:desktop` only the app.
+`MESA_PROFILE=<name> pnpm dev` runs against another profile. Native notifications need a bundled `.app`, so they are off in `pnpm dev`.
 
-To use your checkout's CLI as `mesa`:
+## Contributing and security
 
-```sh
-pnpm build
-pnpm dev:link     # writes a shim at ~/.local/bin/mesa
-mesa --version
-```
-
-The shim runs this checkout's `packages/cli/dist/mesa.js` with the node you ran it with, so `~/.local/bin` must be on your PATH. Run it again if you move the checkout or switch node.
-
-## Contributing
-
-Bug reports and ideas are welcome as [issues](https://github.com/guillezorrilla/mesa/issues). Pull requests from outside are not accepted for now. See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Security
-
-Please report vulnerabilities privately, as [SECURITY.md](SECURITY.md) describes, not in a public issue.
+Bug reports and ideas are welcome as [issues](https://github.com/guillezorrilla/mesa/issues); pull requests from outside are not accepted for now ([CONTRIBUTING.md](CONTRIBUTING.md)). Report vulnerabilities privately, as [SECURITY.md](SECURITY.md) describes.
 
 ## License
 
