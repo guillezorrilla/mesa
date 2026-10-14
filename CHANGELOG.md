@@ -2,6 +2,33 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.3.0 - 2026-10-14
+
+### Added
+
+- Add your vault to Obsidian from Mesa: when Obsidian does not know Mesa's vault yet, Open in Obsidian shows a short guide that copies the vault's path and opens Obsidian's vault manager, then opens the note once you are done. (#810)
+- Not right on Impact: mark any moment Mesa got wrong, from its row or with `mesa impact mark`, and it drops out of the summary; Impact also says when the agent opened a note Mesa brought into its prompt, or never did. (#804)
+- Impact shows what Mesa decided and kept for you and what happened next: a one-sentence summary, then each session's moments (a question the rules missed, a vault note brought into a prompt, a risky command stopped, notes kept), who decided and how sure, and what the rules alone would have said. Open it from the title bar beside Cost and Help, a project's Impact tab, Mesa's part in session details, Search Mesa, or `mesa impact`; `mesa decisions log` lists every decision behind it. (#796)
+- Send feedback from Mesa: Help > Send feedback, or `mesa feedback "<message>"`, sends your message privately to Mesa's maker with only your Mesa version and the screen you were on. (#815)
+- Install Obsidian from Mesa: when Obsidian is missing, setup's vault step and Doctor offer an Install button that installs it with Homebrew, so a new Mac gets going without leaving the app. (#806)
+- Pull request detail: open a PR from the Reviews tab to see in one sentence where it stands, your comments with the author's replies, your pending draft comments (discard any of them) and the changed files; `mesa prs draft` leaves a draft comment only you can see until you submit it on GitHub or Bitbucket. (#801)
+- Safer review sessions and comment verdicts: a Claude review session is refused the direct `gh` and `twg` commands that approve, merge or post (its prompt forbids any other route), and a re-review marks each of your earlier comments as addressed, partly addressed or not addressed in Your comments. (#807)
+- PR review sessions: Start review (or Re-review once the author updates) opens a session at the PR's head that leaves its findings as inline drafts only you can see, or posts them as comments when you pick Post now for that review; it never approves or requests changes. (#805)
+- Reviews tab: see the GitHub and Bitbucket pull requests that need your review across every project, grouped by project or by status, with what changed since your last review; Mesa helps you install and sign in to gh or twg when a project needs it. (#797)
+- Replies pane: the session's Review button is now Replies, and every code block Claude or Codex wrote in a reply shows with its own Copy button, so a drafted message or command is one click away; Comment on an open reply still sends passage feedback. (#777)
+- Diff beside a session: the new Diff button next to Replies and Browser shows everything the session changed since it left its base branch, its commits, edits and new files together, with a file list you can walk with j and k and open in your editor. Drag its edge to make it wider or narrower. (#775)
+- Sessions name themselves: a session you have not named gets a short name from what you asked it, such as fix-login-redirect, and one started from a ticket starts with the ticket's key, such as lc-12-tide-alarm. Each card also shows the branch its agent is working on, including a worktree the agent made itself. (#773)
+
+### Changed
+
+- Starting a session from a ticket now switches to that session as soon as the start finishes, with no Open session click. (#802)
+
+### Fixed
+
+- PR reviews: a Bitbucket PR you only commented on now moves to Updated when the author answers, review sessions call the same Mesa that started them, reviews are shorter and a re-review reads only what changed since, and the Reviews tab shows relative ages, keeps the author's news beside your drafts, and asks before discarding a draft. (#811)
+- Pull requests on narrow windows: the review and Submit buttons move under the summary instead of being cut off, a pull request fills the main area, and the project tabs scroll sideways when they do not fit. The Mesa window now stops shrinking at 900 by 600. (#818)
+- Alerts you can close for good: a long alert keeps its close button in view, a failure that repeats on every refresh alerts once, and a session file Mesa cannot read is listed once in Doctor instead of alerting. The notification list no longer shows "Session turn finished", whose macOS notification the Turn finished setting still controls. (#817)
+
 ## 0.2.15 - 2026-10-13
 
 ### Changed
