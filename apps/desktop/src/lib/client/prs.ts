@@ -1,5 +1,5 @@
 import type { PrList, PrSetupRow } from '@mesa/core';
-import { command, commandWith } from './spec';
+import { commandWith } from './spec';
 
 /** The Reviews tab's commands (CONTEXT.md, PR review). */
 export const prsCommands = {
@@ -9,6 +9,10 @@ export const prsCommands = {
     ...(project ? ['--project', project] : []),
     ...(all ? ['--all'] : []),
   ]),
-  /** Each project's PR provider and whether its CLI (gh, twg) is installed and signed in. */
-  'prs.setup': command<PrSetupRow[]>('prs', 'setup'),
+  /** Each project's (or `project`'s) PR provider and whether its CLI (gh, twg) is installed and signed in. */
+  'prs.setup': commandWith<{ project?: string }, PrSetupRow[]>(({ project }) => [
+    'prs',
+    'setup',
+    ...(project ? ['--project', project] : []),
+  ]),
 };

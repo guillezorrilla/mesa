@@ -2,11 +2,11 @@ import { timeAgo } from '@mesa/core/browser';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { usePrs } from './usePrs';
+import type { Prs } from './usePrs';
 
 /** When the Reviews list was last read, and Refresh to read it again; nothing polls. */
 export function CheckedLine(props: {
-  prs: Pick<ReturnType<typeof usePrs>, 'list' | 'readAt'>;
+  prs: Pick<Prs, 'list' | 'readAt'>;
   now: number;
   className?: string;
 }) {

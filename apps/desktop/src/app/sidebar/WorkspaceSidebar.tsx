@@ -16,7 +16,7 @@ import { usePendingRuns } from '@/features/automations/usePendingRuns';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { ProjectsSection } from '@/features/projects/ProjectsSection';
 import { ReviewsSection } from '@/features/prs/ReviewsSection';
-import type { usePrs } from '@/features/prs/usePrs';
+import { useSharedPrs } from '@/features/prs/usePrs';
 import { COMMAND_ICONS } from '@/features/search/hitIcon';
 import { useSessionSelection } from '@/features/sessions/selection/useSessionSelection';
 import { SessionsSection } from '@/features/sessions/sidebar/SessionsSection';
@@ -41,8 +41,6 @@ export function WorkspaceSidebar(props: {
   view: WorkspaceView;
   onView: (view: WorkspaceView) => void;
   projects: readonly ProjectRow[];
-  /** The Reviews list, read once by the app so the tab can count it. */
-  prs: ReturnType<typeof usePrs>;
   sessions: readonly TreeRow[];
   /** The visual alert's count (0 when it is off): the Sessions tab shows a dot while it is above 0. */
   waiting: number;
@@ -68,6 +66,8 @@ export function WorkspaceSidebar(props: {
   const [closedProjects, setClosedProjects] = useState<string[]>([]);
   const [compactSessions, setCompactSessions] = useState<string[]>([]);
   const [tab, setTab] = useState<SidebarTab>('sessions');
+  // The app's one read of every project's PRs, so the tab can count them before it opens.
+  const prs = useSharedPrs();
   const [width, setWidth] = useKeptWidth('mesa.sidebar.width', SIDEBAR_WIDTH);
   useEffect(() => {
     if (view.kind === 'project') setTab('projects');
@@ -128,7 +128,7 @@ export function WorkspaceSidebar(props: {
             tab={tab}
             sessionCount={active.length + stranded.length}
             waiting={props.waiting}
-            reviewCount={props.prs.toAct}
+            reviewCount={prs?.toAct ?? 0}
             onSessions={openSessions}
             onProjects={openProjects}
             onReviews={() => setTab('reviews')}
@@ -173,10 +173,12 @@ export function WorkspaceSidebar(props: {
             </Button>
           </div>
         ) : tab === 'reviews' ? (
-          <ReviewsSection
-            prs={props.prs}
-            onSetup={(row) => onView({ kind: 'prs-setup', project: row.project })}
-          />
+          prs && (
+            <ReviewsSection
+              prs={prs}
+              onSetup={(row) => onView({ kind: 'prs-setup', project: row.project })}
+            />
+          )
         ) : tab === 'projects' ? (
           <ProjectsSection
             projects={visible}

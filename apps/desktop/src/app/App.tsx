@@ -171,51 +171,50 @@ export function App() {
             {linkGuidance}
           </p>
         )}
-        <div className="flex min-h-0 flex-1">
-          <WorkspaceSidebar
-            view={view}
-            onView={navigate}
-            projects={sidebarProjects}
-            prs={prs}
-            sort={sorted.sort}
-            onSort={sorted.setSort}
-            sessions={sessions}
-            waiting={waiting}
-            collapsed={sidebarCollapsed}
-            onCollapse={() => setSidebarCollapsed((value) => !value)}
-            onAddProject={setProjectAdd}
-            onProjectsChanged={() => void projects.refresh()}
-            onProjectUnregistered={projectUnregistered}
-            starting={starting}
-            lastSession={workspace.lastSession}
-            lastProject={workspace.lastProject}
-            onNewSession={(project, location, parent) =>
-              requestNewSession({
-                ...(project === GENERAL_PROJECT ? { general: true } : { project }),
-                location,
-                parent,
-              })
-            }
-            onArchiveSession={(id) => {
-              navigate({ kind: 'session', id });
-              setArchiveSessionRequest((request) => ({
-                count: (request?.count ?? 0) + 1,
-                ids: [id],
-              }));
-            }}
-            onArchiveSessions={(ids) =>
-              setArchiveSessionRequest((request) => ({ count: (request?.count ?? 0) + 1, ids }))
-            }
-            onDependencySession={(id) => {
-              navigate({ kind: 'session', id });
-              setDependencySessionRequest((request) => ({
-                count: (request?.count ?? 0) + 1,
-                ids: [id],
-              }));
-            }}
-          />
-          <OpenSettingsContext.Provider value={workspace.openSettings}>
-            <PrsContext.Provider value={prs}>
+        <PrsContext.Provider value={prs}>
+          <div className="flex min-h-0 flex-1">
+            <WorkspaceSidebar
+              view={view}
+              onView={navigate}
+              projects={sidebarProjects}
+              sort={sorted.sort}
+              onSort={sorted.setSort}
+              sessions={sessions}
+              waiting={waiting}
+              collapsed={sidebarCollapsed}
+              onCollapse={() => setSidebarCollapsed((value) => !value)}
+              onAddProject={setProjectAdd}
+              onProjectsChanged={() => void projects.refresh()}
+              onProjectUnregistered={projectUnregistered}
+              starting={starting}
+              lastSession={workspace.lastSession}
+              lastProject={workspace.lastProject}
+              onNewSession={(project, location, parent) =>
+                requestNewSession({
+                  ...(project === GENERAL_PROJECT ? { general: true } : { project }),
+                  location,
+                  parent,
+                })
+              }
+              onArchiveSession={(id) => {
+                navigate({ kind: 'session', id });
+                setArchiveSessionRequest((request) => ({
+                  count: (request?.count ?? 0) + 1,
+                  ids: [id],
+                }));
+              }}
+              onArchiveSessions={(ids) =>
+                setArchiveSessionRequest((request) => ({ count: (request?.count ?? 0) + 1, ids }))
+              }
+              onDependencySession={(id) => {
+                navigate({ kind: 'session', id });
+                setDependencySessionRequest((request) => ({
+                  count: (request?.count ?? 0) + 1,
+                  ids: [id],
+                }));
+              }}
+            />
+            <OpenSettingsContext.Provider value={workspace.openSettings}>
               <WorkspaceMain
                 view={view}
                 project={project}
@@ -238,11 +237,10 @@ export function App() {
                 archiveSessionRequest={archiveSessionRequest}
                 dependencySessionRequest={dependencySessionRequest}
                 promptInsertRequest={promptInsertRequest}
-                onPrsChanged={() => void prs.list.refresh()}
               />
-            </PrsContext.Provider>
-          </OpenSettingsContext.Provider>
-        </div>
+            </OpenSettingsContext.Provider>
+          </div>
+        </PrsContext.Provider>
         <CommandPalette
           mode={search.mode}
           onMode={search.openSearch}

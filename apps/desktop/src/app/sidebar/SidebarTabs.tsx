@@ -1,3 +1,4 @@
+import { CountPill } from '@/components/CountPill';
 import { cn } from '@/lib/utils';
 
 /** The sidebar's tabs. */
@@ -60,12 +61,10 @@ export function SidebarTabs(props: {
       >
         Reviews
         {props.reviewCount > 0 && (
-          <span
-            data-testid="reviews-count"
+          <CountPill
+            count={props.reviewCount}
             className="ml-1 rounded bg-state-working px-1 text-background"
-          >
-            {props.reviewCount}
-          </span>
+          />
         )}
       </button>
     </div>

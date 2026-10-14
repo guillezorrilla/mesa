@@ -38,11 +38,12 @@ const blocked: PrSetupRow = {
   next: 'brew install atlassian/twg/twg',
 };
 const LIST: PrList = {
+  // In core's order: most urgent first, then most recent.
   prs: [
-    pr('storefront', 477, 'updated'),
-    pr('atlas-api', 88, 'waiting'),
     pr('storefront', 482, 'need'),
     pr('atlas-api', 91, 'need'),
+    pr('storefront', 477, 'updated'),
+    pr('atlas-api', 88, 'waiting'),
   ],
   blocked: [blocked],
   problems: [],
@@ -121,37 +122,25 @@ test("By status groups the buckets, names each row's project, and is kept for th
 
 function ProjectReviews() {
   const [all, setAll] = useState(false);
-  const shared = usePrs();
-  return (
-    <ReviewsTab
-      project="storefront"
-      shared={shared}
-      all={all}
-      onAll={setAll}
-      onSetup={() => undefined}
-    />
-  );
+  return <ReviewsTab project="storefront" all={all} onAll={setAll} onSetup={() => undefined} />;
 }
 
-test("a project's Reviews tab shows the app's list for that project only; All open PRs reads its own", async () => {
+test("a project's Reviews tab reads that project's PRs; All open PRs adds the ones not for me", async () => {
   const { bridge, calls } = fakeBridge({
     prs: (args: string[]) =>
       envelope({
         prs: args.includes('--all')
           ? [pr('storefront', 482, 'need'), pr('storefront', 466, 'other')]
-          : [
-              pr('storefront', 482, 'need'),
-              pr('storefront', 470, 'waiting'),
-              pr('atlas-api', 91, 'need'),
-            ],
+          : [pr('storefront', 482, 'need'), pr('storefront', 470, 'waiting')],
         blocked: [],
         problems: [],
         quiet: [],
       } satisfies PrList),
   });
   const byTestId = await renderWithMesa(<ProjectReviews />, bridge);
-  // One read of every project, none of the project's own.
-  expect(calls.filter((c) => c[1] === 'prs')).toEqual([['--json', 'prs']]);
+  expect(calls.filter((c) => c[1] === 'prs')).toEqual([
+    ['--json', 'prs', '--project', 'storefront'],
+  ]);
   expect(groupTitles()).toEqual(['Needs your review', 'Waiting on the author']);
   expect(byTestId('reviews-tab')[0]?.textContent).toContain('All open PRs');
 
@@ -169,7 +158,6 @@ test("a project's Reviews tab shows the app's list for that project only; All op
 test('setup walks Install, Sign in, Connect Bitbucket and Check, resuming from what is done', async () => {
   let state: PrSetupRow['state'] = 'missing';
   const opened: string[] = [];
-  const connected: string[] = [];
   const platform = fakePlatform();
   const { bridge, calls } = fakeBridge({
     'prs setup': () => envelope([{ ...blocked, state }]),
@@ -182,11 +170,7 @@ test('setup walks Install, Sign in, Connect Bitbucket and Check, resuming from w
       envelope({ prs: [pr('pos-bridge', 7, 'need')], blocked: [], problems: [], quiet: [] }),
   });
   const byTestId = await renderWithMesa(
-    <PrSetupScreen
-      project="pos-bridge"
-      onSession={(id) => opened.push(id)}
-      onConnected={() => connected.push('yes')}
-    />,
+    <PrSetupScreen project="pos-bridge" onSession={(id) => opened.push(id)} />,
     bridge,
     platform,
   );
@@ -216,9 +200,12 @@ test('setup walks Install, Sign in, Connect Bitbucket and Check, resuming from w
   expect(states()).toEqual(['done', 'done', 'done', 'current']);
   expect(localStorage.length).toBe(0);
 
+  const setupReads = calls.filter((c) => c[1] === 'prs' && c[2] === 'setup').length;
   await click(button('Check'));
   expect(states()).toEqual(['done', 'done', 'done', 'done']);
-  expect(connected).toEqual(['yes']);
+  // The proof is listing the project; setup is not read again for it.
+  expect(calls.at(-1)).toEqual(['--json', 'prs', '--project', 'pos-bridge']);
+  expect(calls.filter((c) => c[1] === 'prs' && c[2] === 'setup')).toHaveLength(setupReads);
   expect(document.body.textContent).toContain('Bitbucket is connected.');
 });
 
@@ -230,14 +217,7 @@ test('without Homebrew, Install shows the official installer to copy', async () 
       error: { code: 'not_found', message: 'Homebrew is not installed' },
     }),
   });
-  await renderWithMesa(
-    <PrSetupScreen
-      project="pos-bridge"
-      onSession={() => undefined}
-      onConnected={() => undefined}
-    />,
-    bridge,
-  );
+  await renderWithMesa(<PrSetupScreen project="pos-bridge" onSession={() => undefined} />, bridge);
   await click(button('Install'));
   expect(document.body.textContent).toContain(
     'bash <(curl -fsSL https://teamwork-graph.atlassian.com/cli/install)',

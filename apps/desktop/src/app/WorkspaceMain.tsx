@@ -49,8 +49,6 @@ export function WorkspaceMain(props: {
   archiveSessionRequest?: SessionRequest;
   dependencySessionRequest?: SessionRequest;
   promptInsertRequest?: { session: string; text: string };
-  /** The Reviews list is read again: a project's PR provider just connected. */
-  onPrsChanged: () => void;
 }) {
   const { view, project, navigate, config, projects, prompts, needsProfileSetup } = props;
   // Each project's tab, so going back to one keeps it.
@@ -142,7 +140,6 @@ export function WorkspaceMain(props: {
           key={view.project}
           project={view.project}
           onSession={(id) => navigate({ kind: 'session', id })}
-          onConnected={props.onPrsChanged}
         />
       )}
       {view.kind === 'map' && (

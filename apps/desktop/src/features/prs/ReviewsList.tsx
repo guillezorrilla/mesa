@@ -1,33 +1,43 @@
-import type { PrList, PrSetupRow } from '@mesa/core';
-import { PR_CLIS } from '@mesa/core/browser';
+import type { PrSetupRow } from '@mesa/core';
+import { actionable, PR_CLIS } from '@mesa/core/browser';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { cn } from '@/lib/utils';
 import { PullRequestRow } from './PullRequestRow';
-import { actionable, type PrGrouping, prGroups } from './prGroups';
+import { type PrGrouping, prGroups } from './prGroups';
+import type { Prs } from './usePrs';
 
 const PROVIDER = { github: 'GH', bitbucket: 'BB' } as const;
 
 /**
  * The Reviews list, grouped by project (collapsible, most urgent first) or by status, with a Set
- * up row for a project whose CLI is not ready and a quiet line for a project that failed to read.
+ * up row for a project whose CLI is not ready and a quiet line for a project that failed to read;
+ * while the list is read, or when it fails, says so.
  */
 export function ReviewsList(props: {
-  list: PrList;
+  read: Prs['list'];
   by: PrGrouping;
   onSetup: (row: PrSetupRow) => void;
   now: number;
 }) {
   const [closed, setClosed] = useState<string[]>([]);
-  const groups = prGroups(props.list, props.by);
-  const quiet = props.by === 'project' ? props.list.quiet : [];
+  const list = props.read.data;
+  if (!list)
+    return (
+      <Muted className="px-2">
+        {props.read.error ? props.read.error.message : 'Reading pull requests...'}
+      </Muted>
+    );
+  const groups = prGroups(list, props.by);
+  const quiet = props.by === 'project' ? list.quiet : [];
   const byStatus = props.by === 'status';
   return (
     <div data-testid="reviews-list" className="space-y-3">
       {groups.map((group) => {
         const open = byStatus || !closed.includes(group.key);
-        const toAct = group.prs.filter(actionable).length;
+        const toAct = group.prs.filter((pr) => actionable(pr.bucket)).length;
+        const { blocked } = group;
         return (
           <section key={group.key} data-testid="pr-group">
             <button
@@ -61,15 +71,14 @@ export function ReviewsList(props: {
             </button>
             {open && (
               <div className="space-y-0.5">
-                {group.blocked && (
+                {blocked?.provider && (
                   <button
                     type="button"
                     data-testid="pr-setup-row"
                     className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-                    onClick={() => group.blocked && props.onSetup(group.blocked)}
+                    onClick={() => props.onSetup(blocked)}
                   >
-                    Connect {group.blocked.provider ? PR_CLIS[group.blocked.provider].name : 'it'}{' '}
-                    to see PRs
+                    Connect {PR_CLIS[blocked.provider].name} to see PRs
                     <span className="ml-auto font-semibold text-state-working">Set up</span>
                   </button>
                 )}

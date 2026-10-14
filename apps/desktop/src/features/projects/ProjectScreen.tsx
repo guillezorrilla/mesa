@@ -1,4 +1,5 @@
 import type { ProjectRow, TreeRow } from '@mesa/core';
+import { actionable } from '@mesa/core/browser';
 import { Folder } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { AutomationsTab } from '@/features/automations/AutomationsTab';
@@ -6,7 +7,6 @@ import { FilesTab } from '@/features/files/FilesTab';
 import { GitTab } from '@/features/git/GitTab';
 import { useGitChangeCount } from '@/features/git/useGitChangeCount';
 import { InstructionsTab } from '@/features/instructions/InstructionsTab';
-import { actionable } from '@/features/prs/prGroups';
 import { ReviewsTab } from '@/features/prs/ReviewsTab';
 import { useSharedPrs } from '@/features/prs/usePrs';
 import { SkillsTab } from '@/features/skills/SkillsTab';
@@ -72,10 +72,11 @@ export function ProjectScreen(props: {
   const [gitRevision, setGitRevision] = useState(0);
   const gitChanges = useGitChangeCount(project.name, gitRevision);
   const [allPrs, setAllPrs] = useState(false);
-  // The app's one read of every project: opening a project reads no PRs of its own.
+  // The count comes from the app's one read of every project; only the Reviews tab reads its own.
   const prs = useSharedPrs();
   const reviews =
-    prs?.list.data?.prs.filter((pr) => pr.project === project.name && actionable(pr)).length ?? 0;
+    prs?.list.data?.prs.filter((pr) => pr.project === project.name && actionable(pr.bucket))
+      .length ?? 0;
   const { acting, act } = useAct();
   const run = useRun();
   // Start session on an imported item: its goal fills in the Overview's composer, to edit there.
@@ -142,7 +143,6 @@ export function ProjectScreen(props: {
       ) : tab === 'reviews' ? (
         <ReviewsTab
           project={project.name}
-          {...(prs ? { shared: prs } : {})}
           all={allPrs}
           onAll={setAllPrs}
           onSetup={(row) => props.onPrSetup(row.project)}

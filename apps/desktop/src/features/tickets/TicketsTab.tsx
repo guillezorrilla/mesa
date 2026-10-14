@@ -1,7 +1,8 @@
 import { DEFAULTS, timeAgo } from '@mesa/core/browser';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { useCommand } from '@/lib/useCommand';
+import { useReadAt } from '@/lib/useReadAt';
 import { cn } from '@/lib/utils';
 import { ElsewhereLink } from './ElsewhereLink';
 import { ManageViewsDialog } from './ManageViewsDialog';
@@ -31,11 +32,8 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
   const [dialog, setDialog] = useState<'follow' | 'manage' | 'switch'>();
   // Picking another tracker from a tracker's setup page.
   const [choosing, setChoosing] = useState(false);
-  const [readAt, setReadAt] = useState<number>();
   const data = list.data;
-  useEffect(() => {
-    if (data) setReadAt(Date.now());
-  }, [data]);
+  const readAt = useReadAt(data);
   const views = data?.views ?? [];
   // A view no longer followed falls back to every view; with one view, it is that view.
   const current = views.some((v) => v.name === view)

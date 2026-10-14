@@ -9,8 +9,9 @@ import { Button } from '@/components/ui/button';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useCall, useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
+import { useSharedPrs } from './usePrs';
 
-type Step = { title: string; how: ReactNode; action?: ReactNode };
+type Step = { title: string; how: ReactNode; action?: ReactNode; done: boolean };
 
 /**
  * Connects a project's PR provider: install its CLI with Homebrew, sign in (and, on Bitbucket,
@@ -18,13 +19,9 @@ type Step = { title: string; how: ReactNode; action?: ReactNode };
  * project's PRs. Install and sign-in are read from `mesa prs setup`, so leaving and coming back
  * resumes there.
  */
-export function PrSetupScreen(props: {
-  project: string;
-  onSession: (id: string) => void;
-  /** The list is read again once the project connects. */
-  onConnected: () => void;
-}) {
-  const setup = useCommand('prs.setup');
+export function PrSetupScreen(props: { project: string; onSession: (id: string) => void }) {
+  const setup = useCommand('prs.setup', { project: props.project });
+  const shared = useSharedPrs();
   const call = useCall();
   const run = useRun();
   const toast = useToast();
@@ -65,9 +62,9 @@ export function PrSetupScreen(props: {
     props.onSession(opened.id);
     return true;
   };
+  // Listing the project is the proof: its blocked row or read problem says what is still missing.
   const check = async () => {
     setBusy(true);
-    await setup.refresh();
     const list = await call('prs', { project: props.project });
     setBusy(false);
     if (!list.ok) return setChecked(list.error.message);
@@ -76,7 +73,7 @@ export function PrSetupScreen(props: {
     if (blocked) return setChecked(`${cli.cli} is ${blocked.state}`);
     if (problem) return setChecked(problem);
     setChecked('ok');
-    props.onConnected();
+    void shared?.list.refresh();
   };
   const command = (text: string) => (
     <span className="inline-flex items-center gap-1">
@@ -92,9 +89,12 @@ export function PrSetupScreen(props: {
     </span>
   );
 
+  // Listing the project proves every step, so a passed Check marks them all done.
+  const proven = checked === 'ok';
   const steps: Step[] = [
     {
       title: `Install ${cli.cli}`,
+      done: proven || row.state !== 'missing',
       how: noBrew ? (
         <>Homebrew is not installed. Run {command(cli.manual)} in Terminal, then press Check.</>
       ) : (
@@ -108,6 +108,7 @@ export function PrSetupScreen(props: {
     },
     {
       title: `Sign in to ${connect ? 'Atlassian' : cli.name}`,
+      done: proven || row.state === 'ready',
       how: (
         <>
           Opens a terminal running <code className="font-mono text-foreground">{cli.signIn}</code>.
@@ -135,6 +136,7 @@ export function PrSetupScreen(props: {
       ? [
           {
             title: `Connect ${cli.name}`,
+            done: proven || connected,
             how: (
               <>
                 Opens a terminal running{' '}
@@ -156,6 +158,7 @@ export function PrSetupScreen(props: {
       : []),
     {
       title: 'Check access',
+      done: proven,
       how:
         checked === undefined || checked === 'ok' ? (
           <>Reads {props.project}'s open PRs.</>
@@ -169,13 +172,7 @@ export function PrSetupScreen(props: {
       ),
     },
   ];
-  const done = [
-    row.state !== 'missing',
-    row.state === 'ready',
-    ...(connect ? [connected] : []),
-    checked === 'ok',
-  ];
-  const current = done.findIndex((d) => !d);
+  const current = steps.findIndex((step) => !step.done);
   return (
     <section data-testid="pr-setup" className="max-w-2xl space-y-5">
       <PageHeader title={`Connect ${cli.name}`} />
@@ -193,7 +190,7 @@ export function PrSetupScreen(props: {
           <li
             key={step.title}
             data-testid="pr-setup-step"
-            data-state={done[i] ? 'done' : i === current ? 'current' : 'later'}
+            data-state={step.done ? 'done' : i === current ? 'current' : 'later'}
             className={cn(
               'grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1 p-4',
               i > current && current !== -1 && 'text-muted-foreground',
@@ -202,15 +199,15 @@ export function PrSetupScreen(props: {
             <span
               className={cn(
                 'flex size-6 items-center justify-center rounded-full border text-xs',
-                done[i] && 'border-state-idle bg-state-idle text-background',
+                step.done && 'border-state-idle bg-state-idle text-background',
                 i === current && 'border-state-working text-state-working',
               )}
             >
-              {done[i] ? <Check aria-hidden className="size-3" /> : i + 1}
+              {step.done ? <Check aria-hidden className="size-3" /> : i + 1}
             </span>
             <span className="text-sm font-medium">{step.title}</span>
             <span>
-              {done[i] ? (
+              {step.done ? (
                 <span className="text-xs font-medium text-state-idle">Done</span>
               ) : i === current ? (
                 step.action
