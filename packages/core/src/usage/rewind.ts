@@ -33,7 +33,7 @@ export function rewindService(ctx: MesaContext, usage: ReturnType<typeof usageSe
               : [];
           })
         : [];
-      const records = ctx.store.list();
+      const records = ctx.store.readable();
       const sessions = records
         .filter((record) => record.endedAt && within(record.endedAt))
         .map((record) => ({

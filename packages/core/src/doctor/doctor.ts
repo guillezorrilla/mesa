@@ -11,7 +11,6 @@ import type { DecisionsModel } from '../decisions/types.js';
 import type { Runner } from '../lib/process.js';
 import { toFail } from '../lib/result.js';
 import { PR_CLIS } from '../prs/provider.js';
-import type { UnreadableRecord } from '../sessions/record/store.js';
 import { type ObsidianPaths, obsidianCli } from '../vault/obsidian.js';
 import type { VaultStatus } from '../vault/vault.js';
 import {
@@ -232,11 +231,10 @@ function codexDaemonCheck(socket: string | undefined): Finding[] {
 }
 
 /** Session records Mesa cannot read: left out of the board, so listed here once instead. */
-function sessionRecordsCheck(unreadable: UnreadableRecord[]): Finding {
+function sessionRecordsCheck(reasons: string[]): Finding {
   const name = 'session records';
-  if (!unreadable.length) return { name, ok: true, hint: '' };
-  const files = unreadable.map((r) => r.reason).join('; ');
-  const hint = `Mesa cannot read ${unreadable.length}, so they are left out of your sessions: ${files}`;
+  if (!reasons.length) return { name, ok: true, hint: '' };
+  const hint = `Mesa cannot read ${reasons.length}, so they are left out of your sessions: ${reasons.join('; ')}`;
   return { name, ok: false, hint };
 }
 
@@ -279,8 +277,8 @@ export async function runDoctor(deps: {
   codexDaemon?: string;
   /** The profile's vault layout; none before init. */
   vault?: () => VaultStatus;
-  /** The session record files that do not read. */
-  unreadableRecords?: () => UnreadableRecord[];
+  /** Why each session record file that does not read fails. */
+  unreadableRecords?: () => string[];
 }): Promise<DoctorReport> {
   const [binaries, obsidian, hooks] = await Promise.all([
     Promise.all(

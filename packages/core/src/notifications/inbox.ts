@@ -99,7 +99,7 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
     const current = read();
     const fresh: Candidate[] = [];
     const offsets: Record<string, number> = {};
-    for (const record of ctx.store.list()) {
+    for (const record of ctx.store.readable()) {
       const before = current.offsets[record.id] ?? 0;
       const after = scanHookEvents(ctx.paths.events, record.id, before, (event) => {
         const item = hookItem(record.id, event);
@@ -148,11 +148,15 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
     list,
     markRead: (id: string) => change(id, 'read'),
     clear: (id: string) => change(id, 'cleared'),
-    /** Clears every notice shown now in one write; kept hook offsets stop them coming back. */
+    /**
+     * Clears every notice in one write, a hidden finished turn's too, so none is delivered later;
+     * kept hook offsets stop them coming back. Counts the ones the Inbox showed.
+     */
     clearAll: () => {
-      const ids = list().map((item) => item.id);
+      const shown = list().length;
+      const ids = all().map((item) => item.id);
       if (ids.length) store.write({ cleared: ids });
-      return ids.length;
+      return shown;
     },
     delivery,
     /** App and background worker claim through the same short, synchronous lock. */

@@ -137,7 +137,8 @@ function useRead<K extends CommandName>(
       setState({ key, data: result.data, busy: false });
     } else {
       setState((last) => ({ ...last, error: result.error, busy: false }));
-      if (toastMissing || result.error.code !== 'not_found') toast(result.error.message);
+      if (toastMissing || result.error.code !== 'not_found')
+        toast(result.error.message, 'alert', undefined, { repeating: true });
     }
   }, [call, toast, cached, name, key, toastMissing]);
 

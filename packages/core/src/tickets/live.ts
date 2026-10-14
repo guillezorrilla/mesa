@@ -7,7 +7,7 @@ import { PROVIDER_IDS, ticketId } from './providers.js';
  */
 export function liveSessions(ctx: MesaContext) {
   const by = new Map<string, { id: string; project: string }[]>();
-  for (const record of ctx.store.list()) {
+  for (const record of ctx.store.readable()) {
     const provider = PROVIDER_IDS.find((p) => p === record.from?.source);
     if (!provider || !record.from || record.endedAt) continue;
     const id = ticketId(provider, record.from.id);

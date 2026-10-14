@@ -233,6 +233,13 @@ test('quiet delivery digests new notices once and respects each kind across rest
   expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
   setConfigValue(paths.config, 'notifications.finished', 'sound', lockDeps());
   expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
+
+  // A finished turn is not in the Inbox, but its macOS notice is; Clear all clears it too.
+  hook('Stop', {}, other.id);
+  expect(mesa.notifications.list().some((item) => item.kind === 'finished')).toBe(false);
+  expect(mesa.notifications.delivery()).toMatchObject({ kind: 'notice' });
+  mesa.notifications.clearAll();
+  expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
 });
 
 test('delivery acknowledges a full inbox and a session notice across two batches', () => {

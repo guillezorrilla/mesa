@@ -162,13 +162,13 @@ test('hooks Mesa installed once say they need an update; never-installed ones sa
 test('session records that do not read are one warning naming them; none is ok', async () => {
   const { home, obsidian } = setup();
   const { run } = scriptedRunner(VERSIONS);
-  const doctor = (unreadable: { file: string; reason: string }[]) =>
+  const doctor = (unreadable: string[]) =>
     runDoctor({ run, obsidian, profileDir: home, unreadableRecords: () => unreadable }).then(
       (report) => byName(report.checks)['session records'],
     );
   expect(await doctor([])).toMatchObject({ ok: true, status: 'ok' });
   const reason = `${home}/sessions/zzzzzzzz.json: not valid JSON`;
-  expect(await doctor([{ file: `${home}/sessions/zzzzzzzz.json`, reason }])).toMatchObject({
+  expect(await doctor([reason])).toMatchObject({
     status: 'warn',
     hint: `Mesa cannot read 1, so they are left out of your sessions: ${reason}`,
   });

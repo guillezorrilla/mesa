@@ -13,6 +13,7 @@ import {
   type NewSession,
   type SessionRecord,
   SessionRecordSchema,
+  StoredRecordSchema,
 } from './record.js';
 
 // Session records: one JSON file per session in the profile's `sessions/`, outliving tmux.
@@ -21,10 +22,8 @@ const RECORD_FILE = /^([0-9a-z]{8})\.json$/;
 
 type Patch = Partial<Omit<SessionRecord, 'id'>>;
 
-/** A record file Mesa cannot read, and why. */
-export type UnreadableRecord = { file: string; reason: string };
-
-type ScannedRecord = { record: SessionRecord } | UnreadableRecord;
+/** A record file read: the record, or why it does not read (the message names the file). */
+type ScannedRecord = { record: SessionRecord } | { reason: string };
 
 /** Where a removal can move a record instead of dropping it: another store's `put`. */
 export type RecordSink = { put: (record: SessionRecord) => unknown };
@@ -69,7 +68,7 @@ export function sessionStore({
         // Removed between the listing and the read: gone, not unreadable.
         return record ? [{ record: own(id, record) }] : [];
       } catch (error) {
-        return [{ file: fileOf(id), reason: toFail(error).error.message }];
+        return [{ reason: toFail(error).error.message }];
       }
     });
   };
@@ -82,7 +81,7 @@ export function sessionStore({
     fn: (current: SessionRecord) => R,
     tries?: number,
   ): R =>
-    changeJson(fileOf(id), SessionRecordSchema, (current) => fn(own(id, current)), lock, {
+    changeJson(fileOf(id), StoredRecordSchema, (current) => fn(own(id, current)), lock, {
       tries,
       what: `session ${id}`,
     });
@@ -125,14 +124,28 @@ export function sessionStore({
         },
         wait ? undefined : 0,
       ),
-    /** Every record that reads, oldest first; one that does not is left out (`unreadable`). */
+    /**
+     * Every record, oldest first; one that does not read fails the list, so a guard (a worktree
+     * still in use) never passes on a record it could not see.
+     */
     list: (): SessionRecord[] =>
+      scan()
+        .map((found) => {
+          if ('record' in found) return found.record;
+          throw new MesaError('invalid_config', found.reason);
+        })
+        .sort((a, b) => a.startedAt.localeCompare(b.startedAt)),
+    /**
+     * Every record that reads, oldest first, for a view that refreshes (the board, the Inbox):
+     * one that does not read is left out, and Doctor names it (`unreadable`).
+     */
+    readable: (): SessionRecord[] =>
       scan()
         .flatMap((found) => ('record' in found ? [found.record] : []))
         .sort((a, b) => a.startedAt.localeCompare(b.startedAt)),
-    /** The record files that do not read, and why, for Doctor: never an error on the board. */
-    unreadable: (): UnreadableRecord[] =>
-      scan().flatMap((found) => ('record' in found ? [] : [found])),
+    /** Why each record file that does not read fails, for Doctor. */
+    unreadable: (): string[] =>
+      scan().flatMap((found) => ('record' in found ? [] : [found.reason])),
     /** Writes `record` as it is: a removal moving it here (remove's `into`). */
     put: (record: SessionRecord) => {
       mkdirSync(dir, { recursive: true, mode: 0o700 });
