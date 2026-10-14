@@ -2,6 +2,17 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.3.3 - 2026-10-14
+
+### Added
+
+- Drop files on a session's terminal: dragging a screenshot or any file from Finder onto it types its path, and Claude Code attaches an image as it does in a terminal app. (#827)
+
+### Fixed
+
+- A session whose agent moves into a worktree mid-conversation now follows it: the board, the Diff panel and resuming use that worktree, instead of the folder the session started in. (#826)
+- The Diff panel names the branch its changes come from as soon as it opens, the board follows a session into or out of a worktree while it works instead of after its turn, and a session that leaves the worktree it entered goes back to its own folder. (#828)
+
 ## 0.3.2 - 2026-10-14
 
 ### Added
