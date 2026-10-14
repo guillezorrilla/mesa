@@ -25,6 +25,8 @@ export type VaultOwners = {
   saveDecision: (input: DecisionInput) => Promise<Recorded<Saved>>;
   saveSummary: (input: SummaryInput) => Promise<Recorded<Saved>>;
   saveNote: (input: NoteInput) => Promise<Recorded<Saved>>;
+  /** Logs that the session's agent opened a note Mesa advised to it (noteOpened). */
+  noteOpened: (session: SessionRecord, path: string) => void;
 };
 
 type Tool = {
@@ -84,7 +86,11 @@ const TOOLS: Tool[] = [
     input: z.strictObject({
       path: z.string().describe('Vault-relative path, e.g. projects/<project>.md'),
     }),
-    call: (owners, _session, { path }) => owners.read(path),
+    call: (owners, session, { path }) => {
+      const item = owners.read(path);
+      owners.noteOpened(session, item.path);
+      return item;
+    },
   }),
   tool({
     name: 'search_vault',

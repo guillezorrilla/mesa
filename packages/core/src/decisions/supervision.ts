@@ -10,7 +10,7 @@ import {
   placementStore,
 } from '../sessions/signals/placements.js';
 import { decide } from './decide.js';
-import type { DecisionLog, NewLogEntry } from './log.js';
+import type { NewDecision } from './log.js';
 import { type DecisionModels, PER_TURN_MS } from './models.js';
 import { rulesBackend } from './rules.js';
 import { automaticGate } from './site-mode.js';
@@ -138,7 +138,7 @@ export function placementEntry(
   claim: Claim,
   reply: PlacementReply,
   provider: SystemOneProvider,
-): NewLogEntry {
+): NewDecision {
   const { placed, probabilities, ask } = reply;
   return {
     site: 'supervision',
@@ -178,7 +178,7 @@ export async function placeUnsure(deps: {
   tables?: SupervisionTables;
   clock: Clock;
   /** Where each saved reply is logged (the Decision log); a budget reply was never asked. */
-  log?: DecisionLog['append'];
+  log?: (entry: NewDecision) => void;
 }): Promise<Placed[]> {
   const { gate, acceptAt } = deps.tables ?? tables(false);
   const provider = supervisingModel(deps.model(), gate);

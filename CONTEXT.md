@@ -448,7 +448,7 @@ Not: safety check, policy, filter.
 
 ## Decision log
 
-Every model ask at the supervision and relevance sites, and every Guardrail stop or override, one JSON line each in `~/.mesa/<profile>/decision-log/<YYYY-MM>.jsonl` (ADR-0024, `decisions/log.ts`), read with `mesa decisions log [--session <id>] [--days <n>] --json`. A line keeps the site, session, project, the question in plain words, the rules' answer beside the one that stood, who answered (`rules`, `jev`, `clef`), its status (`accepted`, `abstained`, `unavailable`, `skipped`, `blocked`, `overridden`), whether Mesa changed something, and the margin, probabilities and latency when known; never a prompt or a screen. Profile data, never the vault: it is not a Receipt.
+Every model ask at the supervision and relevance sites, and every Guardrail stop or override, one JSON line each in `~/.mesa/<profile>/decision-log/<YYYY-MM>.jsonl` (ADR-0024, `decisions/log.ts`), read with `mesa decisions log [--session <id>] [--days <n>] --json`. A line keeps the site, session, project, the question in plain words, the rules' answer beside the one that stood, who answered (`rules`, `jev`, `clef`), its status (`accepted`, `abstained`, `unavailable`, `skipped`, `blocked`, `overridden`), whether Mesa changed something, and the margin, probabilities and latency when known; never a prompt or a screen. Two small lines record what came after a decision, with only their session and project: `opened`, when an agent read through the Vault server a note advice gave its own session, and `marked`, a person's Not right on a Moment (`moment`, `mark`, null when cleared). Profile data, never the vault: it is not a Receipt.
 Not: receipt, audit log, history.
 
 ## Moment
@@ -458,7 +458,7 @@ Not: event, activity, highlight.
 
 ## Impact
 
-What Mesa decided and kept for a person and what happened next (#778): Moments per session under a one-sentence summary, with facts only for outcomes, never estimated savings (`impact/report.ts`). An outcome is the person's next prompt after a session was seen waiting, a hook within 10 minutes agreeing or not with a placement, or a guardrail override; otherwise none yet. Read with `mesa impact [--days <n>] [--project <p>] [--session <id>] --json`, and in the app from the title bar's Impact button (beside Cost and Help), a project's Impact tab, Mesa's part in session details, and Search Mesa (Impact, and once text is typed Impact: <project> and Impact: <session>).
+What Mesa decided and kept for a person and what happened next (#778): Moments per session under a one-sentence summary, with facts only for outcomes, never estimated savings (`impact/report.ts`). An outcome is the person's next prompt after a session was seen waiting, a hook within 10 minutes agreeing or not with a placement, a guardrail override, or the agent opening an advised note (or not, once its session ended); otherwise none yet. A person can mark any Moment not right (`mesa impact mark <id> [--undo]`, or Not right on its row); a marked Moment counts in no summary, and nothing learns from marks yet. Read with `mesa impact [--days <n>] [--project <p>] [--session <id>] --json`, and in the app from the title bar's Impact button (beside Cost and Help), a project's Impact tab, Mesa's part in session details, and Search Mesa (Impact, and once text is typed Impact: <project> and Impact: <session>).
 Not: analytics, ROI, stats.
 
 ## Composition root

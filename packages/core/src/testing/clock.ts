@@ -14,3 +14,18 @@ export function steppingClock(iso = '2026-09-24T12:00:00.000Z', stepMs = 1000): 
     return date;
   };
 }
+
+/** A clock a test moves by hand: `set` to a time, or `pass` some milliseconds. */
+export function movableClock(iso = '2026-09-24T12:00:00.000Z') {
+  let now = Date.parse(iso);
+  const clock: Clock = () => new Date(now);
+  return {
+    clock,
+    set: (next: string) => {
+      now = Date.parse(next);
+    },
+    pass: (ms: number) => {
+      now += ms;
+    },
+  };
+}

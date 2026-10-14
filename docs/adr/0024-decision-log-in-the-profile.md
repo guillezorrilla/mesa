@@ -28,3 +28,9 @@ Receipts are the vault's record of meaningful actions, and their volume matters:
 
 - The log grows with use and nothing prunes it yet; at about 200 bytes a line, a busy month is a few megabytes.
 - Impact (#780) and anything that later learns from outcomes read this log; a change to its line shape must keep reading old lines, or skip them.
+
+## Amended 2026-10-13: opened notes and marks (#784)
+
+Two more kinds of line, still profile data, each its own small shape beside the decision line rather than a decision with placeholders: `opened` (`session`, `project`, `note`), when an agent reads through the Vault server a note that advice gave its own session in the last 30 days (once per advice; a read of any other note records nothing, so vault reads stay unlogged otherwise), and `marked` (`session`, `project`, `moment`, `mark`), a person's Not right on a Moment, a log line's id or a write receipt's (`mark: null` clears it; the newest stands). Readers tell them from decisions by `status`.
+
+Evidence: `packages/core/src/vault/mount/tools.test.ts` (opened once per advice, only for the advised session), `packages/core/src/impact/report.test.ts` (opened and not-opened outcomes, a marked Moment out of the summary), `packages/cli/src/commands/impact.test.ts` (mark, undo, unknown id, a receipt that wrote no note).

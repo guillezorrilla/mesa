@@ -4,7 +4,7 @@ import type { Project } from '../projects/project-file.js';
 import { isSessionId } from '../sessions/record/id.js';
 import { decide, type FaroDeps } from './decide.js';
 import { DESTRUCTIVE_PATTERNS, firstMatch, SECRET_PATTERNS } from './guardrail-patterns.js';
-import type { NewLogEntry } from './log.js';
+import type { NewDecision } from './log.js';
 import { rulesBackend } from './rules.js';
 import type { Decision, Question } from './types.js';
 
@@ -55,7 +55,7 @@ export type GuardrailDeps = Omit<FaroDeps<GuardState>, 'backends'> & {
   /** The profile's key values: a text holding one is blocked like any other secret. */
   secrets: readonly string[];
   /** Where a stop or an override is logged (the Decision log); an allow is not. */
-  log?: (entry: NewLogEntry) => void;
+  log?: (entry: NewDecision) => void;
 };
 
 const VERDICT: Question = { kind: 'Choice', id: 'verdict', options: ['allow', 'ask', 'block'] };

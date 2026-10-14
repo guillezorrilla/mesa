@@ -8,7 +8,7 @@ import {
   passGuardrail,
   type Verdict,
 } from './guardrail.js';
-import type { NewLogEntry } from './log.js';
+import type { NewDecision } from './log.js';
 
 // Invented keys, built here so no key-shaped string sits in the repo.
 const x = (n: number) => 'x'.repeat(n);
@@ -161,7 +161,7 @@ test('an allow passes; a block passes only --force; an ask passes --yes, --force
 });
 
 test('a stop and an override are logged with why, an allow is not', async () => {
-  const logged: NewLogEntry[] = [];
+  const logged: NewDecision[] = [];
   const pass = (text: string, project: string | undefined, overrides: object) =>
     passGuardrail(
       deps({ log: (entry) => logged.push(entry) }),

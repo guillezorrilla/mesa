@@ -38,3 +38,20 @@ export const impact = defineCommand({
     return { data: report, text: impactText(report) };
   },
 });
+
+export const impactMark = defineCommand({
+  name: 'impact mark',
+  summary: 'Mark a Moment of mesa impact not right by its id from --json, or clear the mark',
+  args: ['moment'],
+  flags: { undo: { type: 'boolean', description: 'Clear the mark' } },
+  example: 'mesa impact mark 01K7A2B3C4D5E6F7G8H9J0K1M2',
+  run: ({ mesa, args, flags }) => {
+    const marked = mesa.impact.mark(args.moment, { undo: Boolean(flags.undo) });
+    return {
+      data: marked,
+      text: marked.mark
+        ? `marked ${marked.moment} not right`
+        : `cleared the mark on ${marked.moment}`,
+    };
+  },
+});

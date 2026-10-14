@@ -1,11 +1,10 @@
 import { appendFileSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import type { Clock } from '../lib/clock.js';
-import { sequentialIds, tempDir } from '../testing/index.js';
-import { decisionLog, type NewLogEntry } from './log.js';
+import { movableClock, sequentialIds, tempDir } from '../testing/index.js';
+import { decisionLog, type NewDecision } from './log.js';
 
-const entry = (over: Partial<NewLogEntry> = {}): NewLogEntry => ({
+const entry = (over: Partial<NewDecision> = {}): NewDecision => ({
   site: 'supervision',
   session: 's1',
   project: 'lantern-cove',
@@ -18,16 +17,9 @@ const entry = (over: Partial<NewLogEntry> = {}): NewLogEntry => ({
   ...over,
 });
 
-/** A clock set by the test, to write entries in different months. */
-function settable(iso: string) {
-  let now = new Date(iso);
-  const clock: Clock = () => now;
-  return { clock, set: (next: string) => (now = new Date(next)) };
-}
-
 test('appends one private line per entry in its month and reads them back newest first', () => {
   const dir = join(tempDir(), 'decision-log');
-  const time = settable('2026-09-30T23:00:00.000Z');
+  const time = movableClock('2026-09-30T23:00:00.000Z');
   const log = decisionLog({ dir, clock: time.clock, newId: sequentialIds() });
   log.append(entry({ session: 's1' }));
   time.set('2026-10-02T09:00:00.000Z');
@@ -45,7 +37,7 @@ test('appends one private line per entry in its month and reads them back newest
 
 test('reads by since, session and project, and skips a line that does not parse', () => {
   const dir = join(tempDir(), 'decision-log');
-  const time = settable('2026-10-01T08:00:00.000Z');
+  const time = movableClock('2026-10-01T08:00:00.000Z');
   const log = decisionLog({ dir, clock: time.clock, newId: sequentialIds() });
   log.append(entry({ session: 'old' }));
   time.set('2026-10-05T08:00:00.000Z');

@@ -2,18 +2,18 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { AGENT_STATES } from '../agents/states.js';
-import type { Clock } from '../lib/clock.js';
 import { placementStore, type Want } from '../sessions/signals/placements.js';
 import {
   agentWorld,
   type FakeRequest,
   lockDeps,
+  movableClock,
   profilePaths,
   projectProfile,
   systemOneWorld,
   tempDir,
 } from '../testing/index.js';
-import type { NewLogEntry } from './log.js';
+import type { NewDecision } from './log.js';
 import { PER_TURN_MS } from './models.js';
 import { automaticGate } from './site-mode.js';
 import { ACCEPT_AT, DECISION_SITES, PASSED_GATE } from './sites.js';
@@ -29,18 +29,7 @@ import {
 import { systemOneBackend } from './systemone.js';
 import type { DecisionsModel } from './types.js';
 
-const START = Date.parse('2026-10-06T12:00:00.000Z');
 const PERMISSION = 'Bash command\n  rm -rf build/\nDo you want to proceed?\n> 1. Yes\n  2. No';
-
-/** A clock a test moves by hand. */
-function handClock() {
-  let now = START;
-  const clock: Clock = () => new Date(now);
-  const pass = (ms: number) => {
-    now += ms;
-  };
-  return { clock, pass };
-}
 
 /** Jev answers every supervision question with `state` at probability `p`, the rest even. */
 function answering(world: ReturnType<typeof systemOneWorld>, state: string, p: number) {
@@ -61,7 +50,7 @@ function answering(world: ReturnType<typeof systemOneWorld>, state: string, p: n
  */
 function placing() {
   const world = systemOneWorld();
-  const time = handClock();
+  const time = movableClock('2026-10-06T12:00:00.000Z');
   const store = placementStore(join(tempDir(), 'placements.json'), {
     ...lockDeps(),
     clock: time.clock,
@@ -74,7 +63,7 @@ function placing() {
     model: 'jev-1.13.0',
     deadlineMs: PER_TURN_MS,
   });
-  const logged: NewLogEntry[] = [];
+  const logged: NewDecision[] = [];
   const place = (tables?: Parameters<typeof placeUnsure>[0]['tables']) =>
     placeUnsure({
       log: (entry) => logged.push(entry),

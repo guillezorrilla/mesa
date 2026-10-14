@@ -47,9 +47,48 @@ function Thread({ moments }: { moments: Moment[] }) {
   );
 }
 
-function MomentRow({ moment: m }: { moment: Moment }) {
+/** Marks a Moment not right, or clears the mark (`undo`). */
+type OnMark = (moment: string, undo: boolean) => unknown;
+
+/** A Moment's Not right button, or its mark and an undo. */
+function MarkControl({ moment: m, onMark }: { moment: Moment; onMark: OnMark }) {
+  if (!m.marked)
+    return (
+      <Button
+        variant="ghost"
+        size="xs"
+        aria-label="Mark as not right"
+        className="text-muted-foreground"
+        onClick={() => onMark(m.id, false)}
+      >
+        Not right
+      </Button>
+    );
   return (
-    <li className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-start gap-3 border-t py-2.5">
+    <span className="flex items-center gap-1 text-muted-foreground">
+      Marked not right,
+      <Button
+        variant="link"
+        size="xs"
+        className="h-auto p-0"
+        aria-label="Undo the mark"
+        onClick={() => onMark(m.id, true)}
+      >
+        undo
+      </Button>
+    </span>
+  );
+}
+
+function MomentRow({ moment: m, onMark }: { moment: Moment; onMark?: OnMark }) {
+  return (
+    <li
+      data-testid="impact-moment"
+      className={cn(
+        'grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-start gap-3 border-t py-2.5',
+        m.marked && 'opacity-60',
+      )}
+    >
       <span className="pt-0.5 font-mono text-muted-foreground text-xs">
         {localClock(new Date(m.at))}
       </span>
@@ -67,14 +106,16 @@ function MomentRow({ moment: m }: { moment: Moment }) {
           )}
         </p>
       </div>
-      <span
-        className={cn(
-          'max-w-56 text-right text-xs',
-          m.outcome && GOOD.has(m.outcome.kind) ? 'text-foreground' : 'text-muted-foreground',
-        )}
-      >
-        {m.outcome?.text ?? NO_OUTCOME}
-      </span>
+      <div className="flex max-w-56 flex-col items-end gap-1 text-right text-xs">
+        <span
+          className={
+            m.outcome && GOOD.has(m.outcome.kind) ? 'text-foreground' : 'text-muted-foreground'
+          }
+        >
+          {m.outcome?.text ?? NO_OUTCOME}
+        </span>
+        {onMark && <MarkControl moment={m} onMark={onMark} />}
+      </div>
     </li>
   );
 }
@@ -84,6 +125,7 @@ export function ImpactSessionCard(props: {
   session: SessionImpact;
   expanded?: boolean;
   onSession?: (id: string) => void;
+  onMark?: OnMark;
 }) {
   const { session } = props;
   const [all, setAll] = useState(props.expanded ?? false);
@@ -118,7 +160,7 @@ export function ImpactSessionCard(props: {
       {shown.length > 0 && (
         <ol>
           {shown.map((m) => (
-            <MomentRow key={m.id} moment={m} />
+            <MomentRow key={m.id} moment={m} onMark={props.onMark} />
           ))}
         </ol>
       )}

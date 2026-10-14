@@ -1,7 +1,9 @@
 import type { MesaContext } from '../context.js';
+import { noteOpened } from '../decisions/opened-note.js';
 import { findProject } from '../projects/projects.js';
 import { BASES_MEANINGFUL_FILTER } from '../receipts/policy.js';
 import { GENERAL_PROJECT } from '../sessions/record/general.js';
+import type { SessionRecord } from '../sessions/record/record.js';
 import { callerOf } from '../sessions/window/caller.js';
 import { writeBases } from './bases.js';
 import { captureByHand } from './capture/by-hand.js';
@@ -49,9 +51,13 @@ export function vaultService(
     project: string,
     { limit, exclude = caller() }: { limit?: number; exclude?: string } = {},
   ) => sessionGoals({ vault: vaultOf(), store }, known(project), { limit, exclude });
+  /** The agent of `session` opened `path` through the vault server (noteOpened). */
+  const opened = (session: SessionRecord, path: string) =>
+    noteOpened(ctx.decisionLog, ctx.clock(), session, path);
   const writes = sessionWrites(ctx);
   return {
     vault: {
+      noteOpened: opened,
       init: (force = false) =>
         record(
           {
@@ -91,6 +97,7 @@ export function vaultService(
           search,
           context,
           goals,
+          noteOpened: opened,
           ...writes,
         }),
     },

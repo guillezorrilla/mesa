@@ -1,5 +1,5 @@
 import type { AgentState } from '../agents/states.js';
-import type { LogEntry } from '../decisions/log.js';
+import type { DecisionLine, LogEntry, Mark, OpenedLine } from '../decisions/log.js';
 import { counted } from '../lib/format.js';
 import type { ReceiptEntry } from '../receipts/store.js';
 import { type SessionState, WAITING_STATES } from '../sessions/record/states.js';
@@ -10,19 +10,28 @@ import { type SessionState, WAITING_STATES } from '../sessions/record/states.js'
 
 /** What happened after a Moment, when Mesa can tell. */
 export type Outcome =
-  | { kind: 'hook-agreed' | 'hook-disagreed' | 'overridden' | 'not-overridden'; text: string }
+  | {
+      kind:
+        | 'hook-agreed'
+        | 'hook-disagreed'
+        | 'overridden'
+        | 'not-overridden'
+        | 'opened'
+        | 'not-opened';
+      text: string;
+    }
   | { kind: 'answered'; minutes: number; text: string };
 
 /** One thing Mesa did for a session that changed something (CONTEXT.md, Moment). */
 export type Moment = {
   id: string;
   at: string;
-  site: LogEntry['site'] | 'vault';
+  site: DecisionLine['site'] | 'vault';
   /** The question in plain words. */
   question: string;
   /** What Mesa did, in a few words. */
   title: string;
-  by: LogEntry['by'];
+  by: DecisionLine['by'];
   /** The probability of the answer that stood, when one was given. */
   confidence?: number;
   /** What the rules alone would have said, when it differs. */
@@ -30,6 +39,8 @@ export type Moment = {
   /** The vault notes it brought in or kept. */
   notes?: string[];
   outcome: Outcome | null;
+  /** A person marked it not right (`mesa impact mark`): it counts in no summary. */
+  marked?: Mark;
 };
 
 /** The log lines of a session that changed nothing: one quiet count each. */
@@ -44,7 +55,7 @@ export type SessionImpact = {
   moments: Moment[];
   folded: Folded;
   /** The model whose agreements `folded` counts, when one was asked. */
-  model?: LogEntry['by'];
+  model?: DecisionLine['by'];
 };
 
 export type ImpactSummary = {
@@ -79,10 +90,12 @@ export type ImpactRecord = {
   prompts: string[];
   /** The states its hooks reported, oldest first. */
   hookStates: { at: string; state: string }[];
+  /** Whether it has ended: an advised note never opened by then never will be. */
+  ended: boolean;
 };
 
 /** Who answered, in a person's words. */
-export const DECIDERS: Record<LogEntry['by'], string> = {
+export const DECIDERS: Record<DecisionLine['by'], string> = {
   rules: 'Rules',
   jev: 'Jev',
   clef: 'CLEF',
@@ -112,7 +125,7 @@ const words = (state: string | null) =>
 const waiting = (state: string | null) => WAITING_STATES.has(state as SessionState);
 
 /** Which quiet count a line that changed nothing adds to. */
-const FOLDED: Record<LogEntry['status'], keyof Folded> = {
+const FOLDED: Record<DecisionLine['status'], keyof Folded> = {
   accepted: 'agreed',
   abstained: 'unsure',
   unavailable: 'failed',
@@ -125,7 +138,7 @@ const FOLDED: Record<LogEntry['status'], keyof Folded> = {
 const HOOK_WINDOW_MS = 10 * 60_000;
 
 /** A placement's outcome: the person's next prompt after a wait, else the next hook's state. */
-function placementOutcome(entry: LogEntry, record: ImpactRecord | undefined): Outcome | null {
+function placementOutcome(entry: DecisionLine, record: ImpactRecord | undefined): Outcome | null {
   if (waiting(entry.answer)) {
     const next = record?.prompts.find((at) => at > entry.at);
     if (!next) return null;
@@ -140,10 +153,28 @@ function placementOutcome(entry: LogEntry, record: ImpactRecord | undefined): Ou
     : { kind: 'hook-disagreed', text: `A hook said ${words(hook.state)} later` };
 }
 
+/** Whether `line` is the agent opening the note `advice` named, after that advice. */
+export const openedAfter = (
+  advice: Pick<DecisionLine, 'session' | 'note' | 'at'>,
+  line: OpenedLine,
+) => line.session === advice.session && line.note === advice.note && line.at >= advice.at;
+
+/** An advised note's outcome: opened after the advice, else not once the session has ended. */
+function noteOutcome(
+  advice: DecisionLine,
+  record: ImpactRecord | undefined,
+  opened: readonly OpenedLine[],
+): Outcome | null {
+  if (opened.some((o) => openedAfter(advice, o)))
+    return { kind: 'opened', text: 'The agent opened the note' };
+  return record?.ended ? { kind: 'not-opened', text: 'The agent did not open it' } : null;
+}
+
 /** A log line's Moment, and the summary count it adds to. */
 function logMoment(
-  entry: LogEntry,
+  entry: DecisionLine,
   record: ImpactRecord | undefined,
+  opened: readonly OpenedLine[],
 ): [Moment, keyof ImpactSummary] {
   const confidence = entry.answer ? entry.probabilities?.[entry.answer] : undefined;
   const base = {
@@ -170,7 +201,7 @@ function logMoment(
         ...base,
         title: `Brought ${entry.note} into the prompt`,
         ...(entry.note ? { notes: [entry.note] } : {}),
-        outcome: null,
+        outcome: noteOutcome(entry, record, opened),
       },
       'notesIn',
     ];
@@ -187,7 +218,7 @@ function logMoment(
 }
 
 /** A receipt that wrote the vault for a session: its notes, else none. */
-function writtenNotes({ receipt }: ReceiptEntry): string[] {
+export function writtenNotes({ receipt }: ReceiptEntry): string[] {
   if (receipt.status !== 'ok') return [];
   const { notes, target } = receipt.outputs as { notes?: unknown; target?: unknown };
   if (receipt.kind === 'capture') return Array.isArray(notes) ? notes.map(String) : [];
@@ -276,8 +307,22 @@ export function impactReport(input: {
     kept: 0,
     sessions: 0,
   };
+  // What came after a Moment: a person's newest mark on each, and each note an agent opened.
+  const marks = new Map<string, Mark | null>();
+  const opened: OpenedLine[] = [];
+  const decisions: DecisionLine[] = [];
+  for (const entry of input.entries) {
+    if (entry.status === 'opened') opened.push(entry);
+    else if (entry.status === 'marked') {
+      if (!marks.has(entry.moment)) marks.set(entry.moment, entry.mark);
+    } else decisions.push(entry);
+  }
+  const withMark = (moment: Moment): Moment => {
+    const mark = marks.get(moment.id);
+    return mark ? { ...moment, marked: mark } : moment;
+  };
   // The log reads newest first; a thread runs oldest first, ties in the order they were logged.
-  for (const entry of [...input.entries].reverse()) {
+  for (const entry of decisions.reverse()) {
     const g = group(entry.session, entry.project);
     if (entry.by !== 'rules') g.model = entry.by;
     if (!entry.changed) {
@@ -288,21 +333,21 @@ export function impactReport(input: {
       continue;
     }
     const record = entry.session ? input.records.get(entry.session) : undefined;
-    const [moment, counts] = logMoment(entry, record);
+    const [built, counts] = logMoment(entry, record, opened);
+    const moment = withMark(built);
     g.moments.push(moment);
-    summary[counts] += 1;
+    if (!moment.marked) summary[counts] += 1;
   }
   for (const receipt of input.receipts) {
     const notes = writtenNotes(receipt);
     if (!notes.length) continue;
-    group(receipt.receipt.session ?? null, receipt.receipt.project ?? null).moments.push(
-      vaultMoment(receipt, notes),
-    );
-    summary.kept += notes.length;
+    const moment = withMark(vaultMoment(receipt, notes));
+    group(receipt.receipt.session ?? null, receipt.receipt.project ?? null).moments.push(moment);
+    if (!moment.marked) summary.kept += notes.length;
   }
   const sessions = [...groups.values()];
   for (const s of sessions) s.moments.sort((a, b) => a.at.localeCompare(b.at));
-  summary.sessions = sessions.filter((s) => s.moments.length).length;
+  summary.sessions = sessions.filter((s) => s.moments.some((m) => !m.marked)).length;
   const last = (s: SessionImpact) => s.moments.at(-1)?.at ?? '';
   sessions.sort((a, b) => last(b).localeCompare(last(a)));
   return {

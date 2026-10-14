@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import type { LogEntry } from '../decisions/log.js';
+import type { DecisionLine, LogEntry } from '../decisions/log.js';
 import type { ReceiptEntry } from '../receipts/store.js';
 import { EMPTY_IMPACT, foldedText, type ImpactRecord, impactReport } from './report.js';
 
@@ -7,7 +7,7 @@ const AT = '2026-10-13T09:00:00.000Z';
 const at = (minutes: number) => new Date(Date.parse(AT) + minutes * 60_000).toISOString();
 
 let n = 0;
-const entry = (over: Partial<LogEntry>): LogEntry => ({
+const entry = (over: Partial<DecisionLine>): DecisionLine => ({
   id: `e${++n}`,
   at: AT,
   site: 'supervision',
@@ -49,11 +49,19 @@ const records = new Map<string, ImpactRecord>([
       project: 'lantern-cove',
       prompts: [at(2)],
       hookStates: [],
+      ended: false,
     },
   ],
   [
     'e5f6a7b8',
-    { id: 'e5f6a7b8', name: 'rate-limits', project: 'harbor', prompts: [], hookStates: [] },
+    {
+      id: 'e5f6a7b8',
+      name: 'rate-limits',
+      project: 'harbor',
+      prompts: [],
+      hookStates: [],
+      ended: true,
+    },
   ],
 ]);
 
@@ -249,5 +257,70 @@ test('an override alone still tells its story; a note none fit folds; a write ou
   expect(r.sessions.find((s) => s.id === null)).toMatchObject({
     name: 'Outside a session',
     moments: [{ site: 'vault', title: 'Saved wiki/notes/d.md' }],
+  });
+});
+
+test('an advised note is opened, or not once its session ended; a mark takes a Moment out of the summary', () => {
+  const advice = (session: string, note: string, minutes: number) =>
+    entry({
+      at: at(minutes),
+      session,
+      site: 'relevance',
+      rules: null,
+      answer: note,
+      note,
+      changed: true,
+    });
+  const opened = (session: string, note: string, minutes: number): LogEntry => ({
+    id: `o${minutes}`,
+    at: at(minutes),
+    session,
+    project: 'lantern-cove',
+    status: 'opened',
+    note,
+  });
+  const catchId = 'catch-1';
+  const mark = (minutes: number, value: 'not-right' | null): LogEntry => ({
+    id: `k${minutes}`,
+    at: at(minutes),
+    session: 'a1b2c3d4',
+    project: 'lantern-cove',
+    status: 'marked',
+    moment: catchId,
+    mark: value,
+  });
+  const r = report([
+    // Log order is newest first.
+    mark(50, 'not-right'),
+    mark(40, null),
+    mark(30, 'not-right'),
+    opened('a1b2c3d4', 'wiki/a.md', 6),
+    advice('e5f6a7b8', 'wiki/b.md', 5),
+    advice('a1b2c3d4', 'wiki/a.md', 4),
+    advice('a1b2c3d4', 'wiki/c.md', 3),
+    entry({ id: catchId, answer: 'waiting-question', changed: true }),
+  ]);
+  const notes = r.sessions.flatMap((s) => s.moments).filter((m) => m.site === 'relevance');
+  expect(notes.map((m) => [m.notes?.[0], m.outcome?.text ?? null])).toEqual([
+    ['wiki/b.md', 'The agent did not open it'],
+    ['wiki/c.md', null],
+    ['wiki/a.md', 'The agent opened the note'],
+  ]);
+  const caught = r.sessions.flatMap((s) => s.moments).find((m) => m.id === catchId);
+  expect(caught?.marked).toBe('not-right');
+  expect(r.summary).toMatchObject({ caught: 0, notesIn: 3 });
+  // A session whose only Moment is marked is in no count, the sessions' either.
+  const only = report([
+    mark(50, 'not-right'),
+    entry({ id: catchId, answer: 'waiting-question', changed: true }),
+  ]);
+  expect(only.summary).toMatchObject({ caught: 0, sessions: 0 });
+  expect(only.sentence).toBe(EMPTY_IMPACT);
+  // Opened and mark lines are neither Moments nor folded counts.
+  expect(r.sessions.find((s) => s.id === 'a1b2c3d4')?.folded).toEqual({
+    agreed: 0,
+    unsure: 0,
+    failed: 0,
+    skipped: 0,
   });
 });

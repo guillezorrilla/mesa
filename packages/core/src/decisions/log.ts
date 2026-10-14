@@ -8,20 +8,26 @@ import { EVALUATION_STATUSES } from './evaluate.js';
 import { SYSTEM_ONE_PROVIDERS } from './systemone.js';
 
 // The Decision log (CONTEXT.md, ADR-0024): every model ask at the supervision and relevance sites,
-// and every guardrail stop, one JSON line each in the profile's `decision-log/<YYYY-MM>.jsonl`.
+// and every guardrail stop, one JSON line each in the profile's `decision-log/<YYYY-MM>.jsonl`,
+// with what came after them: an advised note opened, a person's mark.
 // Impact reads it; nothing decides from it. Profile data, never the vault: a busy Board asks a
 // model many times a minute, too many for receipts. It never holds a prompt or a screen.
 
 const LOG_SITES = ['supervision', 'relevance', 'guardrail'] as const;
 
 /**
- * How the entry went. A model ask is accepted, abstained, unavailable (failed, or not asked), or
+ * How a decision went. A model ask is accepted, abstained, unavailable (failed, or not asked), or
  * skipped (relevance: no source shared enough words, so no model was asked). A guardrail stop is
  * blocked (it did not go on) or overridden (`--yes`, a person's yes, or `--force`).
  */
-const LOG_STATUSES = [...EVALUATION_STATUSES, 'skipped', 'blocked', 'overridden'] as const;
+const DECISION_STATUSES = [...EVALUATION_STATUSES, 'skipped', 'blocked', 'overridden'] as const;
 
-const EntrySchema = z.object({
+/** What a person can mark a Moment. */
+const MARKS = ['not-right'] as const;
+export type Mark = (typeof MARKS)[number];
+
+/** One decision a site made: what it answered beside what the rules alone would have. */
+const DecisionSchema = z.object({
   id: z.string(),
   at: z.iso.datetime(),
   site: z.enum(LOG_SITES),
@@ -33,7 +39,7 @@ const EntrySchema = z.object({
   rules: z.string().nullable(),
   answer: z.string().nullable(),
   by: z.enum(['rules', ...SYSTEM_ONE_PROVIDERS]),
-  status: z.enum(LOG_STATUSES),
+  status: z.enum(DECISION_STATUSES),
   /** Mesa changed something: an accepted answer the rules did not give, advice sent, a stop. */
   changed: z.boolean(),
   margin: z.number().optional(),
@@ -45,8 +51,46 @@ const EntrySchema = z.object({
   reason: z.string().optional(),
   override: z.enum(['yes', 'confirmed', 'force']).optional(),
 });
+
+/** What came after a Moment, no decision of its own: the agent opened an advised note. */
+const OpenedSchema = z.object({
+  id: z.string(),
+  at: z.iso.datetime(),
+  session: z.string(),
+  project: z.string().nullable(),
+  status: z.literal('opened'),
+  note: z.string(),
+});
+
+/** A person's mark on a Moment (a decision's id, or a receipt's); null clears it. */
+const MarkedSchema = z.object({
+  id: z.string(),
+  at: z.iso.datetime(),
+  session: z.string().nullable(),
+  project: z.string().nullable(),
+  status: z.literal('marked'),
+  moment: z.string(),
+  mark: z.enum(MARKS).nullable(),
+});
+
+const EntrySchema = z.union([DecisionSchema, OpenedSchema, MarkedSchema]);
+export type DecisionLine = z.infer<typeof DecisionSchema>;
+export type OpenedLine = z.infer<typeof OpenedSchema>;
+export type MarkedLine = z.infer<typeof MarkedSchema>;
 export type LogEntry = z.infer<typeof EntrySchema>;
-export type NewLogEntry = Omit<LogEntry, 'id' | 'at'>;
+/** A line to append: the log stamps its id and time. */
+export type NewLogEntry = LogEntry extends infer E
+  ? E extends LogEntry
+    ? Omit<E, 'id' | 'at'>
+    : never
+  : never;
+
+/** A decision to append, as its site builds it. */
+export type NewDecision = Omit<DecisionLine, 'id' | 'at'>;
+
+/** Whether a line is a decision, not something that came after one. */
+export const isDecision = (entry: LogEntry): entry is DecisionLine =>
+  entry.status !== 'opened' && entry.status !== 'marked';
 
 export type LogFilter = { since?: Date; session?: string; project?: string };
 
@@ -91,6 +135,8 @@ export function decisionLog(deps: { dir: string; clock: Clock; newId: IdSource }
       const entries: LogEntry[] = [];
       for (const name of months) {
         scanLines(join(deps.dir, name), 0, (line) => {
+          // A line that cannot name the session is not parsed: most lines are other sessions'.
+          if (filter.session && !line.includes(filter.session)) return;
           const entry = parse(line);
           if (
             entry &&
