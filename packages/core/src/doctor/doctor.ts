@@ -52,13 +52,17 @@ const BINARIES: Binary[] = [
   ),
 ];
 
+/** How to install Obsidian, which most people do not have yet. */
+const OBSIDIAN_INSTALL = 'brew install --cask obsidian';
+
 /** The rows Mesa can install itself (`mesa doctor install`), each with its Homebrew command. */
-export const INSTALLABLE = new Map(
-  BINARIES.flatMap((b) => {
+export const INSTALLABLE = new Map([
+  ...BINARIES.flatMap((b) => {
     const command = homebrewInstall(b);
     return command ? [[b.name, command] as const] : [];
   }),
-);
+  ['obsidian', OBSIDIAN_INSTALL] as const,
+]);
 
 const REQUIREMENT = `tmux and at least one agent (${AGENT_NAMES.join(' or ')}) are required`;
 
@@ -70,7 +74,8 @@ async function obsidianCheck(run: Runner, paths: ObsidianPaths): Promise<Finding
       ...base,
       ok: false,
       registered: false,
-      hint: `Obsidian 1.12.7+ not found at ${paths.bundle}`,
+      hint: `not installed; Mesa's vault opens in Obsidian 1.12.7+: install with \`${OBSIDIAN_INSTALL}\``,
+      install: OBSIDIAN_INSTALL,
     };
   }
   // Read the version from the bundle: running the CLI itself would launch the app.

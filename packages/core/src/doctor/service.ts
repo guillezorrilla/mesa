@@ -23,7 +23,7 @@ export function doctorService(
   },
 ) {
   return {
-    /** Installs a missing tmux or agent with Homebrew (`mesa doctor install`). */
+    /** Installs a missing tmux, agent or Obsidian with Homebrew (`mesa doctor install`). */
     installRequirement: (name: string) => installRequirement(ctx.run, name),
     doctor: async () => {
       const report = await runDoctor({

@@ -36,6 +36,7 @@ async function setup(
     step: options.step ?? 0,
     status: 'active',
     tmux: false,
+    obsidian: options.obsidian ?? true,
     hooks: false,
     projects: options.projects ?? [],
   };
@@ -78,14 +79,18 @@ async function setup(
             check('claude', 'ok', { version: '2.1.0' }),
             check('codex', 'warn', { install: 'brew install --cask codex' }),
             check('agy', 'warn'),
-            check('obsidian', options.obsidian === false ? 'warn' : 'ok'),
+            state.obsidian
+              ? check('obsidian', 'ok')
+              : check('obsidian', 'warn', { install: 'brew install --cask obsidian' }),
           ],
           state.tmux ? { healthy: true, summary: 'ready' } : { healthy: false, summary: 'no tmux' },
         ),
       ),
-    'doctor install': () => {
-      state.tmux = true;
-      return envelope({ name: 'tmux', installed: true });
+    'doctor install': (args) => {
+      const name = args.at(-1) ?? '';
+      if (name === 'tmux') state.tmux = true;
+      if (name === 'obsidian') state.obsidian = true;
+      return envelope({ name, installed: true });
     },
     'hooks status': () =>
       envelope({ ...hooks.data, installed: state.hooks, codex: { ...hooks.data.codex } }),
@@ -147,13 +152,17 @@ test('Vault: Obsidian vaults first, a new one suggested; one Continue creates th
   expect(stepTitle(byTestId)).toBe('Requirements');
 });
 
-test('Vault: without Obsidian, Create a new vault is preselected and Get Obsidian shows', async () => {
-  const { byTestId } = await setup({ obsidian: false });
-  expect(byTestId('onboarding')[0]?.textContent).toContain('Get Obsidian');
+test('Vault: without Obsidian, Create a new vault is preselected and Install obsidian installs it', async () => {
+  const { byTestId, calls } = await setup({ obsidian: false });
   const states = byTestId('vault-choice').map((row) =>
     row.querySelector('[role="radio"]')?.getAttribute('data-state'),
   );
   expect(states).toEqual(['unchecked', 'checked']);
+  const notice = byTestId('obsidian-missing')[0];
+  expect(notice?.textContent).toContain('Obsidian is not installed');
+  await click(notice?.querySelector<HTMLElement>('[data-testid="install-button"]') ?? undefined);
+  expect(calls).toContainEqual(['--json', 'doctor', 'install', 'obsidian']);
+  expect(byTestId('obsidian-missing')).toHaveLength(0);
 });
 
 test('Projects: Continue needs a ticked folder with no project yet; with one, nothing starts ticked', async () => {

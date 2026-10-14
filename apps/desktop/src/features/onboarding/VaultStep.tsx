@@ -1,18 +1,25 @@
 import { FolderOpen } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { InstallButton } from '@/features/doctor/InstallButton';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 
 /**
  * Where Mesa keeps its memory: one of Obsidian's vaults, most recent first, a new folder, or
- * another one. Continue creates the profile, which lays the vault out.
+ * another one. Continue creates the profile, which lays the vault out. Without Obsidian it offers
+ * to install it; Mesa works without it, the notes are plain Markdown either way.
  */
-export function VaultStep(props: { obsidian: boolean; onCreated: () => Promise<void> }) {
+export function VaultStep(props: {
+  obsidian: boolean;
+  onObsidianInstalled: () => Promise<void>;
+  onCreated: () => Promise<void>;
+}) {
   const choices = useCommand('obsidian.vaults');
   const { pickFolder } = usePlatform();
   const run = useRun();
@@ -39,6 +46,26 @@ export function VaultStep(props: { obsidian: boolean; onCreated: () => Promise<v
       <Muted>
         Mesa keeps notes, decisions and receipts as plain Markdown in an Obsidian vault on this Mac.
       </Muted>
+      {!props.obsidian && (
+        <Alert data-testid="obsidian-missing">
+          <AlertDescription className="space-y-2">
+            <p>
+              Obsidian is not installed. It is how you read and edit Mesa's notes; you can install
+              it now or later from Doctor.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <InstallButton name="obsidian" onInstalled={props.onObsidianInstalled} />
+              <Button
+                variant="link"
+                size="sm"
+                onClick={() => void run('browser.external', { url: 'https://obsidian.md' })}
+              >
+                Download from obsidian.md
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
       <RadioGroup aria-label="Vault" value={selected ?? ''} onValueChange={setChosen}>
         {options.map((option, index) => (
           <div
@@ -56,7 +83,7 @@ export function VaultStep(props: { obsidian: boolean; onCreated: () => Promise<v
           </div>
         ))}
       </RadioGroup>
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="ghost"
           size="sm"
@@ -74,15 +101,6 @@ export function VaultStep(props: { obsidian: boolean; onCreated: () => Promise<v
         >
           <FolderOpen aria-hidden /> Choose another folder...
         </Button>
-        {!props.obsidian && (
-          <Button
-            variant="link"
-            size="sm"
-            onClick={() => void run('browser.external', { url: 'https://obsidian.md' })}
-          >
-            Get Obsidian
-          </Button>
-        )}
       </div>
       <div className="flex justify-end">
         <Button
