@@ -16,6 +16,7 @@ import { usePendingRuns } from '@/features/automations/usePendingRuns';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { ProjectsSection } from '@/features/projects/ProjectsSection';
 import { ReviewsSection } from '@/features/prs/ReviewsSection';
+import { liveReviews } from '@/features/prs/reviewSessions';
 import { useSharedPrs } from '@/features/prs/usePrs';
 import { COMMAND_ICONS } from '@/features/search/hitIcon';
 import { useSessionSelection } from '@/features/sessions/selection/useSessionSelection';
@@ -191,6 +192,7 @@ export function WorkspaceSidebar(props: {
               onSetup={(row) => onView({ kind: 'prs-setup', project: row.project })}
               onOpen={(pr) => onView({ kind: 'pr', project: pr.project, number: pr.number })}
               current={view.kind === 'pr' ? view : undefined}
+              reviewing={liveReviews(props.sessions)}
             />
           )
         ) : tab === 'projects' ? (

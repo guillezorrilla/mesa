@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { scriptedRunner } from '@mesa/core/testing';
+import { newSession, scriptedRunner, testStore } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -234,4 +234,81 @@ test('prs draft leaves one pending inline comment, never submitting, and refuses
   expect(drafted.json.data.receipt).toMatchObject({ id: expect.any(String) });
   expect(queries).toHaveLength(3);
   for (const query of queries) expect(query).not.toMatch(/submitPullRequestReview|event/);
+});
+
+test('prs publish is refused outside a review session started with Post now, touching nothing', async () => {
+  await world();
+  const run = cli.run;
+  const ghCalls: string[][] = [];
+  cli.run = (file, args, ...rest) => {
+    if (file === 'gh') ghCalls.push(args);
+    return run(file, args, ...rest);
+  };
+  const refused = await cli.mesa('prs', 'publish', 'lantern-cove', '12', '--json');
+  expect(refused.code).toBe(2);
+  expect(refused.json.error.message).toMatch(/Post now/);
+  expect(ghCalls).toEqual([]);
+});
+
+test('prs publish runs only in a live Post now review of that PR in that project', async () => {
+  await world();
+  const run = cli.run;
+  const ghCalls: string[][] = [];
+  const data = (d: unknown) => ({ ok: true as const, stdout: JSON.stringify({ data: d }) });
+  cli.run = (file, args, ...rest) => {
+    if (file !== 'gh' || args[0] !== 'api') return run(file, args, ...rest);
+    ghCalls.push(args);
+    const query = args[3] ?? '';
+    if (query.includes('submitPullRequestReview'))
+      return Promise.resolve(
+        data({ submitPullRequestReview: { pullRequestReview: { id: 'PRR_1' } } }),
+      );
+    return Promise.resolve(
+      data({
+        repository: {
+          pullRequest: {
+            id: 'PR_1',
+            pending: {
+              nodes: [{ id: 'PRR_1', body: 'Summary', comments: { nodes: [{ id: 'C1' }] } }],
+            },
+          },
+        },
+      }),
+    );
+  };
+  const store = testStore(cli.home);
+  const review = (fields: object) =>
+    store.create(() =>
+      newSession({
+        review: { pr: 12, round: 1, mode: 'post', head: 'a'.repeat(40) },
+        ...fields,
+      }),
+    ).id;
+  const done = {
+    state: 'done' as const,
+    confidence: 1,
+    at: '2026-09-24T13:00:00.000Z',
+    source: 'mesa' as const,
+  };
+  const refusedFrom = {
+    drafts: review({ review: { pr: 12, round: 1, mode: 'drafts', head: 'a'.repeat(40) } }),
+    otherPr: review({ review: { pr: 13, round: 1, mode: 'post', head: 'a'.repeat(40) } }),
+    otherProject: review({ project: 'tide-pool' }),
+    ended: review({ endedAt: '2026-09-24T13:00:00.000Z', lastState: done }),
+  };
+  for (const [why, id] of Object.entries(refusedFrom)) {
+    cli.env = { MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
+    const refused = await cli.mesa('prs', 'publish', 'lantern-cove', '12', '--json');
+    expect(refused.code, why).toBe(2);
+  }
+  expect(ghCalls).toEqual([]);
+
+  cli.env = { MESA_SESSION_ID: review({}), MESA_PROFILE: 'default' };
+  const published = await cli.mesa('prs', 'publish', 'lantern-cove', '12', '--json');
+  expect(published.code, published.stdout).toBe(0);
+  expect(published.json.data).toMatchObject({ published: 2 });
+  expect(
+    ghCalls.map((a) => a[3] ?? '').filter((q) => q.includes('submitPullRequestReview')),
+  ).toHaveLength(1);
+  for (const args of ghCalls) expect(args.join(' ')).not.toMatch(/APPROVE|REQUEST_CHANGES/);
 });

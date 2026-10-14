@@ -1356,6 +1356,21 @@ test('the other flags that do not go together are refused, each by name, and not
   expect(thrown(() => validateOpenInput({ project: 'lantern-cove', with: ['tide-pool'] }))).toEqual(
     { code: 'usage', message: '--with needs --branch or --worktree' },
   );
+  // A review session (mesa prs start) runs an agent on a project, on its review branch.
+  const review = { pr: 12, round: 1, mode: 'drafts', head: 'a'.repeat(40) } as const;
+  expect(thrown(() => validateOpenInput({ project: 'lantern-cove', review }))).toEqual({
+    code: 'usage',
+    message: 'a review session needs its review branch: pass --branch or --checkout',
+  });
+  expect(
+    thrown(() =>
+      validateOpenInput({ project: 'lantern-cove', terminal: true, review, branch: 'review/12' }),
+    ),
+  ).toEqual({
+    code: 'usage',
+    message:
+      'a review session runs an agent on a project now: no --general, --terminal, or --after',
+  });
   expect(await mesa.sessions.list()).toEqual([]);
   expect(listReceipts(join(home, 'vault'))).toEqual([]);
 });

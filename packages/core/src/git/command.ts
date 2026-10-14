@@ -18,3 +18,17 @@ export async function gitCommand(
       : `git did not answer within ${timeoutMs / 1000} s`,
   );
 }
+
+/** A git call that must succeed: its stdout, or its failure as a usage error, `why` then git's reason. */
+export async function mustGit(
+  run: Runner,
+  cwd: string,
+  args: string[],
+  why: string,
+  timeoutMs = 60_000,
+  missingMessage?: string,
+) {
+  const result = await gitCommand(run, cwd, args, timeoutMs, missingMessage);
+  if (!result.ok) throw new MesaError('usage', `${why}: ${result.detail}`);
+  return result.stdout;
+}

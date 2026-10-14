@@ -7,6 +7,7 @@ const TAG: Partial<Record<PrRow['bucket'], { label: string; className: string }>
   need: { label: 'Review', className: cn(PR_TONE.need.box, PR_TONE.need.text) },
   updated: { label: 'Updated', className: cn(PR_TONE.updated.box, PR_TONE.updated.text) },
 };
+const REVIEWING = { label: 'Reviewing', className: cn(PR_TONE.need.box, PR_TONE.need.text) };
 
 /**
  * One PR in the Reviews list: its title, then `#n · author · age`, with a tag only when it asks
@@ -17,10 +18,12 @@ export function PullRequestRow(props: {
   showProject?: boolean;
   now: number;
   current?: boolean;
+  /** A live review session works on it. */
+  reviewing?: boolean;
   onOpen: (pr: PrRow) => void;
 }) {
   const { pr } = props;
-  const tag = TAG[pr.bucket];
+  const tag = props.reviewing ? REVIEWING : TAG[pr.bucket];
   const quiet = pr.bucket === 'waiting' || pr.bucket === 'other';
   return (
     <button

@@ -1,6 +1,6 @@
 import { lstatSync, realpathSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
-import { gitCommand } from '../git/command.js';
+import { mustGit } from '../git/command.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
@@ -64,11 +64,8 @@ export type WorktreeScope = {
 };
 
 /** Git's answer, or the command's failure as a usage error. */
-export async function requireGit(run: Runner, repo: string, args: string[]) {
-  const result = await gitCommand(run, repo, args, 60_000);
-  if (!result.ok) throw new MesaError('usage', `git ${args[0]} failed: ${result.detail}`);
-  return result.stdout;
-}
+export const requireGit = (run: Runner, repo: string, args: string[]) =>
+  mustGit(run, repo, args, `git ${args[0]} failed`);
 
 export const present = (path: string) => Boolean(lstatSync(path, { throwIfNoEntry: false }));
 

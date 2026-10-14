@@ -5,6 +5,7 @@ import {
   attentionScore,
   contextPercent,
   nameAsk,
+  reviewLabel,
   sessionBranch,
   sessionCount,
   sessionLabel,
@@ -64,6 +65,18 @@ test('a session is worth naming between turns once it has a goal or a prompt and
   expect(wantsName(managed({ ...idle, goal: 'x', name: 'tide' }))).toBe(false);
   expect(wantsName(managed({ ...idle, kind: 'run', goal: 'x' }))).toBe(false);
   expect(wantsName(foreign)).toBe(false);
+});
+
+test('a review session reads Review #<n> unless a person named it, and Mesa never names it', () => {
+  const review = { pr: 12, round: 2, mode: 'drafts', head: 'a'.repeat(40) } as const;
+  const idle = { kind: 'interactive', lastState: { state: 'idle', at: 'x' }, goal: 'Review it' };
+  expect(sessionTitle(managed({ ...idle, review, agentName: 'tide-charts' }))).toBe(
+    'Review #12 · round 2 · drafts',
+  );
+  expect(sessionLabel(managed({ review }))).toBe('Review #12');
+  expect(sessionTitle(managed({ ...idle, review, name: 'tide notes' }))).toBe('tide notes');
+  expect(reviewLabel(review)).toBe('Review #12 · round 2 · drafts');
+  expect(wantsName(managed({ ...idle, review }))).toBe(false);
 });
 
 test('a session started from an item is named from its title at once, and asked once', () => {

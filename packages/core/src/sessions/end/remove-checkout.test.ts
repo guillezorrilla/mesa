@@ -59,3 +59,31 @@ test('a worktree through a symlinked custom root whose folder is gone is cleared
   expect(testGit(dir, 'worktree', 'list', '--porcelain')).not.toContain('gone');
   expect(testGit(dir, 'branch', '--list', 'gone')).toBe('');
 });
+
+test('removing the last review session of a pull request removes its worktree; an earlier round leaves it', async () => {
+  const { dir, mesa } = twoProjects();
+  const review = { pr: 12, round: 1, mode: 'drafts', head: 'a'.repeat(40) } as const;
+  const { result: first } = await mesa.sessions.open('lantern-cove', {
+    branch: 'review/12',
+    review,
+    noParent: true,
+  });
+  expect(first.review).toEqual(review);
+  await mesa.sessions.stop(first.id, true);
+  const path = first.worktree?.path ?? '';
+  const { result: second } = await mesa.sessions.open('lantern-cove', {
+    checkout: path,
+    review: { ...review, round: 2 },
+    parent: first.id,
+  });
+  expect(second).toMatchObject({ review: { round: 2 }, parent: first.id, worktree: { path } });
+  await mesa.sessions.stop(second.id, true);
+
+  await mesa.sessions.remove(first.id);
+  expect(existsSync(path)).toBe(true);
+  const { result: removed } = await mesa.sessions.remove(second.id);
+  expect(removed.worktree).toBe(path);
+  expect(existsSync(path)).toBe(false);
+  // The branch stays, for the next round to fetch into.
+  expect(testGit(dir, 'branch', '--list', 'review/12')).toBe('review/12');
+});

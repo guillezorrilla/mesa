@@ -7,6 +7,7 @@ import {
   type PullRequest,
 } from '../git/pull-requests.js';
 import type { Runner } from '../lib/process.js';
+import { short } from '../lib/untrusted-text.js';
 
 // PR events (CONTEXT.md, PR event): what happened on the open pull request of a session's
 // branch since the session started, that Mesa has not forwarded into it yet. Read with `gh`
@@ -147,23 +148,6 @@ type Activity = z.infer<typeof Activity> & { reviewComments: z.infer<typeof Revi
 
 /** Check conclusions that mean a failure; CANCELLED is left out, since a newer push cancels. */
 const FAILED = new Set(['FAILURE', 'ERROR', 'TIMED_OUT', 'ACTION_REQUIRED', 'STARTUP_FAILURE']);
-
-/**
- * `text` with no control or format character (ESC, ^C, DEL, a bidi override) and no backtick,
- * so it can neither drive the terminal nor close the fence it is quoted in, on one line.
- */
-const clean = (text: string) =>
-  text
-    .replace(/[\p{Cc}\p{Cf}]/gu, ' ')
-    .replaceAll('`', "'")
-    .replace(/\s+/g, ' ')
-    .trim();
-
-/** Up to 160 characters of `text`, cleaned: an excerpt, a check name, a path, a login. */
-const short = (text: string) => {
-  const line = clean(text);
-  return line.length > 160 ? `${line.slice(0, 157)}...` : line;
-};
 
 /** `value` when it is an HTTPS link as a pull request's must be, else `fallback`. */
 const linkOr = (value: string | null | undefined, fallback: string) =>

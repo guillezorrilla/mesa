@@ -176,6 +176,7 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
             ...(opts.run === undefined ? {} : { run: opts.run }),
             ...(opts.checkout === undefined ? {} : { checkout: opts.checkout }),
             ...(opts.with?.length ? { with: opts.with } : {}),
+            ...(opts.review ? { review: opts.review } : {}),
           },
           outputs: ({ record: r }) => startedOutputs(r, open().config.agents),
         },
@@ -208,6 +209,7 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
             terminal,
             run: opts.run,
             from,
+            review: opts.review,
             automation: opts.automation,
             with: opts.with,
           };

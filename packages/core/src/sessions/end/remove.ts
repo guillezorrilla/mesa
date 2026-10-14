@@ -11,6 +11,7 @@ import { findProject } from '../../projects/projects.js';
 import { costTally } from '../../usage/session-cost.js';
 import { captureInFlight } from '../../vault/capture/claim.js';
 import { checkoutHolders, heldWorktrees, real, worktreeHolder } from '../record/holders.js';
+import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
 import { runInput, runOutput } from '../run/files.js';
 import { RUN_TIMEOUT_SECONDS } from '../run/start.js';
@@ -51,8 +52,9 @@ export type Removed = {
  * or runs in, or git has locked, is refused, and one with changes or submodules unless `force`; a
  * branch checked out where the session does not hold it is refused, as is one its own worktree has
  * without `deleteWorktree`. Every refusal, for every repository, comes before anything goes, so a
- * refused rm leaves the session as it was, to retry. What went, and why its capture did not
- * start, when it did not.
+ * refused rm leaves the session as it was, to retry. The last review session of a pull request
+ * (lastOfReview) removes its worktree as `deleteWorktree` would, unasked. What went, and why its
+ * capture did not start, when it did not.
  */
 export async function removeSession(
   deps: {
@@ -75,9 +77,10 @@ export async function removeSession(
     clock: () => Date;
   },
   id: string,
-  { force = false, deleteWorktree: dropWorktree = false, deleteBranch: dropBranch = false } = {},
+  { force = false, deleteWorktree: askedWorktree = false, deleteBranch: dropBranch = false } = {},
 ): Promise<{ removed: Removed; warning?: string }> {
   const record = deps.store.get(id);
+  const dropWorktree = askedWorktree || lastOfReview(deps.store, record);
   // Removing it would leave what waits on it waiting on nothing, so it would start at once.
   if (record.lastState.state === 'queued') {
     throw new MesaError('usage', `session ${id} is queued: mesa stop ${id} cancels it first`);
@@ -164,6 +167,19 @@ export async function removeSession(
   );
   dropAbandoned(deps.removing, now);
   return { removed, ...(warning ? { warning } : {}) };
+}
+
+/**
+ * A review session (mesa prs start) that is the last of its pull request's on its project and
+ * holds the review worktree: nothing reviews the pull request there after it.
+ */
+function lastOfReview(store: SessionStore, r: SessionRecord) {
+  const { review, worktree } = r;
+  if (!review || !worktree) return false;
+  const others = store
+    .list()
+    .some((o) => o.id !== r.id && o.project === r.project && o.review?.pr === review.pr);
+  return !others && worktreeHolder(store, worktree.path)?.id === r.id;
 }
 
 /** How old a Removing record's capture claim is before it never lands: past twice a run's timeout. */

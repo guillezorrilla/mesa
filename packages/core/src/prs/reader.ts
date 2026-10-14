@@ -50,6 +50,8 @@ export type PrRead = {
   me: string;
   pr: PrHead & PrFacts;
   base: string;
+  /** The ref on origin a review fetches its head from: GitHub's pull/<n>/head, Bitbucket's source branch. */
+  headRef: string;
   additions: number;
   deletions: number;
   /** The head commit's checks rolled up; null when it has none. */
@@ -63,8 +65,8 @@ export type PrRead = {
 export type DraftInput = { text: string; path?: string; line?: number; replyTo?: string };
 
 /**
- * One provider through its CLI. Every write is a Pending draft: none of these may post, approve
- * or submit anything (ADR-0024).
+ * One provider through its CLI. Every write but `publish` is a Pending draft. `publish` posts my
+ * drafts on one PR, only as comments: never an approval or a change request (ADR-0024).
  */
 export type PrProviderApi = {
   list: PrReader;
@@ -81,4 +83,6 @@ export type PrProviderApi = {
     number: number,
     id: string,
   ) => Promise<JsonRead<{ id: string }>>;
+  /** Posts my pending drafts on the PR; how many, 0 when there were none. */
+  publish: (run: Runner, repo: string, number: number) => Promise<JsonRead<{ published: number }>>;
 };

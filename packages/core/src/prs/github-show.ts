@@ -134,6 +134,7 @@ export const showGithub: PrProviderApi['show'] = async (run, repo, number) => {
       me: viewer.login,
       pr: toPr(pr, viewer.login),
       base: pr.baseRefName,
+      headRef: `pull/${pr.number}/head`,
       additions: pr.additions,
       deletions: pr.deletions,
       checks: CHECKS[pr.head.nodes[0]?.commit.statusCheckRollup?.state ?? ''] ?? null,

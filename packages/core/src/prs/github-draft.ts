@@ -101,7 +101,11 @@ const DeleteRes = z.object({
 const DeleteEmptyRes = z.object({ data: z.object({ deletePullRequestReview: z.unknown() }) });
 
 /** The PR's id and my pending review on it, if I have one. */
-async function pendingOf(run: Runner, repo: string, number: number): Promise<JsonRead<Pending>> {
+export async function pendingOf(
+  run: Runner,
+  repo: string,
+  number: number,
+): Promise<JsonRead<Pending>> {
   const read = await ghGraphql(
     run,
     PENDING,
