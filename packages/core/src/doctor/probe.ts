@@ -9,6 +9,8 @@ import { MesaError } from '../lib/result.js';
 export const CHECK_TIMEOUT_MS = 2000;
 /** How to install tmux, which doctor's row and the tmux backend's missing-binary error name. */
 export const TMUX_INSTALL = 'brew install tmux';
+/** How to install Obsidian, which most people do not have yet. */
+export const OBSIDIAN_INSTALL = 'brew install --cask obsidian';
 
 /** A binary Mesa needs, how to ask its version, and how to install it. */
 export type Binary = {

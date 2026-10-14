@@ -34,7 +34,13 @@ export function OnboardingScreen(props: {
   const steps = [
     {
       title: 'Vault',
-      body: () => <VaultStep obsidian={obsidian} onCreated={props.onInitialised} />,
+      body: () => (
+        <VaultStep
+          obsidian={obsidian}
+          onObsidianInstalled={props.doctor.refresh}
+          onCreated={props.onInitialised}
+        />
+      ),
     },
     { title: 'Requirements', body: () => <RequirementsStep doctor={props.doctor} onNext={next} /> },
     {

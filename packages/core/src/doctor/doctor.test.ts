@@ -73,7 +73,12 @@ test('timeout: a hung agent is not ok, one agent is enough, and none is unhealth
     profileDir: home,
   });
   expect(byName(one.checks).claude?.hint).toContain('did not answer within 2 s');
-  expect(byName(one.checks).obsidian).toMatchObject({ ok: false, registered: false });
+  expect(byName(one.checks).obsidian).toMatchObject({
+    ok: false,
+    registered: false,
+    status: 'warn',
+    install: 'brew install --cask obsidian',
+  });
   expect(one.healthy).toBe(true);
 
   const none = await runDoctor({

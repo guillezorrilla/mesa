@@ -12,7 +12,7 @@ import { command, commandWith, type Recorded } from './spec';
 /** What the Doctor and Help read: checks, agents, hooks, tmux windows, mesa's reference. */
 export const doctorCommands = {
   'doctor.run': command<DoctorReport>('doctor'),
-  /** Installs a missing tmux or agent with Homebrew. */
+  /** Installs a missing requirement with Homebrew. */
   'doctor.install': commandWith<{ name: string }, { name: string; installed: true }>(({ name }) => [
     'doctor',
     'install',

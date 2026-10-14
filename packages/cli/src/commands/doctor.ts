@@ -31,7 +31,7 @@ export const doctor = defineCommand({
 
 export const doctorInstall = defineCommand({
   name: 'doctor install',
-  summary: 'Install a missing tmux or agent with Homebrew (tmux, claude, codex)',
+  summary: 'Install a missing requirement that doctor offers to install, with Homebrew',
   args: ['name'],
   example: 'mesa doctor install tmux',
   run: async ({ mesa, args }) => {

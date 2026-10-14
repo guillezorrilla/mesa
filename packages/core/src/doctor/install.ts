@@ -6,7 +6,7 @@ import { INSTALLABLE } from './doctor.js';
 const INSTALL_TIMEOUT_MS = 15 * 60 * 1000;
 
 /**
- * Installs a missing requirement (tmux or an agent) with its Homebrew command. Mesa never
+ * Installs a missing requirement in `INSTALLABLE` with its Homebrew command. Mesa never
  * installs Homebrew itself: that needs sudo and a password prompt.
  */
 export async function installRequirement(run: Runner, name: string) {

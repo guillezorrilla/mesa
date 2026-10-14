@@ -19,6 +19,7 @@ import {
   CHECK_TIMEOUT_MS,
   firstVersion,
   homebrewInstall,
+  OBSIDIAN_INSTALL,
   probe,
   TMUX_INSTALL,
 } from './probe.js';
@@ -53,12 +54,13 @@ const BINARIES: Binary[] = [
 ];
 
 /** The rows Mesa can install itself (`mesa doctor install`), each with its Homebrew command. */
-export const INSTALLABLE = new Map(
-  BINARIES.flatMap((b) => {
+export const INSTALLABLE = new Map([
+  ...BINARIES.flatMap((b) => {
     const command = homebrewInstall(b);
     return command ? [[b.name, command] as const] : [];
   }),
-);
+  ['obsidian', OBSIDIAN_INSTALL] as const,
+]);
 
 const REQUIREMENT = `tmux and at least one agent (${AGENT_NAMES.join(' or ')}) are required`;
 
@@ -70,7 +72,8 @@ async function obsidianCheck(run: Runner, paths: ObsidianPaths): Promise<Finding
       ...base,
       ok: false,
       registered: false,
-      hint: `Obsidian 1.12.7+ not found at ${paths.bundle}`,
+      hint: `Obsidian 1.12.7+ not found at ${paths.bundle}; install with \`${OBSIDIAN_INSTALL}\``,
+      install: OBSIDIAN_INSTALL,
     };
   }
   // Read the version from the bundle: running the CLI itself would launch the app.
