@@ -1,8 +1,8 @@
 import type { TicketDefaults, TicketStart } from '@mesa/core/browser';
 import { useState } from 'react';
+import { StartProgress } from '@/components/StartProgress';
 import { useTicketSettings } from '../useTicketSettings';
 import { StartBar } from './StartBar';
-import { StartProgress } from './StartProgress';
 import { StartSheet } from './StartSheet';
 import { initialOptions, type StartOptions, type StartTicket } from './startOptions';
 import { useStartTicket } from './useStartTicket';
@@ -43,7 +43,7 @@ export function TicketStartPanel(props: {
   if (steps)
     return (
       <StartProgress
-        ticketKey={ticket.label}
+        title={`Starting ${ticket.label}`}
         steps={steps}
         session={session}
         onBack={reset}

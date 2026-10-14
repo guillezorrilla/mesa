@@ -1,6 +1,7 @@
 import type { Bucket, PrDetail } from '@mesa/core';
 import { counted, PR_CLIS, prStatus, timeAgo } from '@mesa/core/browser';
 import { Check, Clock, ExternalLink, Eye, RefreshCw } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { PR_TONE } from './prTone';
@@ -47,7 +48,11 @@ const STATUS: Record<'drafts' | Bucket, (pr: PrDetail, now: number) => Status> =
  * Where the PR stands, in one sentence, with the one thing to do next. Pending drafts come first:
  * they wait on me to submit them on the provider.
  */
-export function PrStatusPanel(props: { pr: PrDetail }) {
+export function PrStatusPanel(props: {
+  pr: PrDetail;
+  /** The next step besides submitting drafts: start or open a review session. */
+  action?: ReactNode;
+}) {
   const { pr } = props;
   const status = prStatus(pr);
   const { Icon, say, sub } = STATUS[status](pr, Date.now());
@@ -66,6 +71,7 @@ export function PrStatusPanel(props: { pr: PrDetail }) {
       </span>
       <p className="font-medium">{say}</p>
       <div className="row-span-2 flex items-center gap-2">
+        {props.action}
         {status === 'drafts' && (
           <Button asChild size="sm">
             <a href={pr.url} target="_blank" rel="noopener noreferrer">

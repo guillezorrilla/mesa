@@ -1,10 +1,9 @@
 import { branchOf, type TicketStart } from '@mesa/core/browser';
 import { useState } from 'react';
+import { runSteps, type StartStep } from '@/components/StartProgress';
 import { useRun } from '@/lib/useCommand';
 import { placeOf, type StartOptions, type StartTicket } from './startOptions';
 import { STARTS } from './starts';
-
-export type StartStep = { label: string; state: 'todo' | 'now' | 'done' | 'failed' };
 
 /**
  * Starts a session from a ticket in `project`, one step after another: assign it (when asked),
@@ -53,19 +52,7 @@ export function useStartTicket(project: string) {
       },
     });
     setSession(undefined);
-    let shown: StartStep[] = plan.map(({ label }) => ({ label, state: 'todo' }));
-    const mark = (at: number, state: StartStep['state']) => {
-      shown = shown.map((step, i) => (i === at ? { ...step, state } : step));
-      setSteps(shown);
-    };
-    setSteps(shown);
-    for (const [at, step] of plan.entries()) {
-      mark(at, 'now');
-      const ok = Boolean(await step.run());
-      mark(at, ok ? 'done' : 'failed');
-      if (!ok) return false;
-    }
-    return true;
+    return runSteps(plan, setSteps);
   };
   return { steps, session, startTicket, reset: () => setSteps(undefined) };
 }

@@ -1,5 +1,8 @@
-import type { PrDetail, PrList, PrSetupRow } from '@mesa/core';
+import type { Mesa, PrDetail, PrList, PrSetupRow } from '@mesa/core';
 import { commandWith } from './spec';
+
+/** What `mesa prs start` answers: the session it opened, or the review of that PR already running. */
+export type ReviewStarted = Awaited<ReturnType<Mesa['prs']['start']>>;
 
 /** One pull request: its project and number. */
 export type PrRef = { project: string; number: number };
@@ -26,6 +29,20 @@ export const prsCommands = {
     project,
     String(number),
   ]),
+  /**
+   * Starts a review session on the PR in a worktree at its head, or names the one running; `post`
+   * is the yes to post the review as comments once written (core refuses it for non-Claude agents).
+   */
+  'prs.start': commandWith<PrRef & { post?: boolean }, ReviewStarted>(
+    ({ project, number, post }) => [
+      'prs',
+      'start',
+      ...(post ? ['--post'] : []),
+      '--',
+      project,
+      String(number),
+    ],
+  ),
   /** Deletes one of my Pending drafts on the PR. */
   'prs.discard': commandWith<PrRef & { id: string }, { id: string }>(({ project, number, id }) => [
     'prs',

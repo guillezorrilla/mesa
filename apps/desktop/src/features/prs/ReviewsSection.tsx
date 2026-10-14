@@ -12,6 +12,8 @@ export function ReviewsSection(props: {
   onSetup: (row: PrSetupRow) => void;
   onOpen: (pr: PrRow) => void;
   current?: PrRef;
+  /** `project#number` of the PRs a live review session works on. */
+  reviewing?: ReadonlySet<string>;
 }) {
   const [by, setBy] = useGrouping();
   const now = Date.now();
@@ -34,6 +36,7 @@ export function ReviewsSection(props: {
           onSetup={props.onSetup}
           onOpen={props.onOpen}
           current={props.current}
+          reviewing={props.reviewing}
           now={now}
         />
       </div>

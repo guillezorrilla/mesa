@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
-import type { PrDetail, PrList } from '@mesa/core';
+import type { PrDetail, PrList, TreeRow } from '@mesa/core';
 import { beforeEach, expect, test } from 'vitest';
 import { App } from '@/app/App';
-import { click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
+import { click, envelope, failure, fakeBridge, managedRow, renderWithMesa } from '@/lib/testing';
+import { NavigateContext } from '@/lib/useNavigate';
+import type { WorkspaceView } from '@/lib/workspaceView';
 import { PrScreen } from './PrScreen';
 
 // Invented PRs and people: Lee's storefront PR on GitHub, Kofi's atlas-api PR on Bitbucket.
@@ -201,4 +203,99 @@ test('a PR row in the sidebar opens its detail', async () => {
     document.querySelector('[aria-label="Pull request detail"] [aria-selected="true"]')
       ?.textContent,
   ).toMatch(/^Files/);
+});
+
+/** The PR screen with the board's sessions and the project's agent; the views it opened. */
+async function startable(
+  pr: PrDetail,
+  opts: { sessions?: TreeRow[]; agent?: string; start?: () => unknown } = {},
+) {
+  const views: WorkspaceView[] = [];
+  const { bridge, calls } = fakeBridge({
+    'prs show': () => envelope(pr),
+    'prs start':
+      opts.start ??
+      (() =>
+        envelope({
+          session: 'rev00001',
+          round: 1,
+          mode: 'drafts',
+          worktree: '/wt/review/477',
+          head: 'abc1234',
+          existing: false,
+        })),
+  });
+  const byTestId = await renderWithMesa(
+    <NavigateContext.Provider value={(view) => views.push(view)}>
+      <PrScreen
+        project={pr.project}
+        number={pr.number}
+        sessions={opts.sessions ?? []}
+        agent={opts.agent ?? 'claude'}
+      />
+    </NavigateContext.Provider>,
+    bridge,
+  );
+  const started = () =>
+    calls.filter((c) => c[1] === 'prs' && c[2] === 'start').map((c) => c.slice(1).join(' '));
+  return { byTestId, views, started };
+}
+
+test('Start review leaves drafts by default, then opens the new session on its own, once', async () => {
+  const { byTestId, views, started } = await startable(detail({ bucket: 'need' }));
+  expect(byTestId('start-review')[0]?.textContent).toBe('Start review');
+  await click(byTestId('start-review')[0]);
+  expect(started()).toEqual(['prs start -- storefront 477']);
+  expect(byTestId('start-progress')[0]?.textContent).toContain(
+    'Check out the PR head and open the review',
+  );
+  expect(views).toEqual([{ kind: 'session', id: 'rev00001' }]);
+});
+
+test('Post now is picked for one start in the menu, and passes --post', async () => {
+  const { byTestId, started } = await startable(detail());
+  expect(byTestId('start-review')[0]?.textContent).toBe('Re-review');
+  await click(byTestId('review-mode')[0]);
+  await click(byTestId('review-mode-post')[0]);
+  expect(byTestId('start-review')[0]?.textContent).toBe('Re-review and post');
+  await click(byTestId('start-review')[0]);
+  expect(started()).toEqual(['prs start --post -- storefront 477']);
+});
+
+test('Post now is off, with why, when the project reviews with Codex', async () => {
+  const { byTestId } = await startable(detail(), { agent: 'codex' });
+  await click(byTestId('review-mode')[0]);
+  expect(byTestId('review-mode-post')[0]?.hasAttribute('data-disabled')).toBe(true);
+  expect(document.body.textContent).toContain(
+    'Post now needs Claude; storefront reviews with codex.',
+  );
+});
+
+test('a live review session of the PR turns Start into Open review, and shows its round', async () => {
+  const live = managedRow('rev00009', {
+    project: 'storefront',
+    review: { pr: 477, round: 2, mode: 'drafts', head: 'abc1234' },
+  });
+  const { byTestId, views, started } = await startable(detail(), { sessions: [live] });
+  expect(byTestId('start-review')).toHaveLength(0);
+  expect(byTestId('review-label')[0]?.textContent).toBe('Review #477 · round 2 · drafts · running');
+  await click(byTestId('open-review')[0]);
+  expect(views).toEqual([{ kind: 'session', id: 'rev00009' }]);
+  expect(started()).toEqual([]);
+});
+
+test('a review already running elsewhere is opened, not started again; a failed start stays, with Back', async () => {
+  const running = await startable(detail({ bucket: 'need' }), {
+    start: () => envelope({ session: 'rev00007', existing: true }),
+  });
+  await click(running.byTestId('start-review')[0]);
+  expect(running.views).toEqual([{ kind: 'session', id: 'rev00007' }]);
+
+  document.body.innerHTML = '';
+  const failed = await startable(detail({ bucket: 'need' }), {
+    start: () => failure('cannot fetch pull request #477', 'internal'),
+  });
+  await click(failed.byTestId('start-review')[0]);
+  expect(failed.views).toEqual([]);
+  expect(failed.byTestId('start-progress')[0]?.textContent).toContain('Back');
 });

@@ -153,6 +153,8 @@ export function WorkspaceMain(props: {
           key={`${view.project}#${view.number}`}
           project={view.project}
           number={view.number}
+          sessions={props.sessions}
+          agent={projects.data?.find((p) => p.name === view.project)?.agent}
           tab={props.prTabs?.[`${view.project}#${view.number}`]}
           onTab={(tab) => props.onPrTab?.(`${view.project}#${view.number}`, tab)}
         />

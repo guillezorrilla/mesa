@@ -23,6 +23,8 @@ export function ReviewsList(props: {
   onOpen: (pr: PrRow) => void;
   /** The PR whose detail is shown, marked in the list. */
   current?: PrRef;
+  /** `project#number` of the PRs a live review session works on (liveReviews). */
+  reviewing?: ReadonlySet<string>;
   now: number;
 }) {
   const [closed, toggleClosed] = useClosedGroups();
@@ -89,6 +91,7 @@ export function ReviewsList(props: {
                     current={
                       props.current?.project === pr.project && props.current.number === pr.number
                     }
+                    reviewing={props.reviewing?.has(`${pr.project}#${pr.number}`)}
                     onOpen={props.onOpen}
                   />
                 ))}

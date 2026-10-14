@@ -2,14 +2,39 @@ import { Check, Loader2, X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { StartStep } from './useStartTicket';
+
+export type StartStep = { label: string; state: 'todo' | 'now' | 'done' | 'failed' };
 
 /**
- * Each step of a ticket's start as it runs, then the session it opened, shown on its own (Open
- * session stays as a way back); Back when a step failed.
+ * Runs `plan` one step after another, reporting each step's state through `onSteps`; a step that
+ * returns nothing (its error already toasted) stops the run. True when every step ran.
+ */
+export async function runSteps(
+  plan: readonly { label: string; run: () => Promise<unknown> }[],
+  onSteps: (steps: StartStep[]) => void,
+) {
+  let shown: StartStep[] = plan.map(({ label }) => ({ label, state: 'todo' }));
+  const mark = (at: number, state: StartStep['state']) => {
+    shown = shown.map((step, i) => (i === at ? { ...step, state } : step));
+    onSteps(shown);
+  };
+  onSteps(shown);
+  for (const [at, step] of plan.entries()) {
+    mark(at, 'now');
+    const ok = Boolean(await step.run());
+    mark(at, ok ? 'done' : 'failed');
+    if (!ok) return false;
+  }
+  return true;
+}
+
+/**
+ * Each step of a start as it runs, then the session it opened, shown on its own (Open session
+ * stays as a way back); Back when a step failed.
  */
 export function StartProgress(props: {
-  ticketKey: string;
+  /** What is starting: "Starting LC-2", "Starting the review of #482". */
+  title: string;
   steps: StartStep[];
   session?: string;
   onBack: () => void;
@@ -27,7 +52,7 @@ export function StartProgress(props: {
   }, [session, done, onSession]);
   return (
     <div className="grid gap-4 border-t bg-card px-6 py-5" data-testid="start-progress">
-      <h3 className="text-[15px] font-semibold">Starting {props.ticketKey}</h3>
+      <h3 className="text-[15px] font-semibold">{props.title}</h3>
       <ol className="grid gap-2.5">
         {props.steps.map((step) => (
           <li
