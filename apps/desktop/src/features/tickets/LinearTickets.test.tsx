@@ -113,9 +113,7 @@ test('a Linear project lists issues by state type, and the panel shows its field
   expect(panel?.textContent).toContain('Repro: book berth 12.');
   await click(button('Assign to me'));
   expect(words(calls)).toContain('tickets assign -- linear:HAR-21');
-  expect(byTestId('start-summary')[0]?.textContent).toBe(
-    'Runs in a new worktree on har-21 · assign to me',
-  );
+  expect(byTestId('start-summary')[0]?.textContent).toBe('Runs in a new worktree on har-21');
 });
 
 test('Follow Linear issues picks a team, then its cycle, a project or a saved view, with a live count', async () => {

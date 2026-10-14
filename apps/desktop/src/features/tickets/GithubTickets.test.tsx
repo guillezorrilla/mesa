@@ -112,9 +112,7 @@ test('a GitHub project lists issues as Open and Closed, and the panel shows stat
   await click(button('Assign to me'));
   expect(words(calls)).toContain(`tickets assign -- github:${REPO}#412`);
   // Starting adds the person beside the assignee, on a branch named after the issue.
-  expect(byTestId('start-summary')[0]?.textContent).toBe(
-    'Runs in a new worktree on issue-412 · assign to me',
-  );
+  expect(byTestId('start-summary')[0]?.textContent).toBe('Runs in a new worktree on issue-412');
 });
 
 test("Follow a repo picks this project's remote, narrows by label and milestone with a live count, and gives Mesa access to a new repo", async () => {

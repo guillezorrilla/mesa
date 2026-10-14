@@ -159,9 +159,7 @@ test("a ClickUp project lists tasks and subtasks by status, and the panel shows 
   await click(button('Assign to me'));
   expect(words(calls)).toContain('tickets assign -- clickup:DOCK-116');
   // Starting adds the person beside the assignees, on a branch named after the task.
-  expect(byTestId('start-summary')[0]?.textContent).toBe(
-    'Runs in a new worktree on dock-116 · assign to me',
-  );
+  expect(byTestId('start-summary')[0]?.textContent).toBe('Runs in a new worktree on dock-116');
 });
 
 test('Follow ClickUp tasks picks a List from the tree, follows a whole Folder or a saved view, with a live count', async () => {

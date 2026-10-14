@@ -152,8 +152,15 @@ async function startable(answers: Record<string, (args: string[]) => unknown> = 
 test('Start goal starts at once with the project defaults, then opens the session on its own', async () => {
   const { byTestId, opened, started } = await startable();
   expect(byTestId('start-summary')[0]?.textContent).toBe(
-    'Runs in a new worktree on lc-2 · assign to me · your rules: Ticket flow',
+    'Runs in a new worktree on lc-2 · your rules: Ticket flow',
   );
+  // Assign to me is a check in view, not only under Options.
+  const assign = document.getElementById('bar-assign');
+  expect(assign?.closest('label')?.textContent).toBe('Assign LC-2 to me');
+  expect(assign?.getAttribute('aria-checked')).toBe('true');
+  await click(assign ?? undefined);
+  expect(document.getElementById('bar-assign')?.getAttribute('aria-checked')).toBe('false');
+  await click(document.getElementById('bar-assign') ?? undefined);
   await click(byTestId('start-goal')[0]);
   expect(started()).toEqual([
     'tickets assign -- jira:LC-2',
@@ -512,7 +519,7 @@ test('an existing Jira project shows its tab as before: no tracker choice, icon 
     (b) => b.getAttribute('aria-label') ?? b.textContent?.trim(),
   );
   // Today's controls, in order: the view switcher, Refresh, the gear, the group, the row, then
-  // the panel's back, Assign to me, and the starts.
+  // the panel's back, Assign to me, the always-shown Assign check, and the starts.
   expect(labels).toEqual([
     'sprintTide 7',
     'Refresh tickets',
@@ -521,6 +528,7 @@ test('an existing Jira project shows its tab as before: no tracker choice, icon 
     'LC-2Show the next high tide?',
     'Tickets',
     'Assign to me',
+    'Assign LC-2 to me',
     'Options',
     'Start session',
     'Investigate',
