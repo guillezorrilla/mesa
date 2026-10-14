@@ -11,6 +11,8 @@ export function ProjectTabBar(props: {
   project: string;
   tab: ProjectTab;
   gitChanges: number;
+  /** PRs that ask something of me, counted on the Reviews tab. */
+  reviews: number;
   filesDirty: boolean;
   onTab: (tab: ProjectTab) => void;
   /** The unsaved document was discarded to leave its tab. */
@@ -47,6 +49,7 @@ export function ProjectTabBar(props: {
             'overview',
             'import',
             'tickets',
+            'reviews',
             'git',
             'files',
             'vault',
@@ -66,6 +69,12 @@ export function ProjectTabBar(props: {
             }}
           >
             {name === 'import' ? 'Context' : name}
+            {name === 'reviews' && props.reviews > 0 && (
+              <CountPill
+                count={props.reviews}
+                className="ml-1.5 inline-flex size-5 items-center justify-center bg-state-working px-0 text-[11px] font-medium text-background"
+              />
+            )}
             {name === 'git' && props.gitChanges > 0 && (
               <CountPill
                 count={props.gitChanges}

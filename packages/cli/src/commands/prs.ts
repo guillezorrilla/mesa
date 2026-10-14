@@ -51,7 +51,7 @@ export const prsSetup = defineCommand({
   name: 'prs setup',
   summary:
     "Show each project's PR provider (GitHub or Bitbucket) and whether its CLI (gh, twg) is ready",
-  example: 'mesa prs setup --json',
+  example: 'mesa prs setup',
   run: async ({ mesa }) => {
     const data = await mesa.prs.setup();
     return {

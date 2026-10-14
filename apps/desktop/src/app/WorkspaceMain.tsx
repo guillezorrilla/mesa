@@ -13,6 +13,7 @@ import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { ProjectScreen, type ProjectTab } from '@/features/projects/ProjectScreen';
 import { SavedPromptsScreen } from '@/features/prompts/SavedPromptsScreen';
+import { PrSetupScreen } from '@/features/prs/PrSetupScreen';
 import { SessionsScreen } from '@/features/sessions/SessionsScreen';
 import type { SessionPreset } from '@/features/sessions/start/useStartSession';
 import { SmarterDecisionsTip } from '@/features/settings/decisions/SmarterDecisionsTip';
@@ -48,6 +49,8 @@ export function WorkspaceMain(props: {
   archiveSessionRequest?: SessionRequest;
   dependencySessionRequest?: SessionRequest;
   promptInsertRequest?: { session: string; text: string };
+  /** The Reviews list is read again: a project's PR provider just connected. */
+  onPrsChanged: () => void;
 }) {
   const { view, project, navigate, config, projects, prompts, needsProfileSetup } = props;
   // Each project's tab, so going back to one keeps it.
@@ -124,6 +127,7 @@ export function WorkspaceMain(props: {
               props.onNewSession({ project, location, checkout })
             }
             onAgentSettings={() => navigate({ kind: 'doctor' })}
+            onPrSetup={(name) => navigate({ kind: 'prs-setup', project: name })}
             onChanged={() => void projects.refresh()}
             onUnregistered={() => props.onProjectUnregistered(project.name)}
           />
@@ -133,6 +137,14 @@ export function WorkspaceMain(props: {
           <Muted>Project unavailable. Choose another project from the sidebar.</Muted>
         ))}
       {view.kind === 'doctor' && <DoctorScreen doctor={props.doctor} />}
+      {view.kind === 'prs-setup' && (
+        <PrSetupScreen
+          key={view.project}
+          project={view.project}
+          onSession={(id) => navigate({ kind: 'session', id })}
+          onConnected={props.onPrsChanged}
+        />
+      )}
       {view.kind === 'map' && (
         <MapScreen
           onSession={(id) => navigate({ kind: 'session', id })}

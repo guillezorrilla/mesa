@@ -11,6 +11,7 @@ import { nearestProject } from '@/features/projects/nearestProject';
 import { ProjectAddDialog } from '@/features/projects/ProjectAddDialog';
 import { useDiscoveryOffer } from '@/features/projects/useDiscoveryOffer';
 import { useSortedProjects } from '@/features/projects/useSortedProjects';
+import { usePrs } from '@/features/prs/usePrs';
 import { CommandPalette } from '@/features/search/CommandPalette';
 import { useSearchPalette } from '@/features/search/useSearchPalette';
 import { sidebarGroups } from '@/features/sessions/sidebar/sidebarGroups';
@@ -57,6 +58,7 @@ export function App() {
   const config = useCommand('config.get');
   const prompts = useCommand('prompts.list');
   const projects = useCommand('projects.list');
+  const prs = usePrs();
   const project =
     view.kind === 'project' ? projects.data?.find((p) => p.name === view.name) : undefined;
   const sorted = useSortedProjects(
@@ -174,6 +176,7 @@ export function App() {
             view={view}
             onView={navigate}
             projects={sidebarProjects}
+            prs={prs}
             sort={sorted.sort}
             onSort={sorted.setSort}
             sessions={sessions}
@@ -234,6 +237,7 @@ export function App() {
               archiveSessionRequest={archiveSessionRequest}
               dependencySessionRequest={dependencySessionRequest}
               promptInsertRequest={promptInsertRequest}
+              onPrsChanged={() => void prs.list.refresh()}
             />
           </OpenSettingsContext.Provider>
         </div>
