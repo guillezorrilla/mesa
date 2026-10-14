@@ -5,6 +5,8 @@ import type { CliState } from '../lib/cli-state.js';
 import { mapLimit } from '../lib/map-limit.js';
 import { MesaError } from '../lib/result.js';
 import { listProjects } from '../projects/projects.js';
+import { projectScope } from '../sessions/record/general.js';
+import { callerOf } from '../sessions/window/caller.js';
 import { bitbucketApi } from './bitbucket.js';
 import {
   type Bucket,
@@ -155,6 +157,17 @@ export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open'>
       const { repo, api, cli } = await reach(project);
       const patch = unwrap(cli, await api.diff(ctx.run, repo, number));
       return { patch, rows: diffRows(patch) };
+    },
+
+    /**
+     * The project of the Mesa session this runs in, so a review session's `mesa prs draft 482`
+     * needs no project; outside a project's session, a usage error asking for one.
+     */
+    callerProject: () => {
+      const { session } = callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile });
+      const project = session && projectScope(session.project);
+      if (!project) throw new MesaError('usage', 'pass the project: <project> <number>');
+      return project;
     },
 
     /** My Pending drafts on the PR (mesa prs drafts). */

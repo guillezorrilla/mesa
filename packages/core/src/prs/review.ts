@@ -1,5 +1,4 @@
 import type { MesaContext } from '../context.js';
-import { shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { ProjectRow } from '../projects/projects.js';
 import { isOver } from '../sessions/record/lifecycle.js';
@@ -66,17 +65,9 @@ export function reviewActions(
             pr = await prs.read(at, number);
             return { headRef: pr.headRef, pendingDrafts: pr.drafts.length };
           },
-          goal: ({ round, mode, head }, lastHead) => {
+          goal: ({ round, mode }) => {
             if (!pr) throw new MesaError('internal', `#${number} was not read before its goal`);
-            return reviewPrompt({
-              ...pr,
-              mesa: ctx.self.map(shellWord).join(' '),
-              round,
-              mode,
-              head,
-              ...(round > 1 ? { earlier: pr.threads } : {}),
-              ...(lastHead ? { lastHead } : {}),
-            });
+            return reviewPrompt({ number, mode, rereview: round > 1 && pr.threads.length > 0 });
           },
         },
       );

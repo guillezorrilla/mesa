@@ -41,8 +41,7 @@ export type ReviewStartInput = {
    */
   read: () => Promise<{ headRef: string; pendingDrafts: number }>;
   /** The session's first prompt, for its review (round, mode, head) (review-prompt.ts). */
-  /** `lastHead`: the head the previous round reviewed, when it is an ancestor of this one. */
-  goal: (review: SessionReview, lastHead?: string) => string | Promise<string>;
+  goal: (review: SessionReview) => string | Promise<string>;
 };
 
 export type ReviewStart =
@@ -111,23 +110,11 @@ export async function startReview(
   const round = Math.max(0, ...earlier.map((r) => r.review?.round ?? 0)) + 1;
   const parent = earlier.at(-1)?.id;
   const review = { pr, round, mode, head } as const;
-  // Round 2 reads only what changed since the last reviewed head, while that head is still behind
-  // this one; after a rebase it is not, and the diff from it would carry the base's commits too.
-  const previous = earlier.at(-1)?.review?.head;
-  const ancestor =
-    previous &&
-    (
-      await deps.run(
-        'git',
-        ['-C', deps.projectPath, 'merge-base', '--is-ancestor', previous, head],
-        5_000,
-      )
-    ).ok;
   const { result } = await deps.open(project, {
     agent: input.agent,
     // A worktree an earlier round's session holds is taken over as a checkout (mesa open --checkout).
     ...(worktree ? { checkout: worktree.path } : { branch }),
-    goal: await input.goal(review, ancestor ? previous : undefined),
+    goal: await input.goal(review),
     review,
     ...(parent ? { parent } : { noParent: true }),
   });

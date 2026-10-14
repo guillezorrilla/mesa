@@ -76,6 +76,10 @@ test('open --terminal starts a plain shell session with no coding agent conversa
   expect(opened).toMatchObject({ kind: 'terminal', agent: 'terminal', project: 'lantern-cove' });
   expect(opened.agentSessionId).toBeUndefined();
   expect(world.windows.at(-1)?.launch).toBe("exec '/bin/zsh' -l");
+  // Its `mesa` is the Mesa that opened it, first on its PATH.
+  expect(world.windows.at(-1)?.env.PATH).toMatch(
+    new RegExp(`^${join(cli.home, '.mesa', 'default', 'bin')}(:|$)`),
+  );
   expect((await mesa('sessions', '--json')).json.data).toEqual([
     expect.objectContaining({
       id: opened.id,

@@ -2,4 +2,4 @@
 type: changed
 ---
 
-A review session now reviews the pull request the way your agent reviews any PR, with its own code review skills (a PR review skill, code-review, simplify), from a shorter prompt; its findings still land as drafts only you can see.
+A review session now just runs /code-review on the pull request, the same review you get by asking for one, and adds what it finds as draft comments only you can see (or posts them with Post now). Inside a session, `mesa prs draft`, `publish` and `verdict` take the PR number alone.
