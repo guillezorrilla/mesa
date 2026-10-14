@@ -20,7 +20,13 @@ const CHECK_LABEL = {
  * One pull request, opened from a Reviews list: where it stands for me in one sentence with the
  * next step, then my comments, my Pending drafts and its files. Read when it opens.
  */
-export function PrScreen(props: PrRef) {
+export function PrScreen(
+  props: PrRef & {
+    /** The detail tab last picked on this PR, kept by the app. */
+    tab?: string;
+    onTab?: (tab: string) => void;
+  },
+) {
   const show = useCommand('prs.show', { project: props.project, number: props.number });
   const run = useRun();
   const pr = show.data;
@@ -66,7 +72,7 @@ export function PrScreen(props: PrRef) {
         </div>
       </div>
       <PrStatusPanel pr={pr} />
-      <PrDetailPanel pr={pr} onDiscard={discard} />
+      <PrDetailPanel pr={pr} onDiscard={discard} tab={props.tab} onTab={props.onTab} />
     </div>
   );
 }

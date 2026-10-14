@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SettingsCategory } from '@/features/settings/categories';
+import type { PrRef } from '@/lib/client/prs';
 import type { WorkspaceView } from '@/lib/workspaceView';
 import type { Overlay } from '../navigation';
 
@@ -12,13 +13,21 @@ export function useWorkspaceNavigation() {
   const [view, setView] = useState<WorkspaceView>({ kind: 'sessions' });
   const [filesDirty, setFilesDirty] = useState(false);
   const [pendingView, setPendingView] = useState<WorkspaceView>();
-  // The session and project last shown, so going back to one keeps it.
+  // The session, project and pull request last shown, so going back to one keeps it.
   const [lastSession, setLastSession] = useState<string>();
   const [lastProject, setLastProject] = useState<string>();
+  const [lastPr, setLastPr] = useState<PrRef>();
   useEffect(() => {
     if (view.kind === 'session') setLastSession(view.id);
     if (view.kind === 'project') setLastProject(view.name);
+    if (view.kind === 'pr') setLastPr({ project: view.project, number: view.number });
   }, [view]);
+  // Each pull request's detail tab last picked, by project#number, while the app runs.
+  const [prTabs, setPrTabs] = useState<Record<string, string>>({});
+  const setPrTab = useCallback(
+    (key: string, tab: string) => setPrTabs((tabs) => ({ ...tabs, [key]: tab })),
+    [],
+  );
   const [overlay, setOverlay] = useState<Overlay>();
   const [settingsCategory, setSettingsCategory] = useState<SettingsCategory>();
   const navigate = useCallback(
@@ -77,5 +86,8 @@ export function useWorkspaceNavigation() {
     cancelPending: () => setPendingView(undefined),
     lastSession,
     lastProject,
+    lastPr,
+    prTabs,
+    setPrTab,
   };
 }

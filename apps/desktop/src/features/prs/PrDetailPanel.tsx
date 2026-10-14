@@ -6,7 +6,8 @@ import { Stat } from '@/components/Stat';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-type DetailTab = 'comments' | 'drafts' | 'files';
+const TABS = ['comments', 'drafts', 'files'] as const;
+type DetailTab = (typeof TABS)[number];
 
 /** Drafts when there are any, else my comments when there are any, else the files. */
 const firstTab = (pr: PrDetail): DetailTab =>
@@ -16,10 +17,22 @@ const firstTab = (pr: PrDetail): DetailTab =>
  * The PR's detail under its status: my threads with the author's last reply, my Pending drafts
  * (each can be discarded), and the changed files. Provider text is shown as plain text.
  */
-export function PrDetailPanel(props: { pr: PrDetail; onDiscard: (draft: PrDraft) => void }) {
+export function PrDetailPanel(props: {
+  pr: PrDetail;
+  onDiscard: (draft: PrDraft) => void;
+  /** The tab last picked on this PR, kept by the app across visits; else the first that has items. */
+  tab?: string;
+  onTab?: (tab: DetailTab) => void;
+}) {
   const { pr } = props;
-  const [chosen, setChosen] = useState<DetailTab>();
+  const [chosen, setChosen] = useState<DetailTab | undefined>(() =>
+    TABS.find((name) => name === props.tab),
+  );
   const tab = chosen ?? firstTab(pr);
+  const choose = (name: DetailTab) => {
+    setChosen(name);
+    props.onTab?.(name);
+  };
   const tabs: [DetailTab, string, number][] = [
     ['comments', 'Your comments', pr.threads.length],
     ['drafts', 'Drafts', pr.drafts.length],
@@ -35,7 +48,7 @@ export function PrDetailPanel(props: { pr: PrDetail; onDiscard: (draft: PrDraft)
             role="tab"
             aria-selected={tab === name}
             className="-mb-px border-b-2 border-transparent pb-2.5 text-muted-foreground text-sm hover:text-foreground aria-selected:border-foreground aria-selected:font-medium aria-selected:text-foreground"
-            onClick={() => setChosen(name)}
+            onClick={() => choose(name)}
           >
             {label}
             <span className="ml-1.5 text-muted-foreground tabular-nums">{n}</span>

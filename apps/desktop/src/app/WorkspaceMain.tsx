@@ -44,6 +44,9 @@ export function WorkspaceMain(props: {
   onSessionsLoaded: () => void;
   filesDirty: boolean;
   onFilesDirtyChange: (dirty: boolean) => void;
+  /** Each pull request's detail tab last picked, by project#number. */
+  prTabs?: Record<string, string>;
+  onPrTab?: (key: string, tab: string) => void;
   onNewSession: (preset: SessionPreset) => void;
   onAddProject: (request: ProjectAddRequest) => void;
   onProjectUnregistered: (name: string) => void;
@@ -150,6 +153,8 @@ export function WorkspaceMain(props: {
           key={`${view.project}#${view.number}`}
           project={view.project}
           number={view.number}
+          tab={props.prTabs?.[`${view.project}#${view.number}`]}
+          onTab={(tab) => props.onPrTab?.(`${view.project}#${view.number}`, tab)}
         />
       )}
       {view.kind === 'map' && (

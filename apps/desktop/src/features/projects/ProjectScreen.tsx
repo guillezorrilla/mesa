@@ -75,7 +75,6 @@ export function ProjectScreen(props: {
   const worktrees = useCommand('worktrees.list', { project: project.name });
   const [gitRevision, setGitRevision] = useState(0);
   const gitChanges = useGitChangeCount(project.name, gitRevision);
-  const [allPrs, setAllPrs] = useState(false);
   // The count comes from the app's one read of every project; only the Reviews tab reads its own.
   const prs = useSharedPrs();
   const reviews =
@@ -149,8 +148,6 @@ export function ProjectScreen(props: {
       ) : tab === 'reviews' ? (
         <ReviewsTab
           project={project.name}
-          all={allPrs}
-          onAll={setAllPrs}
           onSetup={(row) => props.onPrSetup(row.project)}
           onOpen={(pr) => props.onPr(pr.number)}
         />

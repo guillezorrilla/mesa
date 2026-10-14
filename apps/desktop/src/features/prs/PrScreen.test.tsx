@@ -184,4 +184,21 @@ test('a PR row in the sidebar opens its detail', async () => {
   await click(byTestId('pr-row')[0]);
   expect(byTestId('pr-screen')).toHaveLength(1);
   expect(document.body.textContent).toContain('feat/edge-image-cache -> main');
+
+  // Picking Files, leaving for Sessions and coming back: the same PR, on Files.
+  await click(tab('Files'));
+  const sidebarTab = (label: string) =>
+    click(
+      [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find((t) =>
+        t.textContent?.startsWith(label),
+      ),
+    );
+  await sidebarTab('Sessions');
+  expect(byTestId('pr-screen')).toHaveLength(0);
+  await sidebarTab('Reviews');
+  expect(byTestId('pr-screen')).toHaveLength(1);
+  expect(
+    document.querySelector('[aria-label="Pull request detail"] [aria-selected="true"]')
+      ?.textContent,
+  ).toMatch(/^Files/);
 });

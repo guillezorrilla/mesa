@@ -1,12 +1,12 @@
 import type { PrRow, PrSetupRow } from '@mesa/core';
 import { actionable, PR_CLIS } from '@mesa/core/browser';
 import { ChevronDown } from 'lucide-react';
-import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import type { PrRef } from '@/lib/client/prs';
 import { cn } from '@/lib/utils';
 import { PullRequestRow } from './PullRequestRow';
 import { type PrGrouping, prGroups } from './prGroups';
+import { useClosedGroups } from './useGrouping';
 import type { Prs } from './usePrs';
 
 const PROVIDER = { github: 'GH', bitbucket: 'BB' } as const;
@@ -25,7 +25,7 @@ export function ReviewsList(props: {
   current?: PrRef;
   now: number;
 }) {
-  const [closed, setClosed] = useState<string[]>([]);
+  const [closed, toggleClosed] = useClosedGroups();
   const list = props.read.data;
   if (!list)
     return (
@@ -49,13 +49,7 @@ export function ReviewsList(props: {
               aria-expanded={open}
               disabled={byStatus}
               className="flex w-full items-center gap-1.5 px-2 py-1 text-left text-xs font-semibold text-muted-foreground"
-              onClick={() =>
-                setClosed((last) =>
-                  last.includes(group.key)
-                    ? last.filter((key) => key !== group.key)
-                    : [...last, group.key],
-                )
-              }
+              onClick={() => toggleClosed(group.key)}
             >
               {!byStatus && (
                 <ChevronDown

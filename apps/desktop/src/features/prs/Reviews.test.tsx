@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
 import type { PrList, PrRow, PrSetupRow } from '@mesa/core';
-import { useState } from 'react';
 import { beforeEach, expect, test } from 'vitest';
 import { click, envelope, fakeBridge, fakePlatform, renderWithMesa } from '@/lib/testing';
 import { PrSetupScreen } from './PrSetupScreen';
@@ -124,6 +123,10 @@ test('the sidebar list groups by project, most urgent first, with a Set up row a
 
   await click(button('Refresh'));
   expect(calls.filter((c) => c[1] === 'prs')).toHaveLength(2);
+
+  // The folded project stays folded on the next visit.
+  const again = await renderWithMesa(<Section />, bridge);
+  expect(again('pr-row')).toHaveLength(2);
 });
 
 test("By status groups the buckets, names each row's project, and is kept for the next visit", async () => {
@@ -142,18 +145,9 @@ test("By status groups the buckets, names each row's project, and is kept for th
   expect(radio('By status')?.getAttribute('aria-checked')).toBe('true');
 });
 
-function ProjectReviews() {
-  const [all, setAll] = useState(false);
-  return (
-    <ReviewsTab
-      project="storefront"
-      all={all}
-      onAll={setAll}
-      onSetup={() => undefined}
-      onOpen={() => undefined}
-    />
-  );
-}
+const ProjectReviews = () => (
+  <ReviewsTab project="storefront" onSetup={() => undefined} onOpen={() => undefined} />
+);
 
 test("a project's Reviews tab reads that project's PRs; All open PRs adds the ones not for me", async () => {
   const { bridge, calls } = fakeBridge({
@@ -183,6 +177,11 @@ test("a project's Reviews tab reads that project's PRs; All open PRs adds the on
     '--all',
   ]);
   expect(groupTitles()).toEqual(['Needs your review', 'Not for you']);
+
+  // Kept for the next visit, and across a restart.
+  await renderWithMesa(<ProjectReviews />, bridge);
+  expect(calls.filter((c) => c[1] === 'prs').at(-1)).toContain('--all');
+  expect(document.querySelector('#reviews-all')?.getAttribute('aria-checked')).toBe('true');
 });
 
 test('setup walks Install, Sign in, Connect Bitbucket and Check, resuming from what is done', async () => {
