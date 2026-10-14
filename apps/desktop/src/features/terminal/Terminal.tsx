@@ -13,7 +13,7 @@ import { usePlatform } from '@/lib/MesaRoot';
 import { oneAtATime } from '@/lib/oneAtATime';
 import { useRun } from '@/lib/useCommand';
 import { useInterfaceDark } from '@/lib/useInterfaceDark';
-import { terminalInputForKey } from './terminalInput';
+import { droppedPaths, terminalInputForKey } from './terminalInput';
 import { wheelForwarder } from './terminalWheel';
 import { useFocusOnEmptyClick } from './useFocusOnEmptyClick';
 
@@ -30,9 +30,6 @@ const osc52Text = (data: string) => {
     return null;
   }
 };
-
-/** A path as a shell reads it, its specials escaped: what Terminal.app or iTerm types for a drop. */
-const shellEscaped = (path: string) => path.replace(/[\s\\'"()[\]{}<>|&;$`!*?#~]/g, '\\$&');
 
 /**
  * One session's tmux window in the app: xterm.js 6 over the Rust pty (ADR-0007, SP-3). It fits
@@ -182,16 +179,17 @@ export function Terminal(props: {
       // After the attach ended, a keystroke has nowhere to go.
       if (termId) terminal.write(termId, data).catch(() => {});
     });
+    fileDrops
+      .onDrop(({ paths, x, y }) => {
+        // What is on top there: not a dialog over it, a hidden tile or one scrolled out of view.
+        if (!el.contains(document.elementFromPoint(x, y))) return;
+        // paste: wrapped in bracketed paste when the agent asked for it, as a typed path is not.
+        term.paste(droppedPaths(paths));
+        term.focus();
+      })
+      .then((off) => (closed ? off() : offs.push(off)))
+      .catch(() => {});
     (async () => {
-      offs.push(
-        await fileDrops.onDrop(({ paths, x, y }) => {
-          const box = el.getBoundingClientRect();
-          if (x < box.left || x > box.right || y < box.top || y > box.bottom) return;
-          // paste: wrapped in bracketed paste when the agent asked for it, as a typed path is not.
-          term.paste(`${paths.map(shellEscaped).join(' ')} `);
-          term.focus();
-        }),
-      );
       fit.fit();
       const id = await terminal.open(props.sessionId, term.cols, term.rows);
       termId = id;

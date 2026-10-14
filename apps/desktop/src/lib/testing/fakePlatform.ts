@@ -79,7 +79,7 @@ export function fakeFileDrops() {
   };
   return {
     host,
-    drop: (drop: FileDrop) => {
+    push: (drop: FileDrop) => {
       for (const listener of listeners) listener(drop);
     },
   };

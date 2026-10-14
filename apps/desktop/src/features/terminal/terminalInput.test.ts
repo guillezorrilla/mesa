@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { terminalInputForKey } from './terminalInput';
+import { droppedPaths, terminalInputForKey } from './terminalInput';
 
 const settings = { extraSubmitKey: 'cmd-enter', newlineKey: 'shift-enter' } as const;
 const enter = {
@@ -52,4 +52,11 @@ test('Cmd and Option arrows and Backspace edit the line as macOS terminals do', 
   expect(press('Backspace', { metaKey: true, ctrlKey: true })).toBeNull();
   expect(press('ArrowLeft', { metaKey: true, isComposing: true })).toBeNull();
   expect(press('constructor', { metaKey: true })).toBeNull();
+});
+
+test('dropped paths are typed as a terminal app types them: specials escaped, then a space', () => {
+  expect(droppedPaths(['/tmp/a.png'])).toBe('/tmp/a.png ');
+  expect(droppedPaths(['/Users/me/Screen Shot (1).png', "/tmp/it's $5!.jpg"])).toBe(
+    "/Users/me/Screen\\ Shot\\ \\(1\\).png /tmp/it\\'s\\ \\$5\\!.jpg ",
+  );
 });

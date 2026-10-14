@@ -102,13 +102,11 @@ test('a file dropped on the terminal types its escaped path, as a terminal app d
   );
   await attached();
   const box = byTestId('terminal-aaaaaaaa')[0] as HTMLElement;
-  box.getBoundingClientRect = () => new DOMRect(100, 50, 600, 400);
+  // What lies at a point: this terminal at (200, 100), something else anywhere else.
+  document.elementFromPoint = (x, y) => (x === 200 && y === 100 ? box : document.body);
   const writes = () => terminals.calls.filter((call) => call[0] === 'write').map((call) => call[2]);
-  // Elsewhere in the window: not this terminal's.
-  await act(async () => drops.drop({ paths: ['/tmp/a.png'], x: 20, y: 20 }));
+  await act(async () => drops.push({ paths: ['/tmp/a.png'], x: 20, y: 20 }));
   expect(writes()).toEqual([]);
-  await act(async () =>
-    drops.drop({ paths: ['/Users/me/Screen Shot (1).png', '/tmp/b.png'], x: 200, y: 100 }),
-  );
-  expect(writes()).toEqual(['/Users/me/Screen\\ Shot\\ \\(1\\).png /tmp/b.png ']);
+  await act(async () => drops.push({ paths: ['/Users/me/Screen Shot.png'], x: 200, y: 100 }));
+  expect(writes()).toEqual(['/Users/me/Screen\\ Shot.png ']);
 });

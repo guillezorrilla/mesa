@@ -1,6 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -104,11 +103,12 @@ export const tauriPlatform: Platform = {
       ),
   },
   fileDrops: {
+    // The window's, not the webview's: Tauri sends the main webview's drops to its window. On macOS
+    // wry gives AppKit points, already CSS pixels, though Tauri types them physical.
     onDrop: (handler) =>
-      getCurrentWebview().onDragDropEvent(({ payload }) => {
-        if (payload.type !== 'drop') return;
-        const { x, y } = payload.position.toLogical(window.devicePixelRatio);
-        handler({ paths: payload.paths, x, y });
+      getCurrentWindow().onDragDropEvent(({ payload }) => {
+        if (payload.type === 'drop')
+          handler({ paths: payload.paths, x: payload.position.x, y: payload.position.y });
       }),
   },
   clipboard: { write: (text) => invoke('clipboard_write', { text }) },
