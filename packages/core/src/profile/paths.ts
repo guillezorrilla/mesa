@@ -28,6 +28,8 @@ export type ProfilePaths = {
   decisionLog: string;
   /** The one-line scripts `mesa attach --app` hands to a terminal app. */
   attachScripts: string;
+  /** The `mesa` a session's window finds first on its PATH (sessions/window/mesa-shim.ts). */
+  bin: string;
   /** Sessions' git worktrees, `<project>/<branch>` each (CONTEXT.md, Worktree). */
   worktrees: string;
   /** Repositories cloned from a URL for this profile. */
@@ -85,6 +87,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     decisions: join(root, 'sessions', 'decisions'),
     decisionLog: join(root, 'decision-log'),
     attachScripts: join(root, 'attach'),
+    bin: join(root, 'bin'),
     worktrees: join(root, 'worktrees'),
     checkouts: join(root, 'checkouts'),
     handoffs: join(root, 'handoffs'),

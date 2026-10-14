@@ -70,3 +70,38 @@ test('diff names a base branch the checkout lacks instead of printing the Git er
   expect(result.code).toBe(2);
   expect(result.stderr).toContain('base branch trunk is not in this checkout');
 });
+
+test("once its agent moves the checkout to another branch, diff uses the project's default; --base picks any", async () => {
+  const repo = await cli.withProject();
+  writeFileSync(join(repo, 'tide.txt'), 'low\n');
+  gitRepo(repo);
+  testGit(repo, 'branch', 'develop');
+  testGit(repo, 'switch', '-q', 'develop');
+  writeFileSync(join(repo, 'harbor.txt'), 'develop only\n');
+  testGit(repo, 'add', '.');
+  testGit(repo, 'commit', '-qm', 'develop work');
+  testGit(repo, 'switch', '-q', 'main');
+  const linked = join(cli.home, 'reef');
+  // Made from main, then its agent started its own branch from develop.
+  testGit(repo, 'worktree', 'add', '-q', '-b', 'session/reef', linked, 'main');
+  testGit(linked, 'switch', '-q', '-c', 'feat/buoy', 'develop');
+  writeFileSync(join(linked, 'buoy.txt'), 'red\n');
+  testGit(linked, 'add', '.');
+  testGit(linked, 'commit', '-qm', 'buoy');
+  cli.run = withRealGit(cli.run);
+  await cli.mesa('config', 'set', 'worktrees.base', 'develop');
+  testStore(cli.home, 'default', shortIds('dddddddd')).create(() =>
+    newSession({ worktree: { path: linked, branch: 'session/reef', base: 'main' } }),
+  );
+
+  const moved = await cli.mesa('diff', 'dddddddd', '--json');
+  expect(moved.code, moved.stdout).toBe(0);
+  // The recorded main would count develop's commit as the session's too.
+  expect(moved.json.data).toMatchObject({ base: 'develop', ahead: 1 });
+  const picked = await cli.mesa('diff', 'dddddddd', '--base', 'main', '--json');
+  expect(picked.json.data).toMatchObject({ base: 'main', ahead: 2 });
+  // Detached, it is on no branch it was made with either.
+  testGit(linked, 'switch', '-q', '--detach');
+  const detached = await cli.mesa('diff', 'dddddddd', '--json');
+  expect(detached.json.data).toMatchObject({ base: 'develop', ahead: 1 });
+});

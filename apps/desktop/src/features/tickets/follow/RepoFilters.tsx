@@ -1,9 +1,9 @@
 import { ChevronDown, Milestone, Plus, X } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { PickMenu } from '@/components/PickMenu';
 import { Button } from '@/components/ui/button';
 import { useCommand } from '@/lib/useCommand';
 import { GithubLabel, labelHex } from '../github/GithubLabel';
-import { PickMenu } from './PickMenu';
 import { StepLabel } from './StepLabel';
 
 /** A filter's name, then its field. */

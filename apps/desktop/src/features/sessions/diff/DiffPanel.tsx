@@ -13,6 +13,7 @@ import { useDiffView } from '@/features/git/diff/useDiffView';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { useKeptWidth } from '@/lib/useKeptWidth';
 import { cn } from '@/lib/utils';
+import { DiffBasePicker } from './DiffBasePicker';
 
 /** The panel's width bounds beside the terminal, which always keeps TERMINAL_MIN pixels. */
 const DIFF_WIDTH = { min: 360, max: 1600, initial: 720, step: 32 };
@@ -25,12 +26,19 @@ const TERMINAL_MIN = 256;
  */
 export function DiffPanel(props: {
   sessionId: string;
+  /** The session's project and checkout (none: the main one), whose branches the base menu offers. */
+  project: string;
+  checkout?: string | undefined;
   branch?: string;
   state: string;
   onClose: () => void;
 }) {
-  const changes = useCommand('sessions.diff', { id: props.sessionId });
+  // The ref picked to compare with; none: the session's own base (sessions.diff).
+  const [base, setBase] = useState<string>();
+  const changes = useCommand('sessions.diff', { id: props.sessionId, base });
   const data = changes.data;
+  // The picked base, else the read's: it stays while a picked base is read, or fails.
+  const shownBase = base ?? data?.base;
   const appearance = useCommand('config.get').data?.appearance ?? DEFAULT_APPEARANCE;
   const run = useRun();
   const [width, setWidth] = useKeptWidth('mesa.diff.width', DIFF_WIDTH);
@@ -98,9 +106,15 @@ export function DiffPanel(props: {
             <span className="truncate font-mono font-medium" title={props.branch}>
               {props.branch ?? 'This checkout'}
             </span>
-            {data && (
+            {shownBase && (
               <span className="shrink-0 text-muted-foreground">
-                since <span className="font-mono">{data.base}</span>
+                since{' '}
+                <DiffBasePicker
+                  project={props.project}
+                  checkout={props.checkout}
+                  base={shownBase}
+                  onPick={setBase}
+                />
               </span>
             )}
           </p>

@@ -28,6 +28,7 @@ import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
 import { nestedAgentVars, type TmuxBackend } from '../tmux/backend.js';
 import { windowEnv } from '../window/caller.js';
+import { mesaOnPath } from '../window/mesa-shim.js';
 import { prepareOutputLog } from '../window/output-log.js';
 import {
   type AdditionalStart,
@@ -203,7 +204,10 @@ export async function startSession(
         command,
         goalPreparing(deps, record.kind, record.goal),
       ),
-      env: windowEnv(record.id, deps.profileName),
+      env: {
+        ...windowEnv(record.id, deps.profileName),
+        PATH: mesaOnPath(paths.bin, deps.self, deps.env.PATH),
+      },
       ...(config.sessions.log ? { log: prepareOutputLog(paths.logs, record.id) } : {}),
     });
     return { record, ...(warning ? { warning } : {}) };

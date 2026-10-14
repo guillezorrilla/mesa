@@ -3,6 +3,7 @@ import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import { type Checkout, resolveCheckout } from '../projects/checkout.js';
 import { gitCommand } from './command.js';
+import { currentBranch } from './ref.js';
 
 export type GitChange = {
   path: string;
@@ -37,13 +38,13 @@ export async function readGitStatus(
 ): Promise<GitStatus> {
   const checkout = await resolveCheckout(profile, run, project, selected);
   const [branch, status] = await Promise.all([
-    gitCommand(run, checkout.path, ['symbolic-ref', '--quiet', '--short', 'HEAD']),
+    currentBranch(run, checkout.path),
     gitCommand(run, checkout.path, ['status', '--porcelain=v1', '-z', '--untracked-files=all']),
   ]);
   if (!status.ok) throw new MesaError('usage', `cannot read Git status: ${status.detail}`);
   return {
     checkout,
-    branch: branch.ok ? branch.stdout.trim() : null,
+    branch,
     changes: changesOf(status.stdout),
   };
 }

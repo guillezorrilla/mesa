@@ -39,6 +39,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     importProgress: '/h/.mesa/work/import-progress',
     backups: '/h/.mesa/work/backups',
     attachScripts: '/h/.mesa/work/attach',
+    bin: '/h/.mesa/work/bin',
     worktrees: '/h/.mesa/work/worktrees',
     checkouts: '/h/.mesa/work/checkouts',
     handoffs: '/h/.mesa/work/handoffs',

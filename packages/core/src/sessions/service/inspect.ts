@@ -3,6 +3,7 @@ import { listAgentProcesses } from '../../agents/listing.js';
 import type { MesaContext } from '../../context.js';
 import { readBranchDiff } from '../../git/branch-diff.js';
 import { MesaError } from '../../lib/result.js';
+import { recordedBase } from '../../worktrees/base.js';
 import { sessionTree } from '../board/tree.js';
 import { autoName } from '../native/auto-name.js';
 import { decisionStatus } from '../native/decision-status.js';
@@ -119,18 +120,22 @@ export function inspectActions(
         ),
       };
     },
-    /** Everything the session's checkout holds that its base branch lacks (readBranchDiff). */
-    diff: (id: string) => {
+    /**
+     * Everything the session's checkout holds that `base` lacks (readBranchDiff). Without `base`,
+     * its worktree's recorded base (recordedBase), else the project's default.
+     */
+    diff: async (id: string, base?: string) => {
       const found = store.get(id);
       const project = projectScope(found.project);
       if (!project)
         throw new MesaError('usage', 'a General session has no project checkout to diff');
+      const { worktree } = found;
       return readBranchDiff(
         ctx.open(),
         ctx.run,
         project,
-        found.worktree?.base,
-        found.worktree?.path ?? found.cwd,
+        base ?? (worktree && (await recordedBase(ctx.run, worktree))),
+        worktree?.path ?? found.cwd,
       );
     },
     /** Gives a session the name a person calls it by; the board shows it in place of the id. */

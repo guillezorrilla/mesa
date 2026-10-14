@@ -348,7 +348,8 @@ test('prs publish runs only in a live Post now review of that PR in that project
   expect(ghCalls).toEqual([]);
 
   cli.env = { MESA_SESSION_ID: review({}), MESA_PROFILE: 'default' };
-  const published = await cli.mesa('prs', 'publish', 'lantern-cove', '12', '--json');
+  // In its session the number alone names the PR: the project is the session's.
+  const published = await cli.mesa('prs', 'publish', '12', '--json');
   expect(published.code, published.stdout).toBe(0);
   expect(published.json.data).toMatchObject({ published: 2 });
   expect(
@@ -363,6 +364,11 @@ test('prs verdict keeps one thread verdict for the review round, only from a liv
   const review = (pr: number, round = 2) =>
     store.create(() => newSession({ review: { pr, round, mode: 'drafts', head: 'a'.repeat(40) } }))
       .id;
+
+  // Outside any session the number alone names no project.
+  const bare = await cli.mesa('prs', 'draft', '12', '--text', 'Round once', '--json');
+  expect(bare.code).toBe(2);
+  expect(bare.json.error.message).toBe('pass the project: <project> <number>');
 
   // Outside any session: refused, nothing kept.
   const outside = await cli.mesa(

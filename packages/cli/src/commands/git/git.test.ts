@@ -214,10 +214,20 @@ test('git status uses the registered checkout, linked worktrees, and literal NUL
   ]);
   // A tag of the same name must not turn the branch into heads/feature.
   execFileSync('git', ['-C', repo, 'tag', 'feature'], { env: testEnv });
+  // A remote branch no local one tracks, and the remote's HEAD alias, which is left out.
+  execFileSync('git', ['-C', repo, 'update-ref', 'refs/remotes/origin/develop', 'HEAD'], {
+    env: testEnv,
+  });
+  execFileSync(
+    'git',
+    ['-C', repo, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/develop'],
+    { env: testEnv },
+  );
   const branches = await cli.mesa('git', 'branches', 'lantern-cove', '--json');
   expect(branches.json.data.branches).toContainEqual(
     expect.objectContaining({ name: 'feature', checkedOutAt: linked, current: false }),
   );
+  expect(branches.json.data.remotes).toEqual(['origin/develop']);
   const created = await cli.mesa('git', 'branch', 'create', 'lantern-cove', 'docs/readme');
   expect(created.code, created.stdout).toBe(0);
   expect((await cli.mesa('git', 'branch', 'checkout', 'lantern-cove', 'docs/readme')).code).toBe(0);

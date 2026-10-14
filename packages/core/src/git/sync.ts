@@ -4,7 +4,7 @@ import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import { type Checkout, resolveCheckout } from '../projects/checkout.js';
 import { gitCommand } from './command.js';
-import { branchName } from './ref.js';
+import { branchName, currentBranch } from './ref.js';
 
 export type GitTracking = { checkout: Checkout; branch: string; remote: string; upstream: string };
 export type GitSync = GitTracking & {
@@ -23,14 +23,9 @@ export async function gitTracking(
   selected?: string,
 ): Promise<GitTracking> {
   const checkout = await resolveCheckout(profile, run, project, selected);
-  const current = await gitCommand(run, checkout.path, [
-    'symbolic-ref',
-    '--quiet',
-    '--short',
-    'HEAD',
-  ]);
-  if (!current.ok) throw new MesaError('usage', 'select a branch before pushing or pulling');
-  const branch = await branchName(run, checkout.path, current.stdout.trim());
+  const current = await currentBranch(run, checkout.path);
+  if (current === null) throw new MesaError('usage', 'select a branch before pushing or pulling');
+  const branch = await branchName(run, checkout.path, current);
   const [remoteResult, mergeResult, remotes] = await Promise.all([
     gitCommand(run, checkout.path, ['config', '--get', `branch.${branch}.remote`]),
     gitCommand(run, checkout.path, ['config', '--get', `branch.${branch}.merge`]),

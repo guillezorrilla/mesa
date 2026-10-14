@@ -10,6 +10,7 @@ import { defineCommand } from '../../command.js';
 import { wholeNumber } from '../../input/flags.js';
 import { columns } from '../../output/columns.js';
 import { recordedOutput } from '../../output/recorded.js';
+import { prTarget } from './target.js';
 
 const draftLines = (drafts: PrDraft[]) =>
   drafts.length
@@ -74,8 +75,8 @@ export const prsDiff = defineCommand({
 export const prsDraft = defineCommand({
   name: 'prs draft',
   summary:
-    'Leave one pending draft comment on a pull request, seen only by you until you submit the review on GitHub or Bitbucket; Mesa never submits',
-  args: ['project', 'number'],
+    'Leave one pending draft comment on a pull request, seen only by you until you submit the review on GitHub or Bitbucket; Mesa never submits; in a project session, the number alone',
+  args: ['project', 'number?'],
   flags: {
     text: { type: 'string', required: true, description: 'The comment' },
     path: { type: 'string', description: 'Inline: the file, with --line' },
@@ -84,7 +85,8 @@ export const prsDraft = defineCommand({
   },
   example: 'mesa prs draft lantern-cove 482 --path src/cart.ts --line 57 --text "Round once"',
   run: async ({ mesa, args, flags }) => {
-    const recorded = await mesa.prs.draft(args.project, wholeNumber(args.number, 'number'), {
+    const { project, number } = prTarget(mesa, args);
+    const recorded = await mesa.prs.draft(project, number, {
       text: flags.text,
       ...(flags.path ? { path: flags.path } : {}),
       ...(flags.line ? { line: wholeNumber(flags.line, '--line') } : {}),
