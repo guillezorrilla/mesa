@@ -149,6 +149,7 @@ export async function openSession(
     ...(input.general ? { cwd: deps.home } : {}),
     ...(input.worktree ? { worktree: input.worktree } : {}),
     ...(input.from ? { from: input.from } : {}),
+    ...(input.review ? { review: input.review } : {}),
   };
   if (waited && !isOver(waited)) {
     const { branch, base } = input;

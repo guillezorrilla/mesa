@@ -93,6 +93,7 @@ export async function resumeSession(
       vaultMounted: old.vaultMounted,
       decisionsMounted: old.decisionsMounted,
       from: old.from,
+      review: old.review,
       resumedFrom: old.id,
     },
     {

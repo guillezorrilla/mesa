@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { discardBitbucket, draftBitbucket } from './bitbucket-drafts.js';
 import { facts, Pr, twg, Whoami } from './bitbucket-pr.js';
+import { publishBitbucket } from './bitbucket-publish.js';
 import { showBitbucket } from './bitbucket-show.js';
 import type { PrFacts } from './buckets.js';
 import type { PrHead, PrProviderApi, PrReader } from './reader.js';
@@ -54,10 +55,11 @@ export const readBitbucket: PrReader = async (run, repo) => {
   return { ok: true, me, prs };
 };
 
-/** Bitbucket Cloud through `twg`; every write is a pending comment (ADR-0024). */
+/** Bitbucket Cloud through `twg`; every write is a pending comment until publish posts them (ADR-0024). */
 export const bitbucketApi: PrProviderApi = {
   list: readBitbucket,
   show: showBitbucket,
   draft: draftBitbucket,
   discard: discardBitbucket,
+  publish: publishBitbucket,
 };

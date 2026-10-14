@@ -235,3 +235,17 @@ test('prs draft leaves one pending inline comment, never submitting, and refuses
   expect(queries).toHaveLength(3);
   for (const query of queries) expect(query).not.toMatch(/submitPullRequestReview|event/);
 });
+
+test('prs publish is refused outside a review session started with Post now, touching nothing', async () => {
+  await world();
+  const run = cli.run;
+  const ghCalls: string[][] = [];
+  cli.run = (file, args, ...rest) => {
+    if (file === 'gh') ghCalls.push(args);
+    return run(file, args, ...rest);
+  };
+  const refused = await cli.mesa('prs', 'publish', 'lantern-cove', '12', '--json');
+  expect(refused.code).toBe(2);
+  expect(refused.json.error.message).toMatch(/Post now/);
+  expect(ghCalls).toEqual([]);
+});

@@ -251,6 +251,18 @@ const SessionRecordFields = z.strictObject({
       title: z.string().optional(),
     })
     .optional(),
+  /**
+   * The pull request it reviews (mesa prs start): its number, which review of it this is, whether
+   * it leaves drafts or posts them, and the head commit it reviews, in the worktree on review/<pr>.
+   */
+  review: z
+    .strictObject({
+      pr: z.number().int().positive(),
+      round: z.number().int().positive(),
+      mode: z.enum(['drafts', 'post']),
+      head: z.string().regex(/^[0-9a-f]{40,64}$/),
+    })
+    .optional(),
   /** The session it continues, which handed off to it (CONTEXT.md, Handoff). */
   handoffFrom: z.string().regex(SHORT_ID).optional(),
   resumedFrom: z.string().optional(),
@@ -290,6 +302,8 @@ export type SessionRecord = z.infer<typeof SessionRecordSchema>;
 export const recordAgent = (record: Pick<SessionRecord, 'agent'>): Agent | undefined =>
   record.agent === 'terminal' ? undefined : record.agent;
 export type NewSession = Omit<SessionRecord, 'id' | 'events'>;
+/** What a review session reviews (mesa prs start). */
+export type SessionReview = NonNullable<SessionRecord['review']>;
 
 /**
  * What ending a record at `at` sets: `endedAt` (when it was seen done or failed, if it was), and

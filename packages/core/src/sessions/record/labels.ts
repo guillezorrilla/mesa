@@ -1,26 +1,38 @@
 import { counted, odds } from '../../lib/format.js';
 import type { SessionRow } from '../board/rows.js';
-import type { SessionRecord } from './record.js';
+import type { SessionRecord, SessionReview } from './record.js';
 import { sessionProjects } from './session-projects.js';
 import { WAITING_STATES } from './states.js';
 
 // How Mesa shows a session row and its log to a person, the same in the CLI and on the Board.
 // Pure, importing only pure modules, so the app bundles it (`@mesa/core/browser`).
 
-/** A session's name when a person gave it one, else the one its agent gives it, else its id. */
+/** A review session's name (mesa prs start): `Review #12`. */
+const reviewName = (s: { review?: Pick<SessionReview, 'pr'> }) =>
+  s.review ? `Review #${s.review.pr}` : undefined;
+
+/** What a review session reviews, as its card and the PR's detail say it: `Review #12 · round 2 · drafts`. */
+export const reviewLabel = (r: SessionReview) => `Review #${r.pr} · round ${r.round} · ${r.mode}`;
+
+/**
+ * A session's name when a person gave it one, else a review session's (`Review #12`), else the one
+ * its agent gives it, else its id.
+ */
 export const sessionLabel = (s: {
   id: string;
   name?: string;
   agentName?: string;
+  review?: Pick<SessionReview, 'pr'>;
   managed?: boolean;
-}) => (s.managed !== false && (s.name || s.agentName)) || s.id;
+}) => (s.managed !== false && (s.name || reviewName(s) || s.agentName)) || s.id;
 
 /**
- * What a session's card calls it: its name, else the one its agent gives it, else its goal's first
- * line, else its id.
+ * What a session's card calls it: its name, else a review session's, else the one its agent gives
+ * it, else its goal's first line, else its id.
  */
 export const sessionTitle = (s: SessionRow) =>
-  (s.managed && (s.name || s.agentName || s.goal?.trim().split(/\r?\n/, 1)[0])) || s.id;
+  (s.managed && (s.name || reviewName(s) || s.agentName || s.goal?.trim().split(/\r?\n/, 1)[0])) ||
+  s.id;
 
 /** A Mesa session that runs a skill headlessly (CONTEXT.md, Skill run). */
 export const isRun = (s: SessionRow) => s.managed && s.kind === 'run';
@@ -39,9 +51,12 @@ export const additionalLabel = (s: SessionRow) =>
 export const sessionBranch = (s: SessionRow) =>
   s.managed ? s.gitBranch || s.worktree?.branch || s.pending?.branch : undefined;
 
-/** A session Mesa may name (autoName): an interactive one no person, or its agent, has named. */
-export const nameable = (s: { kind: string; name?: string; agentName?: string }) =>
-  s.kind === 'interactive' && !s.name && !s.agentName;
+/**
+ * A session Mesa may name (autoName): an interactive one no person, or its agent, has named, and
+ * not a review session, whose name is its pull request's (`Review #12`).
+ */
+export const nameable = (s: { kind: string; name?: string; agentName?: string; review?: object }) =>
+  s.kind === 'interactive' && !s.name && !s.agentName && !s.review;
 
 /**
  * Which ask for a name a session is at: one for a session named from its item's title, else one

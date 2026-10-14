@@ -42,6 +42,8 @@ export type NewLaunch = {
   resumedFrom?: string;
   /** The imported item it starts from (mesa open --from). */
   from?: SessionRecord['from'];
+  /** The pull request it reviews (mesa prs start). */
+  review?: SessionRecord['review'];
 };
 
 // ponytail: a guess until Faro (#25) classifies it on the next look: a fresh claude waits at its
@@ -83,6 +85,7 @@ export function createRecord(
     ...(s.vaultMounted ? { vaultMounted: s.vaultMounted } : {}),
     ...(s.decisionsMounted ? { decisionsMounted: s.decisionsMounted } : {}),
     ...(s.from === undefined ? {} : { from: s.from }),
+    ...(s.review === undefined ? {} : { review: s.review }),
     // Named after the Mesa id, which a resume never reuses, so windows never collide.
     tmux: {
       socket: deps.profile.paths.tmuxSocket,

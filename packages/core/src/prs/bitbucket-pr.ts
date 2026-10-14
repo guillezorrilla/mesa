@@ -108,3 +108,7 @@ export const draftOf = (c: Comment): PrDraft => ({
   body: c.content.raw,
   ...(c.parent ? { replyTo: String(c.parent.id) } : {}),
 });
+
+/** My pending comments on the PR, as drafts: what only I see until they are posted. */
+export const myDrafts = (pr: Pr, me: string): PrDraft[] =>
+  pr._comments.filter((c) => c.pending && !c.deleted && c.user.id === me).map(draftOf);

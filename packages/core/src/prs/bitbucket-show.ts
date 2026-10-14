@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { Runner } from '../lib/process.js';
 import type { JsonRead } from '../lib/run-json.js';
-import { draftOf, facts, Pr, posted, twg, Whoami } from './bitbucket-pr.js';
+import { facts, myDrafts, Pr, posted, twg, Whoami } from './bitbucket-pr.js';
 import type { PrRead, PrThread } from './reader.js';
 
 // An added file has no `old`, a deleted one no `new`.
@@ -95,7 +95,7 @@ export async function showBitbucket(
       deletions: files.reduce((n, f) => n + f.deletions, 0),
       checks: checksOf(pr),
       threads: threadsOf(pr),
-      drafts: pr._comments.filter((c) => c.pending && !c.deleted && c.user.id === me).map(draftOf),
+      drafts: myDrafts(pr, me),
       files,
     },
   };

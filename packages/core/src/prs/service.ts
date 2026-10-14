@@ -5,6 +5,7 @@ import { mapLimit } from '../lib/map-limit.js';
 import { MesaError } from '../lib/result.js';
 import type { JsonRead } from '../lib/run-json.js';
 import { listProjects } from '../projects/projects.js';
+import { callerOf } from '../sessions/window/caller.js';
 import { bitbucketApi } from './bitbucket.js';
 import {
   type Bucket,
@@ -17,6 +18,8 @@ import {
 import { githubApi } from './github.js';
 import { PR_CLIS, type PrProvider, prCli, resolveRemote } from './provider.js';
 import type { DraftInput, PrDraft, PrHead, PrProviderApi, PrRead } from './reader.js';
+import { reviewPrompt } from './review-prompt.js';
+import { type ReviewStartDeps, startReview } from './review-start.js';
 
 /** A project's PR provider and its CLI's state; `next` is the command that unblocks it, if any. */
 export type PrSetupRow = {
@@ -87,8 +90,8 @@ const nextStep = (provider: PrProvider, cli: CliState) =>
 // ponytail: 4 projects read at once keeps gh and twg inside their rate limits; raise it if lists drag.
 const AT_ONCE = 4;
 
-/** PR reviews (#785): which provider each project uses, and the PRs that need me. */
-export function prsService(ctx: MesaContext) {
+/** PR reviews (#785): which provider each project uses, the PRs that need me, and review sessions. */
+export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open'>) {
   /** Registered projects (or the one asked for) with their provider and repo from origin, and a CLI probe each provider shares. */
   async function projects(only?: string) {
     const rows = listProjects(ctx.open());
@@ -139,6 +142,61 @@ export function prsService(ctx: MesaContext) {
 
   return {
     show,
+
+    /**
+     * Starts a review session on the PR (mesa prs start), in a worktree at its head; or names the
+     * one already running. `post` is the person's yes to publish this review when it is written.
+     */
+    start: async (project: string, number: number, opts: { post?: boolean } = {}) => {
+      const pr = await show(project, number);
+      const entry = listProjects(ctx.open()).find((p) => p.name === project);
+      if (!entry?.agent) throw new MesaError('usage', `${project} has no agent to review with`);
+      const mode = opts.post ? 'post' : 'drafts';
+      return startReview(
+        { run: ctx.run, projectPath: entry.path, sessions: () => ctx.store.list(), ...deps },
+        {
+          project,
+          number,
+          provider: pr.provider,
+          sourceBranch: pr.branch,
+          post: mode === 'post',
+          agent: entry.agent,
+          goal: (round, head) =>
+            reviewPrompt({
+              ...{ project, number, title: pr.title, author: pr.author, url: pr.url },
+              ...{ provider: pr.provider, round, mode, head },
+              ...(round > 1 ? { earlier: pr.threads } : {}),
+            }),
+        },
+      );
+    },
+
+    /**
+     * Publishes my Pending drafts on the PR (mesa prs publish): only from a review session of this
+     * PR started with Post now, never as an approval or a change request (ADR-0024).
+     */
+    publish: async (project: string, number: number) => {
+      const { review } =
+        callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile }).session ?? {};
+      if (review?.pr !== number || review.mode !== 'post')
+        throw new MesaError(
+          'usage',
+          `publishing #${number} needs a review session of it started with Post now; submit drafts on the provider instead`,
+        );
+      const { provider, repo, api, cli } = await reach(project);
+      return ctx.record(
+        {
+          kind: 'connection',
+          summary: (r: { published: number }) =>
+            `Published ${r.published} review comments on ${project} #${number}`,
+          failure: `Could not publish the review of ${project} #${number}`,
+          inputs: { project, number, round: review.round },
+          outputs: (r) => ({ provider, published: r.published }),
+          project: () => project,
+        },
+        async () => unwrap(cli, await api.publish(ctx.run, repo, number)),
+      );
+    },
 
     /** My Pending drafts on the PR (mesa prs drafts). */
     drafts: async (project: string, number: number) => (await show(project, number)).drafts,

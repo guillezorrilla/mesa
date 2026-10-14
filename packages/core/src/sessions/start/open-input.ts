@@ -29,6 +29,8 @@ export type OpenInput = {
   worktree?: Worktree;
   /** The imported item it starts from (mesa open --from), kept on the record. */
   from?: SessionRecord['from'];
+  /** The pull request it reviews (mesa prs start), kept on the record; it needs a project and a branch. */
+  review?: SessionRecord['review'];
   /**
    * Its additional projects (CONTEXT.md, Additional project), each in its own worktree on
    * `branch`, which the caller names when none is asked for.
@@ -85,6 +87,12 @@ export function validateOpenInput(input: OpenFlags): void {
     refuse('--terminal cannot use --agent, --goal, --after, --mode, or --background');
   }
   if (input.run !== undefined && !input.terminal) refuse('--run needs --terminal');
+  if (input.review && (!input.project || input.terminal || input.after)) {
+    refuse('a review session runs an agent on a project now: no --general, --terminal, or --after');
+  }
+  if (input.review && input.branch === undefined && input.checkout === undefined) {
+    refuse('a review session needs its review branch: pass --branch or --checkout');
+  }
   if (input.noParent && input.parent !== undefined) {
     refuse('pass --parent or --no-parent, not both');
   }

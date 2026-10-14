@@ -169,3 +169,43 @@ export const prsSetup = defineCommand({
     };
   },
 });
+
+export const prsStart = defineCommand({
+  name: 'prs start',
+  summary:
+    'Start a review session on a pull request in a worktree at its head (or name the one running); it leaves pending drafts, or posts them as comments with --post',
+  args: ['project', 'number'],
+  flags: {
+    post: {
+      type: 'boolean',
+      description: 'Post the review as comments once written (Claude only); never an approval',
+    },
+  },
+  example: 'mesa prs start lantern-cove 482',
+  run: async ({ mesa, args, flags }) => {
+    const data = await mesa.prs.start(args.project, wholeNumber(args.number, 'number'), {
+      ...(flags.post ? { post: true } : {}),
+    });
+    return {
+      data,
+      text: data.existing
+        ? `Review of #${args.number} is already running: ${data.session}`
+        : `Started ${data.session}: review #${args.number}, round ${data.round}, ${data.mode}, at ${data.head.slice(0, 7)} in ${data.worktree}`,
+    };
+  },
+});
+
+export const prsPublish = defineCommand({
+  name: 'prs publish',
+  summary:
+    'Post your pending drafts on a pull request as comments; only from a review session started with --post, never an approval',
+  args: ['project', 'number'],
+  example: 'mesa prs publish lantern-cove 482',
+  run: async ({ mesa, args }) => {
+    const recorded = await mesa.prs.publish(args.project, wholeNumber(args.number, 'number'));
+    return recordedOutput(recorded, {
+      data: recorded.result,
+      text: `Published ${recorded.result.published} comments on #${args.number}`,
+    });
+  },
+});

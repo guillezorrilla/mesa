@@ -70,7 +70,7 @@ const REVIEW_STATES: Record<string, string> = {
 };
 
 /** The fence a trusted author's text is quoted in: GitHub's words, never Mesa's or the person's. */
-const FENCE = 'untrusted-github-text';
+export const FENCE = 'untrusted-github-text';
 
 /**
  * The lines of the prompt for one event, with its link. A trusted author's text follows in a

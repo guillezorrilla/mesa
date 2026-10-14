@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { discardGithub, draftGithub } from './github-draft.js';
 import { ghGraphql, repoVars } from './github-graphql.js';
 import { Nodes, PR_FACTS, PrNode, toPr } from './github-pr.js';
+import { publishGithub } from './github-publish.js';
 import { showGithub } from './github-show.js';
 import type { PrProviderApi, PrReader } from './reader.js';
 
@@ -36,10 +37,14 @@ export const readGithub: PrReader = async (run, repo) => {
   };
 };
 
-/** GitHub through `gh api graphql`: reads, and drafts that stay in my pending review (ADR-0024). */
+/**
+ * GitHub through `gh api graphql`: reads, drafts that stay in my pending review, and its submit as
+ * a comment review (ADR-0024).
+ */
 export const githubApi: PrProviderApi = {
   list: readGithub,
   show: showGithub,
   draft: draftGithub,
   discard: discardGithub,
+  publish: publishGithub,
 };
