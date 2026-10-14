@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { scriptedRunner, tempDir, testDeps } from '../testing/index.js';
-import { obsidianUri, openInObsidian, vaultChoices } from './obsidian.js';
+import { obsidianUri, openInObsidian, openVaultManager, vaultChoices } from './obsidian.js';
 
 let home: string;
 let vault: string;
@@ -99,7 +99,7 @@ test('a missing note is not_found, a missing vault invalid_config, and nothing i
   const { run, calls } = scriptedRunner();
   await expect(
     openInObsidian({ run, obsidian }, { vault, note: 'wiki/nope' }),
-  ).rejects.toMatchObject({ code: 'not_found' });
+  ).rejects.toMatchObject({ code: 'not_found', details: undefined });
   await expect(
     openInObsidian({ run, obsidian }, { vault, note: '../outside.md' }),
   ).rejects.toMatchObject({ code: 'usage' });
@@ -117,13 +117,31 @@ test('a vault Obsidian does not know is not_found with how to add it, instead of
   await expect(openInObsidian({ run, obsidian }, { vault })).rejects.toMatchObject({
     code: 'not_found',
     message: expect.stringContaining('Open folder as vault'),
+    details: { unknownVault: true, vault, installed: false },
   });
   expect(calls).toEqual([]);
+  // With Obsidian installed, the details say so: the person adds the vault rather than installing.
+  mkdirSync(dirname(obsidian.bundle), { recursive: true });
+  writeFileSync(obsidian.bundle, '');
+  await expect(openInObsidian({ run, obsidian }, { vault })).rejects.toMatchObject({
+    details: { installed: true },
+  });
   // No vault list at all: Obsidian knows no vault.
   const noList = { ...obsidian, vaultList: join(home, 'no-such-list.json') };
   await expect(openInObsidian({ run, obsidian: noList }, { vault })).rejects.toMatchObject({
     code: 'not_found',
   });
+});
+
+test('the vault manager opens with macOS open; a failing open is internal', async () => {
+  const { run, calls } = scriptedRunner();
+  expect(await openVaultManager(run)).toEqual({
+    opened: true,
+    target: 'obsidian://choose-vault',
+  });
+  expect(calls.map((c) => [c.file, ...c.args])).toEqual([['open', 'obsidian://choose-vault']]);
+  const failing = scriptedRunner({}, { failing: ['open'] });
+  await expect(openVaultManager(failing.run)).rejects.toMatchObject({ code: 'internal' });
 });
 
 test('two known vaults with the same folder name are refused, not guessed', async () => {

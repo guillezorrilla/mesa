@@ -5,6 +5,7 @@ import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
 import { type Message, said, useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
+import { useOpenInObsidian } from '@/features/vault/useOpenInObsidian';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { ImportedItems } from './ImportedItems';
@@ -39,6 +40,7 @@ export function ImportTab(props: { project: string; onStartSession: (from: strin
   const list = useCommand('imports.list', { project });
   const sources = useCommand('sources.list');
   const run = useRun();
+  const { openNote } = useOpenInObsidian();
   const { acting, act } = useAct();
   const toast = useToast();
   const [notes, setNotes] = useState(true);
@@ -110,7 +112,7 @@ export function ImportTab(props: { project: string; onStartSession: (from: strin
           onRefresh={(id) =>
             void act(async () => settle(await run('imports.refresh', { project, id, notes })))
           }
-          onOpen={(item) => void run('vault.openNote', { note: item.note ?? item.snapshot })}
+          onOpen={(item) => void openNote(item.note ?? item.snapshot)}
           onStartSession={props.onStartSession}
         />
       </section>

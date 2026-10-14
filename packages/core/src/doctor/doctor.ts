@@ -11,7 +11,7 @@ import type { DecisionsModel } from '../decisions/types.js';
 import type { Runner } from '../lib/process.js';
 import { toFail } from '../lib/result.js';
 import { PR_CLIS } from '../prs/provider.js';
-import type { ObsidianPaths } from '../vault/obsidian.js';
+import { type ObsidianPaths, obsidianCli } from '../vault/obsidian.js';
 import type { VaultStatus } from '../vault/vault.js';
 import {
   agentBinary,
@@ -66,7 +66,7 @@ const REQUIREMENT = `tmux and at least one agent (${AGENT_NAMES.join(' or ')}) a
 
 async function obsidianCheck(run: Runner, paths: ObsidianPaths): Promise<Finding> {
   const base = { name: 'obsidian' };
-  const path = [paths.registered, paths.bundle].find((p) => existsSync(p));
+  const path = obsidianCli(paths);
   if (!path) {
     return {
       ...base,

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
+import { useOpenInObsidian } from '@/features/vault/useOpenInObsidian';
 import { useVaultLook, useVaultRefresh, type VaultLook } from '@/features/vault/useVaultLook';
 import { VaultUnlisted } from '@/features/vault/VaultState';
 import { useCall, useOptional } from '@/lib/useCommand';
@@ -46,6 +47,7 @@ function MapContent(props: {
 }) {
   const { look } = props;
   const call = useCall();
+  const { openNote } = useOpenInObsidian();
   const toast = useToast();
   const [updating, setUpdating] = useState(false);
   const active = useRef(true);
@@ -63,10 +65,6 @@ function MapContent(props: {
     else toast(result.error.message);
     if (active.current) setUpdating(false);
   };
-  const open = async () => {
-    const result = await call('vault.openNote', { note: MAP_PATH });
-    if (active.current && !result.ok) toast(result.error.message);
-  };
   return (
     <>
       <PageHeader
@@ -76,7 +74,7 @@ function MapContent(props: {
         <Button disabled={updating} onClick={() => void update()}>
           {updating ? 'Updating...' : 'Update map'}
         </Button>
-        <Button variant="outline" onClick={() => void open()}>
+        <Button variant="outline" onClick={() => void openNote(MAP_PATH)}>
           Open in Obsidian
         </Button>
       </PageHeader>

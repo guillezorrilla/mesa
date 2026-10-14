@@ -50,7 +50,7 @@ import {
   notificationsDelivery,
   notificationsRead,
 } from './notifications.js';
-import { obsidianVaults } from './obsidian.js';
+import { obsidianManager, obsidianVaults } from './obsidian.js';
 import { open } from './open.js';
 import { prEvents } from './pr-events.js';
 import {
@@ -147,6 +147,7 @@ export const COMMANDS: Command[] = [
   discoverAdopt,
   doctor,
   doctorInstall,
+  obsidianManager,
   obsidianVaults,
   ...FILES_COMMANDS,
   fork,

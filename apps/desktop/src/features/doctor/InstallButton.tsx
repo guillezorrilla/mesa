@@ -12,6 +12,7 @@ const HOMEBREW_INSTALL =
 /**
  * Installs a missing requirement with Homebrew, then reruns the doctor so the row turns ok.
  * Without Homebrew it says so, with brew.sh and Homebrew's own installer to copy into a terminal.
+ * Its buttons are never a form's submit, so it can sit inside a dialog.
  */
 export function InstallButton(props: { name: string; onInstalled: () => Promise<void> }) {
   const call = useCall();
@@ -34,6 +35,7 @@ export function InstallButton(props: { name: string; onInstalled: () => Promise<
       <div data-testid="install-no-brew" className="flex flex-wrap items-center gap-2">
         <span>Homebrew is required.</span>
         <Button
+          type="button"
           variant="link"
           size="sm"
           className="h-auto p-0"
@@ -42,6 +44,7 @@ export function InstallButton(props: { name: string; onInstalled: () => Promise<
           brew.sh
         </Button>
         <Button
+          type="button"
           variant="outline"
           size="sm"
           onClick={async () => {
@@ -55,6 +58,7 @@ export function InstallButton(props: { name: string; onInstalled: () => Promise<
     );
   return (
     <Button
+      type="button"
       size="sm"
       data-testid="install-button"
       disabled={state === 'installing'}

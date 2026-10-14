@@ -2,8 +2,8 @@ import { Archive, BrainCircuit, DollarSign, ExternalLink, Library } from 'lucide
 import { Muted } from '@/components/Muted';
 import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
+import { useOpenInObsidian } from '@/features/vault/useOpenInObsidian';
 import { useAct } from '@/lib/useAct';
-import { useRun } from '@/lib/useCommand';
 import { TextField } from './controls/TextField';
 import { ToggleField } from './controls/ToggleField';
 import { MODELS } from './decisions/models';
@@ -14,7 +14,7 @@ import { useSettings } from './useSettings';
 /** Faro's decisions, and where the profile's data lives and is backed up. */
 export function AdvancedSettingsPanel(props: { onBackup: () => void; onUsage: () => void }) {
   const { config, save } = useSettings();
-  const run = useRun();
+  const { openVault } = useOpenInObsidian();
   const { acting, act } = useAct();
   return (
     <>
@@ -80,7 +80,7 @@ export function AdvancedSettingsPanel(props: { onBackup: () => void; onUsage: ()
               size="sm"
               variant="ghost"
               disabled={acting}
-              onClick={() => void act(async () => warningOf(await run('vault.open')))}
+              onClick={() => void act(async () => warningOf(await openVault()))}
             >
               Open in Obsidian <ExternalLink aria-hidden />
             </Button>

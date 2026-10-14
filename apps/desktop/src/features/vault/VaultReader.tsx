@@ -4,8 +4,9 @@ import { Muted } from '@/components/Muted';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/ui/table';
-import { useOptional, useRun } from '@/lib/useCommand';
+import { useOptional } from '@/lib/useCommand';
 import { explain, NoteMarkdown } from './NoteMarkdown';
+import { useOpenInObsidian } from './useOpenInObsidian';
 import { useVaultRefresh } from './useVaultLook';
 
 type Select = (path: string) => void;
@@ -74,9 +75,9 @@ function Properties({ frontmatter }: { frontmatter: Record<string, unknown> }) {
 }
 
 function OpenInObsidian({ path }: { path: string }) {
-  const run = useRun();
+  const { openNote } = useOpenInObsidian();
   return (
-    <Button size="sm" variant="outline" onClick={() => void run('vault.openNote', { note: path })}>
+    <Button size="sm" variant="outline" onClick={() => void openNote(path)}>
       <ExternalLink aria-hidden /> Open in Obsidian
     </Button>
   );

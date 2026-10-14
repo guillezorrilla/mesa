@@ -2,7 +2,8 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
-import { useCommand, useRun } from '@/lib/useCommand';
+import { useOpenInObsidian } from '@/features/vault/useOpenInObsidian';
+import { useCommand } from '@/lib/useCommand';
 import { compact, money } from './format';
 
 /** The folded Weekly Rewind; its notes and sessions load only once it is opened. */
@@ -26,7 +27,7 @@ export function WeeklyRewind(props: { onSession: (id: string) => void }) {
 
 function RewindBody(props: { onSession: (id: string) => void }) {
   const rewind = useCommand('rewind.week');
-  const run = useRun();
+  const { openNote } = useOpenInObsidian();
   const data = rewind.data;
   if (!data) return <Muted size="xs">{rewind.busy ? 'Loading...' : ''}</Muted>;
   return (
@@ -46,7 +47,7 @@ function RewindBody(props: { onSession: (id: string) => void }) {
             <Button
               variant="link"
               className="h-auto p-0 text-left"
-              onClick={() => void run('vault.openNote', { note: note.path })}
+              onClick={() => void openNote(note.path)}
             >
               {note.summary}
             </Button>
