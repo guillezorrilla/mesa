@@ -775,6 +775,22 @@ test('recycle resets a clean worktree for reuse, detached at the default branch,
   expect(git(repo, 'branch', '--list', 'done-work')).toBe('');
 });
 
+test('a configured base beats a stale origin/HEAD', async () => {
+  const repo = await creationRepo();
+  const remote = join(cli.home, 'remote.git');
+  execFileSync('git', ['init', '-q', '--bare', remote], { env: testEnv });
+  execFileSync('git', ['-C', repo, 'remote', 'add', 'origin', remote], { env: testEnv });
+  execFileSync('git', ['-C', repo, 'push', '-q', 'origin', 'main'], { env: testEnv });
+  git(repo, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main');
+  git(repo, 'branch', 'develop');
+  expect((await settings({ base: 'develop' })).code).toBe(0);
+  const path = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'done-work', '--json')).json
+    .data.path as string;
+
+  const { preview } = await act('recycle', path);
+  expect(preview).toMatchObject({ allowed: true, base: 'develop' });
+});
+
 test('remove --force removes local work after the preview listed it, never a running session', async () => {
   await creationRepo();
   const path = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'scratch', '--json')).json
