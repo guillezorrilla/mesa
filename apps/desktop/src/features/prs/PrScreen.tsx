@@ -1,5 +1,5 @@
 import type { PrDetail, PrDraft, TreeRow } from '@mesa/core';
-import { canPost, counted, PR_CLIS, reviewLabel } from '@mesa/core/browser';
+import { canPost, counted, PR_CLIS, promptGuarded, reviewLabel } from '@mesa/core/browser';
 import { ExternalLink as ExternalIcon } from 'lucide-react';
 import { ExternalLink } from '@/components/ExternalLink';
 import { Muted } from '@/components/Muted';
@@ -117,6 +117,8 @@ export function PrScreen(
         <p data-testid="review-label" className="text-muted-foreground text-xs">
           {last.review && reviewLabel(last.review)}
           {last.alive ? ' · running' : ''}
+          {promptGuarded(last.agent, last.review) &&
+            ' · guarded by its prompt only (no deny rules for this agent)'}
         </p>
       )}
       <PrStatusPanel pr={pr} action={action} />

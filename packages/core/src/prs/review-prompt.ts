@@ -50,7 +50,9 @@ function earlierSection(input: ReviewPromptInput): string[] {
     '',
     `Round ${input.round}: you reviewed this PR before. Your earlier threads:`,
     ...(threads.length ? threads : ['- none']),
-    'For each, judge from the new commits whether it is addressed, partly addressed, or not. Reply only on partly or not addressed ones:',
+    'For each, judge from the new commits whether it is addressed, partly addressed, or not, and record it once, before any reply:',
+    `  \`mesa prs verdict ${input.project} ${input.number} --thread <thread id> --state addressed|partly|not --note "why" --confidence 0.0-1.0\``,
+    'Then reply only on partly or not addressed ones:',
     `  \`mesa prs draft ${input.project} ${input.number} --reply-to <thread id> --text "..."\``,
     'Never resolve a thread. New findings follow the steps above.',
   ];

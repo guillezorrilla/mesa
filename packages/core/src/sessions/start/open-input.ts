@@ -87,8 +87,10 @@ export function validateOpenInput(input: OpenFlags): void {
     refuse('--terminal cannot use --agent, --goal, --after, --mode, or --background');
   }
   if (input.run !== undefined && !input.terminal) refuse('--run needs --terminal');
-  if (input.review && (!input.project || input.terminal || input.after)) {
-    refuse('a review session runs an agent on a project now: no --general, --terminal, or --after');
+  if (input.review && (!input.project || input.terminal || input.after || input.background)) {
+    refuse(
+      'a review session runs an agent on a project now: no --general, --terminal, --after, or --background',
+    );
   }
   if (input.review && input.branch === undefined && input.checkout === undefined) {
     refuse('a review session needs its review branch: pass --branch or --checkout');

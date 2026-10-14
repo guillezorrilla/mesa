@@ -326,3 +326,41 @@ test('a PR that is not for me offers no Start review', async () => {
   const { byTestId } = await startable(detail({ bucket: 'other' }));
   expect(byTestId('start-review')).toHaveLength(0);
 });
+
+test("a re-review's verdicts label my threads and fill the bar; without them, resolved counts", async () => {
+  const at = hoursAgo(1);
+  const base = detail();
+  const [t1, t2] = base.threads as [PrDetail['threads'][0], PrDetail['threads'][0]];
+  await show(
+    detail({
+      threads: [
+        { ...t1, verdict: { thread: 'T1', state: 'partly', round: 2, at } },
+        { ...t2, verdict: { thread: 'T2', state: 'not', round: 2, at } },
+      ],
+    }),
+  );
+  expect(status()).toContain('1 of your 2 threads addressed or partly');
+  await click(tab('Your comments'));
+  const text = document.querySelector('[data-testid="pr-screen"]')?.textContent ?? '';
+  expect(text).toContain('Partly addressed');
+  expect(text).toContain('Not addressed');
+
+  await show(detail());
+  expect(status()).toContain('1 of your 2 threads resolved');
+});
+
+test('a review session run by Codex says only its prompt guards it', async () => {
+  const codex = managedRow('rev00010', {
+    project: 'storefront',
+    agent: 'codex',
+    review: { pr: 477, round: 1, mode: 'drafts', head: 'abc1234' },
+  });
+  const { byTestId } = await startable(detail(), { sessions: [codex], agent: 'codex' });
+  expect(byTestId('review-label')[0]?.textContent).toContain('guarded by its prompt only');
+  const claude = managedRow('rev00011', {
+    project: 'storefront',
+    review: { pr: 477, round: 1, mode: 'drafts', head: 'abc1234' },
+  });
+  const again = await startable(detail(), { sessions: [claude] });
+  expect(again.byTestId('review-label').at(-1)?.textContent).not.toContain('prompt only');
+});

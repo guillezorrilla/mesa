@@ -6,10 +6,10 @@ import {
   prStatus,
   commentPlace as where,
 } from '@mesa/core';
-import { defineCommand } from '../command.js';
-import { wholeNumber } from '../input/flags.js';
-import { columns } from '../output/columns.js';
-import { recordedOutput } from '../output/recorded.js';
+import { defineCommand } from '../../command.js';
+import { wholeNumber } from '../../input/flags.js';
+import { columns } from '../../output/columns.js';
+import { recordedOutput } from '../../output/recorded.js';
 
 const draftLines = (drafts: PrDraft[]) =>
   drafts.length
@@ -57,7 +57,6 @@ export const prsShow = defineCommand({
     };
   },
 });
-
 export const prsDraft = defineCommand({
   name: 'prs draft',
   summary:
@@ -84,7 +83,6 @@ export const prsDraft = defineCommand({
     });
   },
 });
-
 export const prsDrafts = defineCommand({
   name: 'prs drafts',
   summary: 'List your pending draft comments on a pull request',
@@ -95,7 +93,6 @@ export const prsDrafts = defineCommand({
     return { data, text: draftLines(data).join('\n') };
   },
 });
-
 export const prsDiscard = defineCommand({
   name: 'prs discard',
   summary: 'Delete one of your pending draft comments on a pull request',
@@ -110,102 +107,6 @@ export const prsDiscard = defineCommand({
     return recordedOutput(recorded, {
       data: recorded.result,
       text: `Discarded ${recorded.result.id}`,
-    });
-  },
-});
-
-export const prs = defineCommand({
-  name: 'prs',
-  summary:
-    'List the open pull requests that need you across projects (GitHub through gh, Bitbucket through twg), most urgent first',
-  flags: {
-    project: { type: 'string', description: 'Only this project' },
-    all: { type: 'boolean', description: 'Also list open PRs that are not for you' },
-  },
-  example: 'mesa prs --project lantern-cove',
-  run: async ({ mesa, flags }) => {
-    const data = await mesa.prs.list({
-      ...(flags.project ? { project: flags.project } : {}),
-      ...(flags.all ? { all: true } : {}),
-    });
-    const rows = columns(
-      data.prs.map((p) => [
-        p.project,
-        `#${p.number}`,
-        BUCKET_LABELS[p.bucket],
-        p.author,
-        p.bucket === 'updated'
-          ? `${p.since.commits} commits, ${p.since.replies} replies, ${p.since.resolved}/${p.since.threads} resolved`
-          : '',
-        p.title,
-      ]),
-    );
-    return {
-      data,
-      text: [
-        ...(rows.length ? rows : ['No pull requests need you.']),
-        ...data.blocked.map(
-          (b) => `${b.project}: ${b.cli} ${b.state}${b.next ? `; run ${b.next}` : ''}`,
-        ),
-        ...data.problems.map((p) => `${p.project}: ${p.reason}`),
-      ].join('\n'),
-    };
-  },
-});
-
-export const prsSetup = defineCommand({
-  name: 'prs setup',
-  summary:
-    "Show each project's PR provider (GitHub or Bitbucket) and whether its CLI (gh, twg) is ready",
-  flags: { project: { type: 'string', description: 'Only this project' } },
-  example: 'mesa prs setup --project lantern-cove',
-  run: async ({ mesa, flags }) => {
-    const data = await mesa.prs.setup(flags.project);
-    return {
-      data,
-      text: columns(
-        data.map((r) => [r.project, r.provider ?? 'no PR provider', r.cli, r.state, r.next]),
-      ).join('\n'),
-    };
-  },
-});
-
-export const prsStart = defineCommand({
-  name: 'prs start',
-  summary:
-    'Start a review session on a pull request in a worktree at its head (or name the one running); it leaves pending drafts, or posts them as comments with --post',
-  args: ['project', 'number'],
-  flags: {
-    post: {
-      type: 'boolean',
-      description: 'Post the review as comments once written (Claude only); never an approval',
-    },
-  },
-  example: 'mesa prs start lantern-cove 482',
-  run: async ({ mesa, args, flags }) => {
-    const data = await mesa.prs.start(args.project, wholeNumber(args.number, 'number'), {
-      ...(flags.post ? { post: true } : {}),
-    });
-    return {
-      data,
-      text: data.existing
-        ? `Review of #${args.number} is already running: ${data.session}`
-        : `Started ${data.session}: review #${args.number}, round ${data.round}, ${data.mode}, at ${data.head.slice(0, 7)} in ${data.worktree}`,
-    };
-  },
-});
-
-export const prsPublish = defineCommand({
-  name: 'prs publish',
-  summary:
-    'Post your pending drafts on a pull request as comments; only from a review session started with --post, never an approval',
-  args: ['project', 'number'],
-  example: 'mesa prs publish lantern-cove 482',
-  run: async ({ mesa, args }) => {
-    const recorded = await mesa.prs.publish(args.project, wholeNumber(args.number, 'number'));
-    return recordedOutput(recorded, {
-      data: recorded.result,
-      text: `Published ${recorded.result.published} comments on #${args.number}`,
     });
   },
 });

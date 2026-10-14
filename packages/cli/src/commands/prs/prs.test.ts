@@ -1,8 +1,8 @@
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { newSession, scriptedRunner, testStore } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
-import { cliHarness } from '../testing.js';
+import { cliHarness } from '../../testing.js';
 
 // Invented projects whose origin remotes a scripted git answers: lantern-cove on GitHub with a
 // ready gh, tide-pool on Bitbucket with no twg, driftwood with no remote.
@@ -311,4 +311,66 @@ test('prs publish runs only in a live Post now review of that PR in that project
     ghCalls.map((a) => a[3] ?? '').filter((q) => q.includes('submitPullRequestReview')),
   ).toHaveLength(1);
   for (const args of ghCalls) expect(args.join(' ')).not.toMatch(/APPROVE|REQUEST_CHANGES/);
+});
+
+test('prs verdict keeps one thread verdict for the review round, only from a live review of that PR', async () => {
+  await world();
+  const store = testStore(cli.home);
+  const review = (pr: number, round = 2) =>
+    store.create(() => newSession({ review: { pr, round, mode: 'drafts', head: 'a'.repeat(40) } }))
+      .id;
+
+  cli.env = { MESA_SESSION_ID: review(13), MESA_PROFILE: 'default' };
+  const otherPr = await cli.mesa(
+    'prs',
+    'verdict',
+    'lantern-cove',
+    '12',
+    '--thread',
+    'PRRT_1',
+    '--state',
+    'partly',
+    '--json',
+  );
+  expect(otherPr.code).toBe(2);
+
+  cli.env = { MESA_SESSION_ID: review(12), MESA_PROFILE: 'default' };
+  const wrong = await cli.mesa(
+    'prs',
+    'verdict',
+    'lantern-cove',
+    '12',
+    '--thread',
+    'PRRT_1',
+    '--state',
+    'maybe',
+    '--json',
+  );
+  expect(wrong.code).toBe(2);
+
+  const kept = await cli.mesa(
+    'prs',
+    'verdict',
+    'lantern-cove',
+    '12',
+    '--thread',
+    'PRRT_1',
+    '--state',
+    'partly',
+    '--note',
+    'Renames still miss',
+    '--confidence',
+    '0.8',
+    '--json',
+  );
+  expect(kept.code, kept.stdout).toBe(0);
+  expect(kept.json.data).toMatchObject({
+    thread: 'PRRT_1',
+    state: 'partly',
+    note: 'Renames still miss',
+    confidence: 0.8,
+    round: 2,
+  });
+  const file = join(cli.paths.prs, 'lantern-cove', '12.json');
+  expect(JSON.parse(readFileSync(file, 'utf8')).verdicts).toHaveLength(1);
 });

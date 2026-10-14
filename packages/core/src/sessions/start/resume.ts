@@ -5,6 +5,7 @@ import { claudeBackgroundAttach } from '../../agents/claude/background.js';
 import { readyAgent } from '../../doctor/probe.js';
 import { MesaError, toFail } from '../../lib/result.js';
 import { findProject } from '../../projects/projects.js';
+import { reviewDeny } from '../../prs/review-guard.js';
 import { joinWarnings } from '../../receipts/recorder.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import { requireOwnWorktree, resumerOf } from '../record/holders.js';
@@ -108,6 +109,17 @@ export async function resumeSession(
             deps.profile.config.agents,
             old.mode,
             additionalDirs(old),
+          );
+        if (agent === 'claude')
+          return AGENTS.claude.resume(
+            agentId,
+            folder,
+            deps.mounts,
+            deps.profile.config.agents,
+            old.mode,
+            additionalDirs(old),
+            // Still a review: the same deny rules as its first start.
+            reviewDeny(agent, old.review),
           );
         return AGENTS[agent].resume(
           agentId,

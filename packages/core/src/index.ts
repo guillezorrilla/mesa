@@ -119,6 +119,7 @@ export {
 export { PR_CLIS, type PrProvider } from './prs/provider.js';
 export type { PrDraft } from './prs/reader.js';
 export type { PrDetail, PrList, PrRow, PrSetupRow } from './prs/service.js';
+export { type CommentVerdict, VERDICT_STATES } from './prs/verdicts.js';
 export { RECORD_KINDS } from './receipts/policy.js';
 export type { Recorded } from './receipts/recorder.js';
 export { DEFAULT_RECEIPT_LIMIT, type ReceiptEntry } from './receipts/store.js';

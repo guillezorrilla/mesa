@@ -3,6 +3,7 @@ import { supportsAgentCapability, supportsPlanStart } from '../../agents/names.j
 import type { IdSource } from '../../lib/ids.js';
 import { shellWord } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
+import { reviewDeny } from '../../prs/review-guard.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import { isOver } from '../record/lifecycle.js';
 import type { SessionRecord } from '../record/record.js';
@@ -126,6 +127,7 @@ export async function openSession(
         agentSessionId,
         goal: input.goal,
         mode: input.mode === 'plan' ? 'plan' : undefined,
+        disallowed: reviewDeny(agent, input.review),
       },
       additionalDirs(more),
     );

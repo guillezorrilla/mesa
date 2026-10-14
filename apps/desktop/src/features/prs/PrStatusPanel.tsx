@@ -57,7 +57,13 @@ export function PrStatusPanel(props: {
   const status = prStatus(pr);
   const { Icon, say, sub } = STATUS[status](pr, Date.now());
   const tone = PR_TONE[status];
-  const { resolved, threads } = pr.since;
+  const { threads } = pr.since;
+  // With verdicts from a re-review, addressed and partly count; else the provider's resolved.
+  const judged = pr.threads.filter((t) => t.verdict);
+  const done = judged.length
+    ? judged.filter((t) => t.verdict?.state !== 'not').length
+    : pr.since.resolved;
+  const doneWord = judged.length ? 'addressed or partly' : 'resolved';
   return (
     <div
       data-testid="pr-status"
@@ -87,10 +93,10 @@ export function PrStatusPanel(props: {
           <span className="h-1.5 w-44 overflow-hidden rounded-full bg-card">
             <span
               className="block h-full bg-state-idle"
-              style={{ width: `${(resolved / threads) * 100}%` }}
+              style={{ width: `${(done / threads) * 100}%` }}
             />
           </span>
-          {resolved} of your {counted(threads, 'thread')} resolved
+          {done} of your {counted(threads, 'thread')} {doneWord}
         </div>
       )}
     </div>
