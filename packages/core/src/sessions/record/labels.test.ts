@@ -50,16 +50,18 @@ test('an attention score and a context reading read the same everywhere', () => 
   expect([21.16, 54.5, 120, -3].map(contextPercent)).toEqual([21, 55, 100, 0]);
 });
 
-test('a session is worth naming between turns once it has a goal or a prompt and no one named it', () => {
+test('a session is worth naming on its first prompt, then between turns, until someone names it', () => {
   const idle = { kind: 'interactive', lastState: { state: 'idle', at: 'x' } };
   expect(wantsName(managed({ ...idle, goal: 'Chart the tide' }))).toBe(true);
   expect(wantsName(managed({ ...idle, conversation: true }))).toBe(true);
   const asking = { ...idle, lastState: { state: 'waiting-question', at: 'x' } };
   expect(wantsName(managed({ ...asking, goal: 'x' }))).toBe(true);
-  // Never during a turn: a working session's state time moves with each tool call.
-  expect(wantsName(managed({ ...idle, lastState: { state: 'working', at: 'x' }, goal: 'x' }))).toBe(
-    false,
-  );
+  // The first prompt names it at once, while its first turn works.
+  const working = { ...idle, lastState: { state: 'working', at: 'x' } };
+  expect(wantsName(managed({ ...working, conversation: true }))).toBe(true);
+  // Asked once already: never again during a turn, as its state time moves with each tool call.
+  expect(wantsName(managed({ ...working, conversation: true, nameAsked: 'w' }))).toBe(false);
+  expect(wantsName(managed({ ...idle, conversation: true, nameAsked: 'w' }))).toBe(true);
   expect(wantsName(managed(idle))).toBe(false);
   expect(wantsName(managed({ ...idle, goal: 'x', agentName: 'tide' }))).toBe(false);
   expect(wantsName(managed({ ...idle, goal: 'x', name: 'tide' }))).toBe(false);
