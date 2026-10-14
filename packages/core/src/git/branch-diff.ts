@@ -7,13 +7,15 @@ import { findProject } from '../projects/projects.js';
 import { defaultBranchRef } from '../worktrees/base.js';
 import { gitCommand } from './command.js';
 import { type DiffRow, diffRows, PATCH_FLAGS } from './diff.js';
-import { commitOid } from './ref.js';
+import { commitOid, currentBranch } from './ref.js';
 
 // ponytail: untracked files past this many are left out; page them if a checkout ever needs more.
 const MAX_UNTRACKED = 200;
 
 export type GitBranchDiff = {
   checkout: Checkout;
+  /** The branch the checkout is on, null when its HEAD is detached. */
+  branch: string | null;
   /** The ref the checkout branched from, as given or the project's default branch. */
   base: string;
   /** Where the checkout left `base`: everything after it, committed or not, is in the patch. */
@@ -62,7 +64,8 @@ export async function readBranchDiff(
   const found = await gitCommand(run, checkout.path, ['merge-base', baseOid, 'HEAD']);
   if (!found.ok) throw new MesaError('usage', `${ref} shares no history with this checkout`);
   const mergeBase = found.stdout.trim();
-  const [count, tracked, others] = await Promise.all([
+  const [branch, count, tracked, others] = await Promise.all([
+    currentBranch(run, checkout.path),
     gitCommand(run, checkout.path, ['rev-list', '--count', `${mergeBase}..HEAD`]),
     gitCommand(run, checkout.path, ['diff', ...PATCH_FLAGS, mergeBase, '--'], 30_000),
     gitCommand(run, checkout.path, ['ls-files', '--others', '--exclude-standard', '-z']),
@@ -77,6 +80,7 @@ export async function readBranchDiff(
       .join('');
   return {
     checkout,
+    branch,
     base: ref,
     mergeBase,
     ahead: count.ok ? Number(count.stdout.trim()) : 0,

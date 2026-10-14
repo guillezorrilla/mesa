@@ -177,3 +177,20 @@ test("picking a branch to compare with reads the session's changes against it", 
   await click(item('origin/trunk'));
   expect(picker('origin/trunk')).toBeDefined();
 });
+
+test("the header names the branch the diff read, ahead of the board's, as a move lags there", async () => {
+  const { bridge } = fakeBridge({ diff: diff({ branch: 'feat/kelp' }) });
+  await renderWithMesa(
+    <DiffPanel
+      sessionId="aaaaaaaa"
+      project="lantern-cove"
+      checkout="/w/kelp"
+      branch="main"
+      state="idle"
+      onClose={() => {}}
+    />,
+    bridge,
+  );
+  const panel = document.querySelector<HTMLElement>('[aria-label="Session changes"]');
+  expect(panel?.textContent).toContain('feat/kelpsince main');
+});

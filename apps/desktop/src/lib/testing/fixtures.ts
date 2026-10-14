@@ -169,6 +169,7 @@ export const TWO_FILE_DIFF: DiffRow[] = [
 export const sessionDiff = (data: object = {}) =>
   envelope({
     checkout: { project: 'lantern-cove', path: '/w/reef', registered: false },
+    branch: 'session/reef',
     base: 'main',
     mergeBase: 'abc',
     ahead: 2,

@@ -238,8 +238,8 @@ function claudeBranch(file: string): string | undefined {
  * `worktree-state` line on each turn inside a worktree, and a null one when it leaves, back to the
  * `originalCwd` the last entered line names. None when it never moved, within the tail.
  */
-function claudeFolder(file: string): string | undefined {
-  let left = false;
+function claudeFolder(file: string): { path: string; back: boolean } | undefined {
+  let back = false;
   // ponytail: only the last NAME_TAIL bytes; a turn writes the line again, so a live one is there.
   return lastMatchingLine(
     file,
@@ -248,9 +248,9 @@ function claudeFolder(file: string): string | undefined {
       const state = parsedLine<{
         worktreeSession?: { worktreePath?: unknown; originalCwd?: unknown } | null;
       }>(line)?.worktreeSession;
-      if (state === null) left = true;
-      const folder = left ? state?.originalCwd : state?.worktreePath;
-      return typeof folder === 'string' ? folder : undefined;
+      if (state === null) back = true;
+      const path = back ? state?.originalCwd : state?.worktreePath;
+      return typeof path === 'string' ? { path, back } : undefined;
     },
     NAME_TAIL,
   );

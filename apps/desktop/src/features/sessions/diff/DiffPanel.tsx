@@ -69,6 +69,8 @@ export function DiffPanel(props: {
   const files = useMemo(() => diffFiles(data?.rows ?? []), [data]);
   const view = useDiffView(files);
   const { file } = view;
+  // The branch the diff read, as the board's may lag a move; the main checkout keeps its name.
+  const label = props.branch ? (data?.branch ?? props.branch) : 'This checkout';
   const added = files.reduce((sum, each) => sum + each.added, 0);
   const removed = files.reduce((sum, each) => sum + each.removed, 0);
   const expand = (next: boolean) => {
@@ -103,8 +105,8 @@ export function DiffPanel(props: {
         <div className="flex items-center gap-2 px-3 pt-2.5 pb-2">
           <GitBranch aria-hidden className="size-4 shrink-0 text-state-working" />
           <p className="flex min-w-0 items-baseline gap-1.5 text-sm">
-            <span className="truncate font-mono font-medium" title={props.branch}>
-              {props.branch ?? 'This checkout'}
+            <span className="truncate font-mono font-medium" title={label}>
+              {label}
             </span>
             {shownBase && (
               <span className="shrink-0 text-muted-foreground">
