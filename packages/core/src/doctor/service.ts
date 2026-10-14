@@ -39,6 +39,7 @@ export function doctorService(
           tmux: ctx.tmuxHook,
         },
         codexDaemon: codexDaemonSocket(codexHome(ctx.home, ctx.env)),
+        unreadableRecords: ctx.store.unreadable,
         ...(existsSync(ctx.paths.config) ? { vault: deps.vaultStatus } : {}),
       });
       // A profile that was never initialised has no inbox: doctor must not create its folder.

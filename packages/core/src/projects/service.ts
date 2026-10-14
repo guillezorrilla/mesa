@@ -42,7 +42,7 @@ export function projectsService(ctx: MesaContext) {
         ? sortProjects(
             rows,
             readRegistry(profile.paths.registry),
-            sort === 'last-session' || sort === 'active-sessions' ? ctx.store.list() : [],
+            sort === 'last-session' || sort === 'active-sessions' ? ctx.store.readable() : [],
             sort,
           )
         : rows;

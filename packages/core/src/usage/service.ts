@@ -17,7 +17,7 @@ export function usageService(ctx: MesaContext) {
       const cached = ledger.read();
       const scanned: Record<string, SourceStamp> = {};
       const scannedHooks: Record<string, HookStamp> = {};
-      const records = ctx.store.list();
+      const records = ctx.store.readable();
       for (const record of records) {
         if (session && record.id !== session) continue;
         if (record.agent === 'terminal') continue;

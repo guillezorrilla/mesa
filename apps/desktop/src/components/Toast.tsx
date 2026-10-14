@@ -80,8 +80,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <CircleCheck className="text-muted-foreground" />
             )}
             <div className="flex items-start justify-between gap-2">
-              <div className="grid gap-1">
-                <pre className="whitespace-pre-wrap break-words font-mono text-xs">{m.text}</pre>
+              {/* min-w-0 and wrapping anywhere: a long path never pushes Dismiss out of view. */}
+              <div className="grid min-w-0 gap-1">
+                <pre className="whitespace-pre-wrap font-mono text-xs [overflow-wrap:anywhere]">
+                  {m.text}
+                </pre>
                 {m.link && (
                   <Button
                     variant="link"

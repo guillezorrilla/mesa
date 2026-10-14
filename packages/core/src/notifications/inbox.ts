@@ -17,6 +17,7 @@ import {
   hookItem,
   type InboxItem,
   releaseItem,
+  shownInInbox,
 } from './inbox-items.js';
 import { type InboxState, inboxStore } from './inbox-store.js';
 
@@ -94,11 +95,12 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
   };
   /** The state, after seeVersion: it runs before any other write, so a fresh profile is known. */
   const read = () => seeVersion(store.read());
-  const list = (): InboxItem[] => {
+  /** Every notice, a finished turn's too: native delivery reads them by its own setting. */
+  const all = (): InboxItem[] => {
     const current = read();
     const fresh: Candidate[] = [];
     const offsets: Record<string, number> = {};
-    for (const record of ctx.store.list()) {
+    for (const record of ctx.store.readable()) {
       const before = current.offsets[record.id] ?? 0;
       const after = scanHookEvents(ctx.paths.events, record.id, before, (event) => {
         const item = hookItem(record.id, event);
@@ -114,8 +116,10 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
         : current;
     return inboxItems(state, failures(), notes);
   };
+  /** What the Inbox shows (shownInInbox). */
+  const list = () => all().filter(shownInInbox);
   const change = (id: string, field: 'read' | 'cleared') => {
-    if (!list().some((item) => item.id === id))
+    if (!all().some((item) => item.id === id))
       throw new MesaError('not_found', `no inbox item ${id}`);
     store.write({ read: field === 'read' ? [id] : [], cleared: field === 'cleared' ? [id] : [] });
   };
@@ -124,7 +128,7 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
     const startedAt = state.startedAt ?? ctx.clock().toISOString();
     if (!state.startedAt) store.write({ startedAt });
     const settings = ctx.open().config.notifications;
-    const { plan, skipped } = planDelivery(list(), settings, {
+    const { plan, skipped } = planDelivery(all(), settings, {
       startedAt,
       delivered: state.delivered,
     });
@@ -133,7 +137,7 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
   };
   const markDelivered = (ids: string[]) => {
     const state = read();
-    const known = new Set([...list().map((item) => item.id), ...state.cleared, ...state.delivered]);
+    const known = new Set([...all().map((item) => item.id), ...state.cleared, ...state.delivered]);
     if (!ids.length || ids.length > 500 || ids.some((id) => !known.has(id)))
       throw new MesaError('not_found', 'notification item not found');
     store.write({ delivered: ids });
@@ -142,11 +146,14 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
     list,
     markRead: (id: string) => change(id, 'read'),
     clear: (id: string) => change(id, 'cleared'),
-    /** Clears every notice shown now in one write; kept hook offsets stop them coming back. */
+    /**
+     * Clears every notice in one write, a hidden finished turn's too, so none is delivered later;
+     * kept hook offsets stop them coming back. Counts the ones the Inbox showed.
+     */
     clearAll: () => {
-      const ids = list().map((item) => item.id);
-      if (ids.length) store.write({ cleared: ids });
-      return ids.length;
+      const items = all();
+      if (items.length) store.write({ cleared: items.map((item) => item.id) });
+      return items.filter(shownInInbox).length;
     },
     delivery,
     /** App and background worker claim through the same short, synchronous lock. */

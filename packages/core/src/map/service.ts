@@ -30,7 +30,7 @@ export function mapService(ctx: MesaContext) {
         const file = vaultFile(vault, VAULT.map);
         const now = ctx.clock().getTime();
         const canvas = buildMap(
-          ctx.store.list(),
+          ctx.store.readable(),
           readRegistry(ctx.paths.registry),
           listVault(vault),
           {

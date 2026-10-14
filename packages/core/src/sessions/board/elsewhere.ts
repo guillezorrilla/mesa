@@ -22,14 +22,10 @@ export function otherProfilesSessions(home: string, profile: string, lock: LockD
     (e) => e.isDirectory() && e.name !== profile,
   );
   return new Set(
-    others.flatMap((e) => {
-      try {
-        return sessionStore({ dir: profilePaths(home, e.name).sessions, newId: readOnly, lock })
-          .list()
-          .flatMap((r) => (r.agentSessionId ? [r.agentSessionId] : []));
-      } catch {
-        return [];
-      }
-    }),
+    others.flatMap((e) =>
+      sessionStore({ dir: profilePaths(home, e.name).sessions, newId: readOnly, lock })
+        .readable()
+        .flatMap((r) => (r.agentSessionId ? [r.agentSessionId] : [])),
+    ),
   );
 }

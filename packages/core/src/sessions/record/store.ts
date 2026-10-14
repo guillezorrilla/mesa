@@ -4,7 +4,7 @@ import { writeFileAtomic } from '../../lib/atomic-file.js';
 import { type IdSource, shortId } from '../../lib/ids.js';
 import { changeJson, readJson } from '../../lib/json-file.js';
 import type { LockDeps } from '../../lib/lock-file.js';
-import { MesaError } from '../../lib/result.js';
+import { MesaError, toFail } from '../../lib/result.js';
 import { parseWith } from '../../lib/schema.js';
 import { dependencyLock } from '../start/dependencies.js';
 import {
@@ -13,6 +13,7 @@ import {
   type NewSession,
   type SessionRecord,
   SessionRecordSchema,
+  StoredRecordSchema,
 } from './record.js';
 
 // Session records: one JSON file per session in the profile's `sessions/`, outliving tmux.
@@ -54,6 +55,28 @@ export function sessionStore({
   };
   const get = read;
   /**
+   * Every record file, read: the records that read, oldest first, and why each other one does not
+   * (its message names the file). Reads directly, not through `read`: a file removed between the
+   * listing and the read is gone, not unreadable.
+   */
+  const scan = () => {
+    const records: SessionRecord[] = [];
+    const reasons: string[] = [];
+    if (!existsSync(dir)) return { records, reasons };
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const id = e.isFile() && RECORD_FILE.exec(e.name)?.[1];
+      if (!id) continue;
+      try {
+        const record = readJson(fileOf(id), SessionRecordSchema);
+        if (record) records.push(own(id, record));
+      } catch (error) {
+        reasons.push(toFail(error).error.message);
+      }
+    }
+    records.sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+    return { records, reasons };
+  };
+  /**
    * Changes the record under its lock (`<id>.json.lock` beside it), so read-modify-write updates
    * of one record serialise across processes: a send from two sessions at once keeps both events.
    */
@@ -62,7 +85,7 @@ export function sessionStore({
     fn: (current: SessionRecord) => R,
     tries?: number,
   ): R =>
-    changeJson(fileOf(id), SessionRecordSchema, (current) => fn(own(id, current)), lock, {
+    changeJson(fileOf(id), StoredRecordSchema, (current) => fn(own(id, current)), lock, {
       tries,
       what: `session ${id}`,
     });
@@ -105,16 +128,22 @@ export function sessionStore({
         },
         wait ? undefined : 0,
       ),
-    /** Every record, oldest first. */
+    /**
+     * Every record, oldest first, for a guard or a change (a worktree still in use, a queue): one
+     * that does not read fails it, so a guard never passes on a record it could not see.
+     */
     list: (): SessionRecord[] => {
-      if (!existsSync(dir)) return [];
-      return readdirSync(dir, { withFileTypes: true })
-        .flatMap((e) => {
-          const id = e.isFile() && RECORD_FILE.exec(e.name)?.[1];
-          return id ? [read(id)] : [];
-        })
-        .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+      const { records, reasons } = scan();
+      if (reasons[0]) throw new MesaError('invalid_config', reasons[0]);
+      return records;
     },
+    /**
+     * Every record that reads, oldest first, for a view (the board, the Inbox, a report): one that
+     * does not read is left out, and Doctor names it (`unreadable`).
+     */
+    readable: (): SessionRecord[] => scan().records,
+    /** Why each record file that does not read fails, for Doctor. */
+    unreadable: (): string[] => scan().reasons,
     /** Writes `record` as it is: a removal moving it here (remove's `into`). */
     put: (record: SessionRecord) => {
       mkdirSync(dir, { recursive: true, mode: 0o700 });

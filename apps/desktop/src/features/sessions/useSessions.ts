@@ -2,7 +2,7 @@ import type { TreeRow } from '@mesa/core';
 import { wantsName } from '@mesa/core/browser';
 import { useEffect, useMemo, useState } from 'react';
 import { oneAtATime } from '@/lib/oneAtATime';
-import { useCall, useRun } from '@/lib/useCommand';
+import { useCall, useNewFailureAlert } from '@/lib/useCommand';
 
 /**
  * Refresh session state every two seconds and after actions, without overlapping requests. A row
@@ -12,8 +12,8 @@ import { useCall, useRun } from '@/lib/useCommand';
  * item's title, else once per turn, between turns, until it has one.
  */
 export function useSessions() {
-  const run = useRun();
   const call = useCall();
+  const alertNew = useNewFailureAlert();
   const [data, setData] = useState<TreeRow[]>();
   // The first look has answered, rows or a failure.
   const [loaded, setLoaded] = useState(false);
@@ -23,15 +23,18 @@ export function useSessions() {
       await call('decisions.place');
     });
     return oneAtATime(async () => {
-      const rows = await run('sessions.list');
+      const result = await call('sessions.list');
       setLoaded(true);
-      if (!rows) return;
+      // Every two seconds: a failure alerts once, not on each look.
+      alertNew(result.ok ? undefined : result.error);
+      if (!result.ok) return;
+      const rows = result.data;
       setData(rows);
       if (rows.some((row) => row.managed && row.supervision.pending)) void place();
       // Quietly: core asks each once (nameAsk), and no name yet is tried at the next ask.
       for (const row of rows) if (wantsName(row)) void call('sessions.autoName', { id: row.id });
     });
-  }, [run, call]);
+  }, [call, alertNew]);
   useEffect(() => {
     look();
     const timer = setInterval(look, 2000);

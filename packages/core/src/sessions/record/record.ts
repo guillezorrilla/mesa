@@ -284,20 +284,30 @@ const validAdditional = (r: z.infer<typeof SessionRecordFields>) => {
   );
 };
 
-export const SessionRecordSchema = SessionRecordFields.refine(
-  (record) =>
-    (record.kind === 'terminal') === (record.agent === 'terminal') &&
-    (record.kind !== 'terminal' || (!record.agentSessionId && !record.goal)) &&
-    (record.mode !== 'plan' || (record.agent !== 'terminal' && supportsPlanStart(record.agent))) &&
-    (!record.background ||
-      (record.agent !== 'terminal' && supportsAgentCapability(record.agent, 'background'))) &&
-    (!record.backgroundId || record.background) &&
-    (record.project !== GENERAL_PROJECT ||
-      (Boolean(record.cwd && isAbsolute(record.cwd)) && !record.worktree)) &&
-    validAdditional(record),
-  'plain terminals need terminal kind and agent; General sessions need an absolute cwd and no worktree; additional projects need a project worktree and are each another project, once',
-);
-export type SessionRecord = z.infer<typeof SessionRecordSchema>;
+const recordRules = (record: SessionRecord) =>
+  (record.kind === 'terminal') === (record.agent === 'terminal') &&
+  (record.kind !== 'terminal' || (!record.agentSessionId && !record.goal)) &&
+  (record.mode !== 'plan' || (record.agent !== 'terminal' && supportsPlanStart(record.agent))) &&
+  (!record.background ||
+    (record.agent !== 'terminal' && supportsAgentCapability(record.agent, 'background'))) &&
+  (!record.backgroundId || record.background) &&
+  (record.project !== GENERAL_PROJECT ||
+    (Boolean(record.cwd && isAbsolute(record.cwd)) && !record.worktree)) &&
+  validAdditional(record);
+const RECORD_RULES =
+  'plain terminals need terminal kind and agent; General sessions need an absolute cwd and no worktree; additional projects need a project worktree and are each another project, once';
+
+/** A record as code reads it: its known fields; one a newer Mesa added is left out of the read. */
+export const SessionRecordSchema = SessionRecordFields.strip().refine(recordRules, RECORD_RULES);
+/**
+ * A record as an update writes it back: a top-level field a newer Mesa added on the same profile
+ * is kept as it was, so an older Mesa neither fails on it nor drops it. Typed by the known fields.
+ */
+export const StoredRecordSchema = SessionRecordFields.loose().refine(
+  recordRules,
+  RECORD_RULES,
+) as unknown as z.ZodType<SessionRecord>;
+export type SessionRecord = z.infer<typeof SessionRecordFields>;
 /** A plain terminal has no coding agent or provider conversation. */
 export const recordAgent = (record: Pick<SessionRecord, 'agent'>): Agent | undefined =>
   record.agent === 'terminal' ? undefined : record.agent;

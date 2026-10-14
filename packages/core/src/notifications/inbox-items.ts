@@ -199,6 +199,12 @@ export const failureItems = (runs: readonly AutomationRunNotice[]): Candidate[] 
       target: { kind: 'automations' },
     }));
 
+/**
+ * Whether the Inbox shows a notice: not a finished turn, which needs nothing from the person and
+ * which the Session Board already shows; its macOS notice still follows `notifications.finished`.
+ */
+export const shownInInbox = (item: InboxItem) => item.kind !== 'finished';
+
 /** A version's What's new notice; its notes are joined when the inbox lists it. */
 export const releaseItem = ({ version, at }: ReleaseSeen): Candidate => ({
   session: '',

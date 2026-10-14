@@ -230,6 +230,14 @@ function codexDaemonCheck(socket: string | undefined): Finding[] {
   return [{ name: 'codex daemon', ok: false, path: socket, hint }];
 }
 
+/** Session records Mesa cannot read: left out of the board, so listed here once instead. */
+function sessionRecordsCheck(reasons: string[]): Finding {
+  const name = 'session records';
+  if (!reasons.length) return { name, ok: true, hint: '' };
+  const hint = `Mesa cannot read ${reasons.length}, so they are left out of your sessions: ${reasons.join('; ')}`;
+  return { name, ok: false, hint };
+}
+
 function profileDirCheck(dir: string): Finding {
   const ok = existsSync(dir);
   return {
@@ -248,8 +256,8 @@ export function inboxCheck(error: unknown): Check {
 
 /**
  * Presence and version of every external dependency, the profile directory, the decisions
- * backend, the native agent hooks, Antigravity's mesa-vault entry, the tmux pane-died hook, and a Codex
- * app-server daemon, when one runs.
+ * backend, the native agent hooks, Antigravity's mesa-vault entry, the tmux pane-died hook, the
+ * session records that do not read, and a Codex app-server daemon, when one runs.
  */
 export async function runDoctor(deps: {
   run: Runner;
@@ -269,6 +277,8 @@ export async function runDoctor(deps: {
   codexDaemon?: string;
   /** The profile's vault layout; none before init. */
   vault?: () => VaultStatus;
+  /** Why each session record file that does not read fails. */
+  unreadableRecords?: () => string[];
 }): Promise<DoctorReport> {
   const [binaries, obsidian, hooks] = await Promise.all([
     Promise.all(
@@ -296,6 +306,7 @@ export async function runDoctor(deps: {
       profileDirCheck(deps.profileDir),
       ...decisionsCheck(deps.decisions),
       ...(deps.vault ? [vaultCheck(deps.vault)] : []),
+      ...(deps.unreadableRecords ? [sessionRecordsCheck(deps.unreadableRecords())] : []),
       ...(deps.hooks && hooks ? [claudeHooksCheck(deps.hooks.claude), tmuxHookCheck(hooks)] : []),
       ...(deps.hooks?.codex ? codexHooksChecks(deps.hooks.codex) : []),
       ...(deps.hooks?.antigravity ? [antigravityHooksCheck(deps.hooks.antigravity)] : []),

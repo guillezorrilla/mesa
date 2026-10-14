@@ -21,6 +21,7 @@ test('doctor reports { healthy, checks } and exits 3 when unhealthy', async () =
     'twg',
     'obsidian',
     'profile dir',
+    'session records',
     'claude hooks',
     'tmux hooks',
     ...[

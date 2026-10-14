@@ -66,3 +66,9 @@ Project and session workspaces show filtered decision, guardrail, and vault-chan
 ## Amendment 2026-09-28: session selection and archive action (#265)
 
 The workspace sidebar uses the existing warm `--ring` interaction accent for the selected tab and session, and the archive confirmation uses it with a dark foreground token. Session state badges still use the `--state-*` tokens; waiting remains the only warm state. App menus use the shared shadcn DropdownMenu primitive.
+
+## Amendment 2026-10-13: a refreshing read alerts a failure once
+
+A read that refreshes by itself (`useCommand`, the Session Board's two-second look) alerts a failure when it first appears or changes, through `useNewFailureAlert`, and says nothing while the same failure repeats; a success re-arms it. A dismissed alert therefore stays closed while the failure lasts, and comes back only if it stops and happens again. An action the person takes (`useRun`, `act`) alerts each time it fails, as before. A toast's text wraps anywhere, so a long path never hides Dismiss.
+
+Evidence: a session record from a newer Mesa failed every board look in 0.2.15, and its alert came back every two seconds after it was closed, its Dismiss off screen. `apps/desktop/src/lib/useCommand.test.tsx` "a refreshing read alerts a failure once, and again only after it recovers".

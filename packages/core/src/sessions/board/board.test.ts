@@ -639,7 +639,7 @@ test('a look that read a session before a stop never writes its state over the s
   // Its window is gone, so the look has a new state to save: done, from tmux.
   await listSessions({
     ...noListing,
-    store: { ...store, list: () => before },
+    store: { ...store, readable: () => before },
     tmux: fakeTmux(),
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   });
@@ -662,7 +662,7 @@ test('a look that read a session before another look saved its state never write
   store.update(live.id, { lastState: saved });
   await listSessions({
     ...noListing,
-    store: { ...store, list: () => before },
+    store: { ...store, readable: () => before },
     tmux: fakeTmux(),
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   });
