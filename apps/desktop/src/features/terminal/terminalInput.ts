@@ -22,6 +22,13 @@ const LINE_KEYS: Record<string, Partial<Record<Modifier, string>>> = {
 };
 
 /**
+ * What a terminal app types for files dropped on it (Terminal.app, iTerm): each path with its shell
+ * specials backslash-escaped, then a space. Claude Code reads an image path typed so as an image.
+ */
+export const droppedPaths = (paths: readonly string[]) =>
+  `${paths.map((path) => path.replace(/[\s\\'"()[\]{}<>|&;$`!*?#~]/g, '\\$&')).join(' ')} `;
+
+/**
  * Only explicit shortcuts override xterm; native provider keys and paste remain untouched. The
  * bytes a key sends instead, '' to swallow it, or null to leave it to xterm.
  */

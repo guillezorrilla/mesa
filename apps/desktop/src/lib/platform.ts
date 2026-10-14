@@ -29,6 +29,9 @@ export type TerminalHost = {
   ready: (termId: string) => Promise<void>;
 };
 
+/** Files dropped on the window: their paths, and where, in CSS pixels from its top left. */
+export type FileDrop = { paths: string[]; x: number; y: number };
+
 export type BrowserBounds = { x: number; y: number; width: number; height: number };
 export type BrowserProbe = { url: string; title: string; heading: string };
 export type BrowserSelection = { url: string; title: string; selector: string; text: string };
@@ -107,6 +110,8 @@ export type Platform = {
   dock: { badge: (count: number) => Promise<void> };
   terminal: TerminalHost;
   browser: BrowserHost;
+  /** Files dragged in from Finder: the webview never sees them, Tauri does. Returns the unsubscribe. */
+  fileDrops: { onDrop: (handler: (drop: FileDrop) => void) => Promise<() => void> };
   /** The macOS pasteboard, through Rust: WKWebView refuses `navigator.clipboard` (SP-3). Paste
    * needs no seam: Cmd+V fires a paste event that xterm handles. */
   clipboard: { write: (text: string) => Promise<void> };

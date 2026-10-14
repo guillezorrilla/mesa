@@ -1,6 +1,6 @@
 export { attached, cells, choose, click, fill, press, searchFor, toasts, toastTexts } from './dom';
 export { fakeBridge } from './fakeBridge';
-export { fakePlatform, fakeTerminals, fakeUpdates } from './fakePlatform';
+export { fakeFileDrops, fakePlatform, fakeTerminals, fakeUpdates } from './fakePlatform';
 export {
   asking,
   busy,

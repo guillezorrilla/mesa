@@ -102,6 +102,15 @@ export const tauriPlatform: Platform = {
         listener(event.payload),
       ),
   },
+  fileDrops: {
+    // The window's, not the webview's: Tauri sends the main webview's drops to its window. On macOS
+    // wry gives AppKit points, already CSS pixels, though Tauri types them physical.
+    onDrop: (handler) =>
+      getCurrentWindow().onDragDropEvent(({ payload }) => {
+        if (payload.type === 'drop')
+          handler({ paths: payload.paths, x: payload.position.x, y: payload.position.y });
+      }),
+  },
   clipboard: { write: (text) => invoke('clipboard_write', { text }) },
   updates: {
     status: () => invoke('update_status'),

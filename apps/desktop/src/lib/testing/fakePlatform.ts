@@ -1,4 +1,11 @@
-import type { BrowserHost, Platform, TerminalHost, UpdateHost, UpdateStatus } from '../platform';
+import type {
+  BrowserHost,
+  FileDrop,
+  Platform,
+  TerminalHost,
+  UpdateHost,
+  UpdateStatus,
+} from '../platform';
 
 /** The updater in memory: `push` plays a status, and every action is recorded. */
 export function fakeUpdates(initial: Partial<UpdateStatus> = {}) {
@@ -61,6 +68,23 @@ export function fakeTerminals() {
   return { host, calls, push };
 }
 
+/** Files dropped on the window, handed to every terminal listening. */
+export function fakeFileDrops() {
+  const listeners = new Set<(drop: FileDrop) => void>();
+  const host: Platform['fileDrops'] = {
+    onDrop: async (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+  return {
+    host,
+    push: (drop: FileDrop) => {
+      for (const listener of listeners) listener(drop);
+    },
+  };
+}
+
 /** A platform whose pickers return `folder` and `file` (none: the user cancelled), recording
  * the pasteboard, each Dock badge count, and each profile switched to. */
 export const fakePlatform = ({
@@ -102,6 +126,7 @@ export const fakePlatform = ({
   lifecycle = { onCloseRequested: async () => () => {}, close: async () => {} },
   updates = fakeUpdates().host,
   menu = { onAbout: async () => () => {} },
+  fileDrops = fakeFileDrops().host,
 }: {
   folder?: string | null;
   file?: string | null;
@@ -112,6 +137,7 @@ export const fakePlatform = ({
   lifecycle?: Platform['lifecycle'];
   updates?: UpdateHost;
   menu?: Platform['menu'];
+  fileDrops?: Platform['fileDrops'];
 } = {}): Platform & {
   pasteboard: string[];
   badges: number[];
@@ -128,6 +154,7 @@ export const fakePlatform = ({
     notifications,
     terminal,
     browser,
+    fileDrops,
     clipboard: { write: async (text) => void pasteboard.push(text) },
     pasteboard,
     dock: { badge: async (count) => void badges.push(count) },
