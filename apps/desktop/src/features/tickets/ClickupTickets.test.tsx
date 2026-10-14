@@ -219,7 +219,9 @@ test('Follow ClickUp tasks picks a List from the tree, follows a whole Folder or
   const selected = () =>
     document.querySelector('[role="treeitem"][aria-selected="true"]')?.textContent;
   expect(selected()).toBe('Sprint 1814');
-  expect(words(calls)).toContain('tickets preview --provider clickup --workspace ws-1 --list l1');
+  expect(words(calls)).toContain(
+    'tickets preview --provider clickup --workspace ws-1 --list l1 --everyone',
+  );
   expect(dialog()).toContain('6 tasks right now, subtasks included, shown as "Sprint 18 2".');
 
   // A Folder follows every List inside it; the search narrows the tree.
@@ -227,7 +229,9 @@ test('Follow ClickUp tasks picks a List from the tree, follows a whole Folder or
     byTestId('clickup-node').find((n) => n.textContent?.startsWith(name));
   expect(node('Q4 roadmap')?.textContent).toBe('Q4 roadmapfolder2 Lists');
   await click(node('Q4 roadmap'));
-  expect(words(calls)).toContain('tickets preview --provider clickup --workspace ws-1 --folder f1');
+  expect(words(calls)).toContain(
+    'tickets preview --provider clickup --workspace ws-1 --folder f1 --everyone',
+  );
   const search = document.querySelector<HTMLInputElement>(
     'input[aria-label="Search Spaces, Folders and Lists"]',
   );
@@ -246,7 +250,7 @@ test('Follow ClickUp tasks picks a List from the tree, follows a whole Folder or
   expect(
     words(calls).filter((w) => w.startsWith('tickets views add') || w.startsWith('tickets follow')),
   ).toEqual([
-    'tickets views add --provider clickup --workspace ws-1 --folder f1 -- Q4 roadmap',
+    'tickets views add --provider clickup --workspace ws-1 --folder f1 --everyone -- Q4 roadmap',
     'tickets follow -- lantern-cove Q4 roadmap',
   ]);
 });
@@ -297,11 +301,11 @@ test('the Saved view tab lists the views with their type and where they are kept
     'listMy open tasksin EverythingboardDock sprint boardin Harbor opsmind map viewBerth planin Harbor ops',
   );
   expect(words(calls)).toContain(
-    'tickets preview --provider clickup --workspace ws-1 --view v-mine',
+    'tickets preview --provider clickup --workspace ws-1 --view v-mine --everyone',
   );
   await click(document.querySelector<HTMLElement>('#clickup-view-v-board') ?? undefined);
   expect(words(calls)).toContain(
-    'tickets preview --provider clickup --workspace ws-1 --view v-board',
+    'tickets preview --provider clickup --workspace ws-1 --view v-board --everyone',
   );
   expect(byTestId('follow-view-dialog')[0]?.textContent).toContain(
     '3 tasks right now, subtasks included, shown as "Dock sprint board".',

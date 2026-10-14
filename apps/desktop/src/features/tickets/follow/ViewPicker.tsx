@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { SourceError } from '@/features/projects/import/SourceError';
 import { type CommandState, useCommand } from '@/lib/useCommand';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { type Choice, ChoiceRows } from './ChoiceRows';
 
 /** A board or saved filter a view can name. */
@@ -72,7 +73,8 @@ export function ViewPicker(props: {
   onPick: (pick: Pick) => void;
 }) {
   const [typed, setTyped] = useState('');
-  const [search, setSearch] = useState('');
+  // Asks the tracker once the person pauses typing.
+  const search = useDebouncedValue(typed.trim());
   const what = props.kind === 'board' ? 'boards' : 'saved filters';
   const List = props.kind === 'board' ? Boards : Filters;
   return (
@@ -84,12 +86,6 @@ export function ViewPicker(props: {
         placeholder={`Search ${what}`}
         value={typed}
         onChange={(event) => setTyped(event.currentTarget.value)}
-        onKeyDown={(event) => {
-          if (event.key !== 'Enter') return;
-          event.preventDefault();
-          setSearch(typed);
-        }}
-        onBlur={() => setSearch(typed)}
         className="rounded-md border bg-background px-3 py-1.5 text-sm"
       />
       <List search={search} picked={props.picked} onPick={props.onPick} />

@@ -190,7 +190,7 @@ test("Follow a repo picks this project's remote, narrows by label and milestone 
   // One milestone: picking it closes the list.
   expect(item('Any milestone')).toBeUndefined();
   expect(words(calls)).toContain(
-    `tickets preview --provider github --repo ${REPO} --label=bug --milestone 3`,
+    `tickets preview --provider github --repo ${REPO} --label=bug --milestone 3 --everyone`,
   );
   expect(dialog()).toContain(
     '2 issues right now, pull requests left out, shown as "harbor-api 2".',
@@ -217,7 +217,7 @@ test("Follow a repo picks this project's remote, narrows by label and milestone 
   expect(
     words(calls).filter((w) => w.startsWith('tickets views add') || w.startsWith('tickets follow')),
   ).toEqual([
-    'tickets views add --provider github --repo harbor-co/berth-planner -- berth-planner',
+    'tickets views add --provider github --repo harbor-co/berth-planner --everyone -- berth-planner',
     'tickets follow -- lantern-cove berth-planner',
   ]);
 });

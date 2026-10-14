@@ -286,10 +286,29 @@ test('Follow picks a board, counts its tickets live, then adds the view under th
   expect(
     words(calls).filter((w) => w.startsWith('tickets views add') || w.startsWith('tickets follow')),
   ).toEqual([
-    'tickets views add --board 42 --sprint current -- Tide work',
+    'tickets views add --board 42 --sprint current --everyone -- Tide work',
     'tickets follow -- lantern-cove Tide work',
   ]);
   expect(byTestId('follow-view-dialog')).toHaveLength(0);
+});
+
+test('the board search asks Jira once typing pauses, without Enter', async () => {
+  const { bridge, calls } = fakeBridge({
+    tickets: () => listOf([], []),
+    prompts: () => envelope([]),
+    'tickets views': () => envelope([]),
+    'tickets boards': () => envelope({ site: { id: 'cloud-1', name: 'lantern-cove' }, boards: [] }),
+    'sources list': () => envelope({ sources: [atlassian('connected')] }),
+  });
+  await renderWithMesa(<TicketsTab project="lantern-cove" onSession={() => {}} />, bridge);
+  await click(button('Follow a Jira view'));
+  const searches = () => words(calls).filter((w) => w.startsWith('tickets boards'));
+  const before = searches().length;
+  for (const typed of ['t', 'ti', 'tide'])
+    await fill(document.querySelector<HTMLInputElement>('#ticket-view-search'), typed);
+  expect(searches()).toHaveLength(before);
+  await act(() => new Promise((resolve) => setTimeout(resolve, 350)));
+  expect(searches().slice(before)).toEqual([expect.stringContaining('tide')]);
 });
 
 test('a board list the sign-in lacks scopes for offers Reconnect, which signs in and lists them', async () => {

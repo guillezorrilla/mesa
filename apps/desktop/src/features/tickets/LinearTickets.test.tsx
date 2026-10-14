@@ -178,28 +178,32 @@ test('Follow Linear issues picks a team, then its cycle, a project or a saved vi
   expect(dialog()).toContain('Only issues assigned to me');
   expect(dialog()).toContain('Hide completed and canceled');
   expect(words(calls)).toContain(
-    'tickets preview --provider linear --team team-har --cycle current',
+    'tickets preview --provider linear --team team-har --cycle current --everyone',
   );
   expect(dialog()).toContain('16 issues right now, shown as "Harbour cycle".');
   expect(dialog()).toContain('Advanced: the filter Mesa sends');
 
   await click(document.getElementById('linear-cycle-next') ?? undefined);
-  expect(words(calls)).toContain('tickets preview --provider linear --team team-har --cycle next');
+  expect(words(calls)).toContain(
+    'tickets preview --provider linear --team team-har --cycle next --everyone',
+  );
   expect(dialog()).toContain('shown as "Harbour next cycle".');
 
   // Project: its lead and progress; the first is picked.
   await click(button('Project'));
   expect(dialog()).toContain('Mooring alertsLead Mira Keel64%');
-  expect(words(calls)).toContain('tickets preview --provider linear --linear-project p1');
+  expect(words(calls)).toContain(
+    'tickets preview --provider linear --linear-project p1 --everyone',
+  );
   await click(button('Saved view'));
   expect(dialog()).toContain('Needs triageYour view');
-  expect(words(calls)).toContain('tickets preview --provider linear --view v1');
+  expect(words(calls)).toContain('tickets preview --provider linear --view v1 --everyone');
   await click(button('Project'));
   await click(byTestId('confirm-follow-view')[0]);
   expect(
     words(calls).filter((w) => w.startsWith('tickets views add') || w.startsWith('tickets follow')),
   ).toEqual([
-    'tickets views add --provider linear --linear-project p1 -- Mooring alerts',
+    'tickets views add --provider linear --linear-project p1 --everyone -- Mooring alerts',
     'tickets follow -- lantern-cove Mooring alerts',
   ]);
 });

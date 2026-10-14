@@ -6,10 +6,10 @@ import { freeName } from './freeName';
 
 /**
  * What every tracker's Follow dialog does with the view its picker builds (`query`, undefined
- * until complete): Only mine and Hide done on top of it (both on at first), its name (`typed`,
- * else `base` made free among the profile's views), and Follow, which adds the view and follows
- * it in `project` (or follows view `existing` as it is), then `onFollowed`. `toggles` are the
- * frame's toggle props.
+ * until complete): Only mine (off at first, so every ticket shows) and Hide done (on at first) on
+ * top of it, its name (`typed`, else `base` made free among the profile's views), and Follow,
+ * which adds the view and follows it in `project` (or follows view `existing` as it is), then
+ * `onFollowed`. `toggles` are the frame's toggle props.
  */
 export function useFollowView(
   project: string,
@@ -21,7 +21,7 @@ export function useFollowView(
   const run = useRun();
   const { acting, act } = useAct();
   const views = useCommand('tickets.views');
-  const [mine, setMine] = useState(true);
+  const [mine, setMine] = useState(false);
   const [hideDone, setHideDone] = useState(true);
   const view = query && {
     ...query,
