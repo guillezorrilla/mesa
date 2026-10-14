@@ -11,6 +11,7 @@ import { diagnosticsService } from './diagnostics/service.js';
 import { doctorService } from './doctor/service.js';
 import { filesService } from './files/service.js';
 import { gitService } from './git/service.js';
+import { impactService } from './impact/service.js';
 import { instructionsService } from './instructions/service.js';
 import { mapService } from './map/service.js';
 import { backgroundDelivery } from './notifications/background.js';
@@ -103,6 +104,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
     skills,
     usage,
     rewind: rewindService(ctx, usage),
+    /** What Mesa decided and kept, and what happened next (CONTEXT.md, Impact). */
+    impact: impactService(ctx),
     statusLine: statusLineService(ctx),
     notifications,
     diagnostics: diagnosticsService(ctx),

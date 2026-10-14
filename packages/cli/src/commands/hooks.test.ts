@@ -637,6 +637,21 @@ test('with a Decision model a session mounts mesa-decisions, a prompt gets advic
   });
   expect((await mesa('hook', 'claude')).stdout.trim()).toBe('');
   cli.env = {};
+  // Each prompt's ask is in the Decision log with the note it advised; the nested one asked nothing.
+  const log = (await mesa('decisions', 'log', '--session', opened.id, '--json')).json.data;
+  expect(log).toHaveLength(2);
+  expect(log[0]).toMatchObject({
+    site: 'relevance',
+    project: 'lantern-cove',
+    question: 'Which vault note helps this prompt?',
+    rules: null,
+    answer: 'wiki/decisions/retry-policy.md',
+    by: 'jev',
+    status: 'accepted',
+    changed: true,
+    note: 'wiki/decisions/retry-policy.md',
+  });
+  expect(JSON.stringify(log)).not.toContain('Make the feed import retry');
   const observed = (await show(opened.id)).decisions;
   expect(observed.advice.observedAt).toBe('2026-09-24T12:00:00.000Z');
   expect(observed.tool.observedAt).toBeUndefined();

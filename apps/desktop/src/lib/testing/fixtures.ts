@@ -2,6 +2,7 @@ import type {
   Check,
   DoctorReport,
   ForeignRow,
+  ImpactReport,
   ManagedRow,
   NativeResponse,
   ProjectRow,
@@ -133,5 +134,15 @@ export const nativeResponse = (
   text,
   blocks: [],
   truncated: false,
+  ...extra,
+});
+
+/** An Impact report (`mesa impact --json`) with nothing in it unless `extra` says so. */
+export const impactReport = (extra: Partial<ImpactReport> = {}): ImpactReport => ({
+  days: 7,
+  since: '2026-10-06T12:00:00.000Z',
+  summary: { caught: 0, corrected: 0, notesIn: 0, stopped: 0, kept: 0, sessions: 0 },
+  sentence: 'Nothing yet.',
+  sessions: [],
   ...extra,
 });

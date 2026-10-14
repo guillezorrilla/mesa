@@ -1,5 +1,6 @@
 import type { CommandId, SearchHit } from '@mesa/core/browser';
 import {
+  Activity,
   Archive,
   ArrowLeftRight,
   BookOpen,
@@ -29,6 +30,7 @@ export const COMMAND_ICONS: Record<CommandId, LucideIcon> = {
   sessions: TerminalSquare,
   grid: Grid2X2,
   automations: CalendarClock,
+  impact: Activity,
   doctor: Stethoscope,
   help: CircleHelp,
   'new-session': Plus,
@@ -50,6 +52,7 @@ const BY_KIND: Record<SearchHit['kind'], LucideIcon> = {
   session: Bot,
   prompt: MessageSquareText,
   vault: Search,
+  impact: Activity,
 };
 
 /** The palette row's icon: a fixed hit's own, else its kind's. */

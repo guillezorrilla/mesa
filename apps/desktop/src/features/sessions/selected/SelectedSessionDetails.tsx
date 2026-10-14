@@ -12,6 +12,7 @@ import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { MesasPartField } from '@/features/impact/MesasPartField';
 import { useCall } from '@/lib/useCommand';
 import { ContextRing } from './ContextRing';
 import { DecisionAssistancePanel } from './DecisionAssistancePanel';
@@ -191,6 +192,8 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
                 'Open details to check'
               )}
             </dd>
+            <dt className="text-muted-foreground">Mesa's part</dt>
+            <dd>{opened ? <MesasPartField session={row.id} /> : 'Open details to check'}</dd>
             <dt className="text-muted-foreground">Created</dt>
             <dd>{date(row.startedAt)}</dd>
             <dt className="text-muted-foreground">Last Activity</dt>

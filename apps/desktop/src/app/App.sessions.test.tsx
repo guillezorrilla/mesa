@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import type { TreeRow } from '@mesa/core';
+import type { Moment, SessionImpact, TreeRow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
 import {
@@ -14,6 +14,7 @@ import {
   fakePlatform,
   fakeTerminals,
   foreignRow,
+  impactReport,
   managedRow,
   PROJECTS,
   renderWithMesa,
@@ -391,6 +392,56 @@ test("session details show the notes the session's vault capture saved, or why i
   expect(byTestId('session-vault-capture')[0]?.textContent).toBe(
     'Failed: the vault-capture run returned no JSON array',
   );
+});
+
+test("session details show Mesa's part, and its link opens Impact on the session's thread", async () => {
+  const row = managedRow('aaaaaaaa');
+  const moment: Moment = {
+    id: 'm1',
+    at: row.startedAt,
+    site: 'guardrail',
+    question: 'Is it safe to send this?',
+    title: 'Stopped: the text holds a destructive command (rm -rf)',
+    by: 'rules',
+    outcome: { kind: 'not-overridden', text: 'You did not override it' },
+  };
+  const session = (id: string, name: string): SessionImpact => ({
+    id,
+    name,
+    project: 'lantern-cove',
+    moments: [{ ...moment, id: `${id}-m` }],
+    folded: { agreed: 0, unsure: 0, failed: 0, skipped: 0 },
+  });
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([row]),
+    show: () =>
+      envelope({
+        ...row,
+        instructions: { state: 'missing', reason: 'Run mesa hooks install' },
+        vault: { state: 'missing', reason: 'Run mesa hooks install' },
+      }),
+    impact: () =>
+      envelope(
+        impactReport({
+          sentence: 'In the last 7 days, Mesa stopped 2 risky commands, across 2 sessions.',
+          sessions: [session('bbbbbbbb', 'other'), session('aaaaaaaa', 'tide-feed')],
+        }),
+      ),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
+  expect(calls).toContainEqual(['--json', 'impact', '--session', 'aaaaaaaa']);
+  const part = byTestId('session-mesas-part')[0];
+  expect(part?.textContent).toContain(
+    'Stopped: the text holds a destructive command (rm -rf) · You did not override it',
+  );
+  await click(
+    [...(part?.querySelectorAll('button') ?? [])].find(
+      (b) => b.textContent === 'See the whole thread',
+    ),
+  );
+  expect(byTestId('impact-session')[0]?.getAttribute('aria-label')).toBe('tide-feed');
 });
 
 test('a session row shows a badge per additional project', async () => {

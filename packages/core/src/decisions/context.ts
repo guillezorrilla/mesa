@@ -34,6 +34,13 @@ export type ScopedContext = {
   advice: string;
 };
 
+/** A vault note's source id is this and its path relative to the vault. */
+const NOTE = 'note:';
+
+/** The vault path of a note's source id, or undefined for any other answer. */
+export const notePath = (id: unknown) =>
+  typeof id === 'string' && id.startsWith(NOTE) ? id.slice(NOTE.length) : undefined;
+
 /** The most characters of the saved goal a result repeats. */
 const GOAL_CHARS = 300;
 
@@ -95,7 +102,7 @@ function sourcesOf(
       .split('\n')
       .filter((line) => !/^\s*#/.test(line))
       .join(' ');
-    const source = { id: `note:${path}`, title: titles.get(path) ?? title, excerpt: body };
+    const source = { id: `${NOTE}${path}`, title: titles.get(path) ?? title, excerpt: body };
     if (mode === 'automatic' && sharedWith(query, source).length < AUTOMATIC_SHARED) continue;
     sources.push(source);
     revision.push(`${path}@${changed}`);

@@ -13,6 +13,7 @@ import {
   systemOneWorld,
   tempDir,
 } from '../testing/index.js';
+import type { NewLogEntry } from './log.js';
 import { PER_TURN_MS } from './models.js';
 import { automaticGate } from './site-mode.js';
 import { ACCEPT_AT, DECISION_SITES, PASSED_GATE } from './sites.js';
@@ -73,8 +74,10 @@ function placing() {
     model: 'jev-1.13.0',
     deadlineMs: PER_TURN_MS,
   });
+  const logged: NewLogEntry[] = [];
   const place = (tables?: Parameters<typeof placeUnsure>[0]['tables']) =>
     placeUnsure({
+      log: (entry) => logged.push(entry),
       store,
       model: () => chosen.model,
       backend: () => backend,
@@ -86,7 +89,7 @@ function placing() {
     const state = supervisionState('claude', screen);
     return { key: supervisionKey(id, state, 'jev'), state };
   };
-  return { world, store, chosen, place, want, ...time };
+  return { world, store, chosen, place, want, logged, ...time };
 }
 
 const saved = (placed: Placed[]) =>
@@ -132,6 +135,57 @@ test('below its threshold the model abstains, and the reply says so', async () =
     },
   });
   expect(reply).not.toHaveProperty('placed');
+});
+
+test('each saved reply is logged once, beside what the rules read from the same screen', async () => {
+  const { world, store, place, want, logged } = placing();
+  answering(world, 'waiting-question', 0.9);
+  store.look('a1b2c3d4', {
+    ...want('a1b2c3d4', 'Which file? (a) or (b)'),
+    project: 'lantern-cove',
+    rules: 'idle',
+  });
+  store.look('e5f6a7b8', {
+    ...want('e5f6a7b8', 'Running tests'),
+    project: 'lantern-cove',
+    rules: 'waiting-question',
+  });
+  await place();
+  await place();
+  expect(logged).toHaveLength(2);
+  expect(logged.find((e) => e.session === 'a1b2c3d4')).toMatchObject({
+    site: 'supervision',
+    project: 'lantern-cove',
+    question: 'What state is this session in?',
+    rules: 'idle',
+    answer: 'waiting-question',
+    by: 'jev',
+    status: 'accepted',
+    changed: true,
+    margin: expect.closeTo(0.88),
+    latencyMs: 0,
+  });
+  // The model agreed with the rules: logged, but nothing changed.
+  expect(logged.find((e) => e.session === 'e5f6a7b8')).toMatchObject({
+    status: 'accepted',
+    changed: false,
+  });
+});
+
+test('an abstention is logged as abstained, with the rules state standing and no change', async () => {
+  const { world, store, place, want, logged } = placing();
+  answering(world, 'idle', 0.5);
+  store.look('a1b2c3d4', { ...want('a1b2c3d4', 'something no reader knows'), rules: 'working' });
+  await place();
+  expect(logged).toEqual([
+    expect.objectContaining({
+      status: 'abstained',
+      answer: 'working',
+      rules: 'working',
+      probabilities: expect.objectContaining({ idle: 0.5 }),
+      changed: false,
+    }),
+  ]);
 });
 
 test('a model that did not pass the supervision gate is never asked', async () => {

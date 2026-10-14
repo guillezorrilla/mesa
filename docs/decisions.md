@@ -59,7 +59,7 @@ Only to the provider you chose, only for these calls, and each capped at 4,096 c
 - **Next step**: the session's saved goal (up to 300 characters), and up to 5 recent events, 5 attempts and 8 candidate steps the agent or you supplied, each line up to 300 characters.
 - **Completion evidence**: the claim and the evidence the agent or you supplied.
 
-Nothing else: no files, no full transcripts, no keys of other services. The guardrail in front of outside actions never asks a model. Routine calls keep no log of what was sent; a session's file under `~/.mesa/<profile>/sessions/decisions/` keeps only its last uses (site, result, time, cost), never the text. TypeSafe states it does not train on requests ([legal](https://docs.typesafe.ai/legal)); Cloudflare states it does not store or train on Workers AI requests.
+Nothing else: no files, no full transcripts, no keys of other services. The guardrail in front of outside actions never asks a model. Routine calls keep no log of what was sent; a session's file under `~/.mesa/<profile>/sessions/decisions/` keeps only its last uses (site, result, time, cost), and the Decision log (`mesa decisions log`, `~/.mesa/<profile>/decision-log/`) keeps each answer beside the rules' and the note advice named, never the text. TypeSafe states it does not train on requests ([legal](https://docs.typesafe.ai/legal)); Cloudflare states it does not store or train on Workers AI requests.
 
 ## Troubleshooting
 

@@ -8,6 +8,7 @@ import { DailyScreen } from '@/features/daily/DailyScreen';
 import { DoctorScreen } from '@/features/doctor/DoctorScreen';
 import { HelpScreen } from '@/features/help/HelpScreen';
 import { HooksUpdateCard } from '@/features/hooks/HooksUpdateCard';
+import { ImpactScreen } from '@/features/impact/ImpactScreen';
 import { MapScreen } from '@/features/map/MapScreen';
 import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
@@ -150,6 +151,14 @@ export function WorkspaceMain(props: {
       )}
       {view.kind === 'daily' && (
         <DailyScreen onVaultItem={(path) => navigate({ kind: 'vault', path })} />
+      )}
+      {view.kind === 'impact' && (
+        <ImpactScreen
+          key={JSON.stringify([view.project, view.session])}
+          project={view.project}
+          session={view.session}
+          onSession={(id) => navigate({ kind: 'session', id })}
+        />
       )}
       {view.kind === 'vault' && (
         <VaultScreen

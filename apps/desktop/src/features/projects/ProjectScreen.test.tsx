@@ -7,6 +7,7 @@ import {
   click,
   envelope,
   fakeBridge,
+  impactReport,
   managedRow,
   PROJECTS,
   press,
@@ -224,4 +225,31 @@ test('the Overview lists a session where the project is additional, marked from 
     'from lantern-cove',
     'from lantern-cove',
   ]);
+});
+
+test('the Impact tab, after Vault, shows Impact scoped to the project', async () => {
+  const { bridge, calls } = fakeBridge({
+    'worktrees list': () => envelope([]),
+    impact: () =>
+      envelope(
+        impactReport({
+          project: PROJECT.name,
+          sentence: `In the last 7 days in ${PROJECT.name}, Mesa caught 1 question the rules missed, across 1 session.`,
+        }),
+      ),
+  });
+  const byTestId = await renderScreen(bridge);
+  const tabs = [...document.querySelectorAll<HTMLButtonElement>('nav button')].map(
+    (b) => b.textContent,
+  );
+  expect(tabs.indexOf('impact')).toBe(tabs.indexOf('vault') + 1);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('nav button')].find(
+      (b) => b.textContent === 'impact',
+    ),
+  );
+  expect(byTestId('impact-summary')[0]?.textContent).toBe(
+    `In the last 7 days in ${PROJECT.name}, Mesa caught 1 question the rules missed, across 1 session.`,
+  );
+  expect(calls).toContainEqual(['--json', 'impact', '--days', '7', '--project', PROJECT.name]);
 });

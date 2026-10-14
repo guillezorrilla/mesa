@@ -5,6 +5,7 @@ import { decisionsCommands } from './decisions';
 import { doctorCommands } from './doctor';
 import { filesCommands } from './files';
 import { gitCommands } from './git';
+import { impactCommands } from './impact';
 import { importsCommands } from './imports';
 import { instructionsCommands } from './instructions';
 import { notificationsCommands } from './notifications';
@@ -38,6 +39,7 @@ const COMMANDS = {
   ...projectsCommands,
   ...filesCommands,
   ...gitCommands,
+  ...impactCommands,
   ...worktreesCommands,
   ...skillsCommands,
   ...instructionsCommands,

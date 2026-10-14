@@ -101,7 +101,7 @@ export function sessionDeps(
   const look = boardLook(ctx, faro, elsewhere);
   /**
    * Starts a session's Vault capture when it is due (startCapture): a detached vault-capture run,
-   * past the guardrail as Mesa's own prompt, its decision kept nowhere.
+   * past the guardrail as Mesa's own prompt, its decision kept nowhere, not even the Decision log.
    */
   const capture = (id: string) =>
     startCapture(
@@ -109,9 +109,7 @@ export function sessionDeps(
         ...ctx,
         start: (input: RunInput) =>
           startRun(
-            runDeps(VAULT_CAPTURE, (action) =>
-              faro.guardrail.gate(action, { yes: true }, { record: () => {} }),
-            ),
+            runDeps(VAULT_CAPTURE, (action) => faro.guardrail.gate(action, { yes: true })),
             input,
           ),
       },

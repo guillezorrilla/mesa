@@ -6,6 +6,7 @@ import { AutomationsTab } from '@/features/automations/AutomationsTab';
 import { FilesTab } from '@/features/files/FilesTab';
 import { GitTab } from '@/features/git/GitTab';
 import { useGitChangeCount } from '@/features/git/useGitChangeCount';
+import { ImpactTab } from '@/features/impact/ImpactTab';
 import { InstructionsTab } from '@/features/instructions/InstructionsTab';
 import { ReviewsTab } from '@/features/prs/ReviewsTab';
 import { useSharedPrs } from '@/features/prs/usePrs';
@@ -24,6 +25,7 @@ import { ProjectTabBar } from './ProjectTabBar';
 export type ProjectTab =
   | 'overview'
   | 'vault'
+  | 'impact'
   | 'import'
   | 'tickets'
   | 'reviews'
@@ -136,6 +138,8 @@ export function ProjectScreen(props: {
           onItem={props.onVaultItem}
           onImport={() => setTab('import')}
         />
+      ) : tab === 'impact' ? (
+        <ImpactTab key={project.name} project={project.name} onSession={props.onSession} />
       ) : tab === 'import' ? (
         <ImportTab key={project.name} project={project.name} onStartSession={startFrom} />
       ) : tab === 'tickets' ? (

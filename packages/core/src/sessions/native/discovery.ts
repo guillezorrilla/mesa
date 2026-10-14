@@ -3,6 +3,7 @@ import { readsTranscripts, type TranscriptAgent } from '../../agents/transcript-
 import type { Clock } from '../../lib/clock.js';
 import type { Env } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
+import { DAY_MS } from '../../lib/time.js';
 import type { Profile } from '../../profile/profile.js';
 import { type ProjectCandidate, projectCandidate } from '../../projects/discover.js';
 import { projectFolder } from '../../projects/project-folder.js';
@@ -71,7 +72,6 @@ export type DiscoveryDeps = {
 const LIMIT = 300;
 /** How many days back discovery looks unless asked (mesa discover, the first-run offer). */
 export const DISCOVERY_DAYS = 30;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 const listed = (p: AgentProcess): p is AgentProcess & { agent: TranscriptAgent } =>
   readsTranscripts(p.agent) && p.nativeState !== 'stopped';

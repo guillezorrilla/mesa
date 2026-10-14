@@ -42,8 +42,16 @@ const ReplySchema = z.strictObject({
 });
 export type PlacementReply = z.infer<typeof ReplySchema>;
 
-/** What a look wants placed: the cache key, and the bounded state text the model reads. */
-const WantSchema = z.strictObject({ key: z.string(), state: z.string() });
+/**
+ * What a look wants placed: the cache key, and the bounded state text the model reads; for the
+ * Decision log, the session's project and the state the rules read from the same screen.
+ */
+const WantSchema = z.strictObject({
+  key: z.string(),
+  state: z.string(),
+  project: z.string().optional(),
+  rules: z.enum(AGENT_STATES).optional(),
+});
 export type Want = z.infer<typeof WantSchema>;
 
 const EntrySchema = z.strictObject({
@@ -63,7 +71,7 @@ type Placements = z.infer<typeof PlacementsSchema>;
  * An ask to make: the session, the key it answers, and the state to send; or, past the budget,
  * the reply saved instead of asking.
  */
-export type Claim = { id: string; key: string; state: string; refused?: PlacementReply };
+export type Claim = Want & { id: string; refused?: PlacementReply };
 
 /**
  * How a row was placed, for `mesa show --json` and the app: `rules`, or the model whose answer
@@ -150,10 +158,10 @@ export function placementStore(file: string, lock: LockDeps) {
             if (asks.length >= ASKS_PER_HOUR) {
               const fallbackReason = `budget reached: ${ASKS_PER_HOUR} asks in the last hour`;
               const reply = { key: want.key, at, ask: { model, fallbackReason } };
-              claims.push({ id, key: want.key, state: want.state, refused: reply });
+              claims.push({ id, ...want, refused: reply });
               next = { ...settled, reply };
             } else {
-              claims.push({ id, key: want.key, state: want.state });
+              claims.push({ id, ...want });
               next = { ...settled, pending: { key: want.key, since: at }, asks: [...asks, at] };
             }
           }

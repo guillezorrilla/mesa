@@ -1,11 +1,12 @@
 import type { MesaContext } from '../context.js';
 import { clip } from '../lib/clip.js';
 import { MesaError } from '../lib/result.js';
+import { daysBefore } from '../lib/time.js';
 import type { Recorded } from '../receipts/recorder.js';
 import { projectLabel } from '../sessions/record/general.js';
 import type { SessionRecord } from '../sessions/record/record.js';
 import type { Stdio } from '../vault/mount/mcp-server.js';
-import { turnAdvice } from './delivery.js';
+import { adviceEntry, turnAdvice } from './delivery.js';
 import {
   ASSIST_MODES,
   type AssistMode,
@@ -148,6 +149,7 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
     const signal = AbortSignal.timeout(Math.max(0, until - ctx.clock().getTime()));
     const asked = query?.trim() || session.goal?.trim();
     if (!asked || off(session)) return undefined;
+    const provider = model();
     const context = await answer(
       session,
       { site: 'relevance', query: clip(asked, 500) },
@@ -155,6 +157,9 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
     );
     const text = 'sources' in context ? turnAdvice(context) : undefined;
     if (text) stateOf(session.id).saw('advice');
+    // A ready-only read (Antigravity's, before each of its model calls) asks nothing: not logged.
+    if ('sources' in context && provider !== 'none' && !readyOnly)
+      ctx.decisionLog.append(adviceEntry(context, session.project, provider, text !== undefined));
     return text;
   };
 
@@ -221,6 +226,12 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
         use: [...state.use].reverse(),
       };
     },
+    /** The Decision log of the last `days` days, newest first, for one session when given. */
+    log: ({ days = 7, session }: { days?: number; session?: string } = {}) =>
+      ctx.decisionLog.read({
+        since: daysBefore(ctx.clock(), days),
+        ...(session ? { session } : {}),
+      }),
     /** Turns assistance off for a session, or back on. */
     setOff: (off: boolean, given?: string) => {
       const session = bound(given);

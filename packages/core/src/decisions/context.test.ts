@@ -12,7 +12,7 @@ import {
   testDeps,
 } from '../testing/index.js';
 import type { ScopedContext } from './context.js';
-import { turnAdvice } from './delivery.js';
+import { adviceEntry, turnAdvice } from './delivery.js';
 
 const RETRY = 'wiki/decisions/retry-policy.md';
 const ROUNDING = 'wiki/decisions/rounding.md';
@@ -92,6 +92,13 @@ test('per turn, only sources sharing two words with the prompt are offered, and 
     /^Most relevant: note:wiki\/decisions\/retry-policy.md \(margin [0-9.]+, jev-1.13.0\), because it shares "feed", "retry" with the prompt\. Read it before relying on it\./,
   );
   expect(turnAdvice(context)).toContain('because it shares "feed", "retry" with the prompt.');
+  expect(adviceEntry(context, 'lantern-cove', 'jev', true)).toMatchObject({
+    site: 'relevance',
+    answer: RETRY,
+    status: 'accepted',
+    changed: true,
+    note: RETRY,
+  });
   // A prompt that shares no two words with any source asks nothing and sends nothing.
   const off = await automatic(mesa, 'Draft a birthday card for a teammate');
   expect(off.evaluation).toMatchObject({
@@ -100,6 +107,10 @@ test('per turn, only sources sharing two words with the prompt are offered, and 
   });
   expect(off.sources).toEqual([]);
   expect(turnAdvice(off)).toBeUndefined();
+  // Logged as skipped: no model was asked, nothing changed.
+  const skipped = adviceEntry(off, 'lantern-cove', 'jev', false);
+  expect(skipped).toMatchObject({ status: 'skipped', answer: null, changed: false });
+  expect(skipped).not.toHaveProperty('note');
   expect(world.requests).toHaveLength(1);
   // Asked on demand, every source is still offered.
   const asked = (await mesa.decisions.evaluate({

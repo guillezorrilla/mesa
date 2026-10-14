@@ -137,10 +137,15 @@ export function createFaro(ctx: MesaContext, models: Pick<DecisionModels, 'activ
         }),
       /**
        * In front of an external action: goes on, or throws guardrail_blocked; the decision goes
-       * to `recorder`, the action's receipt (passGuardrail).
+       * to `recorder`, the action's receipt (passGuardrail), and a stop or an override to the
+       * Decision log; with no recorder (Mesa's own prompt, which a person never sees), neither.
        */
-      gate: (input: Guarded, overrides: Overrides, recorder: DecisionRecorder) =>
-        passGuardrail(guard(recorder), input, overrides),
+      gate: (input: Guarded, overrides: Overrides, recorder?: DecisionRecorder) =>
+        passGuardrail(
+          recorder ? { ...guard(recorder), log: ctx.decisionLog.append } : guard(),
+          input,
+          overrides,
+        ),
     },
     /** The model the profile chose and its threshold, for doctor; none before init. */
     inUse: () => {
