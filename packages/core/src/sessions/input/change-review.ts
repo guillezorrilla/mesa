@@ -5,6 +5,7 @@ import { literalPath } from '../../git/path.js';
 import type { Runner } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
 import type { Profile } from '../../profile/profile.js';
+import { sessionFolder } from '../record/folder.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import type { SessionStore } from '../record/store.js';
 
@@ -66,7 +67,7 @@ export async function changeReview(
   if (record.kind !== 'interactive' || record.project === GENERAL_PROJECT)
     throw new MesaError('usage', 'change review needs a project agent session');
   if (!path) throw new MesaError('usage', 'select a changed file');
-  const selected = record.worktree?.path ?? record.cwd;
+  const selected = sessionFolder(record);
   const diff = await readGitDiff(deps.open(), deps.run, record.project, selected, path, staged);
   if (Buffer.byteLength(diff.patch) > 1 << 20)
     throw new MesaError('usage', 'selected file diff exceeds 1 MiB');

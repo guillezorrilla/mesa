@@ -44,6 +44,11 @@ export type Transcripts<A extends Agent> = {
    * none for an agent that does not say, or a transcript that does not yet.
    */
   branch?: (file: string) => string | undefined;
+  /**
+   * The folder its agent moved to mid-conversation in transcript `file` (Claude Code's
+   * EnterWorktree, and back on ExitWorktree); none when it never moved.
+   */
+  folder?: (file: string) => string | undefined;
 };
 
 /** A content block of a message: its kind and, for text, its text. */

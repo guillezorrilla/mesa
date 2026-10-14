@@ -2,6 +2,7 @@ import { isAbsolute, relative } from 'node:path';
 import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
 import { resolveCheckout } from '../projects/checkout.js';
+import { sessionFolder } from '../sessions/record/folder.js';
 import { readWorkspaceFile } from './editor.js';
 import { parseFileTarget } from './file-target.js';
 
@@ -18,7 +19,7 @@ export async function resolveSessionFileLink(
     ctx.open(),
     ctx.run,
     session.project,
-    session.worktree?.path,
+    sessionFolder(session),
   );
   const parsed = parseFileTarget(target);
   if (!parsed) throw new MesaError('usage', 'file link needs a path');
