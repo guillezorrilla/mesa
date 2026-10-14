@@ -140,7 +140,8 @@ test('the tabs open on drafts, else my comments, else files, and switch on click
   expect(selectedTab()).toBe('Your comments2');
   const comments = document.querySelector('[data-testid="pr-tab-comments"]')?.textContent ?? '';
   expect(comments).toContain('src/edge/cache.ts:42');
-  expect(comments).toContain('lee-park: Width is part of the key now.');
+  expect(comments).toContain('lee-park · latest replyWidth is part of the key now.');
+  expect(comments).toContain('No reply yet');
   expect(comments).toContain('Resolved');
   expect(comments).toContain('Open');
 

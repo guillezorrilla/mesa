@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { Stat } from '@/components/Stat';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { PrCommentsTab } from './PrCommentsTab';
 
 const TABS = ['comments', 'drafts', 'files'] as const;
 type DetailTab = (typeof TABS)[number];
@@ -56,26 +56,7 @@ export function PrDetailPanel(props: {
         ))}
       </div>
       <div role="tabpanel" data-testid={`pr-tab-${tab}`}>
-        {tab === 'comments' &&
-          (pr.threads.length ? (
-            pr.threads.map((t) => (
-              <Item
-                key={t.id}
-                where={commentPlace(t)}
-                aside={<ThreadState resolved={t.resolved} verdict={t.verdict?.state} />}
-              >
-                <p className="whitespace-pre-wrap">{t.body}</p>
-                {t.lastReply && (
-                  <p className="mt-1 whitespace-pre-wrap text-muted-foreground text-sm">
-                    <span className="font-medium text-foreground">{t.lastReply.author}:</span>{' '}
-                    {t.lastReply.body}
-                  </p>
-                )}
-              </Item>
-            ))
-          ) : (
-            <Muted className="py-4">You have no comments on this PR yet.</Muted>
-          ))}
+        {tab === 'comments' && <PrCommentsTab threads={pr.threads} />}
         {tab === 'drafts' &&
           (pr.drafts.length ? (
             pr.drafts.map((d) => (
@@ -122,24 +103,5 @@ function Item(props: { where: string; aside: React.ReactNode; children: React.Re
       </div>
       <div className="self-start">{props.aside}</div>
     </div>
-  );
-}
-
-// A review round's verdict wins over the provider's resolved flag (CONTEXT.md, Comment verdict).
-const THREAD_STATE = {
-  addressed: { label: 'Addressed', text: 'text-state-idle', dot: 'bg-state-idle' },
-  partly: { label: 'Partly addressed', text: 'text-state-waiting', dot: 'bg-state-waiting' },
-  not: { label: 'Not addressed', text: 'text-state-failed', dot: 'bg-state-failed' },
-  resolved: { label: 'Resolved', text: 'text-state-idle', dot: 'bg-state-idle' },
-  open: { label: 'Open', text: 'text-muted-foreground', dot: 'bg-muted-foreground' },
-} as const;
-
-function ThreadState(props: { resolved: boolean; verdict?: keyof typeof THREAD_STATE }) {
-  const state = THREAD_STATE[props.verdict ?? (props.resolved ? 'resolved' : 'open')];
-  return (
-    <span className={cn('inline-flex items-center gap-1.5 text-xs font-medium', state.text)}>
-      <span className={cn('size-1.5 rounded-full', state.dot)} />
-      {state.label}
-    </span>
   );
 }
