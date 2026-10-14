@@ -77,6 +77,24 @@ export const posted = (pr: Pr) => pr._comments.filter((c) => !c.deleted && !c.pe
 /** A PR as the bucket rule reads it: approvals and change requests are reviews, comments their own. */
 export function facts(pr: Pr, me: string): PrHead & PrFacts {
   const comments = posted(pr);
+  // ponytail: Bitbucket keeps one state per participant, dated by their last participation.
+  const decided = pr.participants.flatMap((p) => {
+    const state = p.approved
+      ? ('approved' as const)
+      : p.state === 'changes_requested'
+        ? ('changes' as const)
+        : null;
+    return state ? [{ author: p.user, state, at: p.participated_on ?? pr.updated_on }] : [];
+  });
+  // Bitbucket has no "commented" review: a reviewer's comments are their review (#808), dated
+  // by their latest one, unless they approved or asked for changes.
+  const lastComment = new Map<string, string>();
+  for (const c of comments)
+    if (c.user.id !== pr.author.id && (lastComment.get(c.user.id) ?? '') < c.created_on)
+      lastComment.set(c.user.id, c.created_on);
+  const commented = [...lastComment]
+    .filter(([author]) => !decided.some((r) => r.author === author))
+    .map(([author, at]) => ({ author, state: 'commented' as const, at }));
   return {
     number: pr.id,
     title: pr.title,
@@ -87,11 +105,7 @@ export function facts(pr: Pr, me: string): PrHead & PrFacts {
     authorName: pr.author.name,
     state: STATE[pr.state],
     requested: pr.reviewers.includes(me),
-    // ponytail: Bitbucket keeps one state per participant, dated by their last participation.
-    reviews: pr.participants.flatMap((p) => {
-      const state = p.approved ? 'approved' : p.state === 'changes_requested' ? 'changes' : null;
-      return state ? [{ author: p.user, state, at: p.participated_on ?? pr.updated_on }] : [];
-    }),
+    reviews: [...decided, ...commented],
     comments: comments.map((c) => ({ author: c.user.id, at: c.created_on })),
     commits: pr._commits.map((c) => c.date),
     threads: comments

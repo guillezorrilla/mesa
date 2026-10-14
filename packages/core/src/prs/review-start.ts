@@ -41,7 +41,7 @@ export type ReviewStartInput = {
    */
   read: () => Promise<{ headRef: string; pendingDrafts: number }>;
   /** The session's first prompt, for its review (round, mode, head) (review-prompt.ts). */
-  goal: (review: SessionReview) => string | Promise<string>;
+  goal: (review: SessionReview, since?: string) => string | Promise<string>;
 };
 
 export type ReviewStart =
@@ -114,7 +114,7 @@ export async function startReview(
     agent: input.agent,
     // A worktree an earlier round's session holds is taken over as a checkout (mesa open --checkout).
     ...(worktree ? { checkout: worktree.path } : { branch }),
-    goal: await input.goal(review),
+    goal: await input.goal(review, earlier.at(-1)?.review?.head),
     review,
     ...(parent ? { parent } : { noParent: true }),
   });
