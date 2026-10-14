@@ -74,7 +74,7 @@ const STATE = { OPEN: 'open', MERGED: 'merged', DECLINED: 'closed', SUPERSEDED: 
 /** Comments everyone sees: not deleted and not someone's pending draft. */
 export const posted = (pr: Pr) => pr._comments.filter((c) => !c.deleted && !c.pending);
 
-/** A PR as the bucket rule reads it: approvals and change requests are reviews, comments their own. */
+/** A PR as the bucket rule reads it: approvals and change requests are reviews, and on Bitbucket a reviewer's comments are too (#808). */
 export function facts(pr: Pr, me: string): PrHead & PrFacts {
   const comments = posted(pr);
   // ponytail: Bitbucket keeps one state per participant, dated by their last participation.

@@ -55,18 +55,20 @@ export function reviewPrompt(input: ReviewPromptInput): string {
       `author: ${short(input.author)}`,
       ...(earlier.length ? ['your earlier threads:', ...earlier] : []),
     ]),
-    `1. Read \`${mesa} prs show ${pr} --json\` and \`git diff ${base}...HEAD\`${input.lastHead ? ' (what changed since your last review; if that commit is gone after a force-push, use origin/<base>)' : ''}.`,
-    '2. Find real issues in the changed lines: bugs, and breaks of the AGENTS.md or CLAUDE.md rules that cover them; `git blame` only where a change looks like a regression. Keep what you are 80% sure of. Nits are not issues.',
-    ...(earlier.length
-      ? [
-          `3. For each earlier thread: \`${mesa} prs verdict ${pr} --thread <id> --state addressed|partly|not --note "<why>"\`; on partly or not, reply with \`${mesa} prs draft ${pr} --reply-to <id> --text "..."\`. Never resolve one.`,
-        ]
-      : []),
-    `${earlier.length ? 4 : 3}. Summary first: \`${mesa} prs draft ${pr} --text "..."\`, 2 to 4 lines, nits in one, ending \`Recommend: Approve|Request changes|Comment\` and why.`,
-    `${earlier.length ? 5 : 4}. Each issue on its changed line: \`${mesa} prs draft ${pr} --path <file> --line <n> --text "<problem, fix>"\`.`,
-    input.mode === 'post'
-      ? `${earlier.length ? 6 : 5}. Publish: \`${mesa} prs publish ${pr}\` (comments, never an approval).`
-      : `${earlier.length ? 6 : 5}. Stop: the drafts wait for the person.`,
-    'Write only through Mesa. Never gh or twg writes, approve, resolve or merge.',
+    ...[
+      `Read \`${mesa} prs show ${pr} --json\` and \`git diff ${base}...HEAD\`${input.lastHead ? ' (what changed since your last review)' : ''}.`,
+      'Find real issues in the changed lines: bugs, and breaks of the AGENTS.md or CLAUDE.md rules that cover them; `git blame` only where a change looks like a regression. Keep what you are 80% sure of. Nits are not issues.',
+      ...(earlier.length
+        ? [
+            `For each earlier thread: \`${mesa} prs verdict ${pr} --thread <id> --state addressed|partly|not --note "<why>"\`; on partly or not, reply with \`${mesa} prs draft ${pr} --reply-to <id> --text "..."\`. Never resolve one.`,
+          ]
+        : []),
+      `Summary first: \`${mesa} prs draft ${pr} --text "..."\`, 2 to 4 lines, nits in one, ending \`Recommend: Approve|Request changes|Comment\` and why.`,
+      `Each issue on its changed line: \`${mesa} prs draft ${pr} --path <file> --line <n> --text "<problem, fix>"\`.`,
+      input.mode === 'post'
+        ? `Publish: \`${mesa} prs publish ${pr}\` (comments, never an approval).`
+        : 'Stop: the drafts wait for the person.',
+    ].map((step, i) => `${i + 1}. ${step}`),
+    'Write only through Mesa: no gh or twg writes, wrapped or not, no raw HTTP or MCP writes; never approve, resolve or merge.',
   ].join('\n');
 }

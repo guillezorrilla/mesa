@@ -66,7 +66,7 @@ export function reviewActions(
             pr = await prs.read(at, number);
             return { headRef: pr.headRef, pendingDrafts: pr.drafts.length };
           },
-          goal: ({ round, mode, head }, since) => {
+          goal: ({ round, mode, head }, lastHead) => {
             if (!pr) throw new MesaError('internal', `#${number} was not read before its goal`);
             return reviewPrompt({
               ...pr,
@@ -75,7 +75,7 @@ export function reviewActions(
               mode,
               head,
               ...(round > 1 ? { earlier: pr.threads } : {}),
-              ...(since ? { lastHead: since } : {}),
+              ...(lastHead ? { lastHead } : {}),
             });
           },
         },

@@ -318,7 +318,7 @@ Not: code review of a session, PR event.
 
 ## Review bucket
 
-Where a PR stands for the person, computed from its events by one rule for both providers: `need` (their review is requested and they have not reviewed; a comment is not a review), `updated` (commits or the author's comments after their last review or comment), `waiting` (nothing new since), `done` (they approved with nothing new since, or it is merged or closed; not listed; an approved PR that gets new commits or replies is `updated` again), and `other` (not for them; listed only with `--all`). `since` is the evidence: commits and author replies since their last word, and their inline threads resolved out of total. Whether each earlier comment was addressed is judged only by a re-review session.
+Where a PR stands for the person, computed from its events by one rule for both providers: `need` (their review is requested and they have not reviewed; on GitHub a comment is not a review, while on Bitbucket, which has no commented review, their comments are), `updated` (commits or the author's comments after their last review or comment), `waiting` (nothing new since), `done` (they approved with nothing new since, or it is merged or closed; not listed; an approved PR that gets new commits or replies is `updated` again), and `other` (not for them; listed only with `--all`). `since` is the evidence: commits and author replies since their last word, and their inline threads resolved out of total. Whether each earlier comment was addressed is judged only by a re-review session.
 Not: workflow status, session state.
 
 ## Pending draft
