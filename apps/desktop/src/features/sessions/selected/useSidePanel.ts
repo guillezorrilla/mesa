@@ -5,31 +5,36 @@ export type SidePanel = 'review' | 'browser' | 'diff';
 
 /**
  * Which panel sits beside the selected session's terminal: Replies, Browser or Diff, one at a time,
- * none when the selection changes. A request from a terminal opens its panel once its session is
- * the one selected.
+ * remembered per session while the app runs, so going back to a session reopens its panel. A
+ * request from a terminal opens its panel once its session is the one selected.
  */
 export function useSidePanel(selectedSession: string | undefined) {
-  const [open, setOpen] = useState<SidePanel>();
+  const [openBy, setOpenBy] = useState<Record<string, SidePanel | undefined>>({});
+  const open = selectedSession ? openBy[selectedSession] : undefined;
+  const setOpen = (next: (last: SidePanel | undefined) => SidePanel | undefined) => {
+    if (selectedSession)
+      setOpenBy((all) => ({ ...all, [selectedSession]: next(all[selectedSession]) }));
+  };
   // The reply a terminal's Replies picked, opened when the pane opens.
   const [reviewResponse, setReviewResponse] = useState<NativeResponse>();
   const [pendingReview, setPendingReview] = useState<NativeResponse>();
   const [browserTarget, setBrowserTarget] = useState<{ url: string }>();
   const [pendingBrowser, setPendingBrowser] = useState<{ session: string; url: string }>();
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new selection closes the panel.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a reply or URL belongs to the last session.
   useEffect(() => {
-    setOpen(undefined);
+    setReviewResponse(undefined);
     setBrowserTarget(undefined);
   }, [selectedSession]);
   useEffect(() => {
     if (!pendingReview || pendingReview.session !== selectedSession) return;
     setReviewResponse(pendingReview);
-    setOpen('review');
+    setOpenBy((all) => ({ ...all, [pendingReview.session]: 'review' }));
     setPendingReview(undefined);
   }, [pendingReview, selectedSession]);
   useEffect(() => {
     if (!pendingBrowser || pendingBrowser.session !== selectedSession) return;
     setBrowserTarget({ url: pendingBrowser.url });
-    setOpen('browser');
+    setOpenBy((all) => ({ ...all, [pendingBrowser.session]: 'browser' }));
     setPendingBrowser(undefined);
   }, [pendingBrowser, selectedSession]);
   return {
@@ -44,7 +49,7 @@ export function useSidePanel(selectedSession: string | undefined) {
     },
     close: () => {
       setBrowserTarget(undefined);
-      setOpen(undefined);
+      setOpen(() => undefined);
     },
     /** Opens Review on `response` once its session is selected. */
     requestReview: (response: NativeResponse) => setPendingReview(response),
