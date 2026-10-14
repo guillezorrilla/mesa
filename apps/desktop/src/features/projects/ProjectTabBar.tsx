@@ -43,7 +43,12 @@ export function ProjectTabBar(props: {
           <p className="text-sm">Unsaved edits will be lost.</p>
         </ActionDialog>
       )}
-      <nav aria-label={`${props.project} tabs`} className="flex gap-4 border-b">
+      {/* Scrolls sideways when the tabs do not fit; the rule is an inset shadow so the scroll box
+          does not clip the current tab's underline. */}
+      <nav
+        aria-label={`${props.project} tabs`}
+        className="flex gap-4 overflow-x-auto shadow-[inset_0_-1px_0_var(--border)] [scrollbar-width:thin]"
+      >
         {(
           [
             'overview',
@@ -63,7 +68,7 @@ export function ProjectTabBar(props: {
             key={name}
             type="button"
             aria-current={tab === name ? 'page' : undefined}
-            className="-mb-px border-b-2 border-transparent px-1 pb-2 text-sm capitalize text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:border-state-working aria-[current=page]:text-foreground"
+            className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-1 pb-2 text-sm capitalize text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring aria-[current=page]:border-state-working aria-[current=page]:text-foreground"
             onClick={() => {
               if (props.filesDirty && name !== tab) setPendingTab(name);
               else props.onTab(name);

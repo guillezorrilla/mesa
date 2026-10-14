@@ -47,7 +47,7 @@ export function PrDetailPanel(props: {
             type="button"
             role="tab"
             aria-selected={tab === name}
-            className="-mb-px border-b-2 border-transparent pb-2.5 text-muted-foreground text-sm hover:text-foreground aria-selected:border-foreground aria-selected:font-medium aria-selected:text-foreground"
+            className="-mb-px whitespace-nowrap border-b-2 border-transparent pb-2.5 text-muted-foreground text-sm hover:text-foreground aria-selected:border-foreground aria-selected:font-medium aria-selected:text-foreground"
             onClick={() => choose(name)}
           >
             {label}

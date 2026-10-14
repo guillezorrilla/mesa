@@ -69,41 +69,41 @@ export function PrStatusPanel(props: {
   const tone = PR_TONE[status];
   const { done, of: threads, by } = threadProgress(pr);
   const doneWord = by === 'verdicts' ? 'addressed or partly' : 'resolved';
+  // The actions sit beside the sentence when the panel is wide and under it when it is narrow, so
+  // a narrow window never clips them.
   return (
-    <div
-      data-testid="pr-status"
-      className={cn(
-        'grid grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-1 rounded-xl px-5 py-4',
-        tone.box,
-      )}
-    >
-      <span className={cn('grid size-8 place-items-center rounded-full bg-card', tone.text)}>
-        <Icon aria-hidden className="size-4" />
-      </span>
-      <p className="font-medium">{say}</p>
-      <div className="row-span-2 flex items-center gap-2">
-        {props.action}
-        {status === 'drafts' && (
-          <Button asChild size="sm">
-            <a href={pr.url} target="_blank" rel="noopener noreferrer">
-              {PR_CLIS[pr.provider].submit}
-              <ExternalLink aria-hidden />
-            </a>
-          </Button>
+    <div data-testid="pr-status" className={cn('@container rounded-xl', tone.box)}>
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-1 px-5 py-4 @2xl:grid-cols-[auto_minmax(0,1fr)_auto]">
+        <span className={cn('grid size-8 place-items-center rounded-full bg-card', tone.text)}>
+          <Icon aria-hidden className="size-4" />
+        </span>
+        <p className="font-medium">{say}</p>
+        {sub && <p className="col-start-2 text-muted-foreground text-sm">{sub}</p>}
+        {pr.bucket === 'updated' && threads > 0 && (
+          <div className="col-start-2 flex items-center gap-2.5 text-muted-foreground text-xs tabular-nums">
+            <span className="h-1.5 w-44 shrink-0 overflow-hidden rounded-full bg-card">
+              <span
+                className="block h-full bg-state-idle"
+                style={{ width: `${(done / threads) * 100}%` }}
+              />
+            </span>
+            {done} of your {counted(threads, 'thread')} {doneWord}
+          </div>
+        )}
+        {(props.action || status === 'drafts') && (
+          <div className="col-start-2 mt-2 flex flex-wrap items-center gap-2 @2xl:col-start-3 @2xl:row-span-2 @2xl:row-start-1 @2xl:mt-0">
+            {props.action}
+            {status === 'drafts' && (
+              <Button asChild size="sm">
+                <a href={pr.url} target="_blank" rel="noopener noreferrer">
+                  {PR_CLIS[pr.provider].submit}
+                  <ExternalLink aria-hidden />
+                </a>
+              </Button>
+            )}
+          </div>
         )}
       </div>
-      {sub && <p className="col-start-2 text-muted-foreground text-sm">{sub}</p>}
-      {pr.bucket === 'updated' && threads > 0 && (
-        <div className="col-start-2 flex items-center gap-2.5 text-muted-foreground text-xs tabular-nums">
-          <span className="h-1.5 w-44 overflow-hidden rounded-full bg-card">
-            <span
-              className="block h-full bg-state-idle"
-              style={{ width: `${(done / threads) * 100}%` }}
-            />
-          </span>
-          {done} of your {counted(threads, 'thread')} {doneWord}
-        </div>
-      )}
     </div>
   );
 }
