@@ -24,6 +24,7 @@ export { measuredText, type SiteMeasure, siteMeasure } from './decisions/measure
 export { type SiteMode, siteMode } from './decisions/site-mode.js';
 export { DECISION_SITES, type DecisionSite } from './decisions/sites.js';
 export { SYSTEM_ONE_PROVIDERS, type SystemOneProvider } from './decisions/systemone.js';
+export { FEEDBACK_MAX } from './feedback/send.js';
 export { parseFileTarget } from './files/file-target.js';
 export {
   answeredBy,

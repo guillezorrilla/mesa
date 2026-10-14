@@ -57,3 +57,7 @@ The Atlassian row also asks for `read:board-scope:jira-software`, `read:sprint:j
 
 The Atlassian row also asks for the classic `write:jira-work`, so a person can assign a ticket to themselves when starting a session from it (the owner asked for it). It is Mesa's only write to Atlassian: one assignee, to the signed-in account, with a receipt. The classic scope is chosen over the granular `write:issue:jira` because Atlassian's spec lists it as the current scope for `PUT /issue/{key}/assignee` and the granular one as Beta. A connection made before the change fails assigning alone with the reconnect error.
 
+
+## Amendment, 2026-10-13: feedback (#812)
+
+The broker also takes a person's feedback and opens it as an issue in a private repo (ADR-0025). That is the one thing it forwards to be kept; it still stores and logs nothing itself.

@@ -3,6 +3,7 @@ import { aboutCommands } from './about';
 import { automationsCommands } from './automations';
 import { decisionsCommands } from './decisions';
 import { doctorCommands } from './doctor';
+import { feedbackCommands } from './feedback';
 import { filesCommands } from './files';
 import { gitCommands } from './git';
 import { impactCommands } from './impact';
@@ -51,6 +52,7 @@ const COMMANDS = {
   ...settingsCommands,
   ...notificationsCommands,
   ...doctorCommands,
+  ...feedbackCommands,
   ...usageCommands,
   ...updateCommands,
 };

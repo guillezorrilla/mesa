@@ -22,6 +22,7 @@ import { diagnostics } from './diagnostics.js';
 import { diff } from './diff.js';
 import { discover, discoverAdopt } from './discover.js';
 import { doctor, doctorInstall } from './doctor.js';
+import { feedback } from './feedback.js';
 import { FILES_COMMANDS } from './files/index.js';
 import { forceStart } from './force-start.js';
 import { fork } from './fork.js';
@@ -149,6 +150,7 @@ export const COMMANDS: Command[] = [
   doctorInstall,
   obsidianManager,
   obsidianVaults,
+  feedback,
   ...FILES_COMMANDS,
   fork,
   forceStart,

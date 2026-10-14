@@ -1,3 +1,4 @@
+import { feedback, type Limit } from './feedback.js';
 import { PRIVACY, TERMS } from './pages.js';
 import { PROVIDERS, type Provider } from './providers.js';
 
@@ -34,10 +35,21 @@ function grant(body: unknown): Record<string, string> | undefined {
 /**
  * The broker (ADR-0014): sends the browser to a vendor's sign-in, relays the vendor's answer to
  * Mesa's loopback listener, and exchanges or refreshes tokens with the client secret only it holds.
- * It never logs a request or response body. It also serves the privacy policy and terms.
+ * It never logs a request or response body. It also serves the privacy policy and terms, and opens
+ * an issue from a person's feedback (ADR-0025), `limit` deciding whether a caller may send more.
  */
-export async function handle(request: Request, env: Env, upstream: Upstream): Promise<Response> {
+export async function handle(
+  request: Request,
+  env: Env,
+  upstream: Upstream,
+  limit: Limit = async () => true,
+): Promise<Response> {
   const url = new URL(request.url);
+  if (url.pathname === '/feedback' && request.method === 'POST') {
+    if (!(await limit(request.headers.get('cf-connecting-ip') ?? 'unknown')))
+      return json(429, { error: 'rate_limited' });
+    return json(...(await feedback(await request.json().catch(() => undefined), env, upstream)));
+  }
   const pages: Record<string, string> = { '/privacy': PRIVACY, '/terms': TERMS };
   if (request.method === 'GET' && Object.hasOwn(pages, url.pathname))
     return new Response(pages[url.pathname], {

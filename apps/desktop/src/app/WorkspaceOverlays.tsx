@@ -1,4 +1,5 @@
 import type { Config, DoctorReport } from '@mesa/core';
+import { FeedbackDialog } from '@/features/feedback/FeedbackDialog';
 import { KeyboardShortcutsDialog } from '@/features/help/KeyboardShortcutsDialog';
 import type { SettingsCategory } from '@/features/settings/categories';
 import { SettingsDialog } from '@/features/settings/SettingsDialog';
@@ -7,7 +8,7 @@ import type { CommandState } from '@/lib/useCommand';
 import type { WorkspaceView } from '@/lib/workspaceView';
 import type { Overlay } from './navigation';
 
-/** The dialogs that open over the current view: Keyboard shortcuts, Settings, and Usage. */
+/** The dialogs that open over the current view: Keyboard shortcuts, Settings, Usage, and Feedback. */
 export function WorkspaceOverlays(props: {
   overlay: Overlay | undefined;
   onOverlay: (overlay: Overlay | undefined) => void;
@@ -17,6 +18,8 @@ export function WorkspaceOverlays(props: {
   /** Reloads the project list. */
   onProjectsChanged: () => void;
   navigate: (view: WorkspaceView) => void;
+  /** The screen in view, which feedback says it was written from. */
+  screen: WorkspaceView['kind'];
   onReplayTour: () => void;
 }) {
   const { overlay, onOverlay, config, doctor, navigate } = props;
@@ -48,6 +51,9 @@ export function WorkspaceOverlays(props: {
         onOpenChange={(open) => onOverlay(open ? 'usage' : undefined)}
         onSession={(id) => navigate({ kind: 'session', id })}
       />
+      {overlay === 'feedback' && (
+        <FeedbackDialog from={props.screen} onClose={() => onOverlay(undefined)} />
+      )}
     </>
   );
 }

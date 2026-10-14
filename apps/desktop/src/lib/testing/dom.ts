@@ -8,16 +8,25 @@ export const toastTexts = (byTestId: (id: string) => HTMLElement[]) =>
   byTestId('toast').map((t) => t.querySelector('pre')?.textContent);
 
 /** Types `value` into `input` as a person does: the input event React's onChange reads. */
-const typeInto = (input: HTMLInputElement, value: string) =>
+const typeInto = (input: HTMLInputElement | HTMLTextAreaElement, value: string) =>
   act(async () => {
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, value);
+    const field =
+      input instanceof HTMLTextAreaElement
+        ? HTMLTextAreaElement.prototype
+        : HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(field, 'value')?.set?.call(input, value);
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
 
-/** Types `value` into `input`, or the input with that id. */
-export const fill = (input: string | HTMLInputElement | null | undefined, value: string) =>
+/** Types `value` into `input` (or a textarea), or the one with that id. */
+export const fill = (
+  input: string | HTMLInputElement | HTMLTextAreaElement | null | undefined,
+  value: string,
+) =>
   typeInto(
-    (typeof input === 'string' ? document.getElementById(input) : input) as HTMLInputElement,
+    (typeof input === 'string' ? document.getElementById(input) : input) as
+      | HTMLInputElement
+      | HTMLTextAreaElement,
     value,
   );
 
