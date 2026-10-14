@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mesa: every agent remembers your project</title>
+<meta name="description" content="Mesa is the Mac app above Claude Code, Codex and Gemini: one shared memory of your projects, your tickets and pull requests in one place, and proof of what it changed.">
+<meta name="theme-color" content="#08090b">
+<link rel="canonical" href="https://mesa-hq.pages.dev/">
+<link rel="icon" type="image/png" href="/img/mark.png">
+<link rel="apple-touch-icon" href="/img/mark.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://mesa-hq.pages.dev/">
+<meta property="og:title" content="Mesa: every agent remembers your project">
+<meta property="og:description" content="Mesa is the Mac app above Claude Code, Codex and Gemini: one shared memory of your projects, your tickets and pull requests in one place, and proof of what it changed.">
+<meta property="og:image" content="https://mesa-hq.pages.dev/img/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<script>document.documentElement.classList.add('js')</script>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="nav" id="nav">
+  <div class="wrap">
+    <a class="logo" href="#top"><img src="img/mark.png" alt="" width="26" height="26">Mesa</a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="#memory">Memory</a><a href="#proof">Proof</a><a href="#workday">Tickets and reviews</a><a href="#faq">FAQ</a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn btn-primary btn-sm" href="https://github.com/guillezorrilla/mesa/releases/latest/download/Mesa_universal.dmg">Download</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap hero">
+    <a class="news rv" href="#workday"><b>New</b>Review pull requests from GitHub and Bitbucket<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
+    <h1 class="rv" style="--d:1">Every agent remembers your project.</h1>
+    <p class="lede rv" style="--d:2">Mesa is the Mac app above Claude Code, Codex and Gemini. It gives every session one shared memory of your projects, brings in your tickets, docs and pull requests, and shows you exactly what it changed.</p>
+    <div class="ctas rv" style="--d:3">
+      <a class="btn btn-accent" href="https://github.com/guillezorrilla/mesa/releases/latest/download/Mesa_universal.dmg"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.37 12.6c.02 2.6 2.28 3.47 2.3 3.48-.02.06-.36 1.24-1.19 2.45-.72 1.05-1.47 2.1-2.65 2.12-1.16.02-1.53-.69-2.86-.69-1.33 0-1.74.67-2.84.71-1.14.04-2-1.13-2.73-2.18-1.48-2.15-2.62-6.07-1.1-8.72.76-1.31 2.11-2.14 3.58-2.16 1.12-.02 2.17.75 2.86.75.68 0 1.96-.93 3.31-.79.56.02 2.15.23 3.17 1.71-.08.05-1.89 1.1-1.85 3.32ZM14.2 4.89c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.55 1.31-.56.65-1.05 1.68-.92 2.67.97.08 1.96-.49 2.57-1.22Z"/></svg>Download for macOS</a>
+      <a class="btn btn-ghost" href="#memory">See how it works</a>
+    </div>
+    <p class="meta rv" style="--d:4">Free &middot; macOS 14 or later &middot; your own agent subscriptions, no Mesa account</p>
+    <p class="stat rv" style="--d:5"><span>In paired tests, Claude Code solved <strong>12 of 12</strong> tasks with Mesa and <strong>0 of 12</strong> without it.</span><a href="#proof">See the proof</a></p>
+  </div>
+
+  <div class="wrap viewer rv" style="--d:5" id="viewer">
+    <div class="frame"><div class="stage" id="vstage">
+      <img class="on" src="img/02-diff.webp" width="2000" height="1250" alt="A Claude Code session reads a decision from the vault before writing code, with the Diff panel showing everything it changed since main">
+      <img src="img/01-board.webp" width="2000" height="1250" alt="An Investigate session reads a vault note about the login flow, then asks permission to run the test 20 times, highlighted as waiting on the board" loading="lazy">
+      <img src="img/05-impact.webp" width="2000" height="1250" alt="Impact: what Mesa decided and kept for you, and what happened next" loading="lazy">
+      <img src="img/03c-pr-comments.webp" width="2000" height="1250" alt="A pull request review with draft comments only you can see, and earlier comments marked addressed, partly addressed or not addressed" loading="lazy">
+      <img src="img/04-tickets.webp" width="2000" height="1250" alt="A project's Linear tickets, with Start session, Investigate and Start goal on the open ticket" loading="lazy">
+    </div></div>
+    <div class="vtabs" role="tablist" aria-label="Mesa at work">
+      <button type="button" class="vtab" role="tab" aria-selected="true" aria-controls="vstage">Memory at work<small>The agent reads the team's decision first</small><i></i></button>
+      <button type="button" class="vtab" role="tab" aria-selected="false" aria-controls="vstage">Investigate<small>Proof before any fix</small><i></i></button>
+      <button type="button" class="vtab" role="tab" aria-selected="false" aria-controls="vstage">Impact<small>What Mesa decided, and what happened</small><i></i></button>
+      <button type="button" class="vtab" role="tab" aria-selected="false" aria-controls="vstage">PR reviews<small>Drafts only you can see</small><i></i></button>
+      <button type="button" class="vtab" role="tab" aria-selected="false" aria-controls="vstage">Tickets<small>From ticket to pushed branch</small><i></i></button>
+    </div>
+  </div>
+
+  <section class="wrap" id="why">
+    <div class="head rv">
+      <h2>Running agents side by side is solved. Making them better is not.</h2>
+      <p>Every agent manager gives you more terminals, and Claude Code and Codex now ship a board of their own. Mesa works on what they leave out: what each agent knows when it starts, and whether the help it gets actually works.</p>
+    </div>
+    <div class="compare rv">
+      <table>
+        <thead><tr><th scope="col"><span class="lbl">What you get</span></th><th scope="col">Most agent managers</th><th scope="col" class="us">Mesa</th></tr></thead>
+        <tbody>
+          <tr><td>Parallel sessions, worktrees and a diff per session</td><td><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="sr">Yes</span></span></td><td class="us"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="sr">Yes</span></span></td></tr>
+          <tr><td>One memory shared by every agent and every project<small>Plain Markdown in your own Obsidian vault</small></td><td><span class="no">No</span></td><td class="us"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="sr">Yes</span></span></td></tr>
+          <tr><td>Context pulled in from Jira, Confluence, Notion, Linear, ClickUp and GitHub</td><td><span class="no">No</span></td><td class="us"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="sr">Yes</span></span></td></tr>
+          <tr><td>Published, paired evidence that it improves results</td><td><span class="no">No</span></td><td class="us"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="sr">Yes</span></span></td></tr>
+          <tr><td>A log of what it decided for you, which you can mark wrong</td><td><span class="no">No</span></td><td class="us"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="sr">Yes</span></span></td></tr>
+          <tr><td>Hand a session to a different agent mid-task</td><td><span class="no">No</span></td><td class="us"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="sr">Yes</span></span></td></tr>
+          <tr><td>Review your teammates' PRs on GitHub and Bitbucket<small>Not just your own agents' diffs</small></td><td><span class="no">No</span></td><td class="us"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="sr">Yes</span></span></td></tr>
+          <tr><td>Start work from Jira, Linear, ClickUp or GitHub tickets</td><td><span class="some">Some</span></td><td class="us"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="sr">Yes</span></span></td></tr>
+          <tr><td>Free, no account</td><td><span class="some">Some</span></td><td class="us"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="sr">Yes</span></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="compare-note rv">Based on the public pages of local agent managers and the built-in agent views of Claude Code and Codex, October 2026.</p>
+  </section>
+
+  <section class="wrap" id="memory">
+    <div class="split">
+      <div class="copy rv">
+        <p class="kick">One memory</p>
+        <h3>A second brain every agent shares.</h3>
+        <p>What your agents decide lands in one Obsidian vault of plain Markdown on your Mac: project hubs, notes, decisions with their confidence, and session summaries. The next session reads it before it starts, in any project, with any agent.</p>
+        <ul class="ticks">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span><b>Kept automatically.</b> A session's decisions are captured into the vault when it ends.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span><b>Yours, in plain files.</b> No vendor's cloud holds it, Obsidian opens it as is, and it outlives any tool.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span><b>Light on context.</b> Mesa adds a few hundred tokens to a session; the rest of the window stays for your work.</span></li>
+        </ul>
+      </div>
+      <div class="pic rv" style="--d:1"><img src="img/06-vault.webp" width="2000" height="1250" alt="The vault with the decision Paginate with cursors, not offsets: its probabilities, confidence 0.86, rationale and backlinks" loading="lazy"></div>
+    </div>
+    <div class="sources rv">
+      <div><h3>Bring your team's knowledge in.</h3><p>Connect once, then import issues, pages and docs into a project's vault, where every agent can use them. An import can start a session on its own.</p></div>
+      <div class="chips"><span>Jira</span><span>Confluence</span><span>Notion</span><span>Linear</span><span>ClickUp</span><span>GitHub</span><span class="soft">or any public link</span></div>
+    </div>
+    <div class="flow">
+      <div class="rv"><b>Captured</b><p>Decisions and summaries land in the vault when a session ends.</p></div>
+      <div class="rv" style="--d:1"><b>Brought in</b><p>With a decision model, Mesa hands the agent the note that matters for your prompt.</p></div>
+      <div class="rv" style="--d:2"><b>Handed over</b><p>Pass a session to another agent with its goal and a note, before its context fills.</p></div>
+      <div class="rv" style="--d:3"><b>Adopted</b><p>Your last 30 days of Claude Code and Codex conversations become resumable sessions.</p></div>
+    </div>
+  </section>
+
+  <section class="wrap" id="proof">
+    <div class="head rv">
+      <p class="kick">Proof, not promises</p>
+      <h2>Agents solve more with Mesa, and you can see why.</h2>
+      <p>With a decision model connected, Mesa hands each agent the project note that matters for your prompt. We tested it on six coding tasks that each hinged on a team convention, two runs each.</p>
+    </div>
+    <div class="proof-grid">
+      <div class="trials">
+        <div class="trial rv" data-bars>
+          <div class="trial-top"><h3>Claude Code</h3><span class="delta">0 to 12 solved</span></div>
+          <div class="bar without"><span>On its own</span><div class="track"><i data-w="0"></i></div><b>0/12</b></div>
+          <div class="bar with"><span>With Mesa</span><div class="track"><i data-w="100"></i></div><b>12/12</b></div>
+        </div>
+        <div class="trial rv" style="--d:1" data-bars>
+          <div class="trial-top"><h3>Codex</h3><span class="delta">about 5x faster per solved task</span></div>
+          <div class="bar without"><span>On its own</span><div class="track"><i data-w="25"></i></div><b>3/12</b></div>
+          <div class="bar with"><span>With Mesa</span><div class="track"><i data-w="83.3"></i></div><b>10/12</b></div>
+        </div>
+        <div class="rule rv" style="--d:2"><b>Proven before it ships.</b> A feature meant to make agents better ships only if it beats plain Claude Code or Codex on the same tasks in a paired test, with gates that are never lowered.</div>
+      </div>
+      <div class="impact rv" style="--d:1">
+        <div class="pic"><img src="img/05-impact.webp" width="2000" height="1250" alt="Impact: in the last 7 days Mesa caught 3 questions the rules missed, brought 4 vault notes into prompts and stopped 1 risky command" loading="lazy"></div>
+        <p><b>Impact</b> shows what Mesa decided and kept for you, and what happened next: a note brought into a prompt, a question the rules missed, a risky command stopped. Mark any moment <b>Not right</b> and it drops out.</p>
+      </div>
+    </div>
+    <div class="proof-foot rv"><span>The decision model is optional (CLEF is free for about 1,000 decisions a day). With no key, nothing leaves your Mac.</span><span>Six tasks, two runs each, paired with and without Mesa.</span></div>
+  </section>
+
+  <section class="wrap" id="workday">
+    <div class="head rv">
+      <p class="kick">Your whole workday</p>
+      <h2>From the ticket to the review, without leaving Mesa.</h2>
+      <p>Your tickets, your teammates' pull requests and every session's changes live next to the agents doing the work.</p>
+    </div>
+    <div class="work">
+      <div class="wlist" role="tablist" aria-label="Workday features">
+        <button type="button" class="witem" role="tab" aria-selected="true" data-img="img/04-tickets.webp" data-alt="A Linear cycle with ticket ENG-123 open and Start session, Investigate and Start goal"><b>Tickets from every tracker</b><span>Follow Jira boards, Linear cycles, ClickUp lists and GitHub Issues per project. <em>Investigate</em> finds the root cause with proof and leaves the code as it was. <em>Start goal</em> finishes the ticket, proven by tests and checks, then commits on a branch and pushes it.</span></button>
+        <button type="button" class="witem" role="tab" aria-selected="false" data-img="img/03-reviews.webp" data-alt="The Reviews tab: GitHub and Bitbucket pull requests that need your review, grouped by project"><b>PR reviews on GitHub and Bitbucket</b><span>See every pull request that needs your review, across all projects. A review session leaves its findings as drafts only you can see, and never approves or merges. A re-review marks each earlier comment addressed, partly addressed or not addressed.</span></button>
+        <button type="button" class="witem" role="tab" aria-selected="false" data-img="img/02-diff.webp" data-alt="The Diff panel: 2 commits, 6 files, everything the session changed since main"><b>A diff for every session</b><span>Each session works in its own worktree. The Diff panel shows everything it changed since its base branch: commits, edits and new files, walkable with j and k.</span></button>
+        <button type="button" class="witem" role="tab" aria-selected="false" data-img="img/08-automations.webp" data-alt="Automations: a weekday dependency audit, a session when migrations change, and a hub refresh when a session ends"><b>Automations</b><span>Run a skill, start a session or refresh imported knowledge on a schedule, when a file changes, or when a session reaches a state, asking you first when you want it to.</span></button>
+        <button type="button" class="witem" role="tab" aria-selected="false" data-img="img/07-cost.webp" data-alt="Usage and estimated costs: today, last 7 and 30 days, daily cost by model and cost by agent"><b>What it costs</b><span>Estimated cost per day, per model and per agent across Claude Code, Codex and Antigravity CLI, from public list prices.</span></button>
+      </div>
+      <div class="wstage rv" style="--d:1"><div class="frame"><div class="stage"><img id="wimg" class="on" src="img/04-tickets.webp" width="2000" height="1250" alt="A Linear cycle with ticket ENG-123 open and Start session, Investigate and Start goal" loading="lazy"></div></div></div>
+    </div>
+  </section>
+
+  <section class="wrap" id="board">
+    <div class="split flip">
+      <div class="copy rv">
+        <p class="kick">And the basics, done well</p>
+        <h3>Every session from every project on one board.</h3>
+        <p>Working, idle, done or waiting for you, with the branch each one is on. Tile several in a grid and keep them running when the app closes.</p>
+      </div>
+      <div class="pic rv" style="--d:1"><img src="img/01b-grid.webp" width="2000" height="1250" alt="The terminal grid with four live sessions from three projects" loading="lazy"></div>
+    </div>
+    <div class="basics">
+      <div class="rv"><b>Any agent, same controls</b><p>Claude Code, Codex and Gemini through Antigravity CLI, unchanged, with your own subscriptions.</p></div>
+      <div class="rv" style="--d:1"><b>One session, several repos</b><p>An API and its web client on the same branch, in one session.</p></div>
+      <div class="rv" style="--d:2"><b>A CLI for every screen</b><p>Every action has a <code>mesa</code> command with <code>--json</code>, so scripts and agents can drive Mesa too.</p></div>
+    </div>
+    <div class="term rv" style="margin-top:14px">
+      <div class="term-bar"><i></i><i></i><i></i><span>~/code</span></div>
+<pre><span class="pr">$ </span>mesa open my-app --from ENG-123 --as goal   <span class="cm"># finish a ticket on its own branch</span>
+<span class="pr">$ </span>mesa open my-api --with my-web --worktree  <span class="cm"># one session, two repositories</span>
+<span class="pr">$ </span>mesa handoff 7f2c --agent codex            <span class="cm"># switch agents, keep the context</span>
+<span class="pr">$ </span>mesa impact                                <span class="cm"># what Mesa decided for you</span></pre>
+    </div>
+  </section>
+
+  <section class="wrap" id="privacy">
+    <div class="head center rv"><h2>Your work stays on your Mac.</h2><p>No account, no analytics, and no server holding your sessions or your notes.</p></div>
+    <div class="trio">
+      <div class="rv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><h3>Local by default</h3><p>Profiles, session records, receipts and the vault live on your Mac.</p></div>
+      <div class="rv" style="--d:1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><h3>Agents run as you</h3><p>Your agents use your own sign-in. Mesa never touches those credentials.</p></div>
+      <div class="rv" style="--d:2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><h3>Tokens in the Keychain</h3><p>Connections to your trackers and docs keep their tokens in the macOS Keychain, never in files.</p></div>
+    </div>
+  </section>
+
+  <section class="wrap" id="faq">
+    <div class="head center rv"><h2>Questions</h2></div>
+    <div class="faq">
+      <details class="rv"><summary>How is Mesa different from a board of agents?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary><p>Mesa has the board, but its point is what the agents know and whether it helps: one memory shared by every agent and project, context from your trackers and docs, a tested decision model, and an Impact log of what it did for you.</p></details>
+      <details class="rv"><summary>Is Mesa free?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary><p>Yes. Mesa is free and updates itself. You pay only for the agents you already use.</p></details>
+      <details class="rv"><summary>Do I need an API key?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary><p>No. Your agents run as their own terminal apps with your own subscriptions. The decision model is optional: CLEF on a free Cloudflare account, or Jev with a TypeSafe key, kept in the macOS Keychain.</p></details>
+      <details class="rv"><summary>Which agents does it support?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary><p>Claude Code, Codex, and Gemini through Antigravity CLI. You can swap a fresh session's agent and hand work from one agent to another.</p></details>
+      <details class="rv"><summary>What do I need installed?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary><p>macOS 14 or later, tmux, and at least one agent signed in. The first run installs tmux, Obsidian and the session hooks with a click each.</p></details>
+      <details class="rv"><summary>Does my code leave my Mac?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary><p>Mesa sends nothing on its own. Your agents talk to their own providers as always. With a decision model connected, Mesa sends that provider short, capped excerpts for each decision, and you can turn it off per session.</p></details>
+    </div>
+  </section>
+
+  <div class="wrap final rv" id="download">
+    <img src="img/mark.png" alt="" width="64" height="64">
+    <h2>Give your agents a memory.</h2>
+    <p>Download Mesa, pick a vault, and your next session starts where the last one stopped.</p>
+    <div class="ctas">
+      <a class="btn btn-accent" href="https://github.com/guillezorrilla/mesa/releases/latest/download/Mesa_universal.dmg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>Download for macOS</a>
+    </div>
+    <div class="copyline"><code id="cmd">mkdir -p ~/.local/bin &amp;&amp; ln -s /Applications/Mesa.app/Contents/MacOS/mesa ~/.local/bin/mesa</code><button type="button" id="copy">Copy</button></div>
+    <small>Optional: put the <code>mesa</code> CLI on your PATH after installing.</small>
+  </div>
+
+  <footer class="wrap">
+    <a class="logo" href="#top" style="font-size:16px"><img src="img/mark.png" alt="" width="22" height="22" style="width:22px;height:22px">Mesa</a>
+    <span>The Mac app above your coding agents</span>
+    <nav aria-label="Footer"><a href="#memory">Memory</a><a href="#proof">Proof</a><a href="#workday">Tickets and reviews</a><a href="#faq">FAQ</a><a href="#download">Download</a></nav>
+  </footer>
+</main>
+
+<script src="/main.js" defer></script>
+</body>
+</html>
