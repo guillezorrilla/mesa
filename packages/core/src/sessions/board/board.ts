@@ -99,11 +99,14 @@ export async function listSessions(
         window: byLabel.get(targetLabel(windowOf(found))),
         children: children.get(found.id) ?? [],
       });
-      // A live session's readings (context use, branch, folder) are read when its state just
-      // changed (a reply ends a turn), not on every look, and once while it has no branch reading
-      // (one started before Mesa read branches); a locked record is not waited for.
+      // A live session's readings (context use, branch, folder) are read on every look while it
+      // works, as a turn can move it (EnterWorktree), and when its state just changed (a reply ends
+      // a turn); a session at rest, once read, is not read again. A few ms each, even on a 40 MB
+      // transcript; a locked record is not waited for.
       if (row.endedAt || !row.agentSessionId) return row;
-      if (row.lastState.state === found.lastState.state && row.gitBranch !== undefined) return row;
+      const resting = row.lastState.state !== 'working';
+      if (resting && row.lastState.state === found.lastState.state && row.gitBranch !== undefined)
+        return row;
       const { context, gitBranch, cwd } = refreshReadings(deps, row, { wait: false });
       return { ...row, context, gitBranch, cwd };
     }),

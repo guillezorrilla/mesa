@@ -46,9 +46,10 @@ export type Transcripts<A extends Agent> = {
   branch?: (file: string) => string | undefined;
   /**
    * The folder its agent moved to mid-conversation in transcript `file` (Claude Code's
-   * EnterWorktree, and back on ExitWorktree); none when it never moved.
+   * EnterWorktree), and whether it moved back to where it started (ExitWorktree); none when it
+   * never moved.
    */
-  folder?: (file: string) => string | undefined;
+  folder?: (file: string) => { path: string; back: boolean } | undefined;
 };
 
 /** A content block of a message: its kind and, for text, its text. */

@@ -47,8 +47,25 @@ test('a folder its agent moves to is where it works, back again when it leaves',
   expect(refreshReadings(deps, record).cwd).toBe('/w/lantern-cove/tide-fix');
   // Its own folder, not a worktree it holds: removing it never offers to delete this one.
   expect(store.get(record.id).worktree).toBeUndefined();
+  // Back where Mesa started it: no folder of its own, so the project's (or its worktree) again.
   plant(entered, left);
-  expect(refreshReadings(deps, store.get(record.id)).cwd).toBe('/src/lantern-cove');
+  expect(refreshReadings(deps, store.get(record.id)).cwd).toBeUndefined();
+  expect(store.get(record.id).cwd).toBeUndefined();
+});
+
+test('an adopted session moving back keeps the folder it was adopted in', () => {
+  const { deps, store, plant } = setUp();
+  const adopted = store.create(() =>
+    newSession({ agentSessionId: AGENT_ID, adopted: true, cwd: '/src/lantern-cove/docs' }),
+  );
+  const enteredFrom = (home: string) => ({
+    type: 'worktree-state',
+    worktreeSession: { worktreePath: '/w/lantern-cove/tide-fix', originalCwd: home },
+  });
+  plant(enteredFrom('/src/lantern-cove/docs'));
+  expect(refreshReadings(deps, adopted).cwd).toBe('/w/lantern-cove/tide-fix');
+  plant(enteredFrom('/src/lantern-cove/docs'), { type: 'worktree-state', worktreeSession: null });
+  expect(refreshReadings(deps, store.get(adopted.id)).cwd).toBe('/src/lantern-cove/docs');
 });
 
 test('a General session moving into a worktree keeps its readings', () => {

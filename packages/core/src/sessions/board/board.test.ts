@@ -250,7 +250,7 @@ test('a /rename in Claude Code is saved as the agent name once, and a later one 
   expect(store.get(session.id).agentName).toBe('harbor-lights');
 });
 
-test("a look reads a live session's context when its state changes, not on every look", async () => {
+test("a look reads a live session's context when its state changes or while it works", async () => {
   const store = storeIn();
   const session = store.create(() => ({
     ...inWindow('lantern-cove', '2026-09-24T11:00:00.000Z', 'claude-aaaaaa'),
@@ -292,6 +292,12 @@ test("a look reads a live session's context when its state changes, not on every
   const [next] = await listSessions({ ...deps, listing: listingOf(SPIKE_LISTING.permission) });
   expect(next).toMatchObject({ context: { used: 50 } });
   expect(store.get(session.id).context?.used).toBe(50);
+  // While it works, every look reads it: a turn can move it, or use more context, before it ends.
+  const working = { ...deps, listing: listingOf({ ...SPIKE_LISTING.idle, status: 'busy' }) };
+  await listSessions(working);
+  reply(150_000);
+  const [busy] = await listSessions(working);
+  expect(busy).toMatchObject({ lastState: { state: 'working' }, context: { used: 75 } });
 });
 
 test('a Codex listing row gives no state: a foreign one is a guess at working, a Mesa one reads its window', async () => {
