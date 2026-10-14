@@ -1,5 +1,5 @@
 import type { DoctorReport, ProjectRow } from '@mesa/core';
-import { DollarSign, Search } from 'lucide-react';
+import { Activity, DollarSign, Search } from 'lucide-react';
 import type { RefObject } from 'react';
 import { Kbd } from '@/components/Kbd';
 import { Button } from '@/components/ui/button';
@@ -65,7 +65,12 @@ export function TitleBar(props: {
         />
       </div>
       <nav aria-label="Workspace shortcuts" className="ml-auto flex shrink-0 items-center gap-2">
-        {([['Cost', DollarSign, 'usage', 'cost']] as const).map(([label, Icon, kind, id]) => (
+        {(
+          [
+            ['Impact', Activity, 'impact', 'impact'],
+            ['Cost', DollarSign, 'usage', 'cost'],
+          ] as const
+        ).map(([label, Icon, kind, id]) => (
           <Button
             key={id}
             variant="ghost"
