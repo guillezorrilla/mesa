@@ -106,7 +106,7 @@ test('a changed line is a Moment with its outcome; the rest fold into counts', (
   ]);
   expect(session?.folded).toEqual({ agreed: 2, unsure: 1, failed: 1, skipped: 1 });
   expect(session && foldedText(session)).toBe(
-    '+ 2 checks where clef agreed with the rules, 1 unsure, 1 with no answer, 1 prompt with no matching note',
+    '+ 2 checks where CLEF agreed with the rules, 1 unsure, 1 with no answer, 1 prompt with no matching note',
   );
 });
 
@@ -171,9 +171,9 @@ test('notes brought in, guardrail stops and vault writes are Moments; sessions s
       receipt({ kind: 'decision', outputs: {} }),
     ],
   );
-  expect(r.summary).toMatchObject({ notesIn: 1, stopped: 1, kept: 3, sessions: 3 });
+  expect(r.summary).toMatchObject({ notesIn: 1, stopped: 2, kept: 3, sessions: 3 });
   expect(r.sentence).toBe(
-    'In the last 7 days, Mesa brought 1 vault note into prompts, stopped 1 risky command and kept 3 notes, across 3 sessions.',
+    'In the last 7 days, Mesa brought 1 vault note into prompts, stopped 2 risky commands and kept 3 notes, across 3 sessions.',
   );
   expect(r.sessions.map((s) => s.name)).toEqual([
     'checkout-retry',
@@ -213,4 +213,34 @@ test('nothing that changed anything gives the empty state, and a project names i
   expect(scoped.sentence).toBe(
     'In the last 30 days in lantern-cove, Mesa caught 1 question the rules missed, across 1 session.',
   );
+});
+
+test('an override alone still tells its story; a note none fit folds; a write outside a session counts', () => {
+  const r = report(
+    [
+      entry({
+        site: 'guardrail',
+        by: 'rules',
+        rules: 'block',
+        answer: 'block',
+        status: 'overridden',
+        override: 'force',
+        reason: 'the text holds a destructive command (rm -rf)',
+        changed: true,
+      }),
+      entry({ at: at(1), site: 'relevance', rules: null, answer: 'none', status: 'accepted' }),
+    ],
+    [receipt({ kind: 'vault-change', session: undefined, outputs: { target: 'wiki/notes/d.md' } })],
+  );
+  expect(r.sentence).toBe(
+    'In the last 7 days, Mesa stopped 1 risky command and kept 1 note, across 2 sessions.',
+  );
+  expect(r.sessions.find((s) => s.id === 'a1b2c3d4')?.folded).toMatchObject({
+    agreed: 0,
+    skipped: 1,
+  });
+  expect(r.sessions.find((s) => s.id === null)).toMatchObject({
+    name: 'Outside a session',
+    moments: [{ site: 'vault', title: 'Saved wiki/notes/d.md' }],
+  });
 });

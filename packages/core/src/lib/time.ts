@@ -6,6 +6,9 @@ import { z } from 'zod';
 /** One day in milliseconds. */
 export const DAY_MS = 86_400_000;
 
+/** The moment `days` days before `now`. */
+export const daysBefore = (now: Date, days: number) => new Date(now.getTime() - days * DAY_MS);
+
 const pad = (n: number, width = 2) => String(n).padStart(width, '0');
 
 /** The local calendar date of `date` as YYYY-MM-DD: the daily note's name, and Obsidian's Date. */

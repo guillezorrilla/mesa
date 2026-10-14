@@ -1,4 +1,11 @@
-import { foldedText, type Moment, type SessionImpact } from '@mesa/core/browser';
+import {
+  answeredBy,
+  counted,
+  foldedText,
+  type Moment,
+  NO_OUTCOME,
+  type SessionImpact,
+} from '@mesa/core/browser';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -10,12 +17,6 @@ const SITE_DOT: Record<Moment['site'], string> = {
   guardrail: 'bg-state-failed',
   vault: 'bg-state-idle',
 };
-
-const BY: Record<Moment['by'], string> = { rules: 'Rules', jev: 'Jev', clef: 'CLEF' };
-
-/** Who answered, and how sure, as a row shows it. */
-export const answeredBy = (m: Moment) =>
-  `${BY[m.by]}${m.confidence === undefined ? '' : ` ${Math.round(m.confidence * 100)}%`}`;
 
 const GOOD = new Set(['hook-agreed', 'answered', 'not-overridden']);
 const time = (at: string) =>
@@ -70,7 +71,7 @@ function MomentRow({ moment: m }: { moment: Moment }) {
           m.outcome && GOOD.has(m.outcome.kind) ? 'text-foreground' : 'text-muted-foreground',
         )}
       >
-        {m.outcome?.text ?? 'No outcome yet'}
+        {m.outcome?.text ?? NO_OUTCOME}
       </span>
     </li>
   );
@@ -94,13 +95,13 @@ export function ImpactSessionCard(props: {
     >
       <header className="flex flex-wrap items-baseline gap-2">
         {session.id && props.onSession ? (
-          <button
-            type="button"
-            className="font-semibold hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+          <Button
+            variant="link"
+            className="h-auto p-0 font-semibold text-base text-foreground"
             onClick={() => session.id && props.onSession?.(session.id)}
           >
             {session.name}
-          </button>
+          </Button>
         ) : (
           <h3 className="font-semibold">{session.name}</h3>
         )}
@@ -108,7 +109,7 @@ export function ImpactSessionCard(props: {
           <span className="text-muted-foreground text-sm">{session.project}</span>
         )}
         <span className="ml-auto text-muted-foreground text-xs">
-          {session.moments.length} moment{session.moments.length === 1 ? '' : 's'}
+          {counted(session.moments.length, 'moment')}
         </span>
       </header>
       {session.moments.length > 0 && <Thread moments={session.moments} />}

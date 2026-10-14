@@ -1,4 +1,5 @@
 import type { LogEntry } from '../decisions/log.js';
+import { counted } from '../lib/format.js';
 import type { ReceiptEntry } from '../receipts/store.js';
 
 // Impact (CONTEXT.md): what Mesa decided and kept for a person, as Moments per session, from the
@@ -41,7 +42,7 @@ export type SessionImpact = {
   moments: Moment[];
   folded: Folded;
   /** The model whose agreements `folded` counts, when one was asked. */
-  model?: string;
+  model?: LogEntry['by'];
 };
 
 export type ImpactSummary = {
@@ -71,6 +72,20 @@ export type ImpactReport = {
 /** A session record as Impact reads it: its name, project, and when a person spoke to it. */
 export type ImpactRecord = { id: string; name: string; project: string; prompts: string[] };
 
+/** Who answered, in a person's words. */
+export const DECIDERS: Record<LogEntry['by'], string> = {
+  rules: 'Rules',
+  jev: 'Jev',
+  clef: 'CLEF',
+};
+
+/** Who answered a Moment, and how sure, as a row shows it. */
+export const answeredBy = (m: Moment) =>
+  `${DECIDERS[m.by]}${m.confidence === undefined ? '' : ` ${Math.round(m.confidence * 100)}%`}`;
+
+/** What a Moment with no outcome says. */
+export const NO_OUTCOME = 'No outcome yet';
+
 export const EMPTY_IMPACT =
   'Nothing yet. Moments appear when Mesa catches a question, brings a note in, stops a command or keeps a note.';
 
@@ -85,6 +100,16 @@ const STATE_WORDS: Record<string, string> = {
 };
 const words = (state: string | null) => (state && STATE_WORDS[state]) ?? state ?? 'unknown';
 const waiting = (state: string | null) => state?.startsWith('waiting-') ?? false;
+
+/** Which quiet count a line that changed nothing adds to. */
+const FOLDED: Record<LogEntry['status'], keyof Folded> = {
+  accepted: 'agreed',
+  abstained: 'unsure',
+  unavailable: 'failed',
+  skipped: 'skipped',
+  blocked: 'agreed',
+  overridden: 'agreed',
+};
 
 /** How long after a placement a hook still counts as its check. */
 const HOOK_WINDOW_MS = 10 * 60_000;
@@ -109,11 +134,12 @@ function placementOutcome(
     : { kind: 'hook-disagreed', text: `A hook said ${words(hook.state)} later` };
 }
 
+/** A log line's Moment, and the summary count it adds to. */
 function logMoment(
   entry: LogEntry,
   record: ImpactRecord | undefined,
   hookStates: readonly { at: string; state: string }[],
-): Moment {
+): [Moment, keyof ImpactSummary] {
   const confidence = entry.answer ? entry.probabilities?.[entry.answer] : undefined;
   const base = {
     id: entry.id,
@@ -124,27 +150,35 @@ function logMoment(
     ...(confidence === undefined ? {} : { confidence }),
   };
   if (entry.site === 'supervision')
-    return {
-      ...base,
-      title: `Saw it was ${words(entry.answer)}`,
-      ...(entry.rules && entry.rules !== entry.answer ? { rulesAlone: entry.rules } : {}),
-      outcome: placementOutcome(entry, record, hookStates),
-    };
+    return [
+      {
+        ...base,
+        title: `Saw it was ${words(entry.answer)}`,
+        ...(entry.rules && entry.rules !== entry.answer ? { rulesAlone: entry.rules } : {}),
+        outcome: placementOutcome(entry, record, hookStates),
+      },
+      waiting(entry.answer) ? 'caught' : 'corrected',
+    ];
   if (entry.site === 'relevance')
-    return {
-      ...base,
-      title: `Brought ${entry.note} into the prompt`,
-      ...(entry.note ? { notes: [entry.note] } : {}),
-      outcome: null,
-    };
+    return [
+      {
+        ...base,
+        title: `Brought ${entry.note} into the prompt`,
+        ...(entry.note ? { notes: [entry.note] } : {}),
+        outcome: null,
+      },
+      'notesIn',
+    ];
+  // Stopped either way: an override is a person going ahead after the guardrail held it.
   const overridden = entry.status === 'overridden';
-  return {
+  const moment: Moment = {
     ...base,
     title: `${entry.answer === 'block' ? 'Stopped' : 'Asked first'}: ${entry.reason ?? 'the guardrail'}`,
     outcome: overridden
       ? { kind: 'overridden', text: `You went ahead (${entry.override})` }
       : { kind: 'not-overridden', text: 'You did not override it' },
   };
+  return [moment, 'stopped'];
 }
 
 /** A receipt that wrote the vault for a session: its notes, else none. */
@@ -165,41 +199,37 @@ function vaultMoment(entry: ReceiptEntry, notes: string[]): Moment {
     at: entry.receipt.started,
     site: 'vault',
     question: 'What should the vault keep from this session?',
-    title: capture
-      ? `Kept ${notes.length} note${notes.length === 1 ? '' : 's'} when it ended`
-      : `Saved ${notes[0]}`,
+    title: capture ? `Kept ${counted(notes.length, 'note')} when it ended` : `Saved ${notes[0]}`,
     by: 'rules',
     notes,
     outcome: null,
   };
 }
 
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-
 /** The summary as one sentence: only what happened, joined as a person would say it. */
 export function impactSentence(s: ImpactSummary, days: number, project?: string): string {
   const parts = [
-    s.caught && `caught ${plural(s.caught, 'question')} the rules missed`,
-    s.corrected && `corrected ${plural(s.corrected, 'session state')}`,
-    s.notesIn && `brought ${plural(s.notesIn, 'vault note')} into prompts`,
-    s.stopped && `stopped ${plural(s.stopped, 'risky command')}`,
-    s.kept && `kept ${plural(s.kept, 'note')}`,
+    s.caught && `caught ${counted(s.caught, 'question')} the rules missed`,
+    s.corrected && `corrected ${counted(s.corrected, 'session state')}`,
+    s.notesIn && `brought ${counted(s.notesIn, 'vault note')} into prompts`,
+    s.stopped && `stopped ${counted(s.stopped, 'risky command')}`,
+    s.kept && `kept ${counted(s.kept, 'note')}`,
   ].filter((p): p is string => Boolean(p));
   if (!parts.length) return EMPTY_IMPACT;
   const list =
     parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`;
-  return `In the last ${plural(days, 'day')}${project ? ` in ${project}` : ''}, Mesa ${list}, across ${plural(s.sessions, 'session')}.`;
+  return `In the last ${counted(days, 'day')}${project ? ` in ${project}` : ''}, Mesa ${list}, across ${counted(s.sessions, 'session')}.`;
 }
 
 /** The folded line under a session's thread, or none when nothing folded. */
 export function foldedText(session: SessionImpact): string | undefined {
   const { agreed, unsure, failed, skipped } = session.folded;
-  const model = session.model ?? 'the model';
+  const model = session.model ? DECIDERS[session.model] : 'the model';
   const parts = [
-    agreed && `${plural(agreed, 'check')} where ${model} agreed with the rules`,
+    agreed && `${counted(agreed, 'check')} where ${model} agreed with the rules`,
     unsure && `${unsure} unsure`,
     failed && `${failed} with no answer`,
-    skipped && `${plural(skipped, 'prompt')} with no matching note`,
+    skipped && `${counted(skipped, 'prompt')} with no matching note`,
   ].filter((p): p is string => Boolean(p));
   return parts.length ? `+ ${parts.join(', ')}` : undefined;
 }
@@ -248,27 +278,25 @@ export function impactReport(input: {
     const g = group(entry.session, entry.project);
     if (entry.by !== 'rules') g.model = entry.by;
     if (!entry.changed) {
-      const key =
-        entry.status === 'skipped'
-          ? 'skipped'
-          : entry.status === 'abstained'
-            ? 'unsure'
-            : entry.status === 'unavailable'
-              ? 'failed'
-              : 'agreed';
-      g.folded[key] += 1;
+      // A relevance answer that changed nothing found no note to bring: the rules have none here.
+      g.folded[
+        entry.site === 'relevance' && entry.status === 'accepted' ? 'skipped' : FOLDED[entry.status]
+      ] += 1;
       continue;
     }
     const record = entry.session ? input.records.get(entry.session) : undefined;
-    g.moments.push(logMoment(entry, record, entry.session ? input.hookStates(entry.session) : []));
-    if (entry.site === 'supervision') summary[waiting(entry.answer) ? 'caught' : 'corrected'] += 1;
-    else if (entry.site === 'relevance') summary.notesIn += 1;
-    else if (entry.status === 'blocked') summary.stopped += 1;
+    const [moment, counts] = logMoment(
+      entry,
+      record,
+      entry.session ? input.hookStates(entry.session) : [],
+    );
+    g.moments.push(moment);
+    summary[counts] += 1;
   }
   for (const receipt of input.receipts) {
     const notes = writtenNotes(receipt);
-    if (!notes.length || !receipt.receipt.session) continue;
-    group(receipt.receipt.session, receipt.receipt.project ?? null).moments.push(
+    if (!notes.length) continue;
+    group(receipt.receipt.session ?? null, receipt.receipt.project ?? null).moments.push(
       vaultMoment(receipt, notes),
     );
     summary.kept += notes.length;

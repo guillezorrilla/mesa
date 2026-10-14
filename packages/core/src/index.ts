@@ -58,7 +58,13 @@ export type {
   Outcome,
   SessionImpact,
 } from './impact/report.js';
-export { EMPTY_IMPACT, foldedText } from './impact/report.js';
+export {
+  answeredBy,
+  DECIDERS,
+  EMPTY_IMPACT,
+  foldedText,
+  NO_OUTCOME,
+} from './impact/report.js';
 export type { InstructionRow } from './instructions/inventory.js';
 export type { CliState } from './lib/cli-state.js';
 export { type Clock, systemClock } from './lib/clock.js';

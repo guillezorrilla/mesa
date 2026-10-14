@@ -19,9 +19,9 @@ test("impact shows a session's guardrail Moments under the summary, by profile, 
   expect((await cli.mesa('send', id, 'run rm -rf /', '--force')).code).toBe(0);
 
   const report = (await cli.mesa('impact', '--json')).json.data;
-  expect(report.summary).toMatchObject({ stopped: 1, sessions: 1 });
+  expect(report.summary).toMatchObject({ stopped: 2, sessions: 1 });
   expect(report.sentence).toBe(
-    'In the last 7 days, Mesa stopped 1 risky command, across 1 session.',
+    'In the last 7 days, Mesa stopped 2 risky commands, across 1 session.',
   );
   expect(report.sessions).toHaveLength(1);
   expect(report.sessions[0]).toMatchObject({ id, project: 'lantern-cove' });
@@ -29,14 +29,14 @@ test("impact shows a session's guardrail Moments under the summary, by profile, 
     report.sessions[0].moments.map((m: { outcome: { kind: string } }) => m.outcome.kind),
   ).toEqual(['not-overridden', 'overridden']);
   const text = (await cli.mesa('impact')).stdout;
-  expect(text).toContain('In the last 7 days, Mesa stopped 1 risky command, across 1 session.');
+  expect(text).toContain('In the last 7 days, Mesa stopped 2 risky commands, across 1 session.');
   expect(text).toContain(
     'Stopped: the text holds a destructive command (rm -rf). You did not override it',
   );
 
   const scoped = (await cli.mesa('impact', '--project', 'lantern-cove', '--days', '30', '--json'))
     .json.data;
-  expect(scoped).toMatchObject({ days: 30, project: 'lantern-cove', summary: { stopped: 1 } });
+  expect(scoped).toMatchObject({ days: 30, project: 'lantern-cove', summary: { stopped: 2 } });
   expect(scoped.sentence).toContain('In the last 30 days in lantern-cove, Mesa');
   expect((await cli.mesa('impact', '--session', id, '--json')).json.data.sessions[0].id).toBe(id);
 });

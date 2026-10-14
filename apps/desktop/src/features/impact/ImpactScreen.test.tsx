@@ -78,7 +78,7 @@ test('Impact shows the sentence, a card per session with its thread, rows and fo
   expect(checkout?.textContent).toContain('Rules alone: idle');
   expect(checkout?.textContent).toContain('You answered 2 min later');
   expect(checkout?.textContent).toContain('No outcome yet');
-  expect(checkout?.textContent).toContain('+ 38 checks where clef agreed with the rules, 4 unsure');
+  expect(checkout?.textContent).toContain('+ 38 checks where CLEF agreed with the rules, 4 unsure');
   // Five Moments: the newest three until Show all.
   expect(rates?.querySelectorAll('li')).toHaveLength(3);
   await click(

@@ -1,7 +1,7 @@
 import type { MesaContext } from '../context.js';
 import { clip } from '../lib/clip.js';
 import { MesaError } from '../lib/result.js';
-import { DAY_MS } from '../lib/time.js';
+import { daysBefore } from '../lib/time.js';
 import type { Recorded } from '../receipts/recorder.js';
 import { projectLabel } from '../sessions/record/general.js';
 import type { SessionRecord } from '../sessions/record/record.js';
@@ -229,7 +229,7 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
     /** The Decision log of the last `days` days, newest first, for one session when given. */
     log: ({ days = 7, session }: { days?: number; session?: string } = {}) =>
       ctx.decisionLog.read({
-        since: new Date(ctx.clock().getTime() - days * DAY_MS),
+        since: daysBefore(ctx.clock(), days),
         ...(session ? { session } : {}),
       }),
     /** Turns assistance off for a session, or back on. */

@@ -1,3 +1,4 @@
+import { NO_OUTCOME } from '@mesa/core/browser';
 import { Button } from '@/components/ui/button';
 import { useCommand } from '@/lib/useCommand';
 
@@ -22,10 +23,7 @@ export function MesasPartField(props: { session: string; onImpact?: (session: st
             .map((m) => (
               <li key={m.id}>
                 <span className="font-medium">{m.title}</span>
-                <span className="text-muted-foreground">
-                  {' '}
-                  · {m.outcome?.text ?? 'No outcome yet'}
-                </span>
+                <span className="text-muted-foreground"> · {m.outcome?.text ?? NO_OUTCOME}</span>
               </li>
             ))}
         </ul>

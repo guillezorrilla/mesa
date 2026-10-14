@@ -6,7 +6,7 @@ import { AutomationsTab } from '@/features/automations/AutomationsTab';
 import { FilesTab } from '@/features/files/FilesTab';
 import { GitTab } from '@/features/git/GitTab';
 import { useGitChangeCount } from '@/features/git/useGitChangeCount';
-import { ImpactScreen } from '@/features/impact/ImpactScreen';
+import { ImpactTab } from '@/features/impact/ImpactTab';
 import { InstructionsTab } from '@/features/instructions/InstructionsTab';
 import { ReviewsTab } from '@/features/prs/ReviewsTab';
 import { useSharedPrs } from '@/features/prs/usePrs';
@@ -139,12 +139,7 @@ export function ProjectScreen(props: {
           onImport={() => setTab('import')}
         />
       ) : tab === 'impact' ? (
-        <ImpactScreen
-          key={project.name}
-          project={project.name}
-          embedded
-          onSession={props.onSession}
-        />
+        <ImpactTab key={project.name} project={project.name} onSession={props.onSession} />
       ) : tab === 'import' ? (
         <ImportTab key={project.name} project={project.name} onStartSession={startFrom} />
       ) : tab === 'tickets' ? (

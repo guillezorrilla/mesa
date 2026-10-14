@@ -171,7 +171,12 @@ export type ReceiptFilter = {
   session?: string;
   project?: string;
   kind?: Receipt['kind'];
+  /** Any of these kinds. */
+  kinds?: readonly NonNullable<Receipt['kind']>[];
   target?: string;
+  profile?: string;
+  /** Started at or after this ISO time. */
+  since?: string;
 };
 
 /**
@@ -181,7 +186,7 @@ export type ReceiptFilter = {
 export function listReceipts(
   vault: string,
   limit = DEFAULT_RECEIPT_LIMIT,
-  { type, session, project, kind, target }: ReceiptFilter = {},
+  { type, session, project, kind, kinds, target, profile, since }: ReceiptFilter = {},
 ): ReceiptEntry[] {
   const found: ReceiptEntry[] = [];
   for (const file of receiptFiles(vault)) {
@@ -192,6 +197,9 @@ export function listReceipts(
     if (project !== undefined && entry.receipt.project !== project) continue;
     if (kind !== undefined && entry.receipt.kind !== kind) continue;
     if (target !== undefined && entry.receipt.outputs.target !== target) continue;
+    if (kinds !== undefined && !kinds.some((k) => k === entry.receipt.kind)) continue;
+    if (profile !== undefined && entry.receipt.profile !== profile) continue;
+    if (since !== undefined && entry.receipt.started < since) continue;
     found.push(entry);
   }
   return found;
