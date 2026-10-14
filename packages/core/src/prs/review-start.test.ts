@@ -24,7 +24,7 @@ const FAILED: RunResult = { ok: false, reason: 'failed', detail: 'exit 1' };
  */
 function fakeGit(
   worktrees = listing(),
-  opts: { status?: string; ahead?: string; diverged?: boolean } = {},
+  opts: { status?: string; ahead?: string; diverged?: boolean; rebased?: boolean } = {},
 ) {
   return scriptedRunner({
     git: (args): string | RunResult => {
@@ -33,6 +33,7 @@ function fakeGit(
       if (sub === 'check-ref-format') return args[4]?.includes(':') ? FAILED : `${args[4]}\n`;
       if (sub === 'status') return opts.status ?? '';
       if (sub === 'rev-list') return opts.ahead ?? '';
+      if (sub === 'merge-base') return opts.rebased ? FAILED : '';
       if (sub === 'fetch' && opts.diverged && args.at(-1)?.includes(':'))
         return { ok: false, reason: 'failed', detail: '! [rejected] (non-fast-forward)' };
       if (sub === 'rev-parse') return `${HEAD}\n`;
@@ -96,7 +97,7 @@ const input = (
   post: false,
   agent: 'claude',
   read: async () => read,
-  goal: (review) => `Review round ${review.round}`,
+  goal: (review, lastHead) => `Review round ${review.round}${lastHead ? ` since ${lastHead}` : ''}`,
   ...fields,
 });
 
@@ -177,15 +178,24 @@ describe('startReview', () => {
       ['-C', WORKTREE, 'rev-list', 'FETCH_HEAD..HEAD'],
       ['-C', WORKTREE, 'switch', '--quiet', '-C', 'review/12', 'FETCH_HEAD'],
       ['-C', PROJECT, 'rev-parse', '--verify', '--end-of-options', 'review/12^{commit}'],
+      ['-C', PROJECT, 'merge-base', '--is-ancestor', HEAD, HEAD],
     ]);
     expect(opened[0]?.opts).toEqual({
       agent: 'claude',
       checkout: WORKTREE,
-      goal: 'Review round 2',
+      // Round 2 reads only what changed since round 1's head.
+      goal: `Review round 2 since ${HEAD}`,
       review: { pr: 12, round: 2, mode: 'drafts', head: HEAD },
       parent: 'r0und1aa',
     });
     expect(started).toMatchObject({ round: 2, worktree: WORKTREE, existing: false });
+  });
+
+  test('after a rebase round 2 reads the whole PR, not a diff from a head it no longer builds on', async () => {
+    const run = fakeGit(listing({ path: WORKTREE, branch: 'review/12' }), { rebased: true });
+    const { deps, opened } = harness([reviewSession('r0und1aa', {}, ended)], run);
+    await startReview(deps, input());
+    expect(opened[0]?.opts).toMatchObject({ goal: 'Review round 2' });
   });
 
   test('Post now is refused for an agent other than Claude, before any git runs', async () => {

@@ -164,3 +164,39 @@ test('a failing or slow twg and unexpected output are reported, never thrown', a
     reason: 'invalid-data',
   });
 });
+
+/** PR 212 (Amara's, my review requested) with these comments; nobody approved or asked changes. */
+async function with212(comments: { who: 'kofi' | 'amara'; at: string; pending?: boolean }[]) {
+  const doc = JSON.parse(DETAILS);
+  const pr = doc.items[0].data;
+  const sample = doc.items[1].data._comments[0];
+  const user = { kofi: sample.user, amara: pr.author };
+  pr._comments = comments.map((c, i) => ({
+    ...sample,
+    id: 900 + i,
+    user: user[c.who],
+    created_on: c.at,
+    pending: Boolean(c.pending),
+    inline: undefined,
+    resolution: undefined,
+  }));
+  const read = await readBitbucket(twg(() => JSON.stringify(doc)).run, 'acme-eng/atlas-api');
+  if (!read.ok) throw new Error(read.reason);
+  const found = read.prs.find((p) => p.number === 212);
+  if (!found) throw new Error('no #212');
+  return bucketOf(found, read.me).bucket;
+}
+
+test('on Bitbucket my comments are my review: updated after the author answers, else waiting', async () => {
+  const mine = '2026-10-13T10:00:00.000000+00:00';
+  expect(await with212([])).toBe('need');
+  expect(await with212([{ who: 'kofi', at: mine }])).toBe('waiting');
+  expect(
+    await with212([
+      { who: 'kofi', at: mine },
+      { who: 'amara', at: '2026-10-13T11:00:00.000000+00:00' },
+    ]),
+  ).toBe('updated');
+  // An unsent draft of mine is not a review.
+  expect(await with212([{ who: 'kofi', at: mine, pending: true }])).toBe('need');
+});

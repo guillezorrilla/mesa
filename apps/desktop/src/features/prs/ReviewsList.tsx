@@ -37,7 +37,7 @@ export function ReviewsList(props: {
       </Muted>
     );
   const groups = prGroups(list, props.by);
-  const quiet = props.by === 'project' ? list.quiet : [];
+  const { quiet } = list;
   const byStatus = props.by === 'status';
   return (
     <div data-testid="reviews-list" className="space-y-3">
@@ -61,13 +61,13 @@ export function ReviewsList(props: {
                 />
               )}
               <span>{group.title}</span>
-              {group.provider && !byStatus && (
+              {group.provider && !group.status && (
                 <span className="font-mono text-[10px] font-medium opacity-70">
                   {PROVIDER[group.provider]}
                 </span>
               )}
               <span className="ml-auto font-medium tabular-nums">
-                {byStatus ? group.prs.length : toAct || ''}
+                {group.status ? group.prs.length : toAct || ''}
               </span>
             </button>
             {open && (

@@ -1,5 +1,5 @@
 import type { Bucket, PrDetail } from '@mesa/core';
-import { counted, PR_CLIS, prStatus, threadProgress, timeAgo } from '@mesa/core/browser';
+import { counted, PR_CLIS, prStatus, relativeAgo, threadProgress } from '@mesa/core/browser';
 import { Check, Clock, ExternalLink, Eye, RefreshCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,10 @@ type Status = { Icon: typeof Eye; say: string; sub?: string };
 
 /** "since your review 2d ago", or just "since your review" when I never left one. */
 const sinceReview = (pr: PrDetail, now: number) =>
-  `since your review${pr.since.lastWord ? ` ${timeAgo(pr.since.lastWord, now)}` : ''}`;
+  `since your review${pr.since.lastWord ? ` ${relativeAgo(pr.since.lastWord, now)}` : ''}`;
+
+/** The author's news as one sentence: "Lee pushed 2 commits since your review 3d ago." */
+const updatedSay = (pr: PrDetail, now: number) => `${news(pr)} ${sinceReview(pr, now)}.`;
 
 /** What the author did since my last review: "pushed 3 commits and replied 2 times". */
 function news(pr: PrDetail) {
@@ -24,17 +27,24 @@ function news(pr: PrDetail) {
 
 /** One sentence per state (core's prStatus), with its age. */
 const STATUS: Record<'drafts' | Bucket, (pr: PrDetail, now: number) => Status> = {
-  drafts: (pr) => ({
-    Icon: Check,
-    say: `${counted(pr.drafts.length, 'draft comment')} ${pr.drafts.length === 1 ? 'is' : 'are'} waiting on ${PR_CLIS[pr.provider].name}. Only you can see them.`,
-    sub: 'Nothing is posted until you submit.',
-  }),
+  drafts: (pr, now) => {
+    const one = pr.drafts.length === 1;
+    return {
+      Icon: Check,
+      say: `${counted(pr.drafts.length, 'draft comment')} ${one ? 'is' : 'are'} waiting on ${PR_CLIS[pr.provider].name}. Only you can see ${one ? 'it' : 'them'}.`,
+      // Drafts never hide what the author did meanwhile.
+      sub:
+        pr.bucket === 'updated'
+          ? `${updatedSay(pr, now)} Nothing is posted until you submit.`
+          : 'Nothing is posted until you submit.',
+    };
+  },
   need: (pr, now) => ({
     Icon: Eye,
     say: `${pr.author} asked for your review.`,
-    sub: `Updated ${timeAgo(pr.updatedAt, now)}.`,
+    sub: `Updated ${relativeAgo(pr.updatedAt, now)}.`,
   }),
-  updated: (pr, now) => ({ Icon: RefreshCw, say: `${news(pr)} ${sinceReview(pr, now)}.` }),
+  updated: (pr, now) => ({ Icon: RefreshCw, say: updatedSay(pr, now) }),
   waiting: (pr, now) => ({
     Icon: Clock,
     say: `Nothing new ${sinceReview(pr, now)}.`,
@@ -83,7 +93,7 @@ export function PrStatusPanel(props: {
         )}
       </div>
       {sub && <p className="col-start-2 text-muted-foreground text-sm">{sub}</p>}
-      {status === 'updated' && threads > 0 && (
+      {pr.bucket === 'updated' && threads > 0 && (
         <div className="col-start-2 flex items-center gap-2.5 text-muted-foreground text-xs tabular-nums">
           <span className="h-1.5 w-44 overflow-hidden rounded-full bg-card">
             <span

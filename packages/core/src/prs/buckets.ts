@@ -40,16 +40,13 @@ export const prStatus = (pr: { bucket: Bucket; drafts: readonly unknown[] }): 'd
  */
 export function threadProgress(pr: {
   since: Pick<Since, 'resolved' | 'threads'>;
-  threads: readonly { verdict?: { state: string } }[];
+  threads: readonly { resolved: boolean; verdict?: { state: string } }[];
 }): { done: number; of: number; by: 'verdicts' | 'resolved' } {
-  const judged = pr.threads.filter((t) => t.verdict);
-  return judged.length
-    ? {
-        done: judged.filter((t) => t.verdict?.state !== 'not').length,
-        of: pr.since.threads,
-        by: 'verdicts',
-      }
-    : { done: pr.since.resolved, of: pr.since.threads, by: 'resolved' };
+  if (!pr.threads.some((t) => t.verdict))
+    return { done: pr.since.resolved, of: pr.since.threads, by: 'resolved' };
+  // A thread the re-review gave no verdict counts by the provider: resolved is addressed.
+  const done = pr.threads.filter((t) => (t.verdict ? t.verdict.state !== 'not' : t.resolved));
+  return { done: done.length, of: pr.threads.length, by: 'verdicts' };
 }
 
 /** The bucket asks something of me: a first review, or a look at what changed since mine. */

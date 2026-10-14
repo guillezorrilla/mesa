@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { bucketOf, type PrFacts } from './buckets.js';
+import { bucketOf, type PrFacts, threadProgress } from './buckets.js';
 
 // Dana opened the PR; I am "ana". Times are on one invented day.
 const pr = (over: Partial<PrFacts> = {}): PrFacts => ({
@@ -96,4 +96,20 @@ test('approved with nothing new: done; new commits after approval: updated', () 
 test('merged or closed: done', () => {
   expect(bucketOf(pr({ state: 'merged', requested: true }), 'ana').bucket).toBe('done');
   expect(bucketOf(pr({ state: 'closed', requested: true }), 'ana').bucket).toBe('done');
+});
+
+test('thread progress: resolved ones without verdicts, else verdicts, a resolved unjudged one counting', () => {
+  const since = { resolved: 1, threads: 3 };
+  const t = (resolved: boolean, state?: string) => ({
+    resolved,
+    ...(state ? { verdict: { state } } : {}),
+  });
+  expect(threadProgress({ since, threads: [t(true), t(false), t(false)] })).toEqual({
+    done: 1,
+    of: 3,
+    by: 'resolved',
+  });
+  expect(
+    threadProgress({ since, threads: [t(false, 'partly'), t(true), t(false, 'not')] }),
+  ).toEqual({ done: 2, of: 3, by: 'verdicts' });
 });

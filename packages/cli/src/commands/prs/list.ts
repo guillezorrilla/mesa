@@ -1,4 +1,4 @@
-import { BUCKET_LABELS } from '@mesa/core';
+import { BUCKET_LABELS, counted } from '@mesa/core';
 import { defineCommand } from '../../command.js';
 import { columns } from '../../output/columns.js';
 
@@ -23,7 +23,7 @@ export const prs = defineCommand({
         BUCKET_LABELS[p.bucket],
         p.author,
         p.bucket === 'updated'
-          ? `${p.since.commits} commits, ${p.since.replies} replies, ${p.since.resolved}/${p.since.threads} resolved`
+          ? `${counted(p.since.commits, 'commit')}, ${p.since.replies} ${p.since.replies === 1 ? 'reply' : 'replies'}, ${p.since.resolved}/${p.since.threads} resolved`
           : '',
         p.title,
       ]),
