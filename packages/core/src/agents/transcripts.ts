@@ -44,6 +44,11 @@ export type Transcripts<A extends Agent> = {
    * none for an agent that does not say, or a transcript that does not yet.
    */
   branch?: (file: string) => string | undefined;
+  /**
+   * The worktree its agent last entered mid-conversation in transcript `file` (Claude Code's
+   * EnterWorktree); none when it entered none, or left the last one it entered.
+   */
+  worktree?: (file: string) => { path: string; branch: string } | undefined;
 };
 
 /** A content block of a message: its kind and, for text, its text. */

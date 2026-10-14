@@ -233,6 +233,28 @@ function claudeBranch(file: string): string | undefined {
   );
 }
 
+/**
+ * The worktree a transcript last entered: Claude Code stamps a `worktree-state` line on each turn
+ * in one, with a null session once it leaves.
+ */
+function claudeWorktree(file: string): { path: string; branch: string } | undefined {
+  // ponytail: only the last NAME_TAIL bytes; a turn writes the line again, so a live one is there.
+  const found = lastMatchingLine(
+    file,
+    (line) => {
+      if (!line.includes('"worktree-state"')) return undefined;
+      const state = parsedLine<{
+        worktreeSession?: { worktreePath?: unknown; worktreeBranch?: unknown } | null;
+      }>(line)?.worktreeSession;
+      if (state === undefined) return undefined;
+      const { worktreePath: path, worktreeBranch: branch } = state ?? {};
+      return typeof path === 'string' && typeof branch === 'string' ? { path, branch } : null;
+    },
+    NAME_TAIL,
+  );
+  return found ?? undefined;
+}
+
 /** One transcript line, parsed: the fields its prompt and messages are read from. */
 type Line = {
   type?: unknown;
@@ -284,4 +306,5 @@ export const claudeTranscriptReader: Transcripts<'claude'> = {
     return { messages: lines.flatMap((line) => messageIn(line) ?? []), truncated };
   },
   branch: claudeBranch,
+  worktree: claudeWorktree,
 };

@@ -34,3 +34,25 @@ test('a transcript whose last line names no branch reads as none, kept as read',
   expect(refreshReadings(deps, record).gitBranch).toBe('');
   expect(store.get(record.id).gitBranch).toBe('');
 });
+
+test('a worktree its agent entered mid-session becomes its worktree, so its diff reads there', () => {
+  const { deps, store, record, plant } = setUp();
+  const entered = (path: string, branch: string) => ({
+    type: 'worktree-state',
+    worktreeSession: { worktreePath: path, worktreeBranch: branch },
+  });
+  plant(at('/src/lantern-cove', 'main'), entered('/w/lantern-cove/tide-fix', 'tide-fix'));
+  expect(refreshReadings(deps, record).worktree).toEqual({
+    path: '/w/lantern-cove/tide-fix',
+    branch: 'tide-fix',
+  });
+  expect(store.get(record.id).worktree?.path).toBe('/w/lantern-cove/tide-fix');
+  // Leaving it keeps the record as it was: Mesa does not know what it ran in before.
+  plant(entered('/w/lantern-cove/tide-fix', 'tide-fix'), {
+    type: 'worktree-state',
+    worktreeSession: null,
+  });
+  expect(refreshReadings(deps, store.get(record.id)).worktree?.path).toBe(
+    '/w/lantern-cove/tide-fix',
+  );
+});
