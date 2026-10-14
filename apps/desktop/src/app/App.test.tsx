@@ -82,6 +82,7 @@ test('sidebar opens a project workspace and its Skills tab', async () => {
     'git',
     'files',
     'vault',
+    'impact',
     'skills',
     'instructions',
     'automations',
@@ -310,6 +311,27 @@ test('sidebar opens Map without creating a missing saved map', async () => {
   await click(byTestId('nav-map')[0]);
   expect(byTestId('map-screen')[0]?.textContent).toContain('No map yet. Use Update map.');
   expect(calls.some((args) => args[1] === 'map')).toBe(false);
+});
+
+test('sidebar opens Impact between Daily and Automations', async () => {
+  const { bridge, calls } = fakeBridge({
+    impact: () =>
+      envelope({
+        days: 7,
+        since: '2026-10-06T12:00:00.000Z',
+        summary: { caught: 0, corrected: 0, notesIn: 0, stopped: 0, kept: 0, sessions: 0 },
+        sentence: 'Nothing yet.',
+        sessions: [],
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const row = byTestId('nav-daily')[0]?.parentElement;
+  const labels = [...(row?.children ?? [])].map((el) => el.getAttribute('data-testid'));
+  expect(labels.indexOf('nav-impact')).toBe(labels.indexOf('nav-daily') + 1);
+  expect(labels.indexOf('nav-automations')).toBe(labels.indexOf('nav-impact') + 1);
+  await click(byTestId('nav-impact')[0]);
+  expect(byTestId('impact-summary')[0]?.textContent).toBe('Nothing yet.');
+  expect(calls).toContainEqual(['--json', 'impact', '--days', '7']);
 });
 
 test('project Skills and Instructions tabs preview and save only through their checked commands', async () => {
@@ -2719,6 +2741,7 @@ test('Search Mesa opens with Cmd+K, filters destinations, and navigates with Ent
   expect(byTestId('palette-hit').map((hit) => hit.dataset.value)).toEqual([
     'project:lantern-cove',
     'session:aaaaaaaa',
+    'impact:project:lantern-cove',
     'vault:lantern',
   ]);
   await press(input, 'Enter');

@@ -66,6 +66,7 @@ test('a label match outranks a hit that only mentions the text in its detail', (
   expect(ids(searchWorkspace([near, ...projects], [], 'lantern'))).toEqual([
     'lantern-cove',
     'tide-pool',
+    'project:lantern-cove',
     'lantern',
   ]);
   // An id that starts with the text still ranks below a label word that does.
@@ -169,4 +170,18 @@ test('a session hit names its additional projects after its own', () => {
   const [hit] = searchWorkspace(projects, [across], 'aaaaaaaa');
   expect(hit?.detail).toBe('lantern-cove +tide-pool,driftwood · claude · working');
   expect(ids(searchWorkspace(projects, [across], 'driftwood'))).toContain('aaaaaaaa');
+});
+
+test('Impact is a destination; typed text adds the Impact of each matching project and session', () => {
+  const navigation = searchWorkspace(projects, [], '').filter((hit) => hit.kind === 'navigation');
+  expect(navigation.find((hit) => hit.id === 'impact')).toMatchObject({ label: 'Impact' });
+  expect(searchWorkspace(projects, [], '').some((hit) => hit.kind === 'impact')).toBe(false);
+  const archived = { ...session('a1b2c3d4', '2026-09-24T10:00:00Z', 'done'), name: 'tide-check' };
+  const impact = searchWorkspace(projects, [archived as TreeRow], 'impact').filter(
+    (hit) => hit.kind === 'impact',
+  );
+  expect(impact.map((hit) => [hit.id, hit.label])).toEqual([
+    ['project:lantern-cove', 'Impact: Lantern Cove'],
+    ['session:a1b2c3d4', 'Impact: tide-check'],
+  ]);
 });

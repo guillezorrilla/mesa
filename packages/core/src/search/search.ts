@@ -10,7 +10,8 @@ import { isOver } from '../sessions/record/lifecycle.js';
 /** A fixed command's hit carries its `CommandId`; the rest an id their kind gives them. */
 export type SearchHit = (
   | { kind: 'navigation' | 'action' | 'setting'; id: CommandId }
-  | { kind: 'project' | 'session' | 'prompt' | 'vault'; id: string }
+  /** An Impact hit's id is `project:<name>` or `session:<id>`. */
+  | { kind: 'project' | 'session' | 'prompt' | 'vault' | 'impact'; id: string }
 ) & {
   label: string;
   detail: string;
@@ -24,6 +25,7 @@ export type CommandId =
   | 'sessions'
   | 'grid'
   | 'automations'
+  | 'impact'
   | 'doctor'
   | 'help'
   | 'new-session'
@@ -57,6 +59,12 @@ function commands(shortcuts: Shortcuts, canStart: boolean): SearchHit[] {
       id: 'automations',
       label: 'Automations',
       detail: 'Manage optional profile rules',
+    },
+    {
+      kind: 'navigation',
+      id: 'impact',
+      label: 'Impact',
+      detail: 'What Mesa decided and kept for you',
     },
     { kind: 'navigation', id: 'doctor', label: 'Doctor', detail: "Check Mesa's health" },
     { kind: 'navigation', id: 'help', label: 'Help', detail: 'Read commands and guidance' },
@@ -205,6 +213,31 @@ export function searchWorkspace(
       .filter((hit) => hit.kind === kind)
       .slice(0, kind === 'session' && !text ? RECENT_SESSIONS : GROUP_LIMIT),
   );
+  // Impact of each project and session, after every other group and only for typed text: with
+  // none they would crowd the palette, and they never push a project or session down.
+  const impact = text
+    ? ranked(
+        [
+          ...projects.map(
+            (project): SearchHit => ({
+              kind: 'impact',
+              id: `project:${project.name}`,
+              label: `Impact: ${project.label}`,
+              detail: 'What Mesa decided and kept in this project',
+            }),
+          ),
+          ...sessionHits.map(
+            (session): SearchHit => ({
+              kind: 'impact',
+              id: `session:${session.id}`,
+              label: `Impact: ${session.label}`,
+              detail: 'What Mesa decided and kept in this session',
+            }),
+          ),
+        ],
+        text,
+      ).slice(0, GROUP_LIMIT)
+    : [];
   const vault: SearchHit[] = text
     ? [
         {
@@ -215,5 +248,5 @@ export function searchWorkspace(
         },
       ]
     : [];
-  return [...grouped, ...vault];
+  return [...grouped, ...impact, ...vault];
 }

@@ -26,6 +26,7 @@ const HEADINGS: Record<SearchHit['kind'], string> = {
   session: 'Recent sessions',
   prompt: 'Saved prompts',
   vault: 'Vault',
+  impact: 'Impact',
 };
 
 /** Core returns each kind's hits together: runs of one kind, in core's order. */

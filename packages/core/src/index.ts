@@ -51,6 +51,14 @@ export type { RepositoryInsight } from './git/insight.js';
 export type { StashAction, StashCreated, StashEntry } from './git/stash.js';
 export type { GitChange, GitStatus } from './git/status.js';
 export type { GitSync, GitTracking } from './git/sync.js';
+export type {
+  ImpactReport,
+  ImpactSummary,
+  Moment,
+  Outcome,
+  SessionImpact,
+} from './impact/report.js';
+export { EMPTY_IMPACT, foldedText } from './impact/report.js';
 export type { InstructionRow } from './instructions/inventory.js';
 export type { CliState } from './lib/cli-state.js';
 export { type Clock, systemClock } from './lib/clock.js';

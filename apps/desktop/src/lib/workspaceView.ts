@@ -17,6 +17,8 @@ export type WorkspaceView =
         | 'inbox';
     }
   | { kind: 'daily' }
+  /** Impact for the profile, one project, or with one session's card first and open. */
+  | { kind: 'impact'; project?: string; session?: string }
   /** The Vault screen, searching `query` or with the item at `path` selected, when given. */
   | { kind: 'vault'; query?: string; path?: string }
   | { kind: 'project'; name: string; file?: { checkout: string; path: string; line: number } }

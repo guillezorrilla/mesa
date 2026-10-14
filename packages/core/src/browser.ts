@@ -25,6 +25,13 @@ export { type SiteMode, siteMode } from './decisions/site-mode.js';
 export { DECISION_SITES, type DecisionSite } from './decisions/sites.js';
 export { SYSTEM_ONE_PROVIDERS, type SystemOneProvider } from './decisions/systemone.js';
 export { parseFileTarget } from './files/file-target.js';
+export {
+  EMPTY_IMPACT,
+  foldedText,
+  type ImpactReport,
+  type Moment,
+  type SessionImpact,
+} from './impact/report.js';
 export { shortAgo, timeAgo } from './lib/ago.js';
 export * from './lib/format.js';
 export { localDay, validLocalDay } from './lib/time.js';

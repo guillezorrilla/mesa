@@ -35,6 +35,7 @@ import { history, historySearch } from './history.js';
 import { hook, hookTmux } from './hook.js';
 import { hooksInstall, hooksStatus, hooksUninstall } from './hooks.js';
 import { imagePreview, imageSend } from './image.js';
+import { impact } from './impact.js';
 import { importGoal, importLinks, importList, importRefresh, importStatus } from './import.js';
 import { init } from './init.js';
 import { instructionsList, instructionsRead, instructionsWrite } from './instructions.js';
@@ -211,6 +212,7 @@ export const COMMANDS: Command[] = [
   register,
   rename,
   rewind,
+  impact,
   reviewResponses,
   reviewPreview,
   reviewSend,

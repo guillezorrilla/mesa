@@ -12,6 +12,7 @@ import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { MesasPartField } from '@/features/impact/MesasPartField';
 import { useCall } from '@/lib/useCommand';
 import { ContextRing } from './ContextRing';
 import { DecisionAssistancePanel } from './DecisionAssistancePanel';
@@ -48,7 +49,11 @@ const placedText = ({
     .join(', ');
 
 /** Native facts for the selected session, read by id only when its details are opened. */
-export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: string }) {
+export function SelectedSessionDetails(props: {
+  row: ManagedRow;
+  projectPath?: string;
+  onImpact?: (session: string) => void;
+}) {
   const call = useCall();
   const [record, setRecord] = useState<
     SessionRecord & {
@@ -187,6 +192,14 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
                   )}
                   <DecisionAssistancePanel session={row.id} />
                 </div>
+              ) : (
+                'Open details to check'
+              )}
+            </dd>
+            <dt className="text-muted-foreground">Mesa's part</dt>
+            <dd>
+              {opened ? (
+                <MesasPartField session={row.id} onImpact={props.onImpact} />
               ) : (
                 'Open details to check'
               )}

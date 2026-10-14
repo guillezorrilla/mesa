@@ -53,6 +53,7 @@ export function ProjectTabBar(props: {
             'git',
             'files',
             'vault',
+            'impact',
             'skills',
             'instructions',
             'automations',

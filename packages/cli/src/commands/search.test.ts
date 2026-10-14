@@ -9,6 +9,7 @@ test('search --json returns project and action destinations for this profile', a
   const project = await cli.mesa('search', 'lantern', '--json');
   expect(project.json.data).toMatchObject([
     { kind: 'project', id: 'lantern-cove', label: 'lantern-cove' },
+    { kind: 'impact', id: 'project:lantern-cove', label: 'Impact: lantern-cove' },
     { kind: 'vault', id: 'lantern', label: 'Search vault' },
   ]);
   const missing = await cli.mesa('search', 'nothing-matches', '--json');

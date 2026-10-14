@@ -17,6 +17,7 @@ const PALETTE_DESTINATIONS = [
   'backup',
   'automations',
   'shortcuts',
+  'impact',
 ] as const;
 
 /**
@@ -28,6 +29,11 @@ export function paletteView(hit: SearchHit): WorkspaceView | undefined {
   if (hit.kind === 'project') return { kind: 'project', name: hit.id };
   if (hit.kind === 'session') return { kind: 'session', id: hit.id };
   if (hit.kind === 'vault') return { kind: 'vault', query: hit.id };
+  if (hit.kind === 'impact') {
+    const [scope, ...rest] = hit.id.split(':');
+    const id = rest.join(':');
+    return scope === 'project' ? { kind: 'impact', project: id } : { kind: 'impact', session: id };
+  }
   const destination = PALETTE_DESTINATIONS.find((kind) => kind === hit.id);
   return destination ? { kind: destination } : undefined;
 }
