@@ -19,6 +19,8 @@ import { useStartSession } from '@/features/sessions/start/useStartSession';
 import { usePrEventDelivery } from '@/features/sessions/usePrEventDelivery';
 import { OpenSettingsContext } from '@/features/settings/useOpenSettings';
 import { useCostAlerts } from '@/features/usage/useCostAlerts';
+import { AddVaultProvider } from '@/features/vault/AddVaultProvider';
+import { useOpenInObsidian } from '@/features/vault/useOpenInObsidian';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { NavigateContext } from '@/lib/useNavigate';
@@ -38,7 +40,16 @@ import { TitleBar } from './TitleBar';
 import { type SessionRequest, WorkspaceMain } from './WorkspaceMain';
 import { WorkspaceOverlays } from './WorkspaceOverlays';
 
+/** The app, with the add-vault guide around it, so the palette's Open vault has it too. */
 export function App() {
+  return (
+    <AddVaultProvider>
+      <AppShell />
+    </AddVaultProvider>
+  );
+}
+
+function AppShell() {
   const workspace = useWorkspaceNavigation();
   const { view, setView, navigate, navigateLatest, overlay, setOverlay } = workspace;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -54,6 +65,7 @@ export function App() {
   const [projectAdd, setProjectAdd] = useState<ProjectAddRequest>();
   const profileMenu = useRef<HTMLDetailsElement>(null);
   const run = useRun();
+  const { openVault } = useOpenInObsidian();
   const { act } = useAct();
   const doctor = useCommand('doctor.run');
   const config = useCommand('config.get');
@@ -265,7 +277,7 @@ export function App() {
             else if (hit.id === 'new-session') requestNewSession();
             else if (hit.id === 'smarter-decisions') workspace.openSettings('decisions');
             else if (hit.id === 'open-vault') {
-              void act(async () => warningOf(await run('vault.open')));
+              void act(async () => warningOf(await openVault()));
             } else if (hit.id === 'profile') {
               if (profileMenu.current) profileMenu.current.open = true;
               profileMenu.current?.querySelector('summary')?.focus();

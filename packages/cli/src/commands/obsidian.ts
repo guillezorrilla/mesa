@@ -10,3 +10,14 @@ export const obsidianVaults = defineCommand({
     return { data, text: [...lines, `suggested ${data.suggested}`].join('\n') };
   },
 });
+
+export const obsidianManager = defineCommand({
+  name: 'obsidian manager',
+  summary:
+    'Open Obsidian\'s vault manager, where "Open folder as vault" adds a vault it does not know',
+  example: 'mesa obsidian manager',
+  run: async ({ mesa }) => {
+    const data = await mesa.openVaultManager();
+    return { data, text: `opened ${data.target}` };
+  },
+});

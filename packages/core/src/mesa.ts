@@ -35,7 +35,7 @@ import { updateService } from './update/service.js';
 import { rewindService } from './usage/rewind.js';
 import { usageService } from './usage/service.js';
 import { statusLineService } from './usage/statusline.js';
-import { vaultChoices } from './vault/obsidian.js';
+import { openVaultManager, vaultChoices } from './vault/obsidian.js';
 import { vaultService } from './vault/service.js';
 import { worktreesService } from './worktrees/service.js';
 
@@ -131,6 +131,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
     guardrail: { check: faro.guardrail.check },
     /** Where a first vault can go (`mesa obsidian vaults`): needs no profile. */
     vaultChoices: () => vaultChoices(deps.obsidian, deps.home),
+    /** Obsidian's vault manager, to add a vault it does not know (`mesa obsidian manager`). */
+    openVaultManager: () => openVaultManager(ctx.run),
     ...doctorService(ctx, {
       faro,
       vaultStatus: vaults.vault.status,

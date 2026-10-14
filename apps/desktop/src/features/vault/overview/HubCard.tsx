@@ -3,9 +3,10 @@ import { ChevronDown, ExternalLink, FileText } from 'lucide-react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { MarkdownView } from '@/components/MarkdownView';
 import { Button } from '@/components/ui/button';
-import { useOptional, useRun } from '@/lib/useCommand';
+import { useOptional } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { NoteMarkdown, PROSE } from '../NoteMarkdown';
+import { useOpenInObsidian } from '../useOpenInObsidian';
 
 /** The hub's height while folded, in pixels: Tailwind's max-h-96. */
 const FOLDED = 384;
@@ -19,7 +20,7 @@ export function HubCard(props: {
   onItem: (path: string) => void;
 }) {
   const { hub } = props;
-  const run = useRun();
+  const { openNote } = useOpenInObsidian();
   const read = useOptional('vault.read', { path: hub.path }).data;
   const body = useRef<HTMLDivElement>(null);
   const [long, setLong] = useState(false);
@@ -45,12 +46,7 @@ export function HubCard(props: {
         <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
           {hub.path}
         </span>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7"
-          onClick={() => void run('vault.openNote', { note: hub.path })}
-        >
+        <Button size="sm" variant="ghost" className="h-7" onClick={() => void openNote(hub.path)}>
           <ExternalLink aria-hidden /> Open in Obsidian
         </Button>
       </div>

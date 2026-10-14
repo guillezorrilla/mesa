@@ -26,6 +26,10 @@ export const macObsidianPaths = (home: string): ObsidianPaths => ({
 
 const OPEN_TIMEOUT_MS = 5000;
 
+/** Obsidian's CLI where it is: registered, else inside the app; none when Obsidian is not installed. */
+export const obsidianCli = (paths: ObsidianPaths) =>
+  [paths.registered, paths.bundle].find((p) => existsSync(p));
+
 /**
  * `obsidian://open` for the vault, or one note in it (docs/spikes/obsidian-cli.md). Obsidian names a
  * vault after its folder; every value is URI-encoded.
@@ -67,6 +71,22 @@ export function vaultChoices(obsidian: ObsidianPaths, home: string): VaultChoice
 export type Opened = { opened: true; method: 'uri' | 'cli'; target: string };
 
 /**
+ * The `details` of the not_found `openInObsidian` throws for a vault Obsidian has not added, and
+ * whether Obsidian is installed at all.
+ */
+export type UnknownVault = { unknownVault: true; vault: string; installed: boolean };
+
+/** Opens an `obsidian://` URI through macOS `open`, which launches Obsidian when needed. */
+async function openUri(run: Runner, uri: string): Promise<Opened> {
+  const opened = await run('open', [uri], OPEN_TIMEOUT_MS);
+  if (!opened.ok) throw new MesaError('internal', `could not open ${uri}: ${opened.detail}`);
+  return { opened: true, method: 'uri', target: uri };
+}
+
+/** Opens Obsidian's vault manager, where "Open folder as vault" adds a vault. */
+export const openVaultManager = (run: Runner) => openUri(run, 'obsidian://choose-vault');
+
+/**
  * Opens the vault, or one item in it (a vault-relative path; a note's `.md` may be left out), in
  * Obsidian. The default is the `obsidian://` URI through macOS `open`, which launches Obsidian
  * when needed. `cli` uses the Obsidian CLI for a note when it is registered, and falls back to the
@@ -89,11 +109,17 @@ export async function openInObsidian(
     note = `${note}.md`;
   }
   // Opening an unknown vault shows Obsidian's "Vault not found" dialog; say how to fix it instead.
+  // `unknownVault` tells this apart from a missing note, so the app can guide the person.
   const known = knownVaults(deps.obsidian.vaultList);
   if (!known.includes(resolve(vault))) {
     throw new MesaError(
       'not_found',
       `Obsidian does not know the vault ${vault} yet: open it once with "Open folder as vault" in Obsidian, then retry`,
+      {
+        unknownVault: true,
+        vault: resolve(vault),
+        installed: obsidianCli(deps.obsidian) !== undefined,
+      } satisfies UnknownVault,
     );
   }
   // Obsidian names a vault by its folder, so a second known vault with the same folder name makes
@@ -110,8 +136,5 @@ export async function openInObsidian(
     const cli = await deps.run(deps.obsidian.registered, args, OPEN_TIMEOUT_MS);
     if (cli.ok) return { opened: true, method: 'cli', target: note };
   }
-  const uri = obsidianUri(vault, note);
-  const opened = await deps.run('open', [uri], OPEN_TIMEOUT_MS);
-  if (!opened.ok) throw new MesaError('internal', `could not open ${uri}: ${opened.detail}`);
-  return { opened: true, method: 'uri', target: uri };
+  return openUri(deps.run, obsidianUri(vault, note));
 }

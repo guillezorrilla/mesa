@@ -2,7 +2,8 @@ import { odds } from '@mesa/core/browser';
 import { ExternalLink, RefreshCw } from 'lucide-react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
-import { useCommand, useRun } from '@/lib/useCommand';
+import { useCommand } from '@/lib/useCommand';
+import { useOpenInObsidian } from './useOpenInObsidian';
 
 /**
  * A saved decision's probabilities and confidence (its receipt's inputs), compactly:
@@ -24,7 +25,7 @@ export function KnowledgeContext(props: { project?: string; session?: string }) 
   const decisions = useCommand('receipts.list', { ...scope, kind: 'decision' });
   const guardrails = useCommand('receipts.list', { ...scope, kind: 'guardrail' });
   const changes = useCommand('receipts.list', { ...scope, kind: 'vault-change' });
-  const run = useRun();
+  const { openNote } = useOpenInObsidian();
   const entries = [
     ...(decisions.data ?? []),
     ...(guardrails.data ?? []),
@@ -86,7 +87,7 @@ export function KnowledgeContext(props: { project?: string; session?: string }) 
               size="sm"
               variant="ghost"
               aria-label={`Open ${target} in Obsidian`}
-              onClick={() => void run('vault.openNote', { note: target })}
+              onClick={() => void openNote(target)}
             >
               <ExternalLink aria-hidden /> Open in Obsidian
             </Button>

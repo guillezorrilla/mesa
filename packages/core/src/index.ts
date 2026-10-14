@@ -268,6 +268,7 @@ export {
   macObsidianPaths,
   type ObsidianPaths,
   type Opened,
+  type UnknownVault,
   type VaultChoices,
 } from './vault/obsidian.js';
 export type { VaultPreview, VaultRead } from './vault/reader.js';

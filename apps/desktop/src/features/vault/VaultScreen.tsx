@@ -7,6 +7,7 @@ import { useToast, warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
 import { CommandScope, useCall, useRun } from '@/lib/useCommand';
+import { useOpenInObsidian } from './useOpenInObsidian';
 import { useVaultLook } from './useVaultLook';
 import { VaultBrowser } from './VaultBrowser';
 import { VaultHealthPanel } from './VaultHealthPanel';
@@ -100,6 +101,7 @@ export function VaultScreen({
 }) {
   const look = useVaultLook();
   const run = useRun();
+  const { openVault } = useOpenInObsidian();
   const { acting, act } = useAct();
   const setup = (
     <Button
@@ -128,7 +130,7 @@ export function VaultScreen({
         data-testid="open-vault"
         variant="outline"
         disabled={acting || !look?.list.ok}
-        onClick={() => void act(async () => warningOf(await run('vault.open')))}
+        onClick={() => void act(async () => warningOf(await openVault()))}
       >
         <ExternalLink aria-hidden /> Open in Obsidian
       </Button>
