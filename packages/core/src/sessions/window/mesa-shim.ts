@@ -1,5 +1,6 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { writeFileAtomic } from '../../lib/atomic-file.js';
 import { shellWord } from '../../lib/process.js';
 
 /**
@@ -18,8 +19,7 @@ export function mesaOnPath(dir: string, self: readonly string[], path: string | 
   }
   if (current !== script) {
     mkdirSync(dir, { recursive: true });
-    // ponytail: written in place; two launches at once write the same two lines.
-    writeFileSync(file, script, { mode: 0o755 });
+    writeFileAtomic(file, script, 0o755);
   }
   return path ? `${dir}:${path}` : dir;
 }
