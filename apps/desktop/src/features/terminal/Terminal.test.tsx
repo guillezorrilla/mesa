@@ -4,7 +4,14 @@ import { DEFAULT_TERMINAL_PREFERENCES, TERMINAL_PRESETS } from '@mesa/core/brows
 import type { Terminal as Xterm } from '@xterm/xterm';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
-import { attached, fakeBridge, fakePlatform, fakeTerminals, renderWithMesa } from '@/lib/testing';
+import {
+  attached,
+  fakeBridge,
+  fakeFileDrops,
+  fakePlatform,
+  fakeTerminals,
+  renderWithMesa,
+} from '@/lib/testing';
 import { Terminal } from './Terminal';
 
 // Each xterm the component makes, so a test can read the options it was given.
@@ -82,4 +89,26 @@ test('on follow, switching the interface theme recolors the open terminal', asyn
     TERMINAL_PRESETS['mesa-dark'].colors.background,
   );
   delete document.documentElement.dataset.theme;
+});
+
+test('a file dropped on the terminal types its escaped path, as a terminal app does', async () => {
+  const terminals = fakeTerminals();
+  const drops = fakeFileDrops();
+  const platform = fakePlatform({ terminal: terminals.host, fileDrops: drops.host });
+  const byTestId = await renderWithMesa(
+    <Terminal sessionId="aaaaaaaa" />,
+    fakeBridge().bridge,
+    platform,
+  );
+  await attached();
+  const box = byTestId('terminal-aaaaaaaa')[0] as HTMLElement;
+  box.getBoundingClientRect = () => new DOMRect(100, 50, 600, 400);
+  const writes = () => terminals.calls.filter((call) => call[0] === 'write').map((call) => call[2]);
+  // Elsewhere in the window: not this terminal's.
+  await act(async () => drops.drop({ paths: ['/tmp/a.png'], x: 20, y: 20 }));
+  expect(writes()).toEqual([]);
+  await act(async () =>
+    drops.drop({ paths: ['/Users/me/Screen Shot (1).png', '/tmp/b.png'], x: 200, y: 100 }),
+  );
+  expect(writes()).toEqual(['/Users/me/Screen\\ Shot\\ \\(1\\).png /tmp/b.png ']);
 });

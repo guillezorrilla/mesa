@@ -31,11 +31,15 @@ const osc52Text = (data: string) => {
   }
 };
 
+/** A path as a shell reads it, its specials escaped: what Terminal.app or iTerm types for a drop. */
+const shellEscaped = (path: string) => path.replace(/[\s\\'"()[\]{}<>|&;$`!*?#~]/g, '\\$&');
+
 /**
  * One session's tmux window in the app: xterm.js 6 over the Rust pty (ADR-0007, SP-3). It fits
  * its box, and after each fit the window takes the size (`mesa resize`). A copy in tmux (a mouse
  * drag, with `mouse on`) arrives as OSC 52 and goes to the pasteboard; Cmd+V is the webview's
- * own paste. Unmounting closes only the tmux client.
+ * own paste. A file dropped on it types its path, which Claude Code attaches when it is an image.
+ * Unmounting closes only the tmux client.
  */
 export function Terminal(props: {
   sessionId: string;
@@ -84,7 +88,7 @@ export function Terminal(props: {
     term.open(el);
     // The WebGL addon left live WKWebView panes black after selection; xterm's default renderer
     // displays the same native tmux output through view switches.
-    const { terminal, clipboard } = platform;
+    const { terminal, clipboard, fileDrops } = platform;
     term.attachCustomKeyEventHandler((event) => {
       const input = terminalInputForKey(event, preferencesRef.current, term.hasSelection());
       if (input === null) return true;
@@ -179,6 +183,15 @@ export function Terminal(props: {
       if (termId) terminal.write(termId, data).catch(() => {});
     });
     (async () => {
+      offs.push(
+        await fileDrops.onDrop(({ paths, x, y }) => {
+          const box = el.getBoundingClientRect();
+          if (x < box.left || x > box.right || y < box.top || y > box.bottom) return;
+          // paste: wrapped in bracketed paste when the agent asked for it, as a typed path is not.
+          term.paste(`${paths.map(shellEscaped).join(' ')} `);
+          term.focus();
+        }),
+      );
       fit.fit();
       const id = await terminal.open(props.sessionId, term.cols, term.rows);
       termId = id;

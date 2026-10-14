@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -101,6 +102,14 @@ export const tauriPlatform: Platform = {
       listen<{ session: string; url: string }>('browser://load', (event) =>
         listener(event.payload),
       ),
+  },
+  fileDrops: {
+    onDrop: (handler) =>
+      getCurrentWebview().onDragDropEvent(({ payload }) => {
+        if (payload.type !== 'drop') return;
+        const { x, y } = payload.position.toLogical(window.devicePixelRatio);
+        handler({ paths: payload.paths, x, y });
+      }),
   },
   clipboard: { write: (text) => invoke('clipboard_write', { text }) },
   updates: {
