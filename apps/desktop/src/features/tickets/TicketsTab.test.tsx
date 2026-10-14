@@ -2,7 +2,7 @@
 import type { FollowedView, Ticket } from '@mesa/core';
 import { act } from 'react';
 import { beforeEach, expect, test } from 'vitest';
-import { choose, click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
+import { choose, click, envelope, failure, fakeBridge, renderWithMesa } from '@/lib/testing';
 import { TicketsTab } from './TicketsTab';
 
 const ticket = (key: string, summary: string, extra: Partial<Ticket> = {}): Ticket => ({
@@ -149,7 +149,7 @@ async function startable(answers: Record<string, (args: string[]) => unknown> = 
   return { ...fake, byTestId, opened, started };
 }
 
-test('Start goal starts at once with the project defaults, then opens it', async () => {
+test('Start goal starts at once with the project defaults, then opens the session on its own', async () => {
   const { byTestId, opened, started } = await startable();
   expect(byTestId('start-summary')[0]?.textContent).toBe(
     'Runs in a new worktree on lc-2 · assign to me · your rules: Ticket flow',
@@ -164,8 +164,19 @@ test('Start goal starts at once with the project defaults, then opens it', async
   expect(byTestId('start-progress')[0]?.textContent).toContain(
     'Start the goal in a new worktree on lc-2',
   );
-  await click(button('Open session'));
+  // The session opens on its own once every step is done, and only once.
   expect(opened).toEqual(['bbbbbbbb']);
+  await click(button('Open session'));
+  expect(opened).toEqual(['bbbbbbbb', 'bbbbbbbb']);
+});
+
+test('a start whose step fails opens nothing and offers Back', async () => {
+  const { byTestId, opened } = await startable({
+    open: () => failure('tmux is not running', 'internal'),
+  });
+  await click(byTestId('start-goal')[0]);
+  expect(byTestId('start-progress')[0]?.textContent).toContain('Back');
+  expect(opened).toEqual([]);
 });
 
 test('Start session and Investigate each build their own goal', async () => {

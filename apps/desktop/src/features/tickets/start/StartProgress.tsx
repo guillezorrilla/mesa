@@ -1,9 +1,13 @@
 import { Check, Loader2, X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { StartStep } from './useStartTicket';
 
-/** Each step of a ticket's start as it runs, ending in Open session, or Back when one failed. */
+/**
+ * Each step of a ticket's start as it runs, then the session it opened, shown on its own (Open
+ * session stays as a way back); Back when a step failed.
+ */
 export function StartProgress(props: {
   ticketKey: string;
   steps: StartStep[];
@@ -12,6 +16,15 @@ export function StartProgress(props: {
   onSession: (id: string) => void;
 }) {
   const failed = props.steps.some((step) => step.state === 'failed');
+  const done = props.steps.every((step) => step.state === 'done');
+  const { session, onSession } = props;
+  // Once: a re-render after the switch must not switch again.
+  const shown = useRef<string>(undefined);
+  useEffect(() => {
+    if (!session || !done || failed || shown.current === session) return;
+    shown.current = session;
+    onSession(session);
+  }, [session, done, failed, onSession]);
   return (
     <div className="grid gap-4 border-t bg-card px-6 py-5" data-testid="start-progress">
       <h3 className="text-[15px] font-semibold">Starting {props.ticketKey}</h3>
