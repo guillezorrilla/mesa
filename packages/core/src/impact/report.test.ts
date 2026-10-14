@@ -311,6 +311,13 @@ test('an advised note is opened, or not once its session ended; a mark takes a M
   const caught = r.sessions.flatMap((s) => s.moments).find((m) => m.id === catchId);
   expect(caught?.marked).toBe('not-right');
   expect(r.summary).toMatchObject({ caught: 0, notesIn: 3 });
+  // A session whose only Moment is marked is in no count, the sessions' either.
+  const only = report([
+    mark(50, 'not-right'),
+    entry({ id: catchId, answer: 'waiting-question', changed: true }),
+  ]);
+  expect(only.summary).toMatchObject({ caught: 0, sessions: 0 });
+  expect(only.sentence).toBe(EMPTY_IMPACT);
   // Opened and mark lines are neither Moments nor folded counts.
   expect(r.sessions.find((s) => s.id === 'a1b2c3d4')?.folded).toEqual({
     agreed: 0,

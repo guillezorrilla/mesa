@@ -3,7 +3,6 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { decisionLog } from '../../decisions/log.js';
 import {
-  fixedClock,
   multiProjectSession,
   newSession,
   profilePaths,
@@ -44,7 +43,9 @@ test("a session's additional project: save_note saves in its folder, and its ses
 });
 
 test('read_note logs an opened note once, only for a note advised to the bound session', async () => {
-  const clock = fixedClock('2026-10-13T12:00:00.000Z');
+  // One clock for Mesa and the log, moved by hand: advice, reads, advice again, reads.
+  let now = new Date('2026-10-13T11:00:00.000Z');
+  const clock = () => now;
   const { home, mesa } = projectProfile(scriptedRunner().run, { clock });
   const store = testStore(home);
   const advised = store.create(() => newSession());
@@ -53,11 +54,12 @@ test('read_note logs an opened note once, only for a note advised to the bound s
     mkdirSync(join(home, 'vault/wiki/notes'), { recursive: true });
     writeFileSync(join(home, 'vault', path), '---\nproject: lantern-cove\n---\n# Note\n');
   }
-  decisionLog({
+  const log = decisionLog({
     dir: profilePaths(home, 'default').decisionLog,
     clock,
     newId: sequentialIds(),
-  }).append({
+  });
+  const advice = {
     site: 'relevance',
     session: advised.id,
     project: 'lantern-cove',
@@ -68,7 +70,9 @@ test('read_note logs an opened note once, only for a note advised to the bound s
     status: 'accepted',
     changed: true,
     note: 'wiki/notes/retry.md',
-  });
+  } as const;
+  log.append(advice);
+  now = new Date('2026-10-13T12:00:00.000Z');
   const read = (session: typeof advised, path: string) =>
     callVaultTool(mesa.vault, session, 'read_note', { path });
   await read(advised, 'wiki/notes/retry.md');
@@ -86,4 +90,11 @@ test('read_note logs an opened note once, only for a note advised to the bound s
     }),
   ]);
   expect(opened(other.id)).toEqual([]);
+  // Advised again after it was opened: the next read is that advice's opened line.
+  now = new Date('2026-10-13T13:00:00.000Z');
+  log.append(advice);
+  now = new Date('2026-10-13T14:00:00.000Z');
+  await read(advised, 'wiki/notes/retry.md');
+  await read(advised, 'wiki/notes/retry.md');
+  expect(opened(advised.id)).toHaveLength(2);
 });

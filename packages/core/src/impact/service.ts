@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { AGENTS } from '../agents/agents.js';
 import type { MesaContext } from '../context.js';
+import type { Mark } from '../decisions/log.js';
 import { MesaError } from '../lib/result.js';
 import { daysBefore } from '../lib/time.js';
 import { findProject } from '../projects/projects.js';
@@ -10,10 +11,13 @@ import { projectLabel } from '../sessions/record/general.js';
 import { sessionLabel } from '../sessions/record/labels.js';
 import type { SessionRecord } from '../sessions/record/record.js';
 import { type HookEvent, parentHook, readHookEvents } from '../sessions/signals/hook-events.js';
-import { type ImpactRecord, impactReport } from './report.js';
+import { type ImpactRecord, impactReport, writtenNotes } from './report.js';
 
 // Impact for one profile (`mesa impact`, the Impact screen): the Decision log, the vault's receipts
 // and the session records of the last `days` days, for the profile, one project or one session.
+
+/** What `mesa impact mark` did: the Moment and its mark now, null when cleared. */
+export type Marked = { moment: string; mark: Mark | null };
 
 export type ImpactOptions = { days?: number; project?: string; session?: string };
 
@@ -25,26 +29,32 @@ export function impactService(ctx: MesaContext) {
   const momentOf = (id: string) => {
     const line = ctx.decisionLog.read().find((e) => e.id === id && e.changed);
     if (line) return line;
-    try {
-      const { receipt } = showReceipt(ctx.vaultOf(), id);
-      return {
-        site: 'vault' as const,
-        session: receipt.session ?? null,
-        project: receipt.project ?? null,
-        by: 'rules' as const,
-      };
-    } catch {
+    const entry = (() => {
+      try {
+        return showReceipt(ctx.vaultOf(), id);
+      } catch {
+        return undefined;
+      }
+    })();
+    // A receipt is a Moment only when it wrote notes to the vault.
+    if (!entry || !writtenNotes(entry).length)
       throw new MesaError('not_found', `no Moment with id ${id}; see mesa impact --json`);
-    }
+    const { receipt } = entry;
+    return {
+      site: 'vault' as const,
+      session: receipt.session ?? null,
+      project: receipt.project ?? null,
+      by: 'rules' as const,
+    };
   };
   return {
     /**
      * Marks Moment `moment` not right, or clears the mark (`undo`): one Decision log line; the
      * newest one stands. Nothing learns from it yet.
      */
-    mark: (moment: string, { undo = false }: { undo?: boolean } = {}) => {
+    mark: (moment: string, { undo = false }: { undo?: boolean } = {}): Marked => {
       const about = momentOf(moment);
-      const mark = undo ? null : ('not-right' as const);
+      const mark: Mark | null = undo ? null : 'not-right';
       ctx.decisionLog.append({
         site: about.site,
         session: about.session,

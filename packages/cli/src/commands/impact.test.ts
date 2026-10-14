@@ -79,6 +79,9 @@ test('impact mark marks a Moment not right, the newest mark stands, and --undo c
     code: 2,
     stderr: 'pass --not-right or --undo\n',
   });
+  // A receipt that wrote no vault note is not a Moment: the guardrail's own receipt.
+  const guardrail = (await cli.mesa('receipts', '--kind', 'guardrail', '--json')).json.data[0];
+  expect((await cli.mesa('impact', 'mark', guardrail.receipt.id, '--not-right')).code).toBe(3);
   expect(await cli.mesa('impact', 'mark', 'nothing-here', '--not-right')).toMatchObject({
     code: 3,
     stderr: 'no Moment with id nothing-here; see mesa impact --json\n',

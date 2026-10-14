@@ -1,8 +1,7 @@
 import { clip } from '../lib/clip.js';
 import { shellWord } from '../lib/process.js';
-import { daysBefore } from '../lib/time.js';
 import { notePath, type ScopedContext } from './context.js';
-import type { DecisionLog, NewLogEntry } from './log.js';
+import type { NewLogEntry } from './log.js';
 import type { SystemOneProvider } from './systemone.js';
 
 // Automatic decision advice inside a session (ADR-0019 "Delivery into sessions", #463): the words a
@@ -62,37 +61,6 @@ export function adviceEntry(
     ...(evaluation.latencyMs ? { latencyMs: evaluation.latencyMs } : {}),
     ...(note ? { note } : {}),
   };
-}
-
-/** How far back an opened note looks for the advice that named it. */
-const ADVICE_DAYS = 30;
-
-/**
- * Logs that the agent of `session` opened `note` (`read_note`), when advice in the last
- * ADVICE_DAYS named that note to this very session; once per note, and nothing for any other read.
- */
-export function noteOpened(
-  log: DecisionLog,
-  now: Date,
-  session: { id: string; project: string },
-  note: string,
-): void {
-  const lines = log.read({ since: daysBefore(now, ADVICE_DAYS), session: session.id });
-  const mine = lines.filter((e) => e.site === 'relevance' && e.note === note);
-  const advised = mine.find((e) => e.changed);
-  if (!advised || mine.some((e) => e.status === 'opened')) return;
-  log.append({
-    site: 'relevance',
-    session: session.id,
-    project: session.project,
-    question: 'Did the agent open the note it was given?',
-    rules: null,
-    answer: note,
-    by: advised.by,
-    status: 'opened',
-    changed: false,
-    note,
-  });
 }
 
 /**

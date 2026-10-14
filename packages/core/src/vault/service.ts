@@ -1,5 +1,5 @@
 import type { MesaContext } from '../context.js';
-import { noteOpened } from '../decisions/delivery.js';
+import { noteOpened } from '../decisions/opened-note.js';
 import { findProject } from '../projects/projects.js';
 import { BASES_MEANINGFUL_FILTER } from '../receipts/policy.js';
 import { GENERAL_PROJECT } from '../sessions/record/general.js';

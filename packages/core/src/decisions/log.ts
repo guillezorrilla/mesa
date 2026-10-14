@@ -31,6 +31,13 @@ const LOG_STATUSES = [
   'marked',
 ] as const;
 
+/** What a person can mark a Moment. */
+const MARKS = ['not-right'] as const;
+export type Mark = (typeof MARKS)[number];
+
+/** Lines about a Moment that came after it: an advised note opened, a person's mark. */
+export const AFTER_A_MOMENT = ['opened', 'marked'] as const;
+
 const EntrySchema = z.object({
   id: z.string(),
   at: z.iso.datetime(),
@@ -57,7 +64,7 @@ const EntrySchema = z.object({
   /** The Moment a mark is about: a log line's id, or a receipt's. */
   moment: z.string().optional(),
   /** A person's mark on `moment`; null clears it. */
-  mark: z.enum(['not-right']).nullable().optional(),
+  mark: z.enum(MARKS).nullable().optional(),
 });
 export type LogEntry = z.infer<typeof EntrySchema>;
 export type NewLogEntry = Omit<LogEntry, 'id' | 'at'>;
