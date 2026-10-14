@@ -21,7 +21,10 @@ test('round 1 in drafts mode leaves drafts and stops for the person, in a short 
   expect(prompt).toMatchSnapshot();
   expect(prompt).not.toContain('prs publish');
   expect(prompt).not.toContain('--reply-to');
-  expect(prompt).toContain('Stop: the drafts wait for the person.');
+  expect(prompt).toContain('Then stop: the drafts wait for the person.');
+  // The agent reviews with its own review skills, not a method Mesa spells out.
+  expect(prompt).toContain('with your code review skills if you have them');
+  expect(prompt).not.toMatch(/80% sure|git blame/);
   // Every Mesa call goes to the running build, never a bare `mesa` on PATH.
   expect(prompt).not.toMatch(/`mesa prs/);
   expect(prompt).toContain(`\`${MESA} prs show atlas 214 --json\``);
