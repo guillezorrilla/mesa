@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { HttpsUrl } from '../git/pull-requests.js';
 import type { Runner } from '../lib/process.js';
+import { runJson } from '../lib/run-json.js';
 import type { PrFacts } from './buckets.js';
-import type { PrHead, PrReader, RepoRead } from './reader.js';
+import type { PrHead, PrReader } from './reader.js';
 
 // Through twg: who I am and the repo's open PR numbers, then their details in batches of 25 (the
 // most one `pull-requests get` takes), comments and commits included. `--output-summary none`
@@ -91,25 +92,8 @@ function facts(pr: Pr, me: string): PrHead & PrFacts {
   };
 }
 
-type Read<T> = { ok: true; value: T } | { ok: false; error: Extract<RepoRead, { ok: false }> };
-
-async function twg<T>(run: Runner, args: string[], schema: z.ZodType<T>): Promise<Read<T>> {
-  const res = await run('twg', [...args, ...JSON_OUT], 60_000);
-  if (!res.ok) {
-    const reason = res.reason === 'timeout' ? 'timeout' : 'failed';
-    return { ok: false, error: { ok: false, reason, detail: res.detail } };
-  }
-  let raw: unknown;
-  try {
-    raw = JSON.parse(res.stdout);
-  } catch {
-    return { ok: false, error: { ok: false, reason: 'invalid-data' } };
-  }
-  const parsed = schema.safeParse(raw);
-  return parsed.success
-    ? { ok: true, value: parsed.data }
-    : { ok: false, error: { ok: false, reason: 'invalid-data' } };
-}
+const twg = <T>(run: Runner, args: string[], schema: z.ZodType<T>) =>
+  runJson(run, 'twg', [...args, ...JSON_OUT], schema, 60_000);
 
 /** A Bitbucket Cloud repo's open PRs through `twg`; `repo` is `workspace/repo-slug`. */
 export const readBitbucket: PrReader = async (run, repo) => {
@@ -121,8 +105,8 @@ export const readBitbucket: PrReader = async (run, repo) => {
       OpenPrs,
     ),
   ]);
-  if (!who.ok) return who.error;
-  if (!open.ok) return open.error;
+  if (!who.ok) return who;
+  if (!open.ok) return open;
   const me = who.value.data.accountId;
   const ids = open.value.map((p) => String(p.id));
   const batches = Array.from({ length: Math.ceil(ids.length / BATCH) }, (_, i) =>
@@ -139,7 +123,7 @@ export const readBitbucket: PrReader = async (run, repo) => {
   );
   const prs: (PrHead & PrFacts)[] = [];
   for (const read of details) {
-    if (!read.ok) return read.error;
+    if (!read.ok) return read;
     prs.push(...read.value.map((pr) => facts(pr, me)));
   }
   return { ok: true, me, prs };

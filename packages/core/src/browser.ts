@@ -59,7 +59,7 @@ export {
 } from './profile/terminal-palettes.js';
 export { repositoryUrl } from './projects/project-url.js';
 export { PROJECT_SORTS, type ProjectSort } from './projects/sort.js';
-export { BUCKET_LABELS } from './prs/buckets.js';
+export { actionable, BUCKET_LABELS, bucketRank } from './prs/buckets.js';
 export { PR_CLIS } from './prs/provider.js';
 export { parseChangelog, RELEASE_GROUPS, type ReleaseNotes } from './release/notes.js';
 export { type CommandId, type SearchHit, searchWorkspace } from './search/search.js';

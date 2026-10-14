@@ -26,6 +26,13 @@ export const BUCKET_LABELS = {
   other: 'Not for you',
 } as const satisfies Record<Exclude<Bucket, 'done'>, string>;
 
+/** A listed bucket's place, most urgent first: the order of BUCKET_LABELS. */
+export const bucketRank = (bucket: Exclude<Bucket, 'done'>) =>
+  Object.keys(BUCKET_LABELS).indexOf(bucket);
+
+/** The bucket asks something of me: a first review, or a look at what changed since mine. */
+export const actionable = (bucket: Bucket) => bucket === 'need' || bucket === 'updated';
+
 /** The evidence a row shows: commits and author replies since my last word, my threads resolved. */
 export type Since = { commits: number; replies: number; resolved: number; threads: number };
 

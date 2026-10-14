@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { HttpsUrl } from '../git/pull-requests.js';
+import { runJson } from '../lib/run-json.js';
 import type { PrReader } from './reader.js';
 
 // One GraphQL call per repo: its open PRs with what the bucket rule needs, and who I am.
@@ -65,27 +66,16 @@ const REVIEW_STATE = { APPROVED: 'approved', CHANGES_REQUESTED: 'changes' } as c
 /** A GitHub repo's open PRs through `gh api graphql`; `repo` is `owner/name`. */
 export const readGithub: PrReader = async (run, repo) => {
   const [owner = '', name = ''] = repo.split('/');
-  const res = await run(
+  const read = await runJson(
+    run,
     'gh',
     // -f, never -F: a repo named `2048` stays a string, and `@file` is never read.
     ['api', 'graphql', '-f', `query=${QUERY}`, '-f', `owner=${owner}`, '-f', `name=${name}`],
+    Response,
     30_000,
   );
-  if (!res.ok)
-    return {
-      ok: false,
-      reason: res.reason === 'timeout' ? 'timeout' : 'failed',
-      detail: res.detail,
-    };
-  let raw: unknown;
-  try {
-    raw = JSON.parse(res.stdout);
-  } catch {
-    return { ok: false, reason: 'invalid-data' };
-  }
-  const parsed = Response.safeParse(raw);
-  if (!parsed.success) return { ok: false, reason: 'invalid-data' };
-  const { viewer, repository } = parsed.data.data;
+  if (!read.ok) return read;
+  const { viewer, repository } = read.value.data;
   const me = viewer.login;
   return {
     ok: true,

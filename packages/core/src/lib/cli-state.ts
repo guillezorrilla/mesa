@@ -12,13 +12,16 @@ export type CliState =
 
 /** The CLI's state: `<cli> --version`, then `authArgs`, which exits nonzero when no account is logged in. */
 export async function cliState(run: Runner, cli: string, authArgs: string[]): Promise<CliState> {
-  const version = await run(cli, ['--version'], 5_000);
+  // Both at once; a missing CLI answers neither, and its version says so.
+  const [version, auth] = await Promise.all([
+    run(cli, ['--version'], 5_000),
+    run(cli, authArgs, 10_000),
+  ]);
   if (!version.ok)
     return version.reason === 'missing'
       ? { state: 'missing' }
       : { state: 'unavailable', reason: version.reason };
   const line = version.stdout.split('\n')[0] ?? '';
-  const auth = await run(cli, authArgs, 10_000);
   if (auth.ok) return { state: 'ready', version: line };
   if (auth.reason === 'timeout') return { state: 'unavailable', reason: 'timeout' };
   return { state: 'unauthenticated', version: line };

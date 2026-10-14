@@ -1,10 +1,11 @@
 import type { MesaContext } from '../context.js';
 import { gitCommand } from '../git/command.js';
 import type { CliState } from '../lib/cli-state.js';
+import { mapLimit } from '../lib/map-limit.js';
 import { MesaError } from '../lib/result.js';
 import { listProjects } from '../projects/projects.js';
 import { readBitbucket } from './bitbucket.js';
-import { BUCKET_LABELS, type Bucket, bucketOf, type Since } from './buckets.js';
+import { type Bucket, bucketOf, bucketRank, type Since } from './buckets.js';
 import { readGithub } from './github.js';
 import { PR_CLIS, type PrProvider, prCli, resolveRemote } from './provider.js';
 import type { PrHead, PrReader } from './reader.js';
@@ -50,10 +51,8 @@ const nextStep = (provider: PrProvider, cli: CliState) =>
     unavailable: `${PR_CLIS[provider].cli} --version`,
   })[cli.state];
 
-const RANK = Object.fromEntries(Object.keys(BUCKET_LABELS).map((b, i) => [b, i])) as Record<
-  PrRow['bucket'],
-  number
->;
+// ponytail: 4 projects read at once keeps gh and twg inside their rate limits; raise it if lists drag.
+const AT_ONCE = 4;
 
 /** PR reviews (#785): which provider each project uses, and the PRs that need me. */
 export function prsService(ctx: MesaContext) {
@@ -68,23 +67,23 @@ export function prsService(ctx: MesaContext) {
       probes.set(provider, started);
       return started;
     };
-    return Promise.all(
-      rows
-        .filter((p) => !only || p.name === only)
-        .map(async ({ name, path }) => {
-          const remote = await gitCommand(ctx.run, path, ['remote', 'get-url', 'origin']);
-          const found = remote.ok ? await resolveRemote(ctx.run, remote.stdout) : undefined;
-          if (!found) return { name, setup: setupRow(name) };
-          const cli = await probe(found.provider);
-          return { name, ...found, cli, setup: setupRow(name, found.provider, cli) };
-        }),
+    return mapLimit(
+      rows.filter((p) => !only || p.name === only),
+      AT_ONCE,
+      async ({ name, path }) => {
+        const remote = await gitCommand(ctx.run, path, ['remote', 'get-url', 'origin']);
+        const found = remote.ok ? await resolveRemote(ctx.run, remote.stdout) : undefined;
+        if (!found) return { name, setup: setupRow(name) };
+        const cli = await probe(found.provider);
+        return { name, ...found, cli, setup: setupRow(name, found.provider, cli) };
+      },
     );
   }
 
   return {
-    /** Every registered project's provider, from its origin remote, and its CLI's state (mesa prs setup). */
-    async setup(): Promise<PrSetupRow[]> {
-      return (await projects()).map((p) => p.setup);
+    /** Each registered project's (or the one asked for) provider, from its origin remote, and its CLI's state (mesa prs setup). */
+    async setup(project?: string): Promise<PrSetupRow[]> {
+      return (await projects(project)).map((p) => p.setup);
     },
 
     /**
@@ -93,33 +92,32 @@ export function prsService(ctx: MesaContext) {
      */
     async list(opts: { project?: string; all?: boolean } = {}): Promise<PrList> {
       const list: PrList = { prs: [], blocked: [], problems: [], quiet: [] };
-      await Promise.all(
-        (await projects(opts.project)).map(async (p) => {
-          if (!('provider' in p) || !p.provider) return;
-          if (p.cli.state !== 'ready') return void list.blocked.push(p.setup);
-          const read = await READERS[p.provider](ctx.run, p.repo);
-          if (!read.ok)
-            return void list.problems.push({
-              project: p.name,
-              reason: `${PR_CLIS[p.provider].cli} ${read.reason}${read.detail ? `: ${read.detail}` : ''}`,
-            });
-          const before = list.prs.length;
-          for (const pr of read.prs) {
-            if (pr.author === read.me) continue;
-            const { bucket, since } = bucketOf(pr, read.me);
-            if (bucket === 'done' || (bucket === 'other' && !opts.all)) continue;
-            const { number, title, url, branch, updatedAt, authorName: author } = pr;
-            list.prs.push({
-              ...{ project: p.name, provider: p.provider, number, title, url, branch },
-              ...{ updatedAt, author, bucket, since },
-            });
-          }
-          if (list.prs.length === before) list.quiet.push(p.name);
-        }),
-      );
+      await mapLimit(await projects(opts.project), AT_ONCE, async (p) => {
+        if (!('provider' in p) || !p.provider) return;
+        if (p.cli.state !== 'ready') return void list.blocked.push(p.setup);
+        const read = await READERS[p.provider](ctx.run, p.repo);
+        if (!read.ok)
+          return void list.problems.push({
+            project: p.name,
+            reason: `${PR_CLIS[p.provider].cli} ${read.reason}${read.detail ? `: ${read.detail}` : ''}`,
+          });
+        const before = list.prs.length;
+        for (const pr of read.prs) {
+          if (pr.author === read.me) continue;
+          const { bucket, since } = bucketOf(pr, read.me);
+          if (bucket === 'done' || (bucket === 'other' && !opts.all)) continue;
+          const { number, title, url, branch, updatedAt, authorName: author } = pr;
+          list.prs.push({
+            ...{ project: p.name, provider: p.provider, number, title, url, branch },
+            ...{ updatedAt, author, bucket, since },
+          });
+        }
+        if (list.prs.length === before) list.quiet.push(p.name);
+      });
       list.quiet.sort();
       list.prs.sort(
-        (a, b) => RANK[a.bucket] - RANK[b.bucket] || b.updatedAt.localeCompare(a.updatedAt),
+        (a, b) =>
+          bucketRank(a.bucket) - bucketRank(b.bucket) || b.updatedAt.localeCompare(a.updatedAt),
       );
       return list;
     },
