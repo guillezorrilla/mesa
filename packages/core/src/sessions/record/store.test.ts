@@ -64,9 +64,25 @@ test('ids never become paths, and a bad record names its file', () => {
   writeFileSync(join(dir, 'yyyyyyyy.json'), readFileSync(join(dir, '00000001.json')));
   expect(thrown(() => store.get('yyyyyyyy')).message).toBe(`${dir}/yyyyyyyy.json: id is 00000001`);
   rmSync(join(dir, 'yyyyyyyy.json'));
+  // A damaged file is left out of the list and named by unreadable, never failing the list.
   writeFileSync(join(dir, 'zzzzzzzz.json'), '{');
-  expect(thrown(() => store.list())).toEqual({
-    code: 'invalid_config',
-    message: `${dir}/zzzzzzzz.json: not valid JSON`,
+  expect(store.list().map((r) => r.id)).toEqual(['00000001']);
+  expect(store.unreadable()).toEqual([
+    { file: `${dir}/zzzzzzzz.json`, reason: `${dir}/zzzzzzzz.json: not valid JSON` },
+  ]);
+});
+
+test('a field a newer Mesa wrote is kept through an update, and the record still reads', () => {
+  const { dir, store } = storeIn();
+  store.create(() => newSession({ project: 'tide', startedAt: '2026-09-24T12:00:00.000Z' }));
+  const file = join(dir, '00000001.json');
+  const newer = { ...JSON.parse(readFileSync(file, 'utf8')), laterField: { pr: 214 } };
+  writeFileSync(file, JSON.stringify(newer));
+  expect(store.list().map((r) => r.id)).toEqual(['00000001']);
+  store.update('00000001', { lastOutput: '> ready' });
+  expect(JSON.parse(readFileSync(file, 'utf8'))).toMatchObject({
+    laterField: { pr: 214 },
+    lastOutput: '> ready',
   });
+  expect(store.unreadable()).toEqual([]);
 });

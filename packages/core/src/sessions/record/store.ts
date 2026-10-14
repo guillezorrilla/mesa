@@ -4,7 +4,7 @@ import { writeFileAtomic } from '../../lib/atomic-file.js';
 import { type IdSource, shortId } from '../../lib/ids.js';
 import { changeJson, readJson } from '../../lib/json-file.js';
 import type { LockDeps } from '../../lib/lock-file.js';
-import { MesaError } from '../../lib/result.js';
+import { MesaError, toFail } from '../../lib/result.js';
 import { parseWith } from '../../lib/schema.js';
 import { dependencyLock } from '../start/dependencies.js';
 import {
@@ -20,6 +20,11 @@ import {
 const RECORD_FILE = /^([0-9a-z]{8})\.json$/;
 
 type Patch = Partial<Omit<SessionRecord, 'id'>>;
+
+/** A record file Mesa cannot read, and why. */
+export type UnreadableRecord = { file: string; reason: string };
+
+type ScannedRecord = { record: SessionRecord } | UnreadableRecord;
 
 /** Where a removal can move a record instead of dropping it: another store's `put`. */
 export type RecordSink = { put: (record: SessionRecord) => unknown };
@@ -53,6 +58,21 @@ export function sessionStore({
     return valid;
   };
   const get = read;
+  /** Each record file, read; one that does not read (a damaged file) says why instead. */
+  const scan = (): ScannedRecord[] => {
+    if (!existsSync(dir)) return [];
+    return readdirSync(dir, { withFileTypes: true }).flatMap((e): ScannedRecord[] => {
+      const id = e.isFile() && RECORD_FILE.exec(e.name)?.[1];
+      if (!id) return [];
+      try {
+        const record = readJson(fileOf(id), SessionRecordSchema);
+        // Removed between the listing and the read: gone, not unreadable.
+        return record ? [{ record: own(id, record) }] : [];
+      } catch (error) {
+        return [{ file: fileOf(id), reason: toFail(error).error.message }];
+      }
+    });
+  };
   /**
    * Changes the record under its lock (`<id>.json.lock` beside it), so read-modify-write updates
    * of one record serialise across processes: a send from two sessions at once keeps both events.
@@ -105,16 +125,14 @@ export function sessionStore({
         },
         wait ? undefined : 0,
       ),
-    /** Every record, oldest first. */
-    list: (): SessionRecord[] => {
-      if (!existsSync(dir)) return [];
-      return readdirSync(dir, { withFileTypes: true })
-        .flatMap((e) => {
-          const id = e.isFile() && RECORD_FILE.exec(e.name)?.[1];
-          return id ? [read(id)] : [];
-        })
-        .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
-    },
+    /** Every record that reads, oldest first; one that does not is left out (`unreadable`). */
+    list: (): SessionRecord[] =>
+      scan()
+        .flatMap((found) => ('record' in found ? [found.record] : []))
+        .sort((a, b) => a.startedAt.localeCompare(b.startedAt)),
+    /** The record files that do not read, and why, for Doctor: never an error on the board. */
+    unreadable: (): UnreadableRecord[] =>
+      scan().flatMap((found) => ('record' in found ? [] : [found])),
     /** Writes `record` as it is: a removal moving it here (remove's `into`). */
     put: (record: SessionRecord) => {
       mkdirSync(dir, { recursive: true, mode: 0o700 });

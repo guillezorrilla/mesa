@@ -284,7 +284,12 @@ const validAdditional = (r: z.infer<typeof SessionRecordFields>) => {
   );
 };
 
-export const SessionRecordSchema = SessionRecordFields.refine(
+/**
+ * A record as Mesa reads and writes it. A field it does not know, from a newer Mesa on the same
+ * profile, is kept and written back as it was, so an older app neither fails on it nor drops it.
+ * Typed by the known fields only.
+ */
+export const SessionRecordSchema = SessionRecordFields.loose().refine(
   (record) =>
     (record.kind === 'terminal') === (record.agent === 'terminal') &&
     (record.kind !== 'terminal' || (!record.agentSessionId && !record.goal)) &&
@@ -296,8 +301,8 @@ export const SessionRecordSchema = SessionRecordFields.refine(
       (Boolean(record.cwd && isAbsolute(record.cwd)) && !record.worktree)) &&
     validAdditional(record),
   'plain terminals need terminal kind and agent; General sessions need an absolute cwd and no worktree; additional projects need a project worktree and are each another project, once',
-);
-export type SessionRecord = z.infer<typeof SessionRecordSchema>;
+) as unknown as z.ZodType<SessionRecord>;
+export type SessionRecord = z.infer<typeof SessionRecordFields>;
 /** A plain terminal has no coding agent or provider conversation. */
 export const recordAgent = (record: Pick<SessionRecord, 'agent'>): Agent | undefined =>
   record.agent === 'terminal' ? undefined : record.agent;

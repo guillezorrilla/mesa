@@ -43,3 +43,18 @@ test('warningOf keeps only a command warning, as an alert', () => {
   expect(warningOf({})).toBeUndefined();
   expect(warningOf(undefined)).toBeUndefined();
 });
+
+test('an alert shows once, and once dismissed it does not come back', async () => {
+  const byTestId = await renderWithMesa(
+    <Toaster message={{ text: 'sessions: cannot read', tone: 'alert' }} />,
+    fakeBridge().bridge,
+  );
+  await click(byTestId('toaster')[0]);
+  await click(byTestId('toaster')[0]);
+  expect(toasts(byTestId)).toEqual([['alert', 'sessions: cannot read']]);
+  await click(
+    byTestId('toast')[0]?.querySelector<HTMLElement>('[aria-label="Dismiss"]') ?? undefined,
+  );
+  await click(byTestId('toaster')[0]);
+  expect(toasts(byTestId)).toEqual([]);
+});

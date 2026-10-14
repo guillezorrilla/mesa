@@ -11,6 +11,7 @@ import type { DecisionsModel } from '../decisions/types.js';
 import type { Runner } from '../lib/process.js';
 import { toFail } from '../lib/result.js';
 import { PR_CLIS } from '../prs/provider.js';
+import type { UnreadableRecord } from '../sessions/record/store.js';
 import { type ObsidianPaths, obsidianCli } from '../vault/obsidian.js';
 import type { VaultStatus } from '../vault/vault.js';
 import {
@@ -230,6 +231,15 @@ function codexDaemonCheck(socket: string | undefined): Finding[] {
   return [{ name: 'codex daemon', ok: false, path: socket, hint }];
 }
 
+/** Session records Mesa cannot read: left out of the board, so listed here once instead. */
+function sessionRecordsCheck(unreadable: UnreadableRecord[]): Finding {
+  const name = 'session records';
+  if (!unreadable.length) return { name, ok: true, hint: '' };
+  const files = unreadable.map((r) => r.reason).join('; ');
+  const hint = `Mesa cannot read ${unreadable.length}, so they are left out of your sessions: ${files}`;
+  return { name, ok: false, hint };
+}
+
 function profileDirCheck(dir: string): Finding {
   const ok = existsSync(dir);
   return {
@@ -248,8 +258,8 @@ export function inboxCheck(error: unknown): Check {
 
 /**
  * Presence and version of every external dependency, the profile directory, the decisions
- * backend, the native agent hooks, Antigravity's mesa-vault entry, the tmux pane-died hook, and a Codex
- * app-server daemon, when one runs.
+ * backend, the native agent hooks, Antigravity's mesa-vault entry, the tmux pane-died hook, the
+ * session records that do not read, and a Codex app-server daemon, when one runs.
  */
 export async function runDoctor(deps: {
   run: Runner;
@@ -269,6 +279,8 @@ export async function runDoctor(deps: {
   codexDaemon?: string;
   /** The profile's vault layout; none before init. */
   vault?: () => VaultStatus;
+  /** The session record files that do not read. */
+  unreadableRecords?: () => UnreadableRecord[];
 }): Promise<DoctorReport> {
   const [binaries, obsidian, hooks] = await Promise.all([
     Promise.all(
@@ -296,6 +308,7 @@ export async function runDoctor(deps: {
       profileDirCheck(deps.profileDir),
       ...decisionsCheck(deps.decisions),
       ...(deps.vault ? [vaultCheck(deps.vault)] : []),
+      ...(deps.unreadableRecords ? [sessionRecordsCheck(deps.unreadableRecords())] : []),
       ...(deps.hooks && hooks ? [claudeHooksCheck(deps.hooks.claude), tmuxHookCheck(hooks)] : []),
       ...(deps.hooks?.codex ? codexHooksChecks(deps.hooks.codex) : []),
       ...(deps.hooks?.antigravity ? [antigravityHooksCheck(deps.hooks.antigravity)] : []),

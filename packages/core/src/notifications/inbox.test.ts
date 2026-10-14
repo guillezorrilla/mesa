@@ -54,21 +54,29 @@ test('a session keeps only its newest notice, a subagent finishing raises none, 
   expect(titles()).toEqual(['Subagent needs permission']);
   hook('PermissionRequest', { tool_name: 'Bash' });
   expect(titles()).toEqual(['Session needs permission']);
+  // A finished turn replaces the session's notice, and the Inbox does not show it.
   hook('Stop');
   hook('Stop', {}, other.id);
+  expect(mesa.notifications.list()).toEqual([]);
+  hook('PermissionRequest', { tool_name: 'Write' });
+  hook('PermissionRequest', { tool_name: 'Edit' }, other.id);
   const first = mesa.notifications.list();
   expect(first.map(({ kind, title, target }) => ({ kind, title, target }))).toEqual([
-    { kind: 'finished', title: 'Session turn finished', target: { kind: 'session', id: other.id } },
     {
-      kind: 'finished',
-      title: 'Session turn finished',
+      kind: 'input-required',
+      title: 'Session needs permission',
+      target: { kind: 'session', id: other.id },
+    },
+    {
+      kind: 'input-required',
+      title: 'Session needs permission',
       target: { kind: 'session', id: session.id },
     },
   ]);
   expect(first.every((item) => !item.read)).toBe(true);
 
   const id = first[1]?.id;
-  if (!id) throw new Error('expected a finished inbox item');
+  if (!id) throw new Error('expected a permission inbox item');
   mesa.notifications.markRead(id);
   const restarted = createMesa('default', testDeps(home));
   expect(restarted.notifications.list()[1]).toMatchObject({ id, read: true });
@@ -268,15 +276,15 @@ test('inbox keeps unread notices when later hooks exceed a bounded scan window',
   const session = testStore(home).create(() => newSession());
   const file = eventsLog(profilePaths(home, 'default').events, session.id);
   mkdirSync(dirname(file), { recursive: true });
-  const event = (at: string, name: string, payload: object = {}) =>
+  const event = (at: string, name: string, payload: object = { tool_name: 'Bash' }) =>
     `${JSON.stringify({ at, agent: 'claude', event: name, payload })}\n`;
-  appendFileSync(file, event('2026-09-24T12:00:00.000Z', 'Stop'));
+  appendFileSync(file, event('2026-09-24T12:00:00.000Z', 'PermissionRequest'));
   expect(mesa.notifications.list().map((item) => item.at)).toEqual(['2026-09-24T12:00:00.000Z']);
   appendFileSync(
     file,
     event('2026-09-24T12:00:01.000Z', 'PostToolUse', { filler: 'x'.repeat(128 * 1024) }),
   );
-  appendFileSync(file, event('2026-09-24T12:00:02.000Z', 'Stop'));
+  appendFileSync(file, event('2026-09-24T12:00:02.000Z', 'PermissionRequest'));
   expect(
     createMesa('default', testDeps(home))
       .notifications.list()
@@ -292,7 +300,7 @@ test('inbox drops old markers when a newer notice replaces theirs', () => {
   const file = eventsLog(profilePaths(home, 'default').events, session.id);
   mkdirSync(dirname(file), { recursive: true });
   const event = (at: string) =>
-    `${JSON.stringify({ at, agent: 'claude', event: 'Stop', payload: {} })}\n`;
+    `${JSON.stringify({ at, agent: 'claude', event: 'PermissionRequest', payload: { tool_name: 'Bash' } })}\n`;
   appendFileSync(file, event('2026-09-24T12:00:00.000Z'));
   const id = mesa.notifications.list()[0]?.id;
   if (!id) throw new Error('missing first notice');
@@ -347,7 +355,7 @@ test('clearAll clears every current notice at once and keeps hook offsets so non
   const file = eventsLog(profilePaths(home, 'default').events, session.id);
   mkdirSync(dirname(file), { recursive: true });
   const event = (at: string) =>
-    `${JSON.stringify({ at, agent: 'claude', event: 'Stop', payload: {} })}\n`;
+    `${JSON.stringify({ at, agent: 'claude', event: 'PermissionRequest', payload: { tool_name: 'Bash' } })}\n`;
   appendFileSync(file, event('2026-09-24T12:00:00.000Z') + event('2026-09-24T12:00:05.000Z'));
   mesa.notifications.recordDoctor({
     healthy: true,

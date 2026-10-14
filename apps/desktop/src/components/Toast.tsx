@@ -6,7 +6,7 @@ import { Button } from './ui/button';
 /**
  * How a toast looks and lasts (ADR-0009 amendment): a confirmation is neutral, shows every time,
  * and goes by itself; an alert (a failure or a warning) is warm, shows once however often it
- * comes, and stays until dismissed.
+ * comes, and stays until dismissed, after which the same alert does not show again this run.
  */
 type Tone = 'confirmation' | 'alert';
 export type Message = { text: string; tone: Tone };
@@ -42,8 +42,15 @@ const ToastContext = createContext<(text: string, tone?: Tone, link?: ToastLink)
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<(Message & { id: number; link?: ToastLink })[]>([]);
   const last = useRef(0);
+  // An alert the person dismissed stays dismissed: a screen that polls hits the same failure again.
+  const dismissed = useRef(new Set<string>());
   const dismiss = useCallback(
-    (id: number) => setMessages((all) => all.filter((m) => m.id !== id)),
+    (id: number) =>
+      setMessages((all) => {
+        const gone = all.find((m) => m.id === id);
+        if (gone?.tone === 'alert') dismissed.current.add(gone.text);
+        return all.filter((m) => m.id !== id);
+      }),
     [],
   );
   const show = useCallback(
@@ -55,6 +62,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         return;
       }
       // An alert already showing is not repeated: several screens can hit the same failure.
+      if (dismissed.current.has(text)) return;
       setMessages((all) =>
         all.some((m) => m.tone === 'alert' && m.text === text)
           ? all
@@ -80,8 +88,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <CircleCheck className="text-muted-foreground" />
             )}
             <div className="flex items-start justify-between gap-2">
-              <div className="grid gap-1">
-                <pre className="whitespace-pre-wrap break-words font-mono text-xs">{m.text}</pre>
+              {/* min-w-0 and wrapping anywhere: a long path never pushes Dismiss out of view. */}
+              <div className="grid min-w-0 gap-1">
+                <pre className="whitespace-pre-wrap font-mono text-xs [overflow-wrap:anywhere]">
+                  {m.text}
+                </pre>
                 {m.link && (
                   <Button
                     variant="link"

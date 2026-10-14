@@ -94,7 +94,8 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
   };
   /** The state, after seeVersion: it runs before any other write, so a fresh profile is known. */
   const read = () => seeVersion(store.read());
-  const list = (): InboxItem[] => {
+  /** Every notice, a finished turn's too: native delivery reads them by its own setting. */
+  const all = (): InboxItem[] => {
     const current = read();
     const fresh: Candidate[] = [];
     const offsets: Record<string, number> = {};
@@ -114,8 +115,13 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
         : current;
     return inboxItems(state, failures(), notes);
   };
+  /**
+   * What the Inbox shows: not a finished turn, which needs nothing from the person and which the
+   * Session Board already shows; its macOS notice still follows `notifications.finished`.
+   */
+  const list = () => all().filter((item) => item.kind !== 'finished');
   const change = (id: string, field: 'read' | 'cleared') => {
-    if (!list().some((item) => item.id === id))
+    if (!all().some((item) => item.id === id))
       throw new MesaError('not_found', `no inbox item ${id}`);
     store.write({ read: field === 'read' ? [id] : [], cleared: field === 'cleared' ? [id] : [] });
   };
@@ -124,7 +130,7 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
     const startedAt = state.startedAt ?? ctx.clock().toISOString();
     if (!state.startedAt) store.write({ startedAt });
     const settings = ctx.open().config.notifications;
-    const { plan, skipped } = planDelivery(list(), settings, {
+    const { plan, skipped } = planDelivery(all(), settings, {
       startedAt,
       delivered: state.delivered,
     });
@@ -133,7 +139,7 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
   };
   const markDelivered = (ids: string[]) => {
     const state = read();
-    const known = new Set([...list().map((item) => item.id), ...state.cleared, ...state.delivered]);
+    const known = new Set([...all().map((item) => item.id), ...state.cleared, ...state.delivered]);
     if (!ids.length || ids.length > 500 || ids.some((id) => !known.has(id)))
       throw new MesaError('not_found', 'notification item not found');
     store.write({ delivered: ids });
