@@ -1,24 +1,15 @@
 import { counted, DEFAULT_APPEARANCE } from '@mesa/core/browser';
-import {
-  Columns2,
-  GitBranch,
-  Maximize2,
-  Minimize2,
-  PanelLeft,
-  RefreshCw,
-  Rows2,
-  SquareArrowOutUpRight,
-  X,
-} from 'lucide-react';
+import { GitBranch, Maximize2, Minimize2, RefreshCw, SquareArrowOutUpRight, X } from 'lucide-react';
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
 import { ResizeHandle } from '@/components/ResizeHandle';
 import { Stat } from '@/components/Stat';
 import { Button } from '@/components/ui/button';
+import { DiffViewToggles } from '@/features/git/diff/DiffViewToggles';
 import { diffFiles } from '@/features/git/diff/diffFiles';
 import { GitDiffFiles } from '@/features/git/diff/GitDiffFiles';
-import { useOpenDiffFile } from '@/features/git/diff/useOpenDiffFile';
+import { useDiffView } from '@/features/git/diff/useDiffView';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { useKeptWidth } from '@/lib/useKeptWidth';
 import { cn } from '@/lib/utils';
@@ -50,8 +41,6 @@ export function DiffPanel(props: {
     setWidth(room ? Math.min(next, room - TERMINAL_MIN) : next);
   };
   const [expanded, setExpanded] = useState(false);
-  const [listOpen, setListOpen] = useState(true);
-  const [layout, setLayout] = useState<'inline' | 'side-by-side'>('inline');
   const seenState = useRef(props.state);
   // biome-ignore lint/correctness/useExhaustiveDependencies: only a new session state reads again.
   useEffect(() => {
@@ -62,19 +51,16 @@ export function DiffPanel(props: {
 
   // Kept across renders, so a resize drag hands GitDiffRows the same rows and it skips the work.
   const files = useMemo(() => diffFiles(data?.rows ?? []), [data]);
-  const { at, file, open, move } = useOpenDiffFile(files);
+  const view = useDiffView(files);
+  const { at, file } = view;
   const added = files.reduce((sum, each) => sum + each.added, 0);
   const removed = files.reduce((sum, each) => sum + each.removed, 0);
   const expand = (next: boolean) => {
     setExpanded(next);
-    setLayout(next ? 'side-by-side' : 'inline');
+    view.setLayout(next ? 'side-by-side' : 'inline');
   };
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.target instanceof HTMLInputElement || event.metaKey || event.ctrlKey) return;
-    if (event.key === 'j' || event.key === 'k') {
-      event.preventDefault();
-      move(event.key === 'j' ? 1 : -1);
-    } else if (event.key === 'Escape' && expanded) expand(false);
+    if (!view.walk(event) && event.key === 'Escape' && expanded) expand(false);
   };
 
   return (
@@ -118,17 +104,7 @@ export function DiffPanel(props: {
             className={cn(changes.busy && '[&_svg]:animate-spin')}
             onClick={() => void changes.refresh()}
           />
-          <IconButton
-            label={listOpen ? 'Hide file list' : 'Show file list'}
-            icon={PanelLeft}
-            active={listOpen}
-            onClick={() => setListOpen(!listOpen)}
-          />
-          <IconButton
-            label={layout === 'inline' ? 'Side-by-side diff' : 'Inline diff'}
-            icon={layout === 'inline' ? Columns2 : Rows2}
-            onClick={() => setLayout(layout === 'inline' ? 'side-by-side' : 'inline')}
-          />
+          <DiffViewToggles view={view} />
           <IconButton
             label={expanded ? 'Shrink beside terminal' : 'Expand over terminal'}
             icon={expanded ? Minimize2 : Maximize2}
@@ -167,11 +143,11 @@ export function DiffPanel(props: {
         <GitDiffFiles
           files={files}
           at={at}
-          onOpen={open}
-          onMove={move}
-          layout={layout}
+          onOpen={view.open}
+          onMove={view.move}
+          layout={view.layout}
           fontSize={appearance.diffFontSize}
-          list={listOpen}
+          list={view.list}
           listClassName={expanded ? 'w-72' : 'w-56'}
           actions={
             file.status !== 'D' && (

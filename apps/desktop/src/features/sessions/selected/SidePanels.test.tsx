@@ -2,7 +2,8 @@
 import type { DiffRow } from '@mesa/core';
 import { act, useState } from 'react';
 import { expect, test } from 'vitest';
-import { envelope, fakeBridge, managedRow, renderWithMesa } from '@/lib/testing';
+import type { BrowserHost } from '@/lib/platform';
+import { envelope, fakeBridge, fakePlatform, managedRow, renderWithMesa } from '@/lib/testing';
 import { SidePanels } from './SidePanels';
 
 const meta = (left: string): DiffRow => ({ kind: 'meta', left, right: left });
@@ -55,4 +56,54 @@ test("a session's panel stays as it was while another session is selected", asyn
   expect(panel()?.checkVisibility()).toBe(true);
   // The same panel, still on the file it had open: it was hidden, never closed.
   expect(document.querySelector('section[aria-label="notes.txt"]')).toBe(opened);
+});
+
+test('a hidden Browser closes its native view, and opens it again on the same page when shown', async () => {
+  const opened: string[] = [];
+  const closed: string[] = [];
+  let onLoad: (event: { session: string; url: string }) => void = () => {};
+  const base = fakePlatform().browser;
+  const browser: BrowserHost = {
+    ...base,
+    open: async (session, url) => {
+      opened.push(url);
+      onLoad({ session, url });
+      return 'browser-test';
+    },
+    navigate: async (session, url) => onLoad({ session, url }),
+    close: async (session) => {
+      closed.push(session);
+    },
+    onLoad: async (listener) => {
+      onLoad = listener;
+      return () => {};
+    },
+  };
+  const { bridge } = fakeBridge({
+    'review responses': () => envelope({ rows: [], reviews: [], truncated: false }),
+    'browser clear': () => envelope({ cleared: true }),
+  });
+  let select: (id: string) => void = () => {};
+  function Screen() {
+    const [selected, setSelected] = useState('aaaaaaaa');
+    select = setSelected;
+    return (
+      <SidePanels
+        rows={[managedRow('aaaaaaaa'), managedRow('bbbbbbbb')]}
+        panels={{
+          aaaaaaaa: { panel: 'browser', browserTarget: { url: 'https://tide.test/' } },
+        }}
+        selectedSession={selected}
+        onClose={() => {}}
+      />
+    );
+  }
+  await renderWithMesa(<Screen />, bridge, fakePlatform({ browser }));
+  expect(opened).toEqual(['https://tide.test/']);
+  await act(async () => onLoad({ session: 'aaaaaaaa', url: 'https://tide.test/charts' }));
+
+  await act(async () => select('bbbbbbbb'));
+  expect(closed).toEqual(['aaaaaaaa']);
+  await act(async () => select('aaaaaaaa'));
+  expect(opened).toEqual(['https://tide.test/', 'https://tide.test/charts']);
 });

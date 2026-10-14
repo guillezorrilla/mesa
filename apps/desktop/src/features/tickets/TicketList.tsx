@@ -1,8 +1,8 @@
 import type { Ticket } from '@mesa/core';
 import { ChevronDown, CornerDownRight } from 'lucide-react';
 import { useState } from 'react';
+import { PersonAvatar } from '@/components/PersonAvatar';
 import { cn } from '@/lib/utils';
-import { AssigneeAvatar } from './AssigneeAvatar';
 import { clickupHex } from './clickup/ClickupStatus';
 import { LiveDot } from './LiveDot';
 import { CATEGORIES, StatusIcon } from './StatusIcon';
@@ -10,11 +10,11 @@ import { CATEGORIES, StatusIcon } from './StatusIcon';
 /** A row's assignees: up to two avatars, overlapping, or the unassigned one. */
 function Assignees({ ticket }: { ticket: Ticket }) {
   const names = ticket.assignees?.map((a) => a.name) ?? [ticket.assignee];
-  if (names.length < 2) return <AssigneeAvatar name={names[0]} />;
+  if (names.length < 2) return <PersonAvatar name={names[0]} />;
   return (
     <span className="inline-flex">
       {names.slice(0, 2).map((name, at) => (
-        <AssigneeAvatar key={name} name={name} className={cn(at > 0 && '-ml-1 ring-2 ring-card')} />
+        <PersonAvatar key={name} name={name} className={cn(at > 0 && '-ml-1 ring-2 ring-card')} />
       ))}
     </span>
   );

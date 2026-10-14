@@ -4,15 +4,16 @@ import { DiffFileList } from './DiffFileList';
 import type { DiffFile } from './diffFiles';
 import { GitDiffHeader } from './GitDiffHeader';
 import { GitDiffRows } from './GitDiffRows';
+import type { DiffLayout } from './useDiffView';
 
 /** A patch's changed files beside the open one's diff, inline or side by side. */
 export function GitDiffFiles(props: {
   files: DiffFile[];
-  /** The open file's place in `files` (useOpenDiffFile). */
+  /** The open file's place in `files` (useDiffView). */
   at: number;
   onOpen: (path: string) => void;
   onMove: (step: -1 | 1) => void;
-  layout: 'inline' | 'side-by-side';
+  layout: DiffLayout;
   /** The profile's diff text size in px. */
   fontSize: number;
   /** Whether the file list shows; `listClassName` sizes it. */

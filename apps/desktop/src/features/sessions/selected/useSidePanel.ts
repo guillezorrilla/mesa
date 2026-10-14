@@ -10,6 +10,13 @@ export type OpenPanel = {
   browserTarget?: { url: string };
 };
 
+type Panels = Record<string, OpenPanel | undefined>;
+/** `session`'s panel set to `open`, every other session's kept. */
+const withPanel = (session: string, open: OpenPanel | undefined) => (all: Panels) => ({
+  ...all,
+  [session]: open,
+});
+
 /**
  * Which panel sits beside each session's terminal: Replies, Browser or Diff, one at a time per
  * session. A session keeps its panel while another is selected (SidePanels keeps it mounted,
@@ -17,21 +24,18 @@ export type OpenPanel = {
  * session is the one selected.
  */
 export function useSidePanel(selectedSession: string | undefined) {
-  const [panels, setPanels] = useState<Record<string, OpenPanel | undefined>>({});
+  const [panels, setPanels] = useState<Panels>({});
   const [pendingReview, setPendingReview] = useState<NativeResponse>();
   const [pendingBrowser, setPendingBrowser] = useState<{ session: string; url: string }>();
-  const put = (session: string, next: OpenPanel | undefined) =>
-    setPanels((all) => ({ ...all, [session]: next }));
   useEffect(() => {
     if (!pendingReview || pendingReview.session !== selectedSession) return;
-    const open = { panel: 'review' as const, reviewResponse: pendingReview };
-    setPanels((all) => ({ ...all, [pendingReview.session]: open }));
+    setPanels(withPanel(pendingReview.session, { panel: 'review', reviewResponse: pendingReview }));
     setPendingReview(undefined);
   }, [pendingReview, selectedSession]);
   useEffect(() => {
     if (!pendingBrowser || pendingBrowser.session !== selectedSession) return;
-    const open = { panel: 'browser' as const, browserTarget: { url: pendingBrowser.url } };
-    setPanels((all) => ({ ...all, [pendingBrowser.session]: open }));
+    const browserTarget = { url: pendingBrowser.url };
+    setPanels(withPanel(pendingBrowser.session, { panel: 'browser', browserTarget }));
     setPendingBrowser(undefined);
   }, [pendingBrowser, selectedSession]);
   return {
@@ -42,9 +46,14 @@ export function useSidePanel(selectedSession: string | undefined) {
     /** Opens `panel` for the selected session in place of any other, or closes it when open. */
     toggle: (panel: SidePanel) => {
       if (selectedSession)
-        put(selectedSession, panels[selectedSession]?.panel === panel ? undefined : { panel });
+        setPanels(
+          withPanel(
+            selectedSession,
+            panels[selectedSession]?.panel === panel ? undefined : { panel },
+          ),
+        );
     },
-    close: (session: string) => put(session, undefined),
+    close: (session: string) => setPanels(withPanel(session, undefined)),
     /** Opens Review on `response` once its session is selected. */
     requestReview: (response: NativeResponse) => setPendingReview(response),
     /** Opens Browser at `url` once `session` is selected. */

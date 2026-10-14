@@ -1,6 +1,8 @@
 import type { PrDetail } from '@mesa/core';
 import { FileCode2, MessageSquareText } from 'lucide-react';
 import { Muted } from '@/components/Muted';
+import { PersonAvatar } from '@/components/PersonAvatar';
+import { folderOf, nameOf } from '@/features/git/gitChanges';
 import { cn } from '@/lib/utils';
 
 type Thread = PrDetail['threads'][number];
@@ -23,14 +25,13 @@ export function PrCommentsTab(props: { threads: readonly Thread[] }) {
 
 function ThreadCard({ thread }: { thread: Thread }) {
   const state = THREAD_STATE[thread.verdict?.state ?? (thread.resolved ? 'resolved' : 'open')];
-  const slash = thread.path.lastIndexOf('/') + 1;
   return (
     <li className={cn('overflow-hidden rounded-lg border border-l-2 bg-card', state.edge)}>
       <header className="flex items-center gap-2 border-b bg-muted/40 px-3 py-2">
         <FileCode2 aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="min-w-0 truncate font-mono text-xs" title={thread.path}>
-          <span className="text-muted-foreground">{thread.path.slice(0, slash)}</span>
-          <span className="font-medium text-foreground">{thread.path.slice(slash)}</span>
+          <span className="text-muted-foreground">{folderOf(thread.path)}</span>
+          <span className="font-medium text-foreground">{nameOf(thread.path)}</span>
           {thread.line && <span className="text-muted-foreground">:{thread.line}</span>}
         </span>
         <span
@@ -44,7 +45,7 @@ function ThreadCard({ thread }: { thread: Thread }) {
         </span>
       </header>
       <div className="px-3 py-3">
-        <Comment who="You" body={thread.body} mine rail={!!thread.lastReply} />
+        <Comment who="You" body={thread.body} rail={!!thread.lastReply} />
         {thread.lastReply ? (
           <Comment who={thread.lastReply.author} body={thread.lastReply.body} note="latest reply" />
         ) : (
@@ -59,13 +60,7 @@ function ThreadCard({ thread }: { thread: Thread }) {
 }
 
 /** One comment beside its author's initials; `rail` runs a line down to the next comment. */
-function Comment(props: {
-  who: string;
-  body: string;
-  mine?: boolean;
-  note?: string;
-  rail?: boolean;
-}) {
+function Comment(props: { who: string; body: string; note?: string; rail?: boolean }) {
   return (
     <div className="relative flex gap-2.5 pb-3 last:pb-0">
       {props.rail && (
@@ -74,17 +69,7 @@ function Comment(props: {
           className="absolute top-7 bottom-0 left-3 w-px -translate-x-1/2 bg-border"
         />
       )}
-      <span
-        aria-hidden
-        className={cn(
-          'grid size-6 shrink-0 place-items-center rounded-full font-semibold text-[10px] uppercase',
-          props.mine
-            ? 'bg-foreground text-background'
-            : 'bg-muted text-muted-foreground ring-1 ring-border',
-        )}
-      >
-        {initials(props.who)}
-      </span>
+      <PersonAvatar name={props.who} className="size-6" />
       <div className="min-w-0 flex-1 pt-0.5">
         <p className="text-xs">
           <span className="font-medium text-foreground">{props.who}</span>
@@ -95,15 +80,6 @@ function Comment(props: {
     </div>
   );
 }
-
-/** Up to two letters for a name or a login: "Cedric Chou" is CC, "lee-park" is LP. */
-const initials = (who: string) =>
-  who
-    .split(/[\s._-]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join('');
 
 // A review round's verdict wins over the provider's resolved flag (CONTEXT.md, Comment verdict).
 const THREAD_STATE = {

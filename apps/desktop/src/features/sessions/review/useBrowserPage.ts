@@ -3,8 +3,9 @@ import { usePlatform } from '@/lib/MesaRoot';
 
 /**
  * The page in a session's native browser: its address, the URL loaded, and the surface the
- * WKWebView is laid over, kept to its bounds until the panel closes. Every navigation clears the
- * page selection first.
+ * WKWebView is laid over, kept to its bounds until the panel closes. The native view sits over the
+ * window, so a panel hidden while another session is selected (SidePanels) closes it, and opens
+ * it again on the page it was on when shown. Every navigation clears the page selection first.
  */
 export function useBrowserPage({
   sessionId,
@@ -24,6 +25,10 @@ export function useBrowserPage({
   const [opened, setOpened] = useState(false);
   const [busy, setBusy] = useState(false);
   const lastInitialUrl = useRef<typeof initialUrl>(undefined);
+  const currentUrl = useRef('');
+  currentUrl.current = current;
+  // The page to open again once a hidden panel shows: set when hiding closed the native view.
+  const reopenAt = useRef<string>(undefined);
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -48,22 +53,26 @@ export function useBrowserPage({
 
   useEffect(() => {
     if (!opened || !surface.current) return;
-    const observer = new ResizeObserver(() => {
+    const box = () => {
       const rect = surface.current?.getBoundingClientRect();
-      if (rect)
-        void platform.browser.bounds(sessionId, {
-          x: rect.x,
-          y: rect.y,
-          width: rect.width,
-          height: rect.height,
-        });
+      return rect && { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+    };
+    const url = reopenAt.current;
+    const rect = box();
+    reopenAt.current = undefined;
+    if (url && rect)
+      void platform.browser.open(sessionId, url, rect).catch((cause) => setError(String(cause)));
+    const observer = new ResizeObserver(() => {
+      const rect = box();
+      if (rect) void platform.browser.bounds(sessionId, rect);
     });
     observer.observe(surface.current);
     return () => {
       observer.disconnect();
       void platform.browser.close(sessionId);
+      reopenAt.current = currentUrl.current;
     };
-  }, [opened, platform.browser, sessionId]);
+  }, [opened, platform.browser, sessionId, setError]);
 
   const navigate = useCallback(
     async (url: string) => {

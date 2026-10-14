@@ -98,10 +98,15 @@ test('each ask is made once, however often it is called: again only a turn later
   turn('2026-09-24T12:05:00.000Z');
   await name();
   expect(asks).toHaveLength(2);
-  // Nothing to name it from marks the ask too, so it is not tried until the next turn.
+  // Nothing to name it from yet during its first turn: its prompt may not be in its transcript
+  // yet, so the ask is given back and tried again; between turns it marks the ask.
   const bare = setUp({}, 'tide-pump');
-  expect((await bare.name()).nameAsked).toBe('2026-09-24T12:00:00.000Z');
+  expect((await bare.name()).nameAsked).toBeUndefined();
   expect(bare.asks).toHaveLength(0);
+  const at = '2026-09-24T12:10:00.000Z';
+  const lastState = { state: 'idle', confidence: 1, at, source: 'hook' } as const;
+  const idle = setUp({ lastState }, 'tide-pump');
+  expect((await idle.name()).nameAsked).toBe(at);
 });
 
 test('a reply becomes a short lowercase slug', () => {

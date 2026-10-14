@@ -94,7 +94,7 @@ test('a GitHub project lists issues as Open and Closed, and the panel shows stat
     (g) => g.textContent,
   );
   expect(groups).toEqual(['Open1', 'Closed1']);
-  expect(byTestId('ticket-row')[0]?.textContent).toBe('#412Tide chart shows UTCM');
+  expect(byTestId('ticket-row')[0]?.textContent).toBe('#412Tide chart shows UTCMK');
   expect(byTestId('view-switcher')[0]?.textContent).toContain(
     'harbor-apiharbor-co, assigned to me',
   );
@@ -105,7 +105,7 @@ test('a GitHub project lists issues as Open and Closed, and the panel shows stat
   expect(panel?.querySelector('svg + .font-mono')?.textContent).toBe('#412');
   expect(panel?.textContent).toContain('#412Open in GitHub');
   expect(panel?.textContent).toContain(
-    `StateOpenAssigneesMmira-keelAssign to meLabelsbugfrontendMilestonev2.4Repository${REPO}`,
+    `StateOpenAssigneesMKmira-keelAssign to meLabelsbugfrontendMilestonev2.4Repository${REPO}`,
   );
   expect(panel?.textContent).toContain('Show times in the harbor zone.');
   expect(panel?.textContent).toContain('Seen on 14.');

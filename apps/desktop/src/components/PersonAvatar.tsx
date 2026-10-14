@@ -1,8 +1,11 @@
 import { nameColor } from '@/lib/nameColor';
 import { cn } from '@/lib/utils';
 
-/** A person's initials in a small circle, the same color for the same name. */
-export function AssigneeAvatar(props: { name?: string | undefined; className?: string }) {
+/**
+ * A person's initials in a small circle, the same color for the same name; a dashed `?` for no one.
+ * A name or a login: "Cedric Chou" is CC, "lee-park" is LP.
+ */
+export function PersonAvatar(props: { name?: string | undefined; className?: string }) {
   const { name } = props;
   if (!name)
     return (
@@ -17,7 +20,8 @@ export function AssigneeAvatar(props: { name?: string | undefined; className?: s
       </span>
     );
   const initials = name
-    .split(/\s+/)
+    .split(/[\s._-]+/)
+    .filter(Boolean)
     .slice(0, 2)
     .map((word) => word[0]?.toUpperCase() ?? '')
     .join('');

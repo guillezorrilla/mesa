@@ -1,13 +1,12 @@
 import type { PrDetail } from '@mesa/core';
 import { DEFAULT_APPEARANCE } from '@mesa/core/browser';
-import { Columns2, PanelLeft, Rows2 } from 'lucide-react';
-import { type KeyboardEvent, useMemo, useState } from 'react';
-import { IconButton } from '@/components/IconButton';
+import { useMemo } from 'react';
 import { Muted } from '@/components/Muted';
 import { Stat } from '@/components/Stat';
+import { DiffViewToggles } from '@/features/git/diff/DiffViewToggles';
 import { diffFiles } from '@/features/git/diff/diffFiles';
 import { GitDiffFiles } from '@/features/git/diff/GitDiffFiles';
-import { useOpenDiffFile } from '@/features/git/diff/useOpenDiffFile';
+import { useDiffView } from '@/features/git/diff/useDiffView';
 import { useCommand } from '@/lib/useCommand';
 
 /**
@@ -20,11 +19,9 @@ export function PrFilesTab(props: { pr: PrDetail }) {
   const diff = useCommand('prs.diff', { project: pr.project, number: pr.number });
   const appearance = useCommand('config.get').data?.appearance ?? DEFAULT_APPEARANCE;
   const files = useMemo(() => diffFiles(diff.data?.rows ?? []), [diff.data]);
-  const { at, file, open, move } = useOpenDiffFile(files);
-  const [listOpen, setListOpen] = useState(true);
-  const [layout, setLayout] = useState<'inline' | 'side-by-side'>('inline');
+  const view = useDiffView(files);
   if (!pr.files.length) return <Muted className="py-4">No changed files.</Muted>;
-  if (!file)
+  if (!view.file)
     return (
       <>
         <Muted className="py-3">
@@ -45,40 +42,24 @@ export function PrFilesTab(props: { pr: PrDetail }) {
         ))}
       </>
     );
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.target instanceof HTMLInputElement || event.metaKey || event.ctrlKey) return;
-    if (event.key !== 'j' && event.key !== 'k') return;
-    event.preventDefault();
-    move(event.key === 'j' ? 1 : -1);
-  };
   return (
     <div className="space-y-2 pt-2">
       <div className="flex items-center justify-end gap-1">
-        <IconButton
-          label={listOpen ? 'Hide file list' : 'Show file list'}
-          icon={PanelLeft}
-          active={listOpen}
-          onClick={() => setListOpen(!listOpen)}
-        />
-        <IconButton
-          label={layout === 'inline' ? 'Side-by-side diff' : 'Inline diff'}
-          icon={layout === 'inline' ? Columns2 : Rows2}
-          onClick={() => setLayout(layout === 'inline' ? 'side-by-side' : 'inline')}
-        />
+        <DiffViewToggles view={view} />
       </div>
       {/* biome-ignore lint/a11y/noStaticElementInteractions: j and k walk the files from any control inside. */}
       <div
-        onKeyDown={onKeyDown}
+        onKeyDown={view.walk}
         className="flex h-[70vh] min-h-80 overflow-hidden rounded-md border bg-card"
       >
         <GitDiffFiles
           files={files}
-          at={at}
-          onOpen={open}
-          onMove={move}
-          layout={layout}
+          at={view.at}
+          onOpen={view.open}
+          onMove={view.move}
+          layout={view.layout}
           fontSize={appearance.diffFontSize}
-          list={listOpen}
+          list={view.list}
           listClassName="w-56"
         />
       </div>

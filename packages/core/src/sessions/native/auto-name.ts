@@ -57,7 +57,8 @@ function sourceOf(deps: Pick<MesaContext, 'home' | 'env'>, record: SessionRecord
  * redacted, kept as its `agentName`. A session started on a ticket is named from the ticket's
  * title, after its branch. Asks once per ask (nameAsk: its title, or each turn), so a call for an
  * ask already made, or for a session with a name, changes nothing; an ask with nothing to name it
- * from, or that Haiku answers with no name, is still marked made.
+ * from, or that Haiku answers with no name, is still marked made, except a first ask during its
+ * first turn with nothing to read yet, which is tried again.
  */
 export async function autoName(
   deps: Pick<MesaContext, 'run' | 'home' | 'env' | 'secrets'> & { store: SessionStore },
@@ -75,6 +76,12 @@ export async function autoName(
   });
   if (!claimed) return record;
   const said = sourceOf(deps, record);
+  // Its first prompt may reach its transcript after the hook that showed it: a first ask during
+  // its first turn that finds nothing is given back, so the next look asks again.
+  if (!said.length && !found.nameAsked && record.lastState.state === 'working')
+    return deps.store.update(id, (current) =>
+      current.nameAsked === ask ? { nameAsked: undefined } : {},
+    );
   if (!said.length) return record;
   const { from } = record;
   const ticket = from?.title && isTicketItem(from.source, from.id) ? branchOf(from.id) : undefined;
