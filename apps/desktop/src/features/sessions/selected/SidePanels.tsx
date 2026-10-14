@@ -66,8 +66,15 @@ const SessionPanel = memo(function SessionPanel(props: {
           checkout={props.checkout}
         />
       )}
-      {props.diffable && open.panel === 'diff' && (
-        <DiffPanel sessionId={id} branch={props.branch} state={props.state} onClose={close} />
+      {props.diffable && props.project && open.panel === 'diff' && (
+        <DiffPanel
+          sessionId={id}
+          project={props.project}
+          checkout={props.checkout}
+          branch={props.branch}
+          state={props.state}
+          onClose={close}
+        />
       )}
       {props.managed && open.panel === 'browser' && (
         <BrowserPanel sessionId={id} initialUrl={open.browserTarget} onClose={close} />

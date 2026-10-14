@@ -27,9 +27,11 @@ export function PickMenu(props: {
   items: PickItem[];
   picked: string[];
   multiple?: boolean;
+  /** Open at first: for a menu shown only once its trigger was clicked. */
+  defaultOpen?: boolean;
   onPick: (value: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(props.defaultOpen ?? false);
   return (
     // Modal, so its list scrolls with the wheel inside the dialog that holds it.
     <Popover modal open={open} onOpenChange={setOpen}>

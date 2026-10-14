@@ -3,6 +3,7 @@ import { currentBranch } from '../git/ref.js';
 import type { Runner } from '../lib/process.js';
 import type { Profile } from '../profile/profile.js';
 import { findProject } from '../projects/projects.js';
+import type { Worktree } from '../sessions/start/worktree.js';
 import { worktreeSettings } from './settings.js';
 
 /** A checkout's own default: origin's default branch, else the branch `root` is on. */
@@ -39,9 +40,6 @@ export async function defaultBranchRef(
  * agent moves it to another branch, or detaches it, that branch's start is not known: none, so
  * the project's default stands in.
  */
-export async function recordedBase(
-  run: Runner,
-  worktree: { path: string; branch: string; base?: string },
-): Promise<string | undefined> {
+export async function recordedBase(run: Runner, worktree: Worktree): Promise<string | undefined> {
   return (await currentBranch(run, worktree.path)) === worktree.branch ? worktree.base : undefined;
 }

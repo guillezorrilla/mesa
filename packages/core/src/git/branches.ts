@@ -30,43 +30,45 @@ export async function listGitBranches(
 ): Promise<{ checkout: Checkout; branches: GitBranch[]; remotes: string[] }> {
   const checkout = await resolveCheckout(profile, run, project, selected);
   const root = findProject(profile, project).path;
-  const [refs, worktrees, current, remoteRefs] = await Promise.all([
+  const [refs, worktrees, current] = await Promise.all([
     gitCommand(run, checkout.path, [
       'for-each-ref',
-      // lstrip=2, not :short, which says heads/x when a tag x exists too.
-      '--format=%(refname:lstrip=2)%00%(objectname)%00%(upstream:short)',
+      // The full refname: lstrip or :short would say heads/x when a tag x exists too.
+      '--format=%(refname)%00%(objectname)%00%(upstream:short)',
       'refs/heads/',
+      'refs/remotes/',
     ]),
     gitWorktrees(run, root),
     currentBranch(run, checkout.path),
-    gitCommand(run, checkout.path, [
-      'for-each-ref',
-      '--format=%(refname:lstrip=2)',
-      'refs/remotes/',
-    ]),
   ]);
   if (!refs.ok) throw new MesaError('usage', `cannot list branches: ${refs.detail}`);
   const byBranch = new Map(
     worktrees.filter((row) => row.branch).map((row) => [row.branch, row.path]),
   );
-  const branches = refs.stdout
+  const rows = refs.stdout
     .trimEnd()
     .split('\n')
     .filter(Boolean)
-    .map((line) => {
-      const [name = '', oid = '', upstream = ''] = line.split('\0');
-      return {
+    .map((line) => line.split('\0'));
+  const branches = rows.flatMap(([ref = '', oid = '', upstream = '']) => {
+    if (!ref.startsWith('refs/heads/')) return [];
+    const name = ref.slice('refs/heads/'.length);
+    return [
+      {
         name,
         oid,
         ...(upstream ? { upstream } : {}),
         ...(byBranch.has(name) ? { checkedOutAt: byBranch.get(name) } : {}),
         current: current === name,
-      };
-    });
+      },
+    ];
+  });
   // Each remote's branches, its HEAD alias left out: what a branch can be compared with.
-  const remotes = remoteRefs.ok
-    ? remoteRefs.stdout.split('\n').filter((ref) => ref && !ref.endsWith('/HEAD'))
-    : [];
+  const remotes = rows.flatMap(([ref = '']) =>
+    ref.startsWith('refs/remotes/') && !ref.endsWith('/HEAD')
+      ? [ref.slice('refs/remotes/'.length)]
+      : [],
+  );
   return { checkout, branches, remotes };
 }
 

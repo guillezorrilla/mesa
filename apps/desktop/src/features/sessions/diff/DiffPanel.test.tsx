@@ -22,7 +22,14 @@ test('the session diff lists every changed file, walks them with j and k, and op
     'files open': () => envelope({ result: { opened: true } }),
   });
   await renderWithMesa(
-    <DiffPanel sessionId="aaaaaaaa" branch="session/reef" state="idle" onClose={() => {}} />,
+    <DiffPanel
+      sessionId="aaaaaaaa"
+      project="lantern-cove"
+      checkout="/w/reef"
+      branch="session/reef"
+      state="idle"
+      onClose={() => {}}
+    />,
     bridge,
   );
   const panel = document.querySelector<HTMLElement>('[aria-label="Session changes"]');
@@ -45,7 +52,16 @@ test('the session diff lists every changed file, walks them with j and k, and op
 
 test('a session with nothing changed says so, naming its base', async () => {
   const { bridge } = fakeBridge({ diff: diff({ rows: [], ahead: 0 }) });
-  await renderWithMesa(<DiffPanel sessionId="aaaaaaaa" state="idle" onClose={() => {}} />, bridge);
+  await renderWithMesa(
+    <DiffPanel
+      sessionId="aaaaaaaa"
+      project="lantern-cove"
+      checkout="/w/reef"
+      state="idle"
+      onClose={() => {}}
+    />,
+    bridge,
+  );
   expect(document.body.textContent).toContain('No changes since main');
 });
 
@@ -54,7 +70,13 @@ test('dragging the edge widens the panel only as far as the terminal keeps 256px
   const { bridge } = fakeBridge({ diff: diff({}) });
   await renderWithMesa(
     <div>
-      <DiffPanel sessionId="aaaaaaaa" state="idle" onClose={() => {}} />
+      <DiffPanel
+        sessionId="aaaaaaaa"
+        project="lantern-cove"
+        checkout="/w/reef"
+        state="idle"
+        onClose={() => {}}
+      />
     </div>,
     bridge,
   );
@@ -83,7 +105,16 @@ test('Expand covers the terminal side by side, Escape shrinks it back, and left-
     diff: diff({ rows: removal, omitted: 3 }),
     'files open': () => envelope({ result: { opened: true } }),
   });
-  await renderWithMesa(<DiffPanel sessionId="aaaaaaaa" state="idle" onClose={() => {}} />, bridge);
+  await renderWithMesa(
+    <DiffPanel
+      sessionId="aaaaaaaa"
+      project="lantern-cove"
+      checkout="/w/reef"
+      state="idle"
+      onClose={() => {}}
+    />,
+    bridge,
+  );
   const panel = () => document.querySelector<HTMLElement>('[aria-label="Session changes"]');
   expect(panel()?.textContent).toContain('3 more new files not shown');
   await click(buttons().find((button) => button.title === 'Expand over terminal'));
@@ -117,12 +148,25 @@ test("picking a branch to compare with reads the session's changes against it", 
         remotes: ['origin/develop', 'origin/main', 'origin/trunk'],
       }),
   });
-  await renderWithMesa(<DiffPanel sessionId="aaaaaaaa" state="idle" onClose={() => {}} />, bridge);
+  await renderWithMesa(
+    <DiffPanel
+      sessionId="aaaaaaaa"
+      project="lantern-cove"
+      checkout="/w/reef"
+      state="idle"
+      onClose={() => {}}
+    />,
+    bridge,
+  );
   const picker = (base: string) =>
     document.querySelector<HTMLElement>(`[aria-label="Compare with ${base}"]`) ?? undefined;
   const item = (name: string) =>
     [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].find((i) => i.textContent === name);
+  // The branches are read only once the menu opens.
+  const listed = () => calls.filter((argv) => argv[1] === 'git' && argv[2] === 'branches').length;
+  expect(listed()).toBe(0);
   await click(picker('origin/main'));
+  expect(listed()).toBe(1);
   expect(item('session/reef')).toBeDefined();
   await click(item('origin/develop'));
   expect(calls).toContainEqual(expect.arrayContaining(['diff', '--base', 'origin/develop']));

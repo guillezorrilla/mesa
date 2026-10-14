@@ -26,18 +26,19 @@ const TERMINAL_MIN = 256;
  */
 export function DiffPanel(props: {
   sessionId: string;
+  /** The session's project and checkout (none: the main one), whose branches the base menu offers. */
+  project: string;
+  checkout?: string | undefined;
   branch?: string;
   state: string;
   onClose: () => void;
 }) {
   // The ref picked to compare with; none: the session's own base (sessions.diff).
   const [base, setBase] = useState<string>();
-  const changes = useCommand('sessions.diff', { id: props.sessionId, ...(base ? { base } : {}) });
+  const changes = useCommand('sessions.diff', { id: props.sessionId, base });
   const data = changes.data;
-  // The last read's checkout and base, so the picker stays while a picked base is read, or fails.
-  const lastRead = useRef(data);
-  if (data) lastRead.current = data;
-  const header = data ?? lastRead.current;
+  // The picked base, else the read's: it stays while a picked base is read, or fails.
+  const shownBase = base ?? data?.base;
   const appearance = useCommand('config.get').data?.appearance ?? DEFAULT_APPEARANCE;
   const run = useRun();
   const [width, setWidth] = useKeptWidth('mesa.diff.width', DIFF_WIDTH);
@@ -105,13 +106,13 @@ export function DiffPanel(props: {
             <span className="truncate font-mono font-medium" title={props.branch}>
               {props.branch ?? 'This checkout'}
             </span>
-            {header && (
+            {shownBase && (
               <span className="shrink-0 text-muted-foreground">
                 since{' '}
                 <DiffBasePicker
-                  project={header.checkout.project}
-                  checkout={header.checkout.path}
-                  base={base ?? header.base}
+                  project={props.project}
+                  checkout={props.checkout}
+                  base={shownBase}
                   onPick={setBase}
                 />
               </span>

@@ -13,6 +13,7 @@ const PR: ReviewPromptInput = {
   round: 1,
   mode: 'drafts',
   head: '3f9c2a1b7d4e',
+  base: 'develop',
 };
 const MESA = "'/opt/homebrew/bin/mesa'";
 
@@ -28,6 +29,8 @@ test('round 1 in drafts mode leaves drafts and stops for the person, in a short 
   // Every Mesa call goes to the running build, never a bare `mesa` on PATH.
   expect(prompt).not.toMatch(/`mesa prs/);
   expect(prompt).toContain(`\`${MESA} prs show atlas 214 --json\``);
+  // Round 1 diffs against the branch the PR merges into.
+  expect(prompt).toContain('`git diff origin/develop...HEAD`');
   // Kept short: the review's tokens go to the code, not the instructions.
   expect(prompt.split(/\s+/).length).toBeLessThan(200);
 });
