@@ -90,3 +90,28 @@ test('Expand covers the terminal side by side, Escape shrinks it back, and left-
   await click(buttons().find((button) => button.textContent?.includes('Open in editor')));
   expect(calls).toContainEqual(expect.arrayContaining(['files', 'open', '--line', '4', 'tide.ts']));
 });
+
+test("picking a branch to compare with reads the session's changes against it", async () => {
+  const { bridge, calls } = fakeBridge({
+    diff: (args) =>
+      sessionDiff({ base: args.includes('--base') ? 'origin/develop' : 'origin/main' }),
+    'git branches': () =>
+      envelope({
+        checkout: { project: 'lantern-cove', path: '/w/reef', registered: false },
+        branches: [
+          { name: 'develop', oid: 'a', upstream: 'origin/develop', current: false },
+          { name: 'session/reef', oid: 'b', current: true },
+        ],
+      }),
+  });
+  await renderWithMesa(<DiffPanel sessionId="aaaaaaaa" state="idle" onClose={() => {}} />, bridge);
+  await click(
+    document.querySelector<HTMLElement>('[aria-label="Compare with origin/main"]') ?? undefined,
+  );
+  const item = (name: string) =>
+    [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].find((i) => i.textContent === name);
+  expect(item('session/reef')).toBeDefined();
+  await click(item('origin/develop'));
+  expect(calls).toContainEqual(expect.arrayContaining(['diff', '--base', 'origin/develop']));
+  expect(document.body.textContent).toContain('since origin/develop');
+});

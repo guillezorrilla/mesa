@@ -13,6 +13,7 @@ import { useDiffView } from '@/features/git/diff/useDiffView';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { useKeptWidth } from '@/lib/useKeptWidth';
 import { cn } from '@/lib/utils';
+import { DiffBasePicker } from './DiffBasePicker';
 
 /** The panel's width bounds beside the terminal, which always keeps TERMINAL_MIN pixels. */
 const DIFF_WIDTH = { min: 360, max: 1600, initial: 720, step: 32 };
@@ -29,7 +30,9 @@ export function DiffPanel(props: {
   state: string;
   onClose: () => void;
 }) {
-  const changes = useCommand('sessions.diff', { id: props.sessionId });
+  // The ref picked to compare with; none: the session's own base (sessions.diff).
+  const [base, setBase] = useState<string>();
+  const changes = useCommand('sessions.diff', { id: props.sessionId, ...(base ? { base } : {}) });
   const data = changes.data;
   const appearance = useCommand('config.get').data?.appearance ?? DEFAULT_APPEARANCE;
   const run = useRun();
@@ -100,7 +103,13 @@ export function DiffPanel(props: {
             </span>
             {data && (
               <span className="shrink-0 text-muted-foreground">
-                since <span className="font-mono">{data.base}</span>
+                since{' '}
+                <DiffBasePicker
+                  project={data.checkout.project}
+                  checkout={data.checkout.path}
+                  base={data.base}
+                  onPick={setBase}
+                />
               </span>
             )}
           </p>
