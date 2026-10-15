@@ -9,6 +9,7 @@ describe('prRemote provider', () => {
     ['ssh://git@github.com/acme/web', 'github'],
     ['https://bitbucket.org/acme/web.git', 'bitbucket'],
     ['git@bitbucket.org:acme/web.git', 'bitbucket'],
+    ['git@ssh.bitbucket.org:acme/web.git', 'bitbucket'],
     ['https://ana@bitbucket.org/acme/web.git\n', 'bitbucket'],
   ])('%s is on %s', (url, provider) => {
     expect(prRemote(url)?.provider).toBe(provider);

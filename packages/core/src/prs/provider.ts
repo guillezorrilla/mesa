@@ -49,6 +49,8 @@ const REMOTE = /^(?:[a-z+]+:\/\/)?(?:[^@/]+@)?([^/:]+)[:/]([^/]+)\/([^/]+?)(?:\.
 const PROVIDERS: Record<string, PrProvider> = {
   'github.com': 'github',
   'bitbucket.org': 'bitbucket',
+  // Bitbucket Cloud's ssh host from 2026-11-12, which Atlassian asks every ssh remote to use.
+  'ssh.bitbucket.org': 'bitbucket',
 };
 
 type Remote = { provider: PrProvider; repo: string };
