@@ -103,8 +103,9 @@ export async function startReview(
     throw new MesaError('usage', `pull request #${pr} names no head Mesa can fetch: ${headRef}`);
   });
   if (existing) {
-    if ((await remoteHead(deps.run, deps.projectPath, source)) === live.review?.head)
-      return existing;
+    // A head origin does not name is no proof the author pushed: the open round is kept.
+    const remote = await remoteHead(deps.run, deps.projectPath, source);
+    if (!remote || remote === live.review?.head) return existing;
     await deps.stop(live.id);
   }
   const branch = reviewBranch(pr);
