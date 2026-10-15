@@ -22,11 +22,13 @@ export function reviewsOf<T extends { project?: string | null; review?: SessionR
   return { all, live: all.filter(live).at(-1) };
 }
 
+/** A review round in progress by its state: queued, or its agent working or asking me. */
+export const roundInProgress = (state: SessionState) =>
+  state !== 'idle' && !FINAL_STATES.has(state);
+
 /**
  * A review round in progress: its session queued to start, or alive with its agent working or
  * asking me something. An idle agent is through with the round, though its session stays open.
  */
-export const reviewing = (s: { alive: boolean; lastState: { state: SessionState } }) => {
-  const { state } = s.lastState;
-  return state === 'queued' || (s.alive && state !== 'idle' && !FINAL_STATES.has(state));
-};
+export const reviewing = (s: { alive: boolean; lastState: { state: SessionState } }) =>
+  (s.alive || s.lastState.state === 'queued') && roundInProgress(s.lastState.state);

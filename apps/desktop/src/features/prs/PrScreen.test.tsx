@@ -369,6 +369,20 @@ test('a live review session of the PR turns Start into Open review, and shows it
   expect(started()).toEqual([]);
 });
 
+test('an idle review session the author has news since offers Re-review, which asks prs start', async () => {
+  const idle = managedRow('rev00009', {
+    project: 'storefront',
+    review: { pr: 477, round: 1, mode: 'drafts', head: 'abc1234' },
+    lastState: { state: 'idle', confidence: 0.95, at: hoursAgo(1), source: 'hook' },
+  });
+  const { byTestId, started } = await startable(detail(), { sessions: [idle] });
+  expect(byTestId('open-review')).toHaveLength(0);
+  expect(byTestId('review-label')[0]?.textContent).toBe('Review #477 · round 1 · drafts');
+  await click(byTestId('start-review')[0]);
+  // Core opens it again on the same head, or stops it and starts round 2 on the new one.
+  expect(started()).toEqual(['prs start -- storefront 477']);
+});
+
 test('a review already running elsewhere is opened, not started again; a failed start stays, with Back', async () => {
   const running = await startable(detail({ bucket: 'need' }), {
     start: () => envelope({ session: 'rev00007', existing: true }),

@@ -102,7 +102,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
       board: () => sessions.sessions.list(),
       send: sessions.sessions.send,
     }),
-    prs: prsService(ctx, { open: sessions.sessions.open }),
+    prs: prsService(ctx, { open: sessions.sessions.open, stop: sessions.sessions.stop }),
     hooks: hooksService(ctx),
     skills,
     usage,

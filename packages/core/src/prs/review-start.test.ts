@@ -24,7 +24,7 @@ const FAILED: RunResult = { ok: false, reason: 'failed', detail: 'exit 1' };
  */
 function fakeGit(
   worktrees = listing(),
-  opts: { status?: string; ahead?: string; diverged?: boolean } = {},
+  opts: { status?: string; ahead?: string; diverged?: boolean; remote?: string | RunResult } = {},
 ) {
   return scriptedRunner({
     git: (args): string | RunResult => {
@@ -36,6 +36,10 @@ function fakeGit(
       if (sub === 'fetch' && opts.diverged && args.at(-1)?.includes(':'))
         return { ok: false, reason: 'failed', detail: '! [rejected] (non-fast-forward)' };
       if (sub === 'rev-parse') return `${HEAD}\n`;
+      if (sub === 'ls-remote')
+        return typeof opts.remote === 'object'
+          ? opts.remote
+          : `${opts.remote ?? HEAD}\trefs/heads/${args[4]}\n`;
       return '';
     },
   });
@@ -68,6 +72,7 @@ const ended = {
 
 function harness(records: SessionRecord[] = [], run = fakeGit()) {
   const opened: { project: string; opts: object }[] = [];
+  const stopped: string[] = [];
   const deps = {
     run: run.run,
     projectPath: PROJECT,
@@ -83,8 +88,11 @@ function harness(records: SessionRecord[] = [], run = fakeGit()) {
         ),
       };
     },
+    stop: async (id: string) => {
+      stopped.push(id);
+    },
   };
-  return { deps, opened, calls: run.calls };
+  return { deps, opened, stopped, calls: run.calls };
 }
 
 const input = (
@@ -163,6 +171,48 @@ describe('startReview', () => {
     });
     expect(opened).toEqual([]);
     expect(calls).toEqual([]);
+  });
+
+  const idle = {
+    lastState: {
+      state: 'idle' as const,
+      confidence: 0.95,
+      at: '2026-09-24T13:00:00.000Z',
+      source: 'hook' as const,
+    },
+  };
+
+  test('an idle review session on the pull request head is opened again, and nothing starts', async () => {
+    const { deps, opened, stopped, calls } = harness([reviewSession('1d1er3v1', {}, idle)]);
+    expect(await startReview(deps, input())).toEqual({
+      session: '1d1er3v1',
+      existing: true,
+      mode: 'drafts',
+    });
+    expect(gitArgs(calls).map((a) => a[2])).toEqual(['check-ref-format', 'ls-remote']);
+    expect([opened, stopped]).toEqual([[], []]);
+  });
+
+  test('an idle review session is opened again when origin cannot say its head', async () => {
+    const run = fakeGit(listing(), { remote: FAILED });
+    const { deps, stopped } = harness([reviewSession('1d1er3v1', {}, idle)], run);
+    expect(await startReview(deps, input())).toMatchObject({ session: '1d1er3v1', existing: true });
+    expect(stopped).toEqual([]);
+  });
+
+  test('an idle review session the author pushed past is stopped, and round 2 starts on the new head', async () => {
+    const run = fakeGit(listing({ path: WORKTREE, branch: 'review/12' }), {
+      remote: 'c'.repeat(40),
+    });
+    const { deps, opened, stopped } = harness([reviewSession('0ldr0und', {}, idle)], run);
+    const started = await startReview(deps, input());
+    expect(stopped).toEqual(['0ldr0und']);
+    expect(opened[0]?.opts).toMatchObject({
+      checkout: WORKTREE,
+      review: { round: 2 },
+      parent: '0ldr0und',
+    });
+    expect(started).toMatchObject({ round: 2, existing: false });
   });
 
   test('round 2 moves the existing worktree to the new head, with the round-1 session as parent', async () => {
