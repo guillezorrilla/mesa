@@ -92,7 +92,7 @@ const nextStep = (provider: PrProvider, cli: CliState) =>
 const AT_ONCE = 4;
 
 /** PR reviews (#785): which provider each project uses, the PRs that need me, and review sessions. */
-export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open'>) {
+export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open' | 'stop'>) {
   /** Registered projects (or the one asked for) with their provider and repo from origin, and a CLI probe each provider shares. */
   async function projects(only?: string) {
     const rows = listProjects(ctx.open());

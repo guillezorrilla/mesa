@@ -7,7 +7,7 @@ import { prTarget } from './target.js';
 export const prsStart = defineCommand({
   name: 'prs start',
   summary:
-    'Start a review session on a pull request in a worktree at its head (or name the one running); it leaves pending drafts, or posts them as comments with --post',
+    'Start a review session on a pull request in a worktree at its head (or name the one running, unless the author pushed past an idle one: that one is stopped and the next round starts); it leaves pending drafts, or posts them as comments with --post',
   args: ['project', 'number'],
   flags: {
     post: {
@@ -24,7 +24,7 @@ export const prsStart = defineCommand({
       data,
       text: `${
         data.existing
-          ? `Review of #${args.number} is already running: ${data.session}`
+          ? `Review of #${args.number} is already open: ${data.session}`
           : `Started ${data.session}: review #${args.number}, round ${data.round}, ${data.mode}, at ${data.head.slice(0, 7)} in ${data.worktree}`
       }${data.guard === 'prompt' ? `; ${PROMPT_ONLY}` : ''}`,
     };

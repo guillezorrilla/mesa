@@ -71,6 +71,10 @@ export function PrScreen(
   const open = (id: string) => navigate?.({ kind: 'session', id });
   const reviews = reviewSessionsOf(props.sessions ?? [], pr);
   const label = START_LABEL[pr.bucket];
+  // An idle round the author has news since is not opened as is: Re-review asks prs start, which
+  // opens it again on the same head or starts the next round on the new one.
+  const opened =
+    reviews.live && (reviewing(reviews.live) || pr.bucket !== 'updated') ? reviews.live : undefined;
   // One step: `mesa prs start` reads the PR, checks out its head and opens the session at once.
   const step =
     pr.bucket === 'need'
@@ -79,7 +83,7 @@ export function PrScreen(
   const action = label && !review.steps && (
     <ReviewStartButton
       label={label}
-      live={reviews.live?.id}
+      live={opened?.id}
       noPost={
         canPost(props.agent)
           ? undefined

@@ -6,7 +6,7 @@ import { MesaError } from '../lib/result.js';
 import { isOver } from '../sessions/record/lifecycle.js';
 import type { SessionRecord, SessionReview } from '../sessions/record/record.js';
 import type { OpenFlags } from '../sessions/start/open-input.js';
-import { canPost, reviewsOf } from './review-sessions.js';
+import { canPost, reviewsOf, roundInProgress } from './review-sessions.js';
 
 // Starting a review session on a pull request (mesa prs start): its head fetched into the local
 // branch review/<n>, a worktree on that branch made or moved to it, and a session opened there
@@ -26,6 +26,8 @@ export type ReviewStartDeps = {
   sessions: () => readonly SessionRecord[];
   /** Opens the session (sessions.open). */
   open: (project: string, opts: ReviewOpen) => Promise<{ result: SessionRecord }>;
+  /** Stops a session (sessions.stop): an idle round the author pushed past. */
+  stop: (id: string) => Promise<unknown>;
 };
 
 export type ReviewStartInput = {
@@ -62,7 +64,9 @@ const FETCH_MS = 120_000;
 export const reviewBranch = (pr: number) => `review/${pr}`;
 
 /**
- * Starts a review session on pull request `number` of `project`, or returns the one still live.
+ * Starts a review session on pull request `number` of `project`, or returns the one still live:
+ * one at work, or one idle on the head on origin. An idle one the author pushed past is stopped
+ * and a new round starts.
  * Its round is one past the highest of that pull request's review sessions on the project, ended
  * ones too, and the newest of them is its parent. The head is fetched into review/<n>; when a
  * worktree has that branch already, its head is fetched into FETCH_HEAD there and the worktree
@@ -76,7 +80,12 @@ export async function startReview(
   if (!Number.isInteger(pr) || pr < 1)
     throw new MesaError('usage', `${pr} is not a pull request number`);
   const { all: earlier, live } = reviewsOf(deps.sessions(), project, pr, (r) => !isOver(r));
-  if (live?.review) return { session: live.id, existing: true, mode: live.review.mode };
+  const existing = live?.review && {
+    session: live.id,
+    existing: true as const,
+    mode: live.review.mode,
+  };
+  if (existing && roundInProgress(live.lastState.state)) return existing;
   const mode = input.post ? 'post' : 'drafts';
   if (input.post && !canPost(input.agent))
     throw new MesaError(
@@ -93,6 +102,11 @@ export async function startReview(
   const source = await branchName(deps.run, deps.projectPath, headRef).catch(() => {
     throw new MesaError('usage', `pull request #${pr} names no head Mesa can fetch: ${headRef}`);
   });
+  if (existing) {
+    if ((await remoteHead(deps.run, deps.projectPath, source)) === live.review?.head)
+      return existing;
+    await deps.stop(live.id);
+  }
   const branch = reviewBranch(pr);
   // The project's own checkout is listed first: Mesa never moves it.
   const worktree = (await gitWorktrees(deps.run, deps.projectPath))
@@ -174,6 +188,15 @@ async function moveWorktree(run: Runner, path: string, branch: string, source: s
     ['switch', '--quiet', '-C', branch, 'FETCH_HEAD'],
     `cannot move ${path} to the new head`,
   );
+}
+
+/**
+ * The commit `source` names on origin, without fetching; undefined when it cannot be read.
+ * ponytail: the first ref ls-remote matches, as `git fetch origin <source>` resolves it.
+ */
+async function remoteHead(run: Runner, cwd: string, source: string) {
+  const listed = await gitCommand(run, cwd, ['ls-remote', 'origin', source], FETCH_MS);
+  return listed.ok ? listed.stdout.split(/\s/)[0] || undefined : undefined;
 }
 
 /** A git call that must succeed (mustGit), given a fetch's time. */

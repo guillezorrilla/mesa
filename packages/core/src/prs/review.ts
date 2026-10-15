@@ -7,7 +7,7 @@ import { unwrap } from './cli-read.js';
 import type { PrProvider } from './provider.js';
 import type { PrProviderApi } from './reader.js';
 import { reviewPrompt } from './review-prompt.js';
-import { canPost, reviewsOf } from './review-sessions.js';
+import { canPost, reviewsOf, roundInProgress } from './review-sessions.js';
 import { type ReviewStartDeps, startReview } from './review-start.js';
 import type { PrDetail } from './service.js';
 import { type CommentVerdict, prVerdicts, VERDICT_STATES } from './verdicts.js';
@@ -27,7 +27,7 @@ export type Reached = {
  */
 export function reviewActions(
   ctx: MesaContext,
-  deps: Pick<ReviewStartDeps, 'open'>,
+  deps: Pick<ReviewStartDeps, 'open' | 'stop'>,
   prs: {
     reach: (project: string) => Promise<Reached>;
     read: (at: Reached, number: number) => Promise<PrDetail>;
@@ -43,8 +43,9 @@ export function reviewActions(
      * one already running, found from the session records before anything is read.
      */
     start: async (project: string, number: number, opts: { post?: boolean } = {}) => {
+      // One at work is named at once; an idle one waits on the head check in startReview.
       const { live } = reviewsOf(ctx.store.list(), project, number, (r) => !isOver(r));
-      if (live?.review)
+      if (live?.review && roundInProgress(live.lastState.state))
         return {
           session: live.id,
           existing: true as const,
