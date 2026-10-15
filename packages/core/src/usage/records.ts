@@ -26,7 +26,7 @@ export type UsageReport = {
   unknown: { session: string; reason: string }[];
   periods: Record<'today' | '7d' | '30d' | '90d' | 'month', UsageTotals>;
   alerts: { period: 'today' | '7d' | 'month'; thresholdUsd: number; knownCostUsd: number }[];
-  /** Each UTC day of the last 90, with its totals split by provider and model. */
+  /** Each local day of the last 90, with its totals split by provider and model. */
   daily: { day: string; totals: UsageTotals; models: UsageBreakdown }[];
   breakdown: UsageBreakdown;
   /** The same 90 days per provider, so a provider's total is never summed by a reader. */

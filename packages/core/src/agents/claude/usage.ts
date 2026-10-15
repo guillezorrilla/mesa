@@ -63,7 +63,10 @@ export function claudeReading(
     const standard =
       (usage.speed === undefined || usage.speed === 'standard') &&
       (usage.service_tier === undefined || usage.service_tier === 'standard') &&
-      (usage.inference_geo === undefined || usage.inference_geo === 'not_available');
+      // Global routing is the standard price; US-only inference costs more and stays unknown.
+      (usage.inference_geo === undefined ||
+        usage.inference_geo === 'not_available' ||
+        usage.inference_geo === 'global');
     return {
       id: `claude:${nativeSessionId}:${id}`,
       session,

@@ -80,7 +80,7 @@ export function CostAlerts(props: {
             <BellRing aria-hidden className="size-4 text-state-waiting" /> Cost alerts
           </h3>
           <Muted size="xs" className="mt-1">
-            Informational only: alerts never pause sessions. Days and months count in UTC.
+            Informational only: alerts never pause sessions. Days and months count in local time.
           </Muted>
         </div>
         <Button

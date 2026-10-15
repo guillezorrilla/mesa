@@ -56,7 +56,7 @@ export function usageService(ctx: MesaContext) {
               size: stats.reduce((total, stat) => total + stat.size, 0),
               mtimeMs: Math.max(...stats.map((stat) => stat.mtimeMs)),
               // Raised when a reader counts differently, so sources it stamped are read again.
-              reader: 2,
+              reader: 3,
             };
             if (
               prior &&
