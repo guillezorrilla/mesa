@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -103,10 +104,11 @@ export const tauriPlatform: Platform = {
       ),
   },
   fileDrops: {
-    // The window's, not the webview's: Tauri sends the main webview's drops to its window. On macOS
-    // wry gives AppKit points, already CSS pixels, though Tauri types them physical.
+    // The webview's, not the window's: built with `unstable` (the Browser's child webviews), the
+    // main page is a child webview too, and Tauri sends its drops to it alone. On macOS wry gives
+    // AppKit points, already CSS pixels, though Tauri types them physical.
     onDrop: (handler) =>
-      getCurrentWindow().onDragDropEvent(({ payload }) => {
+      getCurrentWebview().onDragDropEvent(({ payload }) => {
         if (payload.type === 'drop')
           handler({ paths: payload.paths, x: payload.position.x, y: payload.position.y });
       }),
