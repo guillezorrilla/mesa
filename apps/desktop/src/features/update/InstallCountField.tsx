@@ -14,7 +14,7 @@ export function InstallCountField() {
   return (
     <SettingRow
       title="Anonymous install count"
-      description="Once a day Mesa sends a random install ID, its version and its update channel, so its maker can count installs and updates. Nothing about your work or how you use Mesa. Off also erases it."
+      description="Once a day, a random install ID with Mesa's version and channel, never your work or how you use Mesa; off also erases it"
       keywords="privacy analytics telemetry install"
       htmlFor="install-count"
       control={

@@ -61,7 +61,7 @@ export function updateService(
   ctx: MesaContext,
   config: Pick<ReturnType<typeof profileService>['config'], 'set'>,
   /** The install ping (ADR-0026), sent beside each check when due; it never throws. */
-  ping: (channel: UpdateChannel) => Promise<void> = async () => {},
+  ping: (channel: UpdateChannel) => Promise<void>,
 ) {
   const { http, version: current } = ctx;
   const channel = (): UpdateChannel => ctx.configIfAny()?.update.channel ?? defaultChannel(current);

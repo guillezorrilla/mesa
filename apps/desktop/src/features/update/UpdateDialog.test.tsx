@@ -143,7 +143,7 @@ test('Settings switches the channel through core and checks the new feed', async
 test('Settings shows the anonymous install count on, and its switch turns it off through core', async () => {
   const { bridgeCalls } = await render(<UpdateSettingsPanel />, { phase: 'up-to-date' });
   expect(document.body.textContent).toContain('Anonymous install count');
-  expect(document.body.textContent).toContain('Nothing about your work or how you use Mesa.');
+  expect(document.body.textContent).toContain('never your work or how you use Mesa');
   const toggle = document.querySelector<HTMLButtonElement>('#install-count');
   expect(toggle?.getAttribute('aria-checked')).toBe('true');
   await click(toggle ?? undefined);

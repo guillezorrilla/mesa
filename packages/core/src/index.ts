@@ -67,7 +67,7 @@ export {
   NO_OUTCOME,
 } from './impact/report.js';
 export type { Marked } from './impact/service.js';
-export type { InstallStatus } from './installs/service.js';
+export type { InstallStatus, InstallSwitch } from './installs/service.js';
 export type { InstructionRow } from './instructions/inventory.js';
 export type { CliState } from './lib/cli-state.js';
 export { type Clock, systemClock } from './lib/clock.js';

@@ -19,6 +19,8 @@ const InstallSchema = z.object({
 type Install = z.infer<typeof InstallSchema>;
 
 export type InstallStatus = { id: string | null; enabled: boolean; lastSentAt: string | null };
+/** What a switch answers; `erased` only when off asked the broker to erase this install. */
+export type InstallSwitch = InstallStatus & { erased?: boolean };
 
 /** How long a ping or an erase may take: the update check runs one beside its feed reads. */
 const PING_TIMEOUT_MS = 5_000;
@@ -39,14 +41,18 @@ export function installsService(
     }
   };
 
-  /** The record, made with a new ID the first time; two processes racing keep the first one's. */
-  const ensure = (enabled = true): Install => {
+  /**
+   * The record, made with a new ID the first time (`made`); two processes racing keep the first
+   * one's.
+   */
+  const ensure = (enabled = true): { install: Install; made: boolean } => {
     const found = read();
-    if (found) return found;
+    if (found) return { install: found, made: false };
     mkdirSync(profilesDir(ctx.home), { recursive: true });
     const made: Install = { id: ctx.newUuid(), enabled };
-    if (createFileAtomic(file, `${JSON.stringify(made, null, 2)}\n`)) return made;
-    return read() ?? made;
+    if (createFileAtomic(file, `${JSON.stringify(made, null, 2)}\n`))
+      return { install: made, made: true };
+    return { install: read() ?? made, made: false };
   };
 
   const save = (install: Install) => writeFileAtomic(file, `${JSON.stringify(install, null, 2)}\n`);
@@ -77,7 +83,7 @@ export function installsService(
     ping: async (channel: UpdateChannel): Promise<void> => {
       if (!ctx.release || ctx.env.MESA_NO_INSTALL_PING === '1') return;
       try {
-        const install = ensure();
+        const { install } = ensure();
         const now = ctx.clock();
         const { sent } = install;
         if (!install.enabled) return;
@@ -88,16 +94,22 @@ export function installsService(
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(body),
         });
-        if (took)
-          save({ ...(read() ?? install), sent: { at: now.toISOString(), version: ctx.version } });
+        if (!took) return;
+        const latest = read() ?? install;
+        // Turned off while the ping was on its way: erase what it just recorded.
+        if (!latest.enabled) await call(`/installs/${install.id}`, { method: 'DELETE' });
+        else save({ ...latest, sent: { at: now.toISOString(), version: ctx.version } });
       } catch {
         // The count is informational: a failure waits for the next check.
       }
     },
 
-    /** Turns the ping on or off; off also asks the broker to erase this install. */
-    set: async (enabled: boolean): Promise<InstallStatus & { erased?: boolean }> => {
-      const install = ensure(enabled);
+    /**
+     * Turns the ping on or off; off also asks the broker to erase this install, unless it is a
+     * development build or the ID was made just now, so the broker never had it.
+     */
+    set: async (enabled: boolean): Promise<InstallSwitch> => {
+      const { install, made } = ensure(enabled);
       const { sent: _, ...kept } = install;
       save(enabled ? { ...install, enabled } : { ...kept, enabled });
       const status = {
@@ -105,7 +117,7 @@ export function installsService(
         enabled,
         lastSentAt: enabled ? (install.sent?.at ?? null) : null,
       };
-      if (enabled) return status;
+      if (enabled || made || !ctx.release) return status;
       const erased = await call(`/installs/${install.id}`, { method: 'DELETE' });
       return { ...status, erased };
     },

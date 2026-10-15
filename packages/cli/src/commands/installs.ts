@@ -20,9 +20,11 @@ export const installs = defineCommand({
     const data = await mesa.installs.set(args.state === 'on');
     const text = data.enabled
       ? 'The anonymous install count is on.'
-      : data.erased
-        ? 'The anonymous install count is off, and the broker erased this install.'
-        : "The anonymous install count is off. The erase didn't reach the broker; run mesa installs off again when online.";
+      : data.erased === undefined
+        ? 'The anonymous install count is off.'
+        : data.erased
+          ? 'The anonymous install count is off, and the broker erased this install.'
+          : "The anonymous install count is off. The erase didn't reach the broker; run mesa installs on, then off, when online.";
     return { data, text };
   },
 });

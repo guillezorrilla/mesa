@@ -94,12 +94,55 @@ test('off erases the install on the broker and stops the ping; on sends it again
   expect(pings().map((r) => r.method)).toEqual(['POST', 'DELETE', 'POST']);
 });
 
-test('off before any ping makes the ID turned off, and says when the erase did not reach the broker', async () => {
-  const { mesa, pings, file } = world({ status: 503 });
-  expect(await mesa.installs.set(false)).toMatchObject({ enabled: false, erased: false });
+test('off before any ping makes the ID turned off and erases nothing the broker never had', async () => {
+  const { mesa, pings, file } = world();
+  expect(await mesa.installs.set(false)).toEqual({ id: ID, enabled: false, lastSentAt: null });
   expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({ id: ID, enabled: false });
   await mesa.update.check();
-  expect(pings().map((r) => r.method)).toEqual(['DELETE']);
+  expect(pings()).toEqual([]);
+});
+
+test('off says when the erase did not reach the broker', async () => {
+  const { mesa } = world({ status: 503 });
+  await mesa.installs.set(true);
+  expect(await mesa.installs.set(false)).toMatchObject({ enabled: false, erased: false });
+});
+
+test('a development build switches off without asking the broker to erase', async () => {
+  const { mesa, pings } = world({ dev: true });
+  await mesa.installs.set(true);
+  expect(await mesa.installs.set(false)).toEqual({ id: ID, enabled: false, lastSentAt: null });
+  expect(pings()).toEqual([]);
+});
+
+test('a ping that lands after the switch went off is erased at once', async () => {
+  const home = tempDir();
+  // The broker takes the ping only after the person has switched off.
+  let off: (() => Promise<unknown>) | undefined;
+  const seen: { method: string; signal: boolean }[] = [];
+  const mesa = createMesa(
+    'default',
+    testDeps(home, {
+      env: { MESA_BROKER_URL: BROKER },
+      release: fakeRelease(),
+      http: async (url, init) => {
+        seen.push({ method: init?.method ?? 'GET', signal: init?.signal instanceof AbortSignal });
+        if (url === `${BROKER}/installs` && off) await off();
+        return new Response('{}', { status: url.startsWith(`${BROKER}/installs`) ? 200 : 404 });
+      },
+    }),
+  );
+  off = () => {
+    off = undefined;
+    return mesa.installs.set(false);
+  };
+  await mesa.update.check();
+  expect(seen.filter((r) => r.method !== 'GET')).toEqual([
+    { method: 'POST', signal: true },
+    { method: 'DELETE', signal: true },
+    { method: 'DELETE', signal: true },
+  ]);
+  expect(mesa.installs.status()).toEqual({ id: ID, enabled: false, lastSentAt: null });
 });
 
 test.each([
