@@ -1,5 +1,6 @@
-# Mesa's OAuth broker (ADR-0014) and feedback relay (ADR-0025). Secrets: wrangler secret put
-# ATLASSIAN_CLIENT_ID, then ATLASSIAN_CLIENT_SECRET, and so on; FEEDBACK_GITHUB_TOKEN for feedback.
+# Mesa's OAuth broker (ADR-0014), feedback relay (ADR-0025) and install count (ADR-0026).
+# Secrets: wrangler secret put ATLASSIAN_CLIENT_ID, then ATLASSIAN_CLIENT_SECRET, and so on;
+# FEEDBACK_GITHUB_TOKEN for feedback.
 name = "mesa-broker"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
@@ -12,3 +13,19 @@ namespace_id = "1001"
   [ratelimits.simple]
   limit = 5
   period = 60
+
+# Ten install pings or erasures a minute from one IP address.
+[[ratelimits]]
+name = "INSTALLS_LIMIT"
+namespace_id = "1002"
+
+  [ratelimits.simple]
+  limit = 10
+  period = 60
+
+# Anonymous install counts (ADR-0026). Created with `wrangler d1 create mesa-installs`; the
+# tables are migrations/, applied with `wrangler d1 migrations apply mesa-installs --remote`.
+[[d1_databases]]
+binding = "DB"
+database_name = "mesa-installs"
+database_id = "df55b0bc-37c0-4c9b-a4e0-4bee88c4f260"

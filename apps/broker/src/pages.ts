@@ -16,7 +16,7 @@ ${body}
 
 export const PRIVACY = page(
   'Privacy policy',
-  `<p>Mesa is a local macOS app. This service, the Mesa broker, relays the OAuth sign-in between Mesa and a source you connect, such as Atlassian, and the feedback you choose to send.</p>
+  `<p>Mesa is a local macOS app. This service, the Mesa broker, relays the OAuth sign-in between Mesa and a source you connect, such as Atlassian, and the feedback you choose to send, and counts anonymous installs.</p>
 <ul>
 <li>The broker sees the authorization code and the tokens it exchanges or refreshes with the source, and passes them straight back to Mesa on your Mac. It stores nothing.</li>
 <li>The broker never receives your source content or Mesa's API calls to the source. Mesa calls the source directly.</li>
@@ -24,7 +24,8 @@ export const PRIVACY = page(
 <li>Mesa stores no personal data from your source account: only the tokens, their expiry, and the sites they reach (each site's id, name, and address), in your macOS Keychain.</li>
 <li>Mesa reads the connected source and never writes to it. Content you import stays in your own vault on your Mac.</li>
 <li>Feedback you send from Mesa goes through the broker to a private GitHub repository only Mesa's maker reads, as an issue: your message, your Mesa version and build, and the screen you sent it from. Nothing else is sent, and the broker keeps no copy.</li>
-<li>There are no analytics and no accounts. No data is sold or shared.</li>
+<li>Once a day Mesa sends the broker an anonymous install ID (a random number made on your Mac, tied to nothing else), its version, and its update channel. The broker keeps that ID with the first and last day it was seen and each version it ran, to count installs and updates. It keeps no IP address, no name, and nothing about your work or how you use Mesa. Turn it off in Settings or with <code>mesa installs off</code>, which also erases what was kept.</li>
+<li>There are no usage analytics and no accounts. No data is sold or shared.</li>
 <li>Disconnecting in Mesa removes the token from your Keychain. You can also revoke Mesa in the source's account settings at any time.</li>
 </ul>
 <p>Contact: the owner of the Mesa repository on GitHub, <a href="https://github.com/guillezorrilla">guillezorrilla</a>.</p>`,

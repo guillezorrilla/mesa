@@ -498,7 +498,7 @@ Not: account, login, integration.
 
 ## Broker
 
-Mesa's OAuth broker, `apps/broker`: a Cloudflare Worker that holds each Source's client secret, sends the browser to the vendor's sign-in, relays the vendor's answer to Mesa's loopback listener (`/callback/<source>`, its `state` naming the port), and exchanges or refreshes tokens. It never sees Source content or API calls, and stores nothing. Mesa's hosted one is the default; `MESA_BROKER_URL` points at a self-hosted one. ADR-0014.
+Mesa's OAuth broker, `apps/broker`: a Cloudflare Worker that holds each Source's client secret, sends the browser to the vendor's sign-in, relays the vendor's answer to Mesa's loopback listener (`/callback/<source>`, its `state` naming the port), and exchanges or refreshes tokens. It never sees Source content or API calls. It keeps nothing but the anonymous install count (ADR-0026) in its D1 database, and forwards feedback to a private repo (ADR-0025). Mesa's hosted one is the default; `MESA_BROKER_URL` points at a self-hosted one. ADR-0014.
 Not: relay, proxy, auth server.
 
 ## Context tab
