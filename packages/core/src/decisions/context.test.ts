@@ -92,7 +92,7 @@ test('per turn, only sources sharing two words with the prompt are offered, and 
     /^Most relevant: note:wiki\/decisions\/retry-policy.md \(margin [0-9.]+, jev-1.13.0\), because it shares "feed", "retry" with the prompt\. Read it before relying on it\./,
   );
   expect(turnAdvice(context)).toContain('because it shares "feed", "retry" with the prompt.');
-  expect(adviceEntry(context, 'lantern-cove', 'jev', true)).toMatchObject({
+  expect(adviceEntry(context, 'lantern-cove', 'jev', 'sent')).toMatchObject({
     site: 'relevance',
     answer: RETRY,
     status: 'accepted',
@@ -108,7 +108,7 @@ test('per turn, only sources sharing two words with the prompt are offered, and 
   expect(off.sources).toEqual([]);
   expect(turnAdvice(off)).toBeUndefined();
   // Logged as skipped: no model was asked, nothing changed.
-  const skipped = adviceEntry(off, 'lantern-cove', 'jev', false);
+  const skipped = adviceEntry(off, 'lantern-cove', 'jev', 'none');
   expect(skipped).toMatchObject({ status: 'skipped', answer: null, changed: false });
   expect(skipped).not.toHaveProperty('note');
   expect(world.requests).toHaveLength(1);

@@ -64,7 +64,6 @@ export {
   DECIDERS,
   EMPTY_IMPACT,
   foldedText,
-  NO_OUTCOME,
 } from './impact/report.js';
 export type { Marked } from './impact/service.js';
 export type { InstructionRow } from './instructions/inventory.js';

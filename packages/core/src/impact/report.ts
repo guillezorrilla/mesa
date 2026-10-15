@@ -38,13 +38,22 @@ export type Moment = {
   rulesAlone?: string;
   /** The vault notes it brought in or kept. */
   notes?: string[];
+  /** Relevance: how many prompts brought the same note in, when more than one. */
+  promptCount?: number;
   outcome: Outcome | null;
   /** A person marked it not right (`mesa impact mark`): it counts in no summary. */
   marked?: Mark;
 };
 
 /** The log lines of a session that changed nothing: one quiet count each. */
-export type Folded = { agreed: number; unsure: number; failed: number; skipped: number };
+export type Folded = {
+  agreed: number;
+  unsure: number;
+  failed: number;
+  skipped: number;
+  /** Prompts whose note the session already had, so no advice was sent again. */
+  repeated: number;
+};
 
 export type SessionImpact = {
   /** The Mesa session; null for guarded actions outside one (a push from the Git tab). */
@@ -90,6 +99,11 @@ export type ImpactRecord = {
   prompts: string[];
   /** The states its hooks reported, oldest first. */
   hookStates: { at: string; state: string }[];
+  /**
+   * The paths and commands of its tool calls (subagents' too), vault-relative where they were in
+   * the vault, oldest first.
+   */
+  toolInputs: { at: string; input: string }[];
   /** Whether it has ended: an advised note never opened by then never will be. */
   ended: boolean;
 };
@@ -104,9 +118,6 @@ export const DECIDERS: Record<DecisionLine['by'], string> = {
 /** Who answered a Moment, and how sure, as a row shows it. */
 export const answeredBy = (m: Moment) =>
   `${DECIDERS[m.by]}${m.confidence === undefined ? '' : ` ${Math.round(m.confidence * 100)}%`}`;
-
-/** What a Moment with no outcome says. */
-export const NO_OUTCOME = 'No outcome yet';
 
 export const EMPTY_IMPACT =
   'Nothing yet. Moments appear when Mesa catches a question, brings a note in, stops a command or keeps a note.';
@@ -124,7 +135,7 @@ const words = (state: string | null) =>
   (state && STATE_WORDS[state as AgentState]) ?? state ?? 'unknown';
 const waiting = (state: string | null) => WAITING_STATES.has(state as SessionState);
 
-/** Which quiet count a line that changed nothing adds to. */
+/** Which quiet count a line that changed nothing adds to, by its status. */
 const FOLDED: Record<DecisionLine['status'], keyof Folded> = {
   accepted: 'agreed',
   abstained: 'unsure',
@@ -159,16 +170,50 @@ export const openedAfter = (
   line: OpenedLine,
 ) => line.session === advice.session && line.note === advice.note && line.at >= advice.at;
 
-/** An advised note's outcome: opened after the advice, else not once the session has ended. */
+/** Which quiet count a line that changed nothing adds to. */
+function foldedKey(entry: DecisionLine): keyof Folded {
+  // One the session already had was held back.
+  if (entry.repeat) return 'repeated';
+  // A relevance answer that changed nothing found no note to bring: the rules have none here.
+  if (entry.site === 'relevance' && entry.status === 'accepted') return 'skipped';
+  return FOLDED[entry.status];
+}
+
+/** A character that continues a path, so `docs/wiki/a.md` or `wiki/a.md.bak` is not `wiki/a.md`. */
+const PATH_CHAR = /[\w./-]/;
+
+/** Whether `input` names `note` as a whole path. */
+export function namesNote(input: string, note: string): boolean {
+  for (let i = input.indexOf(note); i !== -1; i = input.indexOf(note, i + 1)) {
+    const before = input[i - 1] ?? '';
+    const after = input[i + note.length] ?? '';
+    if (!PATH_CHAR.test(before) && !PATH_CHAR.test(after)) return true;
+  }
+  return false;
+}
+
+/**
+ * An advised note's outcome: opened after the advice, through the Vault server or any tool whose
+ * input names its path (a file read, a grep, a shell command), else not once the session has
+ * ended. The advice carries an excerpt, so a note never opened may still have been enough.
+ */
 function noteOutcome(
   advice: DecisionLine,
   record: ImpactRecord | undefined,
   opened: readonly OpenedLine[],
 ): Outcome | null {
-  if (opened.some((o) => openedAfter(advice, o)))
+  const { note } = advice;
+  if (
+    opened.some((o) => openedAfter(advice, o)) ||
+    (note && record?.toolInputs.some((t) => t.at >= advice.at && namesNote(t.input, note)))
+  )
     return { kind: 'opened', text: 'The agent opened the note' };
-  return record?.ended ? { kind: 'not-opened', text: 'The agent did not open it' } : null;
+  return record?.ended ? { kind: 'not-opened', text: 'Sent as an excerpt, never opened' } : null;
 }
+
+/** A note Moment's title: the note, and how many prompts brought it in. */
+const broughtTitle = (note: string | undefined, promptCount = 1) =>
+  `Brought ${note} into ${promptCount > 1 ? `${promptCount} prompts` : 'the prompt'}`;
 
 /** A log line's Moment, and the summary count it adds to. */
 function logMoment(
@@ -199,7 +244,7 @@ function logMoment(
     return [
       {
         ...base,
-        title: `Brought ${entry.note} into the prompt`,
+        title: broughtTitle(entry.note),
         ...(entry.note ? { notes: [entry.note] } : {}),
         outcome: noteOutcome(entry, record, opened),
       },
@@ -259,13 +304,14 @@ export function impactSentence(s: ImpactSummary, days: number, project?: string)
 
 /** The folded line under a session's thread, or none when nothing folded. */
 export function foldedText(session: SessionImpact): string | undefined {
-  const { agreed, unsure, failed, skipped } = session.folded;
+  const { agreed, unsure, failed, skipped, repeated } = session.folded;
   const model = session.model ? DECIDERS[session.model] : 'the model';
   const parts = [
     agreed && `${counted(agreed, 'check')} where ${model} agreed with the rules`,
     unsure && `${unsure} unsure`,
     failed && `${failed} with no answer`,
     skipped && `${counted(skipped, 'prompt')} with no matching note`,
+    repeated && `${counted(repeated, 'prompt')} whose note it already had`,
   ].filter((p): p is string => Boolean(p));
   return parts.length ? `+ ${parts.join(', ')}` : undefined;
 }
@@ -293,7 +339,7 @@ export function impactReport(input: {
         name: record?.name ?? id ?? 'Outside a session',
         project: record?.project ?? project,
         moments: [],
-        folded: { agreed: 0, unsure: 0, failed: 0, skipped: 0 },
+        folded: { agreed: 0, unsure: 0, failed: 0, skipped: 0, repeated: 0 },
       };
       groups.set(id, found);
     }
@@ -326,10 +372,17 @@ export function impactReport(input: {
     const g = group(entry.session, entry.project);
     if (entry.by !== 'rules') g.model = entry.by;
     if (!entry.changed) {
-      // A relevance answer that changed nothing found no note to bring: the rules have none here.
-      g.folded[
-        entry.site === 'relevance' && entry.status === 'accepted' ? 'skipped' : FOLDED[entry.status]
-      ] += 1;
+      g.folded[foldedKey(entry)] += 1;
+      continue;
+    }
+    // A note brought in again (before advice was held back) adds to its first Moment.
+    const sameNote =
+      entry.site === 'relevance' &&
+      entry.note !== undefined &&
+      g.moments.find((m) => m.site === 'relevance' && m.notes?.[0] === entry.note);
+    if (sameNote) {
+      sameNote.promptCount = (sameNote.promptCount ?? 1) + 1;
+      sameNote.title = broughtTitle(entry.note, sameNote.promptCount);
       continue;
     }
     const record = entry.session ? input.records.get(entry.session) : undefined;

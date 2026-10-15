@@ -1,7 +1,14 @@
 import { clip } from '../lib/clip.js';
 import { shellWord } from '../lib/process.js';
+import { daysBefore } from '../lib/time.js';
 import { notePath, type ScopedContext } from './context.js';
-import type { NewDecision } from './log.js';
+import {
+  type DecisionLine,
+  type DecisionLog,
+  isDecision,
+  type LogEntry,
+  type NewDecision,
+} from './log.js';
 import type { SystemOneProvider } from './systemone.js';
 
 // Automatic decision advice inside a session (ADR-0019 "Delivery into sessions", #463): the words a
@@ -32,19 +39,51 @@ export function turnAdvice(context: ScopedContext): string | undefined {
   );
 }
 
+/** How far back a session's sent advice is looked for. */
+export const ADVICE_DAYS = 30;
+
+/** A session's Decision log lines of the last ADVICE_DAYS, newest first. */
+export const recentLines = (log: DecisionLog, now: Date, session: string) =>
+  log.read({ since: daysBefore(now, ADVICE_DAYS), session });
+
+/** The latest advice among a session's `lines` that sent `note`. */
+export const sentAdvice = (lines: readonly LogEntry[], note: string) =>
+  lines.find(
+    (e): e is DecisionLine =>
+      isDecision(e) && e.site === 'relevance' && e.changed && e.note === note,
+  );
+
+/** The note a turn's advice names, when it names one. */
+const advisedNote = (context: ScopedContext) => notePath(context.sources[0]?.id);
+
+/**
+ * Whether the session already had the note this turn's advice names: the same words each turn
+ * only crowd the agent's context and teach it to skip Mesa's advice, so it is not sent again.
+ */
+export function alreadySent(log: DecisionLog, now: Date, context: ScopedContext): boolean {
+  const note = advisedNote(context);
+  return (
+    note !== undefined && sentAdvice(recentLines(log, now, context.session), note) !== undefined
+  );
+}
+
+/** What became of a turn's advice: sent, held back as a repeat, or none to send. */
+export type AdviceDelivery = 'sent' | 'repeat' | 'none';
+
 /**
  * The Decision log's line for one automatic relevance ask: the note advised, if advice was sent
- * (`sent`); skipped when no source shared enough words for the model to be asked. The rules have
- * no answer at this site, and the prompt is never kept.
+ * or held back because the session already had it (`delivery`); skipped when no source shared
+ * enough words for the model to be asked. The rules have no answer at this site, and the prompt
+ * is never kept.
  */
 export function adviceEntry(
   context: ScopedContext,
   project: string,
   provider: SystemOneProvider,
-  sent: boolean,
+  delivery: AdviceDelivery,
 ): NewDecision {
   const { evaluation, sources } = context;
-  const note = sent ? notePath(sources[0]?.id) : undefined;
+  const note = delivery === 'none' ? undefined : advisedNote(context);
   return {
     site: 'relevance',
     session: context.session,
@@ -56,10 +95,11 @@ export function adviceEntry(
       (typeof evaluation.answer === 'string' ? evaluation.answer : null),
     by: provider,
     status: sources.length === 0 ? 'skipped' : evaluation.status,
-    changed: sent,
+    changed: delivery === 'sent',
     ...(evaluation.margin === undefined ? {} : { margin: evaluation.margin }),
     ...(evaluation.latencyMs ? { latencyMs: evaluation.latencyMs } : {}),
     ...(note ? { note } : {}),
+    ...(delivery === 'repeat' ? { repeat: true as const } : {}),
   };
 }
 

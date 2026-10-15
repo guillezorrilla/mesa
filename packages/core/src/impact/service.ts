@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { AGENTS } from '../agents/agents.js';
 import type { MesaContext } from '../context.js';
 import { isDecision, type Mark } from '../decisions/log.js';
+import { redactWhole } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { daysBefore } from '../lib/time.js';
 import { findProject } from '../projects/projects.js';
@@ -20,6 +21,9 @@ import { type ImpactRecord, impactReport, writtenNotes } from './report.js';
 export type Marked = { moment: string; mark: Mark | null };
 
 export type ImpactOptions = { days?: number; project?: string; session?: string };
+
+/** The tool input fields that name what a call read or ran: never written content. */
+const PATH_FIELDS = ['file_path', 'path', 'command'] as const;
 
 /** Only the receipts that can hold a vault write are read. */
 const WRITE_KINDS = ['capture', 'vault-change', 'decision'] as const;
@@ -63,6 +67,21 @@ export function impactService(ctx: MesaContext) {
               since,
             })
           : [];
+      // The vault as hook payloads hold it, its home written `~` too: stripped, a path in it reads
+      // vault-relative, as advice names its notes.
+      const roots = vault
+        ? [...new Set([vault, redactWhole(vault, ctx.home, [])])].map(
+            (root) => `${root.replace(/\/$/, '')}/`,
+          )
+        : [];
+      const pathsOf = (input: unknown) => {
+        if (!input || typeof input !== 'object') return '';
+        const fields = input as Record<string, unknown>;
+        const text = PATH_FIELDS.flatMap((k) =>
+          fields[k] === undefined ? [] : [JSON.stringify(fields[k])],
+        ).join(' ');
+        return roots.reduce((t, root) => t.replaceAll(root, ''), text);
+      };
       const found = new Map<string, SessionRecord>(ctx.store.readable().map((r) => [r.id, r]));
       // Each session's hook log, read once.
       const logs = new Map<string, HookEvent[]>();
@@ -91,6 +110,13 @@ export function impactService(ctx: MesaContext) {
                 return s ? [{ at: e.at, state: s }] : [];
               })
             : [],
+          toolInputs: events(id).flatMap((e) => {
+            const input =
+              e.event === 'PostToolUse' && e.payload && typeof e.payload === 'object'
+                ? pathsOf((e.payload as { tool_input?: unknown }).tool_input)
+                : '';
+            return input ? [{ at: e.at, input }] : [];
+          }),
         });
       }
       return impactReport({

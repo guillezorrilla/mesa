@@ -6,7 +6,7 @@ import type { Recorded } from '../receipts/recorder.js';
 import { projectLabel } from '../sessions/record/general.js';
 import type { SessionRecord } from '../sessions/record/record.js';
 import type { Stdio } from '../vault/mount/mcp-server.js';
-import { adviceEntry, turnAdvice } from './delivery.js';
+import { adviceEntry, alreadySent, turnAdvice } from './delivery.js';
 import {
   ASSIST_MODES,
   type AssistMode,
@@ -155,11 +155,20 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
       { site: 'relevance', query: clip(asked, 500) },
       { mode: 'automatic', signal, until, readyOnly },
     );
-    const text = 'sources' in context ? turnAdvice(context) : undefined;
+    const scoped = 'sources' in context ? context : undefined;
+    const advice = scoped && turnAdvice(scoped);
+    const repeat =
+      scoped !== undefined &&
+      advice !== undefined &&
+      alreadySent(ctx.decisionLog, ctx.clock(), scoped);
+    const text = repeat ? undefined : advice;
     if (text) stateOf(session.id).saw('advice');
-    // A ready-only read (Antigravity's, before each of its model calls) asks nothing: not logged.
-    if ('sources' in context && provider !== 'none' && !readyOnly)
-      ctx.decisionLog.append(adviceEntry(context, session.project, provider, text !== undefined));
+    // A ready-only read (Antigravity's, before each of its model calls) asks nothing: not logged,
+    // so it is never held back as a repeat either.
+    if (scoped && provider !== 'none' && !readyOnly)
+      ctx.decisionLog.append(
+        adviceEntry(scoped, session.project, provider, text ? 'sent' : repeat ? 'repeat' : 'none'),
+      );
     return text;
   };
 

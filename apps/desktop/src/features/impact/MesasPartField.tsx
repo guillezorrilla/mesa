@@ -1,4 +1,3 @@
-import { NO_OUTCOME } from '@mesa/core/browser';
 import { Button } from '@/components/ui/button';
 import { useCommand } from '@/lib/useCommand';
 import { useNavigate } from '@/lib/useNavigate';
@@ -25,7 +24,7 @@ export function MesasPartField(props: { session: string }) {
             .map((m) => (
               <li key={m.id}>
                 <span className="font-medium">{m.title}</span>
-                <span className="text-muted-foreground"> · {m.outcome?.text ?? NO_OUTCOME}</span>
+                {m.outcome && <span className="text-muted-foreground"> · {m.outcome.text}</span>}
               </li>
             ))}
         </ul>

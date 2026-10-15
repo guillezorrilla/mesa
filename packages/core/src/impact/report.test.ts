@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import type { DecisionLine, LogEntry } from '../decisions/log.js';
 import type { ReceiptEntry } from '../receipts/store.js';
-import { EMPTY_IMPACT, foldedText, type ImpactRecord, impactReport } from './report.js';
+import { EMPTY_IMPACT, foldedText, type ImpactRecord, impactReport, namesNote } from './report.js';
 
 const AT = '2026-10-13T09:00:00.000Z';
 const at = (minutes: number) => new Date(Date.parse(AT) + minutes * 60_000).toISOString();
@@ -49,6 +49,7 @@ const records = new Map<string, ImpactRecord>([
       project: 'lantern-cove',
       prompts: [at(2)],
       hookStates: [],
+      toolInputs: [],
       ended: false,
     },
   ],
@@ -60,6 +61,7 @@ const records = new Map<string, ImpactRecord>([
       project: 'harbor',
       prompts: [],
       hookStates: [],
+      toolInputs: [],
       ended: true,
     },
   ],
@@ -69,13 +71,19 @@ const report = (
   entries: LogEntry[],
   receipts: ReceiptEntry[] = [],
   hooks: Record<string, { at: string; state: string }[]> = {},
+  tools: Record<string, { at: string; input: string }[]> = {},
 ) =>
   impactReport({
     days: 7,
     since: at(-7 * 24 * 60),
     entries,
     receipts,
-    records: new Map([...records].map(([id, r]) => [id, { ...r, hookStates: hooks[id] ?? [] }])),
+    records: new Map(
+      [...records].map(([id, r]) => [
+        id,
+        { ...r, hookStates: hooks[id] ?? [], toolInputs: tools[id] ?? [] },
+      ]),
+    ),
   });
 
 test('a changed line is a Moment with its outcome; the rest fold into counts', () => {
@@ -120,7 +128,7 @@ test('a changed line is a Moment with its outcome; the rest fold into counts', (
       outcome: { kind: 'answered', minutes: 2, text: 'You answered 2 min later' },
     },
   ]);
-  expect(session?.folded).toEqual({ agreed: 2, unsure: 1, failed: 1, skipped: 1 });
+  expect(session?.folded).toEqual({ agreed: 2, unsure: 1, failed: 1, skipped: 1, repeated: 0 });
   expect(session && foldedText(session)).toBe(
     '+ 2 checks where CLEF agreed with the rules, 1 unsure, 1 with no answer, 1 prompt with no matching note',
   );
@@ -302,7 +310,7 @@ test('an advised note is opened, or not once its session ended; a mark takes a M
   ]);
   const notes = r.sessions.flatMap((s) => s.moments).filter((m) => m.site === 'relevance');
   expect(notes.map((m) => [m.notes?.[0], m.outcome?.text ?? null])).toEqual([
-    ['wiki/b.md', 'The agent did not open it'],
+    ['wiki/b.md', 'Sent as an excerpt, never opened'],
     ['wiki/c.md', null],
     ['wiki/a.md', 'The agent opened the note'],
   ]);
@@ -322,5 +330,58 @@ test('an advised note is opened, or not once its session ended; a mark takes a M
     unsure: 0,
     failed: 0,
     skipped: 0,
+    repeated: 0,
   });
+});
+
+const advice = (over: Partial<DecisionLine>) =>
+  entry({ site: 'relevance', rules: null, answer: 'wiki/a.md', note: 'wiki/a.md', ...over });
+
+test("a tool whose input names an advised note opens it; one before the advice, or another note's, does not", () => {
+  const tool = (minutes: number, input: string) => ({ at: at(minutes), input });
+  const r = report(
+    [
+      advice({
+        at: at(3),
+        session: 'e5f6a7b8',
+        answer: 'wiki/b.md',
+        note: 'wiki/b.md',
+        changed: true,
+      }),
+      advice({ at: at(2), changed: true }),
+    ],
+    [],
+    {},
+    {
+      a1b2c3d4: [tool(4, '"wiki/a.md"')],
+      e5f6a7b8: [tool(1, '"cat wiki/b.md"'), tool(4, '"wiki/c.md"')],
+    },
+  );
+  const outcome = (note: string) =>
+    r.sessions.flatMap((s) => s.moments).find((m) => m.notes?.[0] === note)?.outcome?.text;
+  expect(outcome('wiki/a.md')).toBe('The agent opened the note');
+  expect(outcome('wiki/b.md')).toBe('Sent as an excerpt, never opened');
+});
+
+test('a note brought into several prompts is one Moment; advice held back as a repeat folds', () => {
+  const r = report([
+    advice({ at: at(9), status: 'accepted', changed: false, repeat: true }),
+    advice({ at: at(6), changed: true }),
+    advice({ at: at(4), answer: 'wiki/c.md', note: 'wiki/c.md', changed: true }),
+    advice({ at: at(2), changed: true }),
+  ]);
+  const session = r.sessions.find((s) => s.id === 'a1b2c3d4');
+  expect(session?.moments.map((m) => [m.title, m.promptCount])).toEqual([
+    ['Brought wiki/a.md into 2 prompts', 2],
+    ['Brought wiki/c.md into the prompt', undefined],
+  ]);
+  expect(r.summary.notesIn).toBe(2);
+  expect(session && foldedText(session)).toBe('+ 1 prompt whose note it already had');
+});
+
+test('a note is named only as a whole path', () => {
+  expect(namesNote('"cat wiki/a.md && ls"', 'wiki/a.md')).toBe(true);
+  expect(namesNote('"wiki/a.md"', 'wiki/a.md')).toBe(true);
+  expect(namesNote('"docs/wiki/a.md"', 'wiki/a.md')).toBe(false);
+  expect(namesNote('"wiki/a.md.bak" "wiki/a.mdx"', 'wiki/a.md')).toBe(false);
 });
