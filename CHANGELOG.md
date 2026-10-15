@@ -2,6 +2,12 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.3.5 - 2026-10-15
+
+### Fixed
+
+- PR reviews on Bitbucket work with the new ssh host: a project whose remote is `git@ssh.bitbucket.org:...`, the address Bitbucket asks every ssh remote to use from November 12, 2026, is now found as a Bitbucket project, so review drafts post again. (#841)
+
 ## 0.3.4 - 2026-10-15
 
 ### Added
