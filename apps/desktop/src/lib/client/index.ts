@@ -8,6 +8,7 @@ import { filesCommands } from './files';
 import { gitCommands } from './git';
 import { impactCommands } from './impact';
 import { importsCommands } from './imports';
+import { installsCommands } from './installs';
 import { instructionsCommands } from './instructions';
 import { notificationsCommands } from './notifications';
 import { projectsCommands } from './projects';
@@ -53,6 +54,7 @@ const COMMANDS = {
   ...notificationsCommands,
   ...doctorCommands,
   ...feedbackCommands,
+  ...installsCommands,
   ...usageCommands,
   ...updateCommands,
 };

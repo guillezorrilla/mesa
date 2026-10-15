@@ -13,6 +13,7 @@ import { feedbackService } from './feedback/service.js';
 import { filesService } from './files/service.js';
 import { gitService } from './git/service.js';
 import { impactService } from './impact/service.js';
+import { installsService } from './installs/service.js';
 import { instructionsService } from './instructions/service.js';
 import { mapService } from './map/service.js';
 import { backgroundDelivery } from './notifications/background.js';
@@ -78,10 +79,13 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const notices = inbox(ctx, automations.runs);
   const notifications = { ...notices, deliver: () => backgroundDelivery(ctx, notices) };
   const worktrees = worktreesService(ctx);
+  const installs = installsService(ctx);
   return {
     about: () => about(deps.version, deps.release),
     /** A person's feedback, sent through the broker to a private repo (ADR-0025). */
     feedback: feedbackService(ctx),
+    /** The anonymous install count and its switch (ADR-0026). */
+    installs: { status: installs.status, set: installs.set },
     /** A version's release notes, the running one's by default. */
     whatsNew: (version = deps.version) => whatsNew(deps.changelog, version),
     ...profileApi,
@@ -112,7 +116,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     statusLine: statusLineService(ctx),
     notifications,
     diagnostics: diagnosticsService(ctx),
-    update: updateService(ctx, profileApi.config),
+    update: updateService(ctx, profileApi.config, installs.ping),
     instructions: instructionsService(ctx),
     sources,
     imports: {

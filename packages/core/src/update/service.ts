@@ -60,6 +60,8 @@ const defaultChannel = (current: string): UpdateChannel =>
 export function updateService(
   ctx: MesaContext,
   config: Pick<ReturnType<typeof profileService>['config'], 'set'>,
+  /** The install ping (ADR-0026), sent beside each check when due; it never throws. */
+  ping: (channel: UpdateChannel) => Promise<void> = async () => {},
 ) {
   const { http, version: current } = ctx;
   const channel = (): UpdateChannel => ctx.configIfAny()?.update.channel ?? defaultChannel(current);
@@ -107,7 +109,7 @@ export function updateService(
   /** What a person running this version sees on the profile's channel. */
   const check = async (): Promise<UpdateCheck> => {
     const on = channel();
-    const [found, list] = await Promise.all([releases(on), revocations()]);
+    const [found, list] = await Promise.all([releases(on), revocations(), ping(on)]);
     // A revoked release is never offered: the newest one not revoked is.
     const best = found
       .filter((f) => !revocationOf(list, f.manifest.version))

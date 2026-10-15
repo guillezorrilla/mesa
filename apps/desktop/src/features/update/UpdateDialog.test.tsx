@@ -13,11 +13,22 @@ import {
 import { UpdateDialog } from './UpdateDialog';
 import { UpdateSettingsPanel } from './UpdateSettingsPanel';
 
-async function render(ui: React.ReactNode, initial: Parameters<typeof fakeUpdates>[0] = {}) {
+async function render(
+  ui: React.ReactNode,
+  initial: Parameters<typeof fakeUpdates>[0] & { eraseFails?: boolean } = {},
+) {
   const updates = fakeUpdates(initial);
   let closed = 0;
+  // The install count's switch: `installs` reads it, `installs on|off` sets it (off erases it).
+  let enabled = true;
   const { bridge, calls } = fakeBridge({
     'update channel': (args) => envelope({ channel: args[3] ?? 'beta', receipt: null }),
+    installs: (args) => {
+      const to = args.at(-1);
+      if (to === 'on' || to === 'off') enabled = to === 'on';
+      const status = { id: '00000000-0000-4000-8000-000000000001', enabled, lastSentAt: null };
+      return envelope(to === 'off' ? { ...status, erased: initial.eraseFails !== true } : status);
+    },
   });
   const platform = fakePlatform({
     updates: updates.host,
@@ -127,4 +138,21 @@ test('Settings switches the channel through core and checks the new feed', async
   expect(calls).toEqual(['check']);
   await click(button('Check now'));
   expect(calls).toEqual(['check', 'check']);
+});
+
+test('Settings shows the anonymous install count on, and its switch turns it off through core', async () => {
+  const { bridgeCalls } = await render(<UpdateSettingsPanel />, { phase: 'up-to-date' });
+  expect(document.body.textContent).toContain('Anonymous install count');
+  expect(document.body.textContent).toContain('Nothing about your work or how you use Mesa.');
+  const toggle = document.querySelector<HTMLButtonElement>('#install-count');
+  expect(toggle?.getAttribute('aria-checked')).toBe('true');
+  await click(toggle ?? undefined);
+  expect(bridgeCalls).toContainEqual(['--json', 'installs', 'off']);
+  expect(document.querySelector('#install-count')?.getAttribute('aria-checked')).toBe('false');
+});
+
+test("turning the install count off says so when the erase didn't reach the server", async () => {
+  await render(<UpdateSettingsPanel />, { phase: 'up-to-date', eraseFails: true });
+  await click(document.querySelector<HTMLButtonElement>('#install-count') ?? undefined);
+  expect(document.body.textContent).toContain("The erase didn't reach Mesa's server");
 });
