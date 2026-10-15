@@ -2,6 +2,16 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.3.6 - 2026-10-15
+
+### Added
+
+- Archived sessions in the app: the Sessions tab has an Archived section at the bottom, with its count, listing each archived session by title, project and when it was archived. Unarchive brings a session back live in its project, resumed, and Delete permanently removes it; archiving a session shows a toast with Undo, which does the same as Unarchive. `mesa sessions --archived` lists them, and `mesa unarchive --resume` resumes one. (#846)
+
+### Changed
+
+- Vault capture saves a session's decisions as it goes, at the end of a turn once 20 minutes and 10 messages have passed since the last capture, so archiving or deleting a session is instant and never waits on a capture. (#845)
+
 ## 0.3.5 - 2026-10-15
 
 ### Fixed
