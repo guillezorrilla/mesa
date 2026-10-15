@@ -1,4 +1,5 @@
 import { feedback, type Limit } from './feedback.js';
+import { type Installs, installsRoute } from './installs.js';
 import { PRIVACY, TERMS } from './pages.js';
 import { PROVIDERS, type Provider } from './providers.js';
 
@@ -35,16 +36,22 @@ function grant(body: unknown): Record<string, string> | undefined {
 /**
  * The broker (ADR-0014): sends the browser to a vendor's sign-in, relays the vendor's answer to
  * Mesa's loopback listener, and exchanges or refreshes tokens with the client secret only it holds.
- * It never logs a request or response body. It also serves the privacy policy and terms, and opens
- * an issue from a person's feedback (ADR-0025), `limit` deciding whether a caller may send more.
+ * It never logs a request or response body. It also serves the privacy policy and terms, opens
+ * an issue from a person's feedback (ADR-0025), `limit` deciding whether a caller may send more,
+ * and counts anonymous installs (ADR-0026).
  */
 export async function handle(
   request: Request,
   env: Env,
   upstream: Upstream,
   limit: Limit = async () => true,
+  installs: Installs = { limit: async () => true, now: () => new Date() },
 ): Promise<Response> {
   const url = new URL(request.url);
+  if (url.pathname === '/installs' || url.pathname.startsWith('/installs/')) {
+    const [status, body] = await installsRoute(request, url.pathname, installs);
+    return body === undefined ? new Response(null, { status }) : json(status, body);
+  }
   if (url.pathname === '/feedback' && request.method === 'POST') {
     if (!(await limit(request.headers.get('cf-connecting-ip') ?? 'unknown')))
       return json(429, { error: 'rate_limited' });

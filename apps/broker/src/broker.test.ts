@@ -1,6 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { type Env, handle, type Upstream } from './broker.js';
 import type { Limit } from './feedback.js';
+import { type D1, d1Installs, type Installs } from './installs.js';
 
 const ENV: Env = {
   ATLASSIAN_CLIENT_ID: 'client-1',
@@ -341,6 +342,10 @@ test('the privacy policy and terms are static pages', async () => {
     expect(answer.headers.get('content-type')).toBe('text/html; charset=utf-8');
     expect(await answer.text()).toContain('guillezorrilla');
   }
+  // The policy says what the install count keeps and how to turn it off and erase it.
+  const privacy = await (await get('/privacy')).text();
+  expect(privacy).toContain('anonymous install ID');
+  expect(privacy).toContain('mesa installs off');
 });
 
 afterEach(() => vi.restoreAllMocks());
@@ -448,4 +453,119 @@ test('feedback past the limit for its IP is 429 and reaches no one', async () =>
   expect(answer.status).toBe(429);
   expect(keys).toEqual(['203.0.113.9']);
   expect(gh.calls).toHaveLength(0);
+});
+
+/**
+ * A D1 over Node's SQLite with the broker's migrations applied, so the store's own SQL runs.
+ * Imported by name so the Worker's types need no Node ones.
+ */
+async function sqliteD1() {
+  const [sqlite, fs] = ['node:sqlite', 'node:fs'];
+  const { DatabaseSync } = await import(sqlite);
+  const { readFileSync } = await import(fs);
+  const db = new DatabaseSync(':memory:');
+  const migration = readFileSync(
+    new URL('../migrations/0001_installs.sql', import.meta.url),
+    'utf8',
+  );
+  db.exec(migration);
+  type Bound = { sql: string; values: unknown[] };
+  const d1: D1 = {
+    prepare: (sql) => ({ bind: (...values: unknown[]): Bound => ({ sql, values }) }),
+    batch: async (statements) => {
+      for (const { sql, values } of statements as Bound[]) db.prepare(sql).run(...values);
+    },
+  };
+  const rows = (table: string): Record<string, unknown>[] =>
+    db.prepare(`SELECT * FROM ${table} ORDER BY id, version`).all();
+  return { d1, rows };
+}
+
+const ID = '3f6c2a9e-8b1d-4e7a-9c20-5d4b3a2f1e0c';
+const OTHER = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
+
+async function installsBroker(day = '2026-10-14T23:50:00.000Z', limit: Limit = async () => true) {
+  const { d1, rows } = await sqliteD1();
+  let now = new Date(day);
+  const installs: Installs = { store: d1Installs(d1), limit, now: () => now };
+  const send = (method: string, path: string, body?: unknown) =>
+    handle(
+      new Request(`${BROKER}${path}`, {
+        method,
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        headers: { 'cf-connecting-ip': '203.0.113.7' },
+      }),
+      ENV,
+      vendor().upstream,
+      undefined,
+      installs,
+    );
+  return { send, rows, later: (at: string) => (now = new Date(at)) };
+}
+
+test('an install ping keeps the install and each version it reached, by UTC day', async () => {
+  const { send, rows, later } = await installsBroker();
+  const ping = (version: string) =>
+    send('POST', '/installs', { id: ID, version, channel: 'stable' });
+  expect((await ping('0.3.3')).status).toBe(204);
+  later('2026-10-15T08:00:00.000Z');
+  await ping('0.3.3');
+  later('2026-10-20T08:00:00.000Z');
+  const answer = await ping('0.3.4');
+  expect([answer.status, await answer.text()]).toEqual([204, '']);
+  expect(rows('installs')).toEqual([
+    {
+      id: ID,
+      first_seen: '2026-10-14',
+      last_seen: '2026-10-20',
+      version: '0.3.4',
+      channel: 'stable',
+    },
+  ]);
+  expect(rows('install_versions')).toEqual([
+    { id: ID, version: '0.3.3', first_seen: '2026-10-14' },
+    { id: ID, version: '0.3.4', first_seen: '2026-10-20' },
+  ]);
+});
+
+test.each([
+  ['an id that is not a UUID', { id: 'mesa-1', version: '0.3.3', channel: 'stable' }],
+  ['an empty version', { id: ID, version: '', channel: 'stable' }],
+  ['a version over 40 characters', { id: ID, version: 'v'.repeat(41), channel: 'stable' }],
+  ['another channel', { id: ID, version: '0.3.3', channel: 'nightly' }],
+  ['no body', undefined],
+])('an install ping with %s is 400 and keeps nothing', async (_, body) => {
+  const { send, rows } = await installsBroker();
+  expect((await send('POST', '/installs', body)).status).toBe(400);
+  expect([rows('installs'), rows('install_versions')]).toEqual([[], []]);
+});
+
+test('erasing an install removes only its rows; a malformed id is 400', async () => {
+  const { send, rows } = await installsBroker();
+  for (const id of [ID, OTHER])
+    await send('POST', '/installs', { id, version: '0.3.3', channel: 'beta' });
+  expect((await send('DELETE', `/installs/${ID}`)).status).toBe(204);
+  expect(rows('installs').map((row) => row.id)).toEqual([OTHER]);
+  expect(rows('install_versions').map((row) => row.id)).toEqual([OTHER]);
+  expect((await send('DELETE', '/installs/mesa-1')).status).toBe(400);
+  expect((await send('GET', '/installs')).status).toBe(404);
+});
+
+test('install routes past the limit for their IP are 429; without D1 they are 503', async () => {
+  const keys: string[] = [];
+  const { send, rows } = await installsBroker(undefined, async (key) => {
+    keys.push(key);
+    return false;
+  });
+  expect(
+    (await send('POST', '/installs', { id: ID, version: '0.3.3', channel: 'stable' })).status,
+  ).toBe(429);
+  expect(keys).toEqual(['203.0.113.7']);
+  expect(rows('installs')).toEqual([]);
+  const bare = await handle(
+    new Request(`${BROKER}/installs/${ID}`, { method: 'DELETE' }),
+    ENV,
+    vendor().upstream,
+  );
+  expect([bare.status, await bare.json()]).toEqual([503, { error: 'not_configured' }]);
 });
