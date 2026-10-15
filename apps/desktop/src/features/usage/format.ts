@@ -45,7 +45,7 @@ export const counted = (row: UsageBreakdown[number]) => allTokens(row.totals) !=
 export const knownCost = (rows: UsageBreakdown) =>
   rows.reduce((sum, row) => sum + (row.totals.estimatedCostUsd ?? 0), 0);
 
-/** A UTC day key (2026-09-26) as "Sat, Sep 26", read in UTC so it never shifts a day. */
+/** A day key (2026-09-26) as "Sat, Sep 26", read in UTC so it never shifts a day. */
 export const dayLabel = (day: string, weekday = true) =>
   new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', {
     ...(weekday ? { weekday: 'short' } : {}),

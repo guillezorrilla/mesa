@@ -1,3 +1,4 @@
+import { localDay } from '../lib/time.js';
 import type { UsageBreakdown, UsageRecord, UsageReport, UsageTotals } from './records.js';
 
 export function usageTotals(rows: UsageRecord[]): UsageTotals {
@@ -30,13 +31,18 @@ function byModel(rows: UsageRecord[]): UsageBreakdown {
   });
 }
 
-/** UTC buckets make CLI and desktop agree; unknown readings keep aggregates unknown. */
+/**
+ * Local calendar days, as `mesa daily` reads them: a day starts at local midnight, so one around a
+ * DST change is 23 or 25 hours. Unknown readings keep aggregates unknown.
+ */
 export function summarizeUsage(
   rows: UsageRecord[],
   now: Date,
   unknown: readonly { startedAt: string; endedAt?: string }[] = [],
 ): Pick<UsageReport, 'periods' | 'daily' | 'breakdown' | 'agents'> {
-  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  /** When the local day `back` days before today starts. */
+  const dayStart = (back: number) =>
+    new Date(now.getFullYear(), now.getMonth(), now.getDate() - back).getTime();
   const totals = (found: UsageRecord[], from: number, until = now.getTime()) => {
     const known = usageTotals(found);
     return unknown.some(
@@ -54,46 +60,40 @@ export function summarizeUsage(
         }
       : known;
   };
-  const period = (days: number) =>
+  const since = (from: number) =>
     totals(
       rows.filter((row) => {
         const at = Date.parse(row.at);
-        return at >= today - (days - 1) * 86_400_000 && at <= now.getTime();
+        return at >= from && at <= now.getTime();
       }),
-      today - (days - 1) * 86_400_000,
+      from,
     );
   const recent = rows.filter((row) => {
     const at = Date.parse(row.at);
-    return at >= today - 89 * 86_400_000 && at <= now.getTime();
+    return at >= dayStart(89) && at <= now.getTime();
   });
   const byDay = new Map<string, UsageRecord[]>();
   for (const row of recent) {
-    const day = row.at.slice(0, 10);
+    const day = localDay(new Date(row.at));
     const bucket = byDay.get(day);
     if (bucket) bucket.push(row);
     else byDay.set(day, [row]);
   }
   return {
     periods: {
-      today: period(1),
-      '7d': period(7),
-      '30d': period(30),
-      '90d': period(90),
-      month: totals(
-        rows.filter((row) => {
-          const at = Date.parse(row.at);
-          return at >= Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1) && at <= now.getTime();
-        }),
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
-      ),
+      today: since(dayStart(0)),
+      '7d': since(dayStart(6)),
+      '30d': since(dayStart(29)),
+      '90d': since(dayStart(89)),
+      month: since(new Date(now.getFullYear(), now.getMonth(), 1).getTime()),
     },
     daily: Array.from({ length: 90 }, (_, index) => {
-      const day = new Date(today - (89 - index) * 86_400_000).toISOString().slice(0, 10);
-      const start = Date.parse(`${day}T00:00:00.000Z`);
+      const start = dayStart(89 - index);
+      const day = localDay(new Date(start));
       const found = byDay.get(day) ?? [];
       return {
         day,
-        totals: totals(found, start, Math.min(start + 86_400_000, now.getTime())),
+        totals: totals(found, start, Math.min(dayStart(88 - index), now.getTime())),
         models: byModel(found),
       };
     }),

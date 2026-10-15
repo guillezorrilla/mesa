@@ -1,6 +1,6 @@
 import { appendFileSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { claudeTranscripts } from '../agents/claude/paths.js';
 import { transcriptFile } from '../agents/claude/transcripts.js';
 import { createMesa } from '../mesa.js';
@@ -18,6 +18,7 @@ import {
   testDeps,
   testStore,
 } from '../testing/index.js';
+import { claudeListPrice } from './pricing.js';
 import type { UsageRecord } from './records.js';
 import { summarizeUsage } from './summary.js';
 
@@ -370,6 +371,7 @@ test('current Claude models have list prices; an unknown model stays unknown, no
       message('msg_sonnet', 'claude-sonnet-5-5'),
       message('msg_haiku', 'claude-haiku-4-5-20251001'),
       message('msg_fable', 'claude-fable-5-1'),
+      message('msg_haiku55', 'claude-haiku-5-5'),
     ].join('\n'),
   );
   const priced = await mesa.usage.list();
@@ -390,7 +392,9 @@ test('current Claude models have list prices; an unknown model stays unknown, no
     (1000 * 10 + 100 * 50 + 10_000 * 0.25 + 200 * 12.5 + 100 * 20) / 1_000_000,
     12,
   );
-  expect(priced.periods.today.estimatedCostUsd).toBeCloseTo(0.0059 + 0.00295 + 0.022, 12);
+  const haiku55 = (1000 * 0.1 + 100 * 0.5 + 10_000 * 0.01 + 200 * 0.125 + 100 * 0.2) / 1_000_000;
+  expect(byModel['claude-haiku-5-5']?.estimatedCostUsd).toBeCloseTo(haiku55, 12);
+  expect(priced.periods.today.estimatedCostUsd).toBeCloseTo(0.0059 + 0.00295 + 0.022 + haiku55, 12);
   expect(priced.daily.at(-1)?.totals.estimatedCostUsd).not.toBeNull();
 
   const transcript = transcriptFile(claudeTranscripts(home, {}), nativeId);
@@ -433,4 +437,107 @@ test('a long history summarizes without copying its buckets per row', () => {
   expect(summary.breakdown).toMatchObject([
     { model: 'claude-opus-5-5', totals: { events: 45_000 } },
   ]);
+});
+
+test('global inference is the standard list price; US-only and fast mode stay unknown', async () => {
+  const { run } = scriptedRunner();
+  const { home, dir, mesa } = projectProfile(run, {
+    clock: fixedClock('2026-09-24T12:10:00.000Z'),
+  });
+  const nativeId = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
+  testStore(home).create(() => newSession({ agentSessionId: nativeId }));
+  const message = (id: string, extra: object) =>
+    JSON.stringify({
+      type: 'assistant',
+      timestamp: at,
+      message: {
+        id,
+        model: 'claude-opus-5-5',
+        usage: {
+          input_tokens: 1000,
+          output_tokens: 100,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+          service_tier: 'standard',
+          ...extra,
+        },
+      },
+    });
+  plantTranscript(
+    home,
+    nativeId,
+    dir,
+    [
+      message('msg_global', { speed: 'standard', inference_geo: 'global' }),
+      message('msg_us', { speed: 'standard', inference_geo: 'us' }),
+      message('msg_fast', { speed: 'fast', inference_geo: 'global' }),
+    ].join('\n'),
+  );
+  const cost = Object.fromEntries(
+    (await mesa.usage.list()).rows.map((row) => [row.id.split(':').at(-1), row.estimatedCostUsd]),
+  );
+  expect(cost).toEqual({
+    msg_global: (1000 * 4 + 100 * 20) / 1_000_000,
+    msg_us: null,
+    msg_fast: null,
+  });
+});
+
+test('usage days are local days: an evening reading is today, not tomorrow in UTC', () => {
+  vi.stubEnv('TZ', 'America/Los_Angeles');
+  try {
+    // 18:30 on the 24th in Los Angeles is 01:30 on the 25th in UTC.
+    const evening = '2026-09-25T01:30:00.000Z';
+    const row: UsageRecord = {
+      id: 'claude:x:1',
+      session: 'lantern1',
+      agent: 'claude',
+      nativeSessionId: '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f',
+      model: 'claude-opus-5-5',
+      at: evening,
+      source: 'claude-transcript',
+      tokens: {
+        input: 1,
+        output: 1,
+        cacheRead: 0,
+        cacheWrite: 0,
+        cacheWrite5m: 0,
+        cacheWrite1h: 0,
+      },
+      priceVersion: 'claude-opus-5-5:2026-09-28:standard-api',
+      estimatedCostUsd: 0.000024,
+    };
+    const summary = summarizeUsage([row], new Date('2026-09-25T02:00:00.000Z'));
+    expect(summary.daily.at(-1)).toMatchObject({ day: '2026-09-24', totals: { events: 1 } });
+    expect(summary.periods.today.events).toBe(1);
+    // A morning reading the day before, local time, is not today.
+    const yesterday = summarizeUsage(
+      [{ ...row, at: '2026-09-24T06:00:00.000Z' }],
+      new Date('2026-09-25T02:00:00.000Z'),
+    );
+    expect(yesterday.periods.today.events).toBe(0);
+    expect(yesterday.daily.at(-2)).toMatchObject({ day: '2026-09-23', totals: { events: 1 } });
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});
+
+test('Haiku 5.5 costs five times as much once a prompt passes 100K tokens', () => {
+  const prompt = (cacheRead: number) => ({
+    input: 0,
+    output: 1000,
+    cacheRead,
+    cacheWrite: 0,
+    cacheWrite5m: 0,
+    cacheWrite1h: 0,
+  });
+  const short = (1000 * 0.5 + 100_000 * 0.01) / 1_000_000;
+  expect(claudeListPrice('claude-haiku-5-5', prompt(100_000)).estimatedCostUsd).toBeCloseTo(
+    short,
+    12,
+  );
+  expect(claudeListPrice('claude-haiku-5-5', prompt(100_001)).estimatedCostUsd).toBeCloseTo(
+    (5 * (1000 * 0.5 + 100_001 * 0.01)) / 1_000_000,
+    12,
+  );
 });

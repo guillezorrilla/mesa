@@ -10,7 +10,7 @@ const PERIODS = [
 ] as const;
 
 /**
- * Estimated spend today and over the last 7 and 30 UTC days, and one line naming what the totals
+ * Estimated spend today and over the last 7 and 30 local days, and one line naming what the totals
  * leave out: models with no list price and sessions whose usage could not be read.
  */
 export function UsageStatCards(props: { report: UsageReport }) {
