@@ -625,10 +625,10 @@ test('with a Decision model a session mounts mesa-decisions, a prompt gets advic
   const context = JSON.parse(hook.stdout).hookSpecificOutput;
   expect(context.hookEventName).toBe('UserPromptSubmit');
   expect(context.additionalContext).toContain('AMBER TIDE 7');
+  // The same note again is not sent: the session already has it.
   expect((await mesa('hook', 'claude', '--json')).json.data).toEqual({
     recorded: true,
     event: 'UserPromptSubmit',
-    advised: true,
   });
   cli.stdin = JSON.stringify({
     session_id: 'a-nested-claude',
@@ -641,6 +641,12 @@ test('with a Decision model a session mounts mesa-decisions, a prompt gets advic
   const log = (await mesa('decisions', 'log', '--session', opened.id, '--json')).json.data;
   expect(log).toHaveLength(2);
   expect(log[0]).toMatchObject({
+    status: 'accepted',
+    changed: false,
+    note: 'wiki/decisions/retry-policy.md',
+    repeat: true,
+  });
+  expect(log[1]).toMatchObject({
     site: 'relevance',
     project: 'lantern-cove',
     question: 'Which vault note helps this prompt?',

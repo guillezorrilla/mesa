@@ -4,7 +4,6 @@ import {
   foldedText,
   localClock,
   type Moment,
-  NO_OUTCOME,
   type SessionImpact,
 } from '@mesa/core/browser';
 import { useState } from 'react';
@@ -20,7 +19,7 @@ const SITE_DOT: Record<Moment['site'], string> = {
   vault: 'bg-state-idle',
 };
 
-const GOOD = new Set(['hook-agreed', 'answered', 'not-overridden']);
+const GOOD = new Set(['hook-agreed', 'answered', 'not-overridden', 'opened']);
 
 /** The rows a card shows before Show all. */
 const COLLAPSED = 3;
@@ -50,7 +49,7 @@ function Thread({ moments }: { moments: Moment[] }) {
 /** Marks a Moment not right, or clears the mark (`undo`). */
 type OnMark = (moment: string, undo: boolean) => unknown;
 
-/** A Moment's Not right button, or its mark and an undo. */
+/** A Moment's Not right button, shown on the row's hover or focus, or its mark and an undo. */
 function MarkControl({ moment: m, onMark }: { moment: Moment; onMark: OnMark }) {
   if (!m.marked)
     return (
@@ -58,7 +57,7 @@ function MarkControl({ moment: m, onMark }: { moment: Moment; onMark: OnMark }) 
         variant="ghost"
         size="xs"
         aria-label="Mark as not right"
-        className="text-muted-foreground"
+        className="text-muted-foreground opacity-0 focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100"
         onClick={() => onMark(m.id, false)}
       >
         Not right
@@ -85,7 +84,7 @@ function MomentRow({ moment: m, onMark }: { moment: Moment; onMark?: OnMark }) {
     <li
       data-testid="impact-moment"
       className={cn(
-        'grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-start gap-3 border-t py-2.5',
+        'group grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-start gap-3 border-t py-2.5',
         m.marked && 'opacity-60',
       )}
     >
@@ -107,13 +106,12 @@ function MomentRow({ moment: m, onMark }: { moment: Moment; onMark?: OnMark }) {
         </p>
       </div>
       <div className="flex max-w-56 flex-col items-end gap-1 text-right text-xs">
-        <span
-          className={
-            m.outcome && GOOD.has(m.outcome.kind) ? 'text-foreground' : 'text-muted-foreground'
-          }
-        >
-          {m.outcome?.text ?? NO_OUTCOME}
-        </span>
+        {/* An outcome still to come shows nothing: a running session is not news. */}
+        {m.outcome && (
+          <span className={GOOD.has(m.outcome.kind) ? 'text-foreground' : 'text-muted-foreground'}>
+            {m.outcome.text}
+          </span>
+        )}
         {onMark && <MarkControl moment={m} onMark={onMark} />}
       </div>
     </li>

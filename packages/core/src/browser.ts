@@ -32,7 +32,6 @@ export {
   foldedText,
   type ImpactReport,
   type Moment,
-  NO_OUTCOME,
   type SessionImpact,
 } from './impact/report.js';
 export { relativeAgo, shortAgo, timeAgo } from './lib/ago.js';

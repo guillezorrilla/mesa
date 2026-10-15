@@ -34,14 +34,14 @@ const CHECKOUT: SessionImpact = {
       outcome: null,
     }),
   ],
-  folded: { agreed: 38, unsure: 4, failed: 0, skipped: 0 },
+  folded: { agreed: 38, unsure: 4, failed: 0, skipped: 0, repeated: 0 },
 };
 const RATES: SessionImpact = {
   id: 'e5f6a7b8',
   name: 'rate-limits',
   project: 'harbor',
   moments: [1, 2, 3, 4, 5].map((n) => moment(n, { id: `r${n}`, title: `Moment ${n}` })),
-  folded: { agreed: 0, unsure: 0, failed: 0, skipped: 0 },
+  folded: { agreed: 0, unsure: 0, failed: 0, skipped: 0, repeated: 0 },
 };
 
 const report = (over: Partial<ImpactReport> = {}): ImpactReport =>
@@ -77,7 +77,8 @@ test('Impact shows the sentence, a card per session with its thread, rows and fo
   expect(checkout?.textContent).toContain('CLEF 82%');
   expect(checkout?.textContent).toContain('Rules alone: idle');
   expect(checkout?.textContent).toContain('You answered 2 min later');
-  expect(checkout?.textContent).toContain('No outcome yet');
+  // An outcome still to come shows nothing.
+  expect(checkout?.textContent).not.toContain('No outcome yet');
   expect(checkout?.textContent).toContain('+ 38 checks where CLEF agreed with the rules, 4 unsure');
   // Five Moments: the newest three until Show all.
   expect(rates?.querySelectorAll('li')).toHaveLength(3);

@@ -91,6 +91,13 @@ export function impactService(ctx: MesaContext) {
                 return s ? [{ at: e.at, state: s }] : [];
               })
             : [],
+          toolInputs: events(id).flatMap((e) => {
+            const input =
+              e.event === 'PostToolUse' && e.payload && typeof e.payload === 'object'
+                ? (e.payload as { tool_input?: unknown }).tool_input
+                : undefined;
+            return input === undefined ? [] : [{ at: e.at, input: JSON.stringify(input) }];
+          }),
         });
       }
       return impactReport({

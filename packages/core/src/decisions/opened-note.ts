@@ -1,12 +1,10 @@
 import { openedAfter } from '../impact/report.js';
 import { daysBefore } from '../lib/time.js';
+import { ADVICE_DAYS } from './delivery.js';
 import { type DecisionLine, type DecisionLog, isDecision } from './log.js';
 
 // An advised note's outcome as it happens (CONTEXT.md, Impact): the agent read it through the
 // Vault server. Only notes advice gave the reading session are logged; other reads stay unlogged.
-
-/** How far back an opened note looks for the advice that named it. */
-const ADVICE_DAYS = 30;
 
 /**
  * Logs that the agent of `session` opened `note` (`read_note`), when advice in the last

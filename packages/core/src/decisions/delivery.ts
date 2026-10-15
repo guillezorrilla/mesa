@@ -1,7 +1,8 @@
 import { clip } from '../lib/clip.js';
 import { shellWord } from '../lib/process.js';
+import { daysBefore } from '../lib/time.js';
 import { notePath, type ScopedContext } from './context.js';
-import type { NewDecision } from './log.js';
+import { type DecisionLine, type DecisionLog, isDecision, type NewDecision } from './log.js';
 import type { SystemOneProvider } from './systemone.js';
 
 // Automatic decision advice inside a session (ADR-0019 "Delivery into sessions", #463): the words a
@@ -32,19 +33,36 @@ export function turnAdvice(context: ScopedContext): string | undefined {
   );
 }
 
+/** How far back a session's sent advice is looked for. */
+export const ADVICE_DAYS = 30;
+
+/** The advice sent to `session` in the last ADVICE_DAYS, each naming its note, newest first. */
+export const sentAdvice = (log: DecisionLog, now: Date, session: string) =>
+  log
+    .read({ since: daysBefore(now, ADVICE_DAYS), session })
+    .filter(
+      (e): e is DecisionLine & { note: string } =>
+        isDecision(e) && e.site === 'relevance' && e.changed && e.note !== undefined,
+    );
+
+/** The note a turn's advice names, when it names one. */
+export const advisedNote = (context: ScopedContext) => notePath(context.sources[0]?.id);
+
 /**
  * The Decision log's line for one automatic relevance ask: the note advised, if advice was sent
- * (`sent`); skipped when no source shared enough words for the model to be asked. The rules have
- * no answer at this site, and the prompt is never kept.
+ * (`sent`) or held back because the session already had it (`repeat`); skipped when no source
+ * shared enough words for the model to be asked. The rules have no answer at this site, and the
+ * prompt is never kept.
  */
 export function adviceEntry(
   context: ScopedContext,
   project: string,
   provider: SystemOneProvider,
   sent: boolean,
+  repeat = false,
 ): NewDecision {
   const { evaluation, sources } = context;
-  const note = sent ? notePath(sources[0]?.id) : undefined;
+  const note = sent || repeat ? advisedNote(context) : undefined;
   return {
     site: 'relevance',
     session: context.session,
@@ -60,6 +78,7 @@ export function adviceEntry(
     ...(evaluation.margin === undefined ? {} : { margin: evaluation.margin }),
     ...(evaluation.latencyMs ? { latencyMs: evaluation.latencyMs } : {}),
     ...(note ? { note } : {}),
+    ...(repeat ? { repeat } : {}),
   };
 }
 

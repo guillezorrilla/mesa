@@ -403,7 +403,7 @@ test("session details show Mesa's part, and its link opens Impact on the session
     name,
     project: 'lantern-cove',
     moments: [{ ...moment, id: `${id}-m` }],
-    folded: { agreed: 0, unsure: 0, failed: 0, skipped: 0 },
+    folded: { agreed: 0, unsure: 0, failed: 0, skipped: 0, repeated: 0 },
   });
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),

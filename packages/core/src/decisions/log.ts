@@ -47,6 +47,8 @@ const DecisionSchema = z.object({
   latencyMs: z.number().optional(),
   /** The vault note advice named, relative to the vault. */
   note: z.string().optional(),
+  /** Relevance: the session already had this note's advice, so none was sent again. */
+  repeat: z.literal(true).optional(),
   /** Why the guardrail stopped, in words. */
   reason: z.string().optional(),
   override: z.enum(['yes', 'confirmed', 'force']).optional(),
