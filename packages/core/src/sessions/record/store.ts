@@ -22,9 +22,6 @@ const RECORD_FILE = /^([0-9a-z]{8})\.json$/;
 
 type Patch = Partial<Omit<SessionRecord, 'id'>>;
 
-/** Where a removal can move a record instead of dropping it: another store's `put`. */
-export type RecordSink = { put: (record: SessionRecord) => unknown };
-
 export function sessionStore({
   dir,
   newId,
@@ -144,25 +141,8 @@ export function sessionStore({
     readable: (): SessionRecord[] => scan().records,
     /** Why each record file that does not read fails, for Doctor. */
     unreadable: (): string[] => scan().reasons,
-    /** Writes `record` as it is: a removal moving it here (remove's `into`). */
-    put: (record: SessionRecord) => {
-      mkdirSync(dir, { recursive: true, mode: 0o700 });
-      return write(record);
-    },
-    /**
-     * Under the lock, so an update that waited for it cannot write the record back; when `into`
-     * names a sink for the record as it is now, it moves there instead of going. Whether it moved.
-     */
-    remove: (id: string, into?: (current: SessionRecord) => RecordSink | undefined) => {
-      let moved = false;
-      change(id, (current) => {
-        const sink = into?.(current);
-        sink?.put(current);
-        moved = Boolean(sink);
-        return undefined;
-      });
-      return moved;
-    },
+    /** Under the lock, so an update that waited for it cannot write the record back. */
+    remove: (id: string) => void change(id, () => undefined),
   };
 }
 

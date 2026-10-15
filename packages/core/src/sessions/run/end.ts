@@ -23,7 +23,6 @@ const POLL_MS = 1000;
 export type EndContext = Pick<
   MesaContext,
   | 'store'
-  | 'removing'
   | 'paths'
   | 'notes'
   | 'secrets'

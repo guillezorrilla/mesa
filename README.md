@@ -43,7 +43,7 @@ Running agents side by side is solved: every agent manager gives you a board of 
 
 | | |
 | --- | --- |
-| **Shared vault** | Project hubs, decisions with confidence, session summaries and a project map, captured when a session ends and read by every agent through the same `mesa-vault` tools. Adds only a few hundred tokens to a session. |
+| **Shared vault** | Project hubs, decisions with confidence, session summaries and a project map, captured as a session goes and read by every agent through the same `mesa-vault` tools. Adds only a few hundred tokens to a session. |
 | **Decision model** (optional) | CLEF (free on Cloudflare, about 1,000 decisions a day) or Jev hands each agent the project note that matters for your prompt, and spots a session waiting for you when hooks are silent. |
 | **Impact** | What Mesa decided for you (a note brought into a prompt, a question the rules missed, a risky command stopped), who decided, how sure, and what happened next. `mesa impact` |
 | **Tickets** | Follow a Jira sprint, Linear cycle, ClickUp list or GitHub repo. **Investigate** finds the root cause with proof and leaves the code as it was; **Start goal** finishes the ticket, proven by tests and checks, then commits on a branch and pushes it. |

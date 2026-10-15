@@ -100,7 +100,7 @@ export function sessionDeps(
   /** A look at the board (board.ts). */
   const look = boardLook(ctx, faro, elsewhere);
   /**
-   * Starts a session's Vault capture when it is due (startCapture): a detached vault-capture run,
+   * Starts a session's Vault capture at a turn's end when due (startCapture): a detached run,
    * past the guardrail as Mesa's own prompt, its decision kept nowhere, not even the Decision log.
    */
   const capture = (id: string) =>
@@ -133,7 +133,6 @@ export function sessionDeps(
     nativeDeps,
     runDeps,
     ensureBackgroundView,
-    capture,
     ends,
   };
 }

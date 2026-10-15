@@ -7,12 +7,12 @@ import type { RunInput, startRun } from '../../sessions/run/start.js';
 import { readHookEvents } from '../../sessions/signals/hook-events.js';
 import { VAULT_CAPTURE } from '../../skills/library.js';
 import { requireLog } from '../notes.js';
-import { claimCapture } from './claim.js';
+import { CAPTURE_MIN_MESSAGES, captureTimeDue, claimCapture } from './claim.js';
 import { captureFailed } from './land.js';
 
-// When a session's end starts its Vault capture (CONTEXT.md): from the end signals (end-signals.ts),
-// a detached vault-capture run over the messages newer than its last capture, which its own end
-// lands (finishRun).
+// When a turn's end starts its session's Vault capture (CONTEXT.md): from the agent's Stop hook
+// (end-signals.ts), a detached vault-capture run over the messages newer than its last capture,
+// once enough time has passed and enough has been said; the run's own end lands it (finishRun).
 
 /** What starting a capture takes beside the context: a skill run's start, not waited for. */
 export type CaptureTrigger = Pick<
@@ -24,10 +24,11 @@ export type CaptureTrigger = Pick<
 };
 
 /**
- * Whether session `s`'s end is captured, cheapest checks first, so with capture off nothing past
- * its config is read: the profile has capture on (`vault.capture`) and a laid-out vault; `s` is
- * an interactive Claude Code or Codex session on a project, with a conversation. Its claim
- * (claimCapture) then needs no capture in flight and messages newer than its mark.
+ * Whether a turn's end captures session `s`, cheapest checks first, so a turn that is not due
+ * reads no transcript: the profile has capture on (`vault.capture`) and a laid-out vault; `s` is
+ * an interactive Claude Code or Codex session on a project, last captured (else started) at least
+ * CAPTURE_EVERY_MS ago, with a conversation. Its claim (claimCapture) then needs no capture in
+ * flight and at least CAPTURE_MIN_MESSAGES messages newer than its mark.
  */
 function due(deps: CaptureTrigger, s: SessionRecord) {
   const config = deps.configIfAny();
@@ -39,21 +40,22 @@ function due(deps: CaptureTrigger, s: SessionRecord) {
   }
   if (s.kind !== 'interactive' || s.project === GENERAL_PROJECT) return false;
   if (s.agent !== 'claude' && s.agent !== 'codex') return false;
+  if (!captureTimeDue(s, deps.clock())) return false;
   return hasConversation(s, readHookEvents(deps.paths.events, s.id));
 }
 
 /**
- * Starts session `id`'s capture when it is due: the record claims it under its lock, so every
- * end signal of one session (its agent's SessionEnd, tmux's pane-died, a stop, a Board look)
- * starts at most one run at a time, which is not waited for; a stale claim is taken again, and a
- * later end starts another only for messages newer than the last capture. A start that fails
- * never fails the signal: the record and a failed receipt say why, and the warning comes back.
+ * Starts session `id`'s capture at a turn's end when it is due (due): the record claims it under
+ * its lock, so one session has at most one run at a time, which is not waited for; a stale claim
+ * is taken again, and a later turn starts another only for enough messages newer than the last
+ * capture. A start that fails never fails the turn's hook: the record and a failed receipt say
+ * why, and the warning comes back.
  */
 export async function startCapture(deps: CaptureTrigger, id: string): Promise<string | undefined> {
   const found = deps.store.find(id);
   let claim: ReturnType<typeof claimCapture> | undefined;
   try {
-    claim = found && due(deps, found) ? claimCapture(deps, found) : undefined;
+    claim = found && due(deps, found) ? claimCapture(deps, found, CAPTURE_MIN_MESSAGES) : undefined;
   } catch (error) {
     return `session ${id}'s vault capture did not start: ${toFail(error).error.message}`;
   }

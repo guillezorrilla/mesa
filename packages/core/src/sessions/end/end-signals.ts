@@ -24,8 +24,8 @@ import type { StopOutcome } from './stop.js';
 // The signals that a session ended, and what follows from each: an agent hook's payload, a tmux
 // hook's event, a stop, or a look at the board. Each starts what was queued after the session
 // (CONTEXT.md, Queued session), with its receipt; a look starts what a missed signal left
-// waiting. No daemon. An interactive session's end (its agent's SessionEnd, pane-died, a stop,
-// or a look that found its exit) also starts its Vault capture, one run over its new messages.
+// waiting. No daemon. No end starts a Vault capture: a turn's end (the agent's Stop hook) does,
+// throttled, so archiving or removing a session never waits on one (#844).
 // An agent hook may also answer its agent: the pointer at its start, and decision advice with a
 // prompt (ADR-0019, #463), only for the native conversation Mesa holds.
 
@@ -41,7 +41,7 @@ export function endSignals(
     context: Parameters<typeof refreshReadings>[0];
     /** A turn's decision advice, and what a session's decision status reads. */
     assistance: SessionAssistance;
-    /** Starts a session's Vault capture when due (startCapture): a warning, if it did not start. */
+    /** Starts a session's Vault capture at a turn's end, when due (startCapture). */
     capture: (id: string) => Promise<string | undefined>;
   },
 ) {
@@ -137,20 +137,16 @@ export function endSignals(
     exited.kind === 'run' ? endRun(ctx, exited) : markExited(ctx, exited);
   return {
     /**
-     * A stop's signal: a stopped session is over, so it is captured and what was queued after it
-     * starts, however it ended; a queued session cancelled hands its queue on instead
-     * (cancelQueued), so nothing starts.
+     * A stop's signal: a stopped session is over, so what was queued after it starts, however it
+     * ended; a queued session cancelled hands its queue on instead (cancelQueued), so nothing
+     * starts.
      */
-    stopped: async (id: string, outcome: StopOutcome) => {
-      if (outcome === 'cancelled') return undefined;
-      const captured = await deps.capture(id);
-      const queue = await startAfter(id);
-      return { ...queue, warning: joinWarnings(captured, queue.warning) };
-    },
+    stopped: async (id: string, outcome: StopOutcome) =>
+      outcome === 'cancelled' ? undefined : startAfter(id),
     /**
      * The board, once it has started what it found due: a queued session whose session is over
-     * by this look, which a missed signal left waiting, and the capture of a session whose exit
-     * it found, a Claude background one's too (a warning there never fails the look).
+     * by this look, which a missed signal left waiting, and the exit of a session it found, a
+     * Claude background one's too.
      */
     board: async (all = false) => {
       const rows = await deps.look(all);
@@ -166,7 +162,6 @@ export function endSignals(
             return { events: [...current.events, { type: 'exited', at: clock().toISOString() }] };
           });
           await markExited(ctx, exited);
-          if (newlyExited) await deps.capture(exited.id);
           finishedRun ||= newlyExited;
           continue;
         }
@@ -180,8 +175,6 @@ export function endSignals(
         // The signal may have saved the exit but missed its receipt (or beaten its creation).
         if (!exited || exited.endedAt || !exited.events.some((e) => e.type === 'exited')) continue;
         await finishExit(exited);
-        // Captured only by the look that found the exit: the signal that recorded one captures it.
-        if (found && exited.kind !== 'run') await deps.capture(exited.id);
         finishedRun ||= exited.kind === 'run';
       }
       const overNow = (id: string) => {
@@ -191,9 +184,10 @@ export function endSignals(
       return (await startQueue(overNow)).started || finishedRun ? deps.look(all) : rows;
     },
     /**
-     * One agent hook's payload, from `mesa hook claude` inside a Mesa session. A Stop reads the
-     * session's context use; a SessionEnd (not a /clear or a /resume, which keep the agent
-     * running) starts what was queued after it. A SessionStart answers with the pointer, and a
+     * One agent hook's payload, from `mesa hook claude` inside a Mesa session. A Stop, a turn's
+     * end, reads the session's context use and starts its Vault capture when one is due
+     * (startCapture: with none due, no transcript is read); a SessionEnd (not a /clear or a
+     * /resume, which keep the agent running) starts what was queued after it. A SessionStart answers with the pointer, and a
      * UserPromptSubmit with the prompt's decision advice as `additionalContext`, when there is
      * any within Mesa's deadline (DecisionAssistance.advise).
      */
@@ -206,13 +200,12 @@ export function endSignals(
       // A turn ended: its reply's usage is in the transcript. A hook still logs without a record.
       const ended = event?.event === 'Stop' && id && parentHook(event) ? store.find(id) : undefined;
       if (ended) refreshReadings(deps.context, ended);
+      // Only the conversation Mesa holds is captured: never a subagent's or a nested one's.
+      const turned = event?.event === 'Stop' ? owner(event) : undefined;
+      if (turned) await deps.capture(turned.id);
       const state =
         event && parentHook(event) && AGENTS[event.agent].hookState?.(event.event, event.payload);
-      if (event?.event === 'SessionEnd' && id && state) {
-        const ending = owner(event);
-        if (ending) await deps.capture(ending.id);
-        await startAfter(id);
-      }
+      if (event?.event === 'SessionEnd' && id && state) await startAfter(id);
       if (event?.event === 'UserPromptSubmit') {
         const asking = owner(event);
         const advice = asking && (await advise(asking, promptOf(payload)));
@@ -260,17 +253,15 @@ export function endSignals(
     /**
      * A tmux hook's event (`mesa hook tmux <event> <project> <window>`): `pane-died` records the
      * exit of the agent in a Mesa window, ends it when it is a skill run (endRun, as its
-     * `mesa run` would, which may be gone), finishes its receipt, starts any other session's
-     * Vault capture, and starts what was queued after it. An interactive receipt ends through
-     * markExited, without stopping its record;
-     * any other event, or a window no session has, is not Mesa's and records nothing (undefined).
+     * `mesa run` would, which may be gone), finishes its receipt, and starts what was queued
+     * after it. An interactive receipt ends through markExited, without stopping its record; any
+     * other event, or a window no session has, is not Mesa's and records nothing (undefined).
      */
     tmuxEvent: async (event: string, project: string, window: string) => {
       if (event !== 'pane-died') return undefined;
       const exited = await recordPaneDied({ store, tmux, clock }, project, window);
       if (!exited) return undefined;
       await finishExit(exited);
-      if (exited.kind !== 'run') await deps.capture(exited.id);
       await startAfter(exited.id);
       return exited;
     },

@@ -13,8 +13,11 @@ import type { SessionRecord } from '../../sessions/record/record.js';
 /** How much of a session's conversation a vault-capture run about it is given. */
 const CONVERSATION_CHARS = 100_000;
 
-/** A capture run's stdin, and the time of the newest message in it, when its messages carry one. */
-export type CaptureInput = { text: string; upTo?: string };
+/**
+ * A capture run's stdin, the time of the newest message in it, when its messages carry one, and
+ * how many messages are newer than the mark, those left out of the budget too.
+ */
+export type CaptureInput = { text: string; upTo?: string; count: number };
 
 /** When message `m` was written, epoch ms; none when its transcript gave no readable time. */
 const timeOf = (m: TranscriptMessage) => {
@@ -47,7 +50,8 @@ function newMessages(
  * its messages newer than `through`, each `[user] <text>` or `[assistant] <text>`, the newest
  * that fit in CONVERSATION_CHARS, the newest alone clipped to it (ending `...`) when it does not
  * fit whole, redacted as they leave Mesa; `upTo`, the newest time among them, is the mark it
- * leaves once it lands. None when no message is newer, or no transcript is on this machine.
+ * leaves once it lands; `count` is every newer message. None when no message is newer, or no
+ * transcript is on this machine.
  */
 export function captureInput(
   deps: Pick<MesaContext, 'home' | 'env' | 'secrets'>,
@@ -57,7 +61,8 @@ export function captureInput(
   const lines: string[] = [];
   let newest: number | undefined;
   let room = CONVERSATION_CHARS;
-  for (const message of newMessages(deps, about, through).reverse()) {
+  const messages = newMessages(deps, about, through);
+  for (const message of messages.reverse()) {
     const line = `[${message.role}] ${message.text.trim()}`;
     const fits = line.length <= room;
     if (!fits && lines.length) break;
@@ -77,5 +82,9 @@ export function captureInput(
       : `Its conversation, the newest ${lines.length} messages:`,
   ];
   const text = redactWhole([...head, '', ...lines, ''].join('\n'), deps.home, deps.secrets());
-  return { text, ...(newest === undefined ? {} : { upTo: new Date(newest).toISOString() }) };
+  return {
+    text,
+    count: messages.length,
+    ...(newest === undefined ? {} : { upTo: new Date(newest).toISOString() }),
+  };
 }

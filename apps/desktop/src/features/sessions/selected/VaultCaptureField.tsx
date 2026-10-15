@@ -3,7 +3,7 @@ import type { SessionRecord } from '@mesa/core';
 /** A session's Vault capture as its record keeps it: running, the notes it saved, or why none. */
 export function VaultCaptureField(props: { capture?: SessionRecord['capture'] }) {
   const { capture } = props;
-  if (!capture) return <>None yet: a capture runs when the session ends</>;
+  if (!capture) return <>None yet: a capture runs at a turn's end once enough is said</>;
   if (capture.state === 'running') return <>Running</>;
   if (capture.state === 'failed')
     return <span className="text-destructive">Failed: {capture.reason ?? 'no reason given'}</span>;
