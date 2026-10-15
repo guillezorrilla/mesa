@@ -1,4 +1,5 @@
 import type { SessionReview } from '../sessions/record/record.js';
+import { FINAL_STATES, type SessionState } from '../sessions/record/states.js';
 
 // Which sessions review a pull request, and who may post one: pure, for core and the app alike.
 
@@ -20,3 +21,12 @@ export function reviewsOf<T extends { project?: string | null; review?: SessionR
     .sort((a, b) => (a.review?.round ?? 0) - (b.review?.round ?? 0));
   return { all, live: all.filter(live).at(-1) };
 }
+
+/**
+ * A review round in progress: its session queued to start, or alive with its agent working or
+ * asking me something. An idle agent is through with the round, though its session stays open.
+ */
+export const reviewing = (s: { alive: boolean; lastState: { state: SessionState } }) => {
+  const { state } = s.lastState;
+  return state === 'queued' || (s.alive && state !== 'idle' && !FINAL_STATES.has(state));
+};

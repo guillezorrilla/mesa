@@ -1,10 +1,18 @@
 // @vitest-environment happy-dom
 import type { PrList, PrRow, PrSetupRow } from '@mesa/core';
 import { beforeEach, expect, test } from 'vitest';
-import { click, envelope, fakeBridge, fakePlatform, renderWithMesa } from '@/lib/testing';
+import {
+  click,
+  envelope,
+  fakeBridge,
+  fakePlatform,
+  managedRow,
+  renderWithMesa,
+} from '@/lib/testing';
 import { PrSetupScreen } from './PrSetupScreen';
 import { ReviewsSection } from './ReviewsSection';
 import { ReviewsTab } from './ReviewsTab';
+import { liveReviews } from './reviewSessions';
 import { usePrs } from './usePrs';
 
 // Invented projects and people: storefront on GitHub, atlas-api on Bitbucket, pos-bridge without twg.
@@ -68,6 +76,7 @@ function Section(props: {
   onSetup?: (row: PrSetupRow) => void;
   onOpen?: (pr: PrRow) => void;
   current?: { project: string; number: number };
+  sessions?: Parameters<typeof liveReviews>[0];
 }) {
   const prs = usePrs();
   return (
@@ -76,6 +85,7 @@ function Section(props: {
       onSetup={props.onSetup ?? (() => undefined)}
       onOpen={props.onOpen ?? (() => undefined)}
       current={props.current}
+      reviewing={liveReviews(props.sessions ?? [])}
     />
   );
 }
@@ -127,6 +137,27 @@ test('the sidebar list groups by project, most urgent first, with a Set up row a
   // The folded project stays folded on the next visit.
   const again = await renderWithMesa(<Section />, bridge);
   expect(again('pr-row')).toHaveLength(2);
+});
+
+test('a PR is tagged Reviewing while its review agent works, not once it is idle', async () => {
+  const review = (id: string, pr: number, state: 'working' | 'idle') =>
+    managedRow(id, {
+      project: 'storefront',
+      review: { pr, round: 1, mode: 'drafts', head: 'abc' },
+      lastState: { state, confidence: 0.95, at: ago(5), source: 'hook' },
+      depth: 0,
+    } as Partial<ReturnType<typeof managedRow>>);
+  const { bridge } = fakeBridge({ prs: () => envelope(LIST) });
+  const byTestId = await renderWithMesa(
+    <Section sessions={[review('dddddddd', 482, 'working'), review('eeeeeeee', 477, 'idle')]} />,
+    bridge,
+  );
+  // The idle round is through: the author's news shows as Updated again.
+  expect(
+    texts(byTestId('pr-row'))
+      .slice(2)
+      .map((r) => r?.slice(0, 21)),
+  ).toEqual(['Change 482Reviewing#4', 'Change 477Updated#477']);
 });
 
 test("By status groups the buckets, names each row's project, and is kept for the next visit", async () => {
