@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { PullRequestRow } from './PullRequestRow';
 import { type PrGrouping, prGroups } from './prGroups';
 import { prKey } from './prKey';
+import { stillReviewing } from './reviewSessions';
 import { useClosedGroups } from './useGrouping';
 import type { Prs } from './usePrs';
 
@@ -25,8 +26,8 @@ export function ReviewsList(props: {
   onOpen: (pr: PrRow) => void;
   /** The PR whose detail is shown, marked in the list. */
   current?: PrRef;
-  /** `project#number` of the PRs a live review session works on (liveReviews). */
-  reviewing?: ReadonlySet<string>;
+  /** The PRs a live review session works on, with when it started (liveReviews). */
+  reviewing?: ReadonlyMap<string, string>;
   now: number;
 }) {
   const [closed, toggleClosed] = useClosedGroups();
@@ -110,7 +111,7 @@ export function ReviewsList(props: {
                     current={
                       props.current?.project === pr.project && props.current.number === pr.number
                     }
-                    reviewing={props.reviewing?.has(prKey(pr))}
+                    reviewing={stillReviewing(props.reviewing, pr)}
                     onOpen={props.onOpen}
                   />
                 ))}

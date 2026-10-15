@@ -12,8 +12,8 @@ export function ReviewsSection(props: {
   onSetup: (row: PrSetupRow) => void;
   onOpen: (pr: PrRow) => void;
   current?: PrRef;
-  /** `project#number` of the PRs a live review session works on. */
-  reviewing?: ReadonlySet<string>;
+  /** The PRs a live review session works on, with when it started (liveReviews). */
+  reviewing?: ReadonlyMap<string, string>;
 }) {
   const [by, setBy] = useGrouping();
   const now = Date.now();
