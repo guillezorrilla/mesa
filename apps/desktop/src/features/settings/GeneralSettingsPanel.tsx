@@ -114,8 +114,8 @@ export function GeneralSettingsPanel(props: {
         </SettingRow>
         <SettingRow
           icon={BookmarkPlus}
-          title="Capture decisions when a session ends"
-          description="When a Claude Code or Codex session on a project ends, one headless run reads its conversation and saves its durable decisions and findings to the vault, with a receipt."
+          title="Capture decisions as a session goes"
+          description="At the end of a turn, once a Claude Code or Codex session on a project has said enough since its last capture (20 minutes and 10 messages), one headless run reads the new conversation and saves its durable decisions and findings to the vault, with a receipt."
           htmlFor="vault-capture"
           keywords="vault capture save decisions notes automatic memory"
           control={

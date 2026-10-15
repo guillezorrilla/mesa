@@ -10,11 +10,28 @@ import { type CaptureInput, captureInput } from './input.js';
 /** How old a claim with no run is before another capture may claim it again. */
 const STALE_CLAIM_MS = 10 * 60 * 1000;
 
+// A turn's end captures a session only once enough has been said since its last capture, so a
+// long session is captured a few times as it goes, never once per turn (#844).
+/** How long after its last capture, or its start, a turn's end may capture a session again. */
+export const CAPTURE_EVERY_MS = 20 * 60 * 1000;
+/** How many messages newer than its mark a turn's end needs before it captures a session. */
+export const CAPTURE_MIN_MESSAGES = 10;
+
+/**
+ * Whether a turn's end may capture `s` by the clock: its last capture, else its start, at least
+ * CAPTURE_EVERY_MS before `now`. Read from the record alone, so a turn that is not due reads no
+ * transcript.
+ * ponytail: past CAPTURE_EVERY_MS, each turn short of CAPTURE_MIN_MESSAGES parses the transcript
+ * again to count; gate on the hook log's prompts first if that shows up in turn-end latency.
+ */
+export const captureTimeDue = (s: SessionRecord, now: Date) =>
+  now.getTime() - Date.parse(s.capture?.at ?? s.startedAt) >= CAPTURE_EVERY_MS;
+
 /**
  * Whether `s` has a capture run in flight: a claim with a run, or one with none yet, younger than
  * STALE_CLAIM_MS.
  */
-export const captureInFlight = (s: SessionRecord, now: Date) =>
+const captureInFlight = (s: SessionRecord, now: Date) =>
   s.capture?.state === 'running' &&
   (Boolean(s.capture.run) || now.getTime() - Date.parse(s.capture.at) <= STALE_CLAIM_MS);
 
@@ -41,7 +58,8 @@ export type Claim = { about: SessionRecord; input: CaptureInput } | { refused: s
 
 /**
  * Claims `s`'s next capture: none while one is in flight; else its messages past its mark
- * (captureMark, captureInput), none when no message is newer; then, under the record's lock,
+ * (captureMark, captureInput), none when fewer than `minMessages` are newer (one, by hand; a turn's
+ * end asks CAPTURE_MIN_MESSAGES); then, under the record's lock,
  * only when no capture is in flight and its capture has not changed since `s` was read. The
  * claim keeps the mark, and `upTo`, the mark its run leaves once it lands. The claimed record and
  * its run's input, or why it was refused.
@@ -49,11 +67,17 @@ export type Claim = { about: SessionRecord; input: CaptureInput } | { refused: s
 export function claimCapture(
   deps: Pick<MesaContext, 'store' | 'clock' | 'home' | 'env' | 'secrets'>,
   s: SessionRecord,
+  minMessages = 1,
 ): Claim {
   const running = { refused: `session ${s.id}'s capture is running; wait for it to land` };
   if (captureInFlight(s, deps.clock())) return running;
   const through = captureMark(deps.store, s);
   const input = captureInput(deps, s, through);
+  if (input && input.count < minMessages) {
+    return {
+      refused: `session ${s.id} has ${input.count} messages newer than its last capture, fewer than ${minMessages}`,
+    };
+  }
   if (!input) {
     return {
       refused: through

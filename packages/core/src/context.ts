@@ -70,7 +70,7 @@ export type MesaDeps = {
 
 /**
  * What every domain's services share for one profile: the deps, its paths and config, the secrets
- * receipts redact, the receipt recorder, the Decision log, the session store and its Removing records, and the tmux
+ * receipts redact, the receipt recorder, the Decision log, the session store, and the tmux
  * backend. Built once by createMesa, the composition root (ADR-0008).
  */
 export function createContext(profile: string, deps: MesaDeps) {
@@ -141,7 +141,6 @@ export function createContext(profile: string, deps: MesaDeps) {
     /** The Decision log every decision site appends to (decisions/log.ts). */
     decisionLog: decisionLog({ dir: paths.decisionLog, clock: deps.clock, newId: deps.newId }),
     store: sessionStore({ dir: paths.sessions, newId: deps.newId, lock: deps }),
-    removing: sessionStore({ dir: paths.removing, newId: deps.newId, lock: deps }),
     tmux,
     /** The pane-died hook on the profile's tmux server, and whether a server runs there. */
     tmuxHook: async () => ({ socket: paths.tmuxSocket, ...(await tmux.paneDiedHookState()) }),
