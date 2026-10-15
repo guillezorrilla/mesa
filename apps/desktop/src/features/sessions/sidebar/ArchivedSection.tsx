@@ -1,30 +1,53 @@
 import type { ManagedRow } from '@mesa/core';
 import { projectLabel, relativeAgo, sessionTitle } from '@mesa/core/browser';
 import { Archive, ArchiveRestore, ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CountPill } from '@/components/CountPill';
 import { IconButton } from '@/components/IconButton';
-import { warningOf } from '@/components/Toast';
-import { useRun } from '@/lib/useCommand';
+import { useCommand } from '@/lib/useCommand';
 import { RemoveDialog } from '../dialogs/RemoveDialog';
 import { useSessionAct } from '../useSessionAct';
-import { useUnarchive } from '../useUnarchive';
-import { useArchivedSessions } from './useArchivedSessions';
+import { useSessionCommands } from '../useSessionCommands';
 
 /**
  * The Sessions tab's Archived section (CONTEXT.md, Archived session), folded until opened, with
  * its count: each archived session by title, project, and when it was archived, newest first,
- * with Unarchive (`mesa unarchive`) and Delete permanently (the Remove confirmation, `mesa rm`).
- * `board` is the board's session ids, whose change reads the list again.
+ * with Unarchive (unarchived and resumed, then shown in its project group) and Delete permanently
+ * (the Remove confirmation, `mesa rm`).
  */
-export function ArchivedSessions(props: { board: string }) {
-  const { rows, look } = useArchivedSessions(props.board);
+export function ArchivedSection(props: {
+  /**
+   * The ids of the sessions on the board: one joining or leaving it (an archive, an unarchive)
+   * reads the list again.
+   */
+  onBoard: readonly string[];
+  /** Shows a session: the one an Unarchive resumed. */
+  onSelectSession: (id: string) => void;
+}) {
+  const archived = useCommand('sessions.archived');
+  const rows = archived.data ?? [];
+  const { refresh } = archived;
+  const board = props.onBoard.join(' ');
+  const lastBoard = useRef(board);
+  useEffect(() => {
+    if (lastBoard.current === board) return;
+    lastBoard.current = board;
+    void refresh();
+  }, [board, refresh]);
   const [open, setOpen] = useState(false);
   const [removing, setRemoving] = useState<ManagedRow>();
+  const selectionVersion = useRef(0);
   // Each action reads the list again when it ends, so the section shows what it did.
-  const { acting, act } = useSessionAct(look);
-  const run = useRun();
-  const { unarchive } = useUnarchive();
+  const { acting, act, once } = useSessionAct(refresh);
+  const commands = useSessionCommands({
+    act,
+    once,
+    look: refresh,
+    closeDialog: () => setRemoving(undefined),
+    rows,
+    selectionVersion,
+    onSelectSession: props.onSelectSession,
+  });
   const now = Date.now();
   return (
     <div data-testid="archived-sessions" className="mt-4">
@@ -67,7 +90,7 @@ export function ArchivedSessions(props: { board: string }) {
                 label="Unarchive"
                 icon={ArchiveRestore}
                 disabled={acting}
-                onClick={() => act(() => unarchive([{ id: row.id, title: sessionTitle(row) }]))}
+                onClick={() => commands.unarchive(row.id)}
               />
               <IconButton
                 label="Delete permanently"
@@ -85,14 +108,7 @@ export function ArchivedSessions(props: { board: string }) {
         <RemoveDialog
           row={removing}
           disabled={acting}
-          onRemove={(options) =>
-            act(async () => {
-              const removed = await run('sessions.remove', { id: removing.id, ...options });
-              if (!removed) return undefined;
-              setRemoving(undefined);
-              return warningOf(removed);
-            })
-          }
+          onRemove={(options) => commands.remove(removing.id, options)}
           onCancel={() => setRemoving(undefined)}
         />
       )}

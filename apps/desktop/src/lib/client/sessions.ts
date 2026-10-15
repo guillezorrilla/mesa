@@ -104,11 +104,11 @@ export const sessionsCommands = {
     '--',
     id,
   ]),
-  'sessions.unarchive': commandWith<{ id: string }, Recorded<SessionRecord>>(({ id }) => [
-    'unarchive',
-    '--',
-    id,
-  ]),
+  // With `resume`, its conversation reopens as a new session too: `resumed`, when it could.
+  'sessions.unarchive': commandWith<
+    { id: string; resume?: boolean },
+    Recorded<SessionRecord & { resumed?: SessionRecord }>
+  >(({ id, resume }) => ['unarchive', ...(resume ? ['--resume'] : []), '--', id]),
   'sessions.archiveEach': commandWith<
     { ids: string[] },
     EachResult<SessionRecord & { warning?: string }>

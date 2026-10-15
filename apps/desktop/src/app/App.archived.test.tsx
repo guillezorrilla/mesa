@@ -13,9 +13,11 @@ import {
 import { App } from './App';
 
 const ID = 'aaaaaaaa';
+/** The session an unarchive with --resume starts. */
+const RESUMED = 'bbbbbbbb';
 const NAME = 'Fix the tide alarm';
 const ARCHIVED_AT = '2026-10-03T12:00:00.000Z';
-/** The session ended: once archived, and after an unarchive, it has no window. */
+/** The session once archived: ended, with no window. */
 const ended = managedRow(ID, {
   name: NAME,
   alive: false,
@@ -23,14 +25,21 @@ const ended = managedRow(ID, {
   lastState: { state: 'done', confidence: 1, at: ARCHIVED_AT, source: 'mesa' },
 });
 
-/** One live session in lantern-cove, which `archive` archives and `unarchive` brings back ended. */
+/**
+ * One live session in lantern-cove, which `archive` archives and `unarchive --resume` reopens
+ * as a new live session in the same project.
+ */
 async function setup() {
-  let state: 'live' | 'archived' | 'unarchived' | 'removed' = 'live';
+  let state: 'live' | 'archived' | 'resumed' | 'removed' = 'live';
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),
     sessions: () =>
       envelope(
-        state === 'live' ? [managedRow(ID, { name: NAME })] : state === 'unarchived' ? [ended] : [],
+        state === 'live'
+          ? [managedRow(ID, { name: NAME })]
+          : state === 'resumed'
+            ? [managedRow(RESUMED, { name: NAME, resumedFrom: ID })]
+            : [],
       ),
     'sessions --archived': () =>
       envelope(state === 'archived' ? [{ ...ended, archivedAt: ARCHIVED_AT }] : []),
@@ -39,8 +48,13 @@ async function setup() {
       return envelope({ ...ended, archivedAt: ARCHIVED_AT, receipt: null });
     },
     unarchive: () => {
-      state = 'unarchived';
-      return envelope({ ...ended, receipt: null });
+      state = 'resumed';
+      return envelope({
+        ...ended,
+        resumedBy: RESUMED,
+        resumed: managedRow(RESUMED, { name: NAME, resumedFrom: ID }),
+        receipt: null,
+      });
     },
     rm: () => {
       state = 'removed';
@@ -55,11 +69,16 @@ async function setup() {
     await click(byTestId('archive-confirm')[0]);
   };
   const count = () => byTestId('archived-toggle')[0]?.textContent;
-  return { byTestId, calls, archiveFromCard, count };
+  /** The resumed session's card, which shows it as the selected session. */
+  const resumedCard = () =>
+    document.querySelector<HTMLElement>(
+      `[data-testid="sidebar-session"][data-session-id="${RESUMED}"]`,
+    );
+  return { byTestId, calls, archiveFromCard, count, resumedCard };
 }
 
-test('an archived session is found under Archived, folded with its count, and unarchived there', async () => {
-  const { byTestId, calls, archiveFromCard, count } = await setup();
+test('an archived session is found under Archived, and its Unarchive resumes it into its project group', async () => {
+  const { byTestId, calls, archiveFromCard, count, resumedCard } = await setup();
   expect(count()).toBe('Archived0');
   await archiveFromCard();
   expect(calls).toContainEqual(['--json', 'archive', '--', ID]);
@@ -74,22 +93,26 @@ test('an archived session is found under Archived, folded with its count, and un
   expect(row?.textContent).toMatch(new RegExp(`^${NAME}lantern-cove, archived .+ ago$`));
 
   await click(row?.querySelector<HTMLElement>('[aria-label="Unarchive"]') ?? undefined);
-  expect(calls).toContainEqual(['--json', 'unarchive', '--', ID]);
+  expect(calls).toContainEqual(['--json', 'unarchive', '--resume', '--', ID]);
   expect(toasts(byTestId)).toContainEqual(['confirmation', `Unarchived ${NAME}`]);
   expect(count()).toBe('Archived0');
-  expect(byTestId('archived-session')).toHaveLength(0);
+  // Live again in lantern-cove's group, and shown.
+  const group = resumedCard()?.closest<HTMLElement>('[data-testid="sidebar-project-group"]');
+  expect(group?.dataset.project).toBe('lantern-cove');
+  expect(resumedCard()?.getAttribute('aria-current')).toBe('page');
 });
 
-test("archiving from a card's X toasts a confirmation whose Undo unarchives it", async () => {
-  const { byTestId, calls, archiveFromCard, count } = await setup();
+test("archiving from a card's X toasts a confirmation whose Undo unarchives and resumes it", async () => {
+  const { byTestId, calls, archiveFromCard, count, resumedCard } = await setup();
   await archiveFromCard();
   expect(toasts(byTestId)).toContainEqual(['confirmation', `Archived ${NAME}`]);
   const undo = byTestId('toast-link')[0];
   expect(undo?.textContent).toBe('Undo');
   await click(undo);
-  expect(calls).toContainEqual(['--json', 'unarchive', '--', ID]);
+  expect(calls).toContainEqual(['--json', 'unarchive', '--resume', '--', ID]);
   expect(toasts(byTestId)).toContainEqual(['confirmation', `Unarchived ${NAME}`]);
   expect(count()).toBe('Archived0');
+  expect(resumedCard()?.getAttribute('aria-current')).toBe('page');
 });
 
 test('Delete permanently confirms with the Remove dialog, then runs mesa rm', async () => {

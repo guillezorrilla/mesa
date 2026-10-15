@@ -17,7 +17,7 @@ import { columns } from '../output/columns.js';
 export const sessions = defineCommand({
   name: 'sessions',
   summary:
-    'List the sessions, foreign ones too, by attention: agent (a headless one says run), state, confidence, attention, context use (ctx), running time, last output (or what a queued one waits on, or when an archived one was archived)',
+    'List the sessions, foreign ones too, by attention: agent (a headless one says run), state, confidence, attention, context use (ctx), running time, last output (or what a queued one waits on, or, with --archived, when it was archived)',
   flags: {
     all: { type: 'boolean', description: 'Include sessions stopped more than a day ago' },
     archived: {
@@ -58,7 +58,7 @@ export const sessions = defineCommand({
             duration(s.runningSeconds),
             !s.managed
               ? 'not managed by mesa'
-              : s.archivedAt
+              : flags.archived && s.archivedAt
                 ? `archived ${s.archivedAt}`
                 : s.lastState.state === 'queued'
                   ? waitingOn(s.after)

@@ -6,7 +6,7 @@ import type { WorkspaceView } from '@/lib/workspaceView';
 import type { SelectionInput } from '../selection/sessionSelection';
 import { StartingSessions } from '../start/StartingSessions';
 import type { SessionLocation } from '../start/useStartSession';
-import { ArchivedSessions } from './ArchivedSessions';
+import { ArchivedSection } from './ArchivedSection';
 import { ProjectSessionsGroup } from './ProjectSessionsGroup';
 import { SessionCard } from './SessionCard';
 import { SessionsMenu } from './SessionsMenu';
@@ -19,8 +19,8 @@ import type { SidebarGroups } from './sidebarGroups';
  */
 export function SessionsSection(props: {
   groups: SidebarGroups;
-  /** The board's session ids, whose change reads the Archived section again. */
-  board: string;
+  /** The ids of the sessions on the board, which the Archived section watches. */
+  onBoard: readonly string[];
   /** The cards' rendered order (sidebarOrder), which the arrow keys step through. */
   order: readonly string[];
   view: WorkspaceView;
@@ -139,7 +139,10 @@ export function SessionsSection(props: {
           No active sessions
         </Muted>
       )}
-      <ArchivedSessions board={props.board} />
+      <ArchivedSection
+        onBoard={props.onBoard}
+        onSelectSession={(id) => onView({ kind: 'session', id })}
+      />
     </div>
   );
 }

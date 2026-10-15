@@ -3,6 +3,7 @@ import { listAgentProcesses } from '../../agents/listing.js';
 import type { MesaContext } from '../../context.js';
 import { readBranchDiff } from '../../git/branch-diff.js';
 import { MesaError } from '../../lib/result.js';
+import { joinWarnings, type Recorded } from '../../receipts/recorder.js';
 import { recordedBase } from '../../worktrees/base.js';
 import type { SessionScope } from '../board/board.js';
 import { sessionTree } from '../board/tree.js';
@@ -17,11 +18,12 @@ import { applyEach } from '../record/each.js';
 import { renameSession, setWorkflowStatus } from '../record/edits.js';
 import { sessionFolder } from '../record/folder.js';
 import { projectScope } from '../record/general.js';
-import { recordAgent } from '../record/record.js';
+import { recordAgent, type SessionRecord } from '../record/record.js';
 import { readHookEvents } from '../signals/hook-events.js';
 import { refreshReadings } from '../signals/readings.js';
 import { sessionGoal } from '../start/goal.js';
 import { sessionLog } from '../window/output-log.js';
+import type { continueActions } from './continue.js';
 import type { SessionDeps } from './deps.js';
 import type { lifecycleActions } from './lifecycle.js';
 
@@ -34,6 +36,8 @@ export function inspectActions(
   deps: SessionDeps,
   /** The lifecycle's stop: archiving a live session ends it. */
   stop: ReturnType<typeof lifecycleActions>['stop'],
+  /** The continue actions' resume: an unarchive with `resume` reopens the conversation. */
+  resume: ReturnType<typeof continueActions>['resume'],
 ) {
   const { paths, store, record } = ctx;
   const { contextDeps, nativeDeps } = deps;
@@ -58,6 +62,24 @@ export function inspectActions(
         store.update(id, (current) => ({
           archivedAt: current.archivedAt ?? ctx.clock().toISOString(),
         })),
+    );
+  };
+  /** Clears a session's `archivedAt` without restarting it, with its session receipt. */
+  const clearArchived = (id: string) => {
+    const found = store.get(id);
+    return record(
+      {
+        type: 'session',
+        summary: () => `Unarchived session ${id}`,
+        failure: `Could not unarchive session ${id}`,
+        project: (r) => projectScope(r.project),
+        session: () => id,
+        agent: (r) => recordAgent(r),
+        inputs: { id },
+        outputs: () => ({ archivedAt: null }),
+        changed: () => Boolean(found.archivedAt),
+      },
+      () => store.update(id, { archivedAt: undefined }),
     );
   };
   return {
@@ -206,22 +228,30 @@ export function inspectActions(
           return { ...recorded.result, receipt: recorded.receipt, warning: recorded.warning };
         },
       ),
-    unarchive: (id: string) => {
-      const found = store.get(id);
-      return record(
-        {
-          type: 'session',
-          summary: () => `Unarchived session ${id}`,
-          failure: `Could not unarchive session ${id}`,
-          project: (r) => projectScope(r.project),
-          session: () => id,
-          agent: (r) => recordAgent(r),
-          inputs: { id },
-          outputs: () => ({ archivedAt: null }),
-          changed: () => Boolean(found.archivedAt),
-        },
-        () => store.update(id, { archivedAt: undefined }),
-      );
+    /**
+     * Clears a session's `archivedAt`, and with `resume` reopens its conversation as a new session
+     * (`resumed`, the continue actions' resume, with its own receipt), so it is live again in its
+     * project. One that cannot resume (a plain terminal, no conversation, a folder gone) stays
+     * unarchived, ended, with a warning saying why.
+     */
+    unarchive: async (
+      id: string,
+      { resume: reopen = false } = {},
+    ): Promise<Recorded<SessionRecord & { resumed?: SessionRecord }>> => {
+      const unarchived = clearArchived(id);
+      if (!reopen) return unarchived;
+      try {
+        const resumed = await resume(id);
+        return {
+          ...unarchived,
+          result: { ...unarchived.result, resumed: resumed.result.record },
+          warning: joinWarnings(unarchived.warning, resumed.warning),
+        };
+      } catch (error) {
+        if (!(error instanceof MesaError)) throw error;
+        const why = `unarchived, not resumed: ${error.message}`;
+        return { ...unarchived, warning: joinWarnings(unarchived.warning, why) };
+      }
     },
     /** Native provider conversations on disk for a project, with import ownership. */
     history: (project: string) => nativeHistory(nativeDeps(), project),

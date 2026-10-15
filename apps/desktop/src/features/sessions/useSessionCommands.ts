@@ -1,11 +1,11 @@
-import type { Agent, ManagedRow, TreeRow } from '@mesa/core';
+import type { Agent, ManagedRow, SessionRow } from '@mesa/core';
 import { exited, GENERAL_PROJECT, sessionTitle } from '@mesa/core/browser';
+import { Undo2 } from 'lucide-react';
 import type { RefObject } from 'react';
-import { said, warningOf } from '@/components/Toast';
+import { type Message, said, type ToastLink, useToast, warningOf } from '@/components/Toast';
 import { useRun } from '@/lib/useCommand';
 import type { NewSessionInput } from './SessionStart';
 import type { SessionAct } from './useSessionAct';
-import { useUnarchive } from './useUnarchive';
 
 /**
  * The commands Sessions runs on its sessions, each saying in a toast what it did. A command a
@@ -26,14 +26,15 @@ export function useSessionCommands({
   once: SessionAct;
   look: () => Promise<void>;
   closeDialog: () => void;
-  rows?: TreeRow[];
+  /** The sessions it acts on as listed: the board's, or the Archived section's. */
+  rows?: readonly SessionRow[];
   selectedSession?: string;
   selectionVersion: RefObject<number>;
   onSelectSession?: (id: string) => void;
   onSessions?: () => void;
 }) {
   const run = useRun();
-  const { undo } = useUnarchive();
+  const toast = useToast();
   const openTerminal = (id: string) =>
     act(async () => {
       const attached = await run('sessions.attach', { id });
@@ -147,15 +148,60 @@ export function useSessionCommands({
     if (next) onSelectSession?.(next.id);
     else onSessions?.();
   };
-  /** The sessions `ids` names, each with its card's title (its id when it is not listed). */
-  const titled = (ids: readonly string[]) =>
-    ids.map((id) => {
-      const row = rows?.find((r) => r.id === id);
-      return { id, title: row ? sessionTitle(row) : id };
-    });
+  /** What a toast calls a session: its card's title, or its id when it is not listed. */
+  const titleOf = (id: string) => {
+    const row = rows?.find((r) => r.id === id);
+    return row ? sessionTitle(row) : id;
+  };
+  /**
+   * Unarchives and resumes each of `ids` (`mesa unarchive --resume`), then shows the first one
+   * resumed, live in its project group; one with nothing to resume stays ended, and its warning
+   * says why. Titles are read now, from the rows this render lists.
+   */
+  const restore = (ids: readonly string[]) => {
+    const titles = new Map(ids.map((id) => [id, titleOf(id)]));
+    return async (): Promise<Message | undefined> => {
+      let shown = false;
+      const warnings: string[] = [];
+      let done = 0;
+      for (const id of ids) {
+        const restored = await run('sessions.unarchive', { id, resume: true });
+        if (!restored) continue;
+        done += 1;
+        if (restored.warning) warnings.push(`${titles.get(id)}: ${restored.warning}`);
+        if (restored.resumed && !shown) {
+          shown = true;
+          onSelectSession?.(restored.resumed.id);
+        }
+      }
+      if (done === 0) return undefined;
+      const [only] = ids;
+      const text =
+        ids.length === 1 && only ? `Unarchived ${titles.get(only)}` : `Unarchived ${done} sessions`;
+      return said(text, warnings.length ? { warning: warnings.join('; ') } : undefined);
+    };
+  };
+  /** The Archived section's Unarchive: one session, unarchived and resumed (restore). */
+  const unarchive = (id: string) => act(restore([id]));
+  /**
+   * The Undo an archive's toast carries: restore, run at once rather than through `act`, which
+   * drops a press while another action runs, so an Undo always happens; it toasts what it did.
+   */
+  const undo = (ids: readonly string[]): ToastLink => {
+    const restoring = restore(ids);
+    return {
+      label: 'Undo',
+      icon: Undo2,
+      onFollow: () =>
+        void restoring().then(async (message) => {
+          await look();
+          if (message) toast(message.text, message.tone);
+        }),
+    };
+  };
   /**
    * Archives one session, or several in one `mesa archive`, which reports each; its toast's Undo
-   * unarchives those it archived.
+   * unarchives and resumes those it archived.
    */
   const archive = ([id, ...more]: string[]) =>
     act(async () => {
@@ -165,11 +211,7 @@ export function useSessionCommands({
         if (!archived) return undefined;
         closeDialog();
         leaveClosedSession([id]);
-        const sessions = titled([id]);
-        return {
-          ...said(`Archived ${sessions[0]?.title ?? id}`, archived),
-          link: undo(sessions, act),
-        };
+        return { ...said(`Archived ${titleOf(id)}`, archived), link: undo([id]) };
       }
       const result = await run('sessions.archiveEach', { ids: [id, ...more] });
       if (!result) return undefined;
@@ -187,7 +229,7 @@ export function useSessionCommands({
       return {
         text: lines.join('\n'),
         tone: done.length < result.items.length ? 'alert' : 'confirmation',
-        ...(done.length > 0 ? { link: undo(titled(done.map((item) => item.id)), act) } : {}),
+        ...(done.length > 0 ? { link: undo(done.map((item) => item.id)) } : {}),
       };
     });
   const deletePermanently = (id: string) =>
@@ -233,6 +275,7 @@ export function useSessionCommands({
     remove,
     cascade,
     archive,
+    unarchive,
     deletePermanently,
     open,
     openChildTerminal,
