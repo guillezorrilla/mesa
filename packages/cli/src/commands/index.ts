@@ -39,6 +39,7 @@ import { imagePreview, imageSend } from './image.js';
 import { impact, impactMark } from './impact.js';
 import { importGoal, importLinks, importList, importRefresh, importStatus } from './import.js';
 import { init } from './init.js';
+import { installs } from './installs.js';
 import { instructionsList, instructionsRead, instructionsWrite } from './instructions.js';
 import { log } from './log.js';
 import { logs } from './logs.js';
@@ -151,6 +152,7 @@ export const COMMANDS: Command[] = [
   obsidianManager,
   obsidianVaults,
   feedback,
+  installs,
   ...FILES_COMMANDS,
   fork,
   forceStart,

@@ -5,6 +5,7 @@ import { SettingRow } from '@/features/settings/SettingRow';
 import { SettingSection } from '@/features/settings/SettingSection';
 import { useAct } from '@/lib/useAct';
 import { useCall, useCommand } from '@/lib/useCommand';
+import { InstallCountField } from './InstallCountField';
 import { describeUpdate, useUpdate } from './useUpdate';
 
 const CHANNELS = [
@@ -12,7 +13,7 @@ const CHANNELS = [
   ['beta', 'Beta'],
 ] as const;
 
-/** Settings > General's Updates: the channel the profile follows, and a check on demand. */
+/** Settings > General's Updates: the channel, a check on demand, and the anonymous install count. */
 export function UpdateSettingsPanel() {
   const { status, busy, check } = useUpdate();
   const channel = useCommand('update.channel');
@@ -56,6 +57,7 @@ export function UpdateSettingsPanel() {
           </Button>
         }
       />
+      <InstallCountField />
     </SettingSection>
   );
 }

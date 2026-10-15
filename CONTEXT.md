@@ -562,6 +562,11 @@ Not: changelog entry, changeset, release notes (the GitHub Release's whole text)
 One third-party package a Release ships, with its version, license and license text: the Node inside the bundled mesa, an npm package bundled into the CLI or the app, a Rust crate of the app, or a vendored skill. `scripts/release/licenses.mjs` lists them, and `build.sh` embeds the file in the bundled mesa beside the version and the build number (the commit count, the app's `CFBundleVersion`). `mesa about licenses` and the app's About Mesa screen show them; a development mesa has none and its build is `dev`.
 Not: credit, notice (a NOTICE file is one source of the text).
 
+## Install count
+
+The anonymous count of Mesa installs and the versions they run (ADR-0026). A random install ID made on first run, kept in `~/.mesa/install.json` for every profile, goes to the broker with the version and update channel at most once a day, beside the update check; nothing about the person, their work, or how they use Mesa. On by default; `mesa installs off` (Settings > General > Updates) stops it and erases the install on the broker, and `MESA_NO_INSTALL_PING=1` or a development build never sends. Only the owner reads the counts (`docs/installs.md`).
+Not: analytics, telemetry, usage.
+
 ## Update channel
 
 Which Releases Mesa updates to: `stable` reads only stable releases; `beta` reads the beta feed and stable too, and takes whichever is newer. Set per profile in `update.channel` (`mesa update channel [stable|beta]`, Settings > General); unset, it follows the running version, so a beta tracks betas. Only a version above the running one is offered, never a downgrade. A version listed in `revoked.json` on the `beta` prerelease is revoked: the app blocks with its reason until an update replaces it. ADR-0018.

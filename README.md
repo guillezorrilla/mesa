@@ -103,7 +103,7 @@ Terms are defined in [CONTEXT.md](CONTEXT.md), and the decisions behind the desi
 
 ## Privacy
 
-- **Local by default.** Your profile, session records, Receipts and vault stay on your Mac. No account, no analytics, no Mesa server.
+- **Local by default.** Your profile, session records, Receipts and vault stay on your Mac. No account and no usage analytics. Once a day Mesa sends an anonymous install ID with its version, so its maker can count installs and updates; `mesa installs off` (or Settings > General) stops it and erases it.
 - **Agents run as you,** with your own sign-in. Mesa never handles those credentials.
 - **The decision model is opt-in.** Without a key, Mesa makes no model call. With CLEF or Jev, it sends short, capped excerpts for each decision; the key stays in the macOS Keychain ([what leaves your Mac](docs/decisions.md#what-text-leaves-your-mac)).
 - **Connections** to Atlassian, Notion, ClickUp, Linear and GitHub keep their tokens in the Keychain. The OAuth broker that hands them over stores and logs nothing ([ADR-0014](docs/adr/0014-oauth-broker-and-keychain-tokens.md)), and you can run your own with `MESA_BROKER_URL`.
