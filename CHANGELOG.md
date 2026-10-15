@@ -2,6 +2,20 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.3.4 - 2026-10-15
+
+### Added
+
+- Mesa counts installs anonymously: once a day it sends a random install ID with its version and update channel, and nothing about your work or how you use it. Turn it off in Settings > General > Updates or with `mesa installs off`, which also erases it. (#839)
+
+### Fixed
+
+- Impact reads true for vault notes: a session gets each note's advice once, a note brought in again is one Moment, and an agent reading the note any way counts as opening it. A Moment still waiting on its outcome shows nothing, and Not right appears when you hover or focus a row. (#835)
+- Re-reviewing a PR whose author pushed since your finished review starts the next round on the new head, instead of reopening the old review session on the old code. The finished session is stopped; a review that is still working, or one already on the newest head, is opened as before. (#832)
+- A PR in the Reviews list says Reviewing only while its review agent is working or asking you something, so a finished review whose session stays open shows Updated again when the author pushes or replies. The PR page's "running" follows the same rule. (#830)
+- Dropping a file on a session's terminal types its path again: in 0.3.3 the drop never reached the terminal, so nothing happened. (#831)
+- Cost shows again for Claude Code usage routed globally, which it had marked n/a since Claude Code began reporting `global` inference, and Claude Haiku 5.5 has its list price. Usage days, Today and cost alerts now follow your local calendar day, so an evening session no longer lands on tomorrow. (#833)
+
 ## 0.3.3 - 2026-10-14
 
 ### Added
