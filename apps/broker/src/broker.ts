@@ -1,5 +1,6 @@
-import { feedback, type Limit } from './feedback.js';
-import { type Installs, installsRoute } from './installs.js';
+import { feedback } from './feedback.js';
+import { type InstallsDeps, installsRoute } from './installs.js';
+import { callerKey, type Limit, unlimited } from './limit.js';
 import { PRIVACY, TERMS } from './pages.js';
 import { PROVIDERS, type Provider } from './providers.js';
 
@@ -44,8 +45,8 @@ export async function handle(
   request: Request,
   env: Env,
   upstream: Upstream,
-  limit: Limit = async () => true,
-  installs: Installs = { limit: async () => true, now: () => new Date() },
+  limit: Limit = unlimited,
+  installs?: InstallsDeps,
 ): Promise<Response> {
   const url = new URL(request.url);
   if (url.pathname === '/installs' || url.pathname.startsWith('/installs/')) {
@@ -53,8 +54,7 @@ export async function handle(
     return body === undefined ? new Response(null, { status }) : json(status, body);
   }
   if (url.pathname === '/feedback' && request.method === 'POST') {
-    if (!(await limit(request.headers.get('cf-connecting-ip') ?? 'unknown')))
-      return json(429, { error: 'rate_limited' });
+    if (!(await limit(callerKey(request)))) return json(429, { error: 'rate_limited' });
     return json(...(await feedback(await request.json().catch(() => undefined), env, upstream)));
   }
   const pages: Record<string, string> = { '/privacy': PRIVACY, '/terms': TERMS };

@@ -1,7 +1,8 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { type Env, handle, type Upstream } from './broker.js';
-import type { Limit } from './feedback.js';
-import { type D1, d1Installs, type Installs } from './installs.js';
+import type { InstallsDeps } from './installs.js';
+import { type D1, d1Installs } from './installs-d1.js';
+import type { Limit } from './limit.js';
 
 const ENV: Env = {
   ATLASSIAN_CLIENT_ID: 'client-1',
@@ -487,7 +488,7 @@ const OTHER = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 async function installsBroker(day = '2026-10-14T23:50:00.000Z', limit: Limit = async () => true) {
   const { d1, rows } = await sqliteD1();
   let now = new Date(day);
-  const installs: Installs = { store: d1Installs(d1), limit, now: () => now };
+  const installs: InstallsDeps = { store: d1Installs(d1), limit, now: () => now };
   const send = (method: string, path: string, body?: unknown) =>
     handle(
       new Request(`${BROKER}${path}`, {
@@ -532,6 +533,7 @@ test.each([
   ['an id that is not a UUID', { id: 'mesa-1', version: '0.3.3', channel: 'stable' }],
   ['an empty version', { id: ID, version: '', channel: 'stable' }],
   ['a version over 40 characters', { id: ID, version: 'v'.repeat(41), channel: 'stable' }],
+  ['a version of only spaces', { id: ID, version: '  ', channel: 'stable' }],
   ['another channel', { id: ID, version: '0.3.3', channel: 'nightly' }],
   ['no body', undefined],
 ])('an install ping with %s is 400 and keeps nothing', async (_, body) => {
@@ -551,21 +553,49 @@ test('erasing an install removes only its rows; a malformed id is 400', async ()
   expect((await send('GET', '/installs')).status).toBe(404);
 });
 
-test('install routes past the limit for their IP are 429; without D1 they are 503', async () => {
+test('both install routes past the limit for their IP are 429; without D1 they are 503', async () => {
   const keys: string[] = [];
   const { send, rows } = await installsBroker(undefined, async (key) => {
     keys.push(key);
     return false;
   });
-  expect(
-    (await send('POST', '/installs', { id: ID, version: '0.3.3', channel: 'stable' })).status,
-  ).toBe(429);
-  expect(keys).toEqual(['203.0.113.7']);
+  const ping = { id: ID, version: '0.3.3', channel: 'stable' };
+  expect((await send('POST', '/installs', ping)).status).toBe(429);
+  expect((await send('DELETE', `/installs/${ID}`)).status).toBe(429);
+  expect(keys).toEqual(['203.0.113.7', '203.0.113.7']);
   expect(rows('installs')).toEqual([]);
-  const bare = await handle(
-    new Request(`${BROKER}/installs/${ID}`, { method: 'DELETE' }),
+  for (const [method, path, body] of [
+    ['POST', '/installs', JSON.stringify(ping)],
+    ['DELETE', `/installs/${ID}`, undefined],
+  ] as const) {
+    const bare = await handle(
+      new Request(`${BROKER}${path}`, { method, ...(body ? { body } : {}) }),
+      ENV,
+      vendor().upstream,
+    );
+    expect([bare.status, await bare.json()]).toEqual([503, { error: 'not_configured' }]);
+  }
+});
+
+test('an uppercase install ID is kept lowercase, and a store failure is 500, not a crash', async () => {
+  const { send, rows } = await installsBroker();
+  await send('POST', '/installs', { id: ID.toUpperCase(), version: '0.3.3', channel: 'stable' });
+  expect(rows('installs').map((row) => row.id)).toEqual([ID]);
+  expect((await send('DELETE', `/installs/${ID.toUpperCase()}`)).status).toBe(204);
+  expect(rows('installs')).toEqual([]);
+  const failing = await handle(
+    new Request(`${BROKER}/installs`, {
+      method: 'POST',
+      body: JSON.stringify({ id: ID, version: '0.3.3', channel: 'stable' }),
+    }),
     ENV,
     vendor().upstream,
+    undefined,
+    {
+      store: { save: () => Promise.reject(new Error('D1 down')), remove: async () => {} },
+      limit: async () => true,
+      now: () => new Date(),
+    },
   );
-  expect([bare.status, await bare.json()]).toEqual([503, { error: 'not_configured' }]);
+  expect([failing.status, await failing.json()]).toEqual([500, { error: 'store_failed' }]);
 });

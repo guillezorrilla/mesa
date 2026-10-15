@@ -33,13 +33,13 @@ GROUP BY version, channel
 ORDER BY installs DESC;
 ```
 
-New installs per week:
+New installs per week, by the Monday it starts:
 
 ```sql
-SELECT strftime('%Y-W%W', first_seen) AS week, COUNT(*) AS new_installs
+SELECT date(first_seen, '-6 days', 'weekday 1') AS week_of, COUNT(*) AS new_installs
 FROM installs
-GROUP BY week
-ORDER BY week;
+GROUP BY week_of
+ORDER BY week_of;
 ```
 
 How many installs reached a version, and how many days after its first install did:

@@ -1,9 +1,6 @@
 // Feedback from inside Mesa, opened as an issue in a private repo (ADR-0025).
 import type { Env, Upstream } from './broker.js';
 
-/** Whether one more request from `key` may pass: the Worker's rate-limit binding, or a fake in tests. */
-export type Limit = (key: string) => Promise<boolean>;
-
 /** The private repo feedback lands in, unless the Worker's FEEDBACK_REPO names another. */
 export const DEFAULT_FEEDBACK_REPO = 'guillezorrilla/mesa-feedback';
 /** Core's FEEDBACK_MAX: the broker cannot import core, so the two are kept equal by hand. */
