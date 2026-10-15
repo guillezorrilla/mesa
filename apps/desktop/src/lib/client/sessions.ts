@@ -9,6 +9,7 @@ import type {
   GitBranchDiff,
   GridGroup,
   InstructionStatus,
+  ManagedRow,
   NativeDiscovery,
   NativeHistory,
   Removed,
@@ -42,6 +43,8 @@ export const sessionsCommands = {
   ]),
   // The board as mesa orders it: attention, children under their parent.
   'sessions.list': command<TreeRow[]>('sessions', '--tree'),
+  // The archived sessions, newest archive first: Mesa's own, so no foreign row.
+  'sessions.archived': command<ManagedRow[]>('sessions', '--archived'),
   'image.preview': commandWith<{ id: string; path: string }, SessionImage>(({ id, path }) => [
     'image',
     'preview',
@@ -101,6 +104,11 @@ export const sessionsCommands = {
     '--',
     id,
   ]),
+  // With `resume`, its conversation reopens as a new session too: `resumed`, when it could.
+  'sessions.unarchive': commandWith<
+    { id: string; resume?: boolean },
+    Recorded<SessionRecord & { resumed?: SessionRecord }>
+  >(({ id, resume }) => ['unarchive', ...(resume ? ['--resume'] : []), '--', id]),
   'sessions.archiveEach': commandWith<
     { ids: string[] },
     EachResult<SessionRecord & { warning?: string }>

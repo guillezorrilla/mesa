@@ -94,7 +94,7 @@ test('a window that cannot open removes the successor and its note again', async
   await expect(mesa.sessions.handoff(a.id, { note, agent: 'codex' })).rejects.toMatchObject({
     code: 'internal',
   });
-  expect((await mesa.sessions.list(true)).map((r) => r.id)).toEqual([a.id]);
+  expect((await mesa.sessions.list('all')).map((r) => r.id)).toEqual([a.id]);
   expect(readdirSync(profilePaths(home, 'default').handoffs)).toEqual([]);
   expect((await mesa.sessions.show(a.id)).events).toEqual([]);
   expect((await mesa.sessions.show(a.id)).endedAt).toBeUndefined();
@@ -106,5 +106,5 @@ test('a successor whose folder is gone is not_found, never an agent started in $
   rmSync(a.worktree?.path ?? '', { recursive: true, force: true });
   await expect(mesa.sessions.handoff(a.id, { note })).rejects.toMatchObject({ code: 'not_found' });
   expect(tmux.windows).toHaveLength(1);
-  expect((await mesa.sessions.list(true)).map((r) => r.id)).toEqual([a.id]);
+  expect((await mesa.sessions.list('all')).map((r) => r.id)).toEqual([a.id]);
 });

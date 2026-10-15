@@ -210,6 +210,7 @@ export function WorkspaceSidebar(props: {
         ) : (
           <SessionsSection
             groups={groups}
+            onBoard={props.sessions.map((session) => session.id)}
             order={order}
             view={view}
             onView={onView}

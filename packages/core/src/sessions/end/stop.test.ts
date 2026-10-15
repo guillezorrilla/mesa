@@ -246,11 +246,11 @@ test('stop ends the record as it is when the stop lands, not as it was read', as
 test('resume with its old record locked is refused before it starts, and is not resumed twice', async () => {
   const { home, mesa, opened } = await setUp();
   await mesa.sessions.stop(opened.id);
-  const before = (await mesa.sessions.list(true)).length;
+  const before = (await mesa.sessions.list('all')).length;
   const lock = staleLock(home, opened.id);
   await expect(mesa.sessions.resume(opened.id)).rejects.toMatchObject({ code: 'locked' });
   // The claim comes before the window: nothing started, no new record stays.
-  expect(await mesa.sessions.list(true)).toHaveLength(before);
+  expect(await mesa.sessions.list('all')).toHaveLength(before);
   rmSync(lock);
   const first = await mesa.sessions.resume(opened.id);
   await expect(mesa.sessions.resume(opened.id)).rejects.toMatchObject({
@@ -304,7 +304,7 @@ test.each(['dead pane', 'missing window'])(
     else Object.assign(world.windows[0] ?? {}, { dead: true, status: 2 });
     const state = signal === 'dead pane' ? 'failed' : 'done';
     for (let look = 0; look < 2; look++) {
-      const rows = await mesa.sessions.list(true);
+      const rows = await mesa.sessions.list('all');
       expect(rows.find((r) => r.id === opened.id)?.lastState.state).toBe(state);
       expect(receipts()).toEqual([]);
       expect(testStore(home).get(opened.id).endedAt).toBeUndefined();

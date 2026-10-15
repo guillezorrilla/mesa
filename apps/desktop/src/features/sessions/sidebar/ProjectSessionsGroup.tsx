@@ -31,7 +31,7 @@ export function ProjectSessionsGroup(props: {
   const FolderIcon = busy && !closed ? FolderOpen : Folder;
   const color = nameColor(project.name);
   return (
-    <div className="mb-2">
+    <div className="mb-2" data-testid="sidebar-project-group" data-project={project.name}>
       <div
         className={cn(
           'flex items-center gap-1 px-1 text-muted-foreground',

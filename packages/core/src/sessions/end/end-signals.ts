@@ -5,6 +5,7 @@ import type { MesaContext } from '../../context.js';
 import { toFail } from '../../lib/result.js';
 import { readRegistry } from '../../projects/registry.js';
 import { joinWarnings } from '../../receipts/recorder.js';
+import type { SessionScope } from '../board/board.js';
 import type { SessionRow } from '../board/rows.js';
 import { decisionStatus, decisionsReach } from '../native/decision-status.js';
 import { mesaPointer } from '../native/instructions.js';
@@ -33,8 +34,8 @@ import type { StopOutcome } from './stop.js';
 export function endSignals(
   ctx: MesaContext,
   deps: {
-    /** The board as it is now (listSessions), ended sessions too with `all`. */
-    look: (all?: boolean) => Promise<SessionRow[]>;
+    /** The board as it is now (listSessions), in a scope. */
+    look: (scope?: SessionScope) => Promise<SessionRow[]>;
     /** What a queued start needs (startQueued). */
     launch: () => Parameters<typeof startQueued>[0];
     /** Where a session's context use is read (refreshReadings). */
@@ -148,8 +149,8 @@ export function endSignals(
      * by this look, which a missed signal left waiting, and the exit of a session it found, a
      * Claude background one's too.
      */
-    board: async (all = false) => {
-      const rows = await deps.look(all);
+    board: async (scope: SessionScope = 'board') => {
+      const rows = await deps.look(scope);
       let finishedRun = false;
       for (const row of rows) {
         if (!row.managed || row.endedAt || !isOver(row)) continue;
@@ -181,7 +182,7 @@ export function endSignals(
         const row = rows.find((r) => r.id === id);
         return row?.managed ? isOver(row) : overOrGone(id);
       };
-      return (await startQueue(overNow)).started || finishedRun ? deps.look(all) : rows;
+      return (await startQueue(overNow)).started || finishedRun ? deps.look(scope) : rows;
     },
     /**
      * One agent hook's payload, from `mesa hook claude` inside a Mesa session. A Stop, a turn's

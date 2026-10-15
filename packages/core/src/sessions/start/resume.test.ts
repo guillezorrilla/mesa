@@ -81,7 +81,7 @@ test('two resumes at once start one successor and refuse the other', async () =>
   expect(world.tmux.windows).toHaveLength(windows + 1);
   expect((await mesa.sessions.show(opened.id)).resumedBy).toBe(successor.id);
   // The refused resume's record is gone again: the old session and its one successor stay.
-  expect((await mesa.sessions.list(true)).map((r) => r.id).sort()).toEqual(
+  expect((await mesa.sessions.list('all')).map((r) => r.id).sort()).toEqual(
     [opened.id, successor.id].sort(),
   );
 });
@@ -107,7 +107,7 @@ test('a resume whose start fails gives its claim back', async () => {
   world.tmux.failing = ['new-session', 'new-window'];
   await expect(mesa.sessions.resume(opened.id)).rejects.toMatchObject({ code: 'internal' });
   expect((await mesa.sessions.show(opened.id)).resumedBy).toBeUndefined();
-  expect((await mesa.sessions.list(true)).map((r) => r.id)).toEqual([opened.id]);
+  expect((await mesa.sessions.list('all')).map((r) => r.id)).toEqual([opened.id]);
   world.tmux.failing = [];
   const { record } = (await mesa.sessions.resume(opened.id)).result;
   expect((await mesa.sessions.show(opened.id)).resumedBy).toBe(record.id);

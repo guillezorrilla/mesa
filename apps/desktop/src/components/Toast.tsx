@@ -1,4 +1,4 @@
-import { ArrowRight, CircleCheck, TriangleAlert, X } from 'lucide-react';
+import { ArrowRight, CircleCheck, type LucideIcon, TriangleAlert, X } from 'lucide-react';
 import { createContext, type ReactNode, useCallback, useContext, useRef, useState } from 'react';
 import { Alert } from './ui/alert';
 import { Button } from './ui/button';
@@ -9,9 +9,12 @@ import { Button } from './ui/button';
  * comes, and stays until dismissed.
  */
 type Tone = 'confirmation' | 'alert';
-export type Message = { text: string; tone: Tone };
-/** A link a toast may carry: following it goes somewhere else in the app, and dismisses the toast. */
-type ToastLink = { label: string; onFollow: () => void };
+/**
+ * A link a toast may carry: following it goes somewhere else in the app (an arrow), or with its
+ * own `icon` acts (Undo), and dismisses the toast.
+ */
+export type ToastLink = { label: string; onFollow: () => void; icon?: LucideIcon };
+export type Message = { text: string; tone: Tone; link?: ToastLink };
 
 /**
  * A confirmation; with the warning a recorded command's data carries (no receipt, a skill not
@@ -40,7 +43,7 @@ const ToastContext = createContext<(text: string, tone?: Tone, link?: ToastLink)
  * told, with a link when given.
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [messages, setMessages] = useState<(Message & { id: number; link?: ToastLink })[]>([]);
+  const [messages, setMessages] = useState<(Message & { id: number })[]>([]);
   const last = useRef(0);
   const dismiss = useCallback(
     (id: number) => setMessages((all) => all.filter((m) => m.id !== id)),
@@ -96,8 +99,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                       dismiss(m.id);
                     }}
                   >
+                    {m.link.icon && <m.link.icon aria-hidden />}
                     {m.link.label}
-                    <ArrowRight aria-hidden />
+                    {!m.link.icon && <ArrowRight aria-hidden />}
                   </Button>
                 )}
               </div>

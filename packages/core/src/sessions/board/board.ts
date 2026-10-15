@@ -22,17 +22,25 @@ import type { SessionRow } from './rows.js';
 const RECENT_MS = 24 * 60 * 60 * 1000;
 
 /**
- * The profile's sessions merged with live tmux and the agent listing: those not stopped, or
- * stopped within a day, or every one with `all`, then the listed sessions none of them runs, as
- * foreign rows (sessions of this home's other profiles are left out). A session whose agent picks
- * its own id (Codex) and has none yet gets the one its agent's files name (ownSessionIds) first.
+ * Which sessions a look lists: the board's (those not archived, and not stopped more than a day
+ * ago), every one (`all`), or only the archived ones (`archived`; CONTEXT.md, Archived session).
+ */
+export type SessionScope = 'board' | 'all' | 'archived';
+
+/**
+ * The profile's sessions in `scope` merged with live tmux and the agent listing: those not
+ * archived and not stopped, or stopped within a day; every one with `all`; or only the archived
+ * ones, newest archive first, with `archived`. Then, but for `archived`, the listed sessions none
+ * of them runs, as foreign rows (sessions of this home's other profiles are left out). A session
+ * whose agent picks its own id (Codex) and has none yet gets the one its agent's files name
+ * (ownSessionIds) first.
  * A listed process is the session whose window it runs in (its pid is the pane's), else the
  * newest session not stopped that holds its agent session id. Faro classifies every row from its
  * latest hook event, its listing, its window, and (only when neither of the first two speaks) its
  * tail; a new state is saved to the record, and so is an id read now or the id the listing names
  * for its pane after a /clear. A live session's context use and branch are read (refreshReadings) when
  * its state changed. A queued session, and one cancelled before it ran, keeps
- * Mesa's state, at no attention. Highest attention first.
+ * Mesa's state, at no attention. Highest attention first, but for `archived`.
  */
 export async function listSessions(
   deps: {
@@ -58,14 +66,16 @@ export async function listSessions(
     /** Per-window provider logs, when a provider exposes no public live ID event. */
     logs?: string;
   },
-  { all = false } = {},
+  { scope = 'board' }: { scope?: SessionScope } = {},
 ): Promise<SessionRow[]> {
   const now = deps.clock();
   const recent = (r: SessionRecord) =>
     !r.endedAt || now.getTime() - Date.parse(r.endedAt) < RECENT_MS;
+  const inScope = (r: SessionRecord) =>
+    scope === 'all' || (scope === 'archived' ? Boolean(r.archivedAt) : !r.archivedAt && recent(r));
   // Oldest first (the store's order), so `children` is too.
   const every = deps.store.readable();
-  const records = every.filter((r) => all || (!r.archivedAt && recent(r)));
+  const records = every.filter(inScope);
   const children = new Map<string, string[]>();
   for (const r of every) {
     if (!r.parent) continue;
@@ -111,10 +121,19 @@ export async function listSessions(
       return { ...row, context, gitBranch, cwd };
     }),
   );
+  // Archived sessions are Mesa's own, so a look at them lists no foreign one.
   const foreign = listed
-    .filter((p) => p.nativeState !== 'stopped' && !runs(p) && !elsewhere.has(p.agentSessionId))
+    .filter(
+      (p) =>
+        scope !== 'archived' &&
+        p.nativeState !== 'stopped' &&
+        !runs(p) &&
+        !elsewhere.has(p.agentSessionId),
+    )
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
     .map((process) => foreignRow({ ...deps, faro }, process, now));
+  if (scope === 'archived')
+    return managed.sort((a, b) => (b.archivedAt ?? '').localeCompare(a.archivedAt ?? ''));
   const rows: SessionRow[] = [...managed, ...(await Promise.all(foreign))];
   return rows.sort((a, b) => b.attention - a.attention || a.startedAt.localeCompare(b.startedAt));
 }

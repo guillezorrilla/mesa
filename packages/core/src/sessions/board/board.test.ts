@@ -105,7 +105,7 @@ test('listSessions marks a session whose window is gone done from tmux, and save
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   };
 
-  const rows = byStart(await listSessions(deps, { all: true }));
+  const rows = byStart(await listSessions(deps, { scope: 'all' }));
   const states = rows.map((r) => r.managed && [r.id, r.alive, r.lastState.state, r.runningSeconds]);
   expect(states).toEqual([
     [stopped.id, false, 'done', 1800],
@@ -147,10 +147,45 @@ test('a stopped session stays on the board for a day; all shows older ones too',
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   };
   expect((await listSessions(deps)).map((r) => r.id)).toEqual([recent.id]);
-  expect(byStart(await listSessions(deps, { all: true })).map((r) => r.id)).toEqual([
+  expect(byStart(await listSessions(deps, { scope: 'all' })).map((r) => r.id)).toEqual([
     old.id,
     recent.id,
   ]);
+});
+
+test('archived lists only archived sessions, newest archive first, and no foreign row', async () => {
+  const store = storeIn();
+  const first = store.create(() => inWindow('harbor', '2026-09-20T10:00:00.000Z', 'claude-aaaaaa'));
+  store.update(first.id, {
+    endedAt: '2026-09-20T10:30:00.000Z',
+    archivedAt: '2026-09-20T10:30:00.000Z',
+  });
+  const active = store.create(() =>
+    inWindow('lantern-cove', '2026-09-24T11:00:00.000Z', 'claude-bbbbbb'),
+  );
+  const latest = store.create(() => inWindow('tide', '2026-09-24T10:00:00.000Z', 'claude-cccccc'));
+  store.update(latest.id, {
+    endedAt: '2026-09-24T11:30:00.000Z',
+    archivedAt: '2026-09-24T11:30:00.000Z',
+  });
+  const deps = {
+    ...noSignals,
+    // A live process no session runs: a foreign row on the board, none among the archived.
+    listing: listingOf(SPIKE_LISTING.idle),
+    projects: [],
+    elsewhere: () => new Set<string>(),
+    store,
+    tmux: tmuxWith({ project: 'lantern-cove', window: 'claude-bbbbbb' }),
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  };
+  const archived = await listSessions(deps, { scope: 'archived' });
+  expect(archived.map((r) => [r.id, r.managed && r.archivedAt])).toEqual([
+    [latest.id, '2026-09-24T11:30:00.000Z'],
+    [first.id, '2026-09-20T10:30:00.000Z'],
+  ]);
+  const board = await listSessions(deps);
+  expect(board.filter((r) => r.managed).map((r) => r.id)).toEqual([active.id]);
+  expect(board.some((r) => !r.managed)).toBe(true);
 });
 
 test('an empty board never calls tmux', async () => {

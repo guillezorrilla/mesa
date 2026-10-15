@@ -21,13 +21,14 @@ export function sessionsService(
 ) {
   const deps = sessionDeps(ctx, faro, skills, assistance);
   const lifecycle = lifecycleActions(ctx, faro, deps);
+  const continued = continueActions(ctx, deps, lifecycle.stop);
   return {
     grid: gridActions(ctx, setConfig),
     sessions: {
-      ...inspectActions(ctx, deps, lifecycle.stop),
+      ...inspectActions(ctx, deps, lifecycle.stop, continued.resume),
       ...inputActions(ctx, faro, deps),
       ...lifecycle,
-      ...continueActions(ctx, deps, lifecycle.stop),
+      ...continued,
       ...windowActions(ctx, deps),
     },
     hookEvent: deps.ends.hookEvent,
