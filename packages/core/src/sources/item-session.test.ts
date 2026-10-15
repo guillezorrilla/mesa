@@ -40,7 +40,7 @@ test('a session started from an imported item by id or link gets its goal and ke
   expect(byLink.result).toMatchObject({ goal: LC12_GOAL, from: { source: 'jira', id: 'LC-12' } });
   expect(mesa.imports.list('lantern-cove').items).toHaveLength(1);
 
-  const rows = await mesa.sessions.list(false);
+  const rows = await mesa.sessions.list();
   const started = rows.flatMap((r) => (r.managed && r.kind === 'interactive' ? [r.from] : []));
   // Its title too, which its name is made from (autoName).
   const from = { source: 'jira', id: 'LC-12', title: 'LC-12: Fix the tide alarm' };

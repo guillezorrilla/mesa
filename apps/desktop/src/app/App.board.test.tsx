@@ -237,8 +237,8 @@ test('a recorded action says its warning with its confirmation, so a missing rec
   expect(toastTexts(byTestId)).toEqual(['no receipt: the profile has no vault yet']);
 });
 
-/** The board's look. */
-const look = (args: string[]) => args[1] === 'sessions';
+/** The board's look, not the Archived section's read. */
+const look = (args: string[]) => args[1] === 'sessions' && args[2] === '--tree';
 
 test('an action ends once Sessions shows what it did, even with a look already in flight', async () => {
   vi.useFakeTimers();

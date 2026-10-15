@@ -3,8 +3,8 @@ import { type Message, useToast } from '@/components/Toast';
 
 /**
  * One action at a time: `acting` while one runs, a second press meanwhile ignored (so a double
- * click opens one session, not two), and the message it returns toasted, in its tone, when it
- * ends.
+ * click opens one session, not two), and the message it returns toasted, in its tone and with its
+ * link, when it ends.
  */
 export function useAct() {
   const toast = useToast();
@@ -17,7 +17,7 @@ export function useAct() {
       setActing(true);
       try {
         const message = await action();
-        if (message) toast(message.text, message.tone);
+        if (message) toast(message.text, message.tone, message.link);
       } finally {
         running.current = false;
         setActing(false);

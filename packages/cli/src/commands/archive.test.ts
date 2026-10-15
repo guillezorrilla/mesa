@@ -36,6 +36,37 @@ test('archive ends a live session, hides it, and unarchive retains its record wi
 
 const ids = (rows: { id: string }[]) => rows.map((row) => row.id);
 
+test('sessions --archived --json lists only archived sessions, with archivedAt, newest first', async () => {
+  cli.withTmux();
+  await cli.withProject({ layOut: false });
+  const opened = async (): Promise<string> =>
+    (await cli.mesa('open', 'lantern-cove', '--json')).json.data.id;
+  const first = await opened();
+  const second = await opened();
+  const open = await opened();
+  await cli.mesa('archive', first);
+  await cli.mesa('archive', second);
+  // Archived at once, so the order is set on the record.
+  testStore(cli.home).update(first, { archivedAt: '2026-09-20T10:00:00.000Z' });
+
+  const archived = await cli.mesa('sessions', '--archived', '--json');
+  expect(archived.json.data).toMatchObject([
+    { id: second, archivedAt: expect.any(String), endedAt: expect.any(String) },
+    { id: first, archivedAt: '2026-09-20T10:00:00.000Z' },
+  ]);
+  expect(ids(archived.json.data)).toEqual([second, first]);
+  expect((await cli.mesa('sessions', '--archived')).stdout).toContain(
+    'archived 2026-09-20T10:00:00.000Z',
+  );
+  expect(ids((await cli.mesa('sessions', '--json')).json.data)).toEqual([open]);
+  expect((await cli.mesa('sessions', '--archived', '--all', '--json')).json.error).toMatchObject({
+    code: 'usage',
+  });
+
+  await cli.mesa('unarchive', first);
+  expect(ids((await cli.mesa('sessions', '--archived', '--json')).json.data)).toEqual([second]);
+});
+
 test('archive with several ids archives each live session and reports one item per id', async () => {
   const world = cli.withTmux();
   await cli.withProject({ layOut: false });

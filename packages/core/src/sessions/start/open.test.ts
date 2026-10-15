@@ -253,7 +253,9 @@ test('Claude background keeps its native process when the terminal closes, then 
   expect(ended).toMatchObject({ alive: false, lastState: { state: 'done' } });
   expect(ended?.managed && ended.events.some((event) => event.type === 'exited')).toBe(true);
   await mesa.sessions.remove(resumed.id, { force: true });
-  expect((await mesa.sessions.list(true)).some((session) => session.id === resumed.id)).toBe(false);
+  expect((await mesa.sessions.list('all')).some((session) => session.id === resumed.id)).toBe(
+    false,
+  );
   await expect(
     mesa.sessions.open('lantern-cove', { agent: 'codex', background: true }),
   ).rejects.toMatchObject({ code: 'usage' });
@@ -1268,12 +1270,12 @@ test("resume, handoff and swap carry a session's additional projects; a gone one
   exitAll(world);
   await mesa.sessions.stop(to.id, true);
   rmSync(path, { recursive: true });
-  const before = (await mesa.sessions.list(true)).length;
+  const before = (await mesa.sessions.list('all')).length;
   await expect(mesa.sessions.resume(to.id)).rejects.toMatchObject({
     code: 'not_found',
     message: `tide-pool's worktree ${path} is gone: the session works there too`,
   });
-  expect(await mesa.sessions.list(true)).toHaveLength(before);
+  expect(await mesa.sessions.list('all')).toHaveLength(before);
 });
 
 test("Claude's background start carries the additional folders before its goal", async () => {

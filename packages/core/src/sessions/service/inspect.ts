@@ -4,6 +4,7 @@ import type { MesaContext } from '../../context.js';
 import { readBranchDiff } from '../../git/branch-diff.js';
 import { MesaError } from '../../lib/result.js';
 import { recordedBase } from '../../worktrees/base.js';
+import type { SessionScope } from '../board/board.js';
 import { sessionTree } from '../board/tree.js';
 import { autoName } from '../native/auto-name.js';
 import { decisionStatus } from '../native/decision-status.js';
@@ -62,7 +63,7 @@ export function inspectActions(
   return {
     list: board,
     /** The board as a tree: children under their parent, each row with its depth. */
-    tree: async (all = false) => sessionTree(await board(all)),
+    tree: async (scope: SessionScope = 'board') => sessionTree(await board(scope)),
     /** A session's goal, or not_found when it was started without one. */
     goal: (id: string) => sessionGoal(store, id),
     /**
@@ -81,7 +82,7 @@ export function inspectActions(
      */
     show: async (id: string) => {
       store.get(id);
-      const row = (await board(true)).find((r) => r.id === id);
+      const row = (await board('all')).find((r) => r.id === id);
       // The look may have learned a provider-owned ID before its context can be read.
       refreshReadings(contextDeps, store.get(id));
       // Read again: the look may have saved a new state, or started it from its queue.

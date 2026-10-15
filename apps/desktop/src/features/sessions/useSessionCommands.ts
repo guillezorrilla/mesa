@@ -1,10 +1,11 @@
 import type { Agent, ManagedRow, TreeRow } from '@mesa/core';
-import { exited, GENERAL_PROJECT } from '@mesa/core/browser';
+import { exited, GENERAL_PROJECT, sessionTitle } from '@mesa/core/browser';
 import type { RefObject } from 'react';
 import { said, warningOf } from '@/components/Toast';
 import { useRun } from '@/lib/useCommand';
 import type { NewSessionInput } from './SessionStart';
 import type { SessionAct } from './useSessionAct';
+import { useUnarchive } from './useUnarchive';
 
 /**
  * The commands Sessions runs on its sessions, each saying in a toast what it did. A command a
@@ -32,6 +33,7 @@ export function useSessionCommands({
   onSessions?: () => void;
 }) {
   const run = useRun();
+  const { undo } = useUnarchive();
   const openTerminal = (id: string) =>
     act(async () => {
       const attached = await run('sessions.attach', { id });
@@ -145,7 +147,16 @@ export function useSessionCommands({
     if (next) onSelectSession?.(next.id);
     else onSessions?.();
   };
-  /** Archives one session, or several in one `mesa archive`, which reports each. */
+  /** The sessions `ids` names, each with its card's title (its id when it is not listed). */
+  const titled = (ids: readonly string[]) =>
+    ids.map((id) => {
+      const row = rows?.find((r) => r.id === id);
+      return { id, title: row ? sessionTitle(row) : id };
+    });
+  /**
+   * Archives one session, or several in one `mesa archive`, which reports each; its toast's Undo
+   * unarchives those it archived.
+   */
   const archive = ([id, ...more]: string[]) =>
     act(async () => {
       if (!id) return undefined;
@@ -154,7 +165,11 @@ export function useSessionCommands({
         if (!archived) return undefined;
         closeDialog();
         leaveClosedSession([id]);
-        return warningOf(archived);
+        const sessions = titled([id]);
+        return {
+          ...said(`Archived ${sessions[0]?.title ?? id}`, archived),
+          link: undo(sessions, act),
+        };
       }
       const result = await run('sessions.archiveEach', { ids: [id, ...more] });
       if (!result) return undefined;
@@ -172,6 +187,7 @@ export function useSessionCommands({
       return {
         text: lines.join('\n'),
         tone: done.length < result.items.length ? 'alert' : 'confirmation',
+        ...(done.length > 0 ? { link: undo(titled(done.map((item) => item.id)), act) } : {}),
       };
     });
   const deletePermanently = (id: string) =>

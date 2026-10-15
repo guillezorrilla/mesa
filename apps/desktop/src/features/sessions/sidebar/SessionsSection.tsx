@@ -6,6 +6,7 @@ import type { WorkspaceView } from '@/lib/workspaceView';
 import type { SelectionInput } from '../selection/sessionSelection';
 import { StartingSessions } from '../start/StartingSessions';
 import type { SessionLocation } from '../start/useStartSession';
+import { ArchivedSessions } from './ArchivedSessions';
 import { ProjectSessionsGroup } from './ProjectSessionsGroup';
 import { SessionCard } from './SessionCard';
 import { SessionsMenu } from './SessionsMenu';
@@ -13,10 +14,13 @@ import type { SidebarGroups } from './sidebarGroups';
 
 /**
  * The Sessions tab: active sessions by project, then General, Other, and Recoverable, as one
- * multi-selection that the right-click menu or a chosen card's More menu archives.
+ * multi-selection that the right-click menu or a chosen card's More menu archives, and the
+ * Archived section at the bottom.
  */
 export function SessionsSection(props: {
   groups: SidebarGroups;
+  /** The board's session ids, whose change reads the Archived section again. */
+  board: string;
   /** The cards' rendered order (sidebarOrder), which the arrow keys step through. */
   order: readonly string[];
   view: WorkspaceView;
@@ -135,6 +139,7 @@ export function SessionsSection(props: {
           No active sessions
         </Muted>
       )}
+      <ArchivedSessions board={props.board} />
     </div>
   );
 }

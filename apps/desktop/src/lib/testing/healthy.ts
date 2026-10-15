@@ -147,6 +147,8 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
   projects: () => envelope([] satisfies ProjectRow[]),
   receipts: () => envelope([]),
   sessions: () => envelope([] satisfies SessionRow[]),
+  // The Archived section's read: none, so a test's `sessions` answer is the board's alone.
+  'sessions --archived': () => envelope([] satisfies SessionRow[]),
   usage: () => {
     const zero = {
       events: 0,

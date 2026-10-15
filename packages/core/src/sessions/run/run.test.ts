@@ -74,7 +74,7 @@ test('a run execs claude -p on the skill, reads its result, and ends done, its w
   expect(receipt).toBeNull();
   expect(listReceipts(join(home, 'vault'))).toEqual([]);
   // On the board beside live sessions: a run, done.
-  const [row] = await mesa.sessions.list(true);
+  const [row] = await mesa.sessions.list('all');
   expect(row).toMatchObject({ id, kind: 'run', lastState: { state: 'done' } });
 
   // mesa rm takes its output with the record.
@@ -430,7 +430,7 @@ test('session-summary reads a cleaned, redacted log on stdin and core writes its
     inputs: { run: result.session, skill: 'session-summary', target: result.note },
     outputs: { target: result.note },
   });
-  expect((await mesa.sessions.list(true)).find((r) => r.id === about.id)).toMatchObject({
+  expect((await mesa.sessions.list('all')).find((r) => r.id === about.id)).toMatchObject({
     hasOutputLog: true,
   });
 });
