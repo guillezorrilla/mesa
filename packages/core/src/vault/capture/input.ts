@@ -62,7 +62,7 @@ export function captureInput(
   let newest: number | undefined;
   let room = CONVERSATION_CHARS;
   const messages = newMessages(deps, about, through);
-  for (const message of messages.reverse()) {
+  for (const message of [...messages].reverse()) {
     const line = `[${message.role}] ${message.text.trim()}`;
     const fits = line.length <= room;
     if (!fits && lines.length) break;

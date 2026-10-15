@@ -182,7 +182,8 @@ export async function landCapture(
   run: SessionRecord,
   read: HeadlessResult,
 ): Promise<{ receipt?: { id: string; path: string } | null; warning?: string }> {
-  const about = run.about ? ctx.store.find(run.about) : undefined;
+  if (!run.about) return { warning: `run ${run.id} is about no session: nothing captured` };
+  const about = ctx.store.find(run.about);
   if (!about) return { warning: `run ${run.id}'s session is gone: nothing captured` };
   /** Whether `r`'s capture was settled by this run, which then has nothing left to land. */
   const settled = (r: SessionRecord) => r.capture?.run === run.id && r.capture.state !== 'running';

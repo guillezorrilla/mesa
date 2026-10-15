@@ -21,6 +21,8 @@ export const CAPTURE_MIN_MESSAGES = 10;
  * Whether a turn's end may capture `s` by the clock: its last capture, else its start, at least
  * CAPTURE_EVERY_MS before `now`. Read from the record alone, so a turn that is not due reads no
  * transcript.
+ * ponytail: past CAPTURE_EVERY_MS, each turn short of CAPTURE_MIN_MESSAGES parses the transcript
+ * again to count; gate on the hook log's prompts first if that shows up in turn-end latency.
  */
 export const captureTimeDue = (s: SessionRecord, now: Date) =>
   now.getTime() - Date.parse(s.capture?.at ?? s.startedAt) >= CAPTURE_EVERY_MS;
@@ -56,7 +58,7 @@ export type Claim = { about: SessionRecord; input: CaptureInput } | { refused: s
 
 /**
  * Claims `s`'s next capture: none while one is in flight; else its messages past its mark
- * (captureMark, captureInput), none when fewer than `fewest` are newer (one, by hand; a turn's
+ * (captureMark, captureInput), none when fewer than `minMessages` are newer (one, by hand; a turn's
  * end asks CAPTURE_MIN_MESSAGES); then, under the record's lock,
  * only when no capture is in flight and its capture has not changed since `s` was read. The
  * claim keeps the mark, and `upTo`, the mark its run leaves once it lands. The claimed record and
@@ -65,15 +67,15 @@ export type Claim = { about: SessionRecord; input: CaptureInput } | { refused: s
 export function claimCapture(
   deps: Pick<MesaContext, 'store' | 'clock' | 'home' | 'env' | 'secrets'>,
   s: SessionRecord,
-  fewest = 1,
+  minMessages = 1,
 ): Claim {
   const running = { refused: `session ${s.id}'s capture is running; wait for it to land` };
   if (captureInFlight(s, deps.clock())) return running;
   const through = captureMark(deps.store, s);
   const input = captureInput(deps, s, through);
-  if (input && input.count < fewest) {
+  if (input && input.count < minMessages) {
     return {
-      refused: `session ${s.id} has ${input.count} messages newer than its last capture, fewer than ${fewest}`,
+      refused: `session ${s.id} has ${input.count} messages newer than its last capture, fewer than ${minMessages}`,
     };
   }
   if (!input) {
