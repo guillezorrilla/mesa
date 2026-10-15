@@ -1,7 +1,6 @@
 import { openedAfter } from '../impact/report.js';
-import { daysBefore } from '../lib/time.js';
-import { ADVICE_DAYS } from './delivery.js';
-import { type DecisionLine, type DecisionLog, isDecision } from './log.js';
+import { recentLines, sentAdvice } from './delivery.js';
+import type { DecisionLog } from './log.js';
 
 // An advised note's outcome as it happens (CONTEXT.md, Impact): the agent read it through the
 // Vault server. Only notes advice gave the reading session are logged; other reads stay unlogged.
@@ -17,11 +16,8 @@ export function noteOpened(
   session: { id: string; project: string },
   note: string,
 ): void {
-  const lines = log.read({ since: daysBefore(now, ADVICE_DAYS), session: session.id });
-  // Newest first: the latest advice that named this note.
-  const advised = lines.find(
-    (e) => isDecision(e) && e.site === 'relevance' && e.changed && e.note === note,
-  ) as DecisionLine | undefined;
+  const lines = recentLines(log, now, session.id);
+  const advised = sentAdvice(lines, note);
   if (!advised || lines.some((e) => e.status === 'opened' && openedAfter(advised, e))) return;
   log.append({ session: session.id, project: session.project, status: 'opened', note });
 }

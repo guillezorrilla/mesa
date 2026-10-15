@@ -39,7 +39,7 @@ export type Moment = {
   /** The vault notes it brought in or kept. */
   notes?: string[];
   /** Relevance: how many prompts brought the same note in, when more than one. */
-  prompts?: number;
+  promptCount?: number;
   outcome: Outcome | null;
   /** A person marked it not right (`mesa impact mark`): it counts in no summary. */
   marked?: Mark;
@@ -99,7 +99,10 @@ export type ImpactRecord = {
   prompts: string[];
   /** The states its hooks reported, oldest first. */
   hookStates: { at: string; state: string }[];
-  /** Each tool call's input as its hook reported it, as JSON, oldest first. */
+  /**
+   * The paths and commands of its tool calls (subagents' too), vault-relative where they were in
+   * the vault, oldest first.
+   */
   toolInputs: { at: string; input: string }[];
   /** Whether it has ended: an advised note never opened by then never will be. */
   ended: boolean;
@@ -132,7 +135,7 @@ const words = (state: string | null) =>
   (state && STATE_WORDS[state as AgentState]) ?? state ?? 'unknown';
 const waiting = (state: string | null) => WAITING_STATES.has(state as SessionState);
 
-/** Which quiet count a line that changed nothing adds to. */
+/** Which quiet count a line that changed nothing adds to, by its status. */
 const FOLDED: Record<DecisionLine['status'], keyof Folded> = {
   accepted: 'agreed',
   abstained: 'unsure',
@@ -167,6 +170,28 @@ export const openedAfter = (
   line: OpenedLine,
 ) => line.session === advice.session && line.note === advice.note && line.at >= advice.at;
 
+/** Which quiet count a line that changed nothing adds to. */
+function foldedKey(entry: DecisionLine): keyof Folded {
+  // One the session already had was held back.
+  if (entry.repeat) return 'repeated';
+  // A relevance answer that changed nothing found no note to bring: the rules have none here.
+  if (entry.site === 'relevance' && entry.status === 'accepted') return 'skipped';
+  return FOLDED[entry.status];
+}
+
+/** A character that continues a path, so `docs/wiki/a.md` or `wiki/a.md.bak` is not `wiki/a.md`. */
+const PATH_CHAR = /[\w./-]/;
+
+/** Whether `input` names `note` as a whole path. */
+export function namesNote(input: string, note: string): boolean {
+  for (let i = input.indexOf(note); i !== -1; i = input.indexOf(note, i + 1)) {
+    const before = input[i - 1] ?? '';
+    const after = input[i + note.length] ?? '';
+    if (!PATH_CHAR.test(before) && !PATH_CHAR.test(after)) return true;
+  }
+  return false;
+}
+
 /**
  * An advised note's outcome: opened after the advice, through the Vault server or any tool whose
  * input names its path (a file read, a grep, a shell command), else not once the session has
@@ -180,15 +205,15 @@ function noteOutcome(
   const { note } = advice;
   if (
     opened.some((o) => openedAfter(advice, o)) ||
-    (note && record?.toolInputs.some((t) => t.at >= advice.at && t.input.includes(note)))
+    (note && record?.toolInputs.some((t) => t.at >= advice.at && namesNote(t.input, note)))
   )
     return { kind: 'opened', text: 'The agent opened the note' };
   return record?.ended ? { kind: 'not-opened', text: 'Sent as an excerpt, never opened' } : null;
 }
 
 /** A note Moment's title: the note, and how many prompts brought it in. */
-const broughtTitle = (note: string | undefined, prompts = 1) =>
-  `Brought ${note} into ${prompts > 1 ? `${prompts} prompts` : 'the prompt'}`;
+const broughtTitle = (note: string | undefined, promptCount = 1) =>
+  `Brought ${note} into ${promptCount > 1 ? `${promptCount} prompts` : 'the prompt'}`;
 
 /** A log line's Moment, and the summary count it adds to. */
 function logMoment(
@@ -347,24 +372,17 @@ export function impactReport(input: {
     const g = group(entry.session, entry.project);
     if (entry.by !== 'rules') g.model = entry.by;
     if (!entry.changed) {
-      // A relevance answer that changed nothing found no note to bring: the rules have none here.
-      // One the session already had was held back.
-      g.folded[
-        entry.repeat
-          ? 'repeated'
-          : entry.site === 'relevance' && entry.status === 'accepted'
-            ? 'skipped'
-            : FOLDED[entry.status]
-      ] += 1;
+      g.folded[foldedKey(entry)] += 1;
       continue;
     }
     // A note brought in again (before advice was held back) adds to its first Moment.
-    const again =
+    const sameNote =
       entry.site === 'relevance' &&
+      entry.note !== undefined &&
       g.moments.find((m) => m.site === 'relevance' && m.notes?.[0] === entry.note);
-    if (again) {
-      again.prompts = (again.prompts ?? 1) + 1;
-      again.title = broughtTitle(entry.note, again.prompts);
+    if (sameNote) {
+      sameNote.promptCount = (sameNote.promptCount ?? 1) + 1;
+      sameNote.title = broughtTitle(entry.note, sameNote.promptCount);
       continue;
     }
     const record = entry.session ? input.records.get(entry.session) : undefined;

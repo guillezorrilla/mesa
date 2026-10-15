@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import type { DecisionLine, LogEntry } from '../decisions/log.js';
 import type { ReceiptEntry } from '../receipts/store.js';
-import { EMPTY_IMPACT, foldedText, type ImpactRecord, impactReport } from './report.js';
+import { EMPTY_IMPACT, foldedText, type ImpactRecord, impactReport, namesNote } from './report.js';
 
 const AT = '2026-10-13T09:00:00.000Z';
 const at = (minutes: number) => new Date(Date.parse(AT) + minutes * 60_000).toISOString();
@@ -338,10 +338,7 @@ const advice = (over: Partial<DecisionLine>) =>
   entry({ site: 'relevance', rules: null, answer: 'wiki/a.md', note: 'wiki/a.md', ...over });
 
 test("a tool whose input names an advised note opens it; one before the advice, or another note's, does not", () => {
-  const tool = (minutes: number, input: unknown) => ({
-    at: at(minutes),
-    input: JSON.stringify(input),
-  });
+  const tool = (minutes: number, input: string) => ({ at: at(minutes), input });
   const r = report(
     [
       advice({
@@ -356,8 +353,8 @@ test("a tool whose input names an advised note opens it; one before the advice, 
     [],
     {},
     {
-      a1b2c3d4: [tool(4, { file_path: '/Users/x/vault/wiki/a.md' })],
-      e5f6a7b8: [tool(1, { command: 'cat wiki/b.md' }), tool(4, { path: 'wiki/c.md' })],
+      a1b2c3d4: [tool(4, '"wiki/a.md"')],
+      e5f6a7b8: [tool(1, '"cat wiki/b.md"'), tool(4, '"wiki/c.md"')],
     },
   );
   const outcome = (note: string) =>
@@ -374,10 +371,17 @@ test('a note brought into several prompts is one Moment; advice held back as a r
     advice({ at: at(2), changed: true }),
   ]);
   const session = r.sessions.find((s) => s.id === 'a1b2c3d4');
-  expect(session?.moments.map((m) => [m.title, m.prompts])).toEqual([
+  expect(session?.moments.map((m) => [m.title, m.promptCount])).toEqual([
     ['Brought wiki/a.md into 2 prompts', 2],
     ['Brought wiki/c.md into the prompt', undefined],
   ]);
   expect(r.summary.notesIn).toBe(2);
   expect(session && foldedText(session)).toBe('+ 1 prompt whose note it already had');
+});
+
+test('a note is named only as a whole path', () => {
+  expect(namesNote('"cat wiki/a.md && ls"', 'wiki/a.md')).toBe(true);
+  expect(namesNote('"wiki/a.md"', 'wiki/a.md')).toBe(true);
+  expect(namesNote('"docs/wiki/a.md"', 'wiki/a.md')).toBe(false);
+  expect(namesNote('"wiki/a.md.bak" "wiki/a.mdx"', 'wiki/a.md')).toBe(false);
 });

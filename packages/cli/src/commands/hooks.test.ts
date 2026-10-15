@@ -662,6 +662,25 @@ test('with a Decision model a session mounts mesa-decisions, a prompt gets advic
   expect(observed.advice.observedAt).toBe('2026-09-24T12:00:00.000Z');
   expect(observed.tool.observedAt).toBeUndefined();
 
+  // The agent reading the note's file, the vault under the home, is Impact's opened outcome.
+  cli.env = { MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' };
+  cli.stdin = JSON.stringify({
+    session_id: opened.agentSessionId,
+    hook_event_name: 'PostToolUse',
+    tool_name: 'Read',
+    tool_input: { file_path: note },
+  });
+  await mesa('hook', 'claude');
+  cli.env = {};
+  const impact = (await mesa('impact', '--session', opened.id, '--json')).json.data;
+  expect(impact.sessions[0].moments).toEqual([
+    expect.objectContaining({
+      title: 'Brought wiki/decisions/retry-policy.md into the prompt',
+      outcome: { kind: 'opened', text: 'The agent opened the note' },
+    }),
+  ]);
+  expect(impact.sessions[0].folded.repeated).toBe(1);
+
   // Turned off for the session: disabled, whatever is configured.
   await mesa('decisions', 'off', '--session', opened.id);
   expect((await show(opened.id)).decisions.advice.state).toBe('disabled');
