@@ -1,41 +1,44 @@
 import type { ProjectRow } from '@mesa/core';
-import { useEffect, useState } from 'react';
-import { useToast } from '@/components/Toast';
+import { useRef, useState } from 'react';
+import { useToast, warningOf } from '@/components/Toast';
 import { useRun } from '@/lib/useCommand';
 
-const same = (a: readonly string[], b: readonly string[]) => a.join() === b.join();
+// ponytail: one save per pause, so a held Option+Arrow writes the registry once.
+/** How long after the last move its project's order saves, in milliseconds. */
+export const SAVE_DELAY_MS = 300;
 
 /**
- * The projects with each one's session order as last moved here, shown at once while it saves
- * (mesa projects update --session-order) and until the projects read back with it; a failed save
- * goes to the toast and its project falls back to the saved order, and a saved one's warning (no
- * receipt) shows as an alert.
+ * The projects with each one's session order as last moved here, shown at once and saved after a
+ * pause (mesa projects update --session-order), one save at a time so the last move is the one
+ * kept. Once a save lands and the projects read back, or it fails (to the toast), its project
+ * shows the saved order again; a later move stays shown. A save's warning shows as an alert.
  */
-export function useSessionOrder(projects: readonly ProjectRow[], onSaved: () => void) {
+export function useSessionOrder(projects: readonly ProjectRow[], refresh: () => unknown) {
   const [moved, setMoved] = useState<Record<string, string[]>>({});
   const run = useRun();
   const toast = useToast();
-  useEffect(() => {
-    setMoved((current) => {
-      const waiting = Object.entries(current).filter(
-        ([name, ids]) => !same(projects.find((p) => p.name === name)?.sessionOrder ?? [], ids),
-      );
-      return waiting.length === Object.keys(current).length ? current : Object.fromEntries(waiting);
-    });
-  }, [projects]);
-  const reorder = async (project: string, ids: string[]) => {
-    setMoved((current) => ({ ...current, [project]: ids }));
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const saving = useRef<Promise<unknown>>(Promise.resolve());
+  const save = async (project: string, ids: string[]) => {
     const saved = await run('projects.update', { name: project, sessionOrder: ids });
-    if (saved) {
-      if (saved.warning) toast(saved.warning);
-      return onSaved();
-    }
-    // A later move of the same project wins over this failure.
+    const warning = warningOf(saved);
+    if (warning) toast(warning.text, warning.tone);
+    if (saved) await refresh();
     setMoved((current) => {
       if (current[project] !== ids) return current;
-      const { [project]: _failed, ...rest } = current;
+      const { [project]: _shown, ...rest } = current;
       return rest;
     });
+  };
+  const reorder = (project: string, ids: string[]) => {
+    setMoved((current) => ({ ...current, [project]: ids }));
+    clearTimeout(timers.current.get(project));
+    timers.current.set(
+      project,
+      setTimeout(() => {
+        saving.current = saving.current.then(() => save(project, ids));
+      }, SAVE_DELAY_MS),
+    );
   };
   const shown = projects.map((project) => {
     const ids = moved[project.name];

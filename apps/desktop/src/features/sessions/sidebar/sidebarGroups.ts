@@ -30,12 +30,17 @@ export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonl
   );
   const general = unassigned.filter((session) => session.project === GENERAL_PROJECT);
   const other = unassigned.filter((session) => session.project !== GENERAL_PROJECT);
-  const saved = new Map(visible.map((project) => [project.name, project.sessionOrder]));
-  const inProject = (name: string) =>
-    orderSessions(
-      active.filter((session) => session.project === name),
-      saved.get(name) ?? [],
-    );
+  const byProject = new Map<string, TreeRow[]>();
+  for (const session of active)
+    if (session.project)
+      byProject.set(session.project, [...(byProject.get(session.project) ?? []), session]);
+  const ordered = new Map(
+    visible.map((project) => [
+      project.name,
+      orderSessions(byProject.get(project.name) ?? [], project.sessionOrder ?? []),
+    ]),
+  );
+  const inProject = (name: string) => ordered.get(name) ?? [];
   const touching = (name: string) =>
     active.filter((session) => session.managed && sessionProjects(session).includes(name));
   const busy = (name: string) => Number(inProject(name).length > 0);

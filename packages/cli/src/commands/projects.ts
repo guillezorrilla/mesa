@@ -1,6 +1,6 @@
 import { describePending, MesaError, trustCommand } from '@mesa/core';
 import { defineCommand } from '../command.js';
-import { trueOrFalse, upOrDown } from '../input/flags.js';
+import { commaList, trueOrFalse, upOrDown } from '../input/flags.js';
 import { columns } from '../output/columns.js';
 import { recordedOutput } from '../output/recorded.js';
 
@@ -50,9 +50,7 @@ export const projectsUpdate = defineCommand({
       ...(flags.pinned !== undefined ? { pinned: trueOrFalse(flags.pinned, '--pinned') } : {}),
       ...(flags.hidden !== undefined ? { hidden: trueOrFalse(flags.hidden, '--hidden') } : {}),
       ...(move !== undefined ? { move } : {}),
-      ...(sessionOrder !== undefined
-        ? { sessionOrder: sessionOrder ? sessionOrder.split(',').map((id) => id.trim()) : [] }
-        : {}),
+      ...(sessionOrder !== undefined ? { sessionOrder: commaList(sessionOrder) } : {}),
     });
     return recordedOutput(recorded, {
       data: recorded.result,

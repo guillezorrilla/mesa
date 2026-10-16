@@ -3,7 +3,16 @@
 import type { ProjectRow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
-import { envelope, fakeBridge, managedRow, PROJECTS, press, renderWithMesa } from '@/lib/testing';
+import { SAVE_DELAY_MS } from '@/features/sessions/sidebar/useSessionOrder';
+import {
+  envelope,
+  fakeBridge,
+  managedRow,
+  PROJECTS,
+  pointer,
+  press,
+  renderWithMesa,
+} from '@/lib/testing';
 import { App } from './App';
 
 /** Three lantern-cove sessions and a project registry that keeps what `projects update` saves. */
@@ -31,6 +40,8 @@ const cardIds = (byTestId: (id: string) => HTMLElement[]) =>
 const card = (id: string) =>
   document.querySelector<HTMLElement>(`[data-testid="sidebar-session"][data-session-id="${id}"]`);
 const saves = (calls: string[][]) => calls.filter((args) => args[2] === 'update');
+/** Waits out the pause before a moved order saves. */
+const settle = () => act(() => new Promise((done) => setTimeout(done, SAVE_DELAY_MS + 50)));
 
 test("a project's cards show in its saved session order, new ones after", async () => {
   const { bridge } = setup(['cccccccc', 'aaaaaaaa']);
@@ -44,6 +55,7 @@ test('Option+Arrow moves a card within its project, saves the order, and keeps f
   card('aaaaaaaa')?.focus();
   await press(card('aaaaaaaa'), 'ArrowDown', { altKey: true });
   expect(cardIds(byTestId)).toEqual(['bbbbbbbb', 'aaaaaaaa', 'cccccccc']);
+  await settle();
   expect(saves(calls)).toEqual([
     [
       '--json',
@@ -57,6 +69,7 @@ test('Option+Arrow moves a card within its project, saves the order, and keeps f
   expect(document.activeElement).toBe(card('aaaaaaaa'));
   // Past the top it stays, and saves nothing.
   await press(card('bbbbbbbb'), 'ArrowUp', { altKey: true });
+  await settle();
   expect(saves(calls)).toHaveLength(1);
 });
 
@@ -68,18 +81,7 @@ function measure() {
       ({ top, bottom: top + 40, height: 40, left: 0, right: 200, width: 200 }) as DOMRect;
   });
 }
-const pointer = (target: EventTarget, type: string, clientY: number) =>
-  act(async () => {
-    target.dispatchEvent(
-      new PointerEvent(type, {
-        bubbles: true,
-        button: 0,
-        clientX: 10,
-        clientY,
-        pointerType: 'mouse',
-      }),
-    );
-  });
+const at = (clientY: number) => ({ clientX: 10, clientY });
 
 test('dragging a card lifts it, slides its siblings, and saves where it lands without selecting', async () => {
   const { bridge, calls } = setup();
@@ -88,8 +90,8 @@ test('dragging a card lifts it, slides its siblings, and saves where it lands wi
   measure();
   const dragged = document.querySelector<HTMLElement>('[data-drag-id="cccccccc"]');
   if (!dragged) throw new Error('no draggable card');
-  await pointer(dragged, 'pointerdown', 108);
-  await pointer(window, 'pointermove', 60);
+  await pointer(dragged, 'pointerdown', at(108));
+  await pointer(window, 'pointermove', at(60));
   expect(dragged.dataset.dragging).toBe('true');
   // Halfway up, past b's middle: b slides down to open the gap; a stays.
   expect(document.querySelector<HTMLElement>('[data-drag-id="bbbbbbbb"]')?.style.transform).toBe(
@@ -99,7 +101,7 @@ test('dragging a card lifts it, slides its siblings, and saves where it lands wi
     'translateY(0px)',
   );
   // Far above the rail, it stops at the rail's top.
-  await pointer(window, 'pointermove', -500);
+  await pointer(window, 'pointermove', at(-500));
   expect(dragged.style.transform).toBe('translateY(-88px)');
   // A browser clicks the card the press began on right after the release.
   await act(async () => {
@@ -107,6 +109,7 @@ test('dragging a card lifts it, slides its siblings, and saves where it lands wi
     card('cccccccc')?.click();
   });
   expect(cardIds(byTestId)).toEqual(['cccccccc', 'aaaaaaaa', 'bbbbbbbb']);
+  await settle();
   expect(saves(calls).map((args) => args[3])).toEqual([
     '--session-order=cccccccc,aaaaaaaa,bbbbbbbb',
   ]);
@@ -119,11 +122,24 @@ test('Escape cancels a drag and saves nothing', async () => {
   measure();
   const dragged = document.querySelector<HTMLElement>('[data-drag-id="aaaaaaaa"]');
   if (!dragged) throw new Error('no draggable card');
-  await pointer(dragged, 'pointerdown', 20);
-  await pointer(window, 'pointermove', 120);
+  await pointer(dragged, 'pointerdown', at(20));
+  await pointer(window, 'pointermove', at(120));
   await press(dragged, 'Escape');
   expect(dragged.dataset.dragging).toBeUndefined();
-  await pointer(window, 'pointerup', 120);
+  await pointer(window, 'pointerup', at(120));
   expect(cardIds(byTestId)).toEqual(['aaaaaaaa', 'bbbbbbbb', 'cccccccc']);
   expect(saves(calls)).toEqual([]);
+});
+
+test('moves in quick succession save once, with the last order', async () => {
+  const { bridge, calls } = setup();
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await press(card('aaaaaaaa'), 'ArrowDown', { altKey: true });
+  await press(card('aaaaaaaa'), 'ArrowDown', { altKey: true });
+  expect(cardIds(byTestId)).toEqual(['bbbbbbbb', 'cccccccc', 'aaaaaaaa']);
+  await settle();
+  expect(saves(calls).map((args) => args[3])).toEqual([
+    '--session-order=bbbbbbbb,cccccccc,aaaaaaaa',
+  ]);
+  expect(cardIds(byTestId)).toEqual(['bbbbbbbb', 'cccccccc', 'aaaaaaaa']);
 });

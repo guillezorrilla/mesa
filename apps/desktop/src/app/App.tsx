@@ -197,7 +197,7 @@ function AppShell() {
               collapsed={sidebarCollapsed}
               onCollapse={() => setSidebarCollapsed((value) => !value)}
               onAddProject={setProjectAdd}
-              onProjectsChanged={() => void projects.refresh()}
+              onProjectsChanged={() => projects.refresh()}
               onProjectUnregistered={projectUnregistered}
               starting={starting}
               lastSession={workspace.lastSession}

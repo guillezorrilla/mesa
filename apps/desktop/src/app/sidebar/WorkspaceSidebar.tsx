@@ -52,7 +52,8 @@ export function WorkspaceSidebar(props: {
   sort: ProjectSort;
   onSort: (sort: ProjectSort) => void;
   onAddProject: (request: ProjectAddRequest) => void;
-  onProjectsChanged: () => void;
+  /** Reads the projects again; a promise of it resolves once they are read. */
+  onProjectsChanged: () => unknown;
   onProjectUnregistered: (name: string) => void;
   /** The session and project last shown: the Sessions and Projects tabs go back to them. */
   lastSession?: string;

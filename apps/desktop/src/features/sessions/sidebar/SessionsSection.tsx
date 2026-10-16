@@ -12,7 +12,7 @@ import { ProjectSessionsGroup } from './ProjectSessionsGroup';
 import { SessionCard } from './SessionCard';
 import { SessionsMenu } from './SessionsMenu';
 import type { SidebarGroups } from './sidebarGroups';
-import { useCardDrag } from './useCardDrag';
+import { type Rail, useCardDrag } from './useCardDrag';
 
 /**
  * The Sessions tab: active sessions by project, then General, Other, and Recoverable, as one
@@ -49,7 +49,7 @@ export function SessionsSection(props: {
   const { byActivity, active, stranded, general, other, inProject } = groups;
   const { chosen, onSelection, order } = props;
   const list = useRef<HTMLDivElement>(null);
-  const drag = useCardDrag((ids, project) => props.onReorder?.(project, ids));
+  const drag = useCardDrag((project, ids) => props.onReorder?.(project, ids));
   /** Focuses the card `by` places from `id`, Shift-clicking it with `shift`; none past either end. */
   const step = (id: string, by: number, shift: boolean) => {
     const next = order[order.indexOf(id) + by];
@@ -57,20 +57,11 @@ export function SessionsSection(props: {
     list.current?.querySelector<HTMLElement>(`[data-session-id="${next}"]`)?.focus();
     if (shift) onSelection({ kind: 'click', id: next, shift: true, from: id });
   };
-  /** A project's card, in `rail` with its siblings' ids, moves among them; any other stays put. */
-  const card = (session: TreeRow, rail?: { project: string; ids: string[] }) => {
+  /** A card; with `onMove`, Option+Arrow moves it within its project. */
+  const card = (session: TreeRow, onMove?: (by: 1 | -1) => void) => {
     const count = chosen.includes(session.id) ? chosen.length : 1;
     const archive = () => props.onArchiveSessions?.(count > 1 ? [...chosen] : [session.id]);
-    /** Option+Arrow: one place up or down its rail, keeping focus, as the card stays mounted. */
-    const move =
-      rail && rail.ids.length > 1
-        ? (by: 1 | -1) => {
-            const at = rail.ids.indexOf(session.id) + by;
-            if (at >= 0 && at < rail.ids.length)
-              props.onReorder?.(rail.project, moveSession(rail.ids, session.id, at));
-          }
-        : undefined;
-    const menu = (
+    return (
       <SessionsMenu
         key={session.id}
         count={count}
@@ -88,7 +79,7 @@ export function SessionsSection(props: {
             if (!keys.shift && !keys.toggle) onView({ kind: 'session', id: session.id });
           }}
           onStep={(by, shift) => step(session.id, by, shift)}
-          onMove={move}
+          onMove={onMove}
           chosenCount={count}
           onArchiveChosen={archive}
           onNewSession={props.onNewSession}
@@ -97,7 +88,15 @@ export function SessionsSection(props: {
         />
       </SessionsMenu>
     );
-    if (!move || !rail) return menu;
+  };
+  /** A project's card, which moves along its rail, dragged or with Option+Arrow; alone, a card. */
+  const railCard = (session: TreeRow, rail: Rail) => {
+    if (rail.ids.length < 2) return card(session);
+    const move = (by: 1 | -1) => {
+      const at = rail.ids.indexOf(session.id) + by;
+      if (at >= 0 && at < rail.ids.length)
+        props.onReorder?.(rail.project, moveSession(rail.ids, session.id, at));
+    };
     const lifted = drag.dragging === session.id;
     return (
       <div
@@ -106,9 +105,9 @@ export function SessionsSection(props: {
         data-dragging={lifted || undefined}
         className={cn('rounded-md', lifted && 'scale-[1.02] opacity-95 shadow-lg')}
         style={drag.style(session.id)}
-        onPointerDown={(event) => drag.start(event, rail.project)}
+        onPointerDown={(event) => drag.start(event, rail, session.id)}
       >
-        {menu}
+        {card(session, move)}
       </div>
     );
   };
@@ -137,7 +136,7 @@ export function SessionsSection(props: {
             starting={props.starting}
             onNewSession={props.onNewSession}
           >
-            {cards.map((session) => card(session, rail))}
+            {cards.map((session) => railCard(session, rail))}
           </ProjectSessionsGroup>
         );
       })}
