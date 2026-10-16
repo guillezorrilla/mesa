@@ -36,15 +36,23 @@ export const projectsUpdate = defineCommand({
     pinned: { type: 'string', description: 'true or false' },
     hidden: { type: 'string', description: 'true or false' },
     move: { type: 'string', description: 'up or down' },
+    'session-order': {
+      type: 'string',
+      description: "Session ids, comma-separated, in the Sessions tab's card order; '' resets",
+    },
   },
   example: 'mesa projects update lantern-cove --pinned true',
   run: ({ mesa, args, flags }) => {
     const move = flags.move === undefined ? undefined : upOrDown(flags.move, '--move');
+    const sessionOrder = flags['session-order'];
     const recorded = mesa.projects.update(args.name, {
       ...(flags.label !== undefined ? { label: flags.label } : {}),
       ...(flags.pinned !== undefined ? { pinned: trueOrFalse(flags.pinned, '--pinned') } : {}),
       ...(flags.hidden !== undefined ? { hidden: trueOrFalse(flags.hidden, '--hidden') } : {}),
       ...(move !== undefined ? { move } : {}),
+      ...(sessionOrder !== undefined
+        ? { sessionOrder: sessionOrder ? sessionOrder.split(',').map((id) => id.trim()) : [] }
+        : {}),
     });
     return recordedOutput(recorded, {
       data: recorded.result,

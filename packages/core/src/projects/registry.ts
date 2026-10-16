@@ -11,6 +11,8 @@ export type RegistryEntry = {
   label?: string;
   pinned?: boolean;
   hidden?: boolean;
+  /** Its session cards' order in the Sessions tab, by session id (CONTEXT.md, Session order). */
+  sessionOrder?: string[];
   visitedAt?: string;
   visits?: number;
   /** sha256 of the exact setup and teardown argv from its mesa.yaml this profile approved. */
@@ -25,6 +27,7 @@ const RegistrySchema = z.strictObject({
       label: z.string().optional(),
       pinned: z.boolean().optional(),
       hidden: z.boolean().optional(),
+      sessionOrder: z.array(z.string()).optional(),
       visitedAt: z.iso.datetime().optional(),
       visits: z.number().int().nonnegative().optional(),
       approved: z

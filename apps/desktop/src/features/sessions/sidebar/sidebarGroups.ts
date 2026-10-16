@@ -1,11 +1,18 @@
 import type { ProjectRow, TreeRow } from '@mesa/core';
-import { activeSession, GENERAL_PROJECT, recoverable, sessionProjects } from '@mesa/core/browser';
+import {
+  activeSession,
+  GENERAL_PROJECT,
+  orderSessions,
+  recoverable,
+  sessionProjects,
+} from '@mesa/core/browser';
 
 /**
  * The sidebar's lists: the visible projects (pinned first), and in the Sessions tab's order
  * (pinned, then those with active sessions, then the rest), the active sessions (oldest first),
  * the recoverable ones, and the active ones in no listed project, split into General and Other;
- * a project's active sessions by primary (inProject, the Sessions tab's groups); and those it is
+ * a project's active sessions by primary, in its saved session order (inProject, the Sessions
+ * tab's groups); and those it is
  * primary or additional in (touching, the Projects tab's count; CONTEXT.md, Additional project).
  */
 export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonly TreeRow[]) {
@@ -23,7 +30,12 @@ export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonl
   );
   const general = unassigned.filter((session) => session.project === GENERAL_PROJECT);
   const other = unassigned.filter((session) => session.project !== GENERAL_PROJECT);
-  const inProject = (name: string) => active.filter((session) => session.project === name);
+  const saved = new Map(visible.map((project) => [project.name, project.sessionOrder]));
+  const inProject = (name: string) =>
+    orderSessions(
+      active.filter((session) => session.project === name),
+      saved.get(name) ?? [],
+    );
   const touching = (name: string) =>
     active.filter((session) => session.managed && sessionProjects(session).includes(name));
   const busy = (name: string) => Number(inProject(name).length > 0);

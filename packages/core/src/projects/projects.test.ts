@@ -56,6 +56,7 @@ test('create writes a minimal mesa.yaml named after the folder and registers it'
       exists: true,
       pinned: false,
       hidden: false,
+      sessionOrder: [],
     },
   ]);
 });
@@ -134,6 +135,7 @@ test('a moved project shows exists: false; an invalid mesa.yaml is invalid_confi
       exists: false,
       pinned: false,
       hidden: false,
+      sessionOrder: [],
     },
   ]);
   expect(
@@ -290,6 +292,22 @@ test('profile-local labels, pins, hiding, and order preserve stable slugs and pr
     'not_found',
   );
   expect(listProjects(profile)[0]?.label).toBe('The First');
+});
+
+test('a session order is saved per project, replaced whole, and removed when empty', () => {
+  registerProject(profile, { dir: folder('one', 'name: one\n') }, lockDeps());
+  updateProject(profile, 'one', { sessionOrder: ['aaaa0002', 'ext-4242'] }, lockDeps());
+  expect(listProjects(profile)[0]?.sessionOrder).toEqual(['aaaa0002', 'ext-4242']);
+  updateProject(profile, 'one', { pinned: true }, lockDeps());
+  expect(listProjects(profile)[0]?.sessionOrder).toEqual(['aaaa0002', 'ext-4242']);
+  updateProject(profile, 'one', { sessionOrder: [] }, lockDeps());
+  expect(listProjects(profile)[0]?.sessionOrder).toEqual([]);
+  expect(readFileSync(profile.paths.registry, 'utf8')).not.toContain('sessionOrder');
+  for (const sessionOrder of [['aaaa0001', 'aaaa0001'], ['not an id'], ['../x']]) {
+    expect(thrown(() => updateProject(profile, 'one', { sessionOrder }, lockDeps())).code).toBe(
+      'usage',
+    );
+  }
 });
 
 test('local discovery is bounded to projects and leaves their folders untouched', () => {

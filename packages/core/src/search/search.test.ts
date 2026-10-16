@@ -17,6 +17,7 @@ const project = (name: string, label: string): ProjectRow => ({
   exists: true,
   pinned: false,
   hidden: false,
+  sessionOrder: [],
 });
 const projects = [project('lantern-cove', 'Lantern Cove')];
 const session = (id: string, at: string, state = 'working') =>

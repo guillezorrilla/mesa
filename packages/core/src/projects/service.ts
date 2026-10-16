@@ -70,7 +70,12 @@ export function projectsService(ctx: MesaContext) {
           failure: `Could not update project ${name}`,
           project: () => name,
           inputs: { name, ...patch },
-          outputs: (r) => ({ label: r.label, pinned: r.pinned, hidden: r.hidden }),
+          outputs: (r) => ({
+            label: r.label,
+            pinned: r.pinned,
+            hidden: r.hidden,
+            sessionOrder: r.sessionOrder,
+          }),
         },
         () => updateProject(open(), name, patch, ctx),
       ),
