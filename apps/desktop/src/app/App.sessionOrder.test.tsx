@@ -3,15 +3,17 @@
 import type { ProjectRow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
-import { SAVE_DELAY_MS } from '@/features/sessions/sidebar/useSessionOrder';
+import { SAVE_DELAY_MS } from '@/features/sessions/sidebar/useReorderSessions';
 import {
   envelope,
+  failure,
   fakeBridge,
   managedRow,
   PROJECTS,
   pointer,
   press,
   renderWithMesa,
+  toastTexts,
 } from '@/lib/testing';
 import { App } from './App';
 
@@ -73,41 +75,54 @@ test('Option+Arrow moves a card within its project, saves the order, and keeps f
   expect(saves(calls)).toHaveLength(1);
 });
 
-/** Lays the rail's cards out 40px tall with a 4px gap, as the browser would measure them. */
+/** Lays the rail out as the browser would: its cards 40px tall with a 4px gap. */
 function measure() {
-  document.querySelectorAll<HTMLElement>('[data-drag-id]').forEach((wrapper, index) => {
-    const top = index * 44;
-    wrapper.getBoundingClientRect = () =>
-      ({ top, bottom: top + 40, height: 40, left: 0, right: 200, width: 200 }) as DOMRect;
+  const rect = (top: number, height: number) =>
+    ({
+      top,
+      bottom: top + height,
+      height,
+      left: 0,
+      right: 200,
+      width: 200,
+      x: 0,
+      y: top,
+    }) as DOMRect;
+  const cards = [...document.querySelectorAll<HTMLElement>('[data-drag-id]')];
+  cards.forEach((wrapper, index) => {
+    wrapper.getBoundingClientRect = () => rect(index * 44, 40);
   });
+  const rail = cards[0]?.parentElement;
+  if (rail) rail.getBoundingClientRect = () => rect(0, cards.length * 44 - 4);
 }
 const at = (clientY: number) => ({ clientX: 10, clientY });
 
-test('dragging a card lifts it, slides its siblings, and saves where it lands without selecting', async () => {
+/** Presses card `id` at `from`, moves in steps to `to`, and releases there, as a pointer would. */
+async function dragCard(id: string, from: number, to: number, release = true) {
+  const dragged = document.querySelector<HTMLElement>(`[data-drag-id="${id}"]`);
+  if (!dragged) throw new Error(`no draggable card ${id}`);
+  await pointer(dragged, 'pointerdown', at(from));
+  for (let step = 1; step <= 5; step++)
+    await pointer(document, 'pointermove', at(from + ((to - from) * step) / 5));
+  if (release) await pointer(document, 'pointerup', at(to));
+  return dragged;
+}
+
+test('dragging a card lifts it and saves where it lands without selecting it', async () => {
   const { bridge, calls } = setup();
   const byTestId = await renderWithMesa(<App />, bridge);
   const shown = byTestId('selected-session')[0]?.textContent;
   measure();
-  const dragged = document.querySelector<HTMLElement>('[data-drag-id="cccccccc"]');
-  if (!dragged) throw new Error('no draggable card');
-  await pointer(dragged, 'pointerdown', at(108));
-  await pointer(window, 'pointermove', at(60));
+  const dragged = await dragCard('cccccccc', 108, 20, false);
   expect(dragged.dataset.dragging).toBe('true');
-  // Halfway up, past b's middle: b slides down to open the gap; a stays.
-  expect(document.querySelector<HTMLElement>('[data-drag-id="bbbbbbbb"]')?.style.transform).toBe(
-    'translateY(44px)',
-  );
-  expect(document.querySelector<HTMLElement>('[data-drag-id="aaaaaaaa"]')?.style.transform).toBe(
-    'translateY(0px)',
-  );
-  // Far above the rail, it stops at the rail's top.
-  await pointer(window, 'pointermove', at(-500));
-  expect(dragged.style.transform).toBe('translateY(-88px)');
   // A browser clicks the card the press began on right after the release.
   await act(async () => {
-    window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+    document.dispatchEvent(
+      new PointerEvent('pointerup', { bubbles: true, button: 0, isPrimary: true, ...at(20) }),
+    );
     card('cccccccc')?.click();
   });
+  expect(dragged.dataset.dragging).toBeUndefined();
   expect(cardIds(byTestId)).toEqual(['cccccccc', 'aaaaaaaa', 'bbbbbbbb']);
   await settle();
   expect(saves(calls).map((args) => args[3])).toEqual([
@@ -120,13 +135,12 @@ test('Escape cancels a drag and saves nothing', async () => {
   const { bridge, calls } = setup();
   const byTestId = await renderWithMesa(<App />, bridge);
   measure();
-  const dragged = document.querySelector<HTMLElement>('[data-drag-id="aaaaaaaa"]');
-  if (!dragged) throw new Error('no draggable card');
-  await pointer(dragged, 'pointerdown', at(20));
-  await pointer(window, 'pointermove', at(120));
-  await press(dragged, 'Escape');
+  const dragged = await dragCard('aaaaaaaa', 20, 120, false);
+  expect(dragged.dataset.dragging).toBe('true');
+  await press(document.body, 'Escape', { code: 'Escape' });
   expect(dragged.dataset.dragging).toBeUndefined();
-  await pointer(window, 'pointerup', at(120));
+  await pointer(document, 'pointerup', at(120));
+  await settle();
   expect(cardIds(byTestId)).toEqual(['aaaaaaaa', 'bbbbbbbb', 'cccccccc']);
   expect(saves(calls)).toEqual([]);
 });
@@ -142,4 +156,59 @@ test('moves in quick succession save once, with the last order', async () => {
     '--session-order=bbbbbbbb,cccccccc,aaaaaaaa',
   ]);
   expect(cardIds(byTestId)).toEqual(['bbbbbbbb', 'cccccccc', 'aaaaaaaa']);
+});
+
+test('dragging past the last card lands it last, and past the first lands it first', async () => {
+  const { bridge, calls } = setup();
+  const byTestId = await renderWithMesa(<App />, bridge);
+  measure();
+  await dragCard('aaaaaaaa', 20, 400);
+  await settle();
+  expect(cardIds(byTestId)).toEqual(['bbbbbbbb', 'cccccccc', 'aaaaaaaa']);
+  measure();
+  await dragCard('aaaaaaaa', 108, -400);
+  await settle();
+  expect(cardIds(byTestId)).toEqual(['aaaaaaaa', 'bbbbbbbb', 'cccccccc']);
+  expect(saves(calls)).toHaveLength(2);
+});
+
+test('a saved order stays shown while the sorted project list still reads the old one', async () => {
+  let rows: ProjectRow[] = PROJECTS;
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(rows),
+    // The sidebar's sorted read lags: it still answers the order from before the save.
+    'projects --sort': () => envelope(PROJECTS),
+    sessions: () =>
+      envelope([managedRow('aaaaaaaa'), managedRow('bbbbbbbb'), managedRow('cccccccc')]),
+    'projects update': (args) => {
+      const ids = args.find((arg) => arg.startsWith('--session-order='))?.slice(16) ?? '';
+      rows = rows.map((row) =>
+        row.name === args.at(-1) ? { ...row, sessionOrder: ids.split(',') } : row,
+      );
+      return envelope({ name: args.at(-1), path: '/src/lantern-cove' });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await press(card('cccccccc'), 'ArrowUp', { altKey: true });
+  await settle();
+  await settle();
+  expect(saves(calls)).toHaveLength(1);
+  expect(calls.some((args) => args[1] === 'projects' && args[2] === '--sort')).toBe(true);
+  expect(cardIds(byTestId)).toEqual(['aaaaaaaa', 'cccccccc', 'bbbbbbbb']);
+});
+
+test('a failed save says why and shows the saved order again', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () =>
+      envelope([managedRow('aaaaaaaa'), managedRow('bbbbbbbb'), managedRow('cccccccc')]),
+    'projects update': () => failure('registry is locked', 'conflict'),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await press(card('cccccccc'), 'ArrowUp', { altKey: true });
+  expect(cardIds(byTestId)).toEqual(['aaaaaaaa', 'cccccccc', 'bbbbbbbb']);
+  await settle();
+  expect(saves(calls)).toHaveLength(1);
+  expect(toastTexts(byTestId)).toContain('registry is locked');
+  expect(cardIds(byTestId)).toEqual(['aaaaaaaa', 'bbbbbbbb', 'cccccccc']);
 });

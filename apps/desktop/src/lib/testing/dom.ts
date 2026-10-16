@@ -57,7 +57,13 @@ export const pointer = (
 ) =>
   act(async () => {
     target.dispatchEvent(
-      new PointerEvent(type, { bubbles: true, button: 0, pointerType: 'mouse', ...at }),
+      new PointerEvent(type, {
+        bubbles: true,
+        button: 0,
+        isPrimary: true,
+        pointerType: 'mouse',
+        ...at,
+      }),
     );
   });
 

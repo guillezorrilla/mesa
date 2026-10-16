@@ -2,7 +2,6 @@ import type { TreeRow } from '@mesa/core';
 import { GENERAL_PROJECT, moveSession } from '@mesa/core/browser';
 import { useRef } from 'react';
 import { Muted } from '@/components/Muted';
-import { cn } from '@/lib/utils';
 import type { WorkspaceView } from '@/lib/workspaceView';
 import type { SelectionInput } from '../selection/sessionSelection';
 import { StartingSessions } from '../start/StartingSessions';
@@ -11,8 +10,8 @@ import { ArchivedSection } from './ArchivedSection';
 import { ProjectSessionsGroup } from './ProjectSessionsGroup';
 import { SessionCard } from './SessionCard';
 import { SessionsMenu } from './SessionsMenu';
+import { SortableCard, SortableCards } from './SortableCards';
 import type { SidebarGroups } from './sidebarGroups';
-import { type Rail, useCardDrag } from './useCardDrag';
 
 /**
  * The Sessions tab: active sessions by project, then General, Other, and Recoverable, as one
@@ -49,7 +48,6 @@ export function SessionsSection(props: {
   const { byActivity, active, stranded, general, other, inProject } = groups;
   const { chosen, onSelection, order } = props;
   const list = useRef<HTMLDivElement>(null);
-  const drag = useCardDrag((project, ids) => props.onReorder?.(project, ids));
   /** Focuses the card `by` places from `id`, Shift-clicking it with `shift`; none past either end. */
   const step = (id: string, by: number, shift: boolean) => {
     const next = order[order.indexOf(id) + by];
@@ -89,26 +87,26 @@ export function SessionsSection(props: {
       </SessionsMenu>
     );
   };
-  /** A project's card, which moves along its rail, dragged or with Option+Arrow; alone, a card. */
-  const railCard = (session: TreeRow, rail: Rail) => {
-    if (rail.ids.length < 2) return card(session);
-    const move = (by: 1 | -1) => {
-      const at = rail.ids.indexOf(session.id) + by;
-      if (at >= 0 && at < rail.ids.length)
-        props.onReorder?.(rail.project, moveSession(rail.ids, session.id, at));
+  /**
+   * A project's cards: two or more reorder among themselves, dragged (SortableCards) or with
+   * Option+Arrow, and save the new order; one alone is a plain card.
+   */
+  const projectCards = (project: string, sessions: readonly TreeRow[]) => {
+    if (sessions.length < 2) return sessions.map((session) => card(session));
+    const ids = sessions.map((session) => session.id);
+    const reorder = (next: string[]) => props.onReorder?.(project, next);
+    const move = (id: string) => (by: 1 | -1) => {
+      const at = ids.indexOf(id) + by;
+      if (at >= 0 && at < ids.length) reorder(moveSession(ids, id, at));
     };
-    const lifted = drag.dragging === session.id;
     return (
-      <div
-        key={session.id}
-        data-drag-id={session.id}
-        data-dragging={lifted || undefined}
-        className={cn('rounded-md', lifted && 'scale-[1.02] opacity-95 shadow-lg')}
-        style={drag.style(session.id)}
-        onPointerDown={(event) => drag.start(event, rail, session.id)}
-      >
-        {card(session, move)}
-      </div>
+      <SortableCards ids={ids} onReorder={reorder}>
+        {sessions.map((session) => (
+          <SortableCard key={session.id} id={session.id}>
+            {card(session, move(session.id))}
+          </SortableCard>
+        ))}
+      </SortableCards>
     );
   };
   return (
@@ -125,7 +123,6 @@ export function SessionsSection(props: {
     >
       {byActivity.map((project) => {
         const cards = inProject(project.name);
-        const rail = { project: project.name, ids: cards.map((session) => session.id) };
         return (
           <ProjectSessionsGroup
             key={project.name}
@@ -136,7 +133,7 @@ export function SessionsSection(props: {
             starting={props.starting}
             onNewSession={props.onNewSession}
           >
-            {cards.map((session) => railCard(session, rail))}
+            {projectCards(project.name, cards)}
           </ProjectSessionsGroup>
         );
       })}

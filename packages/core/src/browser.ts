@@ -67,7 +67,7 @@ export {
   terminalPalette,
 } from './profile/terminal-palettes.js';
 export { repositoryUrl } from './projects/project-url.js';
-export { moveSession, orderSessions } from './projects/session-order.js';
+export { moveSession, orderSessions, withSessionOrder } from './projects/session-order.js';
 export { PROJECT_SORTS, type ProjectSort } from './projects/sort.js';
 export {
   actionable,

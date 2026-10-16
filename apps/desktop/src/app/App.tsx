@@ -15,6 +15,7 @@ import { PrsContext, usePrs } from '@/features/prs/usePrs';
 import { CommandPalette } from '@/features/search/CommandPalette';
 import { useSearchPalette } from '@/features/search/useSearchPalette';
 import { sidebarGroups } from '@/features/sessions/sidebar/sidebarGroups';
+import { useReorderSessions } from '@/features/sessions/sidebar/useReorderSessions';
 import { useStartSession } from '@/features/sessions/start/useStartSession';
 import { usePrEventDelivery } from '@/features/sessions/usePrEventDelivery';
 import { OpenSettingsContext } from '@/features/settings/useOpenSettings';
@@ -113,6 +114,8 @@ function AppShell() {
     await projects.refresh();
   };
   const sidebarProjects = sorted.sorted ?? projects.data ?? [];
+  // The sidebar's read: the sorted one once the sort is known, else the plain list.
+  const reorderSessions = useReorderSessions(sorted.sorted ? sorted.read : projects);
   /** A project unregistered while in view gives way to its nearest neighbour in the sidebar. */
   const projectUnregistered = (name: string) => {
     void projects.refresh();
@@ -197,7 +200,8 @@ function AppShell() {
               collapsed={sidebarCollapsed}
               onCollapse={() => setSidebarCollapsed((value) => !value)}
               onAddProject={setProjectAdd}
-              onProjectsChanged={() => projects.refresh()}
+              onProjectsChanged={() => void projects.refresh()}
+              onReorderSessions={reorderSessions}
               onProjectUnregistered={projectUnregistered}
               starting={starting}
               lastSession={workspace.lastSession}

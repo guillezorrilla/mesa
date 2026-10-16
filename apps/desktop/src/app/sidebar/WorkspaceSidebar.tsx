@@ -22,7 +22,6 @@ import { COMMAND_ICONS } from '@/features/search/hitIcon';
 import { useSessionSelection } from '@/features/sessions/selection/useSessionSelection';
 import { SessionsSection } from '@/features/sessions/sidebar/SessionsSection';
 import { sidebarGroups, sidebarOrder } from '@/features/sessions/sidebar/sidebarGroups';
-import { useSessionOrder } from '@/features/sessions/sidebar/useSessionOrder';
 import { useUnfoldOnNewSession } from '@/features/sessions/sidebar/useUnfoldOnNewSession';
 import type { SessionLocation } from '@/features/sessions/start/useStartSession';
 import type { PrRef } from '@/lib/client/prs';
@@ -52,8 +51,7 @@ export function WorkspaceSidebar(props: {
   sort: ProjectSort;
   onSort: (sort: ProjectSort) => void;
   onAddProject: (request: ProjectAddRequest) => void;
-  /** Reads the projects again; a promise of it resolves once they are read. */
-  onProjectsChanged: () => unknown;
+  onProjectsChanged: () => void;
   onProjectUnregistered: (name: string) => void;
   /** The session and project last shown: the Sessions and Projects tabs go back to them. */
   lastSession?: string;
@@ -67,6 +65,8 @@ export function WorkspaceSidebar(props: {
   /** Archives the selected sessions together, after one confirmation. */
   onArchiveSessions?: (ids: string[]) => void;
   onDependencySession?: (id: string) => void;
+  /** Puts a project's session cards in a new order (useReorderSessions). */
+  onReorderSessions?: (project: string, ids: string[]) => void;
 }) {
   const { view, onView, collapsed } = props;
   const [closedProjects, setClosedProjects] = useState<string[]>([]);
@@ -80,8 +80,7 @@ export function WorkspaceSidebar(props: {
     if (view.kind === 'session' || view.kind === 'sessions') setTab('sessions');
     if (view.kind === 'prs-setup' || view.kind === 'pr') setTab('reviews');
   }, [view.kind]);
-  const sessionOrder = useSessionOrder(props.projects, props.onProjectsChanged);
-  const groups = sidebarGroups(sessionOrder.projects, props.sessions);
+  const groups = sidebarGroups(props.projects, props.sessions);
   const { visible, active, stranded } = groups;
   const order = sidebarOrder(groups, closedProjects);
   useUnfoldOnNewSession(active, setClosedProjects);
@@ -228,7 +227,7 @@ export function WorkspaceSidebar(props: {
             onNewSession={props.onNewSession}
             onArchiveSession={props.onArchiveSession}
             onDependencySession={props.onDependencySession}
-            onReorder={(project, ids) => void sessionOrder.reorder(project, ids)}
+            onReorder={props.onReorderSessions}
           />
         )}
       </nav>
