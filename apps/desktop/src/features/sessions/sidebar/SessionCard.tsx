@@ -18,8 +18,8 @@ import { SessionCardMenu } from './SessionCardMenu';
 /**
  * One session in the sidebar: its state and title with a badge per additional project, and while
  * not compact its branch and state line; on hover, a child session, compact, archive, and More
- * actions. Its keys: Arrows step to the next card, Shift+Arrow ranges to it, and Shift+Enter or
- * Cmd+Enter act as a Shift- or Cmd-click.
+ * actions. Its keys: Arrows step to the next card, Shift+Arrow ranges to it, Option+Arrow moves
+ * it within its project, and Shift+Enter or Cmd+Enter act as a Shift- or Cmd-click.
  */
 export function SessionCard(props: {
   session: TreeRow;
@@ -33,6 +33,8 @@ export function SessionCard(props: {
   onSelect: (keys: { shift: boolean; toggle: boolean }) => void;
   /** Arrow keys: focus the next (1) or previous (-1) card, with Shift ranging to it. */
   onStep: (by: 1 | -1, shift: boolean) => void;
+  /** Option+Arrow: move it one place within its project; absent where cards keep their order. */
+  onMove?: (by: 1 | -1) => void;
   /** How many cards are chosen when this one is, else 1. */
   chosenCount: number;
   onArchiveChosen: () => void;
@@ -56,14 +58,16 @@ export function SessionCard(props: {
           chosen && 'border-ring/60 bg-accent',
           selected && 'border-ring bg-ring/15',
         )}
-        title={`${projectLabel(session.project)}: ${sessionLabel(session)}: ${session.lastState.state}`}
+        title={`${projectLabel(session.project)}: ${sessionLabel(session)}: ${session.lastState.state}${props.onMove ? '\nDrag or press Option+Up/Down to reorder' : ''}`}
         onClick={(event) => props.onSelect({ shift: event.shiftKey, toggle: event.metaKey })}
         onKeyDown={(event) => {
           const by = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
           const modified = event.key === 'Enter' && (event.shiftKey || event.metaKey);
-          if (!by && !modified) return;
+          // Option+Arrow on a card that keeps its place is left to the browser.
+          if ((!by && !modified) || (by && event.altKey && !props.onMove)) return;
           event.preventDefault();
-          if (by) props.onStep(by, event.shiftKey);
+          if (by && event.altKey) props.onMove?.(by);
+          else if (by) props.onStep(by, event.shiftKey);
           else props.onSelect({ shift: event.shiftKey, toggle: event.metaKey });
         }}
       >

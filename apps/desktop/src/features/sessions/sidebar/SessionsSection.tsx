@@ -1,5 +1,5 @@
 import type { TreeRow } from '@mesa/core';
-import { GENERAL_PROJECT } from '@mesa/core/browser';
+import { GENERAL_PROJECT, moveSession } from '@mesa/core/browser';
 import { useRef } from 'react';
 import { Muted } from '@/components/Muted';
 import type { WorkspaceView } from '@/lib/workspaceView';
@@ -10,12 +10,14 @@ import { ArchivedSection } from './ArchivedSection';
 import { ProjectSessionsGroup } from './ProjectSessionsGroup';
 import { SessionCard } from './SessionCard';
 import { SessionsMenu } from './SessionsMenu';
+import { SortableCard, SortableCards } from './SortableCards';
 import type { SidebarGroups } from './sidebarGroups';
 
 /**
  * The Sessions tab: active sessions by project, then General, Other, and Recoverable, as one
  * multi-selection that the right-click menu or a chosen card's More menu archives, and the
- * Archived section at the bottom.
+ * Archived section at the bottom. A project's cards reorder within it, dragged or with
+ * Option+Arrow.
  */
 export function SessionsSection(props: {
   groups: SidebarGroups;
@@ -39,6 +41,8 @@ export function SessionsSection(props: {
   onNewSession?: (project: string, kind: SessionLocation, parent?: string) => void;
   onArchiveSession?: (id: string) => void;
   onDependencySession?: (id: string) => void;
+  /** Saves a project's cards in a new order. */
+  onReorder?: (project: string, ids: string[]) => void;
 }) {
   const { groups, view, onView } = props;
   const { byActivity, active, stranded, general, other, inProject } = groups;
@@ -51,7 +55,8 @@ export function SessionsSection(props: {
     list.current?.querySelector<HTMLElement>(`[data-session-id="${next}"]`)?.focus();
     if (shift) onSelection({ kind: 'click', id: next, shift: true, from: id });
   };
-  const card = (session: TreeRow) => {
+  /** A card; with `onMove`, Option+Arrow moves it within its project. */
+  const card = (session: TreeRow, onMove?: (by: 1 | -1) => void) => {
     const count = chosen.includes(session.id) ? chosen.length : 1;
     const archive = () => props.onArchiveSessions?.(count > 1 ? [...chosen] : [session.id]);
     return (
@@ -72,6 +77,7 @@ export function SessionsSection(props: {
             if (!keys.shift && !keys.toggle) onView({ kind: 'session', id: session.id });
           }}
           onStep={(by, shift) => step(session.id, by, shift)}
+          onMove={onMove}
           chosenCount={count}
           onArchiveChosen={archive}
           onNewSession={props.onNewSession}
@@ -79,6 +85,28 @@ export function SessionsSection(props: {
           onDependencySession={props.onDependencySession}
         />
       </SessionsMenu>
+    );
+  };
+  /**
+   * A project's cards: two or more reorder among themselves, dragged (SortableCards) or with
+   * Option+Arrow, and save the new order; one alone is a plain card.
+   */
+  const projectCards = (project: string, sessions: readonly TreeRow[]) => {
+    if (sessions.length < 2) return sessions.map((session) => card(session));
+    const ids = sessions.map((session) => session.id);
+    const reorder = (next: string[]) => props.onReorder?.(project, next);
+    const move = (id: string) => (by: 1 | -1) => {
+      const at = ids.indexOf(id) + by;
+      if (at >= 0 && at < ids.length) reorder(moveSession(ids, id, at));
+    };
+    return (
+      <SortableCards ids={ids} onReorder={reorder}>
+        {sessions.map((session) => (
+          <SortableCard key={session.id} id={session.id}>
+            {card(session, move(session.id))}
+          </SortableCard>
+        ))}
+      </SortableCards>
     );
   };
   return (
@@ -105,7 +133,7 @@ export function SessionsSection(props: {
             starting={props.starting}
             onNewSession={props.onNewSession}
           >
-            {cards.map(card)}
+            {projectCards(project.name, cards)}
           </ProjectSessionsGroup>
         );
       })}
@@ -115,7 +143,7 @@ export function SessionsSection(props: {
             General
           </Muted>
           <div className="px-1">
-            {general.map(card)}
+            {general.map((session) => card(session))}
             <StartingSessions project={GENERAL_PROJECT} starting={props.starting} />
           </div>
         </div>
@@ -125,13 +153,13 @@ export function SessionsSection(props: {
           <Muted size="xs" className="px-2">
             Other
           </Muted>
-          <div className="px-1">{other.map(card)}</div>
+          <div className="px-1">{other.map((session) => card(session))}</div>
         </div>
       )}
       {stranded.length > 0 && (
         <div data-testid="recoverable-sessions" className="mt-4">
           <p className="px-2 text-xs font-medium text-state-waiting">Recoverable</p>
-          <div className="px-1">{stranded.map(card)}</div>
+          <div className="px-1">{stranded.map((session) => card(session))}</div>
         </div>
       )}
       {active.length + stranded.length === 0 && (

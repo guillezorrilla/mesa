@@ -20,15 +20,30 @@ export const projectsCommands = {
     Recorded<Project & { path: string; created: boolean; url: string }>
   >(({ url }) => ['projects', 'clone', '--', url]),
   'projects.update': commandWith<
-    { name: string; label?: string; pinned?: boolean; hidden?: boolean; move?: 'up' | 'down' },
-    Recorded<{ name: string; path: string; label?: string; pinned?: boolean; hidden?: boolean }>
-  >(({ name, label, pinned, hidden, move }) => [
+    {
+      name: string;
+      label?: string;
+      pinned?: boolean;
+      hidden?: boolean;
+      move?: 'up' | 'down';
+      sessionOrder?: string[];
+    },
+    Recorded<{
+      name: string;
+      path: string;
+      label?: string;
+      pinned?: boolean;
+      hidden?: boolean;
+      sessionOrder?: string[];
+    }>
+  >(({ name, label, pinned, hidden, move, sessionOrder }) => [
     'projects',
     'update',
     ...(label !== undefined ? [`--label=${label}`] : []),
     ...(pinned !== undefined ? ['--pinned', String(pinned)] : []),
     ...(hidden !== undefined ? ['--hidden', String(hidden)] : []),
     ...(move ? ['--move', move] : []),
+    ...(sessionOrder ? [`--session-order=${sessionOrder.join(',')}`] : []),
     '--',
     name,
   ]),

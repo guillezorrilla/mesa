@@ -35,6 +35,7 @@ test('register, projects, unregister', async () => {
       exists: true,
       pinned: false,
       hidden: false,
+      sessionOrder: [],
     },
   ]);
   expect((await mesa('projects')).stdout).toBe(
@@ -94,6 +95,22 @@ test('projects update changes profile presentation without renaming its slug', a
     pinned: true,
   });
   expect((await mesa('projects', 'update', 'lantern-cove', '--hidden', 'maybe')).code).toBe(2);
+});
+
+test('projects update --session-order saves the card order, and an empty one resets it', async () => {
+  await mesa('init', '--vault', 'vault');
+  mkdirSync(join(cli.home, 'lantern-cove'));
+  await mesa('register', 'lantern-cove', '--create');
+  const order = ['projects', 'update', 'lantern-cove', '--session-order'];
+  const saved = await mesa(...order, 'aaaa0002,aaaa0001', '--json');
+  expect(saved.json.data).toMatchObject({ sessionOrder: ['aaaa0002', 'aaaa0001'] });
+  expect((await mesa('projects', '--json')).json.data[0].sessionOrder).toEqual([
+    'aaaa0002',
+    'aaaa0001',
+  ]);
+  expect((await mesa(...order, 'aaaa0001,aaaa0001')).code).toBe(2);
+  await mesa(...order, '', '--json');
+  expect((await mesa('projects', '--json')).json.data[0].sessionOrder).toEqual([]);
 });
 
 test('projects discover --json reports registered candidates under a chosen root', async () => {

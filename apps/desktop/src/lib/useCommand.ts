@@ -88,6 +88,12 @@ export type CommandState<T> = {
   error?: CommandError;
   busy: boolean;
   refresh: () => Promise<void>;
+  /**
+   * Changes the data in place, before the command would say so (a change already saved, or about
+   * to be); a read still in flight is dropped, so it cannot bring back what this replaced.
+   */
+  // A method, so a read of one data type still passes where any read is taken (ViewPicker).
+  mutate(update: (data: T) => T): void;
 };
 
 /**
@@ -159,6 +165,20 @@ function useRead<K extends CommandName>(
     }
   }, [call, alertNew, cached, name, key, toastMissing]);
 
+  const mutate = useCallback(
+    (update: (data: DataOf<K>) => DataOf<K>) => {
+      request.current++;
+      setState((last) => {
+        const shown = last.key === key ? last.data : (cached.get(key) as DataOf<K> | undefined);
+        if (shown === undefined) return last;
+        const data = update(shown);
+        cached.set(key, data);
+        return { key, data, busy: false };
+      });
+    },
+    [cached, key],
+  );
+
   useEffect(() => {
     void refresh();
     return () => {
@@ -171,5 +191,6 @@ function useRead<K extends CommandName>(
     error: state.key === key ? state.error : undefined,
     busy: state.key === key && state.busy,
     refresh,
+    mutate,
   };
 }

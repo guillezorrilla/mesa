@@ -6,6 +6,7 @@ import { MesaError } from '../lib/result.js';
 import { valueAt } from '../lib/yaml-file.js';
 import type { Config } from '../profile/config.js';
 import type { Profile } from '../profile/profile.js';
+import { isForeignId, isSessionId } from '../sessions/record/record.js';
 import {
   DEFAULT_PRIORITY,
   minimalProject,
@@ -45,6 +46,8 @@ export type ProjectRow = {
   exists: boolean;
   pinned: boolean;
   hidden: boolean;
+  /** Its session cards' order in the Sessions tab (orderSessions); empty keeps oldest first. */
+  sessionOrder: string[];
 };
 
 /** The profile settings a project's mesa.yaml overrides, as written there. */
@@ -55,6 +58,8 @@ export type ProjectUpdate = {
   pinned?: boolean;
   hidden?: boolean;
   move?: 'up' | 'down';
+  /** Session ids in card order; empty removes the saved order. */
+  sessionOrder?: string[];
 };
 
 /**
@@ -87,13 +92,14 @@ export function registerProject(
 
 export function listProjects(profile: Profile): ProjectRow[] {
   return readRegistry(profile.paths.registry).map((entry) => {
-    const { name, path, label, pinned, hidden } = entry;
+    const { name, path, label, pinned, hidden, sessionOrder } = entry;
     const display = {
       name,
       label: label ?? name,
       path,
       pinned: pinned ?? false,
       hidden: hidden ?? false,
+      sessionOrder: sessionOrder ?? [],
     };
     if (!existsSync(projectFile(path))) {
       return {
@@ -132,8 +138,10 @@ export function updateProject(
   patch: ProjectUpdate,
   lock: LockDeps,
 ): RegistryEntry {
-  if (!Object.keys(patch).length) throw new MesaError('usage', 'set a label, pin, hide, or move');
+  if (!Object.keys(patch).length)
+    throw new MesaError('usage', 'set a label, pin, hide, move, or session order');
   const label = validatedLabel(patch.label);
+  const sessionOrder = validatedSessionOrder(patch.sessionOrder);
   let updated: RegistryEntry | undefined;
   updateRegistry(lock, profile.paths.registry, (entries) => {
     const index = entries.findIndex((entry) => entry.name === name);
@@ -141,11 +149,13 @@ export function updateProject(
     const next = [...entries];
     const original = next[index];
     if (!original) throw new MesaError('internal', 'project registry changed while updating');
+    const { sessionOrder: _replaced, ...kept } = original;
     updated = {
-      ...original,
+      ...(sessionOrder ? kept : original),
       ...(label !== undefined ? { label } : {}),
       ...(patch.pinned !== undefined ? { pinned: patch.pinned } : {}),
       ...(patch.hidden !== undefined ? { hidden: patch.hidden } : {}),
+      ...(sessionOrder?.length ? { sessionOrder } : {}),
     };
     next[index] = updated;
     if (patch.move) {
@@ -164,6 +174,22 @@ export function updateProject(
   });
   if (!updated) throw new MesaError('internal', 'project registry update produced no result');
   return updated;
+}
+
+// ponytail: bounds on what a registry entry holds, far past any real project's session count.
+const SESSION_ORDER_MAX = 500;
+const SESSION_ID_MAX = 100;
+
+function validatedSessionOrder(ids: string[] | undefined) {
+  if (
+    ids !== undefined &&
+    (ids.length > SESSION_ORDER_MAX ||
+      new Set(ids).size !== ids.length ||
+      ids.some((id) => id.length > SESSION_ID_MAX || (!isSessionId(id) && !isForeignId(id))))
+  ) {
+    throw new MesaError('usage', 'session order must be distinct session ids');
+  }
+  return ids;
 }
 
 function validatedLabel(value: string | undefined) {

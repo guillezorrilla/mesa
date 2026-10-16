@@ -65,6 +65,8 @@ export function WorkspaceSidebar(props: {
   /** Archives the selected sessions together, after one confirmation. */
   onArchiveSessions?: (ids: string[]) => void;
   onDependencySession?: (id: string) => void;
+  /** Puts a project's session cards in a new order (useReorderSessions). */
+  onReorderSessions?: (project: string, ids: string[]) => void;
 }) {
   const { view, onView, collapsed } = props;
   const [closedProjects, setClosedProjects] = useState<string[]>([]);
@@ -225,6 +227,7 @@ export function WorkspaceSidebar(props: {
             onNewSession={props.onNewSession}
             onArchiveSession={props.onArchiveSession}
             onDependencySession={props.onDependencySession}
+            onReorder={props.onReorderSessions}
           />
         )}
       </nav>

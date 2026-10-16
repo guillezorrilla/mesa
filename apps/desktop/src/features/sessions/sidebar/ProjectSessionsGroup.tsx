@@ -12,7 +12,8 @@ import type { SessionLocation } from '../start/useStartSession';
  * One project in the Sessions tab: a header that folds its session cards, and its + menu. A
  * busy project (sessions open or starting) reads bright with its count, its cards hung from a
  * rail in the project's own color (the folder wears it too), and its header stays in view while
- * its cards scroll; an empty one stays quiet.
+ * its cards scroll; an empty one stays quiet. While one of its cards is dragged, the rail tints
+ * to show where it can go.
  */
 export function ProjectSessionsGroup(props: {
   project: ProjectRow;
@@ -78,7 +79,7 @@ export function ProjectSessionsGroup(props: {
       </div>
       {((count > 0 && !closed) || startingHere) && (
         <div
-          className="mt-1 ml-3 space-y-1 border-l-2 pl-2"
+          className="mt-1 ml-3 space-y-1 rounded-r-md border-l-2 pl-2 transition-colors has-[[data-dragging]]:bg-accent/40"
           style={{ borderColor: `color-mix(in oklch, ${color} 45%, transparent)` }}
         >
           {!closed && props.children}

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
 import { beforeEach, expect, test } from 'vitest';
-import { fakeBridge, press, renderWithMesa } from '@/lib/testing';
+import { fakeBridge, pointer, press, renderWithMesa } from '@/lib/testing';
 import { useKeptWidth } from '@/lib/useKeptWidth';
 import { ResizeHandle } from './ResizeHandle';
 
@@ -25,10 +25,6 @@ const render = async (edge: 'left' | 'right' = 'right') => {
   return document.querySelector<HTMLElement>('[role="separator"]') as HTMLElement;
 };
 const width = (handle: HTMLElement) => Number(handle.getAttribute('aria-valuenow'));
-const pointer = (target: EventTarget, type: string, clientX: number) =>
-  act(async () => {
-    target.dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, clientX }));
-  });
 
 beforeEach(() => localStorage.clear());
 
@@ -42,20 +38,20 @@ test('the handle is a labelled vertical separator at the default width', async (
 
 test('dragging sets the width live, clamped to 200 and 480, and stops on release', async () => {
   const handle = await render();
-  await pointer(handle, 'pointerdown', 264);
-  await pointer(document, 'pointermove', 300);
+  await pointer(handle, 'pointerdown', { clientX: 264 });
+  await pointer(document, 'pointermove', { clientX: 300 });
   expect(width(handle)).toBe(300);
-  await pointer(document, 'pointermove', 900);
+  await pointer(document, 'pointermove', { clientX: 900 });
   expect(width(handle)).toBe(480);
-  await pointer(document, 'pointermove', 10);
+  await pointer(document, 'pointermove', { clientX: 10 });
   expect(width(handle)).toBe(200);
-  await pointer(document, 'pointermove', 340);
-  await pointer(document, 'pointerup', 340);
-  await pointer(document, 'pointermove', 400);
+  await pointer(document, 'pointermove', { clientX: 340 });
+  await pointer(document, 'pointerup', { clientX: 340 });
+  await pointer(document, 'pointermove', { clientX: 400 });
   expect(width(handle)).toBe(340);
-  await pointer(handle, 'pointerdown', 340);
-  await pointer(document, 'pointercancel', 340);
-  await pointer(document, 'pointermove', 400);
+  await pointer(handle, 'pointerdown', { clientX: 340 });
+  await pointer(document, 'pointercancel', { clientX: 340 });
+  await pointer(document, 'pointermove', { clientX: 400 });
   expect(width(handle)).toBe(340);
 });
 
@@ -91,10 +87,10 @@ test('the width is kept and read back; a missing or invalid value falls back to 
 
 test('a left edge grows the panel as it moves left, by drag and by key', async () => {
   const handle = await render('left');
-  await pointer(handle, 'pointerdown', 800);
-  await pointer(document, 'pointermove', 760);
+  await pointer(handle, 'pointerdown', { clientX: 800 });
+  await pointer(document, 'pointermove', { clientX: 760 });
   expect(width(handle)).toBe(304);
-  await pointer(document, 'pointerup', 760);
+  await pointer(document, 'pointerup', { clientX: 760 });
   await press(handle, 'ArrowLeft');
   expect(width(handle)).toBe(320);
   await press(handle, 'ArrowRight');

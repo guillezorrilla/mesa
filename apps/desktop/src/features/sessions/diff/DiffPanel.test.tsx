@@ -8,6 +8,7 @@ import {
   envelope,
   failure,
   fakeBridge,
+  pointer,
   renderWithMesa,
   sessionDiff,
 } from '@/lib/testing';
@@ -83,16 +84,12 @@ test('dragging the edge widens the panel only as far as the terminal keeps 256px
   const handle = document.querySelector<HTMLElement>('[aria-label="Resize changes panel"]');
   if (!handle?.parentElement?.parentElement) throw new Error('handle missing');
   Object.defineProperty(handle.parentElement.parentElement, 'clientWidth', { value: 1100 });
-  const pointer = (target: EventTarget, type: string, clientX: number) =>
-    act(async () => {
-      target.dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, clientX }));
-    });
-  await pointer(handle, 'pointerdown', 700);
-  await pointer(document, 'pointermove', 600);
+  await pointer(handle, 'pointerdown', { clientX: 700 });
+  await pointer(document, 'pointermove', { clientX: 600 });
   expect(handle.getAttribute('aria-valuenow')).toBe('820');
-  await pointer(document, 'pointermove', 100);
+  await pointer(document, 'pointermove', { clientX: 100 });
   expect(handle.getAttribute('aria-valuenow')).toBe('844');
-  await pointer(document, 'pointerup', 100);
+  await pointer(document, 'pointerup', { clientX: 100 });
 });
 
 test('Expand covers the terminal side by side, Escape shrinks it back, and left-out new files are named', async () => {

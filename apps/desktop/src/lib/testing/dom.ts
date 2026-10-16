@@ -49,6 +49,24 @@ export const press = (
     );
   });
 
+/** Dispatches a primary-button pointer event of `type` on `target`, at `at`. */
+export const pointer = (
+  target: EventTarget,
+  type: string,
+  at: { clientX?: number; clientY?: number } = {},
+) =>
+  act(async () => {
+    target.dispatchEvent(
+      new PointerEvent(type, {
+        bubbles: true,
+        button: 0,
+        isPrimary: true,
+        pointerType: 'mouse',
+        ...at,
+      }),
+    );
+  });
+
 export const click = (element: HTMLElement | undefined) =>
   act(async () => {
     element?.dispatchEvent(

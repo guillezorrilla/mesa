@@ -61,6 +61,13 @@ export function trueOrFalse(value: string, name: string): boolean {
 }
 
 /** A typed `up` or `down`, the way a list item moves. */
+/** A comma-separated flag's entries, trimmed, with empty ones dropped. */
+export const commaList = (value: string) =>
+  value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
 export function upOrDown(value: string, name: string): 'up' | 'down' {
   if (value !== 'up' && value !== 'down') {
     throw new MesaError('usage', `${name} must be up or down`);
@@ -173,10 +180,8 @@ const PROVIDER_VIEWS: {
   github: {
     flags: ['repo', 'project', 'label', 'milestone'],
     query: (text, narrowing) => {
-      const labels = text('label')
-        ?.split(',')
-        .map((l) => l.trim())
-        .filter(Boolean);
+      const label = text('label');
+      const labels = label === undefined ? undefined : commaList(label);
       const [repo, project, milestone] = [text('repo'), text('project'), text('milestone')];
       return {
         provider: 'github',

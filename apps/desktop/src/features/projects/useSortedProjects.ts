@@ -6,7 +6,8 @@ import { useCommand, useRun } from '@/lib/useCommand';
  * The sidebar's project order: the profile's saved sort (`projects.sort`) over `projects`,
  * refreshed when the list changes, when sessions change under an activity-based sort, and when a
  * sort is picked, which saves it. Selecting `visited` records the visit but never reorders the
- * list under the cursor; a visit-based order catches up on the next launch or pick.
+ * list under the cursor; a visit-based order catches up on the next launch or pick. `read` is the
+ * sorted read itself, for a change to show in before it reads back.
  */
 export function useSortedProjects(
   projects: readonly ProjectRow[] | undefined,
@@ -35,5 +36,5 @@ export function useSortedProjects(
   };
   // Before the profile's sort is known, the plain list (already in that order) shows instead,
   // so a saved sort never flashes the default first.
-  return { sort, setSort, sorted: (picked ?? saved) ? sorted.data : undefined };
+  return { sort, setSort, sorted: (picked ?? saved) ? sorted.data : undefined, read: sorted };
 }

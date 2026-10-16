@@ -26,6 +26,7 @@ export const PROJECTS: ProjectRow[] = [
     exists: true,
     pinned: false,
     hidden: false,
+    sessionOrder: [],
   },
   {
     name: 'tide',
@@ -40,6 +41,7 @@ export const PROJECTS: ProjectRow[] = [
     exists: false,
     pinned: false,
     hidden: false,
+    sessionOrder: [],
   },
 ];
 /** A doctor report as core sends one, healthy unless told: the screens only show its verdict. */
