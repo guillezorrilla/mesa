@@ -2,6 +2,12 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.3.7 - 2026-10-16
+
+### Added
+
+- Session order in each project: drag a session card up or down within its project in the Sessions tab, or press Option+Up or Option+Down on it, and Mesa keeps that order after a restart. (#849)
+
 ## 0.3.6 - 2026-10-15
 
 ### Added
