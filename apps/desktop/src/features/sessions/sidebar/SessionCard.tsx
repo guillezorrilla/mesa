@@ -63,7 +63,8 @@ export function SessionCard(props: {
         onKeyDown={(event) => {
           const by = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
           const modified = event.key === 'Enter' && (event.shiftKey || event.metaKey);
-          if (!by && !modified) return;
+          // Option+Arrow on a card that keeps its place is left to the browser.
+          if ((!by && !modified) || (by && event.altKey && !props.onMove)) return;
           event.preventDefault();
           if (by && event.altKey) props.onMove?.(by);
           else if (by) props.onStep(by, event.shiftKey);

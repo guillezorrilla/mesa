@@ -176,12 +176,16 @@ export function updateProject(
   return updated;
 }
 
+// ponytail: bounds on what a registry entry holds, far past any real project's session count.
+const SESSION_ORDER_MAX = 500;
+const SESSION_ID_MAX = 100;
+
 function validatedSessionOrder(ids: string[] | undefined) {
   if (
     ids !== undefined &&
-    (ids.length > 500 ||
+    (ids.length > SESSION_ORDER_MAX ||
       new Set(ids).size !== ids.length ||
-      ids.some((id) => id.length > 100 || (!isSessionId(id) && !isForeignId(id))))
+      ids.some((id) => id.length > SESSION_ID_MAX || (!isSessionId(id) && !isForeignId(id))))
   ) {
     throw new MesaError('usage', 'session order must be distinct session ids');
   }

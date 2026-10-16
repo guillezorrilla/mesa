@@ -22,16 +22,17 @@ const DRAG_ID = 'data-drag-id';
 /**
  * Drag to reorder session cards within their rail: press a card and move it, and it follows the
  * pointer, kept inside the rail, while its siblings slide to open the gap where it would land.
- * Release calls `onDrop` with the rail's ids in their new order; Escape cancels. The click a drag
+ * Release calls `onDrop` with the rail's ids in their new order and the `rail` given to `start`;
+ * Escape cancels. The click a drag
  * ends with is swallowed, so it never selects. Each card wraps in an element with `data-drag-id`,
- * `onPointerDown={start}`, and `style={style(id)}`.
+ * `onPointerDown={(event) => start(event, rail)}`, and `style={style(id)}`.
  */
-export function useCardDrag(onDrop: (ids: string[]) => void) {
+export function useCardDrag(onDrop: (ids: string[], rail: string) => void) {
   const [drag, setDrag] = useState<Drag>();
   const stop = useRef<() => void>(undefined);
   useEffect(() => () => stop.current?.(), []);
 
-  const start = (event: PointerEvent<HTMLElement>) => {
+  const start = (event: PointerEvent<HTMLElement>, rail: string) => {
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return;
     const card = event.currentTarget;
     const cards = [...(card.parentElement?.children ?? [])].filter(
@@ -94,7 +95,7 @@ export function useCardDrag(onDrop: (ids: string[]) => void) {
       setTimeout(() => window.removeEventListener('click', swallow, { capture: true }));
       setDrag(undefined);
       const id = ids[from];
-      if (!cancelled && id && current.to !== from) onDrop(moveSession(ids, id, current.to));
+      if (!cancelled && id && current.to !== from) onDrop(moveSession(ids, id, current.to), rail);
     };
     const end = () => {
       window.removeEventListener('pointermove', move);

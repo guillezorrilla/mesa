@@ -49,9 +49,7 @@ export function SessionsSection(props: {
   const { byActivity, active, stranded, general, other, inProject } = groups;
   const { chosen, onSelection, order } = props;
   const list = useRef<HTMLDivElement>(null);
-  /** The project whose card is pressed, so a drop saves that project's order. */
-  const pressed = useRef('');
-  const drag = useCardDrag((ids) => props.onReorder?.(pressed.current, ids));
+  const drag = useCardDrag((ids, project) => props.onReorder?.(project, ids));
   /** Focuses the card `by` places from `id`, Shift-clicking it with `shift`; none past either end. */
   const step = (id: string, by: number, shift: boolean) => {
     const next = order[order.indexOf(id) + by];
@@ -108,10 +106,7 @@ export function SessionsSection(props: {
         data-dragging={lifted || undefined}
         className={cn('rounded-md', lifted && 'scale-[1.02] opacity-95 shadow-lg')}
         style={drag.style(session.id)}
-        onPointerDown={(event) => {
-          pressed.current = rail.project;
-          drag.start(event);
-        }}
+        onPointerDown={(event) => drag.start(event, rail.project)}
       >
         {menu}
       </div>
