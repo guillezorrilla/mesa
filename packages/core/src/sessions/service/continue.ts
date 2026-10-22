@@ -23,8 +23,8 @@ import type { SessionDeps } from './deps.js';
 import type { lifecycleActions } from './lifecycle.js';
 
 /**
- * Work carried on from a session or a conversation: a handoff, an adoption, a resume, a swap, a
- * fork, and a queued session's dependencies and start.
+ * Work carried on from a session or a conversation: a handoff, an adoption, a resume (of one, or of
+ * every recoverable one), a swap, a fork, and a queued session's dependencies and start.
  */
 export function continueActions(
   ctx: MesaContext,
@@ -202,13 +202,16 @@ export function continueActions(
      * a restart ended (interrupted).
      */
     restore: async (opts: { interrupted?: boolean } = {}) => {
-      const due = (await deps.ends.board()).filter(
+      const stranded = (await deps.ends.board()).filter(
         (row) =>
-          resumable(row) && (opts.interrupted ? interrupted(row, ctx.bootedAt) : recoverable(row)),
+          recoverable(row) &&
+          resumable(row) &&
+          (!opts.interrupted || interrupted(row, ctx.bootedAt)),
       );
       return applyEach(
-        due.map((row) => row.id),
-        (id) => store.find(id) !== undefined,
+        stranded.map((row) => row.id),
+        // Each was just listed.
+        () => true,
         async (id) => (await resume(id)).result.record,
       );
     },

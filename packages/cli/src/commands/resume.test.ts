@@ -1,3 +1,4 @@
+import { testStore } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -19,6 +20,14 @@ test('resume --all --interrupted reopens the sessions a restart ended, each as a
     { id: second, ok: true, result: { resumedFrom: second } },
   ]);
   expect((await mesa('resume', '--all')).stdout).toBe('nothing to restore\n');
+  // One whose folder is gone fails as an item, and the command exits 2.
+  const third = (await mesa('open', 'lantern-cove')).stdout.trim();
+  testStore(cli.home).update(third, { cwd: `${cli.home}/gone` });
+  tmux.windows.splice(0);
+  const partial = await mesa('resume', '--all', '--json');
+  expect(partial.code).toBe(2);
+  const failed = partial.json.data.items.filter((item: { ok: boolean }) => !item.ok);
+  expect(failed).toMatchObject([{ id: third, error: { code: 'not_found' } }]);
   expect((await mesa('resume', '--json')).json.error).toMatchObject({ code: 'usage' });
   expect((await mesa('resume', first, '--interrupted', '--json')).json.error).toMatchObject({
     code: 'usage',

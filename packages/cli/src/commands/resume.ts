@@ -18,8 +18,10 @@ export const resume = defineCommand({
   example: 'mesa resume a1b2c3d4',
   run: async ({ mesa, args, flags }) => {
     const { session } = args;
+    if (Boolean(flags.all) === Boolean(session))
+      throw new MesaError('usage', 'name a session, or pass --all');
     if (flags.interrupted && !flags.all) throw new MesaError('usage', '--interrupted needs --all');
-    if (flags.all && !session) {
+    if (!session) {
       const data = await mesa.sessions.restore({ interrupted: flags.interrupted });
       const text = data.items
         .map((i) => `${i.id}: ${i.ok ? `resumed as ${i.result.id}` : i.error.message}`)
@@ -30,7 +32,6 @@ export const resume = defineCommand({
         code: bulkExit(data.items.some((i) => !i.ok)),
       };
     }
-    if (flags.all || !session) throw new MesaError('usage', 'name a session, or pass --all');
     const recorded = await mesa.sessions.resume(session);
     const { record } = recorded.result;
     return recordedOutput(recorded, { data: record, text: record.id });

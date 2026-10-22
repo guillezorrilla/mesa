@@ -2390,10 +2390,7 @@ test('launch restores the sessions a restart ended; Restore all brings back the 
     ),
   );
   expect(calls).toContainEqual(['--json', 'resume', '--all']);
-  expect(toasts(byTestId)).toContainEqual([
-    'alert',
-    'Restored 1 session\ndddddddd: its folder is gone',
-  ]);
+  expect(toasts(byTestId)).toContainEqual(['alert', 'Restored 1 session\nits folder is gone']);
 });
 
 test('project Overview starts worktree goals and quick empty sessions through mesa open', async () => {

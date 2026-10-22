@@ -91,7 +91,7 @@ function AppShell() {
     failed: (!!config.error && !needsProfileSetup) || !!projects.error,
     setView,
   });
-  const restoreAll = useRestoreSessions(ready && !onboarding && !!config.data);
+  const restoreAll = useRestoreSessions(ready && !onboarding && !!config.data, sessions);
   useDiscoveryOffer({
     config: config.data,
     projects: projects.data,
