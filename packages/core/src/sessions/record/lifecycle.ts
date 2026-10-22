@@ -4,7 +4,7 @@ import type { SessionRecord } from './record.js';
 import { FINAL_STATES, WAITING_STATES } from './states.js';
 
 // Where a session is in its life (CONTEXT.md, Session): over, exited, queued, active, waiting,
-// resumable, recoverable, and whether Review reads it (reviewable). Pure, importing only pure
+// resumable, recoverable, interrupted, and whether Review reads it (reviewable). Pure, importing only pure
 // modules, so the app bundles it (`@mesa/core/browser`).
 
 /** Its agent is through: stopped, or seen done or failed. A queue waits for this (CONTEXT.md, Queued session). */
@@ -38,3 +38,19 @@ export const recoverable = (s: SessionRow): s is ManagedRow =>
   !s.archivedAt &&
   !s.resumedBy &&
   !queued(s);
+/**
+ * A recoverable session a restart ended (CONTEXT.md, Interrupted session): its window went away
+ * after `bootedAt` with no exit status or signal of its agent's own, as a reboot or a stopped
+ * tmux server leaves it, not an /exit or a crash.
+ */
+export const interrupted = (s: SessionRow, bootedAt: Date) => {
+  if (!recoverable(s)) return false;
+  const exit = s.events.filter((e) => e.type === 'exited').at(-1);
+  // None recorded yet: the look that lists it is the one that found its window gone, just now.
+  if (!exit) return true;
+  return (
+    exit.status === undefined &&
+    exit.signal === undefined &&
+    Date.parse(exit.at) >= bootedAt.getTime()
+  );
+};

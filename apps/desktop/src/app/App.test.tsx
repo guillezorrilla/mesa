@@ -2350,6 +2350,52 @@ test('Sessions offers restore or dismiss for saved runs whose terminal ended', a
   expect(byTestId('recoverable-sessions')).toHaveLength(0);
 });
 
+test('launch restores the sessions a restart ended; Restore all brings back the rest', async () => {
+  const item = (id: string) => ({ id, ok: true, result: managedRow(`${id}-next`) });
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () =>
+      envelope([
+        managedRow('aaaaaaaa', {
+          alive: false,
+          lastState: {
+            state: 'done',
+            confidence: 1,
+            at: '2026-09-27T12:00:00.000Z',
+            source: 'tmux',
+          },
+        }),
+      ]),
+    'resume --all': (args) =>
+      envelope({
+        items: args.includes('--interrupted')
+          ? [item('bbbbbbbb'), item('cccccccc')]
+          : [
+              item('aaaaaaaa'),
+              {
+                id: 'dddddddd',
+                ok: false,
+                error: { code: 'not_found', message: 'its folder is gone' },
+              },
+            ],
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  expect(calls).toContainEqual(['--json', 'resume', '--all', '--interrupted']);
+  expect(toastTexts(byTestId)).toContain('Restored 2 sessions');
+
+  await click(
+    [...(byTestId('recoverable-sessions')[0]?.querySelectorAll('button') ?? [])].find((button) =>
+      button.textContent?.includes('Restore all'),
+    ),
+  );
+  expect(calls).toContainEqual(['--json', 'resume', '--all']);
+  expect(toasts(byTestId)).toContainEqual([
+    'alert',
+    'Restored 1 session\ndddddddd: its folder is gone',
+  ]);
+});
+
 test('project Overview starts worktree goals and quick empty sessions through mesa open', async () => {
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),

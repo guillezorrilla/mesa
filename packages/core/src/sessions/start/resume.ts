@@ -89,6 +89,7 @@ export async function resumeSession(
       additional: old.additional,
       cwd: old.cwd,
       name: old.name,
+      agentName: old.agentName,
       adopted: old.adopted,
       vaultMounted: old.vaultMounted,
       decisionsMounted: old.decisionsMounted,

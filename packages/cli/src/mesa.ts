@@ -2,6 +2,7 @@
 // The CLI entrypoint: the only place that reads process globals or picks the real implementations;
 // createMesa (the composition root) wires them.
 import { readFileSync, writeSync } from 'node:fs';
+import { uptime } from 'node:os';
 
 const argv = process.argv.slice(2);
 // An agent hook outside a Mesa session exits before anything else loads (#22: within 50 ms).
@@ -91,6 +92,7 @@ const { code, stdout, stderr, exec, serve } = await runCli(argv, {
     },
     processId: process.pid,
     processStartedAt: new Date(performance.timeOrigin),
+    bootedAt: new Date(Date.now() - uptime() * 1000),
     browserSelection,
     obsidian: macObsidianPaths(home),
     argv,

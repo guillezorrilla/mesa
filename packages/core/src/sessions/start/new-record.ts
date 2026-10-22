@@ -35,6 +35,8 @@ export type NewLaunch = {
   additional?: SessionRecord['additional'];
   cwd?: string;
   name?: string;
+  /** What its agent called the session it continues (a resume's). */
+  agentName?: string;
   adopted?: true;
   /** A background process started with the mount, which a resume attaches to again. */
   vaultMounted?: true;
@@ -81,6 +83,7 @@ export function createRecord(
     ...(s.additional === undefined ? {} : { additional: s.additional }),
     ...(s.cwd === undefined ? {} : { cwd: s.cwd }),
     ...(s.name === undefined ? {} : { name: s.name }),
+    ...(s.agentName === undefined ? {} : { agentName: s.agentName }),
     ...(s.adopted ? { adopted: s.adopted } : {}),
     ...(s.vaultMounted ? { vaultMounted: s.vaultMounted } : {}),
     ...(s.decisionsMounted ? { decisionsMounted: s.decisionsMounted } : {}),
