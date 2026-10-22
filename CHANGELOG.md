@@ -2,6 +2,12 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.3.8 - 2026-10-22
+
+### Added
+
+- Sessions come back after a restart: when Mesa opens, the sessions a reboot closed reopen on their own with their names, and the Recoverable heading has Restore all for the rest, also `mesa resume --all`. (#853)
+
 ## 0.3.7 - 2026-10-16
 
 ### Added
