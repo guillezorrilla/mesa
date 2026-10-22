@@ -2,8 +2,9 @@ import type { MesaContext } from '../../context.js';
 import { counted } from '../../lib/format.js';
 import { MesaError } from '../../lib/result.js';
 import { joinWarnings } from '../../receipts/recorder.js';
+import { applyEach } from '../record/each.js';
 import { projectLabel } from '../record/general.js';
-import { isOver } from '../record/lifecycle.js';
+import { interrupted, isOver, recoverable, resumable } from '../record/lifecycle.js';
 import {
   launchGuardrail,
   markEnded,
@@ -22,8 +23,8 @@ import type { SessionDeps } from './deps.js';
 import type { lifecycleActions } from './lifecycle.js';
 
 /**
- * Work carried on from a session or a conversation: a handoff, an adoption, a resume, a swap, a
- * fork, and a queued session's dependencies and start.
+ * Work carried on from a session or a conversation: a handoff, an adoption, a resume (of one, or of
+ * every recoverable one), a swap, a fork, and a queued session's dependencies and start.
  */
 export function continueActions(
   ctx: MesaContext,
@@ -45,6 +46,25 @@ export function continueActions(
     const first = adoptions.flatMap((r) => r.reopened)[0];
     return first ? launchGuardrail(store.get(first.id), open().config.agents) : {};
   };
+  /** Reopens a session's conversation in a new window, as a new record linked to the old. */
+  const resume = (id: string) =>
+    recordStart(
+      ctx,
+      (r) => r.record,
+      {
+        summary: (r) =>
+          `Resumed session ${r.from.id} as ${r.record.id} on ${projectLabel(r.record.project)}`,
+        failure: `Could not resume session ${id}`,
+        inputs: { id },
+        outputs: (r) => ({
+          window: r.record.tmux.window,
+          agentSessionId: r.record.agentSessionId,
+          resumedFrom: r.from.id,
+          ...launchGuardrail(r.record, open().config.agents),
+        }),
+      },
+      () => resumeSession(openDeps(), id),
+    ).then((recorded) => markEnded(ctx, recorded, recorded.result.from));
   return {
     /**
      * Continues a session's work in a successor (CONTEXT.md, Handoff), then stops it unless
@@ -175,25 +195,26 @@ export function continueActions(
         async () => ({ items: await adoptDiscovered(adoptDeps(), { ...input, paths }) }),
       );
     },
-    /** Reopens a session's conversation in a new window, as a new record linked to the old. */
-    resume: (id: string) =>
-      recordStart(
-        ctx,
-        (r) => r.record,
-        {
-          summary: (r) =>
-            `Resumed session ${r.from.id} as ${r.record.id} on ${projectLabel(r.record.project)}`,
-          failure: `Could not resume session ${id}`,
-          inputs: { id },
-          outputs: (r) => ({
-            window: r.record.tmux.window,
-            agentSessionId: r.record.agentSessionId,
-            resumedFrom: r.from.id,
-            ...launchGuardrail(r.record, open().config.agents),
-          }),
-        },
-        () => resumeSession(openDeps(), id),
-      ).then((recorded) => markEnded(ctx, recorded, recorded.result.from)),
+    resume,
+    /**
+     * Resumes every recoverable session whose conversation can reopen, one after another, each
+     * with its own receipt, as a bulk command's items (applyEach); with `interrupted`, only those
+     * a restart ended (interrupted).
+     */
+    restore: async (opts: { interrupted?: boolean } = {}) => {
+      const stranded = (await deps.ends.board()).filter(
+        (row) =>
+          recoverable(row) &&
+          resumable(row) &&
+          (!opts.interrupted || interrupted(row, ctx.bootedAt)),
+      );
+      return applyEach(
+        stranded.map((row) => row.id),
+        // Each was just listed.
+        () => true,
+        async (id) => (await resume(id)).result.record,
+      );
+    },
     /** A fresh session's agent swapped in place (CONTEXT.md, Swap), with its receipt. */
     swap: (id: string, agent: string) =>
       recordStart(

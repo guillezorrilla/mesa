@@ -30,6 +30,8 @@ export const testDeps = (home: string, overrides: Partial<MesaDeps> = {}): MesaD
   secretStore: memorySecretStore().store,
   processAlive: () => true,
   processId: 4242,
+  // A day before the fixed clock: every exit a test records happens after it.
+  bootedAt: new Date('2026-09-23T12:00:00.000Z'),
   browserSelection: async () => undefined,
   argv: ['test'],
   // The repo's own library: tests that need another pass their own.

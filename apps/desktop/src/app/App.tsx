@@ -18,6 +18,7 @@ import { sidebarGroups } from '@/features/sessions/sidebar/sidebarGroups';
 import { useReorderSessions } from '@/features/sessions/sidebar/useReorderSessions';
 import { useStartSession } from '@/features/sessions/start/useStartSession';
 import { usePrEventDelivery } from '@/features/sessions/usePrEventDelivery';
+import { useRestoreSessions } from '@/features/sessions/useRestoreSessions';
 import { OpenSettingsContext } from '@/features/settings/useOpenSettings';
 import { useCostAlerts } from '@/features/usage/useCostAlerts';
 import { AddVaultProvider } from '@/features/vault/AddVaultProvider';
@@ -90,6 +91,7 @@ function AppShell() {
     failed: (!!config.error && !needsProfileSetup) || !!projects.error,
     setView,
   });
+  const restoreAll = useRestoreSessions(ready && !onboarding && !!config.data, sessions);
   useDiscoveryOffer({
     config: config.data,
     projects: projects.data,
@@ -221,6 +223,7 @@ function AppShell() {
                   ids: [id],
                 }));
               }}
+              onRestoreAll={restoreAll}
               onArchiveSessions={(ids) =>
                 setArchiveSessionRequest((request) => ({ count: (request?.count ?? 0) + 1, ids }))
               }

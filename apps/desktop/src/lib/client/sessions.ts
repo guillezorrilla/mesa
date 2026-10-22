@@ -141,6 +141,10 @@ export const sessionsCommands = {
     '--',
     id,
   ]),
+  /** Every recoverable session resumed, or with `interrupted` only those a restart ended. */
+  'sessions.restore': commandWith<{ interrupted?: boolean }, EachResult<SessionRecord>>(
+    ({ interrupted }) => ['resume', '--all', ...(interrupted ? ['--interrupted'] : [])],
+  ),
   'sessions.fork': commandWith<{ id: string; branch?: string }, Recorded<SessionRecord>>(
     ({ id, branch }) => ['fork', ...(branch ? [`--branch=${branch}`] : []), '--', id],
   ),

@@ -241,7 +241,12 @@ The app's offer, at launch, to take in what already ran on this machine: the Fin
 
 ## Bulk command
 
-A command acting on several sessions or conversations: `mesa archive` with several ids, `mesa stop --descendants`, `mesa rm --descendants`, and `mesa discover adopt`. It reports each item (in `--json`, one item per session, or `failed` beside what was adopted) and exits 2 when any item failed, 0 otherwise, so a script sees a partial failure while the envelope stays `ok: true` with every item. An unknown id or path fails the whole command, with its own error and exit code, before anything runs; only `mesa discover adopt --ids` lists a conversation id it cannot adopt as an item in `failed`. The app reads the envelope whatever the exit code.
+A command acting on several sessions or conversations: `mesa archive` with several ids, `mesa stop --descendants`, `mesa rm --descendants`, `mesa resume --all`, and `mesa discover adopt`. It reports each item (in `--json`, one item per session, or `failed` beside what was adopted) and exits 2 when any item failed, 0 otherwise, so a script sees a partial failure while the envelope stays `ok: true` with every item. An unknown id or path fails the whole command, with its own error and exit code, before anything runs; only `mesa discover adopt --ids` lists a conversation id it cannot adopt as an item in `failed`. The app reads the envelope whatever the exit code.
+
+## Interrupted session
+
+A recoverable session a restart ended rather than its agent: its window went away after the machine last booted with no exit status or signal of its own, as a reboot or a stopped tmux server leaves it (an `/exit` records status 0, a crash a status or signal). `mesa resume --all` resumes every recoverable session whose conversation can reopen, each as a new session with its own receipt, as a Bulk command; `--interrupted` takes only the interrupted ones. Each successor keeps its predecessor's `name` and `agentName`, so the card keeps its title. The app runs `mesa resume --all --interrupted` once when it opens on a set-up profile whose sessions list a recoverable one, and toasts how many came back, and the Sessions tab's Recoverable heading has Restore all.
+Not: crashed session (a crash records its status and stays recoverable).
 
 ## Project view
 

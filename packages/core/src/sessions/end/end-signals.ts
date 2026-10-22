@@ -152,6 +152,7 @@ export function endSignals(
     board: async (scope: SessionScope = 'board') => {
       const rows = await deps.look(scope);
       let finishedRun = false;
+      let recordedExit = false;
       for (const row of rows) {
         if (!row.managed || row.endedAt || !isOver(row)) continue;
         if (row.backgroundId) {
@@ -172,6 +173,7 @@ export function endSignals(
           row.tmux.window,
           'tmux',
         );
+        recordedExit ||= Boolean(found);
         const exited = found ?? store.find(row.id);
         // The signal may have saved the exit but missed its receipt (or beaten its creation).
         if (!exited || exited.endedAt || !exited.events.some((e) => e.type === 'exited')) continue;
@@ -182,7 +184,10 @@ export function endSignals(
         const row = rows.find((r) => r.id === id);
         return row?.managed ? isOver(row) : overOrGone(id);
       };
-      return (await startQueue(overNow)).started || finishedRun ? deps.look(scope) : rows;
+      // An exit recorded here is not on the rows read before it: look again, so callers see it.
+      return (await startQueue(overNow)).started || finishedRun || recordedExit
+        ? deps.look(scope)
+        : rows;
     },
     /**
      * One agent hook's payload, from `mesa hook claude` inside a Mesa session. A Stop, a turn's

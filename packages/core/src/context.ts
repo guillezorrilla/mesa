@@ -50,6 +50,8 @@ export type MesaDeps = {
    * 3,000 ms in all); without it, the budget starts when the advice is asked for.
    */
   processStartedAt?: Date;
+  /** When the machine last started, so a restore finds the sessions its restart ended. */
+  bootedAt: Date;
   /** Read the current element from the owning native webview before browser feedback is sent. */
   browserSelection: (socket: string, session: string) => Promise<BrowserPageSelection | undefined>;
   obsidian: ObsidianPaths;

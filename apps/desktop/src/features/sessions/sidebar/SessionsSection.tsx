@@ -1,7 +1,9 @@
 import type { TreeRow } from '@mesa/core';
 import { GENERAL_PROJECT, moveSession } from '@mesa/core/browser';
+import { RotateCcw } from 'lucide-react';
 import { useRef } from 'react';
 import { Muted } from '@/components/Muted';
+import { Button } from '@/components/ui/button';
 import type { WorkspaceView } from '@/lib/workspaceView';
 import type { SelectionInput } from '../selection/sessionSelection';
 import { StartingSessions } from '../start/StartingSessions';
@@ -37,6 +39,8 @@ export function SessionsSection(props: {
   chosen: readonly string[];
   onSelection: (input: SelectionInput) => void;
   onArchiveSessions?: (ids: string[]) => void;
+  /** Recoverable's Restore all: resumes every recoverable session. */
+  onRestoreAll?: () => void;
   starting?: readonly string[];
   onNewSession?: (project: string, kind: SessionLocation, parent?: string) => void;
   onArchiveSession?: (id: string) => void;
@@ -158,7 +162,14 @@ export function SessionsSection(props: {
       )}
       {stranded.length > 0 && (
         <div data-testid="recoverable-sessions" className="mt-4">
-          <p className="px-2 text-xs font-medium text-state-waiting">Recoverable</p>
+          <div className="flex items-center justify-between px-2">
+            <p className="text-xs font-medium text-state-waiting">Recoverable</p>
+            {props.onRestoreAll && (
+              <Button variant="ghost" size="xs" onClick={props.onRestoreAll}>
+                <RotateCcw aria-hidden /> Restore all
+              </Button>
+            )}
+          </div>
           <div className="px-1">{stranded.map((session) => card(session))}</div>
         </div>
       )}

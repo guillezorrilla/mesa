@@ -38,6 +38,8 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
   'projects visit': (args) =>
     envelope({ name: args.at(-1), visits: 1, visitedAt: '2026-09-30T12:00:00.000Z' }),
   'skills list': () => envelope([]),
+  // The launch's restore of the sessions a restart ended: none.
+  'resume --all': () => envelope({ items: [] }),
   'update channel': () => envelope({ channel: 'beta' }),
   installs: () =>
     envelope({ id: '00000000-0000-4000-8000-000000000001', enabled: true, lastSentAt: null }),
