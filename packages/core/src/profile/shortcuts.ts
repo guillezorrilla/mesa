@@ -42,7 +42,7 @@ export function shortcutFromKeys(keys: {
   return validShortcut(value) ? value : undefined;
 }
 
-/** A shortcut's value: a valid combination, or '' for an action left unbound (unbindTakenDefaults). */
+/** A shortcut's value: a valid combination, or '' for one left unbound (unbindTakenDefaults). */
 export const validBinding = (value: string) => value === '' || validShortcut(value);
 
 /**
