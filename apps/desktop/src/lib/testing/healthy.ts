@@ -97,7 +97,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
         visualAlert: true,
         inputRequired: 'sound',
         automation: 'silent',
-        finished: 'silent',
+        finished: 'sound',
         subagent: 'silent',
         doctor: 'silent',
       },

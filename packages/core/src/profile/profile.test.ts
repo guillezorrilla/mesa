@@ -65,7 +65,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
       quiet: false,
       visualAlert: true,
       inputRequired: 'sound',
-      finished: 'silent',
+      finished: 'sound',
       subagent: 'silent',
       doctor: 'silent',
       automation: 'silent',

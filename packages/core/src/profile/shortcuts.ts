@@ -4,6 +4,7 @@ export const DEFAULT_SHORTCUTS = {
   board: 'Mod+1',
   newSession: 'Mod+N',
   switchSession: 'Mod+Shift+K',
+  toggleUnread: 'Mod+Shift+U',
 } as const;
 
 export type ShortcutAction = keyof typeof DEFAULT_SHORTCUTS;
@@ -39,4 +40,15 @@ export function shortcutFromKeys(keys: {
   if (!/^[A-Z0-9]$/.test(key)) return undefined;
   const value = `Mod+${keys.shiftKey ? 'Shift+' : ''}${keys.altKey ? 'Alt+' : ''}${key}`;
   return validShortcut(value) ? value : undefined;
+}
+
+/**
+ * A profile that bound toggleUnread's key to another action before toggleUnread existed keeps it:
+ * toggleUnread is then unbound (''), and never matches a key, until a person sets it.
+ */
+export function unbindTakenToggleUnread(input: unknown) {
+  if (!input || typeof input !== 'object' || 'toggleUnread' in input) return input;
+  return Object.values(input).includes(DEFAULT_SHORTCUTS.toggleUnread)
+    ? { ...input, toggleUnread: '' }
+    : input;
 }

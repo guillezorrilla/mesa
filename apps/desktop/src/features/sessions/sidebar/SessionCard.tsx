@@ -12,14 +12,16 @@ import { AutomationBanner } from '@/features/automations/AutomationBanner';
 import { cn } from '@/lib/utils';
 import type { SessionLocation } from '../start/useStartSession';
 import { stateTone } from '../stateTone';
+import { useUnreadContext } from '../useUnread';
 import { HoverAction } from './HoverAction';
 import { SessionCardMenu } from './SessionCardMenu';
 
 /**
  * One session in the sidebar: its state and title with a badge per additional project, and while
- * not compact its branch and state line; on hover, a child session, compact, archive, and More
- * actions. Its keys: Arrows step to the next card, Shift+Arrow ranges to it, Option+Arrow moves
- * it within its project, and Shift+Enter or Cmd+Enter act as a Shift- or Cmd-click.
+ * not compact its branch and state line, filled green with a bold title while unread; on hover, a
+ * child session, compact, archive, and More actions. Its keys: Arrows step to the next card,
+ * Shift+Arrow ranges to it, Option+Arrow moves it within its project, and Shift+Enter or Cmd+Enter
+ * act as a Shift- or Cmd-click.
  */
 export function SessionCard(props: {
   session: TreeRow;
@@ -38,12 +40,15 @@ export function SessionCard(props: {
   /** How many cards are chosen when this one is, else 1. */
   chosenCount: number;
   onArchiveChosen: () => void;
+  /** Marks this card, or every chosen card with it, unread or read. */
+  onMarkChosen: (unread: boolean) => void;
   onNewSession?: (project: string, kind: SessionLocation, parent?: string) => void;
   onArchiveSession?: (id: string) => void;
   onDependencySession?: (id: string) => void;
 }) {
   const { session, selected, chosen, compact } = props;
   const branch = sessionBranch(session);
+  const unread = useUnreadContext()?.unread(session) ?? false;
   return (
     <div className="group relative mb-1">
       <button
@@ -55,10 +60,12 @@ export function SessionCard(props: {
         className={cn(
           'flex w-full select-none flex-col justify-center gap-1 rounded-md border border-border/70 bg-card/40 px-2 py-1.5 text-left text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring',
           compact ? 'min-h-9' : 'min-h-14',
+          unread && 'border-state-unread bg-state-unread/25 hover:bg-state-unread/35',
           chosen && 'border-ring/60 bg-accent',
           selected && 'border-ring bg-ring/15',
         )}
-        title={`${projectLabel(session.project)}: ${sessionLabel(session)}: ${session.lastState.state}${props.onMove ? '\nDrag or press Option+Up/Down to reorder' : ''}`}
+        data-unread={unread || undefined}
+        title={`${projectLabel(session.project)}: ${sessionLabel(session)}: ${session.lastState.state}${unread ? ', unread' : ''}${props.onMove ? '\nDrag or press Option+Up/Down to reorder' : ''}`}
         onClick={(event) => props.onSelect({ shift: event.shiftKey, toggle: event.metaKey })}
         onKeyDown={(event) => {
           const by = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
@@ -86,7 +93,7 @@ export function SessionCard(props: {
               )}
             />
           )}
-          <span className="truncate">{sessionTitle(session)}</span>
+          <span className={cn('truncate', unread && 'font-bold')}>{sessionTitle(session)}</span>
           {session.managed &&
             session.additional?.map(({ project }) => (
               <Badge
@@ -115,9 +122,11 @@ export function SessionCard(props: {
               className={cn('pl-4 font-mono text-[11px]', stateTone(session.lastState.state).line)}
             >
               {session.lastState.state}
+              {unread && ' · unread'}
             </span>
           </>
         )}
+        {compact && unread && <span className="sr-only">, unread</span>}
         {chosen && <span className="sr-only">, selected</span>}
       </button>
       {session.managed && session.project !== GENERAL_PROJECT && (
@@ -151,10 +160,12 @@ export function SessionCard(props: {
           </HoverAction>
           <SessionCardMenu
             session={session}
+            unread={unread}
             onNewSession={props.onNewSession}
             onDependencySession={props.onDependencySession}
             chosenCount={props.chosenCount}
             onArchiveChosen={props.onArchiveChosen}
+            onMarkChosen={props.onMarkChosen}
           />
         </>
       )}

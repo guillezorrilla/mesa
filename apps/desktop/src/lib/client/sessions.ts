@@ -99,6 +99,16 @@ export const sessionsCommands = {
     '--',
     id,
   ]),
+  'sessions.read': commandWith<{ id: string }, { id: string; unread: false }>(({ id }) => [
+    'read',
+    '--',
+    id,
+  ]),
+  'sessions.unread': commandWith<{ id: string }, { id: string; unread: true }>(({ id }) => [
+    'unread',
+    '--',
+    id,
+  ]),
   'sessions.archive': commandWith<{ id: string }, Recorded<SessionRecord>>(({ id }) => [
     'archive',
     '--',

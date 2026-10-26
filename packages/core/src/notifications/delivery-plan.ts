@@ -22,15 +22,29 @@ type Deliverable = InboxItem & {
 const deliverable = (item: InboxItem): item is Deliverable => item.kind !== 'release';
 
 /**
+ * How long a finished turn's banner waits, so the app can first mark read the session it shows in
+ * a focused window (CONTEXT.md, Unread). shortcut: a guess at two looks and a mark; raise it if a
+ * watched session still banners.
+ */
+export const FINISHED_HOLD_MS = 5_000;
+
+/**
  * What to deliver of `items` (newest first) not yet delivered and, except failed automation runs,
  * no older than `startedAt`: one notice, or a digest of up to 500, never counting a release
- * notice. `skipped` are the read ones and those whose kind is off, which the caller acknowledges
- * so they are never offered again.
+ * notice. `skipped` are the read ones, those whose kind is off, and finished turns of a session a
+ * person had open since (`seenAt`), which the caller acknowledges so they are never offered again.
+ * A finished turn under FINISHED_HOLD_MS old waits for a later plan.
  */
 export function planDelivery(
   items: InboxItem[],
   settings: Config['notifications'],
-  state: { startedAt: string; delivered: readonly string[] },
+  state: {
+    startedAt: string;
+    delivered: readonly string[];
+    now: string;
+    /** When a person last had the session open (its record's `seenAt`). */
+    seenAt: (session: string) => string | undefined;
+  },
 ): { plan: DeliveryPlan; skipped: string[] } {
   const fresh = items
     .filter(deliverable)
@@ -41,8 +55,13 @@ export function planDelivery(
     );
   const mode = (item: Deliverable) =>
     settings[item.kind === 'input-required' ? 'inputRequired' : item.kind];
-  const skipped = fresh.filter((item) => item.read || mode(item) === 'off').map((item) => item.id);
-  const pending = fresh.filter((item) => !item.read && mode(item) !== 'off').slice(0, 500);
+  const seen = (item: Deliverable) =>
+    item.kind === 'finished' && (state.seenAt(item.session) ?? '') >= item.at;
+  const held = (item: Deliverable) =>
+    item.kind === 'finished' && Date.parse(state.now) - Date.parse(item.at) < FINISHED_HOLD_MS;
+  const skip = (item: Deliverable) => item.read || mode(item) === 'off' || seen(item);
+  const skipped = fresh.filter(skip).map((item) => item.id);
+  const pending = fresh.filter((item) => !skip(item) && !held(item)).slice(0, 500);
   if (settings.quiet || pending.length === 0) return { plan: { kind: 'none' }, skipped };
   const ids = pending.map((item) => item.id);
   const item = pending[0];

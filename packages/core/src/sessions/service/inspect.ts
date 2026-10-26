@@ -19,6 +19,7 @@ import { renameSession, setWorkflowStatus } from '../record/edits.js';
 import { sessionFolder } from '../record/folder.js';
 import { projectScope } from '../record/general.js';
 import { recordAgent, type SessionRecord } from '../record/record.js';
+import { markRead, markUnread } from '../record/unread.js';
 import { readHookEvents } from '../signals/hook-events.js';
 import { refreshReadings } from '../signals/readings.js';
 import { sessionGoal } from '../start/goal.js';
@@ -29,7 +30,8 @@ import type { lifecycleActions } from './lifecycle.js';
 
 /**
  * The board's side of sessions: what it lists, shows, and finds of them, natively too, and what
- * it shows them by (a name, a workflow status, and whether they are archived).
+ * it shows them by (a name, a workflow status, whether they are unread, and whether they are
+ * archived).
  */
 export function inspectActions(
   ctx: MesaContext,
@@ -214,6 +216,13 @@ export function inspectActions(
         },
         () => setWorkflowStatus(store, id, status),
       ),
+    /**
+     * Marks a session read, as a person has it open (CONTEXT.md, Unread). Unrecorded: the app
+     * marks the session it shows, many times a day.
+     */
+    read: (id: string) => markRead(store, id, ctx.clock().toISOString()),
+    /** Marks a session unread, to come back to; unrecorded, as `read` is. */
+    unread: (id: string) => markUnread(store, id),
     archive,
     /**
      * Archives each id through `archive`, one session receipt each; an unknown id refuses them

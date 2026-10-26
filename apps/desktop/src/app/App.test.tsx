@@ -1794,6 +1794,7 @@ test('Sessions sidebar menu opens the selected session dependency editor', async
     'New terminal session',
     'New child worktree session',
     'Set dependency',
+    'Mark as unread',
   ]);
   await click(options[2]);
   expect(byTestId('dependency-dialog')[0]?.textContent).toContain('Set dependency for aaaaaaaa');
@@ -1813,6 +1814,7 @@ test('General session menu can start a child terminal without a project', async 
   expect(options.map((item) => item.textContent)).toEqual([
     'New terminal session',
     'Set dependency',
+    'Mark as unread',
   ]);
   await click(options[0]);
   expect(calls).toContainEqual([

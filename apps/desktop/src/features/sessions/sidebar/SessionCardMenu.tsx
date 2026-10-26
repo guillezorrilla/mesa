@@ -1,6 +1,6 @@
 import type { TreeRow } from '@mesa/core';
 import { GENERAL_PROJECT, sessionTitle } from '@mesa/core/browser';
-import { Archive, MoreVertical } from 'lucide-react';
+import { Archive, Mail, MailOpen, MoreVertical } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,15 +12,18 @@ import { HoverAction } from './HoverAction';
 
 /**
  * A managed session card's More actions: a terminal or child worktree session from it, a
- * dependency, and while several cards are chosen with it, archiving them together.
+ * dependency, marking it (with the cards chosen with it) unread or read, and while several cards
+ * are chosen with it, archiving them together.
  */
 export function SessionCardMenu(props: {
   session: Extract<TreeRow, { managed: true }>;
+  unread: boolean;
   onNewSession?: (project: string, kind: SessionLocation, parent?: string) => void;
   onDependencySession?: (id: string) => void;
   /** How many cards are chosen when this one is, else 1. */
   chosenCount: number;
   onArchiveChosen: () => void;
+  onMarkChosen: (unread: boolean) => void;
 }) {
   const { session } = props;
   return (
@@ -49,6 +52,10 @@ export function SessionCardMenu(props: {
         <DropdownMenuItem onSelect={() => props.onDependencySession?.(session.id)}>
           Set dependency
         </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => props.onMarkChosen(!props.unread)}>
+          {props.unread ? <MailOpen aria-hidden /> : <Mail aria-hidden />}
+          {markLabel(props.unread, props.chosenCount)}
+        </DropdownMenuItem>
         {props.chosenCount > 1 && (
           <DropdownMenuItem onSelect={props.onArchiveChosen}>
             <Archive aria-hidden />
@@ -59,3 +66,7 @@ export function SessionCardMenu(props: {
     </DropdownMenu>
   );
 }
+
+/** Mark as unread (read when it is unread), counting the chosen cards when several are. */
+export const markLabel = (unread: boolean, count: number) =>
+  `Mark ${count > 1 ? `${count} sessions ` : ''}as ${unread ? 'read' : 'unread'}`;

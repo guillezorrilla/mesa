@@ -128,9 +128,12 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
     const startedAt = state.startedAt ?? ctx.clock().toISOString();
     if (!state.startedAt) store.write({ startedAt });
     const settings = ctx.open().config.notifications;
+    const seenAt = new Map(ctx.store.readable().map((r) => [r.id, r.seenAt]));
     const { plan, skipped } = planDelivery(all(), settings, {
       startedAt,
       delivered: state.delivered,
+      now: ctx.clock().toISOString(),
+      seenAt: (session) => seenAt.get(session),
     });
     if (skipped.length) store.write({ delivered: skipped });
     return plan;

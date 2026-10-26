@@ -8,6 +8,7 @@ import { setConfigValue } from '../profile/config.js';
 import { eventsLog, recordHookEvent } from '../sessions/signals/hook-events.js';
 import {
   lockDeps,
+  movableClock,
   newSession,
   profilePaths,
   projectProfile,
@@ -193,7 +194,8 @@ test('Doctor findings enter the inbox once, resolve on recheck, and target Docto
 
 test('quiet delivery digests new notices once and respects each kind across restarts', () => {
   const { run } = scriptedRunner();
-  const { home, mesa } = projectProfile(run);
+  const time = movableClock();
+  const { home, mesa } = projectProfile(run, { clock: time.clock });
   const paths = profilePaths(home, 'default');
   const nativeId = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
   const store = testStore(home);
@@ -221,12 +223,18 @@ test('quiet delivery digests new notices once and respects each kind across rest
   setConfigValue(paths.config, 'notifications.quiet', 'true', lockDeps());
   expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
   setConfigValue(paths.config, 'notifications.quiet', 'false', lockDeps());
+  // Past the finished turn's hold.
+  time.set('2026-09-24T12:00:30.000Z');
   const plan = mesa.notifications.delivery();
   expect(plan).toMatchObject({ kind: 'digest', title: '2 Mesa notices', sound: true });
   if (plan.kind === 'none') throw new Error('expected digest');
-  expect(createMesa('default', testDeps(home)).notifications.delivery()).toEqual(plan);
+  expect(
+    createMesa('default', testDeps(home, { clock: time.clock })).notifications.delivery(),
+  ).toEqual(plan);
   mesa.notifications.markDelivered(plan.ids);
-  expect(createMesa('default', testDeps(home)).notifications.delivery()).toEqual({ kind: 'none' });
+  expect(
+    createMesa('default', testDeps(home, { clock: time.clock })).notifications.delivery(),
+  ).toEqual({ kind: 'none' });
 
   setConfigValue(paths.config, 'notifications.finished', 'off', lockDeps());
   hook('Stop');
@@ -244,7 +252,8 @@ test('quiet delivery digests new notices once and respects each kind across rest
 
 test('delivery acknowledges a full inbox and a session notice across two batches', () => {
   const { run } = scriptedRunner();
-  const { home, mesa } = projectProfile(run);
+  const time = movableClock();
+  const { home, mesa } = projectProfile(run, { clock: time.clock });
   const session = testStore(home).create(() => newSession());
   expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
   mesa.notifications.recordDoctor({
@@ -263,12 +272,13 @@ test('delivery acknowledges a full inbox and a session notice across two batches
     file,
     `${JSON.stringify({ at: '2026-09-24T12:00:03.000Z', agent: 'claude', event: 'Stop', payload: {} })}\n`,
   );
+  time.set('2026-09-24T12:00:30.000Z');
   const first = mesa.notifications.delivery();
   expect(first.kind).toBe('digest');
   if (first.kind === 'none') throw new Error('expected first batch');
   expect(first.ids).toHaveLength(500);
   mesa.notifications.markDelivered(first.ids);
-  const restarted = createMesa('default', testDeps(home));
+  const restarted = createMesa('default', testDeps(home, { clock: time.clock }));
   const second = restarted.notifications.delivery();
   expect(second.kind).toBe('notice');
   if (second.kind === 'none') throw new Error('expected remaining notice');

@@ -26,7 +26,7 @@ import {
   PROJECT_SORTS,
   TERMINAL_APPS,
 } from './preferences.js';
-import { DEFAULT_SHORTCUTS, validShortcut } from './shortcuts.js';
+import { DEFAULT_SHORTCUTS, unbindTakenToggleUnread, validShortcut } from './shortcuts.js';
 import { TERMINAL_COLOR, TERMINAL_COLOR_KEYS, TERMINAL_THEMES } from './terminal-palettes.js';
 
 /** The terminal apps `mesa attach --app` can open. */
@@ -117,7 +117,7 @@ const ConfigShape = z.strictObject({
       // The Dock badge and the sidebar's dot while sessions wait for input.
       visualAlert: z.boolean().default(true),
       inputRequired: z.enum(['off', 'silent', 'sound']).default('sound'),
-      finished: z.enum(['off', 'silent', 'sound']).default('silent'),
+      finished: z.enum(['off', 'silent', 'sound']).default('sound'),
       subagent: z.enum(['off', 'silent', 'sound']).default('silent'),
       doctor: z.enum(['off', 'silent', 'sound']).default('silent'),
       automation: z.enum(['off', 'silent', 'sound']).default('silent'),
@@ -239,17 +239,27 @@ const ConfigShape = z.strictObject({
     )
     .prefault({}),
   shortcuts: z
-    .strictObject(
-      Object.fromEntries(
-        Object.entries(DEFAULT_SHORTCUTS).map(([action, key]) => [
-          action,
-          z.string().refine(validShortcut, 'must be Mod plus a letter or digit').default(key),
-        ]),
-      ) as Record<keyof typeof DEFAULT_SHORTCUTS, z.ZodDefault<z.ZodString>>,
-    )
-    .refine(
-      (keys) => new Set(Object.values(keys)).size === Object.keys(keys).length,
-      'shortcuts must be unique',
+    .preprocess(
+      unbindTakenToggleUnread,
+      z
+        .strictObject(
+          Object.fromEntries(
+            Object.entries(DEFAULT_SHORTCUTS).map(([action, key]) => [
+              action,
+              z
+                .string()
+                .refine(
+                  (value) => validShortcut(value) || (value === '' && action === 'toggleUnread'),
+                  'must be Mod plus a letter or digit',
+                )
+                .default(key),
+            ]),
+          ) as Record<keyof typeof DEFAULT_SHORTCUTS, z.ZodDefault<z.ZodString>>,
+        )
+        .refine((keys) => {
+          const bound = Object.values(keys).filter(Boolean);
+          return new Set(bound).size === bound.length;
+        }, 'shortcuts must be unique'),
     )
     .prefault({}),
   // The sidebar's project order, and `mesa projects` without --sort.

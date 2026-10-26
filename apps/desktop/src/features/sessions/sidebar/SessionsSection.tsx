@@ -8,6 +8,7 @@ import type { WorkspaceView } from '@/lib/workspaceView';
 import type { SelectionInput } from '../selection/sessionSelection';
 import { StartingSessions } from '../start/StartingSessions';
 import type { SessionLocation } from '../start/useStartSession';
+import { useUnreadContext } from '../useUnread';
 import { ArchivedSection } from './ArchivedSection';
 import { ProjectSessionsGroup } from './ProjectSessionsGroup';
 import { SessionCard } from './SessionCard';
@@ -17,7 +18,8 @@ import type { SidebarGroups } from './sidebarGroups';
 
 /**
  * The Sessions tab: active sessions by project, then General, Other, and Recoverable, as one
- * multi-selection that the right-click menu or a chosen card's More menu archives, and the
+ * multi-selection that the right-click menu or a chosen card's More menu archives or marks unread
+ * or read, and the
  * Archived section at the bottom. A project's cards reorder within it, dragged or with
  * Option+Arrow.
  */
@@ -51,6 +53,7 @@ export function SessionsSection(props: {
   const { groups, view, onView } = props;
   const { byActivity, active, stranded, general, other, inProject } = groups;
   const { chosen, onSelection, order } = props;
+  const unread = useUnreadContext();
   const list = useRef<HTMLDivElement>(null);
   /** Focuses the card `by` places from `id`, Shift-clicking it with `shift`; none past either end. */
   const step = (id: string, by: number, shift: boolean) => {
@@ -63,12 +66,15 @@ export function SessionsSection(props: {
   const card = (session: TreeRow, onMove?: (by: 1 | -1) => void) => {
     const count = chosen.includes(session.id) ? chosen.length : 1;
     const archive = () => props.onArchiveSessions?.(count > 1 ? [...chosen] : [session.id]);
+    const mark = (to: boolean) => unread?.mark(count > 1 ? chosen : [session.id], to);
     return (
       <SessionsMenu
         key={session.id}
         count={count}
         onOpen={() => onSelection({ kind: 'context', id: session.id })}
         onArchive={archive}
+        unread={unread?.unread(session)}
+        onMark={session.managed && unread ? mark : undefined}
       >
         <SessionCard
           session={session}
@@ -84,6 +90,7 @@ export function SessionsSection(props: {
           onMove={onMove}
           chosenCount={count}
           onArchiveChosen={archive}
+          onMarkChosen={mark}
           onNewSession={props.onNewSession}
           onArchiveSession={props.onArchiveSession}
           onDependencySession={props.onDependencySession}
