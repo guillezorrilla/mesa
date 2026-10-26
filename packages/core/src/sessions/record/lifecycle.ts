@@ -38,14 +38,14 @@ export const recoverable = (s: SessionRow): s is ManagedRow =>
   !s.archivedAt &&
   !s.resumedBy &&
   !queued(s);
-/** The signals a shutdown sends every process, as tmux names a dead pane's (`term`, or `SIGTERM`). */
+/** The signals a shutdown sends every process, as tmux names a dead pane's (`term`, `SIGTERM`). */
 const SHUTDOWN_SIGNALS: ReadonlySet<string> = new Set(['term', 'hup', 'kill']);
 
 /**
  * A recoverable session's exit was a restart's (CONTEXT.md, Interrupted session), not an /exit or
- * a crash: its window went away after `bootedAt` with no exit status or signal of its agent's own,
- * as a stopped tmux server leaves it; or, before `bootedAt`, its agent ended on a shutdown's signal,
- * which the pane-died hook records as the machine goes down.
+ * a crash: its window went away after `bootedAt` with no exit status or signal of its agent's
+ * own, as a stopped tmux server leaves it; or, before `bootedAt`, its agent ended on a shutdown's
+ * signal, which the pane-died hook records as the machine goes down.
  */
 export const interrupted = (r: Pick<SessionRecord, 'events'>, bootedAt: Date) => {
   const exit = r.events.filter((e) => e.type === 'exited').at(-1);
