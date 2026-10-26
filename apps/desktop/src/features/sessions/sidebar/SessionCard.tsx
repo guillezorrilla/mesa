@@ -17,10 +17,10 @@ import { SessionCardMenu } from './SessionCardMenu';
 
 /**
  * One session in the sidebar: its state and title with a badge per additional project, and while
- * not compact its branch and state line, filled green with a bold title while unread; on hover, a
- * child session, compact, archive, and More actions. Its keys: Arrows step to the next card,
- * Shift+Arrow ranges to it, Option+Arrow moves it within its project, and Shift+Enter or Cmd+Enter
- * act as a Shift- or Cmd-click.
+ * not compact its branch and state line; while unread, filled green with a dot and a bold title.
+ * On hover, a child session, compact, archive, and More actions. Its keys: Arrows step to the
+ * next card, Shift+Arrow ranges to it, Option+Arrow moves it within its project, and Shift+Enter or
+ * Cmd+Enter act as a Shift- or Cmd-click.
  */
 export function SessionCard(props: {
   session: TreeRow;
@@ -83,7 +83,10 @@ export function SessionCard(props: {
       >
         {/* Clears the hover actions so the title never runs under them. */}
         <span className="flex w-full min-w-0 items-center gap-2 font-medium group-focus-within:pr-17 group-hover:pr-17">
-          {session.managed && session.kind === 'terminal' ? (
+          {unread ? (
+            // Unread's own mark in place of the state's; the state line still names the state.
+            <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-state-unread" />
+          ) : session.managed && session.kind === 'terminal' ? (
             <TerminalSquare aria-hidden className="size-3.5 shrink-0 text-state-working" />
           ) : session.lastState.state === 'idle' ? (
             <Clock3 aria-hidden className="size-3.5 shrink-0 text-state-idle" />
