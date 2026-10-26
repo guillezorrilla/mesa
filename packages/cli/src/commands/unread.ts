@@ -6,7 +6,7 @@ export const unread = defineCommand({
   args: ['session', 'more...'],
   example: 'mesa unread a1b2c3d4',
   run: ({ mesa, args }) => {
-    const ids = [args.session, ...args.more].map((id) => mesa.sessions.unread(id).id);
+    const ids = mesa.sessions.unread([args.session, ...args.more]).map((r) => r.id);
     return {
       data: ids.length > 1 ? ids.map((id) => ({ id, unread: true })) : { id: ids[0], unread: true },
       text: `${ids.join(', ')} ${ids.length > 1 ? 'are' : 'is'} unread`,

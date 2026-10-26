@@ -67,6 +67,15 @@ test('sessions lists the records with live tmux; a fresh profile is empty', asyn
   expect(await unread()).toEqual([undefined, true]);
   expect((await mesa('unread', 'aaaaaaaa')).stdout).toBe('aaaaaaaa is unread\n');
   expect(await unread()).toEqual([true, true]);
+  // Several at once; an unknown one refuses them all.
+  expect((await mesa('read', 'aaaaaaaa', 'cccccccc', '--json')).json.data).toEqual([
+    { id: 'aaaaaaaa', unread: false },
+    { id: 'cccccccc', unread: false },
+  ]);
+  expect((await mesa('unread', 'aaaaaaaa', 'zzzzzzzz', '--json')).json.error).toMatchObject({
+    code: 'not_found',
+  });
+  expect(await unread()).toEqual([undefined, undefined]);
 });
 
 test('a session across several projects shows them after its own, before its branch', async () => {

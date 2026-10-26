@@ -60,7 +60,7 @@ test('a finished turn is unread until read, and the next finished turn is unread
   expect(await look('2026-09-24T11:59:31.000Z')).toBe(true);
   expect(store.get(session.id).unread).toBe(true);
 
-  markRead(store, session.id, '2026-09-24T11:59:40.000Z');
+  markRead(store, [session.id], '2026-09-24T11:59:40.000Z');
   // A mark writes only its own fields: the state the look saved stands.
   expect(store.get(session.id)).toMatchObject({
     seenAt: '2026-09-24T11:59:40.000Z',
@@ -70,9 +70,9 @@ test('a finished turn is unread until read, and the next finished turn is unread
   // Still idle from the same Stop: it stays read.
   expect(await look('2026-09-24T11:59:45.000Z')).toBeUndefined();
 
-  markUnread(store, session.id);
+  markUnread(store, [session.id]);
   expect(await look('2026-09-24T11:59:46.000Z')).toBe(true);
-  markRead(store, session.id, '2026-09-24T11:59:47.000Z');
+  markRead(store, [session.id], '2026-09-24T11:59:47.000Z');
 
   events = [...events, hook('UserPromptSubmit', '2026-09-24T11:59:50.000Z')];
   expect(await look('2026-09-24T11:59:51.000Z')).toBeUndefined();
@@ -80,13 +80,22 @@ test('a finished turn is unread until read, and the next finished turn is unread
   expect(await look('2026-09-24T12:00:01.000Z')).toBe(true);
 
   // A whole turn between two looks: idle, then idle from a later Stop.
-  markRead(store, session.id, '2026-09-24T12:00:02.000Z');
+  markRead(store, [session.id], '2026-09-24T12:00:02.000Z');
   events = [
     ...events,
     hook('UserPromptSubmit', '2026-09-24T12:00:03.000Z'),
     hook('Stop', '2026-09-24T12:00:04.000Z'),
   ];
   expect(await look('2026-09-24T12:00:05.000Z')).toBe(true);
+
+  // A /clear starts a new conversation: idle again, but no turn finished.
+  markRead(store, [session.id], '2026-09-24T12:00:06.000Z');
+  events = [...events, hook('SessionStart', '2026-09-24T12:00:07.000Z')];
+  expect(await look('2026-09-24T12:00:08.000Z')).toBeUndefined();
+
+  // An unknown id refuses the whole mark.
+  expect(() => markUnread(store, [session.id, 'zzzzzzzz'])).toThrow('no session zzzzzzzz');
+  expect(store.get(session.id).unread).toBeUndefined();
 });
 
 test('work that ends in idle, done or failed turns unread; a terminal, a stop, or an idle exit does not', () => {

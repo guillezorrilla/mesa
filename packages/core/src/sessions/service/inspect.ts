@@ -217,12 +217,12 @@ export function inspectActions(
         () => setWorkflowStatus(store, id, status),
       ),
     /**
-     * Marks a session read, as a person has it open (CONTEXT.md, Unread). Unrecorded: the app
-     * marks the session it shows, many times a day.
+     * Marks sessions read, as a person has them open (CONTEXT.md, Unread); an unknown id refuses
+     * them all. Unrecorded: the app marks the session it shows, many times a day.
      */
-    read: (id: string) => markRead(store, id, ctx.clock().toISOString()),
-    /** Marks a session unread, to come back to; unrecorded, as `read` is. */
-    unread: (id: string) => markUnread(store, id),
+    read: (ids: readonly string[]) => markRead(store, ids, ctx.clock().toISOString()),
+    /** Marks sessions unread, to come back to; as `read` does. */
+    unread: (ids: readonly string[]) => markUnread(store, ids),
     archive,
     /**
      * Archives each id through `archive`, one session receipt each; an unknown id refuses them

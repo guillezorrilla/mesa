@@ -183,11 +183,12 @@ export async function managedRow(
   const { state, source } = found.lastState;
   const next = classified.lastState;
   // Idle again from a later hook is news too: a turn that began and finished between two looks.
-  // Only idle: each tool hook restamps working, which would write the record on every look.
+  // Only idle: each tool hook restamps working, which would write the record on every look. A
+  // SessionStart (a /clear or /resume) is idle again with no turn, so it is not.
   const changed =
     next.state !== state ||
     next.source !== source ||
-    (next.state === 'idle' && next.at !== found.lastState.at);
+    (next.state === 'idle' && next.at !== found.lastState.at && event?.event !== 'SessionStart');
   // Listed by its pane's pid under another id: a /clear started a new conversation there.
   const moved =
     listed && listed.agentSessionId !== found.agentSessionId ? listed.agentSessionId : undefined;

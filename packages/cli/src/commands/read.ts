@@ -6,7 +6,7 @@ export const read = defineCommand({
   args: ['session', 'more...'],
   example: 'mesa read a1b2c3d4',
   run: ({ mesa, args }) => {
-    const ids = [args.session, ...args.more].map((id) => mesa.sessions.read(id).id);
+    const ids = mesa.sessions.read([args.session, ...args.more]).map((r) => r.id);
     return {
       data:
         ids.length > 1 ? ids.map((id) => ({ id, unread: false })) : { id: ids[0], unread: false },

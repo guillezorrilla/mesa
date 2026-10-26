@@ -1,5 +1,6 @@
 // Whether a person has looked at what a session last did (CONTEXT.md, Unread).
 
+import { MesaError } from '../../lib/result.js';
 import type { SessionRecord } from './record.js';
 import { type SessionState, WAITING_STATES } from './states.js';
 import type { SessionStore } from './store.js';
@@ -31,9 +32,17 @@ export const unreadOn = (
     ? { unread: true }
     : {};
 
-/** A person has it open now (`mesa read`): read, and seen at `at`. */
-export const markRead = (store: SessionStore, id: string, at: string) =>
-  store.update(id, { unread: undefined, seenAt: at });
+/** Marks each of `ids` with `patch`, once every one is known: an unknown id refuses them all. */
+function markEach(store: SessionStore, ids: readonly string[], patch: Partial<SessionRecord>) {
+  const unknown = ids.filter((id) => !store.find(id));
+  if (unknown.length) throw new MesaError('not_found', `no session ${unknown.join(', ')}`);
+  return [...new Set(ids)].map((id) => store.update(id, patch));
+}
 
-/** A person wants to come back to it (`mesa unread`): unread until it is opened again. */
-export const markUnread = (store: SessionStore, id: string) => store.update(id, { unread: true });
+/** A person has them open now (`mesa read`): read, and seen at `at`. */
+export const markRead = (store: SessionStore, ids: readonly string[], at: string) =>
+  markEach(store, ids, { unread: undefined, seenAt: at });
+
+/** A person wants to come back to them (`mesa unread`): unread until each is opened again. */
+export const markUnread = (store: SessionStore, ids: readonly string[]) =>
+  markEach(store, ids, { unread: true });
