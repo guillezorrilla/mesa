@@ -48,13 +48,34 @@ test('sessions lists the records with live tmux; a fresh profile is empty', asyn
   expect((await mesa('sessions', '--all')).stdout).toBe(
     [
       // By attention: the live one (its screen reads idle, 60%), the vanished one, the stopped one.
-      // A session in its own worktree shows its branch.
-      'aaaaaaaa  lantern-cove    claude  idle     60%  0.33  ctx -  1h00m   ⏺ Wrote tide-tables.md',
-      'cccccccc  harbor (try/x)  claude  done     85%  0.25  ctx -  42s',
-      'bbbbbbbb  tide            claude  working  95%  0.00  ctx -  10m00s',
+      // A session in its own worktree shows its branch; work that finished unseen is unread.
+      'aaaaaaaa  lantern-cove    claude  idle (unread)  60%  0.33  ctx -  1h00m   ⏺ Wrote tide-tables.md',
+      'cccccccc  harbor (try/x)  claude  done (unread)  85%  0.25  ctx -  42s',
+      'bbbbbbbb  tide            claude  working        95%  0.00  ctx -  10m00s',
       '',
     ].join('\n'),
   );
+
+  // Read, and unread again by hand.
+  const unread = async () =>
+    (await mesa('sessions', '--json')).json.data.map((s: { unread?: true }) => s.unread);
+  expect(await unread()).toEqual([true, true]);
+  expect((await mesa('read', 'aaaaaaaa', '--json')).json.data).toEqual({
+    id: 'aaaaaaaa',
+    unread: false,
+  });
+  expect(await unread()).toEqual([undefined, true]);
+  expect((await mesa('unread', 'aaaaaaaa')).stdout).toBe('aaaaaaaa is unread\n');
+  expect(await unread()).toEqual([true, true]);
+  // Several at once; an unknown one refuses them all.
+  expect((await mesa('read', 'aaaaaaaa', 'cccccccc', '--json')).json.data).toEqual([
+    { id: 'aaaaaaaa', unread: false },
+    { id: 'cccccccc', unread: false },
+  ]);
+  expect((await mesa('unread', 'aaaaaaaa', 'zzzzzzzz', '--json')).json.error).toMatchObject({
+    code: 'not_found',
+  });
+  expect(await unread()).toEqual([undefined, undefined]);
 });
 
 test('a session across several projects shows them after its own, before its branch', async () => {

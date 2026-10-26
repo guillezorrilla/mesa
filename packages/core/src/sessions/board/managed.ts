@@ -10,6 +10,7 @@ import { hasConversation } from '../native/conversation.js';
 import type { SessionRecord } from '../record/record.js';
 import { FINAL_STATES, isAgentState } from '../record/states.js';
 import type { SessionStore } from '../record/store.js';
+import { unreadOn } from '../record/unread.js';
 import { type HookEvent, parentHook } from '../signals/hook-events.js';
 import { type PlacementStore, supervisionOf, type Want } from '../signals/placements.js';
 import { classifySession, type Placement, type SessionSignals } from '../signals/state.js';
@@ -22,10 +23,11 @@ import { type ManagedRow, secondsBetween } from './rows.js';
  * Saves what a look learned onto the record as it is now: a new state, the name its agent gives
  * it, or an agent session id (the one a /clear moved it to, or the one its agent picked). A
  * stopped session keeps the stop's state, and takes only a name and an id it has none of, one its
- * agent picked before the stop. A state
- * another look saved since this one read the record (a pane-died hook's, or another mesa's look)
- * is newer and stays. A record another process holds locked (busy, or a lock left by a killed mesa) is not
- * waited for or written: this look still shows what it learned, and the next one tries again.
+ * agent picked before the stop. A state another look saved since this one read the record (a
+ * pane-died hook's, or another mesa's look) is newer and stays. A new state that ends its agent's
+ * work marks it unread (unreadOn). A record another process holds locked (busy, or a lock left by
+ * a killed mesa) is not waited for or written: this look still shows what it learned, and the
+ * next one tries again.
  */
 function saveLook(
   store: SessionStore,
@@ -45,7 +47,7 @@ function saveLook(
         current.endedAt
           ? stopped(current)
           : isDeepStrictEqual(current.lastState, found.lastState)
-            ? learned
+            ? { ...learned, ...(lastState ? unreadOn(current, lastState) : {}) }
             : rest,
       { wait: false },
     );
@@ -180,7 +182,13 @@ export async function managedRow(
     : { lastState: found.lastState, attention: 0 };
   const { state, source } = found.lastState;
   const next = classified.lastState;
-  const changed = next.state !== state || next.source !== source;
+  // Idle again from a later hook is news too: a turn that began and finished between two looks.
+  // Only idle: each tool hook restamps working, which would write the record on every look. A
+  // SessionStart (a /clear or /resume) is idle again with no turn, so it is not.
+  const changed =
+    next.state !== state ||
+    next.source !== source ||
+    (next.state === 'idle' && next.at !== found.lastState.at && event?.event !== 'SessionStart');
   // Listed by its pane's pid under another id: a /clear started a new conversation there.
   const moved =
     listed && listed.agentSessionId !== found.agentSessionId ? listed.agentSessionId : undefined;

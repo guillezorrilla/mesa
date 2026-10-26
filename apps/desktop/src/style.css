@@ -38,6 +38,8 @@
   --state-working: oklch(0.55 0.13 250);
   --state-waiting: oklch(0.75 0.16 70);
   --state-idle: oklch(0.6 0.12 165);
+  /* An unread session's card: a stronger green than idle (CONTEXT.md, Unread). */
+  --state-unread: oklch(0.62 0.19 150);
   --state-done: oklch(0.6 0.01 250);
   --state-failed: oklch(0.58 0.2 27);
   /* A tracker's tint, and GitHub's open and closed states. */
@@ -81,6 +83,7 @@
   --state-working: oklch(0.7 0.12 250);
   --state-waiting: oklch(0.82 0.16 75);
   --state-idle: oklch(0.72 0.12 165);
+  --state-unread: oklch(0.76 0.19 150);
   --state-done: oklch(0.62 0.01 250);
   --state-failed: oklch(0.7 0.18 25);
   --tracker-github: oklch(0.72 0.14 150);
@@ -108,12 +111,15 @@
 
 :root[data-color-vision="red-green"] {
   --state-idle: oklch(0.72 0.12 240);
+  --state-unread: oklch(0.66 0.17 240);
   --state-failed: oklch(0.65 0.18 335);
 }
 
 :root[data-color-vision="blue-yellow"] {
   --state-working: oklch(0.65 0.13 165);
   --state-waiting: oklch(0.67 0.15 30);
+  /* Working took the green. */
+  --state-unread: oklch(0.62 0.2 335);
 }
 
 @theme inline {
@@ -145,6 +151,7 @@
   --color-state-working: var(--state-working);
   --color-state-waiting: var(--state-waiting);
   --color-state-idle: var(--state-idle);
+  --color-state-unread: var(--state-unread);
   --color-state-done: var(--state-done);
   --color-state-failed: var(--state-failed);
   --color-tracker-github: var(--tracker-github);

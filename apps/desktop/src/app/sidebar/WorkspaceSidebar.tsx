@@ -66,6 +66,8 @@ export function WorkspaceSidebar(props: {
   onArchiveSessions?: (ids: string[]) => void;
   /** Resumes every recoverable session. */
   onRestoreAll?: () => void;
+  /** A restore runs, the launch's or Restore all's. */
+  restoring?: boolean;
   onDependencySession?: (id: string) => void;
   /** Puts a project's session cards in a new order (useReorderSessions). */
   onReorderSessions?: (project: string, ids: string[]) => void;
@@ -226,6 +228,7 @@ export function WorkspaceSidebar(props: {
             onSelection={selection.apply}
             onArchiveSessions={props.onArchiveSessions}
             onRestoreAll={props.onRestoreAll}
+            restoring={props.restoring}
             starting={props.starting}
             onNewSession={props.onNewSession}
             onArchiveSession={props.onArchiveSession}

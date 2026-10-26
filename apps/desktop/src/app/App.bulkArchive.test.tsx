@@ -85,7 +85,7 @@ test('Shift-click selects three cards and the right-click menu archives them tog
   expect(card('aaaaaaaa')?.getAttribute('aria-current')).toBe('page');
 
   await rightClick(card('bbbbbbbb'));
-  expect(menuItems()).toEqual(['Archive 3 sessions']);
+  expect(menuItems()).toEqual(['Archive 3 sessions', 'Mark 3 sessions as unread']);
   await click(document.querySelector<HTMLElement>('[role="menuitem"]') ?? undefined);
   expect(menuItems()).toEqual([]);
   expect(byTestId('archive-dialog')).toHaveLength(1);
@@ -125,7 +125,7 @@ test('right-click on an unselected card makes it the selection: Archive session'
   await clickWith(card('bbbbbbbb'), { metaKey: true });
   await rightClick(card('cccccccc'));
   expect(selected()).toEqual(['cccccccc']);
-  expect(menuItems()).toEqual(['Archive session']);
+  expect(menuItems()).toEqual(['Archive session', 'Mark as unread']);
   await act(async () => {
     document.activeElement?.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
@@ -154,7 +154,7 @@ async function menuOnThree() {
   await click(card('aaaaaaaa'));
   await clickWith(card('cccccccc'), { shiftKey: true });
   await rightClick(card('bbbbbbbb'));
-  expect(menuItems()).toEqual(['Archive 3 sessions']);
+  expect(menuItems()).toEqual(['Archive 3 sessions', 'Mark 3 sessions as unread']);
 }
 
 test('Escape on the open menu closes it and keeps the selection', async () => {

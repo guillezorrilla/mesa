@@ -19,6 +19,7 @@ import { useReorderSessions } from '@/features/sessions/sidebar/useReorderSessio
 import { useStartSession } from '@/features/sessions/start/useStartSession';
 import { usePrEventDelivery } from '@/features/sessions/usePrEventDelivery';
 import { useRestoreSessions } from '@/features/sessions/useRestoreSessions';
+import { UnreadContext, useUnread } from '@/features/sessions/useUnread';
 import { OpenSettingsContext } from '@/features/settings/useOpenSettings';
 import { useCostAlerts } from '@/features/usage/useCostAlerts';
 import { AddVaultProvider } from '@/features/vault/AddVaultProvider';
@@ -91,7 +92,7 @@ function AppShell() {
     failed: (!!config.error && !needsProfileSetup) || !!projects.error,
     setView,
   });
-  const restoreAll = useRestoreSessions(ready && !onboarding && !!config.data, sessions);
+  const restore = useRestoreSessions(ready && !onboarding && !!config.data, sessions);
   useDiscoveryOffer({
     config: config.data,
     projects: projects.data,
@@ -148,6 +149,7 @@ function AppShell() {
       setView((current) => (current.kind === 'session' ? { kind: 'sessions' } : current)),
   });
   useNativeNotifications(navigateLatest);
+  const unread = useUnread(view, sessions);
   useAppMenu(navigateLatest);
   useExternalLinks();
   useGlobalShortcuts({
@@ -162,6 +164,7 @@ function AppShell() {
     onNewSession: () => {
       if (canStart) requestNewSession();
     },
+    onToggleUnread: unread.toggleShown,
   });
   return (
     <>
@@ -191,50 +194,53 @@ function AppShell() {
         )}
         <PrsContext.Provider value={prs}>
           <div className="flex min-h-0 flex-1">
-            <WorkspaceSidebar
-              view={view}
-              onView={navigate}
-              projects={sidebarProjects}
-              sort={sorted.sort}
-              onSort={sorted.setSort}
-              sessions={sessions}
-              waiting={waiting}
-              collapsed={sidebarCollapsed}
-              onCollapse={() => setSidebarCollapsed((value) => !value)}
-              onAddProject={setProjectAdd}
-              onProjectsChanged={() => void projects.refresh()}
-              onReorderSessions={reorderSessions}
-              onProjectUnregistered={projectUnregistered}
-              starting={starting}
-              lastSession={workspace.lastSession}
-              lastProject={workspace.lastProject}
-              lastPr={workspace.lastPr}
-              onNewSession={(project, location, parent) =>
-                requestNewSession({
-                  ...(project === GENERAL_PROJECT ? { general: true } : { project }),
-                  location,
-                  parent,
-                })
-              }
-              onArchiveSession={(id) => {
-                navigate({ kind: 'session', id });
-                setArchiveSessionRequest((request) => ({
-                  count: (request?.count ?? 0) + 1,
-                  ids: [id],
-                }));
-              }}
-              onRestoreAll={restoreAll}
-              onArchiveSessions={(ids) =>
-                setArchiveSessionRequest((request) => ({ count: (request?.count ?? 0) + 1, ids }))
-              }
-              onDependencySession={(id) => {
-                navigate({ kind: 'session', id });
-                setDependencySessionRequest((request) => ({
-                  count: (request?.count ?? 0) + 1,
-                  ids: [id],
-                }));
-              }}
-            />
+            <UnreadContext.Provider value={unread}>
+              <WorkspaceSidebar
+                view={view}
+                onView={navigate}
+                projects={sidebarProjects}
+                sort={sorted.sort}
+                onSort={sorted.setSort}
+                sessions={sessions}
+                waiting={waiting}
+                collapsed={sidebarCollapsed}
+                onCollapse={() => setSidebarCollapsed((value) => !value)}
+                onAddProject={setProjectAdd}
+                onProjectsChanged={() => void projects.refresh()}
+                onReorderSessions={reorderSessions}
+                onProjectUnregistered={projectUnregistered}
+                starting={starting}
+                lastSession={workspace.lastSession}
+                lastProject={workspace.lastProject}
+                lastPr={workspace.lastPr}
+                onNewSession={(project, location, parent) =>
+                  requestNewSession({
+                    ...(project === GENERAL_PROJECT ? { general: true } : { project }),
+                    location,
+                    parent,
+                  })
+                }
+                onArchiveSession={(id) => {
+                  navigate({ kind: 'session', id });
+                  setArchiveSessionRequest((request) => ({
+                    count: (request?.count ?? 0) + 1,
+                    ids: [id],
+                  }));
+                }}
+                onRestoreAll={restore.restoreAll}
+                restoring={restore.restoring}
+                onArchiveSessions={(ids) =>
+                  setArchiveSessionRequest((request) => ({ count: (request?.count ?? 0) + 1, ids }))
+                }
+                onDependencySession={(id) => {
+                  navigate({ kind: 'session', id });
+                  setDependencySessionRequest((request) => ({
+                    count: (request?.count ?? 0) + 1,
+                    ids: [id],
+                  }));
+                }}
+              />
+            </UnreadContext.Provider>
             <OpenSettingsContext.Provider value={workspace.openSettings}>
               <NavigateContext.Provider value={navigate}>
                 <WorkspaceMain

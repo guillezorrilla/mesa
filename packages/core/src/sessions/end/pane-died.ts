@@ -1,6 +1,7 @@
 import type { Clock } from '../../lib/clock.js';
 import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
+import { unreadOn } from '../record/unread.js';
 import { exitState, PROCESS } from '../signals/state.js';
 import type { TmuxBackend } from '../tmux/backend.js';
 import { paneExit, VIEW_PREFIX } from '../tmux/format.js';
@@ -50,7 +51,11 @@ export async function recordPaneDied(
   const record = deps.store.update(found.id, (current) => {
     if (recorded(current)) return {};
     wrote = true;
-    return { lastState, events: [...current.events, exited] };
+    return {
+      lastState,
+      events: [...current.events, exited],
+      ...unreadOn(current, lastState),
+    };
   });
   return wrote ? record : undefined;
 }

@@ -262,6 +262,7 @@ test('shortcut values are canonical, unique, and never take reserved window keys
     board: 'Mod+1',
     newSession: 'Mod+N',
     switchSession: 'Mod+Shift+K',
+    toggleUnread: 'Mod+Shift+U',
   });
   expect(setConfigValue(file, 'shortcuts.search', 'Mod+Shift+P', lockDeps()).value).toBe(
     'Mod+Shift+P',
@@ -277,6 +278,23 @@ test('shortcut values are canonical, unique, and never take reserved window keys
   expect(
     thrown(() => setConfigValue(file, 'shortcuts.switchSession', 'Mod+N', lockDeps())).code,
   ).toBe('invalid_config');
+});
+
+test("a profile that bound toggleUnread's key first keeps it, and toggleUnread is unbound", () => {
+  writeFileSync(file, 'vault: /tmp/v\nshortcuts:\n  search: Mod+Shift+U\n');
+  expect(loadConfig(file).shortcuts).toMatchObject({ search: 'Mod+Shift+U', toggleUnread: '' });
+  expect(setConfigValue(file, 'shortcuts.toggleUnread', 'Mod+Shift+J', lockDeps()).value).toBe(
+    'Mod+Shift+J',
+  );
+  expect(loadConfig(file).shortcuts).toMatchObject({
+    search: 'Mod+Shift+U',
+    toggleUnread: 'Mod+Shift+J',
+  });
+  // Any other clash is refused, even with the other action absent from the profile.
+  writeFileSync(file, 'vault: /tmp/v\n');
+  expect(thrown(() => setConfigValue(file, 'shortcuts.board', 'Mod+N', lockDeps())).code).toBe(
+    'invalid_config',
+  );
 });
 
 test('agent launch defaults are unset by default, validate in each agent terms, and unset again', () => {

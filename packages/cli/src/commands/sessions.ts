@@ -17,7 +17,7 @@ import { columns } from '../output/columns.js';
 export const sessions = defineCommand({
   name: 'sessions',
   summary:
-    'List the sessions, foreign ones too, by attention: agent (a headless one says run), state, confidence, attention, context use (ctx), running time, last output (or what a queued one waits on, or, with --archived, when it was archived)',
+    'List the sessions, foreign ones too, by attention: agent (a headless one says run), state (and whether it is unread), confidence, attention, context use (ctx), running time, last output (or what a queued one waits on, or, with --archived, when it was archived)',
   flags: {
     all: { type: 'boolean', description: 'Include sessions stopped more than a day ago' },
     archived: {
@@ -50,7 +50,7 @@ export const sessions = defineCommand({
                 : '-',
             // A headless run says so, as the Board's badge does.
             isRun(s) ? `${s.agent} (run)` : s.agent,
-            s.lastState.state,
+            s.managed && s.unread ? `${s.lastState.state} (unread)` : s.lastState.state,
             percent(s.lastState.confidence),
             attentionScore(s.attention),
             // Its context use, labelled, as the columns have no header.

@@ -117,6 +117,16 @@ const SessionRecordFields = z.strictObject({
    * when it names none (a folder outside git), so it is not read again until the next turn.
    */
   gitBranch: z.string().optional(),
+  /**
+   * Its agent finished work no one has looked at yet, or a person marked it so (CONTEXT.md,
+   * Unread).
+   */
+  unread: z.literal(true).optional(),
+  /**
+   * When a person last had it open in Mesa (mesa read): a turn that finished before then sends no
+   * banner.
+   */
+  seenAt: z.iso.datetime().optional(),
   /** A person's workflow label, independent of Faro's observed agent state. */
   workflowStatus: z.enum(WORKFLOW_STATUSES).optional(),
   /** Started outside Mesa, then adopted (CONTEXT.md, Adopted session). */

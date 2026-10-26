@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { TEST_CHANGELOG } from '@mesa/core/testing';
+import { fixedClock, TEST_CHANGELOG } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -19,8 +19,10 @@ test('notification delivery and acknowledgement use the profile inbox through CL
     join(cli.paths.events, `${id}.jsonl`),
     `${JSON.stringify({ at: '2026-09-24T12:00:01.000Z', agent: 'claude', event: 'Stop' })}\n`,
   );
+  // Past the finished turn's hold.
+  cli.deps = { ...cli.deps, clock: fixedClock('2026-09-24T12:00:30.000Z') };
   const plan = (await cli.mesa('notifications', 'delivery', '--json')).json.data;
-  expect(plan).toMatchObject({ kind: 'notice', target: { kind: 'session', id }, sound: false });
+  expect(plan).toMatchObject({ kind: 'notice', target: { kind: 'session', id }, sound: true });
   expect((await cli.mesa('notifications', 'delivered', plan.id, '--json')).json.data).toEqual({
     ids: [plan.id],
     delivered: true,
@@ -40,6 +42,8 @@ test('background delivery diagnostics and a claimed notice use the same JSON inb
     join(cli.paths.events, `${id}.jsonl`),
     `${JSON.stringify({ at: '2026-09-24T12:00:01.000Z', agent: 'claude', event: 'Stop' })}\n`,
   );
+  // Past the finished turn's hold.
+  cli.deps = { ...cli.deps, clock: fixedClock('2026-09-24T12:00:30.000Z') };
   expect((await cli.mesa('notifications', 'deliver', '--json')).json.data).toMatchObject({
     status: 'unavailable',
     detail: expect.stringContaining('MESA_NOTIFICATION_HELPER'),

@@ -75,6 +75,7 @@ import {
 } from './projects.js';
 import { prompts, promptsRemove, promptsSave } from './prompts.js';
 import { PRS_COMMANDS } from './prs/index.js';
+import { read } from './read.js';
 import { receipts, receiptsShow } from './receipts.js';
 import { register } from './register.js';
 import { rename } from './rename.js';
@@ -102,6 +103,7 @@ import { stop } from './stop.js';
 import { swap } from './swap.js';
 import { TICKETS_COMMANDS } from './tickets/index.js';
 import { unarchive } from './unarchive.js';
+import { unread } from './unread.js';
 import { unregister } from './unregister.js';
 import { updateChannel, updateCheck, updateInstall, updateRevoked } from './update.js';
 import { usage } from './usage.js';
@@ -211,6 +213,7 @@ export const COMMANDS: Command[] = [
   projectsTrust,
   projectsUpdate,
   projectsVisit,
+  read,
   receipts,
   receiptsShow,
   register,
@@ -246,6 +249,7 @@ export const COMMANDS: Command[] = [
   stop,
   unregister,
   unarchive,
+  unread,
   updateCheck,
   updateChannel,
   updateInstall,

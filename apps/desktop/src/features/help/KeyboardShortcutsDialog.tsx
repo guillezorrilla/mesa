@@ -17,6 +17,7 @@ const LABELS: Record<keyof Shortcuts, string> = {
   switchSession: 'Switch session',
   newSession: 'New session',
   board: 'Go to Sessions',
+  toggleUnread: 'Mark session unread or read',
 };
 const CUSTOM = Object.entries(LABELS).map(([key, label]) => ({
   key: key as keyof Shortcuts,
@@ -109,7 +110,8 @@ function ShortcutRow(props: { label: string; shortcut: string; children?: React.
     <div className="group flex items-center gap-3 py-2 text-sm">
       <span className="flex-1 text-muted-foreground">{props.label}</span>
       {props.children}
-      <Kbd shortcut={props.shortcut} />
+      {/* Unbound: its default key was another action's first (unbindTakenDefaults). */}
+      {props.shortcut ? <Kbd shortcut={props.shortcut} /> : <Muted size="xs">Not set</Muted>}
     </div>
   );
 }

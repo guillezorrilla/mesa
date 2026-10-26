@@ -4,10 +4,12 @@ import { RotateCcw } from 'lucide-react';
 import { useRef } from 'react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import type { WorkspaceView } from '@/lib/workspaceView';
 import type { SelectionInput } from '../selection/sessionSelection';
 import { StartingSessions } from '../start/StartingSessions';
 import type { SessionLocation } from '../start/useStartSession';
+import { useUnreadContext } from '../useUnread';
 import { ArchivedSection } from './ArchivedSection';
 import { ProjectSessionsGroup } from './ProjectSessionsGroup';
 import { SessionCard } from './SessionCard';
@@ -17,7 +19,8 @@ import type { SidebarGroups } from './sidebarGroups';
 
 /**
  * The Sessions tab: active sessions by project, then General, Other, and Recoverable, as one
- * multi-selection that the right-click menu or a chosen card's More menu archives, and the
+ * multi-selection that the right-click menu or a chosen card's More menu archives or marks unread
+ * or read, and the
  * Archived section at the bottom. A project's cards reorder within it, dragged or with
  * Option+Arrow.
  */
@@ -41,6 +44,8 @@ export function SessionsSection(props: {
   onArchiveSessions?: (ids: string[]) => void;
   /** Recoverable's Restore all: resumes every recoverable session. */
   onRestoreAll?: () => void;
+  /** A restore runs: Recoverable says so in place of Restore all. */
+  restoring?: boolean;
   starting?: readonly string[];
   onNewSession?: (project: string, kind: SessionLocation, parent?: string) => void;
   onArchiveSession?: (id: string) => void;
@@ -51,6 +56,7 @@ export function SessionsSection(props: {
   const { groups, view, onView } = props;
   const { byActivity, active, stranded, general, other, inProject } = groups;
   const { chosen, onSelection, order } = props;
+  const unread = useUnreadContext();
   const list = useRef<HTMLDivElement>(null);
   /** Focuses the card `by` places from `id`, Shift-clicking it with `shift`; none past either end. */
   const step = (id: string, by: number, shift: boolean) => {
@@ -62,16 +68,22 @@ export function SessionsSection(props: {
   /** A card; with `onMove`, Option+Arrow moves it within its project. */
   const card = (session: TreeRow, onMove?: (by: 1 | -1) => void) => {
     const count = chosen.includes(session.id) ? chosen.length : 1;
-    const archive = () => props.onArchiveSessions?.(count > 1 ? [...chosen] : [session.id]);
+    const ids = count > 1 ? [...chosen] : [session.id];
+    const archive = () => props.onArchiveSessions?.(ids);
+    const mark = (to: boolean) => unread?.mark(ids, to);
+    const shownUnread = unread?.unread(session) ?? false;
     return (
       <SessionsMenu
         key={session.id}
         count={count}
         onOpen={() => onSelection({ kind: 'context', id: session.id })}
         onArchive={archive}
+        unread={shownUnread}
+        onMark={session.managed && unread ? mark : undefined}
       >
         <SessionCard
           session={session}
+          unread={shownUnread}
           selected={view.kind === 'session' && view.id === session.id}
           chosen={chosen.includes(session.id)}
           compact={props.compactSessions.includes(session.id)}
@@ -84,6 +96,7 @@ export function SessionsSection(props: {
           onMove={onMove}
           chosenCount={count}
           onArchiveChosen={archive}
+          onMarkChosen={mark}
           onNewSession={props.onNewSession}
           onArchiveSession={props.onArchiveSession}
           onDependencySession={props.onDependencySession}
@@ -165,8 +178,14 @@ export function SessionsSection(props: {
           <div className="flex items-center justify-between px-2">
             <p className="text-xs font-medium text-state-waiting">Recoverable</p>
             {props.onRestoreAll && (
-              <Button variant="ghost" size="xs" onClick={props.onRestoreAll}>
-                <RotateCcw aria-hidden /> Restore all
+              <Button
+                variant="ghost"
+                size="xs"
+                disabled={props.restoring}
+                onClick={props.onRestoreAll}
+              >
+                <RotateCcw aria-hidden className={cn(props.restoring && 'animate-spin')} />
+                {props.restoring ? 'Restoring...' : 'Restore all'}
               </Button>
             )}
           </div>
