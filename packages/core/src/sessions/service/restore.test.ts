@@ -56,3 +56,25 @@ test('a session that cannot resume is listed with its error, and the others stil
     `${second.id} -> ${second.id}`,
   ]);
 });
+
+test("a shutdown's signal before the boot is a restart's; the same signal since, or a crash, is not", async () => {
+  const world = agentWorld();
+  const { mesa, home } = projectProfile(world.run, {
+    bootedAt: new Date('2026-09-25T00:00:00.000Z'),
+  });
+  const store = testStore(home);
+  const exit = async (at: string, signal: string) => {
+    const { id } = (await mesa.sessions.open('lantern-cove')).result;
+    // The pane-died hook's record as the agent got its signal.
+    store.update(id, (r) => ({ events: [...r.events, { type: 'exited', at, signal }] }));
+    return id;
+  };
+  const shutdown = await exit('2026-09-24T23:59:00.000Z', 'term');
+  await exit('2026-09-25T01:00:00.000Z', 'term'); // a person's kill, since the boot
+  await exit('2026-09-24T23:59:00.000Z', 'segv'); // a crash
+  world.tmux.windows.splice(0);
+
+  expect(outcome(await mesa.sessions.restore({ interrupted: true }))).toEqual([
+    `${shutdown} -> ${shutdown}`,
+  ]);
+});

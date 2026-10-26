@@ -2395,6 +2395,36 @@ test('launch restores the sessions a restart ended; Restore all brings back the 
   expect(toasts(byTestId)).toContainEqual(['alert', 'Restored 1 session\nits folder is gone']);
 });
 
+test('Recoverable says Restoring while the launch restore runs, and offers Restore all after', async () => {
+  let finish: (value: unknown) => void = () => {};
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () =>
+      envelope([
+        managedRow('aaaaaaaa', {
+          alive: false,
+          lastState: {
+            state: 'done',
+            confidence: 1,
+            at: '2026-09-27T12:00:00.000Z',
+            source: 'tmux',
+          },
+        }),
+      ]),
+    'resume --all': () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const button = () => byTestId('recoverable-sessions')[0]?.querySelector('button') ?? undefined;
+  expect(button()?.textContent).toBe('Restoring...');
+  expect(button()?.disabled).toBe(true);
+  await act(async () => finish(envelope({ items: [] })));
+  expect(button()?.textContent).toBe('Restore all');
+  expect(button()?.disabled).toBe(false);
+});
+
 test('project Overview starts worktree goals and quick empty sessions through mesa open', async () => {
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),

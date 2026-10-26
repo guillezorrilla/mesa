@@ -92,7 +92,7 @@ function AppShell() {
     failed: (!!config.error && !needsProfileSetup) || !!projects.error,
     setView,
   });
-  const restoreAll = useRestoreSessions(ready && !onboarding && !!config.data, sessions);
+  const restore = useRestoreSessions(ready && !onboarding && !!config.data, sessions);
   useDiscoveryOffer({
     config: config.data,
     projects: projects.data,
@@ -227,7 +227,8 @@ function AppShell() {
                     ids: [id],
                   }));
                 }}
-                onRestoreAll={restoreAll}
+                onRestoreAll={restore.restoreAll}
+                restoring={restore.restoring}
                 onArchiveSessions={(ids) =>
                   setArchiveSessionRequest((request) => ({ count: (request?.count ?? 0) + 1, ids }))
                 }

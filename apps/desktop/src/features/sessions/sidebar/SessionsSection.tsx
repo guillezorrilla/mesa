@@ -4,6 +4,7 @@ import { RotateCcw } from 'lucide-react';
 import { useRef } from 'react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import type { WorkspaceView } from '@/lib/workspaceView';
 import type { SelectionInput } from '../selection/sessionSelection';
 import { StartingSessions } from '../start/StartingSessions';
@@ -43,6 +44,8 @@ export function SessionsSection(props: {
   onArchiveSessions?: (ids: string[]) => void;
   /** Recoverable's Restore all: resumes every recoverable session. */
   onRestoreAll?: () => void;
+  /** A restore runs: Recoverable says so in place of Restore all. */
+  restoring?: boolean;
   starting?: readonly string[];
   onNewSession?: (project: string, kind: SessionLocation, parent?: string) => void;
   onArchiveSession?: (id: string) => void;
@@ -175,8 +178,14 @@ export function SessionsSection(props: {
           <div className="flex items-center justify-between px-2">
             <p className="text-xs font-medium text-state-waiting">Recoverable</p>
             {props.onRestoreAll && (
-              <Button variant="ghost" size="xs" onClick={props.onRestoreAll}>
-                <RotateCcw aria-hidden /> Restore all
+              <Button
+                variant="ghost"
+                size="xs"
+                disabled={props.restoring}
+                onClick={props.onRestoreAll}
+              >
+                <RotateCcw aria-hidden className={cn(props.restoring && 'animate-spin')} />
+                {props.restoring ? 'Restoring...' : 'Restore all'}
               </Button>
             )}
           </div>
