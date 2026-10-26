@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import type { PrList, PrRow, PrSetupRow } from '@mesa/core';
-import { beforeEach, expect, test } from 'vitest';
+import { act } from 'react';
+import { beforeEach, expect, test, vi } from 'vitest';
 import {
   click,
   envelope,
@@ -13,7 +14,7 @@ import { PrSetupScreen } from './PrSetupScreen';
 import { ReviewsSection } from './ReviewsSection';
 import { ReviewsTab } from './ReviewsTab';
 import { liveReviews } from './reviewSessions';
-import { usePrs } from './usePrs';
+import { PRS_EVERY_MS, PRS_STALE_MS, usePrs } from './usePrs';
 
 // Invented projects and people: storefront on GitHub, atlas-api on Bitbucket, pos-bridge without twg.
 
@@ -218,6 +219,29 @@ test("a project's Reviews tab reads that project's PRs; All open PRs adds the on
   await renderWithMesa(<ProjectReviews />, bridge);
   expect(calls.filter((c) => c[1] === 'prs').at(-1)).toContain('--all');
   expect(document.querySelector('#reviews-all')?.getAttribute('aria-checked')).toBe('true');
+});
+
+test('the list reads itself every 15 minutes, and on coming back once it is 2 minutes old', async () => {
+  vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'], now: NOW });
+  try {
+    const { bridge, calls } = fakeBridge({ prs: () => envelope(LIST) });
+    await renderWithMesa(<ProjectReviews />, bridge);
+    const reads = () => calls.filter((c) => c[1] === 'prs').length;
+    expect(reads()).toBe(1);
+    const focus = () => act(async () => void window.dispatchEvent(new Event('focus')));
+
+    // Back to the window at once: the list is fresh, so no read.
+    await focus();
+    expect(reads()).toBe(1);
+    await act(async () => void vi.advanceTimersByTime(PRS_STALE_MS));
+    await focus();
+    expect(reads()).toBe(2);
+
+    await act(async () => void vi.advanceTimersByTime(PRS_EVERY_MS));
+    expect(reads()).toBe(3);
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 test('setup walks Install, Sign in, Connect Bitbucket and Check, resuming from what is done', async () => {
