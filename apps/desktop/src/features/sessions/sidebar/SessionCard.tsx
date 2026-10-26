@@ -61,9 +61,11 @@ export function SessionCard(props: {
         className={cn(
           'flex w-full select-none flex-col justify-center gap-1 rounded-md border border-border/70 bg-card/40 px-2 py-1.5 text-left text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring',
           compact ? 'min-h-9' : 'min-h-14',
-          unread && 'border-state-unread bg-state-unread/25 hover:bg-state-unread/35',
+          unread && 'border-state-unread',
           chosen && 'border-ring/60 bg-accent',
           selected && 'border-ring bg-ring/15',
+          // The fill wins over the selection's, whose border still marks the card.
+          unread && 'bg-state-unread/25 hover:bg-state-unread/35',
         )}
         data-unread={unread || undefined}
         title={`${projectLabel(session.project)}: ${sessionLabel(session)}: ${session.lastState.state}${unread ? ', unread' : ''}${props.onMove ? '\nDrag or press Option+Up/Down to reorder' : ''}`}
