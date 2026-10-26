@@ -22,6 +22,10 @@ import type {
 } from '@mesa/core';
 import { command, commandWith, type Recorded } from './spec';
 
+/** What `mesa read` and `mesa unread` print: one session's mark, or each one's. */
+type Mark = { id: string; unread: boolean };
+type Marks = Mark | Mark[];
+
 /** The Board's commands: its sessions, their Grid groups, and images sent to one. */
 export const sessionsCommands = {
   'grid.list': command<GridGroup[]>('grid'),
@@ -100,12 +104,12 @@ export const sessionsCommands = {
     id,
   ]),
   // One session gives its mark, several a list of them.
-  'sessions.read': commandWith<{ ids: readonly string[] }, unknown>(({ ids }) => [
+  'sessions.read': commandWith<{ ids: readonly string[] }, Marks>(({ ids }) => [
     'read',
     '--',
     ...ids,
   ]),
-  'sessions.unread': commandWith<{ ids: readonly string[] }, unknown>(({ ids }) => [
+  'sessions.unread': commandWith<{ ids: readonly string[] }, Marks>(({ ids }) => [
     'unread',
     '--',
     ...ids,
