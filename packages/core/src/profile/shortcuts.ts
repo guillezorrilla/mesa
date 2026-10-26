@@ -46,14 +46,18 @@ export function shortcutFromKeys(keys: {
 export const validBinding = (value: string) => value === '' || validShortcut(value);
 
 /**
- * A profile that bound a newer action's default key to another action first keeps it: the newer
- * action, absent from the profile, is then unbound ('') until a person sets it.
+ * Actions added after profiles could bind their default key to another action. Such a profile
+ * keeps its binding: the newer action, absent from it, is unbound ('') until a person sets it.
+ * Any other clash is a person's own and is refused.
  */
+const ADDED_LATER: readonly ShortcutAction[] = ['toggleUnread'];
+
+/** Leaves each ADDED_LATER action unbound in `input` when another action holds its default key. */
 export function unbindTakenDefaults(input: unknown) {
   if (!input || typeof input !== 'object') return input;
   const taken = new Set(Object.values(input));
-  const unbound = Object.entries(DEFAULT_SHORTCUTS)
-    .filter(([action, key]) => !(action in input) && taken.has(key))
-    .map(([action]) => [action, '']);
+  const unbound = ADDED_LATER.filter(
+    (action) => !(action in input) && taken.has(DEFAULT_SHORTCUTS[action]),
+  ).map((action) => [action, '']);
   return unbound.length ? { ...input, ...Object.fromEntries(unbound) } : input;
 }

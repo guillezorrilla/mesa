@@ -61,7 +61,10 @@ export function useUnread(view: WorkspaceView, sessions: readonly TreeRow[]): Un
       reading.current = undefined;
     });
   }, [toRead, call, showMarks]);
-  const mark = (ids: readonly string[], unread: boolean) => {
+  const mark = (chosen: readonly string[], unread: boolean) => {
+    // Only Mesa's own sessions have a record to mark; a foreign card in the selection is skipped.
+    const ids = chosen.filter((id) => sessions.find((s) => s.id === id)?.managed);
+    if (!ids.length) return;
     if (unread && shown && ids.includes(shown)) setHeld(shown);
     showMarks(ids, unread);
     void run(unread ? 'sessions.unread' : 'sessions.read', { ids });
