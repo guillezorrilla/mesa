@@ -42,6 +42,10 @@ export function shortcutFromKeys(keys: {
   return validShortcut(value) ? value : undefined;
 }
 
+/** Whether `value` may bind `action`: a valid shortcut, or '' (unbound) for toggleUnread alone. */
+export const validShortcutFor = (action: string, value: string) =>
+  validShortcut(value) || (value === '' && action === 'toggleUnread');
+
 /**
  * A profile that bound toggleUnread's key to another action before toggleUnread existed keeps it:
  * toggleUnread is then unbound (''), and never matches a key, until a person sets it.

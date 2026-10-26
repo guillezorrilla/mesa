@@ -10,6 +10,7 @@ import {
 } from '../../testing/index.js';
 import { listSessions } from '../board/board.js';
 import type { HookEvent } from '../signals/hook-events.js';
+import type { SessionRecord } from './record.js';
 import { sessionStore } from './store.js';
 import { markRead, markUnread, unreadOn } from './unread.js';
 
@@ -77,20 +78,40 @@ test('a finished turn is unread until read, and the next finished turn is unread
   expect(await look('2026-09-24T11:59:51.000Z')).toBeUndefined();
   events = [...events, hook('Stop', '2026-09-24T12:00:00.000Z')];
   expect(await look('2026-09-24T12:00:01.000Z')).toBe(true);
+
+  // A whole turn between two looks: idle, then idle from a later Stop.
+  markRead(store, session.id, '2026-09-24T12:00:02.000Z');
+  events = [
+    ...events,
+    hook('UserPromptSubmit', '2026-09-24T12:00:03.000Z'),
+    hook('Stop', '2026-09-24T12:00:04.000Z'),
+  ];
+  expect(await look('2026-09-24T12:00:05.000Z')).toBe(true);
 });
 
 test('work that ends in idle, done or failed turns unread; a terminal, a stop, or an idle exit does not', () => {
-  const at = (state: 'working' | 'waiting-question' | 'idle' | 'queued') => ({
+  type Last = SessionRecord['lastState'];
+  const last = (
+    state: Last['state'],
+    at = '2026-09-24T12:00:00.000Z',
+    source: Last['source'] = 'hook',
+  ) => ({ state, confidence: 1, at, source }) as Last;
+  const from = (state: Last['state'], source: Last['source'] = 'hook') => ({
     agent: 'claude' as const,
-    lastState: { state, confidence: 1, at: '2026-09-24T12:00:00.000Z', source: 'hook' as const },
+    lastState: last(state, '2026-09-24T12:00:00.000Z', source),
   });
+  const later = (state: Last['state']) => last(state, '2026-09-24T12:01:00.000Z');
   for (const next of ['idle', 'done', 'failed'] as const) {
-    expect(unreadOn(at('working'), next)).toEqual({ unread: true });
-    expect(unreadOn(at('waiting-question'), next)).toEqual({ unread: true });
+    expect(unreadOn(from('working'), later(next))).toEqual({ unread: true });
+    expect(unreadOn(from('waiting-question'), later(next))).toEqual({ unread: true });
   }
-  expect(unreadOn(at('working'), 'stopped')).toEqual({});
-  expect(unreadOn(at('working'), 'waiting-permission')).toEqual({});
-  expect(unreadOn(at('idle'), 'done')).toEqual({});
-  expect(unreadOn(at('queued'), 'failed')).toEqual({});
-  expect(unreadOn({ ...at('working'), agent: 'terminal' }, 'done')).toEqual({});
+  // Idle again from a later Stop: a whole turn between two looks.
+  expect(unreadOn(from('idle'), later('idle'))).toEqual({ unread: true });
+  // A fresh agent's SessionStart after Mesa's launch guess.
+  expect(unreadOn(from('idle', 'mesa'), later('idle'))).toEqual({});
+  expect(unreadOn(from('working'), later('stopped'))).toEqual({});
+  expect(unreadOn(from('working'), later('waiting-permission'))).toEqual({});
+  expect(unreadOn(from('idle'), later('done'))).toEqual({});
+  expect(unreadOn(from('queued'), later('failed'))).toEqual({});
+  expect(unreadOn({ ...from('working'), agent: 'terminal' }, later('done'))).toEqual({});
 });

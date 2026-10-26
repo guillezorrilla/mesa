@@ -26,7 +26,7 @@ import {
   PROJECT_SORTS,
   TERMINAL_APPS,
 } from './preferences.js';
-import { DEFAULT_SHORTCUTS, unbindTakenToggleUnread, validShortcut } from './shortcuts.js';
+import { DEFAULT_SHORTCUTS, unbindTakenToggleUnread, validShortcutFor } from './shortcuts.js';
 import { TERMINAL_COLOR, TERMINAL_COLOR_KEYS, TERMINAL_THEMES } from './terminal-palettes.js';
 
 /** The terminal apps `mesa attach --app` can open. */
@@ -249,7 +249,7 @@ const ConfigShape = z.strictObject({
               z
                 .string()
                 .refine(
-                  (value) => validShortcut(value) || (value === '' && action === 'toggleUnread'),
+                  (value) => validShortcutFor(action, value),
                   'must be Mod plus a letter or digit',
                 )
                 .default(key),

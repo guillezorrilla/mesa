@@ -54,7 +54,7 @@ export async function recordPaneDied(
     return {
       lastState,
       events: [...current.events, exited],
-      ...unreadOn(current, lastState.state),
+      ...unreadOn(current, lastState),
     };
   });
   return wrote ? record : undefined;

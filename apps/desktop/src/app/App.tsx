@@ -164,11 +164,7 @@ function AppShell() {
     onNewSession: () => {
       if (canStart) requestNewSession();
     },
-    onToggleUnread: () => {
-      const shown =
-        view.kind === 'session' ? sessions.find((row) => row.id === view.id) : undefined;
-      if (shown?.managed) unread.mark([shown.id], !unread.unread(shown));
-    },
+    onToggleUnread: unread.toggleShown,
   });
   return (
     <>

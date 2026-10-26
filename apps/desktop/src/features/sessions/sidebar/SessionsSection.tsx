@@ -65,8 +65,9 @@ export function SessionsSection(props: {
   /** A card; with `onMove`, Option+Arrow moves it within its project. */
   const card = (session: TreeRow, onMove?: (by: 1 | -1) => void) => {
     const count = chosen.includes(session.id) ? chosen.length : 1;
-    const archive = () => props.onArchiveSessions?.(count > 1 ? [...chosen] : [session.id]);
-    const mark = (to: boolean) => unread?.mark(count > 1 ? chosen : [session.id], to);
+    const ids = count > 1 ? [...chosen] : [session.id];
+    const archive = () => props.onArchiveSessions?.(ids);
+    const mark = (to: boolean) => unread?.mark(ids, to);
     return (
       <SessionsMenu
         key={session.id}
