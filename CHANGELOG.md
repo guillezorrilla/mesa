@@ -2,6 +2,20 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.3.9 - 2026-10-26
+
+### Added
+
+- Unread sessions: a session that finishes while you are not looking at it turns green with a bold title in the Sessions tab, and a banner with a sound tells you, until you open it. Mark any session unread to come back to it later from its menu, with Cmd+Shift+U, or with `mesa unread`. (#859)
+
+### Changed
+
+- The Reviews list keeps itself current: it reads your pull requests again every 15 minutes, and when you come back to Mesa after two minutes away, so there is no need to press refresh. (#859)
+
+### Fixed
+
+- Sessions a shutdown or restart closed now come back on their own when you open Mesa, instead of waiting in Recoverable, and Recoverable says Restoring... until they are back. (#859)
+
 ## 0.3.8 - 2026-10-22
 
 ### Added
