@@ -278,10 +278,6 @@ test('shortcut values are canonical, unique, and never take reserved window keys
   expect(
     thrown(() => setConfigValue(file, 'shortcuts.switchSession', 'Mod+N', lockDeps())).code,
   ).toBe('invalid_config');
-  // Only toggleUnread may be unbound.
-  expect(thrown(() => setConfigValue(file, 'shortcuts.search', '', lockDeps())).code).toBe(
-    'invalid_config',
-  );
 });
 
 test("a profile that bound toggleUnread's key first keeps it, and toggleUnread is unbound", () => {

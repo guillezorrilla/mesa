@@ -1,6 +1,6 @@
 import type { TreeRow } from '@mesa/core';
 import { GENERAL_PROJECT, sessionTitle } from '@mesa/core/browser';
-import { Archive, Mail, MailOpen, MoreVertical } from 'lucide-react';
+import { Archive, MoreVertical } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { SessionLocation } from '../start/useStartSession';
 import { HoverAction } from './HoverAction';
+import { MarkUnreadItem } from './MarkUnreadItem';
 
 /**
  * A managed session card's More actions: a terminal or child worktree session from it, a
@@ -53,8 +54,7 @@ export function SessionCardMenu(props: {
           Set dependency
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => props.onMarkChosen(!props.unread)}>
-          {props.unread ? <MailOpen aria-hidden /> : <Mail aria-hidden />}
-          {markLabel(props.unread, props.chosenCount)}
+          <MarkUnreadItem unread={props.unread} count={props.chosenCount} />
         </DropdownMenuItem>
         {props.chosenCount > 1 && (
           <DropdownMenuItem onSelect={props.onArchiveChosen}>
@@ -66,7 +66,3 @@ export function SessionCardMenu(props: {
     </DropdownMenu>
   );
 }
-
-/** Mark as unread (read when it is unread), counting the chosen cards when several are. */
-export const markLabel = (unread: boolean, count: number) =>
-  `Mark ${count > 1 ? `${count} sessions ` : ''}as ${unread ? 'read' : 'unread'}`;

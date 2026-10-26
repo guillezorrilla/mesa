@@ -1,14 +1,10 @@
 // Whether a person has looked at what a session last did (CONTEXT.md, Unread).
 
 import type { SessionRecord } from './record.js';
-import type { SessionState } from './states.js';
+import { type SessionState, WAITING_STATES } from './states.js';
 import type { SessionStore } from './store.js';
 
-const AT_WORK: ReadonlySet<SessionState> = new Set([
-  'working',
-  'waiting-permission',
-  'waiting-question',
-]);
+const AT_WORK: ReadonlySet<SessionState> = new Set(['working', ...WAITING_STATES]);
 const FINISHED: ReadonlySet<SessionState> = new Set(['idle', 'done', 'failed']);
 
 type LastState = SessionRecord['lastState'];

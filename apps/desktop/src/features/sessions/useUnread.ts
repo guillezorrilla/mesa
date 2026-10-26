@@ -6,6 +6,7 @@ import type { WorkspaceView } from '@/lib/workspaceView';
 
 /** How long a mark shows before the looks read it back. */
 const MARK_MS = 5_000;
+const live = (mark: { at: number }) => Date.now() - mark.at < MARK_MS;
 
 export type Unread = {
   /** Whether the card shows `row` unread. */
@@ -36,20 +37,14 @@ export function useUnread(view: WorkspaceView, sessions: readonly TreeRow[]): Un
   const [held, setHeld] = useState<string>();
   if (held && held !== shown) setHeld(undefined);
   const watching = focused && held !== shown ? shown : undefined;
-  const isUnread = useCallback(
-    (row: TreeRow) => {
-      const mark = pending[row.id];
-      if (mark && Date.now() - mark.at < MARK_MS) return mark.unread;
-      return row.managed && row.unread === true;
-    },
-    [pending],
-  );
+  const isUnread = (row: TreeRow) => {
+    const mark = pending[row.id];
+    return mark && live(mark) ? mark.unread : row.managed && row.unread === true;
+  };
   const showMarks = useCallback(
     (ids: readonly string[], unread: boolean) =>
       setPending((current) => ({
-        ...Object.fromEntries(
-          Object.entries(current).filter(([, mark]) => Date.now() - mark.at < MARK_MS),
-        ),
+        ...Object.fromEntries(Object.entries(current).filter(([, mark]) => live(mark))),
         ...Object.fromEntries(ids.map((id) => [id, { unread, at: Date.now() }])),
       })),
     [],
@@ -62,14 +57,14 @@ export function useUnread(view: WorkspaceView, sessions: readonly TreeRow[]): Un
     reading.current = toRead;
     showMarks([toRead], false);
     // Quietly: a failed mark leaves it unread, and the next look tries again.
-    void call('sessions.read', { id: toRead }).finally(() => {
+    void call('sessions.read', { ids: [toRead] }).finally(() => {
       reading.current = undefined;
     });
   }, [toRead, call, showMarks]);
   const mark = (ids: readonly string[], unread: boolean) => {
     if (unread && shown && ids.includes(shown)) setHeld(shown);
     showMarks(ids, unread);
-    for (const id of ids) void run(unread ? 'sessions.unread' : 'sessions.read', { id });
+    void run(unread ? 'sessions.unread' : 'sessions.read', { ids });
   };
   const unread = (row: TreeRow) => row.id !== watching && isUnread(row);
   return {

@@ -68,17 +68,19 @@ export function SessionsSection(props: {
     const ids = count > 1 ? [...chosen] : [session.id];
     const archive = () => props.onArchiveSessions?.(ids);
     const mark = (to: boolean) => unread?.mark(ids, to);
+    const shownUnread = unread?.unread(session) ?? false;
     return (
       <SessionsMenu
         key={session.id}
         count={count}
         onOpen={() => onSelection({ kind: 'context', id: session.id })}
         onArchive={archive}
-        unread={unread?.unread(session)}
+        unread={shownUnread}
         onMark={session.managed && unread ? mark : undefined}
       >
         <SessionCard
           session={session}
+          unread={shownUnread}
           selected={view.kind === 'session' && view.id === session.id}
           chosen={chosen.includes(session.id)}
           compact={props.compactSessions.includes(session.id)}

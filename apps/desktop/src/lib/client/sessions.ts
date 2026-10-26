@@ -99,15 +99,16 @@ export const sessionsCommands = {
     '--',
     id,
   ]),
-  'sessions.read': commandWith<{ id: string }, { id: string; unread: false }>(({ id }) => [
+  // One session gives its mark, several a list of them.
+  'sessions.read': commandWith<{ ids: readonly string[] }, unknown>(({ ids }) => [
     'read',
     '--',
-    id,
+    ...ids,
   ]),
-  'sessions.unread': commandWith<{ id: string }, { id: string; unread: true }>(({ id }) => [
+  'sessions.unread': commandWith<{ ids: readonly string[] }, unknown>(({ ids }) => [
     'unread',
     '--',
-    id,
+    ...ids,
   ]),
   'sessions.archive': commandWith<{ id: string }, Recorded<SessionRecord>>(({ id }) => [
     'archive',

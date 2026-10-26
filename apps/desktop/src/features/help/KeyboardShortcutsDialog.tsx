@@ -110,7 +110,7 @@ function ShortcutRow(props: { label: string; shortcut: string; children?: React.
     <div className="group flex items-center gap-3 py-2 text-sm">
       <span className="flex-1 text-muted-foreground">{props.label}</span>
       {props.children}
-      {/* Unbound: its key was another action's first (unbindTakenToggleUnread). */}
+      {/* Unbound: set empty, or its default key was another action's first (unbindTakenDefaults). */}
       {props.shortcut ? <Kbd shortcut={props.shortcut} /> : <Muted size="xs">Not set</Muted>}
     </div>
   );

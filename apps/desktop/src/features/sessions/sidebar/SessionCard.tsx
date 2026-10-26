@@ -12,7 +12,6 @@ import { AutomationBanner } from '@/features/automations/AutomationBanner';
 import { cn } from '@/lib/utils';
 import type { SessionLocation } from '../start/useStartSession';
 import { stateTone } from '../stateTone';
-import { useUnreadContext } from '../useUnread';
 import { HoverAction } from './HoverAction';
 import { SessionCardMenu } from './SessionCardMenu';
 
@@ -29,6 +28,8 @@ export function SessionCard(props: {
   selected: boolean;
   /** In the tab's multi-selection. */
   chosen: boolean;
+  /** Finished work no one has looked at, or marked so (CONTEXT.md, Unread). */
+  unread: boolean;
   compact: boolean;
   onToggleCompact: () => void;
   /** A click, with Shift to range or Cmd to toggle. */
@@ -48,7 +49,7 @@ export function SessionCard(props: {
 }) {
   const { session, selected, chosen, compact } = props;
   const branch = sessionBranch(session);
-  const unread = useUnreadContext()?.unread(session) ?? false;
+  const { unread } = props;
   return (
     <div className="group relative mb-1">
       <button

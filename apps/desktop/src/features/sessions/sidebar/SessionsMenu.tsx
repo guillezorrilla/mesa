@@ -1,4 +1,4 @@
-import { Archive, Mail, MailOpen } from 'lucide-react';
+import { Archive } from 'lucide-react';
 import type { ReactNode } from 'react';
 import {
   ContextMenu,
@@ -6,7 +6,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
-import { markLabel } from './SessionCardMenu';
+import { MarkUnreadItem } from './MarkUnreadItem';
 
 /**
  * A session card's right-click menu, which archives the selected sessions together, and marks a
@@ -18,8 +18,9 @@ export function SessionsMenu(props: {
   /** The right-click, before the menu opens: it may change the selection. */
   onOpen: () => void;
   onArchive: () => void;
-  /** Whether the card shows unread; with `onMark`, a Mesa session's. */
-  unread?: boolean;
+  /** Whether the card shows unread. */
+  unread: boolean;
+  /** A Mesa session's card marks unread or read; a foreign one's has no such item. */
   onMark?: (unread: boolean) => void;
   /** The card. */
   children: ReactNode;
@@ -36,8 +37,7 @@ export function SessionsMenu(props: {
         </ContextMenuItem>
         {props.onMark && (
           <ContextMenuItem onSelect={() => props.onMark?.(!props.unread)}>
-            {props.unread ? <MailOpen aria-hidden /> : <Mail aria-hidden />}
-            {markLabel(Boolean(props.unread), props.count)}
+            <MarkUnreadItem unread={props.unread} count={props.count} />
           </ContextMenuItem>
         )}
       </ContextMenuContent>

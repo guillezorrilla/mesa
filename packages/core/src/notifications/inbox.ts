@@ -96,11 +96,11 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
   /** The state, after seeVersion: it runs before any other write, so a fresh profile is known. */
   const read = () => seeVersion(store.read());
   /** Every notice, a finished turn's too: native delivery reads them by its own setting. */
-  const all = (): InboxItem[] => {
+  const all = (records = ctx.store.readable()): InboxItem[] => {
     const current = read();
     const fresh: Candidate[] = [];
     const offsets: Record<string, number> = {};
-    for (const record of ctx.store.readable()) {
+    for (const record of records) {
       const before = current.offsets[record.id] ?? 0;
       const after = scanHookEvents(ctx.paths.events, record.id, before, (event) => {
         const item = hookItem(record.id, event);
@@ -128,8 +128,9 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
     const startedAt = state.startedAt ?? ctx.clock().toISOString();
     if (!state.startedAt) store.write({ startedAt });
     const settings = ctx.open().config.notifications;
-    const seenAt = new Map(ctx.store.readable().map((r) => [r.id, r.seenAt]));
-    const { plan, skipped } = planDelivery(all(), settings, {
+    const records = ctx.store.readable();
+    const seenAt = new Map(records.map((r) => [r.id, r.seenAt]));
+    const { plan, skipped } = planDelivery(all(records), settings, {
       startedAt,
       delivered: state.delivered,
       now: ctx.clock().toISOString(),

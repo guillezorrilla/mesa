@@ -42,17 +42,18 @@ export function shortcutFromKeys(keys: {
   return validShortcut(value) ? value : undefined;
 }
 
-/** Whether `value` may bind `action`: a valid shortcut, or '' (unbound) for toggleUnread alone. */
-export const validShortcutFor = (action: string, value: string) =>
-  validShortcut(value) || (value === '' && action === 'toggleUnread');
+/** A shortcut's value: a valid combination, or '' for an action left unbound (unbindTakenDefaults). */
+export const validBinding = (value: string) => value === '' || validShortcut(value);
 
 /**
- * A profile that bound toggleUnread's key to another action before toggleUnread existed keeps it:
- * toggleUnread is then unbound (''), and never matches a key, until a person sets it.
+ * A profile that bound a newer action's default key to another action first keeps it: the newer
+ * action, absent from the profile, is then unbound ('') until a person sets it.
  */
-export function unbindTakenToggleUnread(input: unknown) {
-  if (!input || typeof input !== 'object' || 'toggleUnread' in input) return input;
-  return Object.values(input).includes(DEFAULT_SHORTCUTS.toggleUnread)
-    ? { ...input, toggleUnread: '' }
-    : input;
+export function unbindTakenDefaults(input: unknown) {
+  if (!input || typeof input !== 'object') return input;
+  const taken = new Set(Object.values(input));
+  const unbound = Object.entries(DEFAULT_SHORTCUTS)
+    .filter(([action, key]) => !(action in input) && taken.has(key))
+    .map(([action]) => [action, '']);
+  return unbound.length ? { ...input, ...Object.fromEntries(unbound) } : input;
 }

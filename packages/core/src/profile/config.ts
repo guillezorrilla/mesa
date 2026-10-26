@@ -26,7 +26,7 @@ import {
   PROJECT_SORTS,
   TERMINAL_APPS,
 } from './preferences.js';
-import { DEFAULT_SHORTCUTS, unbindTakenToggleUnread, validShortcutFor } from './shortcuts.js';
+import { DEFAULT_SHORTCUTS, unbindTakenDefaults, validBinding } from './shortcuts.js';
 import { TERMINAL_COLOR, TERMINAL_COLOR_KEYS, TERMINAL_THEMES } from './terminal-palettes.js';
 
 /** The terminal apps `mesa attach --app` can open. */
@@ -240,7 +240,7 @@ const ConfigShape = z.strictObject({
     .prefault({}),
   shortcuts: z
     .preprocess(
-      unbindTakenToggleUnread,
+      unbindTakenDefaults,
       z
         .strictObject(
           Object.fromEntries(
@@ -248,10 +248,7 @@ const ConfigShape = z.strictObject({
               action,
               z
                 .string()
-                .refine(
-                  (value) => validShortcutFor(action, value),
-                  'must be Mod plus a letter or digit',
-                )
+                .refine(validBinding, 'must be Mod plus a letter or digit, or empty')
                 .default(key),
             ]),
           ) as Record<keyof typeof DEFAULT_SHORTCUTS, z.ZodDefault<z.ZodString>>,
