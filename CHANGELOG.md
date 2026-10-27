@@ -2,6 +2,12 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.3.11 - 2026-10-27
+
+### Added
+
+- Resizable file list in diffs: drag the edge between the changed files and the diff, in a session's Diff or a pull request's Files tab, to see long names in full. Mesa keeps the width for both, the diff always keeps room beside it, and a double-click puts the default back. (#868)
+
 ## 0.3.10 - 2026-10-27
 
 ### Added
