@@ -6,6 +6,7 @@ import { lockedBy, withLockSync } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { changelogNotes, type ReleaseNotes } from '../release/notes.js';
 import { versionsSince } from '../release/versions.js';
+import { sessionTitle } from '../sessions/record/labels.js';
 import { scanHookEvents } from '../sessions/signals/hook-events.js';
 import { type DeliveryPlan, planDelivery } from './delivery-plan.js';
 import {
@@ -114,7 +115,15 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
       fresh.length || Object.keys(offsets).length || stale
         ? store.write({ items: fresh, offsets })
         : current;
-    return inboxItems(state, failures(), notes);
+    const titles = new Map(records.map((r) => [r.id, sessionTitle(r)]));
+    return inboxItems(state, failures(), notes).map((item) => {
+      if (!item.session) return item;
+      const title = titles.get(item.session);
+      return {
+        ...item,
+        sessionTitle: title && title !== item.session ? title : `Session ${item.session}`,
+      };
+    });
   };
   /** What the Inbox shows (shownInInbox). */
   const list = () => all().filter(shownInInbox);

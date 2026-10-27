@@ -34,8 +34,10 @@ export const sessionLabel = (s: {
  * What a session's card calls it: its name, else a review session's with its round and mode, else
  * the one its agent gives it, else its goal's first line, else its id.
  */
-export const sessionTitle = (s: SessionRow) =>
-  (s.managed &&
+export const sessionTitle = (
+  s: Pick<SessionRecord, 'id' | 'name' | 'review' | 'agentName' | 'goal'> & { managed?: boolean },
+) =>
+  (s.managed !== false &&
     (s.name ||
       (s.review && reviewLabel(s.review)) ||
       s.agentName ||
