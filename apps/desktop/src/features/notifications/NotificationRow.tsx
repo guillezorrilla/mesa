@@ -63,9 +63,7 @@ export function NotificationRow(props: {
             >
               {item.title}
             </button>
-            <Muted size="xs">
-              {item.detail ?? (item.session ? `Session ${item.session}` : '')}
-            </Muted>
+            <Muted size="xs">{item.detail ?? item.sessionTitle ?? ''}</Muted>
           </>
         )}
         {item.kind === 'doctor' && (

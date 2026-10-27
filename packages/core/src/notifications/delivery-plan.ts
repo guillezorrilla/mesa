@@ -79,7 +79,7 @@ export function planDelivery(
               ? Array.from(item.detail ?? 'Open Automations to review')
                   .slice(0, 300)
                   .join('')
-              : `Session ${item.session}`,
+              : (item.sessionTitle ?? ''),
         sound: mode(item) === 'sound',
         target: item.target,
       },

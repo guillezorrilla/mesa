@@ -18,6 +18,11 @@ export type InboxItem = {
   at: string;
   kind: 'input-required' | 'finished' | 'subagent' | 'doctor' | 'automation' | 'release';
   title: string;
+  /**
+   * What a session's notice calls it: its card's title (sessionTitle), else `Session <id>`. Read
+   * each time, so a rename shows.
+   */
+  sessionTitle?: string;
   /** A Doctor notice's one-line explanation. */
   detail?: string;
   fix?: InboxFix;

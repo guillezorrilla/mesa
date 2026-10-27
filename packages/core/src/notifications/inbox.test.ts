@@ -541,3 +541,34 @@ test('a profile from before release notices, with an inbox but no version seen, 
       .map((item) => item.title),
   ).toEqual(["What's new in v0.1.5"]);
 });
+
+test("a session's notice says its card's title as it is when delivered, else its id", () => {
+  const { run } = scriptedRunner();
+  const time = movableClock();
+  const { home, mesa } = projectProfile(run, { clock: time.clock });
+  const paths = profilePaths(home, 'default');
+  const store = testStore(home);
+  const named = store.create(() => newSession({ name: 'tide table' }));
+  const goal = store.create(() => newSession({ goal: 'Chart the reef\nthen the shoals' }));
+  const plain = store.create(() => newSession({ goal: '' }));
+  const stop = (id: string) =>
+    recordHookEvent(
+      { store, eventsDir: paths.events, clock: time.clock, home, secrets: () => [] },
+      { agent: 'claude', mesaSessionId: id, payload: JSON.stringify({ hook_event_name: 'Stop' }) },
+    );
+  setConfigValue(paths.config, 'notifications.finished', 'sound', lockDeps());
+  expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
+  stop(named.id);
+  time.set('2026-09-24T12:00:30.000Z');
+  expect(mesa.notifications.claimDelivery()).toMatchObject({ kind: 'notice', body: 'tide table' });
+  store.update(named.id, { name: 'tide chart' });
+  stop(named.id);
+  time.set('2026-09-24T12:01:00.000Z');
+  expect(mesa.notifications.claimDelivery()).toMatchObject({ body: 'tide chart' });
+  stop(goal.id);
+  time.set('2026-09-24T12:01:30.000Z');
+  expect(mesa.notifications.claimDelivery()).toMatchObject({ body: 'Chart the reef' });
+  stop(plain.id);
+  time.set('2026-09-24T12:02:00.000Z');
+  expect(mesa.notifications.claimDelivery()).toMatchObject({ body: `Session ${plain.id}` });
+});
