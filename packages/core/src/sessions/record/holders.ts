@@ -29,16 +29,19 @@ export const worktreeHolders = (records: readonly SessionRecord[]) => {
 export const worktreeHolder = (store: SessionStore, path: string) =>
   worktreeHolders(store.list()).get(path);
 
+/** A worktree of a session's that a newer session took over, which is `holder`'s now, branch and all. */
+export type TakenOver = { project: string; worktree: string; holder: string };
+
 /**
  * Each worktree `r` holds that a newer session took over since (a resume, a handoff, a later
- * review round), with that session as `holder`: it is that session's now, branch and all.
+ * review round), by `holders` (worktreeHolders).
  */
 export const takenOver = (
   r: SessionRecord,
-  holder: (path: string) => SessionRecord | undefined,
-): { project: string; worktree: string; holder: string }[] =>
+  holders: ReadonlyMap<string, SessionRecord>,
+): TakenOver[] =>
   heldWorktrees(r).flatMap(({ project, worktree }) => {
-    const newer = holder(worktree.path);
+    const newer = holders.get(worktree.path);
     return newer && newer.id !== r.id
       ? [{ project, worktree: worktree.path, holder: newer.id }]
       : [];
@@ -81,15 +84,12 @@ export const checkoutHolder = (store: SessionStore, project: string, root: strin
  * sessions never share one. A session without a worktree passes.
  */
 export function requireOwnWorktree(store: SessionStore, r: SessionRecord) {
-  for (const { worktree } of heldWorktrees(r)) {
-    const holder = worktreeHolder(store, worktree.path);
-    if (holder && holder.id !== r.id) {
-      throw new MesaError(
-        'usage',
-        `the worktree at ${worktree.path} is session ${holder.id}'s now: two sessions never share one`,
-      );
-    }
-  }
+  const [taken] = takenOver(r, worktreeHolders(store.list()));
+  if (taken)
+    throw new MesaError(
+      'usage',
+      `the worktree at ${taken.worktree} is session ${taken.holder}'s now: two sessions never share one`,
+    );
 }
 
 /** The newest eligible session that holds an agent session id (its conversation). */

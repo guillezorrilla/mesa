@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { DiffFileRow } from './DiffFileRow';
 import { DiffFileTree } from './DiffFileTree';
@@ -7,9 +7,10 @@ import type { DiffTreeNode } from './diffTree';
 
 /**
  * The changed files, as a folder tree (DiffFileTree) or flat (DiffFileRow, each name over its
- * folder), in one scrolling list whose focus follows the open file.
+ * folder), in one scrolling list whose focus follows the open file. Memoised: a drag of the
+ * edge beside it re-renders none of its rows.
  */
-export function DiffFileList(props: {
+export const DiffFileList = memo(function DiffFileList(props: {
   files: DiffFile[];
   /** The folder tree to show (diffTree); none for the flat list. */
   tree?: DiffTreeNode[];
@@ -46,4 +47,4 @@ export function DiffFileList(props: {
       )}
     </ul>
   );
-}
+});

@@ -49,6 +49,11 @@ export const press = (
     );
   });
 
+/** Gives `element` a layout width of `px`, which the test DOM never lays out: a resize's room. */
+export const layoutWidth = (element: Element | null | undefined, px: number) => {
+  if (element) Object.defineProperty(element, 'clientWidth', { value: px, configurable: true });
+};
+
 /** Dispatches a primary-button pointer event of `type` on `target`, at `at`. */
 export const pointer = (
   target: EventTarget,

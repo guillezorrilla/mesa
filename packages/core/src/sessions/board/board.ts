@@ -111,7 +111,7 @@ export async function listSessions(
         window: byLabel.get(targetLabel(windowOf(found))),
         children: children.get(found.id) ?? [],
       });
-      const kept = takenOver(found, (path) => holders.get(path));
+      const kept = takenOver(found, holders);
       const row = kept.length ? { ...base, takenOver: kept } : base;
       // A live session's readings (context use, branch, folder) are read on every look while it
       // works, as a turn can move it (EnterWorktree), and when its state just changed (a reply ends

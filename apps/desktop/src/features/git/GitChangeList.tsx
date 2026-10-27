@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight, Folder, Minus, Plus } from 'lucide-react';
 import { CountPill } from '@/components/CountPill';
+import { TreeFolderRow } from '@/components/TreeFolderRow';
 import { useToggleSet } from '@/lib/useToggleSet';
 import { cn } from '@/lib/utils';
 import {
@@ -52,15 +53,15 @@ export function GitChangeList(props: {
           return (
             <div key={key} style={{ fontSize: props.fontSize }}>
               {folder && (
-                <Disclosure
-                  open={!closed.has(key)}
-                  onToggle={() => toggle(key)}
-                  className="w-full gap-1.5 px-4 py-1 hover:bg-accent/50"
-                >
-                  <Folder aria-hidden className="size-3.5" />
-                  <span className="truncate">{folder}</span>
-                  <span className="ml-auto">{entries.length}</span>
-                </Disclosure>
+                <TreeFolderRow
+                  name={folder}
+                  expanded={!closed.has(key)}
+                  indent={16}
+                  icon={{ open: Folder, closed: Folder }}
+                  trailing={entries.length}
+                  className="py-1 pr-4 text-muted-foreground"
+                  onClick={() => toggle(key)}
+                />
               )}
               {!closed.has(key) &&
                 entries.map((entry) => (

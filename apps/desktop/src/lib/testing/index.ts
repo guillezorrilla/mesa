@@ -4,6 +4,7 @@ export {
   choose,
   click,
   fill,
+  layoutWidth,
   pointer,
   press,
   searchFor,

@@ -1,4 +1,5 @@
 import type { AgentProcess } from '../../agents/listing.js';
+import type { TakenOver } from '../record/holders.js';
 import type { foreignId, SessionRecord } from '../record/record.js';
 import type { Supervision } from '../signals/placements.js';
 import type { Placement } from '../signals/state.js';
@@ -22,7 +23,7 @@ export type ManagedRow = { hasOutputLog?: boolean } & SessionRecord &
     /** The ids of the sessions whose `parent` it is, oldest first, listed or not. */
     children: string[];
     /** Its worktrees a newer session took over (takenOver), which removing it leaves; none without. */
-    takenOver?: { project: string; worktree: string; holder: string }[];
+    takenOver?: TakenOver[];
     /** It has a conversation an agent swap would lose (hasConversation): it hands off instead. */
     conversation?: true;
     /** Who placed its state, the rules or the chosen model, and that model's reply (#461). */
