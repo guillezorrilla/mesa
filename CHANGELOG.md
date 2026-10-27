@@ -2,6 +2,18 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.3.10 - 2026-10-27
+
+### Added
+
+- Folder tree in diffs: a session's Diff and a pull request's Files tab list the changed files in their folders, each folder collapsible, with a toggle back to the flat list that Mesa remembers. (#866)
+
+### Fixed
+
+- Notifications name the session: a finished turn or a question says the session's name in the macOS notice and the Inbox, not its id. (#863)
+- The Remove dialog no longer offers to delete a worktree a newer session took over, such as a later review round's: it says the worktree stays, with its branch. (#865)
+- Reviewing a pull request again after its author force-pushed works: the review worktree moves to the new head instead of reporting commits to push, and removing an older review round keeps the worktree the newer round now uses, and says so. (#864)
+
 ## 0.3.9 - 2026-10-26
 
 ### Added
