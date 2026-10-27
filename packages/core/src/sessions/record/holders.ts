@@ -24,6 +24,10 @@ export const worktreeHolder = (store: SessionStore, path: string) =>
     .filter((r) => heldWorktrees(r).some((held) => held.worktree.path === path))
     .at(-1);
 
+/** Whether session `id` is the one worktree `path` is (worktreeHolder), not one it was handed on from. */
+export const holdsWorktree = (store: SessionStore, id: string, path: string) =>
+  worktreeHolder(store, path)?.id === id;
+
 /**
  * `path` as the file system resolves it; when it is gone (a stale worktree), its nearest folder
  * that is there resolved, with the rest as written.

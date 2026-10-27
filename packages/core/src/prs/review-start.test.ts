@@ -1,8 +1,12 @@
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import type { RunResult } from '../lib/process.js';
 import type { SessionRecord, SessionReview } from '../sessions/record/record.js';
+import { gitRepo, testGit, withRealGit } from '../testing/git.js';
 import { scriptedRunner } from '../testing/runner.js';
 import { newSession } from '../testing/sessions.js';
+import { tempDir } from '../testing/tmp.js';
 import { type ReviewStartInput, startReview } from './review-start.js';
 
 const PROJECT = '/src/lantern-cove';
@@ -224,7 +228,8 @@ describe('startReview', () => {
       ['-C', PROJECT, 'worktree', 'list', '--porcelain', '-z'],
       ['-C', WORKTREE, 'status', '--porcelain=v1', '-z'],
       ['-C', WORKTREE, 'fetch', 'origin', 'pull/12/head'],
-      ['-C', WORKTREE, 'rev-list', 'FETCH_HEAD..HEAD'],
+      // Commits round 1 reviewed are the author's, gone after a force-push: none to lose.
+      ['-C', WORKTREE, 'rev-list', '--ignore-missing', 'HEAD', '--not', 'FETCH_HEAD', HEAD],
       ['-C', WORKTREE, 'switch', '--quiet', '-C', 'review/12', 'FETCH_HEAD'],
       ['-C', PROJECT, 'rev-parse', '--verify', '--end-of-options', 'review/12^{commit}'],
     ]);
@@ -293,6 +298,26 @@ describe('startReview', () => {
     expect(opened).toEqual([]);
   });
 
+  test("a leftover review branch with only an earlier round's commits is reset to a force-pushed head", async () => {
+    const reset = harness([reviewSession('r0und1aa', {}, ended)], fakeGit(listing()));
+    await startReview(reset.deps, input());
+    expect(gitArgs(reset.calls).filter((a) => a[2] === 'rev-list' || a[2] === 'fetch')).toEqual([
+      ['-C', PROJECT, 'rev-list', '--ignore-missing', 'refs/heads/review/12', '--not', HEAD],
+      ['-C', PROJECT, 'fetch', 'origin', '+pull/12/head:review/12'],
+    ]);
+    // One with commits of its own is only moved forward.
+    const own = harness(
+      [reviewSession('r0und1aa', {}, ended)],
+      fakeGit(listing(), { ahead: `${'c'.repeat(40)}\n`, diverged: true }),
+    );
+    await expect(startReview(own.deps, input())).rejects.toMatchObject({
+      message: expect.stringContaining('has commits that are not in #12'),
+    });
+    expect(gitArgs(own.calls).filter((a) => a[2] === 'fetch')).toEqual([
+      ['-C', PROJECT, 'fetch', 'origin', 'pull/12/head:review/12'],
+    ]);
+  });
+
   test('a leftover review branch moves forward to the head, and one with its own commits is refused', async () => {
     // One fetch without `+`: git makes or fast-forwards the branch, and refuses anything else.
     const forward = harness([], fakeGit(listing()));
@@ -306,5 +331,59 @@ describe('startReview', () => {
     });
     expect(gitArgs(diverged.calls).some((a) => a.includes('branch'))).toBe(false);
     expect(diverged.opened).toEqual([]);
+  });
+
+  test('after a force-push, a later round moves the worktree or resets the branch, and keeps local commits', async () => {
+    const dir = tempDir();
+    const origin = join(dir, 'origin');
+    const project = join(dir, 'project');
+    const tree = join(dir, 'review-12');
+    testGit(dir, 'init', '-q', '-b', 'main', origin);
+    writeFileSync(join(origin, 'tide.ts'), 'low\n');
+    gitRepo(origin);
+    testGit(origin, 'switch', '-q', '-c', 'tides');
+    const commit = (message: string) => {
+      writeFileSync(join(origin, 'tide.ts'), `${message}\n`);
+      testGit(origin, 'commit', '-q', '-am', message);
+      return testGit(origin, 'rev-parse', 'HEAD');
+    };
+    const first = commit('high');
+    testGit(dir, 'clone', '-q', origin, project);
+    const records: SessionRecord[] = [];
+    const deps = {
+      run: withRealGit(scriptedRunner().run),
+      projectPath: project,
+      sessions: () => records,
+      open: async (_: string, opts: { review?: SessionReview }) => {
+        const round = reviewSession(`r0und${records.length}aa`, opts.review ?? {}, {
+          ...ended,
+          worktree: { path: tree, branch: 'review/12' },
+        });
+        records.push(round);
+        return { result: round };
+      },
+      stop: async () => {},
+    };
+    const start = () => startReview(deps, input({}, { headRef: 'tides', pendingDrafts: 0 }));
+    expect(await start()).toMatchObject({ round: 1, head: first });
+    testGit(project, 'worktree', 'add', '-q', tree, 'review/12');
+    // The author rewrites the commit round 1 reviewed: the worktree moves to the new head.
+    testGit(origin, 'reset', '-q', '--hard', 'HEAD~1');
+    const second = commit('higher');
+    expect(await start()).toMatchObject({ round: 2, head: second });
+    expect(testGit(tree, 'rev-parse', 'HEAD')).toBe(second);
+    // With the worktree gone, the leftover branch is reset to a rewritten head too.
+    testGit(project, 'worktree', 'remove', tree);
+    testGit(origin, 'reset', '-q', '--hard', 'HEAD~1');
+    const third = commit('highest');
+    expect(await start()).toMatchObject({ round: 3, head: third });
+    // A commit of the worktree's own is never lost.
+    testGit(project, 'worktree', 'add', '-q', tree, 'review/12');
+    writeFileSync(join(tree, 'tide.ts'), 'mine\n');
+    testGit(tree, 'commit', '-q', '-am', 'mine');
+    commit('later');
+    await expect(start()).rejects.toMatchObject({
+      message: expect.stringContaining('has commits that are not in the new head'),
+    });
   });
 });

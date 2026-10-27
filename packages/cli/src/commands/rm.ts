@@ -73,7 +73,10 @@ export const rm = defineCommand({
         a.branch && `${a.project}'s branch ${a.branch}`,
       ]),
     ].filter(Boolean);
-    const text = `removed ${r.id}${also.length ? `, with ${also.join(', ')}` : ''}`;
+    const kept = (r.kept ?? []).map((k) => `kept ${k.worktree}, session ${k.holder}'s now`);
+    const text = [`removed ${r.id}${also.length ? `, with ${also.join(', ')}` : ''}`, ...kept].join(
+      '; ',
+    );
     return recordedOutput(recorded, { data: r, text });
   },
 });
