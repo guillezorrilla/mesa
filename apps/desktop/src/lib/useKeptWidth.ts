@@ -5,19 +5,23 @@ import { readKept, writeKept } from '@/lib/keptValue';
 export type WidthBounds = { min: number; max: number; initial: number; step: number };
 
 /**
- * A resizable panel's width kept under `key` and its setter, which clamps to `bounds`; a kept
- * width that is missing, out of bounds, or unreadable reads as the default.
+ * A resizable panel's width kept under `key` and its setter, which clamps to `bounds` and, with
+ * `room`, to the pixels there are for it now, so a drag stops where the panel can grow no more and
+ * its edge never outruns the pointer. A kept width that is missing, out of bounds, or unreadable
+ * reads as the default, and follows `bounds.initial` until one is kept.
  */
-export function useKeptWidth(key: string, bounds: WidthBounds) {
-  const [width, setStored] = useState(() => {
-    const kept = Number(readKept(key) ?? Number.NaN);
-    return kept >= bounds.min && kept <= bounds.max ? kept : bounds.initial;
+export function useKeptWidth(key: string, bounds: WidthBounds, room?: () => number | undefined) {
+  const [kept, setKept] = useState(() => {
+    const value = Number(readKept(key) ?? Number.NaN);
+    return value >= bounds.min && value <= bounds.max ? value : undefined;
   });
   const setWidth = (next: number) => {
-    const clamped = Math.min(bounds.max, Math.max(bounds.min, Math.round(next)));
-    setStored(clamped);
+    const space = room?.();
+    const wanted = space ? Math.min(next, space) : next;
+    const clamped = Math.min(bounds.max, Math.max(bounds.min, Math.round(wanted)));
+    setKept(clamped);
     // ponytail: written on every drag move; a write per pointerup if storage ever shows in a profile.
     writeKept(key, String(clamped));
   };
-  return [width, setWidth] as const;
+  return [kept ?? bounds.initial, setWidth] as const;
 }
