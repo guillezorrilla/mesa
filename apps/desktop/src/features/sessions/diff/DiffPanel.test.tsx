@@ -17,7 +17,8 @@ import { DiffPanel } from './DiffPanel';
 const diff = (data: object) => () => sessionDiff(data);
 const buttons = () => [...document.querySelectorAll<HTMLElement>('button')];
 
-test('the session diff lists every changed file, walks them with j and k, and opens one in the editor', async () => {
+test('the session diff lists every changed file in its folder tree, walks them with j and k, and opens one in the editor', async () => {
+  localStorage.clear();
   const { bridge, calls } = fakeBridge({
     diff: diff({}),
     'files open': () => envelope({ result: { opened: true } }),
@@ -36,14 +37,22 @@ test('the session diff lists every changed file, walks them with j and k, and op
   const panel = document.querySelector<HTMLElement>('[aria-label="Session changes"]');
   expect(panel?.textContent).toContain('session/reefsince main');
   expect(panel?.textContent).toContain('2 commits2 files+3 -1');
+  const listed = () =>
+    [...document.querySelectorAll('[aria-label="Changed files"] button')].map((b) => b.textContent);
   const files = document.querySelectorAll('[aria-label="Changed files"] button');
-  expect([...files].map((each) => each.textContent)).toEqual(['Mtide.tssrc/', 'Anotes.txt']);
-  expect(files[0]?.getAttribute('aria-current')).toBe('true');
+  expect(listed()).toEqual(['src', 'Mtide.ts', 'Anotes.txt']);
+  expect(files[1]?.getAttribute('aria-current')).toBe('true');
 
   await act(async () => {
     panel?.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', bubbles: true }));
   });
   expect(document.querySelector('section[aria-label="notes.txt"]')).not.toBeNull();
+  // A folder closes, unless the open file is in it; the flat list puts each folder under its name.
+  await click(buttons().find((button) => button.textContent === 'src'));
+  expect(listed()).toEqual(['src', 'Anotes.txt']);
+  await click(buttons().find((button) => button.getAttribute('aria-label') === 'Flat file list'));
+  expect(listed()).toEqual(['Mtide.tssrc/', 'Anotes.txt']);
+  expect(localStorage.getItem('mesa.diff.files')).toBe('list');
 
   await click(buttons().find((button) => button.textContent?.includes('Open in editor')));
   expect(calls).toContainEqual(

@@ -1,8 +1,8 @@
-import { Columns2, PanelLeft, Rows2 } from 'lucide-react';
+import { Columns2, List, ListTree, PanelLeft, Rows2 } from 'lucide-react';
 import { IconButton } from '@/components/IconButton';
 import type { DiffView } from './useDiffView';
 
-/** A diff view's two toggles: the file list, and inline or side by side. */
+/** A diff view's toggles: the file list, as a folder tree or flat, and inline or side by side. */
 export function DiffViewToggles({ view }: { view: DiffView }) {
   const inline = view.layout === 'inline';
   return (
@@ -13,6 +13,13 @@ export function DiffViewToggles({ view }: { view: DiffView }) {
         active={view.list}
         onClick={view.toggleList}
       />
+      {view.list && (
+        <IconButton
+          label={view.tree ? 'Flat file list' : 'Folder tree'}
+          icon={view.tree ? List : ListTree}
+          onClick={view.toggleTree}
+        />
+      )}
       <IconButton
         label={inline ? 'Side-by-side diff' : 'Inline diff'}
         icon={inline ? Columns2 : Rows2}
