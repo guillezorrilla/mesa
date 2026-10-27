@@ -1,7 +1,5 @@
 import type { VaultItem, VaultKind } from '@mesa/core';
 import {
-  ChevronDown,
-  ChevronRight,
   File,
   FileText,
   Folder,
@@ -12,8 +10,10 @@ import {
   Paperclip,
   Table2,
 } from 'lucide-react';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { Muted } from '@/components/Muted';
+import { TreeFolderRow } from '@/components/TreeFolderRow';
+import { useToggleSet } from '@/lib/useToggleSet';
 import { cn } from '@/lib/utils';
 
 export const KIND_ICONS: Record<VaultKind, LucideIcon> = {
@@ -68,7 +68,7 @@ export function VaultTree(props: {
   selected?: string;
   onSelect: (path: string) => void;
 }) {
-  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  const [open, toggle, setOpen] = useToggleSet();
   // A selection made elsewhere, such as a link in the reader, opens the folders it is in.
   useEffect(() => {
     const parts = props.selected?.split('/').slice(0, -1) ?? [];
@@ -76,36 +76,24 @@ export function VaultTree(props: {
     setOpen((last) =>
       folders.every((folder) => last.has(folder)) ? last : new Set([...last, ...folders]),
     );
-  }, [props.selected]);
-  const toggle = (path: string) =>
-    setOpen((last) => {
-      const next = new Set(last);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      return next;
-    });
-  const indent = (depth: number) => ({ paddingLeft: `${depth * 12 + 8}px` });
+  }, [props.selected, setOpen]);
+  const indent = (depth: number) => depth * 12 + 8;
   const rows = (folder: FolderNode, depth: number): ReactNode[] => [
     ...folder.folders.flatMap((child) => {
       const expanded = open.has(child.path);
-      const Chevron = expanded ? ChevronDown : ChevronRight;
-      const Icon = expanded ? FolderOpen : Folder;
       return [
-        <button
+        <TreeFolderRow
           key={`folder:${child.path}`}
-          type="button"
           data-testid="vault-folder"
-          aria-expanded={expanded}
           aria-label={`${child.name}, ${child.count} ${child.count === 1 ? 'item' : 'items'}`}
+          name={child.name}
+          expanded={expanded}
+          indent={indent(depth)}
+          icon={{ open: FolderOpen, closed: Folder }}
+          trailing={child.count}
           className={ROW}
-          style={indent(depth)}
           onClick={() => toggle(child.path)}
-        >
-          <Chevron aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-          <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate">{child.name}</span>
-          <span className="ml-auto text-xs text-muted-foreground">{child.count}</span>
-        </button>,
+        />,
         ...(expanded ? rows(child, depth + 1) : []),
       ];
     }),
@@ -125,7 +113,7 @@ export function VaultTree(props: {
             item.unavailable && 'text-muted-foreground',
           )}
           // Files line up under their folder's name, past its chevron.
-          style={indent(depth + 1.5)}
+          style={{ paddingLeft: indent(depth + 1.5) }}
           onClick={() => props.onSelect(item.path)}
         >
           <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />

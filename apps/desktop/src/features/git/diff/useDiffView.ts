@@ -1,15 +1,25 @@
-import { type KeyboardEvent, useState } from 'react';
+import { type KeyboardEvent, useMemo, useState } from 'react';
+import { useKept } from '@/lib/keptValue';
 import type { DiffFile } from './diffFiles';
+import { diffTree, treeOrder } from './diffTree';
 import type { DiffLayout } from './GitDiffRows';
+
+/** How the file list shows the files: in their folders, or flat with each folder under its name. */
+type FileListMode = 'tree' | 'list';
 
 /**
  * How a patch's files are viewed: which one is open (the first until one is picked), whether the
- * file list shows, inline or side by side, and j and k stepping to the next or previous file.
+ * file list shows, as a folder tree (kept, the default) or flat, inline or side by side, and j and
+ * k stepping to the next or previous file in the order the list shows them.
  */
-export function useDiffView(files: DiffFile[]) {
+export function useDiffView(patch: DiffFile[]) {
   const [openPath, setOpenPath] = useState<string>();
   const [list, setList] = useState(true);
   const [layout, setLayout] = useState<DiffLayout>('inline');
+  const [kept, keep] = useKept('mesa.diff.files');
+  const mode: FileListMode = kept === 'list' ? 'list' : 'tree';
+  const tree = useMemo(() => (mode === 'tree' ? diffTree(patch) : undefined), [mode, patch]);
+  const files = useMemo(() => (tree ? treeOrder(tree) : patch), [tree, patch]);
   const at = Math.max(
     0,
     files.findIndex((file) => file.path === openPath),
@@ -19,6 +29,12 @@ export function useDiffView(files: DiffFile[]) {
     if (next) setOpenPath(next.path);
   };
   return {
+    /** The files in the list's order. */
+    files,
+    /** The folder tree the list shows; none while it is flat. */
+    tree,
+    // The tree is the default, so only the flat list is kept.
+    toggleTree: () => keep(mode === 'tree' ? ('list' satisfies FileListMode) : undefined),
     at,
     file: files[at],
     open: setOpenPath,

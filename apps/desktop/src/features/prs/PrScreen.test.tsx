@@ -194,14 +194,16 @@ test("the Files tab reads the PR's patch only when opened and shows each file's 
     '[data-testid="pr-tab-files"] [aria-label="Changed files"] button',
   );
   expect([...files].map((f) => f.textContent)).toEqual([
-    'Mcache.tssrc/edge/',
-    'Acache.test.tstest/edge/',
+    'src/edge',
+    'Mcache.ts',
+    'test/edge',
+    'Acache.test.ts',
   ]);
   const open = document.querySelector('section[aria-label="src/edge/cache.ts"]')?.textContent ?? '';
   expect(open).toContain('key(item)');
   expect(open).toContain('key(item, width)');
 
-  await click(files[1]);
+  await click(files[3]);
   expect(
     document.querySelector('section[aria-label="test/edge/cache.test.ts"]')?.textContent,
   ).toContain("test('304 keeps the body')");

@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronRight, Folder, Minus, Plus } from 'lucide-react';
-import { useState } from 'react';
 import { CountPill } from '@/components/CountPill';
+import { useToggleSet } from '@/lib/useToggleSet';
 import { cn } from '@/lib/utils';
 import {
   byFolder,
@@ -24,14 +24,7 @@ export function GitChangeList(props: {
   onSelect: (entry: GitEntry) => void;
   onIndex: IndexAction;
 }) {
-  const [closed, setClosed] = useState<Set<string>>(new Set());
-  const toggle = (key: string) =>
-    setClosed((last) => {
-      const next = new Set(last);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  const [closed, toggle] = useToggleSet();
   return props.sections.map((section) => (
     <div key={section.title}>
       <div className="flex items-center gap-2 px-3 py-2 text-sm font-medium">

@@ -165,7 +165,6 @@ export function DiffPanel(props: {
         </div>
       ) : (
         <GitDiffFiles
-          files={files}
           view={view}
           fontSize={appearance.diffFontSize}
           listClassName={expanded ? 'w-72' : 'w-56'}

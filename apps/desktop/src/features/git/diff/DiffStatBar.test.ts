@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { tally } from './DiffFileList';
+import { tally } from './DiffStatBar';
 
 test('the diffstat fills more cells for bigger changes, green for added first', () => {
   expect(tally(0, 0)).toEqual(['empty', 'empty', 'empty', 'empty', 'empty']);

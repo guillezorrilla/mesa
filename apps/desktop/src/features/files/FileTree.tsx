@@ -18,6 +18,7 @@ import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
 import { Input } from '@/components/ui/input';
 import { CheckoutPicker } from '@/features/worktrees/CheckoutPicker';
+import { useToggleSet } from '@/lib/useToggleSet';
 import { cn } from '@/lib/utils';
 import { moveListFocus } from './listKeys';
 
@@ -56,7 +57,7 @@ export function FileTree(props: {
   /** The profile's file tree text size in px. */
   fontSize: number;
 }) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expanded, toggle, setExpanded] = useToggleSet();
   const [goTo, setGoTo] = useState('');
   const filter = goTo.trim().toLowerCase();
   const visible =
@@ -72,13 +73,6 @@ export function FileTree(props: {
     if (filter && !goTo.includes(':') && first) props.onOpen({ path: first.path });
     else if (target) props.onOpen(target);
   };
-  const toggle = (path: string) =>
-    setExpanded((last) => {
-      const next = new Set(last);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      return next;
-    });
   return (
     <>
       <div className="flex shrink-0 items-center gap-0.5 px-3 pt-2">
