@@ -3,6 +3,7 @@ import { sessionLabel } from '@mesa/core/browser';
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
+import { Muted } from '@/components/Muted';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useDeleteBranch } from './useDeleteBranch';
@@ -10,8 +11,9 @@ import { useDeleteBranch } from './useDeleteBranch';
 /**
  * Confirms removing an ended session by listing what will be deleted: its record, hook log, and
  * output log, and, when asked, its worktree and branch, and each additional project's (listed
- * under the two choices). Mesa refuses a worktree with changes before anything goes; the toast
- * says so.
+ * under the two choices). A worktree a newer session took over (takenOver) is not offered: it
+ * stays with that session, and the dialog says so. Mesa refuses a worktree with changes before
+ * anything goes; the toast says so.
  */
 export function RemoveDialog(props: {
   row: ManagedRow;
@@ -22,11 +24,14 @@ export function RemoveDialog(props: {
   const { row } = props;
   const [deleteWorktree, setDeleteWorktree] = useState(false);
   const [deleteBranch, setDeleteBranch] = useDeleteBranch();
-  const others = row.additional ?? [];
+  const kept = new Set(row.takenOver?.map((k) => k.worktree));
+  const own = row.worktree && !kept.has(row.worktree.path) ? row.worktree : undefined;
+  const others = (row.additional ?? []).filter((a) => !kept.has(a.worktree.path));
+  const offered = Boolean(own || others.length);
   const goes = [
     `session ${row.id}'s record, its hook log, and its output log`,
-    ...(row.worktree && deleteWorktree ? [`its worktree ${row.worktree.path}`] : []),
-    ...(row.worktree && deleteBranch ? [`its branch ${row.worktree.branch}`] : []),
+    ...(own && deleteWorktree ? [`its worktree ${own.path}`] : []),
+    ...(own && deleteBranch ? [`its branch ${own.branch}`] : []),
     ...others.flatMap((a) => [
       ...(deleteWorktree ? [`${a.project}'s worktree ${a.worktree.path}`] : []),
       ...(deleteBranch ? [`${a.project}'s branch ${a.worktree.branch}`] : []),
@@ -49,7 +54,13 @@ export function RemoveDialog(props: {
         disabled: props.disabled,
         variant: 'destructive',
       }}
-      onSubmit={() => props.onRemove({ deleteWorktree, deleteBranch })}
+      // Nothing offered, nothing asked: the branch choice is remembered, not this session's.
+      onSubmit={() =>
+        props.onRemove({
+          deleteWorktree: offered && deleteWorktree,
+          deleteBranch: offered && deleteBranch,
+        })
+      }
       onCancel={props.onCancel}
     >
       <ul data-testid="remove-list" className="list-disc space-y-1 pl-5 text-sm">
@@ -57,7 +68,7 @@ export function RemoveDialog(props: {
           <li key={g}>{g}</li>
         ))}
       </ul>
-      {row.worktree && (
+      {offered && (
         <div className="grid gap-3">
           <div className="flex items-center gap-2">
             <Checkbox
@@ -92,6 +103,11 @@ export function RemoveDialog(props: {
           )}
         </div>
       )}
+      {row.takenOver?.map((k) => (
+        <Muted key={k.worktree} size="xs" data-testid="remove-kept" className="break-all">
+          {k.worktree} stays, with its branch: a newer session uses it now.
+        </Muted>
+      ))}
     </ActionDialog>
   );
 }

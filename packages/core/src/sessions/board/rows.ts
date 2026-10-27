@@ -21,6 +21,8 @@ export type ManagedRow = { hasOutputLog?: boolean } & SessionRecord &
     nativeState?: string;
     /** The ids of the sessions whose `parent` it is, oldest first, listed or not. */
     children: string[];
+    /** Its worktrees a newer session took over (takenOver), which removing it leaves; none without. */
+    takenOver?: { project: string; worktree: string; holder: string }[];
     /** It has a conversation an agent swap would lose (hasConversation): it hands off instead. */
     conversation?: true;
     /** Who placed its state, the rules or the chosen model, and that model's reply (#461). */

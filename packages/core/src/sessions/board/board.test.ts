@@ -736,3 +736,30 @@ test("a record an older Mesa saved with the adapter's state loads, and a look re
   expect(rows).toMatchObject([{ id: live.id, lastState: read }]);
   expect(store.get(live.id).lastState).toEqual(read);
 });
+
+test('a row lists the worktrees a newer session took over, which removing it leaves', async () => {
+  const store = storeIn();
+  const worktree = { path: '/w/lantern-cove/review-12', branch: 'review/12' };
+  const tide = { project: 'tide-pool', worktree: { path: '/w/tide-pool/fix', branch: 'fix' } };
+  const old = store.create(() => ({
+    ...inWindow('lantern-cove', '2026-09-24T10:00:00.000Z', 'claude-aaaaaa'),
+    worktree,
+    additional: [tide],
+  }));
+  const newer = store.create(() => ({
+    ...inWindow('lantern-cove', '2026-09-24T11:00:00.000Z', 'claude-bbbbbb'),
+    worktree,
+  }));
+  const deps = {
+    ...noListing,
+    store,
+    tmux: tmuxWith(),
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  };
+  const [first, second] = byStart(await listSessions(deps, { scope: 'all' }));
+  expect(first?.managed && first.takenOver).toEqual([
+    { project: 'lantern-cove', worktree: worktree.path, holder: newer.id },
+  ]);
+  expect(first?.id).toBe(old.id);
+  expect(second?.managed && second.takenOver).toBeUndefined();
+});
