@@ -47,9 +47,24 @@ test('the session diff lists every changed file in its folder tree, walks them w
     panel?.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', bubbles: true }));
   });
   expect(document.querySelector('section[aria-label="notes.txt"]')).not.toBeNull();
-  // A folder closes, unless the open file is in it; the flat list puts each folder under its name.
+  /** The open file's section, whose header counts it: `2 / 2`. */
+  const counter = () =>
+    document.querySelector('[aria-label="Session changes"] section')?.textContent ?? '';
+  expect(counter()).toContain('2 / 2');
+  // A folder closes, the open file's too; k into a closed one opens it, in the tree's order.
   await click(buttons().find((button) => button.textContent === 'src'));
   expect(listed()).toEqual(['src', 'Anotes.txt']);
+  await act(async () => {
+    panel?.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', bubbles: true }));
+  });
+  expect(listed()).toEqual(['src', 'Mtide.ts', 'Anotes.txt']);
+  expect(counter()).toContain('1 / 2');
+  await click(buttons().find((button) => button.textContent === 'src'));
+  expect(listed()).toEqual(['src', 'Anotes.txt']);
+  await act(async () => {
+    panel?.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', bubbles: true }));
+  });
+  // The flat list puts each folder under its name, and is kept.
   await click(buttons().find((button) => button.getAttribute('aria-label') === 'Flat file list'));
   expect(listed()).toEqual(['Mtide.tssrc/', 'Anotes.txt']);
   expect(localStorage.getItem('mesa.diff.files')).toBe('list');

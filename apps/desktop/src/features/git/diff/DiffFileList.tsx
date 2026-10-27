@@ -35,7 +35,12 @@ export function DiffFileList(props: {
       ) : (
         props.files.map((file) => (
           <li key={file.path}>
-            <DiffFileRow file={file} current={file.path === props.open} onOpen={props.onOpen} />
+            <DiffFileRow
+              file={file}
+              current={file.path === props.open}
+              withFolder
+              onOpen={props.onOpen}
+            />
           </li>
         ))
       )}

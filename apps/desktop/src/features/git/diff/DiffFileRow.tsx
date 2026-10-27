@@ -6,18 +6,20 @@ import type { DiffFile } from './diffFiles';
 const STATUS_NAME = { A: 'Added', M: 'Modified', D: 'Deleted', R: 'Renamed' } as const;
 
 /**
- * One changed file's row: its status letter, its name, and its diffstat. With `indent` (a tree's
- * row) its name alone; without, its folder under its name.
+ * One changed file's row: its status letter, its name, and its diffstat; in a flat list
+ * (`withFolder`) its folder under its name, in a tree its name alone, `indent` px in.
  */
 export function DiffFileRow(props: {
   file: DiffFile;
   current: boolean;
+  /** Show its folder under its name, where nothing else says which it is in. */
+  withFolder?: boolean;
   /** Its left padding in px, as deep as its folder in a tree. */
   indent?: number;
   onOpen: (path: string) => void;
 }) {
   const { file, current } = props;
-  const folder = props.indent === undefined && folderOf(file.path);
+  const folder = props.withFolder && folderOf(file.path);
   return (
     <button
       type="button"

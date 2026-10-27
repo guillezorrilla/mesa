@@ -48,3 +48,13 @@ test('files nest by folder, subfolders before files, and a lone subfolder merges
     'README.md',
   ]);
 });
+
+test('a lone file, root files, and a merged chain that holds files of its own', () => {
+  expect(outline(diffTree([file('a/b/c/tide.ts')]))).toEqual(['a/b/c/', '  tide.ts']);
+  expect(outline(diffTree(['b.md', 'a.md'].map(file)))).toEqual(['a.md', 'b.md']);
+  // `src` holds a file, so the merge stops there; `deep` and `er` hold one folder each, so merge.
+  expect(
+    outline(diffTree(['src/index.ts', 'src/deep/er/est/x.ts', 'src/deep/er/est/y.ts'].map(file))),
+  ).toEqual(['src/', '  deep/er/est/', '    x.ts', '    y.ts', '  index.ts']);
+  expect(diffTree([])).toEqual([]);
+});

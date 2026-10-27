@@ -4,6 +4,9 @@ import type { DiffFile } from './diffFiles';
 import { diffTree, treeOrder } from './diffTree';
 import type { DiffLayout } from './GitDiffRows';
 
+/** How the file list shows the files: in their folders, or flat with each folder under its name. */
+type FileListMode = 'tree' | 'list';
+
 /**
  * How a patch's files are viewed: which one is open (the first until one is picked), whether the
  * file list shows, as a folder tree (kept, the default) or flat, inline or side by side, and j and
@@ -14,8 +17,8 @@ export function useDiffView(patch: DiffFile[]) {
   const [list, setList] = useState(true);
   const [layout, setLayout] = useState<DiffLayout>('inline');
   const [kept, keep] = useKept('mesa.diff.files');
-  const flat = kept === 'list';
-  const tree = useMemo(() => (flat ? undefined : diffTree(patch)), [flat, patch]);
+  const mode: FileListMode = kept === 'list' ? 'list' : 'tree';
+  const tree = useMemo(() => (mode === 'tree' ? diffTree(patch) : undefined), [mode, patch]);
   const files = useMemo(() => (tree ? treeOrder(tree) : patch), [tree, patch]);
   const at = Math.max(
     0,
@@ -30,7 +33,8 @@ export function useDiffView(patch: DiffFile[]) {
     files,
     /** The folder tree the list shows; none while it is flat. */
     tree,
-    toggleTree: () => keep(flat ? undefined : 'list'),
+    // The tree is the default, so only the flat list is kept.
+    toggleTree: () => keep(mode === 'tree' ? ('list' satisfies FileListMode) : undefined),
     at,
     file: files[at],
     open: setOpenPath,

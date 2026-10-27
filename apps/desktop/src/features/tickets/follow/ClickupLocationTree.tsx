@@ -2,6 +2,7 @@ import type { ClickupList, ClickupWorkspace } from '@mesa/core';
 import { ChevronRight, Folder, List } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
+import { useToggleSet } from '@/lib/useToggleSet';
 import { cn } from '@/lib/utils';
 import { clickupHex } from '../clickup/ClickupStatus';
 
@@ -98,20 +99,12 @@ export function ClickupLocationTree(props: {
   const trees = nodesOf(props.workspaces);
   const path = firstList(trees.flatMap((t) => t.nodes)) ?? [];
   const first = path.at(-1);
-  const [open, setOpen] = useState<ReadonlySet<string>>(
-    () => new Set(path.slice(0, -1).map(keyOf)),
-  );
+  const [open, toggle] = useToggleSet(() => path.slice(0, -1).map(keyOf));
   useEffect(() => {
     if (!picked && first) onPick(locationOf(first));
   }, [picked, first, onPick]);
   const [search, setSearch] = useState('');
   const words = search.trim().toLowerCase();
-  const toggle = (key: string) =>
-    setOpen((was) => {
-      const next = new Set(was);
-      if (!next.delete(key)) next.add(key);
-      return next;
-    });
   const row = (node: Node, depth: number) => {
     const key = keyOf(node);
     const expanded = node.children.length > 0 && (Boolean(words) || open.has(key));
