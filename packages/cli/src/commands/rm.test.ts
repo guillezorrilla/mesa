@@ -82,3 +82,18 @@ test("rm removes the session's decision assistance state with its record", async
   expect((await mesa('rm', id, '--force')).code).toBe(0);
   expect(existsSync(state)).toBe(false);
 });
+
+test('rm --delete-worktree of a resumed session says the worktree stays with the newer one', async () => {
+  const { tmux } = await cli.withTwoProjects();
+  const first = (await mesa('open', 'lantern-cove', '--branch', 'kept', '--json')).json.data;
+  const w = tmux.windows.find((x) => x.window === `claude-${first.id}`);
+  if (w) w.dead = true;
+  const resumed = await mesa('resume', first.id, '--json');
+  expect(resumed.code, resumed.stdout).toBe(0);
+  const holder = resumed.json.data.id;
+  const rm = await mesa('rm', first.id, '--delete-worktree');
+  expect(rm.code, rm.stderr).toBe(0);
+  expect(rm.stdout).toBe(
+    `removed ${first.id}; kept ${first.worktree.path}, session ${holder}'s now\n`,
+  );
+});

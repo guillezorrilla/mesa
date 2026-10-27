@@ -9,7 +9,13 @@ import { MesaError } from '../../lib/result.js';
 import type { Profile } from '../../profile/profile.js';
 import { findProject } from '../../projects/projects.js';
 import { costTally } from '../../usage/session-cost.js';
-import { checkoutHolders, heldWorktrees, real, worktreeHolder } from '../record/holders.js';
+import {
+  checkoutHolders,
+  heldWorktrees,
+  holdsWorktree,
+  real,
+  worktreeHolder,
+} from '../record/holders.js';
 import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
 import { runInput, runOutput } from '../run/files.js';
@@ -36,6 +42,11 @@ export type Removed = {
   branch?: string;
   /** Each additional project's worktree and branch it removed (CONTEXT.md, Additional project). */
   additional?: { project: string; worktree?: string; branch?: string }[];
+  /**
+   * Each worktree, with its branch, it was asked to remove that a newer session holds now, so
+   * stays: `holder` is that session.
+   */
+  kept?: { project: string; worktree: string; holder: string }[];
 };
 
 /**
@@ -43,10 +54,10 @@ export type Removed = {
  * its decision assistance, with `deleteWorktree` its git worktree and each additional project's,
  * and with `deleteBranch` their branch, at once: it starts no Vault capture, which a turn's end
  * takes (#844). A queued session is refused, to be cancelled first; a live one is refused unless
- * `force`, which closes its window first; a worktree another session holds or runs in, or git has
- * locked, is refused, and one with changes or submodules unless `force`; a
- * branch checked out where the session does not hold it is refused, as is one its own worktree has
- * without `deleteWorktree`. Every refusal, for every repository, comes before anything goes, so a
+ * `force`, which closes its window first. A worktree a newer session holds stays with it, with its
+ * branch, and is listed as `kept`; one another session runs in, or git has locked, is refused, and
+ * one with changes or submodules unless `force`; a branch checked out where the session does not
+ * hold it is refused, as is one its own worktree has without `deleteWorktree`. Every refusal, for every repository, comes before anything goes, so a
  * refused rm leaves the session as it was, to retry. The last review session of a pull request
  * (lastOfReview) removes its worktree as `deleteWorktree` would, unasked. What went.
  */
@@ -93,9 +104,18 @@ export async function removeSession(
   if ((dropWorktree || dropBranch) && !held.length) {
     throw new MesaError('usage', `session ${id} has no worktree or branch of its own`);
   }
-  const profile = held.length ? deps.profile() : undefined;
+  // One a newer session took over (a resume, a handoff, a later review round) stays with it.
+  const own = held.filter((h) => holdsWorktree(deps.store, id, h.worktree.path));
+  const kept = held
+    .filter((h) => !own.includes(h))
+    .map(({ project, worktree }) => ({
+      project,
+      worktree: worktree.path,
+      holder: worktreeHolder(deps.store, worktree.path)?.id ?? '',
+    }));
+  const profile = own.length ? deps.profile() : undefined;
   const repos = profile
-    ? held.map((h) => ({ ...h, repo: findProject(profile, h.project).path }))
+    ? own.map((h) => ({ ...h, repo: findProject(profile, h.project).path }))
     : [];
   // Every refusal for every repository comes before anything is removed.
   const registered = profile
@@ -126,14 +146,16 @@ export async function removeSession(
   }
   for (const { worktree, repo } of dropBranch ? repos : [])
     await deleteBranch(deps.run, repo, worktree.branch);
-  const [own, ...others] = repos.map(({ project, worktree }) => ({
+  const [first, ...others] = repos.map(({ project, worktree }) => ({
     project,
     ...(dropWorktree ? { worktree: worktree.path } : {}),
     ...(dropBranch ? { branch: worktree.branch } : {}),
   }));
-  if (own?.worktree) removed.worktree = own.worktree;
-  if (own?.branch) removed.branch = own.branch;
-  if (others.length) removed.additional = others;
+  if (first?.project === record.project && first.worktree) removed.worktree = first.worktree;
+  if (first?.project === record.project && first.branch) removed.branch = first.branch;
+  const rest = first && first.project !== record.project ? [first, ...others] : others;
+  if (rest.length) removed.additional = rest;
+  if (kept.length) removed.kept = kept;
   const events = eventsLog(deps.eventsDir, id);
   removed.events = existsSync(events);
   rmSync(events, { force: true });
@@ -161,17 +183,17 @@ function lastOfReview(store: SessionStore, r: SessionRecord) {
   const others = store
     .list()
     .some((o) => o.id !== r.id && o.project === r.project && o.review?.pr === review.pr);
-  return !others && worktreeHolder(store, worktree.path)?.id === r.id;
+  return !others && holdsWorktree(store, r.id, worktree.path);
 }
 
 /**
- * Refuses removing any of these worktrees, naming its project and path: one a newer session holds
- * now (a resume took it over), one another unfinished session runs in, one git has locked (even
- * with `force`, as git needs it twice), and, without `force`, one with submodules or with changes
- * or untracked files, as git would refuse it only once others were gone; with `dropBranch`, a branch
- * checked out in a worktree the session does not hold, or, without `dropWorktree`, in the one it
- * holds. One `git worktree list` per repository; it returns the held worktrees git lists, whose
- * registration rm clears when the folder is gone.
+ * Refuses removing any of these worktrees, naming its project and path: one another unfinished
+ * session runs in, one git has locked (even with `force`, as git needs it twice), and, without
+ * `force`, one with submodules or with changes or untracked files, as git would refuse it only
+ * once others were gone; with `dropBranch`, a branch checked out in a worktree the session does
+ * not hold, or, without `dropWorktree`, in the one it holds. One `git worktree list` per
+ * repository; it returns the held worktrees git lists, whose registration rm clears when the
+ * folder is gone.
  */
 async function refuseRemoval(
   deps: { store: SessionStore; run: Runner },
@@ -208,12 +230,6 @@ async function refuseRemoval(
         `${project}'s branch ${worktree.branch} is checked out at ${elsewhere.path}`,
       );
     if (!dropWorktree) continue;
-    const holder = worktreeHolder(deps.store, worktree.path);
-    if (holder && holder.id !== id)
-      throw new MesaError(
-        'usage',
-        `${where} is session ${holder.id}'s now; remove that one instead`,
-      );
     const using = checkoutHolders(records, project, repo, at).find((r) => r.id !== id);
     if (using)
       throw new MesaError('usage', `session ${using.id} still uses ${where}; stop it first`);

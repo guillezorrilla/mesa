@@ -108,7 +108,10 @@ export function useSessionCommands({
       if (!removed) return undefined;
       closeDialog();
       if (selectedSession === id) leaveClosedSession([id]);
-      return warningOf(removed);
+      const kept = removed.kept?.map((k) => k.worktree);
+      return kept?.length
+        ? said(`Kept ${kept.join(', ')}: a newer session uses it`, removed)
+        : warningOf(removed);
     });
   const cascade = (
     kind: 'stop' | 'remove',

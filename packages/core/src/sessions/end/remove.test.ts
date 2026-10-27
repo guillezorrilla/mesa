@@ -151,13 +151,18 @@ test('rm of a session resumed since leaves the worktree the newer session has', 
   const { result: first } = await mesa.sessions.open('lantern-cove', { branch: 'kept' });
   exit(first.tmux.window);
   const { result: resumed } = await mesa.sessions.resume(first.id);
-  await expect(mesa.sessions.remove(first.id, { deleteWorktree: true })).rejects.toMatchObject({
-    code: 'usage',
-    message: `lantern-cove's worktree at ${first.worktree?.path} is session ${resumed.record.id}'s now; remove that one instead`,
+  // Asked to remove it too, the old record goes and the worktree stays with the new one.
+  const { result: removed } = await mesa.sessions.remove(first.id, {
+    deleteWorktree: true,
+    deleteBranch: true,
   });
-  // Without the flag, the old record goes and the worktree stays with the new one.
-  await mesa.sessions.remove(first.id);
+  expect(removed).not.toHaveProperty('worktree');
+  expect(removed).not.toHaveProperty('branch');
+  expect(removed.kept).toEqual([
+    { project: 'lantern-cove', worktree: first.worktree?.path, holder: resumed.record.id },
+  ]);
   expect(existsSync(first.worktree?.path ?? '')).toBe(true);
+  await expect(mesa.sessions.show(first.id)).rejects.toMatchObject({ code: 'not_found' });
 });
 
 /** A stopped session across lantern-cove and tide-pool on `branch`, through the real git. */
@@ -275,15 +280,20 @@ test('a branch checked out elsewhere in the second repository refuses --delete-b
   expect((await mesa.sessions.show(session.id)).id).toBe(session.id);
 });
 
-test('worktrees a resumed successor holds now are refused, naming the project and path', async () => {
-  const { mesa, session, own, other } = await acrossProjects();
+test('worktrees a resumed successor holds now stay with it in every project', async () => {
+  const { mesa, session, own, other, branches } = await acrossProjects();
   const { result: resumed } = await mesa.sessions.resume(session.id);
-  await expect(mesa.sessions.remove(session.id, { deleteWorktree: true })).rejects.toMatchObject({
-    code: 'usage',
-    message: `lantern-cove's worktree at ${own} is session ${resumed.record.id}'s now; remove that one instead`,
+  const { result: removed } = await mesa.sessions.remove(session.id, {
+    deleteWorktree: true,
+    deleteBranch: true,
   });
+  expect(removed.kept?.map((k) => [k.project, k.holder])).toEqual([
+    ['lantern-cove', resumed.record.id],
+    ['tide-pool', resumed.record.id],
+  ]);
+  expect(removed).not.toHaveProperty('additional');
   expect([existsSync(own), existsSync(other)]).toEqual([true, true]);
-  expect((await mesa.sessions.show(session.id)).id).toBe(session.id);
+  expect(branches()).toEqual(['+ shared', '+ shared']);
 });
 
 test("rm --descendants --delete-worktree removes a descendant's worktrees in every project", async () => {

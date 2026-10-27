@@ -119,8 +119,10 @@ export async function startReview(
       'usage',
       `${branch} is checked out at ${worktree.path}, which no review of #${pr} holds: remove that worktree or rename its branch, then start the review again`,
     );
-  if (worktree) await moveWorktree(deps.run, worktree.path, branch, source);
-  else await fetchBranch(deps.run, deps.projectPath, branch, source, pr);
+  // The heads earlier rounds reviewed: commits they had are the author's, gone with a force-push.
+  const reviewed = earlier.flatMap((r) => (r.review ? [r.review.head] : []));
+  if (worktree) await moveWorktree(deps.run, worktree.path, branch, source, reviewed);
+  else await fetchBranch(deps.run, deps.projectPath, branch, source, pr, reviewed);
   const head = await commitOid(deps.run, deps.projectPath, branch);
   const round = Math.max(0, ...earlier.map((r) => r.review?.round ?? 0)) + 1;
   const parent = earlier.at(-1)?.id;
@@ -145,12 +147,24 @@ export async function startReview(
 
 /**
  * Points the local `branch`, checked out nowhere, at `source`'s head on origin. A branch already
- * there (an earlier round's, its worktree removed) is moved only forward: one with commits the
- * head has not is refused rather than lose them.
+ * there (an earlier round's, its worktree removed) is moved only forward, unless every commit it
+ * has is in a head an earlier round `reviewed`: one with commits of its own is refused rather than
+ * lose them.
  */
-async function fetchBranch(run: Runner, cwd: string, branch: string, source: string, pr: number) {
-  // No `+`: git makes the branch, or moves one already there only forward.
-  const fetched = await gitCommand(run, cwd, ['fetch', 'origin', `${source}:${branch}`], FETCH_MS);
+async function fetchBranch(
+  run: Runner,
+  cwd: string,
+  branch: string,
+  source: string,
+  pr: number,
+  reviewed: readonly string[],
+) {
+  const reset =
+    reviewed.length > 0 &&
+    !(await ownCommits(run, cwd, `refs/heads/${branch}`, reviewed, `cannot compare ${branch}`));
+  // Without `+`, git makes the branch, or moves one already there only forward.
+  const refspec = `${reset ? '+' : ''}${source}:${branch}`;
+  const fetched = await gitCommand(run, cwd, ['fetch', 'origin', refspec], FETCH_MS);
   if (fetched.ok) return;
   throw new MesaError(
     'usage',
@@ -162,9 +176,16 @@ async function fetchBranch(run: Runner, cwd: string, branch: string, source: str
 
 /**
  * Moves the worktree on `branch` to `source`'s head on origin: fetched into FETCH_HEAD, then the
- * branch reset there with switch -C, once the worktree has no changes and no commits to lose.
+ * branch reset there with switch -C, once the worktree has no changes and no commits to lose:
+ * none past the new head that no head an earlier round `reviewed` has.
  */
-async function moveWorktree(run: Runner, path: string, branch: string, source: string) {
+async function moveWorktree(
+  run: Runner,
+  path: string,
+  branch: string,
+  source: string,
+  reviewed: readonly string[],
+) {
   const status = await must(
     run,
     path,
@@ -177,8 +198,7 @@ async function moveWorktree(run: Runner, path: string, branch: string, source: s
       `the review worktree ${path} has changes: commit or remove them, then start the review again`,
     );
   await must(run, path, ['fetch', 'origin', source], `cannot fetch ${source}`);
-  const ahead = await must(run, path, ['rev-list', 'FETCH_HEAD..HEAD'], `cannot compare ${path}`);
-  if (ahead.trim())
+  if (await ownCommits(run, path, 'HEAD', ['FETCH_HEAD', ...reviewed], `cannot compare ${path}`))
     throw new MesaError(
       'usage',
       `the review worktree ${path} has commits that are not in the new head: push or remove them, then start the review again`,
@@ -199,6 +219,21 @@ async function remoteHead(run: Runner, cwd: string, source: string) {
   const listed = await gitCommand(run, cwd, ['ls-remote', 'origin', source], FETCH_MS);
   return listed.ok ? listed.stdout.split(/\s/)[0] || undefined : undefined;
 }
+
+/**
+ * Whether `ref` has commits none of `bases` has. A missing ref has none, and a missing base is
+ * skipped: gc may have dropped a head a force-push left behind.
+ */
+const ownCommits = async (
+  run: Runner,
+  cwd: string,
+  ref: string,
+  bases: readonly string[],
+  why: string,
+) =>
+  Boolean(
+    (await must(run, cwd, ['rev-list', '--ignore-missing', ref, '--not', ...bases], why)).trim(),
+  );
 
 /** A git call that must succeed (mustGit), given a fetch's time. */
 const must = (run: Runner, cwd: string, args: string[], why: string) =>
