@@ -59,7 +59,7 @@ export function GitChangeList(props: {
                   indent={16}
                   icon={{ open: Folder, closed: Folder }}
                   trailing={entries.length}
-                  className="py-1 pr-4 text-muted-foreground"
+                  className="py-1 pr-4 text-muted-foreground hover:text-foreground"
                   onClick={() => toggle(key)}
                 />
               )}

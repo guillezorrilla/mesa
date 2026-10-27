@@ -23,7 +23,8 @@ export function DiffFileTree(props: {
   const [shown, setShown] = useState(props.open);
   if (shown !== props.open) {
     setShown(props.open);
-    setClosed(new Set([...closed].filter((folder) => !props.open.startsWith(`${folder}/`))));
+    const stillClosed = [...closed].filter((folder) => !props.open.startsWith(`${folder}/`));
+    if (stillClosed.length < closed.size) setClosed(new Set(stillClosed));
   }
   const items = (nodes: DiffTreeNode[], depth: number) =>
     nodes.map((node) => {

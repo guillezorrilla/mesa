@@ -78,8 +78,8 @@ export async function removeSession(
   { force = false, deleteWorktree: askedWorktree = false, deleteBranch: dropBranch = false } = {},
 ): Promise<Removed> {
   const record = deps.store.get(id);
-  // One read of every record for each holder check below.
-  const records = deps.store.list();
+  // One read of every record for each holder check below, and none for a plain rm, which has none.
+  const records = record.review || askedWorktree || dropBranch ? deps.store.list() : [];
   const holders = worktreeHolders(records);
   const dropWorktree = askedWorktree || lastOfReview(records, holders, record);
   // Removing it would leave what waits on it waiting on nothing, so it would start at once.
@@ -114,7 +114,7 @@ export async function removeSession(
     : [];
   // Every refusal for every repository comes before anything is removed.
   const registered = profile
-    ? await refuseRemoval({ run: deps.run, records }, profile, id, repos, {
+    ? await refuseRemoval(deps, records, profile, id, repos, {
         force,
         dropWorktree,
         dropBranch,
@@ -150,8 +150,7 @@ export async function removeSession(
       ...(dropWorktree ? { worktree: worktree.path } : {}),
       ...(dropBranch ? { branch: worktree.branch } : {}),
     };
-    // Its own worktree is the record's own object (heldWorktrees); the rest are additional.
-    if (worktree === record.worktree) Object.assign(removed, gone);
+    if (worktree.path === record.worktree?.path) Object.assign(removed, gone);
     else removed.additional = [...(removed.additional ?? []), { project, ...gone }];
   }
   if (kept.length) removed.kept = kept;
@@ -199,7 +198,8 @@ function lastOfReview(
  * folder is gone.
  */
 async function refuseRemoval(
-  deps: { run: Runner; records: readonly SessionRecord[] },
+  deps: { run: Runner },
+  records: readonly SessionRecord[],
   profile: Profile,
   id: string,
   repos: readonly { project: string; worktree: Worktree; repo: string }[],
@@ -209,7 +209,6 @@ async function refuseRemoval(
     dropBranch,
   }: { force: boolean; dropWorktree: boolean; dropBranch: boolean },
 ) {
-  const { records } = deps;
   const registered = new Set<string>();
   for (const { project, worktree, repo } of repos) {
     const where = `${project}'s worktree at ${worktree.path}`;

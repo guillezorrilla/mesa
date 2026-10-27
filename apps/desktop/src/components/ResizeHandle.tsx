@@ -21,12 +21,15 @@ export function ResizeHandle(props: {
   const { width, onWidth, bounds, keep } = props;
   // Dragging a left edge leftwards widens the panel.
   const sign = props.edge === 'right' ? 1 : -1;
-  /** Where a drag or a step from `handle` starts, and the widest it may go; read once, at the start. */
+  /** Where a drag, a step or a reset from `handle` starts, and the widest it may go; read once. */
   const measure = (handle: HTMLElement) => {
     const panel = handle.parentElement;
-    const room = keep === undefined ? 0 : (panel?.parentElement?.clientWidth ?? 0);
+    const room = panel?.parentElement?.clientWidth;
     // No layout (a test) measures nothing: the width as set, and no room limit.
-    return { from: panel?.offsetWidth || width, most: room ? room - (keep ?? 0) : Infinity };
+    return {
+      from: panel?.offsetWidth || width,
+      most: keep !== undefined && room ? room - keep : Infinity,
+    };
   };
   const startDrag = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.button !== 0) return;
@@ -63,7 +66,9 @@ export function ResizeHandle(props: {
       tabIndex={0}
       onPointerDown={startDrag}
       onKeyDown={step}
-      onDoubleClick={() => onWidth(bounds.initial)}
+      onDoubleClick={(event) =>
+        onWidth(Math.min(measure(event.currentTarget).most, bounds.initial))
+      }
       className={cn(
         'absolute inset-y-0 z-10 w-2 cursor-col-resize outline-none transition-colors hover:bg-border focus-visible:bg-ring',
         props.edge === 'right' ? '-right-1' : '-left-1',
