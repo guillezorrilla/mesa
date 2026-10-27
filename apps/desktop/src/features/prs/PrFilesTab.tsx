@@ -52,7 +52,7 @@ export function PrFilesTab(props: { pr: PrDetail }) {
         onKeyDown={view.walk}
         className="flex h-[70vh] min-h-80 overflow-hidden rounded-md border bg-card"
       >
-        <GitDiffFiles view={view} fontSize={appearance.diffFontSize} listClassName="w-56" />
+        <GitDiffFiles view={view} fontSize={appearance.diffFontSize} />
       </div>
     </div>
   );

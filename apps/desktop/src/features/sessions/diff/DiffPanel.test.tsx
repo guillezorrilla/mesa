@@ -116,6 +116,38 @@ test('dragging the edge widens the panel only as far as the terminal keeps 256px
   await pointer(document, 'pointerup', { clientX: 100 });
 });
 
+test("the file list's edge widens it, kept for the next diff, and a double-click puts it back", async () => {
+  localStorage.clear();
+  const { bridge } = fakeBridge({ diff: diff({}) });
+  const panel = () => (
+    <DiffPanel
+      sessionId="aaaaaaaa"
+      project="lantern-cove"
+      checkout="/w/reef"
+      state="idle"
+      onClose={() => {}}
+    />
+  );
+  await renderWithMesa(panel(), bridge);
+  const handle = () => document.querySelector<HTMLElement>('[aria-label="Resize file list"]');
+  const list = () => handle()?.parentElement;
+  expect(handle()?.getAttribute('aria-valuenow')).toBe('224');
+  await pointer(handle() as HTMLElement, 'pointerdown', { clientX: 300 });
+  await pointer(document, 'pointermove', { clientX: 420 });
+  await pointer(document, 'pointerup', { clientX: 420 });
+  expect(list()?.style.width).toBe('344px');
+  // The diff beside it always keeps 240px.
+  expect(list()?.style.maxWidth).toBe('calc(100% - 240px)');
+  expect(localStorage.getItem('mesa.diff.listWidth')).toBe('344');
+  // A new render, as the next diff opened, reads the kept width.
+  await renderWithMesa(panel(), bridge);
+  expect(handle()?.getAttribute('aria-valuenow')).toBe('344');
+  await act(async () => {
+    handle()?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+  });
+  expect(handle()?.getAttribute('aria-valuenow')).toBe('224');
+});
+
 test('Expand covers the terminal side by side, Escape shrinks it back, and left-out new files are named', async () => {
   const removal: DiffRow[] = [
     diffMeta('diff --git a/tide.ts b/tide.ts'),

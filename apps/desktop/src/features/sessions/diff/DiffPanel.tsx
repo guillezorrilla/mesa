@@ -167,7 +167,6 @@ export function DiffPanel(props: {
         <GitDiffFiles
           view={view}
           fontSize={appearance.diffFontSize}
-          listClassName={expanded ? 'w-72' : 'w-56'}
           actions={
             file.status !== 'D' && (
               <Button

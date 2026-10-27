@@ -1,33 +1,55 @@
 import type { ReactNode } from 'react';
+import { ResizeHandle } from '@/components/ResizeHandle';
 import { Stat } from '@/components/Stat';
+import { useKeptWidth } from '@/lib/useKeptWidth';
 import { DiffFileList } from './DiffFileList';
 import { GitDiffHeader } from './GitDiffHeader';
 import { GitDiffRows } from './GitDiffRows';
 import type { DiffView } from './useDiffView';
 
-/** A patch's changed files beside the open one's diff, inline or side by side. */
+/** The file list's width: dragged or stepped by its edge, kept, one width for every diff. */
+const DIFF_LIST_WIDTH = { min: 160, max: 720, initial: 224, step: 32 };
+/** What the open file's diff keeps beside the list, however wide the list is dragged. */
+const DIFF_MIN = 240;
+
+/**
+ * A patch's changed files beside the open one's diff, inline or side by side; the list's edge
+ * resizes it.
+ */
 export function GitDiffFiles(props: {
   /** The files, which one is open, the list and the layout (useDiffView). */
   view: DiffView;
   /** The profile's diff text size in px. */
   fontSize: number;
-  listClassName?: string;
   /** The open file's actions, in its header after its line counts. */
   actions?: ReactNode;
 }) {
   const { view } = props;
   const { file } = view;
+  const [width, setWidth] = useKeptWidth('mesa.diff.listWidth', DIFF_LIST_WIDTH);
   if (!file) return null;
   return (
-    <div className="flex min-h-0 flex-1">
+    <div className="flex min-h-0 min-w-0 flex-1">
       {view.list && (
-        <DiffFileList
-          files={view.files}
-          tree={view.tree}
-          open={file.path}
-          onOpen={view.open}
-          className={props.listClassName}
-        />
+        <div
+          className="relative flex min-h-0 shrink-0"
+          style={{ width, maxWidth: `calc(100% - ${DIFF_MIN}px)` }}
+        >
+          <DiffFileList
+            files={view.files}
+            tree={view.tree}
+            open={file.path}
+            onOpen={view.open}
+            className="w-full"
+          />
+          <ResizeHandle
+            label="Resize file list"
+            edge="right"
+            width={width}
+            bounds={DIFF_LIST_WIDTH}
+            onWidth={setWidth}
+          />
+        </div>
       )}
       <section aria-label={file.path} className="flex min-w-0 flex-1 flex-col">
         <GitDiffHeader
