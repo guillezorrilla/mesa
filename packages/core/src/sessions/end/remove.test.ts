@@ -40,6 +40,15 @@ test('show prints the record with alive; an unknown id is not_found', async () =
   await expect(mesa.sessions.show('zzzzzzzz')).rejects.toMatchObject({ code: 'not_found' });
 });
 
+test('a plain rm reads no other record, so a damaged one elsewhere does not stop it', async () => {
+  const { home, mesa, exit } = setUp();
+  const { result } = await mesa.sessions.open('lantern-cove');
+  exit(result.tmux.window);
+  writeFileSync(join(profilePaths(home, 'default').sessions, 'zzzzzzzz.json'), '{');
+  await mesa.sessions.remove(result.id);
+  await expect(mesa.sessions.show(result.id)).rejects.toMatchObject({ code: 'not_found' });
+});
+
 test('rename stores the name and the board carries it; a blank one is refused', async () => {
   const { home, mesa } = setUp();
   const { result } = await mesa.sessions.open('lantern-cove');

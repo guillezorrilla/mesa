@@ -41,12 +41,7 @@ export function DiffPanel(props: {
   const shownBase = base ?? data?.base;
   const appearance = useCommand('config.get').data?.appearance ?? DEFAULT_APPEARANCE;
   const run = useRun();
-  const panel = useRef<HTMLElement>(null);
-  // The terminal beside it keeps its minimum.
-  const [width, resize] = useKeptWidth('mesa.diff.width', DIFF_WIDTH, () => {
-    const room = panel.current?.parentElement?.clientWidth;
-    return room && room - TERMINAL_MIN;
-  });
+  const [width, resize] = useKeptWidth('mesa.diff.width', DIFF_WIDTH);
   const [expanded, setExpanded] = useState(false);
   const seenState = useRef<string | undefined>(props.state);
   // biome-ignore lint/correctness/useExhaustiveDependencies: only a new session state reads again.
@@ -82,7 +77,6 @@ export function DiffPanel(props: {
 
   return (
     <aside
-      ref={panel}
       aria-label="Session changes"
       onKeyDown={onKeyDown}
       className={cn(
@@ -97,6 +91,7 @@ export function DiffPanel(props: {
           edge="left"
           width={width}
           bounds={DIFF_WIDTH}
+          keep={TERMINAL_MIN}
           onWidth={resize}
         />
       )}

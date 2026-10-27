@@ -9,13 +9,6 @@ const indent = (depth: number) => 12 + depth * 14;
 /** A folder's chevron is wider than a file's status letter: it starts this far left of it. */
 const CHEVRON_SHIFT = 4;
 
-/** The folders `path` is in, outermost first. */
-const foldersOf = (path: string) =>
-  path
-    .split('/')
-    .slice(0, -1)
-    .map((_, i, parts) => parts.slice(0, i + 1).join('/'));
-
 /**
  * The changed files' folder tree (diffTree) as list items. Each folder closes on a click; a file
  * opened inside a closed one (j or k landing there) opens the folders it is in.
@@ -30,9 +23,8 @@ export function DiffFileTree(props: {
   const [shown, setShown] = useState(props.open);
   if (shown !== props.open) {
     setShown(props.open);
-    const inside = foldersOf(props.open);
-    if (inside.some((folder) => closed.has(folder)))
-      setClosed(new Set([...closed].filter((folder) => !inside.includes(folder))));
+    const stillClosed = [...closed].filter((folder) => !props.open.startsWith(`${folder}/`));
+    if (stillClosed.length < closed.size) setClosed(new Set(stillClosed));
   }
   const items = (nodes: DiffTreeNode[], depth: number) =>
     nodes.map((node) => {

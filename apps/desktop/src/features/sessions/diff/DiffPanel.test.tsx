@@ -1,14 +1,16 @@
 // @vitest-environment happy-dom
 import type { DiffRow } from '@mesa/core';
 import { act } from 'react';
-import { expect, test } from 'vitest';
+import { beforeEach, expect, test } from 'vitest';
 import {
   click,
   diffMeta,
   envelope,
   failure,
   fakeBridge,
+  layoutWidth,
   pointer,
+  press,
   renderWithMesa,
   sessionDiff,
 } from '@/lib/testing';
@@ -17,8 +19,9 @@ import { DiffPanel } from './DiffPanel';
 const diff = (data: object) => () => sessionDiff(data);
 const buttons = () => [...document.querySelectorAll<HTMLElement>('button')];
 
+beforeEach(() => localStorage.clear());
+
 test('the session diff lists every changed file in its folder tree, walks them with j and k, and opens one in the editor', async () => {
-  localStorage.clear();
   const { bridge, calls } = fakeBridge({
     diff: diff({}),
     'files open': () => envelope({ result: { opened: true } }),
@@ -39,13 +42,10 @@ test('the session diff lists every changed file in its folder tree, walks them w
   expect(panel?.textContent).toContain('2 commits2 files+3 -1');
   const listed = () =>
     [...document.querySelectorAll('[aria-label="Changed files"] button')].map((b) => b.textContent);
-  const files = document.querySelectorAll('[aria-label="Changed files"] button');
   expect(listed()).toEqual(['src', 'Mtide.ts', 'Anotes.txt']);
-  expect(files[1]?.getAttribute('aria-current')).toBe('true');
+  expect(document.querySelector('[aria-current="true"]')?.textContent).toBe('Mtide.ts');
 
-  await act(async () => {
-    panel?.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', bubbles: true }));
-  });
+  await press(panel, 'j');
   expect(document.querySelector('section[aria-label="notes.txt"]')).not.toBeNull();
   /** The open file's section, whose header counts it: `2 / 2`. */
   const counter = () =>
@@ -54,16 +54,12 @@ test('the session diff lists every changed file in its folder tree, walks them w
   // A folder closes, the open file's too; k into a closed one opens it, in the tree's order.
   await click(buttons().find((button) => button.textContent === 'src'));
   expect(listed()).toEqual(['src', 'Anotes.txt']);
-  await act(async () => {
-    panel?.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', bubbles: true }));
-  });
+  await press(panel, 'k');
   expect(listed()).toEqual(['src', 'Mtide.ts', 'Anotes.txt']);
   expect(counter()).toContain('1 / 2');
   await click(buttons().find((button) => button.textContent === 'src'));
   expect(listed()).toEqual(['src', 'Anotes.txt']);
-  await act(async () => {
-    panel?.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', bubbles: true }));
-  });
+  await press(panel, 'j');
   // The flat list puts each folder under its name, and is kept.
   await click(buttons().find((button) => button.getAttribute('aria-label') === 'Flat file list'));
   expect(listed()).toEqual(['Mtide.tssrc/', 'Anotes.txt']);
@@ -91,7 +87,6 @@ test('a session with nothing changed says so, naming its base', async () => {
 });
 
 test('dragging the edge widens the panel only as far as the terminal keeps 256px', async () => {
-  localStorage.clear();
   const { bridge } = fakeBridge({ diff: diff({}) });
   await renderWithMesa(
     <div>
@@ -107,7 +102,7 @@ test('dragging the edge widens the panel only as far as the terminal keeps 256px
   );
   const handle = document.querySelector<HTMLElement>('[aria-label="Resize changes panel"]');
   if (!handle?.parentElement?.parentElement) throw new Error('handle missing');
-  Object.defineProperty(handle.parentElement.parentElement, 'clientWidth', { value: 1100 });
+  layoutWidth(handle.parentElement.parentElement, 1100);
   await pointer(handle, 'pointerdown', { clientX: 700 });
   await pointer(document, 'pointermove', { clientX: 600 });
   expect(handle.getAttribute('aria-valuenow')).toBe('820');
@@ -117,7 +112,6 @@ test('dragging the edge widens the panel only as far as the terminal keeps 256px
 });
 
 test("the file list's edge widens it as far as the diff keeps 240px, kept, and an expanded panel starts it wider", async () => {
-  localStorage.clear();
   const { bridge } = fakeBridge({ diff: diff({}) });
   const panel = () => (
     <DiffPanel
@@ -131,10 +125,6 @@ test("the file list's edge widens it as far as the diff keeps 240px, kept, and a
   await renderWithMesa(panel(), bridge);
   const handle = () => document.querySelector<HTMLElement>('[aria-label="Resize file list"]');
   const list = () => handle()?.parentElement;
-  const room = (px: number) => {
-    const around = list()?.parentElement;
-    if (around) Object.defineProperty(around, 'clientWidth', { value: px, configurable: true });
-  };
   expect(handle()?.getAttribute('aria-valuenow')).toBe('224');
   await pointer(handle() as HTMLElement, 'pointerdown', { clientX: 300 });
   await pointer(document, 'pointermove', { clientX: 420 });
@@ -142,7 +132,7 @@ test("the file list's edge widens it as far as the diff keeps 240px, kept, and a
   expect(list()?.style.width).toBe('344px');
   expect(localStorage.getItem('mesa.diff.list.width')).toBe('344');
   // With 600px for list and diff, a drag stops at 360: the diff keeps 240px, and the edge the pointer.
-  room(600);
+  layoutWidth(list()?.parentElement, 600);
   await pointer(handle() as HTMLElement, 'pointerdown', { clientX: 400 });
   await pointer(document, 'pointermove', { clientX: 900 });
   expect(handle()?.getAttribute('aria-valuenow')).toBe('360');
@@ -190,9 +180,7 @@ test('Expand covers the terminal side by side, Escape shrinks it back, and left-
   expect(panel()?.className).toContain('absolute');
   expect(document.querySelector('[data-testid="git-side-diff"]')).not.toBeNull();
   expect(document.querySelector('[aria-label="Resize changes panel"]')).toBeNull();
-  await act(async () => {
-    panel()?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  });
+  await press(panel(), 'Escape');
   expect(panel()?.className).not.toContain('absolute');
   expect(document.querySelector('[data-testid="git-inline-diff"]')).not.toBeNull();
   await click(buttons().find((button) => button.textContent?.includes('Open in editor')));

@@ -28,9 +28,12 @@ export function diffTree(files: readonly DiffFile[]): DiffTreeNode[] {
       .map(([part, sub]): DiffTreeNode => {
         let name = part;
         let inner = sub;
-        for (let only = soleFolder(inner); only; only = soleFolder(inner)) {
-          name = `${name}/${only[0]}`;
-          inner = only[1];
+        while (!inner.files.length && inner.folders.size === 1) {
+          // Its one subfolder.
+          for (const [child, next] of inner.folders) {
+            name = `${name}/${child}`;
+            inner = next;
+          }
         }
         const path = `${parent}${name}`;
         return { kind: 'folder', path, name, children: nodes(inner, `${path}/`) };
@@ -42,10 +45,6 @@ export function diffTree(files: readonly DiffFile[]): DiffTreeNode[] {
   ];
   return nodes(root, '');
 }
-
-/** A folder's one subfolder, when it holds nothing else. */
-const soleFolder = (folder: Folder) =>
-  folder.files.length === 0 && folder.folders.size === 1 ? [...folder.folders][0] : undefined;
 
 /** The files in the order the tree shows them, for j and k. */
 export const treeOrder = (nodes: readonly DiffTreeNode[]): DiffFile[] =>

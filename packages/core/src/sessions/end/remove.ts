@@ -13,8 +13,9 @@ import {
   checkoutHolders,
   heldWorktrees,
   real,
+  type TakenOver,
   takenOver,
-  worktreeHolder,
+  worktreeHolders,
 } from '../record/holders.js';
 import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
@@ -42,11 +43,8 @@ export type Removed = {
   branch?: string;
   /** Each additional project's worktree and branch it removed (CONTEXT.md, Additional project). */
   additional?: { project: string; worktree?: string; branch?: string }[];
-  /**
-   * Each worktree, with its branch, it was asked to remove that a newer session holds now, so
-   * stays: `holder` is that session.
-   */
-  kept?: { project: string; worktree: string; holder: string }[];
+  /** Each worktree, with its branch, it was asked to remove that a newer session holds now, so stays. */
+  kept?: TakenOver[];
 };
 
 /**
@@ -80,7 +78,10 @@ export async function removeSession(
   { force = false, deleteWorktree: askedWorktree = false, deleteBranch: dropBranch = false } = {},
 ): Promise<Removed> {
   const record = deps.store.get(id);
-  const dropWorktree = askedWorktree || lastOfReview(deps.store, record);
+  // One read of every record for each holder check below, and none for a plain rm, which has none.
+  const records = record.review || askedWorktree || dropBranch ? deps.store.list() : [];
+  const holders = worktreeHolders(records);
+  const dropWorktree = askedWorktree || lastOfReview(records, holders, record);
   // Removing it would leave what waits on it waiting on nothing, so it would start at once.
   if (record.lastState.state === 'queued') {
     throw new MesaError('usage', `session ${id} is queued: mesa stop ${id} cancels it first`);
@@ -105,15 +106,19 @@ export async function removeSession(
     throw new MesaError('usage', `session ${id} has no worktree or branch of its own`);
   }
   // One a newer session took over stays with it.
-  const kept = held.length ? takenOver(record, (path) => worktreeHolder(deps.store, path)) : [];
-  const own = held.filter((h) => !kept.some((k) => k.worktree === h.worktree.path));
+  const kept = held.length ? takenOver(record, holders) : [];
+  const own = held.filter((h) => holders.get(h.worktree.path)?.id === id);
   const profile = own.length ? deps.profile() : undefined;
   const repos = profile
     ? own.map((h) => ({ ...h, repo: findProject(profile, h.project).path }))
     : [];
   // Every refusal for every repository comes before anything is removed.
   const registered = profile
-    ? await refuseRemoval(deps, profile, id, repos, { force, dropWorktree, dropBranch })
+    ? await refuseRemoval(deps, records, profile, id, repos, {
+        force,
+        dropWorktree,
+        dropBranch,
+      })
     : new Set<string>();
   const removed: Removed = {
     id,
@@ -140,15 +145,14 @@ export async function removeSession(
   }
   for (const { worktree, repo } of dropBranch ? repos : [])
     await deleteBranch(deps.run, repo, worktree.branch);
-  const [first, ...others] = repos.map(({ project, worktree }) => ({
-    project,
-    ...(dropWorktree ? { worktree: worktree.path } : {}),
-    ...(dropBranch ? { branch: worktree.branch } : {}),
-  }));
-  if (first?.project === record.project && first.worktree) removed.worktree = first.worktree;
-  if (first?.project === record.project && first.branch) removed.branch = first.branch;
-  const rest = first && first.project !== record.project ? [first, ...others] : others;
-  if (rest.length) removed.additional = rest;
+  for (const { project, worktree } of repos) {
+    const gone = {
+      ...(dropWorktree ? { worktree: worktree.path } : {}),
+      ...(dropBranch ? { branch: worktree.branch } : {}),
+    };
+    if (worktree.path === record.worktree?.path) Object.assign(removed, gone);
+    else removed.additional = [...(removed.additional ?? []), { project, ...gone }];
+  }
   if (kept.length) removed.kept = kept;
   const events = eventsLog(deps.eventsDir, id);
   removed.events = existsSync(events);
@@ -171,13 +175,17 @@ export async function removeSession(
  * A review session (mesa prs start) that is the last of its pull request's on its project and
  * holds the review worktree: nothing reviews the pull request there after it.
  */
-function lastOfReview(store: SessionStore, r: SessionRecord) {
+function lastOfReview(
+  records: readonly SessionRecord[],
+  holders: ReadonlyMap<string, SessionRecord>,
+  r: SessionRecord,
+) {
   const { review, worktree } = r;
   if (!review || !worktree) return false;
-  const others = store
-    .list()
-    .some((o) => o.id !== r.id && o.project === r.project && o.review?.pr === review.pr);
-  return !others && worktreeHolder(store, worktree.path)?.id === r.id;
+  const others = records.some(
+    (o) => o.id !== r.id && o.project === r.project && o.review?.pr === review.pr,
+  );
+  return !others && holders.get(worktree.path)?.id === r.id;
 }
 
 /**
@@ -190,7 +198,8 @@ function lastOfReview(store: SessionStore, r: SessionRecord) {
  * folder is gone.
  */
 async function refuseRemoval(
-  deps: { store: SessionStore; run: Runner },
+  deps: { run: Runner },
+  records: readonly SessionRecord[],
   profile: Profile,
   id: string,
   repos: readonly { project: string; worktree: Worktree; repo: string }[],
@@ -200,7 +209,6 @@ async function refuseRemoval(
     dropBranch,
   }: { force: boolean; dropWorktree: boolean; dropBranch: boolean },
 ) {
-  const records = deps.store.list();
   const registered = new Set<string>();
   for (const { project, worktree, repo } of repos) {
     const where = `${project}'s worktree at ${worktree.path}`;

@@ -1,4 +1,4 @@
-import { type ReactNode, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { ResizeHandle } from '@/components/ResizeHandle';
 import { Stat } from '@/components/Stat';
 import { useKeptWidth } from '@/lib/useKeptWidth';
@@ -29,18 +29,13 @@ export function GitDiffFiles(props: {
 }) {
   const { view } = props;
   const { file } = view;
-  const list = useRef<HTMLDivElement>(null);
   const bounds = props.wide ? WIDE_LIST_WIDTH : LIST_WIDTH;
-  const [width, setWidth] = useKeptWidth('mesa.diff.list.width', bounds, () => {
-    const room = list.current?.parentElement?.clientWidth;
-    return room && room - OPEN_DIFF_MIN;
-  });
+  const [width, setWidth] = useKeptWidth('mesa.diff.list.width', bounds);
   if (!file) return null;
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
       {view.list && (
         <div
-          ref={list}
           className="relative flex min-h-0 shrink-0"
           // The cap holds when the room shrinks after a drag (a narrower panel).
           style={{ width, maxWidth: `calc(100% - ${OPEN_DIFF_MIN}px)` }}
@@ -57,6 +52,7 @@ export function GitDiffFiles(props: {
             edge="right"
             width={width}
             bounds={bounds}
+            keep={OPEN_DIFF_MIN}
             onWidth={setWidth}
           />
         </div>

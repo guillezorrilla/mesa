@@ -115,15 +115,14 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
       fresh.length || Object.keys(offsets).length || stale
         ? store.write({ items: fresh, offsets })
         : current;
-    const titles = new Map(records.map((r) => [r.id, sessionTitle(r)]));
-    return inboxItems(state, failures(), notes).map((item) => {
-      if (!item.session) return item;
-      const title = titles.get(item.session);
-      return {
-        ...item,
-        sessionTitle: title && title !== item.session ? title : `Session ${item.session}`,
-      };
-    });
+    // A session with no title, or no record left, is named by its id.
+    const unnamed = (id: string) => `Session ${id}`;
+    const titles = new Map(records.map((r) => [r.id, sessionTitle(r, unnamed(r.id))]));
+    return inboxItems(state, failures(), notes).map((item) =>
+      item.session
+        ? { ...item, sessionTitle: titles.get(item.session) ?? unnamed(item.session) }
+        : item,
+    );
   };
   /** What the Inbox shows (shownInInbox). */
   const list = () => all().filter(shownInInbox);
