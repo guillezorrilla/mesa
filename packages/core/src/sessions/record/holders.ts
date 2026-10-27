@@ -17,16 +17,32 @@ export const heldWorktrees = (
   ...(r.additional ?? []),
 ];
 
+/** The session each worktree path is among `records` (oldest first): the newest with it. */
+export const worktreeHolders = (records: readonly SessionRecord[]) => {
+  const holders = new Map<string, SessionRecord>();
+  for (const r of records)
+    for (const { worktree } of heldWorktrees(r)) holders.set(worktree.path, r);
+  return holders;
+};
+
 /** The session a worktree is: the newest with it, as a resume keeps it. */
 export const worktreeHolder = (store: SessionStore, path: string) =>
-  store
-    .list()
-    .filter((r) => heldWorktrees(r).some((held) => held.worktree.path === path))
-    .at(-1);
+  worktreeHolders(store.list()).get(path);
 
-/** Whether session `id` is the one worktree `path` is (worktreeHolder), not one it was handed on from. */
-export const holdsWorktree = (store: SessionStore, id: string, path: string) =>
-  worktreeHolder(store, path)?.id === id;
+/**
+ * Each worktree `r` holds that a newer session took over since (a resume, a handoff, a later
+ * review round), with that session as `holder`: it is that session's now, branch and all.
+ */
+export const takenOver = (
+  r: SessionRecord,
+  holder: (path: string) => SessionRecord | undefined,
+): { project: string; worktree: string; holder: string }[] =>
+  heldWorktrees(r).flatMap(({ project, worktree }) => {
+    const newer = holder(worktree.path);
+    return newer && newer.id !== r.id
+      ? [{ project, worktree: worktree.path, holder: newer.id }]
+      : [];
+  });
 
 /**
  * `path` as the file system resolves it; when it is gone (a stale worktree), its nearest folder

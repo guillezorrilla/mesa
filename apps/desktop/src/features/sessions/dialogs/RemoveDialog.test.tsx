@@ -34,3 +34,28 @@ test("Remove lists each additional project's worktree and branch, and removes th
   await click(byTestId('remove-confirm')[0]);
   expect(removed).toEqual([{ deleteWorktree: true, deleteBranch: false }]);
 });
+
+test('Remove offers no worktree a newer session took over, and says it stays', async () => {
+  const removed: { deleteWorktree: boolean; deleteBranch: boolean }[] = [];
+  const taken = {
+    ...row,
+    additional: [],
+    takenOver: [{ project: 'alpha', worktree: worktree.path, holder: 'n3w3r000' }],
+  } satisfies TreeRow;
+  const byTestId = await renderWithMesa(
+    <RemoveDialog
+      row={taken}
+      disabled={false}
+      onRemove={(opts) => removed.push(opts)}
+      onCancel={() => {}}
+    />,
+    fakeBridge().bridge,
+  );
+  expect(byTestId('remove-worktree')).toEqual([]);
+  expect(byTestId('remove-kept')[0]?.textContent).toBe(
+    `${worktree.path} stays, with its branch: a newer session uses it now.`,
+  );
+  expect(byTestId('remove-list')[0]?.textContent).not.toContain(worktree.path);
+  await click(byTestId('remove-confirm')[0]);
+  expect(removed).toEqual([{ deleteWorktree: false, deleteBranch: false }]);
+});

@@ -12,8 +12,8 @@ import { costTally } from '../../usage/session-cost.js';
 import {
   checkoutHolders,
   heldWorktrees,
-  holdsWorktree,
   real,
+  takenOver,
   worktreeHolder,
 } from '../record/holders.js';
 import type { SessionRecord } from '../record/record.js';
@@ -104,15 +104,9 @@ export async function removeSession(
   if ((dropWorktree || dropBranch) && !held.length) {
     throw new MesaError('usage', `session ${id} has no worktree or branch of its own`);
   }
-  // One a newer session took over (a resume, a handoff, a later review round) stays with it.
-  const own = held.filter((h) => holdsWorktree(deps.store, id, h.worktree.path));
-  const kept = held
-    .filter((h) => !own.includes(h))
-    .map(({ project, worktree }) => ({
-      project,
-      worktree: worktree.path,
-      holder: worktreeHolder(deps.store, worktree.path)?.id ?? '',
-    }));
+  // One a newer session took over stays with it.
+  const kept = held.length ? takenOver(record, (path) => worktreeHolder(deps.store, path)) : [];
+  const own = held.filter((h) => !kept.some((k) => k.worktree === h.worktree.path));
   const profile = own.length ? deps.profile() : undefined;
   const repos = profile
     ? own.map((h) => ({ ...h, repo: findProject(profile, h.project).path }))
@@ -183,7 +177,7 @@ function lastOfReview(store: SessionStore, r: SessionRecord) {
   const others = store
     .list()
     .some((o) => o.id !== r.id && o.project === r.project && o.review?.pr === review.pr);
-  return !others && holdsWorktree(store, r.id, worktree.path);
+  return !others && worktreeHolder(store, worktree.path)?.id === r.id;
 }
 
 /**

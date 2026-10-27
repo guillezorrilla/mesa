@@ -4,6 +4,7 @@ import type { DecisionRecorder } from '../../decisions/types.js';
 import type { Clock } from '../../lib/clock.js';
 import type { Env } from '../../lib/process.js';
 import type { RegistryEntry } from '../../projects/registry.js';
+import { takenOver, worktreeHolders } from '../record/holders.js';
 import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
 import type { HookEvent } from '../signals/hook-events.js';
@@ -100,15 +101,18 @@ export async function listSessions(
   const { runs, listedAs: listedFor } = matchListed(looked, windowList, listed);
   const byLabel = new Map(windowList.map((w) => [targetLabel(w), w]));
   const faro = { profile: deps.faro, clock: deps.clock, recorder: deps.recorder };
+  const holders = worktreeHolders(every);
   const managed = await Promise.all(
     records.map(async (found) => {
-      const row = await managedRow({ ...deps, faro }, found, {
+      const base = await managedRow({ ...deps, faro }, found, {
         now,
         listedAs: listedFor(found.id),
         agentSessionId: read.get(found.id),
         window: byLabel.get(targetLabel(windowOf(found))),
         children: children.get(found.id) ?? [],
       });
+      const kept = takenOver(found, (path) => holders.get(path));
+      const row = kept.length ? { ...base, takenOver: kept } : base;
       // A live session's readings (context use, branch, folder) are read on every look while it
       // works, as a turn can move it (EnterWorktree), and when its state just changed (a reply ends
       // a turn); a session at rest, once read, is not read again. A few ms each, even on a 40 MB
