@@ -41,13 +41,12 @@ export function DiffPanel(props: {
   const shownBase = base ?? data?.base;
   const appearance = useCommand('config.get').data?.appearance ?? DEFAULT_APPEARANCE;
   const run = useRun();
-  const [width, setWidth] = useKeptWidth('mesa.diff.width', DIFF_WIDTH);
   const panel = useRef<HTMLElement>(null);
-  // A drag stops where the terminal would drop below its minimum, so the edge never outruns the pointer.
-  const resize = (next: number) => {
+  // The terminal beside it keeps its minimum.
+  const [width, resize] = useKeptWidth('mesa.diff.width', DIFF_WIDTH, () => {
     const room = panel.current?.parentElement?.clientWidth;
-    setWidth(room ? Math.min(next, room - TERMINAL_MIN) : next);
-  };
+    return room && room - TERMINAL_MIN;
+  });
   const [expanded, setExpanded] = useState(false);
   const seenState = useRef<string | undefined>(props.state);
   // biome-ignore lint/correctness/useExhaustiveDependencies: only a new session state reads again.
@@ -167,7 +166,7 @@ export function DiffPanel(props: {
         <GitDiffFiles
           view={view}
           fontSize={appearance.diffFontSize}
-          listClassName={expanded ? 'w-72' : 'w-56'}
+          wide={expanded}
           actions={
             file.status !== 'D' && (
               <Button

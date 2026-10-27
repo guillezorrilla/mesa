@@ -116,6 +116,54 @@ test('dragging the edge widens the panel only as far as the terminal keeps 256px
   await pointer(document, 'pointerup', { clientX: 100 });
 });
 
+test("the file list's edge widens it as far as the diff keeps 240px, kept, and an expanded panel starts it wider", async () => {
+  localStorage.clear();
+  const { bridge } = fakeBridge({ diff: diff({}) });
+  const panel = () => (
+    <DiffPanel
+      sessionId="aaaaaaaa"
+      project="lantern-cove"
+      checkout="/w/reef"
+      state="idle"
+      onClose={() => {}}
+    />
+  );
+  await renderWithMesa(panel(), bridge);
+  const handle = () => document.querySelector<HTMLElement>('[aria-label="Resize file list"]');
+  const list = () => handle()?.parentElement;
+  const room = (px: number) => {
+    const around = list()?.parentElement;
+    if (around) Object.defineProperty(around, 'clientWidth', { value: px, configurable: true });
+  };
+  expect(handle()?.getAttribute('aria-valuenow')).toBe('224');
+  await pointer(handle() as HTMLElement, 'pointerdown', { clientX: 300 });
+  await pointer(document, 'pointermove', { clientX: 420 });
+  await pointer(document, 'pointerup', { clientX: 420 });
+  expect(list()?.style.width).toBe('344px');
+  expect(localStorage.getItem('mesa.diff.list.width')).toBe('344');
+  // With 600px for list and diff, a drag stops at 360: the diff keeps 240px, and the edge the pointer.
+  room(600);
+  await pointer(handle() as HTMLElement, 'pointerdown', { clientX: 400 });
+  await pointer(document, 'pointermove', { clientX: 900 });
+  expect(handle()?.getAttribute('aria-valuenow')).toBe('360');
+  await pointer(document, 'pointerup', { clientX: 900 });
+  // A new render, as the next diff opened, reads the kept width.
+  await renderWithMesa(panel(), bridge);
+  expect(handle()?.getAttribute('aria-valuenow')).toBe('360');
+  await act(async () => {
+    handle()?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+  });
+  expect(handle()?.getAttribute('aria-valuenow')).toBe('224');
+
+  // Nothing kept: the expanded panel's list starts at 288px.
+  localStorage.clear();
+  await renderWithMesa(panel(), bridge);
+  await click(
+    buttons().find((button) => button.getAttribute('aria-label') === 'Expand over terminal'),
+  );
+  expect(handle()?.getAttribute('aria-valuenow')).toBe('288');
+});
+
 test('Expand covers the terminal side by side, Escape shrinks it back, and left-out new files are named', async () => {
   const removal: DiffRow[] = [
     diffMeta('diff --git a/tide.ts b/tide.ts'),
