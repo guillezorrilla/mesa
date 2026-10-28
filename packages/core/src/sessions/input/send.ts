@@ -24,6 +24,13 @@ export type Sent = {
   warning?: string;
 };
 
+/**
+ * `text` as it can be typed into an agent: without format characters (a zero-width space, a bidi
+ * mark, a tag), which Claude Code strips and then waits on a person to press Enter, and without
+ * control characters but newline and tab, which would drive the terminal (ESC, an Enter's `\r`).
+ */
+const typeable = (text: string) => text.replace(/\p{Cf}|[^\P{Cc}\n\t]/gu, '');
+
 /** A prompt's length in characters (code points), as `chars` and receipts count it. */
 const charCount = (text: string) => Array.from(text).length;
 
@@ -65,7 +72,8 @@ function senderOf(
 }
 
 /**
- * Types `prompt` into a live session's agent as one literal chunk, then one Enter (ADR-0001), and
+ * Types `written` into a live session's agent as one literal chunk, then one Enter (ADR-0001), with
+ * no character an agent would hold for a person (typeable), and
  * adds a `send` event to its record. From another session (`from`, else the window this runs
  * in, unless `noFrom`), a header line first names the sender and how to reply, and the sender's
  * record gets a `sent` event. A session that exited is not_found; a skill run, a pane running a
@@ -83,9 +91,11 @@ export async function sendPrompt(
     guard: (action: Guarded) => Promise<Override | undefined>;
   },
   id: string,
-  prompt: string,
+  written: string,
   { force = false, from, noFrom }: { force?: boolean; from?: string; noFrom?: boolean } = {},
 ): Promise<Sent> {
+  // What is typed, so the guardrail, the events and the count all see that.
+  const prompt = typeable(written);
   if (!prompt.trim()) throw new MesaError('usage', 'nothing to send: the prompt is empty');
   const record = deps.store.get(id);
   if (record.agent === 'terminal')

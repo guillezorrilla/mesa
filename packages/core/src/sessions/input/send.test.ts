@@ -50,6 +50,20 @@ test('send types the prompt and records a local event without vault history', as
   expect(listReceipts(join(home, 'vault'))).toEqual([]);
 });
 
+test('send leaves out what an agent would hold for a person: zero-width, bidi, ESC, a stray CR', async () => {
+  const { mesa, window, opened } = await setUp();
+  const written = 'Merge\u200b fix\u202e 2/2:\r\nkeep \u001b[2Jboth\ufeff levers\tnow \u2764\ufe0f';
+  const { result } = await mesa.sessions.send(opened.id, written);
+  const typed = 'Merge fix 2/2:\nkeep [2Jboth levers\tnow \u2764\ufe0f';
+  expect(window.typed).toEqual([typed]);
+  expect(result.chars).toBe(Array.from(typed).length);
+  // Nothing typeable left is nothing to send.
+  await expect(mesa.sessions.send(opened.id, '\u200b\u2060')).rejects.toMatchObject({
+    code: 'usage',
+    message: 'nothing to send: the prompt is empty',
+  });
+});
+
 test('a destructive prompt is blocked with its decision in a blocked receipt; --force sends it, noted', async () => {
   const { home, mesa, window, opened } = await setUp();
   await expect(mesa.sessions.send(opened.id, 'run rm -rf /')).rejects.toMatchObject({
