@@ -152,7 +152,7 @@ async function startable(answers: Record<string, (args: string[]) => unknown> = 
 test('Start goal starts at once with the project defaults, then opens the session on its own', async () => {
   const { byTestId, opened, started } = await startable();
   expect(byTestId('start-summary')[0]?.textContent).toBe(
-    'Runs in a new worktree on lc-2 · your rules: Ticket flow',
+    'Runs in a new worktree on lc-2-show-the-next-high-tide · your rules: Ticket flow',
   );
   // Assign to me is a check in view, not only under Options.
   const assign = document.getElementById('bar-assign');
@@ -166,10 +166,10 @@ test('Start goal starts at once with the project defaults, then opens the sessio
     'tickets assign -- jira:LC-2',
     'import --project lantern-cove --no-notes -- https://lantern-cove.atlassian.net/browse/LC-2',
     'import goal --project lantern-cove --prompt=Ticket flow --as=goal -- LC-2',
-    'open --from=LC-2 --exact-goal --no-parent --goal=/goal Fix it fast.\n\nWork on LC-2 --branch=lc-2 -- lantern-cove',
+    'open --from=LC-2 --exact-goal --no-parent --goal=/goal Fix it fast.\n\nWork on LC-2 --worktree -- lantern-cove',
   ]);
   expect(byTestId('start-progress')[0]?.textContent).toContain(
-    'Start the goal in a new worktree on lc-2',
+    'Start the goal in a new worktree on lc-2-show-the-next-high-tide',
   );
   // The session opens on its own once every step is done, and only once.
   expect(opened).toEqual(['bbbbbbbb']);
@@ -210,7 +210,7 @@ test('Options changes the start first, and keeps each change as the project defa
   await click(byTestId('start-options')[0]);
   const sheet = () => byTestId('start-sheet')[0]?.textContent ?? '';
   expect(sheet()).toContain('Assign LC-2 to me');
-  expect(sheet()).toContain('Its own checkout, on the branch lc-2');
+  expect(sheet()).toContain('Its own checkout, on the branch lc-2-show-the-next-high-tide');
   await click(button('Main checkout'));
   expect(sheet()).toContain("The project's own checkout");
   expect(words(calls)).toContain('tickets defaults --start checkout -- lantern-cove');

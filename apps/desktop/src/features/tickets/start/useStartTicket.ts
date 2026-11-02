@@ -1,4 +1,4 @@
-import { branchOf, type TicketStart } from '@mesa/core/browser';
+import type { TicketStart } from '@mesa/core/browser';
 import { useState } from 'react';
 import { runSteps, type StartStep } from '@/lib/runSteps';
 import { useRun } from '@/lib/useCommand';
@@ -15,11 +15,7 @@ export function useStartTicket(project: string) {
   const run = useRun();
   const [steps, setSteps] = useState<StartStep[]>();
   const [session, setSession] = useState<string>();
-  const startTicket = async (
-    ticket: Pick<StartTicket, 'key' | 'id' | 'label' | 'several' | 'url'>,
-    options: StartOptions,
-    kind: TicketStart,
-  ) => {
+  const startTicket = async (ticket: StartTicket, options: StartOptions, kind: TicketStart) => {
     const plan: { label: string; run: () => Promise<unknown> }[] = [];
     if (options.assign)
       plan.push({
@@ -31,7 +27,7 @@ export function useStartTicket(project: string) {
       run: () => run('imports.add', { project, links: [ticket.url], notes: options.notes }),
     });
     plan.push({
-      label: `${STARTS[kind].step} in ${placeOf(ticket.key, options.start)}`,
+      label: `${STARTS[kind].step} in ${placeOf(ticket, options.start)}`,
       run: async () => {
         const built = await run('imports.goal', {
           project,
@@ -45,7 +41,8 @@ export function useStartTicket(project: string) {
             project,
             from: ticket.key,
             goal: built.goal,
-            ...(options.start === 'worktree' ? { branch: branchOf(ticket.key) } : {}),
+            // Mesa names the branch after the ticket (ticketBranch), as placeOf says.
+            ...(options.start === 'worktree' ? { worktree: true } : {}),
           }));
         if (opened) setSession(opened.id);
         return opened;

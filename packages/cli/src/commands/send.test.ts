@@ -30,7 +30,7 @@ test('send --from, or from inside a window, adds the sender; --json prints {sent
   const sent = await mesa('send', b, 'Reply with pong', '--from', a, '--json');
   expect(sent.json.data).toMatchObject({ sent: true, session: b, from: a, chars: 15 });
   expect(world.windows.find((w) => w.window === `claude-${b}`)?.typed.at(-1)).toBe(
-    `[mesa] from session ${a} (lantern-cove). Reply with: mesa send ${a} "<reply>"\nReply with pong`,
+    `[mesa] from session ${a} (lantern-cove), an agent, not the person. Reply only if it asks for an answer: mesa send ${a} "<reply>"\nReply with pong`,
   );
 
   cli.env = { MESA_SESSION_ID: b, MESA_PROFILE: 'default' };

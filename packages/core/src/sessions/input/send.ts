@@ -2,6 +2,7 @@ import { AGENTS } from '../../agents/agents.js';
 import type { Guarded, Override } from '../../decisions/guardrail.js';
 import type { Clock } from '../../lib/clock.js';
 import { MesaError, toFail } from '../../lib/result.js';
+import { typeable } from '../../lib/untrusted-text.js';
 import { projectLabel, projectScope } from '../record/general.js';
 import { refuseRun, type SessionRecord, sessionEnded } from '../record/record.js';
 import { WAITING_STATES } from '../record/states.js';
@@ -27,9 +28,12 @@ export type Sent = {
 /** A prompt's length in characters (code points), as `chars` and receipts count it. */
 const charCount = (text: string) => Array.from(text).length;
 
-/** The line a prompt from another session starts with: who sent it, and how to answer. */
+/**
+ * The line a prompt from another session starts with: who sent it, that it is an agent, and how to
+ * answer, only when asked, so two agents never trade acknowledgements.
+ */
 const header = (sender: SessionRecord) =>
-  `[mesa] from session ${sender.id} (${projectLabel(sender.project)}). Reply with: mesa send ${sender.id} "<reply>"`;
+  `[mesa] from session ${sender.id} (${projectLabel(sender.project)}), an agent, not the person. Reply only if it asks for an answer: mesa send ${sender.id} "<reply>"`;
 
 /**
  * Who a prompt is from. `window` is the Mesa session whose window this runs in (the caller),
@@ -86,7 +90,9 @@ export async function sendPrompt(
   prompt: string,
   { force = false, from, noFrom }: { force?: boolean; from?: string; noFrom?: boolean } = {},
 ): Promise<Sent> {
-  if (!prompt.trim()) throw new MesaError('usage', 'nothing to send: the prompt is empty');
+  // What is typed (typeable), which the guardrail, the events and the count all see.
+  const typed = typeable(prompt);
+  if (!typed.trim()) throw new MesaError('usage', 'nothing to send: the prompt is empty');
   const record = deps.store.get(id);
   if (record.agent === 'terminal')
     throw new MesaError('usage', `session ${id} is a plain terminal; type into it directly`);
@@ -119,20 +125,20 @@ export async function sendPrompt(
   const override = await deps.guard({
     action: 'send',
     target: id,
-    text: prompt,
+    text: typed,
     project: projectScope(record.project),
   });
 
   try {
     // The checks above are done; sendText still refuses a pane that died since.
-    const text = sender ? `${header(sender)}\n${prompt}` : prompt;
+    const text = sender ? `${header(sender)}\n${typed}` : typed;
     const { submitDelayMs } = AGENTS[record.agent];
     await deps.tmux.sendText(target, text, { force: true, submitDelayMs });
   } catch (error) {
     if (error instanceof MesaError && error.code === 'agent_unavailable') throw sessionEnded();
     throw error;
   }
-  const chars = charCount(prompt);
+  const chars = charCount(typed);
   const at = deps.clock().toISOString();
   // The prompt is typed now, so its events are best effort: one that cannot be written (a record
   // locked by a killed mesa, or removed meanwhile) becomes a warning, never a failed send that a

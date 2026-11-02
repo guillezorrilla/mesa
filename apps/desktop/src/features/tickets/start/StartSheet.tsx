@@ -1,4 +1,4 @@
-import { branchOf, type TicketStart } from '@mesa/core/browser';
+import { type TicketStart, ticketBranch } from '@mesa/core/browser';
 import { type ReactNode, useState } from 'react';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Button } from '@/components/ui/button';
@@ -67,7 +67,7 @@ export function StartSheet(props: {
           label="Runs in"
           hint={
             options.start === 'worktree'
-              ? `Its own checkout, on the branch ${branchOf(ticket.key)}`
+              ? `Its own checkout, on the branch ${ticketBranch(ticket.key, ticket.summary)}`
               : "The project's own checkout, on its current branch"
           }
         >
