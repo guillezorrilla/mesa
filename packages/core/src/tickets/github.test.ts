@@ -214,7 +214,7 @@ test('a session started from a GitHub issue imports it through the pipeline, and
     kind: 'session',
   });
   expect(built.result.goal).toMatch(/^Load harbor-co\/harbor-api\/412 as context/);
-  expect(built.result.goal).toContain(`Ticket: ${REPO}#412: Tide chart shows UTC`);
+  expect(built.result.goal).toContain(`Ticket: "${REPO}#412: Tide chart shows UTC"`);
   expect(built.result.goal).toMatch(/Snapshot: raw\/github\/harbor-co\/harbor-api\/412\/\S+\.md/);
   const record = testStore(home)
     .list()

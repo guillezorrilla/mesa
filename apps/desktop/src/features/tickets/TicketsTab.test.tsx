@@ -166,7 +166,7 @@ test('Start goal starts at once with the project defaults, then opens the sessio
     'tickets assign -- jira:LC-2',
     'import --project lantern-cove --no-notes -- https://lantern-cove.atlassian.net/browse/LC-2',
     'import goal --project lantern-cove --prompt=Ticket flow --as=goal -- LC-2',
-    'open --from=LC-2 --exact-goal --no-parent --goal=/goal Fix it fast.\n\nWork on LC-2 --branch=lc-2-show-the-next-high-tide -- lantern-cove',
+    'open --from=LC-2 --exact-goal --no-parent --goal=/goal Fix it fast.\n\nWork on LC-2 --worktree -- lantern-cove',
   ]);
   expect(byTestId('start-progress')[0]?.textContent).toContain(
     'Start the goal in a new worktree on lc-2-show-the-next-high-tide',

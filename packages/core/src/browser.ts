@@ -97,7 +97,6 @@ export { describeSource, siteNames } from './sources/describe.js';
 export { NOTES_MAX_ITEMS } from './sources/notes-limit.js';
 export { DEFAULTS, type TicketDefaults } from './tickets/defaults.js';
 export {
-  branchOf,
   TICKET_STARTS,
   type TicketStart,
   ticketBranch,

@@ -1,4 +1,4 @@
-import type { TicketStart } from '@mesa/core/browser';
+import { type TicketStart, ticketBranch } from '@mesa/core/browser';
 import { type ReactNode, useState } from 'react';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { PromptField } from '@/features/prompts/PromptField';
 import { StartButtons } from './StartButtons';
 import { StartPreviewPanel } from './StartPreviewPanel';
-import { assignLabel, branchFor, type StartOptions, type StartTicket } from './startOptions';
+import { assignLabel, type StartOptions, type StartTicket } from './startOptions';
 import { DEFAULT_START, STARTS } from './starts';
 
 /** A labelled switch with a line under it saying what it does. */
@@ -67,7 +67,7 @@ export function StartSheet(props: {
           label="Runs in"
           hint={
             options.start === 'worktree'
-              ? `Its own checkout, on the branch ${branchFor(ticket)}`
+              ? `Its own checkout, on the branch ${ticketBranch(ticket.key, ticket.summary)}`
               : "The project's own checkout, on its current branch"
           }
         >

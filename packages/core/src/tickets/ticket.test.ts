@@ -181,8 +181,8 @@ test('each project keeps its own defaults, and a goal takes a prompt by name, no
   const as = async (start: TicketStart, prompt?: string | null) =>
     (await mesa.imports.goal('lantern-cove', 'LC-12', prompt, start)).goal;
   const session = await as('session', null);
-  expect(session).toMatch(/^Load LC-12 as context, then wait for my instructions\./);
-  expect(session).toContain('Ticket: LC-12: Fix the tide alarm');
+  expect(session).toMatch(/^Load LC-12 as context\./);
+  expect(session).toContain('Ticket: "LC-12: Fix the tide alarm"');
   expect(session).toMatch(/- Snapshot: raw\/jira\/LC-12\/.+\.md/);
   const investigate = await as('investigate', null);
   expect(investigate).toContain('projects/lantern-cove/investigations/LC-12.md');

@@ -50,11 +50,14 @@ test('send types the prompt and records a local event without vault history', as
   expect(listReceipts(join(home, 'vault'))).toEqual([]);
 });
 
-test('send leaves out what an agent would hold for a person: zero-width, bidi, ESC, a stray CR', async () => {
+test('send leaves out what an agent would hold for a person: zero-width, bidi, fillers, ESC; separators become newlines', async () => {
   const { mesa, window, opened } = await setUp();
-  const written = 'Merge\u200b fix\u202e 2/2:\r\nkeep \u001b[2Jboth\ufeff levers\tnow \u2764\ufe0f';
-  const { result } = await mesa.sessions.send(opened.id, written);
-  const typed = 'Merge fix 2/2:\nkeep [2Jboth levers\tnow \u2764\ufe0f';
+  const { result } = await mesa.sessions.send(
+    opened.id,
+    'Merge\u200b fix\u202e 2/2:\r\nkeep \u001b[2Jboth\ufeff\u3164 levers\tnow\u2028then\rdone \u2764\ufe0f',
+  );
+  // A line separator and a lone CR become newlines, as Claude Code reads them.
+  const typed = 'Merge fix 2/2:\nkeep [2Jboth levers\tnow\nthen\ndone \u2764\ufe0f';
   expect(window.typed).toEqual([typed]);
   expect(result.chars).toBe(Array.from(typed).length);
   // Nothing typeable left is nothing to send.
@@ -215,7 +218,7 @@ test('a session sends to another: a header names the sender and how to reply; bo
   });
   const typed = world.windows.find((w) => w.window === `claude-${b.id}`)?.typed;
   expect(typed).toEqual([
-    `[mesa] from session ${a.id} (lantern-cove). Reply with: mesa send ${a.id} "<reply>"\nReply to A with the word pong`,
+    `[mesa] from session ${a.id} (lantern-cove), an agent, not the person. Reply only if it asks for an answer: mesa send ${a.id} "<reply>"\nReply to A with the word pong`,
   ]);
   const rows = await mesa.sessions.list();
   const events = (id: string) => {

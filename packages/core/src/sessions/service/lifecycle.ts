@@ -4,6 +4,8 @@ import type { Overrides } from '../../decisions/guardrail.js';
 import { findProject } from '../../projects/projects.js';
 import { receiptText } from '../../receipts/command.js';
 import { joinWarnings } from '../../receipts/recorder.js';
+import { isTicketItem } from '../../tickets/providers.js';
+import { ticketBranch } from '../../tickets/ticket-start.js';
 import { sessionBranchName } from '../../worktrees/branch-name.js';
 import { checkoutWorktree } from '../../worktrees/create.js';
 import { applyDescendants } from '../end/descendants.js';
@@ -126,15 +128,20 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
     ) => {
       const { agent, mode, background, parent, noParent, after, base, terminal, general, from } =
         opts;
-      // A worktree of its own on a branch Mesa names (sessionBranchName); --with implies it.
+      // A worktree of its own on a branch Mesa names: a ticket's (ticketBranch), as its session's
+      // name reads, else sessionBranchName; --with implies it.
       const named = Boolean(opts.worktree || (opts.with?.length && opts.branch === undefined));
+      const ticket =
+        from?.title && isTicketItem(from.source, from.id)
+          ? ticketBranch(from.id, from.title)
+          : undefined;
       let refused: unknown;
       try {
         validateOpenInput({ ...opts, project, worktree: named });
       } catch (error) {
         refused = error;
       }
-      const branch = named && !refused ? sessionBranchName(ctx.newId) : opts.branch;
+      const branch = named && !refused ? (ticket ?? sessionBranchName(ctx.newId)) : opts.branch;
       let goal: string | undefined;
       try {
         goal = readGoal({
