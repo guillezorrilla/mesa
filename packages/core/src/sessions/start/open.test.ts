@@ -646,11 +646,11 @@ test("--worktree on a ticket opens on the ticket's branch, its key then its titl
   const world = agentWorld();
   const { dir, mesa } = await setUp(world);
   gitRepo(dir);
-  const from = { source: 'jira', id: 'LC-12', title: 'LC-12: Fix the tide alarm' };
+  const from = { source: 'jira', id: 'LC-12', title: 'LC-12: Fix the tide alarm' } as const;
   const { result } = await mesa.sessions.open('lantern-cove', { from, worktree: true });
   expect(result.worktree?.branch).toBe('lc-12-fix-the-tide-alarm');
   // An item that is not a ticket, a Confluence page, gets a branch Mesa names.
-  const page = { source: 'confluence', id: '9001', title: 'Tide schedule' };
+  const page = { source: 'confluence', id: '9001', title: 'Tide schedule' } as const;
   const other = await mesa.sessions.open('lantern-cove', { from: page, worktree: true });
   expect(other.result.worktree?.branch).toMatch(/^session\//);
 });
