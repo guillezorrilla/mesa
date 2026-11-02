@@ -32,7 +32,7 @@ export function StartBar(props: {
           </label>
         )}
         <span data-testid="start-summary" className="text-xs text-muted-foreground">
-          {describeOptions(ticket.label, props.options)}
+          {describeOptions(ticket, props.options)}
         </span>
       </div>
       <div className="ml-auto flex flex-wrap items-center justify-end gap-2">

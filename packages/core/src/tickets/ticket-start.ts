@@ -1,3 +1,4 @@
+import { slugify } from '../lib/slug.js';
 import { goalCondition } from '../sessions/start/goal-command.js';
 import { itemIdOfKey, jiraTitle } from '../sources/items.js';
 import { investigationPath, snapshotFolder } from '../vault/layout.js';
@@ -28,6 +29,21 @@ export type TicketBrief = {
 export const branchOf = (key: string) => {
   const issue = /[#/](\d+)$/.exec(key)?.[1];
   return issue ? `issue-${issue}` : key.toLowerCase();
+};
+
+/** How long a session's branch on a ticket may be, its key included. */
+const BRANCH_CHARS = 50;
+
+/**
+ * The branch a session started on a ticket works on: its key's (branchOf), then its title's
+ * words, cut at a word within BRANCH_CHARS, as its session's name reads: crv-31926-publisher-batch.
+ */
+export const ticketBranch = (key: string, title: string) => {
+  const own = branchOf(key);
+  const full = slugify(`${own}-${title}`);
+  if (full.length <= BRANCH_CHARS) return full;
+  const cut = full.slice(0, BRANCH_CHARS + 1);
+  return cut.slice(0, Math.max(cut.lastIndexOf('-'), own.length));
 };
 
 /** The issue, its link, and where it is in the vault; its text is data, never instructions. */

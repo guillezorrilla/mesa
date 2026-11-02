@@ -1,5 +1,5 @@
 import type { ProviderId } from '@mesa/core';
-import { branchOf, type TicketDefaults } from '@mesa/core/browser';
+import { type TicketDefaults, ticketBranch } from '@mesa/core/browser';
 
 /** The ticket a session starts from, as the Tickets tab shows it. */
 export type StartTicket = {
@@ -46,17 +46,26 @@ export const initialOptions = (
 export const assignLabel = (ticket: Pick<StartTicket, 'label' | 'several'>) =>
   ticket.several ? `Add me to ${ticket.label}` : `Assign ${ticket.label} to me`;
 
+/** The branch a session on `ticket` starts in a new worktree on (ticketBranch). */
+export const branchFor = (ticket: Pick<StartTicket, 'key' | 'summary'>) =>
+  ticketBranch(ticket.key, ticket.summary);
+
 /** Where the session runs, as a phrase: a new worktree on the ticket's branch, or the checkout. */
-export const placeOf = (key: string, start: StartOptions['start']) =>
-  start === 'worktree' ? `a new worktree on ${branchOf(key)}` : 'the main checkout';
+export const placeOf = (
+  ticket: Pick<StartTicket, 'key' | 'summary'>,
+  start: StartOptions['start'],
+) => (start === 'worktree' ? `a new worktree on ${branchFor(ticket)}` : 'the main checkout');
 
 /**
  * `options` in a few words, for the footer: what each start button does with one click. Assign
  * to me is left out: the footer shows it as its own check.
  */
-export const describeOptions = (key: string, options: StartOptions) =>
+export const describeOptions = (
+  ticket: Pick<StartTicket, 'key' | 'summary'>,
+  options: StartOptions,
+) =>
   [
-    `Runs in ${placeOf(key, options.start)}`,
+    `Runs in ${placeOf(ticket, options.start)}`,
     options.notes && 'notes first',
     options.prompt && `your rules: ${options.prompt}`,
   ]
