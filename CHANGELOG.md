@@ -2,6 +2,16 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.3.12 - 2026-11-02
+
+### Changed
+
+- A session started on a ticket works on a branch that reads like its name: the ticket's key, then its title's words, such as har-219-berth-schedule-export, instead of the key alone. `mesa open --from <ticket> --worktree` names it the same way. (#872)
+
+### Fixed
+
+- A message Mesa types into a session sends on its own again: a zero-width space, a bidi mark or a stray control character in it made Claude Code hold the message with "Removed 1 invisible character" until someone pressed Enter. Mesa now leaves those characters out. (#872)
+
 ## 0.3.11 - 2026-10-27
 
 ### Added
