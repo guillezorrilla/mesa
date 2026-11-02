@@ -7,10 +7,10 @@ test("a ticket's branch is its key, then its title's words, cut at a word within
     'issue-12-fix-the-reef-map-again',
   );
   const long = ticketBranch(
-    'CRV-31926',
-    'Publisher batch document export drops the harbour schedule attachments',
+    'HAR-219',
+    'Berth schedule export drops the tide table attachments on Sundays',
   );
-  expect(long).toBe('crv-31926-publisher-batch-document-export-drops');
+  expect(long).toBe('har-219-berth-schedule-export-drops-the-tide-table');
   expect(long.length).toBeLessThanOrEqual(50);
   // A title with no words, or one long word, keeps the key whole.
   expect(ticketBranch('LC-12', '  !!  ')).toBe('lc-12');

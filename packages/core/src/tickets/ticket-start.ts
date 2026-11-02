@@ -36,7 +36,7 @@ const BRANCH_CHARS = 50;
 
 /**
  * The branch a session started on a ticket works on: its key's (branchOf), then its title's
- * words, cut at a word within BRANCH_CHARS, as its session's name reads: crv-31926-publisher-batch.
+ * words, cut at a word within BRANCH_CHARS, as its session's name reads: har-219-berth-schedule-export.
  */
 export const ticketBranch = (key: string, title: string) => {
   const own = branchOf(key);
