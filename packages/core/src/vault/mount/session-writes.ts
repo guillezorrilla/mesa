@@ -19,9 +19,9 @@ import {
   decisionName,
   decisionNote,
   existingNote,
-  noteName,
   plainNote,
   prepareKeep,
+  savedNoteName,
 } from '../saved-notes.js';
 import { canonicalVaultPath, vaultFile } from '../scope.js';
 import { withVaultLock } from '../vault-lock.js';
@@ -234,7 +234,10 @@ export function sessionWrites(ctx: MesaContext) {
      */
     saveNote: async (input: NoteInput): Promise<Recorded<Saved>> => {
       const title = redact(oneLine(required(input.title, 'title')));
-      const path = notePath(ctx.vaultOf(), input.path ?? `${noteName(title)}.md`);
+      const path = notePath(
+        ctx.vaultOf(),
+        input.path ?? `${savedNoteName(ctx.vaultOf(), title)}.md`,
+      );
       const canonical = canonicalVaultPath(ctx.vaultOf(), path);
       notePath(ctx.vaultOf(), canonical);
       const inFolder = itemProject(path) ?? itemProject(canonical);

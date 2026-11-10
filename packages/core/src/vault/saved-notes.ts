@@ -5,7 +5,7 @@ import type { Frontmatter, Note } from './frontmatter.js';
 import { addToIndex } from './index-note.js';
 import { projectHubPath, VAULT } from './layout.js';
 import { wikilink } from './links.js';
-import { nameOf } from './note-name.js';
+import { legacyNameOf, nameOf } from './note-name.js';
 import { type NotesDeps, ownFields, readNote, refuseForeign, writeNote } from './notes.js';
 import { vaultFile, vaultWriteFile } from './scope.js';
 
@@ -22,6 +22,17 @@ export const decisionName = (day: string, title: string) =>
 
 /** Where a note of `title` goes, before any `-2`: `wiki/notes/<slug>`. */
 export const noteName = (title: string) => `${VAULT.wiki}/notes/${nameOf(title)}`;
+
+/**
+ * Where a save of a note of `title` goes, before any `.md`: noteName, or the name an older Mesa
+ * gave it (legacyNameOf) when only a note there exists, so saving it again updates it.
+ */
+export function savedNoteName(vault: string, title: string) {
+  const name = noteName(title);
+  const legacy = `${VAULT.wiki}/notes/${legacyNameOf(title)}`;
+  const exists = (path: string) => existsSync(vaultFile(vault, `${path}.md`));
+  return legacy !== name && !exists(name) && exists(legacy) ? legacy : name;
+}
 
 /** A decision note (`type: decision`): its title, decision, rationale, odds, and project hub link. */
 export function decisionNote(input: {
