@@ -1,6 +1,15 @@
 import type { CrewRow } from '@mesa/core';
-import { sendable, sessionTitle, stoppable, timeAgo } from '@mesa/core/browser';
-import { GitBranch, MessageSquare, RefreshCw, Send, Square, Users, X } from 'lucide-react';
+import { inTurn, sendable, sessionTitle, stoppable, timeAgo } from '@mesa/core/browser';
+import {
+  GitBranch,
+  GitMerge,
+  MessageSquare,
+  RefreshCw,
+  Send,
+  Square,
+  Users,
+  X,
+} from 'lucide-react';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { IconButton } from '@/components/IconButton';
@@ -8,7 +17,7 @@ import { Muted } from '@/components/Muted';
 import { Stat } from '@/components/Stat';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { useCommand } from '@/lib/useCommand';
+import { useCall, useCommand } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { StateBadge } from '../StateBadge';
 import { CrewTasks } from './CrewTasks';
@@ -25,8 +34,9 @@ export type CrewActions = {
 
 /**
  * A parent's crew beside its terminal (CONTEXT.md, Crew): each child's state, name, newest report,
- * branch and diff counts, with Send, which opens a composer to it, and Stop, after a confirmation;
- * then the tasks it coordinates (CrewTasks). A new `stamp` (a child's state changed on the Board)
+ * branch and diff counts, with Send, which opens a composer to it, Stop, after a confirmation, and
+ * Merge into parent (`mesa merge`), whose outcome stays on the row; then the tasks it coordinates
+ * (CrewTasks). A new `stamp` (a child's state changed on the Board)
  * reads them again.
  */
 export function CrewPanel(props: {
@@ -40,6 +50,25 @@ export function CrewPanel(props: {
   const crew = useCommand('sessions.crew', { id: props.sessionId });
   const [composing, setComposing] = useState<string>();
   const [stopping, setStopping] = useState<CrewRow>();
+  const call = useCall();
+  const [merging, setMerging] = useState<string>();
+  /** Each child's last merge outcome, as `mesa merge` says it; `failed` when it did not merge. */
+  const [merges, setMerges] = useState<Record<string, { text: string; failed: boolean }>>({});
+  const merge = async (row: CrewRow) => {
+    setMerging(row.id);
+    const done = await call('sessions.merge', { id: row.id });
+    setMerging(undefined);
+    const outcome = !done.ok
+      ? { text: done.error.message, failed: true }
+      : done.data.merged
+        ? { text: `Merged ${done.data.branch} into this session`, failed: false }
+        : {
+            text: `Not merged: ${done.data.conflicts.join(', ')} conflict; the merge was aborted`,
+            failed: true,
+          };
+    setMerges((all) => ({ ...all, [row.id]: outcome }));
+    await crew.refresh();
+  };
   useRefreshOnStamp(props.stamp, crew.refresh);
   const rows = crew.data;
   return (
@@ -76,6 +105,9 @@ export function CrewPanel(props: {
                 onCompose={() => setComposing(composing === row.id ? undefined : row.id)}
                 onSend={(text, form) => props.actions.send(row.id, text, form)}
                 onStop={() => setStopping(row)}
+                merging={merging === row.id}
+                merged={merges[row.id]}
+                onMerge={() => void merge(row)}
               />
             ))}
           </ul>
@@ -117,6 +149,9 @@ function CrewMember(props: {
   onCompose: () => void;
   onSend: (text: string, form: HTMLFormElement) => void;
   onStop: () => void;
+  merging: boolean;
+  merged?: { text: string; failed: boolean };
+  onMerge: () => void;
 }) {
   const { row } = props;
   const name = sessionTitle(row);
@@ -138,6 +173,13 @@ function CrewMember(props: {
           active={props.composing}
           disabled={!sendable(row)}
           onClick={props.onCompose}
+        />
+        <IconButton
+          label={`Merge ${name} into parent`}
+          icon={GitMerge}
+          size="icon-xs"
+          disabled={props.merging || !row.branch || inTurn(row)}
+          onClick={props.onMerge}
         />
         <IconButton
           label={`Stop ${name}`}
@@ -162,6 +204,14 @@ function CrewMember(props: {
         <span className="truncate">{row.branch ?? 'no branch'}</span>
         {row.diff && <Stat className="ml-auto text-[11px]" {...row.diff} />}
       </div>
+      {props.merged && (
+        <p
+          role={props.merged.failed ? 'alert' : 'status'}
+          className={cn('text-xs', props.merged.failed ? 'text-state-failed' : 'text-state-done')}
+        >
+          {props.merged.text}
+        </p>
+      )}
       {props.composing && (
         <form
           className="flex gap-1.5 pt-1"

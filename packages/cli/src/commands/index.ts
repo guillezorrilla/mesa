@@ -46,6 +46,7 @@ import { instructionsList, instructionsRead, instructionsWrite } from './instruc
 import { log } from './log.js';
 import { logs } from './logs.js';
 import { map } from './map.js';
+import { merge } from './merge.js';
 import {
   notifications,
   notificationsClear,
@@ -199,6 +200,7 @@ export const COMMANDS: Command[] = [
   notificationsDelivered,
   open,
   worker,
+  merge,
   ports,
   prEvents,
   report,

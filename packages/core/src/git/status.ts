@@ -52,7 +52,8 @@ const OPERATION_MARKS: [GitOperation, string[]][] = [
   ['cherry-pick', ['CHERRY_PICK_HEAD']],
 ];
 
-async function operationIn(run: Runner, cwd: string): Promise<GitOperation | null> {
+/** The merge, rebase or cherry-pick stopped in the checkout at `cwd`, if any. */
+export async function operationIn(run: Runner, cwd: string): Promise<GitOperation | null> {
   const dir = await gitCommand(run, cwd, ['rev-parse', '--absolute-git-dir']);
   if (!dir.ok) return null;
   // `git am` keeps its state in rebase-apply too, marked by `applying`: not a rebase.

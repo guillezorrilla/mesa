@@ -10,6 +10,8 @@ export const RECORD_KINDS = [
   'automation',
   // A Vault capture: the notes one session's capture saved, or why it saved none.
   'capture',
+  // A worker's branch merged into its parent's checkout (`mesa merge`), or stopped on conflicts.
+  'merge',
 ] as const;
 export type RecordKind = (typeof RECORD_KINDS)[number];
 
@@ -25,6 +27,7 @@ export const keepSuccess = (kind: RecordKind | undefined, outputs: Record<string
   kind === 'refresh' ||
   kind === 'automation' ||
   kind === 'capture' ||
+  kind === 'merge' ||
   (kind === 'guardrail' &&
     (typeof outputs.override === 'string' ||
       typeof outputs.dangerousFlags === 'string' ||
@@ -65,7 +68,8 @@ export function meaningfulReceipt(receipt: Receipt): boolean {
       ((Array.isArray(outputs.refreshed) && outputs.refreshed.length > 0) ||
         (typeof outputs.notesWritten === 'number' && outputs.notesWritten > 0))
     );
-  if (kind === 'automation') return false;
+  // Operations, kept but not knowledge.
+  if (kind === 'automation' || kind === 'merge') return false;
   if (kind === 'capture') return status === 'ok';
   const error = outputs.error;
   return status === 'ok'

@@ -359,3 +359,69 @@ test("a blocked task's Crew row shows its gate's question and options; a click r
   expect(row()?.querySelector('[role="alert"]')?.textContent).toBe(`gate ${gate.id} was resolved`);
   expect(row()?.querySelector('[data-testid="task-state"]')?.textContent).toBe('ready');
 });
+
+test("Merge into parent merges an idle child's branch and says so on its row; a conflict says which files", async () => {
+  const idle = { state: 'idle', confidence: 1, at: 'x', source: 'hook' };
+  let conflict = false;
+  const { bridge, calls } = fakeBridge({
+    sessions: () =>
+      envelope([
+        {
+          ...managedRow('bbbbbbbb', { parent: 'aaaaaaaa', agentName: 'tide-charts' }),
+          lastState: idle,
+          branch: 'session/tide-charts',
+        },
+        {
+          ...managedRow('cccccccc', { parent: 'aaaaaaaa', agentName: 'buoy-lights' }),
+          branch: 'session/buoys',
+        },
+      ]),
+    merge: () =>
+      envelope(
+        !conflict
+          ? {
+              merged: true,
+              child: 'bbbbbbbb',
+              into: 'aaaaaaaa',
+              branch: 'session/tide-charts',
+              head: 'f00',
+              checkout: '/w',
+              receipt: null,
+            }
+          : {
+              merged: false,
+              child: 'bbbbbbbb',
+              into: 'aaaaaaaa',
+              branch: 'session/tide-charts',
+              conflicts: ['tides.md'],
+              checkout: '/w',
+              receipt: null,
+            },
+      ),
+  });
+  await renderWithMesa(
+    <SidePanels
+      rows={[managedRow('aaaaaaaa', { children: ['bbbbbbbb', 'cccccccc'] })]}
+      panels={{ aaaaaaaa: { panel: 'crew' } }}
+      selectedSession="aaaaaaaa"
+      onClose={() => {}}
+      crew={NO_CREW}
+    />,
+    bridge,
+  );
+  const rows = () => [...document.querySelectorAll<HTMLElement>('[data-testid="crew-row"]')];
+  const mergeOf = (row?: HTMLElement) =>
+    within(row, '[aria-label^="Merge"]') as HTMLButtonElement | undefined;
+  // A working child cannot merge yet.
+  expect(mergeOf(rows()[1])?.disabled).toBe(true);
+  await click(mergeOf(rows()[0]));
+  expect(calls.find((argv) => argv[1] === 'merge')).toEqual(['--json', 'merge', '--', 'bbbbbbbb']);
+  expect(within(rows()[0], '[role="status"]')?.textContent).toBe(
+    'Merged session/tide-charts into this session',
+  );
+  conflict = true;
+  await click(mergeOf(rows()[0]));
+  expect(within(rows()[0], '[role="alert"]')?.textContent).toBe(
+    'Not merged: tides.md conflict; the merge was aborted',
+  );
+});

@@ -18,6 +18,9 @@ export const exited = (s: SessionRow) =>
 export const asleep = (s: SessionRow) => s.managed && Boolean(s.sleeping) && !s.endedAt;
 /** A Mesa session Stop ends or cancels: running, queued, or asleep. */
 export const stoppable = (s: SessionRow) => s.alive || queued(s) || asleep(s);
+/** Mid-turn: its agent works, or waits on a person to answer, so its checkout may still change. */
+export const inTurn = (s: Pick<SessionRecord, 'lastState'>) =>
+  s.lastState.state === 'working' || WAITING_STATES.has(s.lastState.state);
 /** A session Mesa may type into: a live agent, or a sleeping one, which a send wakes first. */
 export const sendable = (s: SessionRow): s is ManagedRow =>
   liveAgent(s) || (reviewable(s) && asleep(s));
