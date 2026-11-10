@@ -1,4 +1,4 @@
-import { AGENT_LABELS, AGENT_NAMES } from '@mesa/core/browser';
+import { AGENT_LABELS, AGENT_NAMES, KEEP_AWAKE_LABELS, KEEP_AWAKE_MODES } from '@mesa/core/browser';
 import {
   BookMarked,
   CircleDollarSign,
@@ -123,11 +123,7 @@ export function SessionSettingsPanel(props: { onSavedPrompts: () => void }) {
               id="sessions-keep-awake"
               path="sessions.keepAwake"
               value={config.sessions.keepAwake}
-              options={[
-                ['off', 'Off'],
-                ['on', 'On'],
-                ['working', 'While agents work'],
-              ]}
+              options={KEEP_AWAKE_MODES.map((mode) => [mode, KEEP_AWAKE_LABELS[mode]] as const)}
             />
           }
         />

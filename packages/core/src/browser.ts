@@ -83,7 +83,7 @@ export { canPost, reviewing, reviewsOf } from './prs/review-sessions.js';
 export { parseChangelog, RELEASE_GROUPS, type ReleaseNotes } from './release/notes.js';
 export { type CommandId, type SearchHit, searchWorkspace } from './search/search.js';
 export {
-  isKeepAwakeMode,
+  KEEP_AWAKE_LABELS,
   KEEP_AWAKE_MODES,
   type KeepAwakeMode,
   wantsAwake,

@@ -5,6 +5,13 @@ import type { SessionRow } from './board/rows.js';
 export const KEEP_AWAKE_MODES = ['off', 'on', 'working'] as const;
 export type KeepAwakeMode = (typeof KEEP_AWAKE_MODES)[number];
 
+/** How Settings names each mode. */
+export const KEEP_AWAKE_LABELS: Record<KeepAwakeMode, string> = {
+  off: 'Off',
+  on: 'On',
+  working: 'While agents work',
+};
+
 export const isKeepAwakeMode = (value: string): value is KeepAwakeMode =>
   (KEEP_AWAKE_MODES as readonly string[]).includes(value);
 
