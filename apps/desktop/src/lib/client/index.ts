@@ -5,6 +5,7 @@ import { decisionsCommands } from './decisions';
 import { doctorCommands } from './doctor';
 import { feedbackCommands } from './feedback';
 import { filesCommands } from './files';
+import { gatesCommands } from './gates';
 import { gitCommands } from './git';
 import { impactCommands } from './impact';
 import { importsCommands } from './imports';
@@ -54,6 +55,7 @@ const COMMANDS = {
   ...settingsCommands,
   ...notificationsCommands,
   ...tasksCommands,
+  ...gatesCommands,
   ...doctorCommands,
   ...feedbackCommands,
   ...installsCommands,

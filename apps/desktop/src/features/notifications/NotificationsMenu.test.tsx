@@ -399,3 +399,62 @@ test('Mark all read marks a release notice read', async () => {
     finished.id,
   ]);
 });
+
+test('a gate notice shows its question and one button per option; a click resolves it and the notice goes, a refused one says why', async () => {
+  const gate: InboxItem = {
+    id: '2026-09-23T11:00:00.000Z:gate:g-metres00',
+    session: 'aaaaaaaa',
+    sessionTitle: 'Tide charts',
+    at: '2026-09-23T11:00:00.000Z',
+    kind: 'gate',
+    title: 'Store tide heights in metres or feet?',
+    gate: { id: 'g-metres00', options: ['metres', 'feet'] },
+    read: false,
+    target: { kind: 'session', id: 'aaaaaaaa' },
+  };
+  let open = true;
+  let refuse = false;
+  const { bridge, calls } = fakeBridge({
+    notifications: () => envelope(open ? [gate] : []),
+    'gates resolve': () => {
+      open = false;
+      return refuse
+        ? { ok: false, error: { code: 'usage', message: 'gate g-metres00 was resolved' } }
+        : envelope({ id: 'g-metres00', option: 'metres' });
+    },
+  });
+  const menu = () => (
+    <NotificationsMenu
+      open
+      onOpenChange={() => {}}
+      onSession={() => {}}
+      onDoctor={() => {}}
+      onAutomations={() => {}}
+      onSettings={() => {}}
+      onRecheck={async () => {}}
+    />
+  );
+  const byTestId = await renderWithMesa(menu(), bridge);
+  expect(byTestId('inbox-item')[0]?.textContent).toContain(gate.title);
+  expect(button('feet')).toBeDefined();
+  await click(button('metres'));
+  expect(calls.find((args) => args[1] === 'gates')).toEqual([
+    '--json',
+    'gates',
+    'resolve',
+    'g-metres00',
+    '--',
+    'metres',
+  ]);
+  expect(byTestId('inbox-item')).toHaveLength(0);
+  expect(document.querySelector('[role="alert"]')).toBeNull();
+
+  open = true;
+  refuse = true;
+  await renderWithMesa(menu(), bridge);
+  await click(button('feet'));
+  expect(byTestId('inbox-item')).toHaveLength(0);
+  expect(document.querySelector('[role="alert"]')?.textContent).toBe(
+    'gate g-metres00 was resolved',
+  );
+});

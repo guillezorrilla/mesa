@@ -29,6 +29,8 @@ export type InboxItem = {
   fix?: InboxFix;
   /** A release notice's notes, from the changelog Mesa ships. */
   notes?: ReleaseNotes;
+  /** A gate notice's gate and the options a person picks from (`mesa gates resolve`). */
+  gate?: { id: string; options: string[] };
   read: boolean;
   target: /** `window`: a window beside the session's, such as its setup's (SETUP_FAILED). */
     | { kind: 'session'; id: string; window?: string }
@@ -53,6 +55,7 @@ export const CandidateSchema = z.strictObject({
   title: z.string(),
   detail: z.string().optional(),
   fix: z.enum(INBOX_FIXES).optional(),
+  gate: z.strictObject({ id: z.string(), options: z.array(z.string()) }).optional(),
   fingerprint: z.string(),
   target: z.discriminatedUnion('kind', [
     z.strictObject({
@@ -226,7 +229,13 @@ export const failureItems = (runs: readonly AutomationRunNotice[]): Candidate[] 
     }));
 
 /** The fields of an open decision gate that its notice reads; the task store owns gates. */
-export type GateNotice = { id: string; question: string; at: string; coordinator?: string };
+export type GateNotice = {
+  id: string;
+  question: string;
+  options: string[];
+  at: string;
+  coordinator?: string;
+};
 
 /**
  * One notice per open gate, its question the title: it opens the task's coordinator, or stays in
@@ -238,6 +247,7 @@ export const gateItems = (gates: readonly GateNotice[]): Candidate[] =>
     at: gate.at,
     kind: 'gate',
     title: Array.from(gate.question).slice(0, 200).join(''),
+    gate: { id: gate.id, options: gate.options },
     fingerprint: `gate:${gate.id}`,
     target: gate.coordinator ? { kind: 'session', id: gate.coordinator } : { kind: 'inbox' },
   }));

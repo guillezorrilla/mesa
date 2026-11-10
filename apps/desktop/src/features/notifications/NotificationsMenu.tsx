@@ -33,6 +33,8 @@ export function NotificationsMenu(props: {
   const toast = useToast();
   const { acting, act } = useAct();
   const [clearing, setClearing] = useState(false);
+  /** Why the last gate resolve was refused: its notice is gone, so the panel says it. */
+  const [gateRefused, setGateRefused] = useState<string>();
   const items = inbox.data ?? [];
   const unread = items.filter((item) => !item.read);
   // biome-ignore lint/correctness/useExhaustiveDependencies: opening the menu, a session, or a new Doctor report asks for a fresh list.
@@ -158,6 +160,11 @@ export function NotificationsMenu(props: {
               </Button>
             </div>
           </div>
+          {gateRefused && (
+            <p role="alert" className="border-b px-4 py-2 text-xs text-state-failed">
+              {gateRefused}
+            </p>
+          )}
           <ul className="max-h-[60vh] overflow-y-auto">
             {items.map((item) => (
               <NotificationRow
@@ -170,6 +177,10 @@ export function NotificationsMenu(props: {
                 }}
                 onFix={(command) => void fix(command)}
                 onClear={(target) => void mark('notifications.clear', [target])}
+                onGateDone={async (refused) => {
+                  setGateRefused(refused);
+                  await inbox.refresh();
+                }}
               />
             ))}
             {inbox.data && !items.length && (

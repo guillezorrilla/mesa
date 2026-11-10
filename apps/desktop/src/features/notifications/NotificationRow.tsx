@@ -3,6 +3,7 @@ import { timeAgo } from '@mesa/core/browser';
 import { CircleAlert, CircleCheck, Info, X } from 'lucide-react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
+import { GateOptions } from '@/features/tasks/GateOptions';
 import { cn } from '@/lib/utils';
 import { ReleaseNotesPanel } from './ReleaseNotesPanel';
 
@@ -34,6 +35,8 @@ export function NotificationRow(props: {
   onRead: (item: InboxItem) => void;
   onFix: (fix: InboxFix) => void;
   onClear: (item: InboxItem) => void;
+  /** After a gate option was picked: the refused resolve's reason, if any. */
+  onGateDone: (refused?: string) => Promise<unknown>;
 }) {
   const { item } = props;
   const [Icon, tone] = ICON[item.kind];
@@ -84,6 +87,7 @@ export function NotificationRow(props: {
             </button>
           </div>
         )}
+        {item.gate && <GateOptions gate={item.gate} onDone={props.onGateDone} />}
         {item.kind === 'automation' && (
           <button type="button" className={pill} onClick={() => props.onOpen(item)}>
             Review automation
