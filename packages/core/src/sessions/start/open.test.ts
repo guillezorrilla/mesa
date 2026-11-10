@@ -774,7 +774,7 @@ test('a failed session launch preserves data written by configured worktree setu
   expect(await mesa.sessions.list()).toEqual([]);
 });
 
-test('setupWhile parallel runs setup in a window beside the agent; block runs it first', async () => {
+test('setupWhile parallel runs setup in a child Setup session beside the agent; block runs it first', async () => {
   const world = agentWorld();
   const original = withGit(world);
   const ran: string[][] = [];
@@ -792,28 +792,54 @@ test('setupWhile parallel runs setup in a window beside the agent; block runs it
     goal: 'Tidy the docs',
   });
   expect(ran).toEqual([]);
+  const child = (await mesa.sessions.list()).find((s) => s.id === result.setupSession);
+  expect(child).toMatchObject({ kind: 'terminal', name: 'Setup', parent: result.id });
   const [setup, agent] = world.tmux.opened.slice(-2);
   expect(setup).toMatchObject({
-    window: `setup-${result.id}`,
+    window: `terminal-${child?.id}`,
     path: worktreeAt(home, 'lantern-cove', 'beside'),
-    env: expect.objectContaining({ MESA_SESSION_ID: result.id }),
+    env: expect.objectContaining({ MESA_SESSION_ID: child?.id }),
   });
   expect(setup?.launch).toContain("'/usr/bin/touch' 'keep.txt'");
   expect(agent?.window).toBe(result.tmux.window);
-  expect(result.setupWindow).toBe(`setup-${result.id}`);
   // The agent is told; the record keeps the goal as written.
   expect(result.goal).toBe('Tidy the docs');
-  expect(agent?.launch).toContain(`tmux window setup-${result.id}`);
+  expect(agent?.launch).toContain(`child Setup session ${child?.id}`);
 
   mesa.config.set('worktrees.setupWhile', 'block');
   const { result: blocked } = await mesa.sessions.open('lantern-cove', { branch: 'blocking' });
   expect(ran).toEqual([['keep.txt']]);
-  expect(blocked.setupWindow).toBeUndefined();
+  expect(blocked.setupSession).toBeUndefined();
   expect(world.tmux.opened.at(-1)?.window).toBe(blocked.tmux.window);
 });
 
-test('a launch that fails beside a running setup keeps its window and the worktree', async () => {
-  // The setup window opens the project's tmux session; the agent's window then fails.
+test('a Setup session that cannot open warns, and a launch failing later removes the worktree', async () => {
+  // Every window fails: the Setup session's, then the agent's.
+  const world = agentWorld({ failing: 'new-session' });
+  const { home, dir, mesa } = await setUp(world, { run: withGit(world) });
+  gitRepo(dir);
+  mesa.config.set('worktrees.setup', '["/usr/bin/touch", "keep.txt"]');
+  mesa.config.set('worktrees.setupWhile', 'parallel');
+  const failed = await mesa.sessions.open('lantern-cove', { branch: 'lost' }).catch((e) => e);
+  expect(failed).toMatchObject({ code: 'internal' });
+  expect(failed.message).not.toContain('where setup ran');
+  expect(existsSync(worktreeAt(home, 'lantern-cove', 'lost'))).toBe(false);
+  expect(await mesa.sessions.list()).toEqual([]);
+});
+
+test('a terminal session on a new branch gets its Setup session too', async () => {
+  const world = agentWorld();
+  const { dir, mesa } = await setUp(world, { run: withGit(world) });
+  gitRepo(dir);
+  mesa.config.set('worktrees.setup', '["/usr/bin/touch", "keep.txt"]');
+  mesa.config.set('worktrees.setupWhile', 'parallel');
+  const { result } = await mesa.sessions.open('lantern-cove', { branch: 'shell', terminal: true });
+  const child = (await mesa.sessions.list()).find((s) => s.id === result.setupSession);
+  expect(child).toMatchObject({ kind: 'terminal', name: 'Setup', parent: result.id });
+});
+
+test('a launch that fails beside a running Setup session keeps it and the worktree', async () => {
+  // The Setup session opens the project's tmux session; the agent's window then fails.
   const world = agentWorld({ failing: 'new-window' });
   const { home, dir, mesa } = await setUp(world, { run: withGit(world) });
   gitRepo(dir);
@@ -822,7 +848,10 @@ test('a launch that fails beside a running setup keeps its window and the worktr
   await expect(mesa.sessions.open('lantern-cove', { branch: 'beside' })).rejects.toMatchObject({
     code: 'internal',
   });
-  expect(world.tmux.windows.map((w) => w.window)).toEqual([expect.stringMatching(/^setup-/)]);
+  const sessions = await mesa.sessions.list();
+  expect(sessions.map((s) => s.name)).toEqual(['Setup']);
+  expect(sessions[0]).not.toHaveProperty('parent');
+  expect(world.tmux.windows).toHaveLength(1);
   expect(existsSync(worktreeAt(home, 'lantern-cove', 'beside'))).toBe(true);
 });
 

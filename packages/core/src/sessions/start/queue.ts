@@ -1,14 +1,14 @@
 import { newSessionId, startCommand } from '../../agents/agents.js';
 import { readyAgent } from '../../doctor/probe.js';
-import type { IdSource } from '../../lib/ids.js';
 import { MesaError } from '../../lib/result.js';
 import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
 import type { TmuxBackend } from '../tmux/backend.js';
 import { windowOf } from '../window/window-name.js';
 import { additionalDirs, additionalProjects } from './additional.js';
-import { type LaunchDeps, launchProject, startSession } from './launch.js';
+import { launchProject, startSession } from './launch.js';
 import { launched } from './new-record.js';
+import { type OpenDeps, setupBesideFor } from './open.js';
 
 // Queued sessions (CONTEXT.md, Queued session): `mesa open --after` writes one; whichever signal
 // first finds the session it waits on over starts it (the SessionEnd hook, the pane-died hook,
@@ -37,7 +37,7 @@ export const dueToStart = (store: SessionStore, over: (id: string) => boolean, n
  * ended, every new worktree removed (startSession), and throws.
  */
 export async function startQueued(
-  deps: LaunchDeps & { newUuid: IdSource; tmux: Pick<TmuxBackend, 'openWindow' | 'findWindow'> },
+  deps: OpenDeps & { tmux: Pick<TmuxBackend, 'openWindow' | 'findWindow'> },
   id: string,
   expectedAfter?: string,
 ): Promise<{ record: SessionRecord; warning?: string } | undefined> {
@@ -84,6 +84,7 @@ export async function startQueued(
           branch,
           base,
           ...(additional ? { additional: additional.map((e) => ({ entry: e, base })) } : {}),
+          ...setupBesideFor(deps, entry, branch),
         });
     const started = deps.store.update(id, {
       pending: undefined,

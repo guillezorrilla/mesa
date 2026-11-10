@@ -71,15 +71,25 @@ export function launchWorktrees(run: Runner) {
   const kept: string[] = [];
   const stuck: string[] = [];
   return {
-    /** One sessionWorktree selected for `entry`: noted when it made it. */
+    /**
+     * One sessionWorktree selected for `entry`: noted when it made it, kept when its setup ran;
+     * one whose setup it left to a Setup session (`setup`) is kept once that opens (keep).
+     */
     add(
       profile: Profile,
       entry: RegistryEntry,
-      selected: { worktree: Worktree; created: boolean },
+      selected: { worktree: Worktree; created: boolean; setup?: string[] },
     ) {
       if (!selected.created) return;
-      if (worktreeScript(profile, entry, 'setup').length) kept.push(selected.worktree.path);
+      if (!selected.setup && worktreeScript(profile, entry, 'setup').length)
+        kept.push(selected.worktree.path);
       else made.push({ repo: entry.path, worktree: selected.worktree });
+    },
+    /** A worktree `add` noted, kept from now on: its setup has started in a Setup session. */
+    keep(path: string) {
+      const at = made.findIndex((m) => m.worktree.path === path);
+      if (at >= 0) made.splice(at, 1);
+      kept.push(path);
     },
     /**
      * Removes what it made, newest first, each on its own: one that cannot be removed is named in

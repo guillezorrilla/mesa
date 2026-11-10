@@ -103,7 +103,8 @@ export function mesaPointer(
       ? 'mesa vault context --general --json'
       : `mesa vault context ${record.project} --json`;
   const lines = [
-    `Mesa session ${record.id}; profile ${profile}; project ${record.project}; cwd ${JSON.stringify(cwd)}.`,
+    // Goal or not, its agent learns of its Setup session (setupWhile: parallel), in few bytes.
+    `Mesa session ${record.id}${record.setupSession ? `; setup in session ${record.setupSession}` : ''}; profile ${profile}; project ${record.project}; cwd ${JSON.stringify(cwd)}.`,
     `Your saved goal is in the startup prompt; keep it. Record: mesa show ${record.id} --json.`,
     `Help: mesa help --agent. Skills: ${skills}, invoked here as ${prefix}skill-name.`,
     'Coordinate: mesa sessions --json, mesa open [--after], send, handoff; check state before sending. Only a human answers permission or question prompts.',

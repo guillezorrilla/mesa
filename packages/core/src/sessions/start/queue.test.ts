@@ -46,6 +46,7 @@ async function setUp({ claude = true } = {}) {
     clock: fixedClock(now),
     newUuid: sequentialUuids(),
     caller: () => ({ inMesaWindow: false }),
+    shell: '/bin/zsh',
     syncSkills: () => {},
     mounts: launchMounts(['/usr/local/bin/mesa'], { decisions: false }),
     lock: { ...lockDeps(), sleep: async () => {} },
