@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { duration, listPrice, odds, percent, usd } from './format.js';
+import { duration, formatBytes, listPrice, odds, percent, usd } from './format.js';
 
 test('durations and list prices read the same everywhere', () => {
   expect([0, 42, 60, 303, 3600, 7620].map(duration)).toEqual([
@@ -26,4 +26,13 @@ test('dollars read to the places a site shows, or in full', () => {
 
 test("Faro's odds read to two places", () => {
   expect([0.8, 0.125, 1].map(odds)).toEqual(['0.80', '0.13', '1.00']);
+});
+
+test('sizes on disk read in powers of 1,000, one decimal past bytes', () => {
+  expect([512, 5_242_880, 12_300_000_000, 999_960].map(formatBytes)).toEqual([
+    '512 B',
+    '5.2 MB',
+    '12.3 GB',
+    '1.0 MB',
+  ]);
 });

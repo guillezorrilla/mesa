@@ -10,7 +10,14 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { newSession, shortIds, testEnv, testStore, withRealGit } from '@mesa/core/testing';
+import {
+  newSession,
+  shortIds,
+  testEnv,
+  testRunner,
+  testStore,
+  withRealGit,
+} from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -866,4 +873,34 @@ test('worktrees list gives each card its changes, commits ahead, and age', async
   expect(main.createdAt).toBeUndefined();
   expect(busy).toMatchObject({ ahead: 1, changes: { staged: 0, modified: 1, untracked: 1 } });
   expect(Date.parse(busy.createdAt)).not.toBeNaN();
+});
+
+test('worktrees list --sizes adds each size on disk, reused until --refresh; without it nothing is measured', async () => {
+  await creationRepo();
+  const path = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'tide-sizes', '--json')).json
+    .data.path as string;
+  writeFileSync(join(path, 'swell.bin'), Buffer.alloc(5_000_000, 1));
+  const measured: string[] = [];
+  const prior = cli.run;
+  cli.run = (file, args, ms, options) => {
+    if (file !== 'du') return prior(file, args, ms, options);
+    measured.push(args.at(-1) as string);
+    return testRunner(file, args, ms, options);
+  };
+  const plain = (await cli.mesa('worktrees', 'list', 'lantern-cove', '--json')).json.data;
+  expect(plain.every((row: object) => !('sizeBytes' in row))).toBe(true);
+  expect(measured).toEqual([]);
+  const tide = async (...flags: string[]) =>
+    (
+      await cli.mesa('worktrees', 'list', 'lantern-cove', '--sizes', ...flags, '--json')
+    ).json.data.find((row: { branch?: string }) => row.branch === 'tide-sizes');
+  const first = await tide();
+  expect(first.sizeBytes).toBeGreaterThan(5_000_000);
+  expect(measured).toHaveLength(2);
+  expect((await tide()).sizeAt).toBe(first.sizeAt);
+  expect(measured).toHaveLength(2);
+  await tide('--refresh');
+  expect(measured).toHaveLength(4);
+  const text = await cli.mesa('worktrees', 'list', 'lantern-cove', '--sizes');
+  expect(text.stdout).toMatch(/tide-sizes .* ready {2}5\.\d MB/);
 });
