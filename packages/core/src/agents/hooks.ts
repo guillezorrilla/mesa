@@ -117,22 +117,25 @@ const mesaEntry = (
   command: hookCommand(self, agent, event),
   ...(async ? { async: true } : {}),
 });
-const current = (h: Hook, want: Hook) => h.command === want.command && h.async === want.async;
+const isCurrent = (h: Hook, want: Hook) => h.command === want.command && h.async === want.async;
 
 export function hooksStatus(file: HookFile, self: readonly string[]): HookFileStatus {
   const { path, agent } = file;
   const { settings } = read(path);
-  const want = (event: string, async?: boolean) => mesaEntry(self, agent, event, async);
   const events = Object.fromEntries(
     file.events.map(({ event, async }) => [
       event,
-      mesaHooks(settings, event, agent).some((h) => current(h, want(event, async))),
+      mesaHooks(settings, event, agent).some((h) =>
+        isCurrent(h, mesaEntry(self, agent, event, async)),
+      ),
     ]),
   );
   const installed = Object.values(events).every(Boolean);
   // Another mesa's command, or this one's from before an event went async (#894).
   const other = file.events.some(({ event, async }) =>
-    mesaHooks(settings, event, agent).some((h) => !current(h, want(event, async))),
+    mesaHooks(settings, event, agent).some(
+      (h) => !isCurrent(h, mesaEntry(self, agent, event, async)),
+    ),
   );
   // An event Mesa hooks now has no entry where Mesa wrote others (an older mesa's set, #678).
   const missing =

@@ -203,7 +203,11 @@ function parseHookEvent(line: string): HookEvent | undefined {
   }
 }
 
-/** Reads only complete lines appended since an inbox checkpoint, without loading the whole log. */
+/**
+ * Reads only complete lines appended since an inbox checkpoint, without loading the whole log, in
+ * file order: an async event can come after a later one, so a reader that keeps a latest compares
+ * `at` (the Inbox's merge, the report ledger's addReport).
+ */
 export function scanHookEvents(
   eventsDir: string,
   id: string,
