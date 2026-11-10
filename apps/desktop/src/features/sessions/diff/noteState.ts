@@ -9,10 +9,10 @@ export type NoteState = 'unsent' | 'sent' | 'changed' | 'stale';
 export const noteState = (note: ListedNote): NoteState =>
   note.sentAt ? (note.stale ? 'changed' : 'sent') : note.stale ? 'stale' : 'unsent';
 
-/** The order a file's notes are listed in, and what each state reads as. */
-export const NOTE_STATES: Record<NoteState, { order: number; label: string }> = {
-  unsent: { order: 0, label: 'Unsent' },
-  sent: { order: 1, label: 'Sent' },
-  changed: { order: 2, label: 'Changed since sent' },
-  stale: { order: 3, label: 'Stale' },
+/** The order a file's notes are listed in, what each state reads as, and its tone. */
+export const NOTE_STATES: Record<NoteState, { order: number; label: string; tone: string }> = {
+  unsent: { order: 0, label: 'Unsent', tone: 'text-state-working' },
+  sent: { order: 1, label: 'Sent', tone: 'text-muted-foreground' },
+  changed: { order: 2, label: 'Changed since sent', tone: 'text-state-waiting' },
+  stale: { order: 3, label: 'Stale', tone: 'text-state-waiting' },
 };

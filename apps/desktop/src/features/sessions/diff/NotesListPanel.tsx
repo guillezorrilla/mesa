@@ -8,8 +8,8 @@ import { NOTE_STATES, noteState } from './noteState';
 
 /**
  * A session's notes across its files, beside the diff: grouped by file, each file's unsent first,
- * then sent, then changed since sent and stale; a click jumps to the note. Copy all copies them as
- * the agent would read them; Clear sent deletes the sent ones whose lines have not changed.
+ * then sent, then changed since sent and stale; a click jumps to the note. Copy all copies every
+ * note in the prompt's form; Clear sent deletes the sent ones whose lines have not changed.
  */
 export function NotesListPanel(props: {
   notes: ListedNote[];
@@ -19,7 +19,7 @@ export function NotesListPanel(props: {
   onClearSent: () => void;
 }) {
   const files = [...new Set(props.notes.map((n) => n.path))].sort();
-  const sentClean = props.notes.some((n) => noteState(n) === 'sent');
+  const canClear = props.notes.some((n) => noteState(n) === 'sent');
   return (
     <aside aria-label="Notes" className="flex max-h-[50%] min-h-0 shrink-0 flex-col border-t">
       <header className="flex items-center gap-1 border-b py-1.5 pr-1.5 pl-3">
@@ -36,7 +36,7 @@ export function NotesListPanel(props: {
           label="Clear sent notes"
           icon={Eraser}
           size="icon-xs"
-          disabled={props.busy || !sentClean}
+          disabled={props.busy || !canClear}
           onClick={props.onClearSent}
         />
       </header>
@@ -72,13 +72,7 @@ export function NotesListPanel(props: {
                     >
                       <span className="flex items-center gap-2 text-xs text-muted-foreground">
                         {noteLabel(note)}
-                        <span
-                          className={cn(
-                            'ml-auto',
-                            state === 'unsent' && 'text-state-working',
-                            (state === 'changed' || state === 'stale') && 'text-state-waiting',
-                          )}
-                        >
+                        <span className={cn('ml-auto', NOTE_STATES[state].tone)}>
                           {NOTE_STATES[state].label}
                         </span>
                       </span>

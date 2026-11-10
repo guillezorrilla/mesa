@@ -155,7 +155,6 @@ export function inputActions(ctx: MesaContext, faro: Faro, deps: SessionDeps) {
       add: (id: string, input: ReviewNoteInput) => notesOf(id).add(input),
       edit: (id: string, note: string, text: string) => notesOf(id).edit(note, text),
       remove: (id: string, note: string) => notesOf(id).remove(note),
-      resolve: (id: string, note: string) => notesOf(id).resolve(note),
       clearSent: (id: string) => notesOf(id).clearSent(),
       /**
        * Sends every unsent note, or `path`'s, as one prompt through sendReview, then marks them

@@ -46,12 +46,7 @@ export function NoteCard(props: {
       <header className="flex items-center gap-2 text-xs text-muted-foreground">
         <span>{label}</span>
         {state !== 'unsent' && (
-          <span
-            className={cn(
-              'inline-flex items-center gap-1',
-              state !== 'sent' && 'text-state-waiting',
-            )}
-          >
+          <span className={cn('inline-flex items-center gap-1', NOTE_STATES[state].tone)}>
             {state === 'sent' ? (
               <Check aria-hidden className="size-3" />
             ) : (

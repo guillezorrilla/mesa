@@ -27,7 +27,6 @@ export const REVIEW_COMMANDS: Command[] = [
   reviewChangeSend,
   reviewNotes,
   reviewNotesAdd,
-  reviewNotesClear,
   reviewNotesEdit,
   reviewNotesRemove,
   reviewNotesSend,

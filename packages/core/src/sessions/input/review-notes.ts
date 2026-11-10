@@ -32,8 +32,6 @@ const Note = z.strictObject({
   blob: z.string().min(1),
   at: z.string(),
   sentAt: z.string().optional(),
-  /** When the person resolved it after a re-review: kept, but no longer listed. */
-  resolvedAt: z.string().optional(),
 });
 export type ReviewNote = z.infer<typeof Note>;
 /** A note as it reads now: at the lines its quote is on, and `stale` when that quote is gone. */
@@ -160,7 +158,7 @@ export function reviewNotes(deps: NotesDeps, session: string) {
       throw new MesaError('not_found', `session ${session} has no review note ${id}`);
   };
   const list = async (): Promise<ListedNote[]> => {
-    const notes = (readJson(file, Notes)?.notes ?? []).filter((n) => !n.resolvedAt);
+    const notes = readJson(file, Notes)?.notes ?? [];
     const reads = new Map<string, Promise<NoteFile | undefined>>();
     const read = (note: ReviewNote) => {
       const key = `${note.scope}\0${note.path}`;
@@ -235,20 +233,23 @@ export function reviewNotes(deps: NotesDeps, session: string) {
       const texts = new Map(sent.map((n) => [n.id, n.text]));
       change((notes) => notes.map((n) => (texts.get(n.id) === n.text ? { ...n, sentAt: at } : n)));
     },
-    /** Hides a note from the list once the person checked what came of it. */
-    resolve: (id: string): { id: string } => {
-      const at = deps.clock().toISOString();
-      change((notes) => {
-        mustHave(notes, id);
-        return notes.map((n) => (n.id === id ? { ...n, resolvedAt: at } : n));
-      });
-      return { id };
-    },
-    /** Deletes the sent notes whose lines are as they were; a changed one stays to resolve. */
+    /**
+     * Deletes the sent notes whose lines are as they were; a changed one stays for the person to
+     * check and resolve, and one edited meanwhile (unsent again) stays too.
+     */
     clearSent: async (): Promise<{ removed: string[] }> => {
-      const done = new Set((await list()).filter((n) => n.sentAt && !n.stale).map((n) => n.id));
-      change((notes) => notes.filter((n) => !done.has(n.id)));
-      return { removed: [...done] };
+      const done = new Map(
+        (await list()).filter((n) => n.sentAt && !n.stale).map((n) => [n.id, n.sentAt]),
+      );
+      const removed: string[] = [];
+      change((notes) =>
+        notes.filter((n) => {
+          const gone = n.sentAt !== undefined && done.get(n.id) === n.sentAt;
+          if (gone) removed.push(n.id);
+          return !gone;
+        }),
+      );
+      return { removed };
     },
     remove: (id: string): { id: string } => {
       change((notes) => {

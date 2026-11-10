@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import type { DiffRow } from '@mesa/core';
 import { act } from 'react';
-import { beforeEach, expect, onTestFinished, test } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import {
   click,
   diffMeta,
@@ -22,6 +22,7 @@ const diff = (data: object) => () => sessionDiff(data);
 const buttons = () => [...document.querySelectorAll<HTMLElement>('button')];
 
 beforeEach(() => localStorage.clear());
+afterEach(() => vi.restoreAllMocks());
 
 test('the session diff lists every changed file in its folder tree, walks them with j and k, and opens one in the editor', async () => {
   const { bridge, calls } = fakeBridge({
@@ -399,14 +400,7 @@ test('the Notes list groups notes by file, unsent before sent; a click jumps to 
       return envelope({ id: args.at(-1) });
     },
   });
-  const scrolled: string[] = [];
-  const scrollIntoView = Element.prototype.scrollIntoView;
-  onTestFinished(() => {
-    Element.prototype.scrollIntoView = scrollIntoView;
-  });
-  Element.prototype.scrollIntoView = function (this: Element) {
-    scrolled.push(this.id);
-  };
+  const scroll = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {});
   await renderWithMesa(
     <DiffPanel sessionId="aaaaaaaa" project="lantern-cove" state="idle" onClose={() => {}} />,
     bridge,
@@ -428,7 +422,7 @@ test('the Notes list groups notes by file, unsent before sent; a click jumps to 
     ),
   );
   expect(document.querySelector('section[aria-label="notes.txt"] article')).not.toBeNull();
-  expect(scrolled).toEqual(['note-moved001']);
+  expect(scroll.mock.contexts.map((el) => (el as Element).id)).toEqual(['note-moved001']);
 
   const card = document.getElementById('note-moved001');
   expect(card?.textContent).toContain('Changed since sent');

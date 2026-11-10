@@ -1,12 +1,7 @@
+import type { ReviewNote } from './review-notes.js';
+
 /** What the prompt needs from a note. */
-type PromptNote = {
-  path: string;
-  line: number;
-  end: number;
-  scope: string;
-  text: string;
-  quoted: string;
-};
+type PromptNote = Pick<ReviewNote, 'path' | 'line' | 'end' | 'scope' | 'text' | 'quoted'>;
 
 /** `text` fenced with more backticks than any run inside it. */
 const fenced = (text: string) => {

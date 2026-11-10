@@ -160,7 +160,7 @@ test('a guardrail ask sends nothing and leaves every note unsent; --yes sends, w
   expect(readFileSync(join(home, 'vault', receipt?.path as string), 'utf8')).toContain(note.id);
 });
 
-test('resolve hides a note; clear removes the sent notes whose lines stayed, keeping a changed one', async () => {
+test('clear removes the sent notes whose lines stayed, keeping a changed one', async () => {
   const { mesa, tree, id } = await setUp();
   const kept = await mesa.sessions.notes.add(id, { path: 'tide.ts', line: 1, text: 'tide' });
   const changed = await mesa.sessions.notes.add(id, { path: 'tide.ts', line: 2, text: 'moon' });
@@ -174,9 +174,4 @@ test('resolve hides a note; clear removes the sent notes whose lines stayed, kee
   });
   expect(await mesa.sessions.notes.clearSent(id)).toEqual({ removed: [kept.id] });
   expect((await mesa.sessions.notes.list(id)).map((n) => n.id)).toEqual([changed.id, draft.id]);
-  mesa.sessions.notes.resolve(id, changed.id);
-  expect((await mesa.sessions.notes.list(id)).map((n) => n.id)).toEqual([draft.id]);
-  expect(() => mesa.sessions.notes.resolve(id, 'zzzzzzzz')).toThrow(
-    expect.objectContaining({ code: 'not_found' }),
-  );
 });

@@ -82,25 +82,28 @@ export function DiffPanel(props: {
   const notes = useDiffNotes(props.sessionId);
   const lineNotes = useLineNotes(file?.path, file?.rows ?? [], notes);
   const [showNotes, setShowNotes] = useState(true);
-  const [jump, setJump] = useState<string>();
+  const [jump, setJump] = useState<ListedNote>();
   const { clipboard } = usePlatform();
   const toast = useToast();
-  // A note picked in the list: its file opens, then the diff scrolls to it.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the picked file's render brings the note.
+  // A note picked in the list: its file opens, then, once it shows, the diff scrolls to it.
   useEffect(() => {
-    const card = jump && document.getElementById(`note-${jump}`);
-    if (!card) return;
-    card.scrollIntoView({ block: 'center' });
+    if (!jump || file?.path !== jump.path) return;
+    document.getElementById(`note-${jump.id}`)?.scrollIntoView({ block: 'center' });
     setJump(undefined);
   }, [jump, file]);
   const jumpTo = (note: ListedNote) => {
+    // A note on a file this diff no longer has stays in the list only.
+    if (!files.some((f) => f.path === note.path)) return;
     view.open(note.path);
-    setJump(note.id);
+    setJump(note);
   };
   const copyAll = async () => {
-    await clipboard.write(notesPrompt(notes.notes));
-    const message = said(`Copied ${counted(notes.notes.length, 'note')}`);
-    toast(message.text, message.tone);
+    try {
+      await clipboard.write(notesPrompt(notes.notes));
+      toast(said(`Copied ${counted(notes.notes.length, 'note')}`).text, 'confirmation');
+    } catch (error) {
+      toast(`Could not copy the notes: ${String(error)}`, 'alert');
+    }
   };
   // The notes are read with the diff, so a note whose lines changed shows it.
   const refresh = () => {

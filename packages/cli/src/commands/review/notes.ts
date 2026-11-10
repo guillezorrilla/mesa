@@ -1,4 +1,4 @@
-import { MesaError, type NoteScope } from '@mesa/core';
+import { counted, MesaError, type NoteScope } from '@mesa/core';
 import { defineCommand } from '../../command.js';
 
 const where = (n: { path: string; line: number; end: number }) =>
@@ -116,11 +116,12 @@ export const reviewNotesSend = defineCommand({
 
 export const reviewNotesResolve = defineCommand({
   name: 'review notes resolve',
-  summary: 'Hide a review note from the list once its re-review is done',
+  summary: 'Resolve a review note once its re-review is done: it leaves the list',
   args: ['session', 'id'],
   example: 'mesa review notes resolve a1b2c3d4 k7m2p9qx',
   run: ({ mesa, args }) => {
-    const data = mesa.sessions.notes.resolve(args.session, args.id);
+    // Resolving is done with the note, so it goes, as `remove` does.
+    const data = mesa.sessions.notes.remove(args.session, args.id);
     return { data, text: `Resolved ${data.id}` };
   },
 });
@@ -132,6 +133,6 @@ export const reviewNotesClear = defineCommand({
   example: 'mesa review notes clear a1b2c3d4',
   run: async ({ mesa, args }) => {
     const data = await mesa.sessions.notes.clearSent(args.session);
-    return { data, text: `Cleared ${data.removed.length} sent notes` };
+    return { data, text: `Cleared ${counted(data.removed.length, 'sent note')}` };
   },
 });
