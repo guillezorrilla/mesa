@@ -25,6 +25,7 @@ import { markRead, markUnread } from '../record/unread.js';
 import { readHookEvents } from '../signals/hook-events.js';
 import { refreshReadings, workingFolder } from '../signals/readings.js';
 import { sessionGoal } from '../start/goal.js';
+import { advertisedUrls } from '../window/advertised-urls.js';
 import { sessionLog } from '../window/output-log.js';
 import type { continueActions } from './continue.js';
 import type { SessionDeps } from './deps.js';
@@ -117,6 +118,9 @@ export function inspectActions(
       store.get(id);
       return sessionLog(ctx, paths.logs, id, tail);
     },
+    /** The local URLs sessions' dev servers printed, and whether each still listens (advertisedUrls). */
+    ports: (session?: string) =>
+      advertisedUrls({ lock: ctx, run: ctx.run, logs: paths.logs, records: store.list() }, session),
     /**
      * One session's record, its context use read now, with `alive` and who placed its state
      * (`supervision`) as the board reads them, whether its instruction hook and its mesa-vault

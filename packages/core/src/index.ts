@@ -208,6 +208,7 @@ export type { Supervision } from './sessions/signals/placements.js';
 export type { DiscoveredAdoption, DiscoveryAdoption } from './sessions/start/discovery-adopt.js';
 export type { Worktree } from './sessions/start/worktree.js';
 export type { TmuxWindow } from './sessions/tmux/format.js';
+export type { AdvertisedUrl } from './sessions/window/advertised-urls.js';
 export type { Attached } from './sessions/window/attach.js';
 export type { GridGroup } from './sessions/window/grid-groups.js';
 export type { SessionLog } from './sessions/window/output-log.js';

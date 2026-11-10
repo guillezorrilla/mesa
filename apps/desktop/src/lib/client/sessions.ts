@@ -1,4 +1,5 @@
 import type {
+  AdvertisedUrl,
   Agent,
   Attached,
   ConversationSearch,
@@ -48,6 +49,8 @@ export const sessionsCommands = {
   ]),
   // The board as mesa orders it: attention, children under their parent.
   'sessions.list': command<TreeRow[]>('sessions', '--tree'),
+  /** The local URLs sessions' dev servers printed, listening first (Advertised URL). */
+  'sessions.ports': command<{ ports: AdvertisedUrl[] }>('ports'),
   // The archived sessions, newest archive first: Mesa's own, so no foreign row.
   'sessions.archived': command<ManagedRow[]>('sessions', '--archived'),
   'image.preview': commandWith<{ id: string; path: string }, SessionImage>(({ id, path }) => [

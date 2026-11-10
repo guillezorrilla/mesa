@@ -7,6 +7,7 @@ import { HelpMenu } from '@/features/help/HelpMenu';
 import { NotificationsMenu } from '@/features/notifications/NotificationsMenu';
 import { ProfileMenu } from '@/features/profile/ProfileMenu';
 import { COMMAND_ICONS } from '@/features/search/hitIcon';
+import { PortsMenu } from '@/features/sessions/PortsMenu';
 import { NewSessionMenu } from '@/features/sessions/start/NewSessionMenu';
 import type { SessionPreset } from '@/features/sessions/start/useStartSession';
 import type { SettingsCategory } from '@/features/settings/categories';
@@ -79,6 +80,7 @@ export function TitleBar(props: {
             <Coffee aria-hidden className="size-4" />
           </span>
         )}
+        <PortsMenu onSession={(id) => navigate({ kind: 'session', id })} />
         {(
           [
             ['Impact', COMMAND_ICONS.impact, 'impact', 'impact'],
