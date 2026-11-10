@@ -1,4 +1,5 @@
 import type { AgentProcess } from '../../agents/listing.js';
+import type { BranchPullRequest } from '../../git/branch-pull-requests.js';
 import type { TakenOver } from '../record/holders.js';
 import type { foreignId, SessionRecord } from '../record/record.js';
 import type { Supervision } from '../signals/placements.js';
@@ -38,6 +39,8 @@ export type ManagedRow = { hasOutputLog?: boolean } & SessionRecord &
     lastReply?: { text: string; at: string };
     /** The lines its checkout added and removed since it left its base (lineCounts). */
     lines?: LineCounts;
+    /** The pull request of its branch in its project's repository (withPullRequests). */
+    pr?: BranchPullRequest;
   };
 
 /**

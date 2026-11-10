@@ -44,6 +44,7 @@ export type { FileChange, WorkspaceFile } from './files/editor.js';
 export type { FileLink } from './files/link.js';
 export type { AgentHandoff } from './git/agent-handoff.js';
 export type { GitBranchDiff } from './git/branch-diff.js';
+export type { BranchPullRequest } from './git/branch-pull-requests.js';
 export type { GitBranch, GitBranchAction } from './git/branches.js';
 export type { GitCommit, GitPathAction } from './git/changes.js';
 export type { DiffRow, GitDiff } from './git/diff.js';

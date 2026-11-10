@@ -50,6 +50,8 @@ export type ProfilePaths = {
   prVoice: string;
   /** The PR events forwarded into sessions, so each is sent once (CONTEXT.md, PR event). */
   prEvents: string;
+  /** Each project's pull requests by branch, reused for 60 s (git/branch-pull-requests.ts). */
+  prBranches: string;
   /** Each session's review notes, `<session id>.json` each (CONTEXT.md, Review note). */
   reviewNotes: string;
   /** Child reports not yet typed into their parent (CONTEXT.md, Child report). */
@@ -108,6 +110,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     prs: join(root, 'prs'),
     prVoice: join(root, 'prs', 'voice.md'),
     prEvents: join(root, 'pr-events.json'),
+    prBranches: join(root, 'pr-branches.json'),
     reviewNotes: join(root, 'review-notes'),
     reports: join(root, 'reports.json'),
     placements: join(root, 'placements.json'),
