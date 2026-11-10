@@ -18,6 +18,9 @@ export const isAgentState = (state: SessionState) =>
 export const FINAL_STATES: ReadonlySet<SessionState> = new Set(['done', 'failed', 'stopped']);
 
 /** The states that need a person (CONTEXT.md, Session state). */
+/** Not through yet: its agent is at work, or it has not started; a wait (`mesa wait`) goes on. */
+export const BUSY_STATES: ReadonlySet<SessionState> = new Set(['working', 'queued']);
+
 export const WAITING_STATES: ReadonlySet<SessionState> = new Set([
   'waiting-permission',
   'waiting-question',

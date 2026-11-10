@@ -8,6 +8,7 @@ import { inspectActions } from './inspect.js';
 import { lifecycleActions } from './lifecycle.js';
 import { mergeActions } from './merge.js';
 import { sleepActions } from './sleep.js';
+import { waitActions } from './wait.js';
 import { windowActions } from './windows.js';
 
 /**
@@ -24,10 +25,12 @@ export function sessionsService(
   const deps = sessionDeps(ctx, faro, skills, assistance);
   const lifecycle = lifecycleActions(ctx, faro, deps);
   const continued = continueActions(ctx, deps, lifecycle.stop);
+  const inspect = inspectActions(ctx, deps, lifecycle.stop, continued.resume);
   return {
     grid: gridActions(ctx, setConfig),
     sessions: {
-      ...inspectActions(ctx, deps, lifecycle.stop, continued.resume),
+      ...inspect,
+      ...waitActions(ctx, inspect.list),
       ...inputActions(ctx, faro, deps),
       ...lifecycle,
       ...continued,

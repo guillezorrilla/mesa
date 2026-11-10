@@ -111,6 +111,7 @@ import { updateChannel, updateCheck, updateInstall, updateRevoked } from './upda
 import { usage } from './usage.js';
 import { VAULT_COMMANDS } from './vault/index.js';
 import { view } from './view.js';
+import { wait } from './wait.js';
 import { wake } from './wake.js';
 import { whatsNew } from './whats-new.js';
 import { windows } from './windows.js';
@@ -201,6 +202,7 @@ export const COMMANDS: Command[] = [
   open,
   worker,
   merge,
+  wait,
   ports,
   prEvents,
   report,
