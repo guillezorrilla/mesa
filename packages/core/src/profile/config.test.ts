@@ -205,7 +205,7 @@ test('worktree settings retain the profile default and reject unsafe directories
     location: 'profile',
     fetch: false,
     sparseDirectories: [],
-    carryIgnoredDirectories: [],
+    carry: [],
     setup: [],
     teardown: [],
     deleteBranch: false,
@@ -220,12 +220,20 @@ test('worktree settings retain the profile default and reject unsafe directories
   for (const [path, value] of [
     ['worktrees.location', 'custom'],
     ['worktrees.sparseDirectories', '["../outside"]'],
-    ['worktrees.carryIgnoredDirectories', '[".git/objects"]'],
+    ['worktrees.carry', '[".git/objects"]'],
     ['worktrees.deleteBranch', 'sometimes'],
   ] as const) {
     expect(thrown(() => setConfigValue(file, path, value, lockDeps())).code).toBe('invalid_config');
     expect(readFileSync(file, 'utf8')).toBe(before);
   }
+});
+
+test('a config written before carry took files is still read', () => {
+  writeFileSync(file, 'vault: /tmp/v\nworktrees:\n  carryIgnoredDirectories: [cache, .env]\n');
+  expect(loadConfig(file).worktrees.carry).toEqual(['cache', '.env']);
+  // Set by the old name, it is the new one.
+  setConfigValue(file, 'worktrees.carryIgnoredDirectories', '[cache]', lockDeps());
+  expect(loadConfig(file).worktrees.carry).toEqual(['cache']);
 });
 
 test('a YAML syntax error reports the position, never the source text', () => {

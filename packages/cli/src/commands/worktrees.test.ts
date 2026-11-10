@@ -168,7 +168,7 @@ test('manual creation keeps profile default and applies sibling, nested, sparse,
         location: 'sibling',
         fetch: false,
         sparseDirectories: ['src'],
-        carryIgnoredDirectories: ['cache'],
+        carry: ['cache'],
       })
     ).code,
   ).toBe(0);
@@ -196,7 +196,7 @@ test('manual creation keeps profile default and applies sibling, nested, sparse,
         location: 'nested',
         fetch: false,
         sparseDirectories: [],
-        carryIgnoredDirectories: [],
+        carry: [],
       })
     ).code,
   ).toBe(0);
@@ -563,7 +563,7 @@ test('custom location and fetched base are shared settings; failed carryover pre
         base: 'origin/main',
         fetch: true,
         sparseDirectories: [],
-        carryIgnoredDirectories: [],
+        carry: [],
       })
     ).code,
   ).toBe(0);
@@ -582,7 +582,7 @@ test('custom location and fetched base are shared settings; failed carryover pre
         customRoot: join(repo, 'inside'),
         fetch: false,
         sparseDirectories: [],
-        carryIgnoredDirectories: [],
+        carry: [],
       })
     ).code,
   ).toBe(0);
@@ -595,7 +595,7 @@ test('custom location and fetched base are shared settings; failed carryover pre
         location: 'profile',
         fetch: false,
         sparseDirectories: [],
-        carryIgnoredDirectories: ['src'],
+        carry: ['src'],
       })
     ).code,
   ).toBe(0);

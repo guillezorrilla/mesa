@@ -162,17 +162,17 @@ export function ProjectSettingsPanel(props: { onChanged: () => void }) {
               }
             />
             <SettingRow
-              title="Include .gitignored folders in worktree"
-              description={profileValue(profile.carryIgnoredDirectories, 'none')}
+              title="Carry ignored files and folders"
+              description={profileValue(profile.carry, 'none')}
               keywords="project carry ignored"
               htmlFor="project-worktree-carry"
               control={
                 <TextField
                   id="project-worktree-carry"
-                  value={worktrees.carryIgnoredDirectories?.join(', ') ?? ''}
-                  placeholder="e.g. node_modules, .env.local"
+                  value={worktrees.carry?.join(', ') ?? ''}
+                  placeholder="e.g. node_modules, .env"
                   parse={orInherit(commaList)}
-                  onSave={(value) => save('worktrees.carryIgnoredDirectories', value)}
+                  onSave={(value) => save('worktrees.carry', value)}
                 />
               }
             />

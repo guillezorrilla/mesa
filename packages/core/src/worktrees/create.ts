@@ -1,6 +1,4 @@
-import { cpSync, lstatSync, realpathSync } from 'node:fs';
-import { isAbsolute, join, relative } from 'node:path';
-import { createCheckedFilePath } from '../files/path.js';
+import { lstatSync, realpathSync } from 'node:fs';
 import { gitWorktrees } from '../git/checkout.js';
 import { gitCommand } from '../git/command.js';
 import type { IdSource } from '../lib/ids.js';
@@ -20,6 +18,7 @@ import {
   worktreePath,
 } from '../sessions/start/worktree.js';
 import { sessionBranchName } from './branch-name.js';
+import { carryEntries } from './carry.js';
 import { ignoreNestedWorktrees, worktreeRoot } from './location.js';
 import { worktreeScript, worktreeSettings } from './settings.js';
 
@@ -34,7 +33,10 @@ function refuseHeld(store: SessionStore, path: string) {
     );
 }
 
-/** A session may take an existing unheld worktree at its configured branch path. */
+/**
+ * A session may take an existing unheld worktree at its configured branch path; a new one carries
+ * createWorktree's warning.
+ */
 export async function sessionWorktree(
   profile: Profile,
   run: Runner,
@@ -47,11 +49,18 @@ export async function sessionWorktree(
   const path = worktreePath(worktreeRoot(profile, project), branch);
   const present = lstatSync(path, { throwIfNoEntry: false });
   // An empty folder a killed create left is no worktree: creating again reclaims it.
-  if (!present || isLeftover(path))
-    return {
-      worktree: await createWorktree(profile, run, lock, store, project, branch, base),
-      created: true,
-    };
+  if (!present || isLeftover(path)) {
+    const { warning, ...worktree } = await createWorktree(
+      profile,
+      run,
+      lock,
+      store,
+      project,
+      branch,
+      base,
+    );
+    return { worktree, created: true, ...(warning ? { warning } : {}) };
+  }
   const taken = () =>
     new MesaError('usage', `${path} already exists: pick another branch, or remove it`);
   if (present.isSymbolicLink() || !present.isDirectory()) throw taken();
@@ -112,7 +121,8 @@ export async function checkoutWorktree(
 
 /**
  * Manual and session worktrees take one policy, the profile's under the project's overrides, with
- * explicit branch/base overrides.
+ * explicit branch/base overrides. A carry that stops at its budget keeps the worktree and runs
+ * setup; its `warning` says what stayed behind.
  */
 export async function createWorktree(
   profile: Profile,
@@ -129,6 +139,7 @@ export async function createWorktree(
   const settings = worktreeSettings(profile, project);
   // Before Git adds anything: an unapproved project setup leaves no worktree behind.
   const setup = worktreeScript(profile, project, 'setup');
+  let carryStopped: string | undefined;
   const worktree = await addWorktree(run, lock, {
     repo: project.path,
     root,
@@ -148,9 +159,7 @@ export async function createWorktree(
       );
       if (!sparse.ok) throw new MesaError('usage', `cannot set sparse checkout: ${sparse.detail}`);
     }
-    for (const directory of settings.carryIgnoredDirectories) {
-      await carryIgnoredDirectory(run, project.path, worktree.path, directory);
-    }
+    carryStopped = await carryEntries(run, project.path, worktree.path, settings.carry);
   } catch (error) {
     try {
       await removeWorktree(run, project.path, worktree);
@@ -164,7 +173,7 @@ export async function createWorktree(
   }
   // Setup may write user data. If it fails, leave the linked checkout for an explicit rerun.
   if (setup.length) await worktreeCommand(run, worktree.path, setup, 'setup');
-  return worktree;
+  return { ...worktree, ...(carryStopped ? { warning: carryStopped } : {}) };
 }
 
 /** Run an explicitly configured command in a selected worktree, without a shell. */
@@ -182,39 +191,4 @@ export async function worktreeCommand(
       `${kind} failed in ${path}: ${result.detail}; checkout ${lstatSync(path, { throwIfNoEntry: false }) ? 'remains' : 'is missing'}`,
     );
   return { path, ran: true as const };
-}
-
-async function carryIgnoredDirectory(
-  run: Runner,
-  repo: string,
-  worktree: string,
-  directory: string,
-) {
-  const source = join(repo, directory);
-  const stat = lstatSync(source, { throwIfNoEntry: false });
-  if (!stat?.isDirectory() || stat.isSymbolicLink())
-    throw new MesaError('usage', `${directory} is not a local directory to carry`);
-  const actual = realpathSync.native(source);
-  const within = relative(realpathSync.native(repo), actual);
-  if (
-    !within ||
-    within.startsWith('..') ||
-    isAbsolute(within) ||
-    realpathSync.native(worktree).startsWith(`${actual}/`)
-  )
-    throw new MesaError('usage', `${directory} is not safe to carry`);
-  const ignored = await gitCommand(run, repo, ['check-ignore', '-q', '--', directory]);
-  const tracked = await gitCommand(run, repo, ['ls-files', '--cached', '--', directory]);
-  if (!ignored.ok || !tracked.ok || tracked.stdout.trim())
-    throw new MesaError('usage', `${directory} must be ignored and untracked to carry`);
-  const target = createCheckedFilePath(worktree, directory);
-  // verbatimSymlinks: a relative link such as pnpm's node_modules/pkg -> ../packages/pkg stays
-  // relative, so the worktree uses its own packages rather than the source checkout's.
-  cpSync(source, target, {
-    recursive: true,
-    dereference: false,
-    verbatimSymlinks: true,
-    errorOnExist: true,
-    force: false,
-  });
 }

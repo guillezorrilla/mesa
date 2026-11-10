@@ -95,7 +95,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
       location: 'profile',
       fetch: false,
       sparseDirectories: [],
-      carryIgnoredDirectories: [],
+      carry: [],
       setup: [],
       teardown: [],
       deleteBranch: false,

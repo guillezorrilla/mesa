@@ -176,7 +176,7 @@ test("mesa.yaml overrides a profile's worktree settings and terminal theme; one 
       worktrees: {
         base: 'develop',
         fetch: true,
-        carryIgnoredDirectories: ['cache'],
+        carry: ['cache'],
         sparseDirectories: ['apps/web', 'packages'],
         setup: ['/usr/bin/make', 'setup'],
         teardown: ['/usr/bin/make', 'clean'],

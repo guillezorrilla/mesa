@@ -2960,7 +2960,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
       location: 'profile',
       fetch: false,
       sparseDirectories: [],
-      carryIgnoredDirectories: [],
+      carry: [],
       setup: [],
       teardown: [],
       deleteBranch: false,

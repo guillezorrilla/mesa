@@ -5,11 +5,16 @@ import type { Runner } from '../lib/process.js';
 import { profilePaths } from '../profile/paths.js';
 import { testEnv, testRunner } from './env.js';
 
-/** `run` with the real git in it, for the temp repositories; the rest stays as `run` answers. */
+/**
+ * `run` with the real git in it, and the real `/bin/cp` a worktree's carry clones with, for the
+ * temp repositories; the rest stays as `run` answers.
+ */
 export const withRealGit =
   (run: Runner): Runner =>
   (file, args, ms, options) =>
-    file === 'git' ? testRunner(file, args, ms, options) : run(file, args, ms, options);
+    file === 'git' || file === '/bin/cp'
+      ? testRunner(file, args, ms, options)
+      : run(file, args, ms, options);
 
 /** git in `dir`, as a person would type it, its output trimmed. */
 export const testGit = (dir: string, ...args: string[]) =>

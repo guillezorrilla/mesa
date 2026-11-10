@@ -119,16 +119,16 @@ export function WorktreeSettingsPanel() {
           }
         />
         <SettingRow
-          title="Include .gitignored folders in worktree"
-          description="Top-level ignored folders to carry into new worktrees, comma separated."
+          title="Carry ignored files and folders"
+          description="Ignored files and folders to copy into new worktrees, comma separated."
           htmlFor="worktree-carry"
           control={
             <TextField
               id="worktree-carry"
-              value={worktrees.carryIgnoredDirectories.join(', ')}
-              placeholder="e.g. node_modules, .env.local"
+              value={worktrees.carry.join(', ')}
+              placeholder="e.g. node_modules, .env"
               parse={commaList}
-              onSave={(value) => update({ carryIgnoredDirectories: value as string[] })}
+              onSave={(value) => update({ carry: value as string[] })}
             />
           }
         />

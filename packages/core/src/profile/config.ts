@@ -15,7 +15,11 @@ import { REDACTED } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { readYaml, setYamlPath, valueAt } from '../lib/yaml-file.js';
-import { GIT_OVERRIDE_FIELDS, WORKTREE_OVERRIDE_FIELDS } from '../projects/overrides.js';
+import {
+  GIT_OVERRIDE_FIELDS,
+  WORKTREE_OVERRIDE_FIELDS,
+  withCarryRenamed,
+} from '../projects/overrides.js';
 import { KEEP_AWAKE_MODES } from '../sessions/awake.js';
 import { UPDATE_CHANNELS } from '../update/feeds.js';
 import {
@@ -58,7 +62,11 @@ const REMOVED_KEYS: Record<string, string> = {
  * Dotted paths `mesa config set` takes for a field stored under another name: `vault` is the
  * vault's path, so its capture switch sits beside it as `vaultCapture`.
  */
-const CONFIG_ALIASES: Record<string, string> = { 'vault.capture': 'vaultCapture' };
+const CONFIG_ALIASES: Record<string, string> = {
+  'vault.capture': 'vaultCapture',
+  // The name `worktrees.carry` had before it took files (withCarryRenamed).
+  'worktrees.carryIgnoredDirectories': 'worktrees.carry',
+};
 
 const WithoutRemovedKeys = z
   .unknown()
@@ -229,21 +237,25 @@ const ConfigShape = z.strictObject({
     })
     .prefault({}),
   worktrees: z
-    .strictObject({
-      location: z.enum(['profile', 'sibling', 'nested', 'custom']).default('profile'),
-      customRoot: z.string().refine(isAbsolute, 'must be an absolute path').optional(),
-      base: WORKTREE_OVERRIDE_FIELDS.base.optional(),
-      fetch: WORKTREE_OVERRIDE_FIELDS.fetch.default(false),
-      sparseDirectories: WORKTREE_OVERRIDE_FIELDS.sparseDirectories.default([]),
-      carryIgnoredDirectories: WORKTREE_OVERRIDE_FIELDS.carryIgnoredDirectories.default([]),
-      setup: WORKTREE_OVERRIDE_FIELDS.setup.default([]),
-      teardown: WORKTREE_OVERRIDE_FIELDS.teardown.default([]),
-      // Pre-checks "also delete branch" when the app removes a session's worktree.
-      deleteBranch: z.boolean().default(false),
-    })
-    .refine(
-      (settings) => settings.location !== 'custom' || settings.customRoot,
-      'customRoot is required for custom location',
+    .preprocess(
+      withCarryRenamed,
+      z
+        .strictObject({
+          location: z.enum(['profile', 'sibling', 'nested', 'custom']).default('profile'),
+          customRoot: z.string().refine(isAbsolute, 'must be an absolute path').optional(),
+          base: WORKTREE_OVERRIDE_FIELDS.base.optional(),
+          fetch: WORKTREE_OVERRIDE_FIELDS.fetch.default(false),
+          sparseDirectories: WORKTREE_OVERRIDE_FIELDS.sparseDirectories.default([]),
+          carry: WORKTREE_OVERRIDE_FIELDS.carry.default([]),
+          setup: WORKTREE_OVERRIDE_FIELDS.setup.default([]),
+          teardown: WORKTREE_OVERRIDE_FIELDS.teardown.default([]),
+          // Pre-checks "also delete branch" when the app removes a session's worktree.
+          deleteBranch: z.boolean().default(false),
+        })
+        .refine(
+          (settings) => settings.location !== 'custom' || settings.customRoot,
+          'customRoot is required for custom location',
+        ),
     )
     .prefault({}),
   shortcuts: z

@@ -77,7 +77,7 @@ const PROJECT_YAML = [
 const PROFILE_WORKTREES = JSON.stringify({
   base: 'main',
   sparseDirectories: ['docs'],
-  carryIgnoredDirectories: ['tmp'],
+  carry: ['tmp'],
   setup: ['/usr/bin/true', 'profile-setup'],
   teardown: ['/usr/bin/true', 'profile-teardown'],
 });
@@ -137,7 +137,7 @@ test("removing a worktree runs the project's teardown, the one its preview showe
   testGit(dir, 'push', '-q', 'origin', 'main');
   mesa.config.set('worktrees', PROFILE_WORKTREES);
   mesa.config.set('worktrees.sparseDirectories', '[]');
-  mesa.config.set('worktrees.carryIgnoredDirectories', '[]');
+  mesa.config.set('worktrees.carry', '[]');
 
   const { result } = await mesa.worktrees.create('lantern-cove', 'feature');
   await expect(mesa.worktrees.preview('lantern-cove', 'remove', result.path)).rejects.toMatchObject(
