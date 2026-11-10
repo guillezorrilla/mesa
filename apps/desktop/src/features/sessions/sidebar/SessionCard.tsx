@@ -39,8 +39,8 @@ const PR_TONE = {
 
 /**
  * One session in the sidebar: its state and title with a badge per additional project, and while
- * not compact its branch with the lines its work added and removed, its state line, and its
- * agent's last reply in one line (the whole stored reply in its tooltip); its branch's pull request
+ * not compact its branch with the lines its work added and removed, its state line, its agent's
+ * progress line until it ends (when it was set in its tooltip), and its agent's last reply in one line (the whole stored reply in its tooltip); its branch's pull request
  * in its corner, a link that opens it and never selects the card; while unread, filled green with a dot and a bold title.
  * On hover, a child session, compact, archive, and More actions. Its keys: Arrows step to the
  * next card, Shift+Arrow ranges to it, Option+Arrow moves it within its project, and Shift+Enter or
@@ -76,6 +76,7 @@ export function SessionCard(props: {
   const { unread } = props;
   const lines = session.managed ? session.lines : undefined;
   const reply = session.managed ? session.lastReply : undefined;
+  const progress = session.managed && !session.endedAt ? session.progress : undefined;
   // Not on a compact card, whose one row the hover actions take, as its lines and reply are not.
   const pr = session.managed && !compact ? session.pr : undefined;
   const run = useRun();
@@ -180,6 +181,15 @@ export function SessionCard(props: {
               {session.lastState.state}
               {unread && ' · unread'}
             </span>
+            {progress && (
+              <span
+                data-testid="session-progress"
+                title={`Set ${new Date(progress.at).toLocaleString()}`}
+                className={cn('truncate pl-4 text-[11px]', pr && !reply && 'pr-12')}
+              >
+                {progress.text}
+              </span>
+            )}
             {reply && (
               <span
                 data-testid="session-reply"

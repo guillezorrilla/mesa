@@ -83,6 +83,12 @@ mesa worker lantern-cove --task t-a1                                            
 
 End your turn. A worker's `done` report settles its task `succeeded` and readies the tasks that waited on it; `failed` fails it with the report's text. On each report, run `mesa tasks --ready` again and start the ones that became ready. `mesa tasks show <id>` names the dep holding a pending task; `mesa tasks retry <id>` returns a failed one, and `mesa tasks cancel <id>` drops one not started.
 
+Set a progress line at each step of long work; your card shows it under your state. It is not a message to anyone:
+
+```sh
+mesa progress "Running the tide-table tests"
+```
+
 Queue work after a session: the new one starts by itself when that session is over (its agent exits, or it is stopped), with its own goal. `mesa sessions` shows it `queued`, `waiting on <id>`; `mesa stop` on it cancels it.
 
 ```sh

@@ -133,6 +133,8 @@ const SessionRecordFields = z.strictObject({
   seenAt: z.iso.datetime().optional(),
   /** A person's workflow label, independent of Faro's observed agent state. */
   workflowStatus: z.enum(WORKFLOW_STATUSES).optional(),
+  /** The one line its agent last said it is on (CONTEXT.md, Progress line), and when. */
+  progress: z.strictObject({ text: z.string(), at: z.iso.datetime() }).optional(),
   /** Started outside Mesa, then adopted (CONTEXT.md, Adopted session). */
   adopted: z.literal(true).optional(),
   /**
