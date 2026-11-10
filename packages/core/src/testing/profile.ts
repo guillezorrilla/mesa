@@ -18,7 +18,9 @@ export const testDeps = (home: string, overrides: Partial<MesaDeps> = {}): MesaD
   clock: fixedClock(),
   newId: sequentialIds(),
   newUuid: sequentialUuids(),
-  sleep: async () => {},
+  // No wait, but a yield: a lock waiter that resolved at once would spin its tries as microtasks
+  // and starve the holder's I/O until it gave up.
+  sleep: () => new Promise((resolve) => setImmediate(resolve)),
   self: ['/usr/local/bin/mesa'],
   env: {},
   run: scriptedRunner().run,
