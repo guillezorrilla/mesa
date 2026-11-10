@@ -118,3 +118,19 @@ export const attentionScore = (attention: number) => odds(attention);
 
 /** How full a session's context is, as the whole percent shown: 0 to 100 whatever the reading. */
 export const contextPercent = (used: number) => Math.round(Math.min(100, Math.max(0, used)));
+
+/** The context a session hands off at (amber), and the one it should never pass (red). */
+const HANDOFF_TOKENS = 200_000;
+const RED_TOKENS = 250_000;
+
+/**
+ * How full a context reading is, by the tokens it holds, as each turn re-reads them all: amber
+ * at 200k tokens or 55% of the window, whichever is fewer, when the mesa-handoff skill hands off;
+ * red at 250k or 60% (docs/spikes/token-usage.md). Compared as shown, so a 55% is coloured.
+ */
+export const contextTone = ({ used, window }: { used: number; window: number }) => {
+  const shown = contextPercent(used);
+  const percentAt = (tokens: number, percent: number) => Math.min(percent, (tokens / window) * 100);
+  if (shown >= percentAt(RED_TOKENS, 60)) return 'red';
+  return shown >= percentAt(HANDOFF_TOKENS, 55) ? 'amber' : 'normal';
+};
