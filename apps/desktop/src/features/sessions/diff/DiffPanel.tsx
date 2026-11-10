@@ -15,7 +15,7 @@ import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
 import { ResizeHandle } from '@/components/ResizeHandle';
 import { Stat } from '@/components/Stat';
-import { said, useToast } from '@/components/Toast';
+import { useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { DiffViewToggles } from '@/features/git/diff/DiffViewToggles';
 import { diffFiles } from '@/features/git/diff/diffFiles';
@@ -100,9 +100,12 @@ export function DiffPanel(props: {
   const copyAll = async () => {
     try {
       await clipboard.write(notesPrompt(notes.notes));
-      toast(said(`Copied ${counted(notes.notes.length, 'note')}`).text, 'confirmation');
+      toast(`Copied ${counted(notes.notes.length, 'note')}`, 'confirmation');
     } catch (error) {
-      toast(`Could not copy the notes: ${String(error)}`, 'alert');
+      toast(
+        `Could not copy the notes: ${error instanceof Error ? error.message : String(error)}`,
+        'alert',
+      );
     }
   };
   // The notes are read with the diff, so a note whose lines changed shows it.
