@@ -341,6 +341,11 @@ Not: workflow status, session state.
 A review comment that exists on the provider but only its author can see: a comment in a GitHub pending review, or a Bitbucket comment created with `--pending`. A review session writes only these; the person submits them on the provider (GitHub's review page, Bitbucket's Finish review). A review session scores each finding 1-10 (how sure and how much it matters) with `mesa prs draft --score`, and a finding under the draft bar, 7, never becomes a draft.
 Not: a posted comment, a vault draft.
 
+## Review voice
+
+How the person writes review comments (tone, length, how a suggestion is phrased, what is never said), kept as their own text in the profile at `prs/voice.md`, never in a repo. When it exists, a review session's goal carries it and the session writes every draft that way; `mesa prs voice` and Settings > Sessions > PR reviews show the file and whether it is set. Mesa ships none.
+Not: a product's brand voice, the agent's own style.
+
 ## Comment verdict
 
 Whether a re-review found one of my earlier threads on a PR addressed, partly addressed, or not: recorded by the review session with `mesa prs verdict`, with a note and the agent's confidence, and kept by Mesa in the profile (`prs/<project>/<number>.json`), the latest per thread winning. Your comments shows it in place of the provider's resolved flag, and the updated callout's bar counts addressed and partly. The agent only replies on partly and not addressed threads and never resolves one.

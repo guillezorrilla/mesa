@@ -1,5 +1,8 @@
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { reviewPrompt } from './review-prompt.js';
+import { tempDir } from '../testing/tmp.js';
+import { reviewGoal, reviewPrompt } from './review-prompt.js';
 
 test('a review asks for /code-review on the PR, the reuse axis too, and its scored findings as drafts', () => {
   const prompt = reviewPrompt({ number: 36, mode: 'drafts', rereview: false });
@@ -26,4 +29,28 @@ test('Post now submits the drafts; a re-review records a verdict on each earlier
   expect(post.split('\n').at(-1)).toBe(
     'Comment only through these commands; never approve or merge.',
   );
+});
+
+test("the person's Review voice goes in after the draft lines, and the guard stays last", () => {
+  const voice = 'Short questions.\nNever a bullet list.';
+  const prompt = reviewPrompt({ number: 36, mode: 'post', rereview: true, voice });
+  const lines = prompt.split('\n');
+  const at = lines.indexOf('Write every comment in my voice, as described here:');
+  expect(lines[at - 1]).toMatch(/^Score each finding/);
+  expect(lines.slice(at + 1, at + 3)).toEqual(['Short questions.', 'Never a bullet list.']);
+  expect(lines[at + 3]).toMatch(/^This is a re-review/);
+  expect(lines.at(-1)).toBe('Comment only through these commands; never approve or merge.');
+  // No voice, no line.
+  for (const none of [undefined, null])
+    expect(reviewPrompt({ number: 36, mode: 'post', rereview: true, voice: none })).not.toContain(
+      'voice',
+    );
+});
+
+test("a review's goal reads the Review voice from the profile file, and is the plain prompt without one", () => {
+  const file = join(tempDir(), 'voice.md');
+  const input = { number: 36, mode: 'drafts', rereview: false } as const;
+  expect(reviewGoal(file, input)).toBe(reviewPrompt(input));
+  writeFileSync(file, 'Short questions.\n');
+  expect(reviewGoal(file, input)).toBe(reviewPrompt({ ...input, voice: 'Short questions.' }));
 });

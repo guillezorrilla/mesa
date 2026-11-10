@@ -10,13 +10,14 @@ import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import { ChoiceField } from './controls/ChoiceField';
 import { ToggleField } from './controls/ToggleField';
+import { ReviewVoiceRow } from './ReviewVoiceRow';
 import { SettingRow } from './SettingRow';
 import { SettingSection } from './SettingSection';
 import { useSettings } from './useSettings';
 
 /**
  * What a new session starts with, whether its output is kept, whether Claude's status line shows
- * its cost, whether its agent gets the agent guidelines, and the saved prompts.
+ * its cost, whether its agent gets the agent guidelines, the review voice, and the saved prompts.
  */
 export function SessionSettingsPanel(props: { onSavedPrompts: () => void }) {
   const { config } = useSettings();
@@ -103,6 +104,13 @@ export function SessionSettingsPanel(props: { onSavedPrompts: () => void }) {
             />
           }
         />
+      </SettingSection>
+      <SettingSection
+        id="reviews"
+        title="PR reviews"
+        description="How review sessions write on a pull request"
+      >
+        <ReviewVoiceRow />
       </SettingSection>
       <SettingSection
         id="saved-prompts"

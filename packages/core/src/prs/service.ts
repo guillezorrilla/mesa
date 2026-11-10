@@ -31,6 +31,7 @@ import {
 import { type Reached, reviewActions } from './review.js';
 import type { ReviewStartDeps } from './review-start.js';
 import { prVerdicts, type ThreadVerdict, withVerdicts } from './verdicts.js';
+import { reviewVoice } from './voice.js';
 
 /** A project's PR provider and its CLI's state; `next` is the command that unblocks it, if any. */
 export type PrSetupRow = {
@@ -177,6 +178,9 @@ export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open' 
       if (!project) throw new MesaError('usage', 'pass the project: <project> <number>');
       return project;
     },
+
+    /** The profile's Review voice (mesa prs voice): its file, and its text when set. */
+    voice: () => reviewVoice(ctx.paths.prVoice),
 
     /** My Pending drafts on the PR (mesa prs drafts). */
     drafts: async (project: string, number: number) => (await show(project, number)).drafts,

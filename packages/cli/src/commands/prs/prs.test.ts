@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { newSession, scriptedRunner, testStore } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
@@ -501,4 +501,21 @@ test('prs verdict keeps one thread verdict for the review round, only from a liv
   });
   const file = join(cli.paths.prs, 'lantern-cove', '12.json');
   expect(JSON.parse(readFileSync(file, 'utf8')).verdicts).toHaveLength(1);
+});
+
+test('prs voice shows the profile file review sessions write in, or how to set one', async () => {
+  const path = join(cli.paths.prs, 'voice.md');
+  const none = await cli.mesa('prs', 'voice', '--json');
+  expect(none.json.data).toEqual({ path, text: null });
+  expect((await cli.mesa('prs', 'voice')).stdout).toContain(
+    `No review voice: create ${path} to set one`,
+  );
+
+  mkdirSync(cli.paths.prs, { recursive: true });
+  writeFileSync(path, 'Short questions, one or two sentences.\n');
+  const set = await cli.mesa('prs', 'voice', '--json');
+  expect(set.json.data).toEqual({ path, text: 'Short questions, one or two sentences.' });
+  expect((await cli.mesa('prs', 'voice')).stdout).toContain(
+    `${path}\n\nShort questions, one or two sentences.`,
+  );
 });

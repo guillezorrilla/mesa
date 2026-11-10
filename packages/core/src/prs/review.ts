@@ -6,7 +6,7 @@ import { callerOf } from '../sessions/window/caller.js';
 import { unwrap } from './cli-read.js';
 import type { PrProvider } from './provider.js';
 import type { PrProviderApi } from './reader.js';
-import { reviewPrompt } from './review-prompt.js';
+import { reviewGoal } from './review-prompt.js';
 import { canPost, reviewsOf, roundInProgress } from './review-sessions.js';
 import { type ReviewStartDeps, startReview } from './review-start.js';
 import type { PrDetail } from './service.js';
@@ -68,7 +68,11 @@ export function reviewActions(
           },
           goal: ({ round, mode }) => {
             if (!pr) throw new MesaError('internal', `#${number} was not read before its goal`);
-            return reviewPrompt({ number, mode, rereview: round > 1 && pr.threads.length > 0 });
+            return reviewGoal(ctx.paths.prVoice, {
+              number,
+              mode,
+              rereview: round > 1 && pr.threads.length > 0,
+            });
           },
         },
       );

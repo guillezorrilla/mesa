@@ -53,6 +53,7 @@ export const CATEGORIES: {
       ['defaults', 'Defaults'],
       ['logs', 'Session logs'],
       ['status-line', 'Status line'],
+      ['reviews', 'PR reviews'],
       ['saved-prompts', 'Saved Prompts'],
     ],
   },
