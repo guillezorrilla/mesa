@@ -4,6 +4,7 @@ import {
   CircleDollarSign,
   Coffee,
   GraduationCap,
+  Moon,
   ScrollText,
   SquareTerminal,
 } from 'lucide-react';
@@ -16,10 +17,18 @@ import { SettingRow } from './SettingRow';
 import { SettingSection } from './SettingSection';
 import { useSettings } from './useSettings';
 
+/** The idle times a session may sleep after, in minutes; 0 is off (#897). */
+const SLEEP_AFTER = [
+  ['0', 'Off'],
+  ['30', 'After 30 min'],
+  ['120', 'After 2 h'],
+  ['480', 'After 8 h'],
+] as const;
+
 /**
- * What a new session starts with, whether its output is kept, whether Claude's status line shows
- * its cost, whether its agent gets the agent guidelines, when the Mac stays awake, the review voice,
- * and the saved prompts.
+ * What a new session starts with, when a finished one sleeps, whether its output is kept, whether
+ * Claude's status line shows its cost, whether its agent gets the agent guidelines, when the Mac
+ * stays awake, the review voice, and the saved prompts.
  */
 export function SessionSettingsPanel(props: { onSavedPrompts: () => void }) {
   const { config } = useSettings();
@@ -64,6 +73,28 @@ export function SessionSettingsPanel(props: { onSavedPrompts: () => void }) {
           htmlFor="sessions-log"
           control={
             <ToggleField id="sessions-log" path="sessions.log" checked={config.sessions.log} />
+          }
+        />
+      </SettingSection>
+      <SettingSection
+        id="sleep"
+        title="Sleep"
+        description="Free the memory of sessions you are done with for now"
+      >
+        <SettingRow
+          icon={Moon}
+          title="Sleep finished sessions"
+          description="A Claude Code or Codex session you have read, that is not shown and has no child running, quits its agent after this long idle. Wake on the session, or mesa wake, reopens it in the same session."
+          htmlFor="sessions-sleep-after"
+          keywords="hibernate memory idle sleep wake"
+          control={
+            <ChoiceField
+              id="sessions-sleep-after"
+              path="sessions.sleepAfterMinutes"
+              value={String(config.sessions.sleepAfterMinutes ?? 0)}
+              options={SLEEP_AFTER}
+              toValue={Number}
+            />
           }
         />
       </SettingSection>

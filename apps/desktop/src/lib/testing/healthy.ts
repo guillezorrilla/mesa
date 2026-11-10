@@ -95,6 +95,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
         statusLineCost: false,
         prEvents: false,
         childReports: true,
+        sleepAfterMinutes: 0,
         guidelines: true,
         keepAwake: 'off',
       },

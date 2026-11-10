@@ -135,14 +135,18 @@ export async function managedRow(
   const reader = AGENTS[found.agent];
   const listed = listedAs && reader.listing.state(listedAs) ? listedAs : undefined;
   // A stopped session keeps its state, and swaps nothing, so its hook log is not read.
-  const events = found.endedAt ? [] : deps.events(found.id);
+  // Since its last wake: the slept agent's SessionEnd no longer speaks for it.
+  const woke = found.events.filter((e) => e.type === 'woke').at(-1)?.at ?? '';
+  const logged = found.endedAt ? [] : deps.events(found.id);
+  const events = logged.filter((e) => e.at >= woke);
   const event = stateEvent(found.agent, events);
   const signals: SessionSignals = {
     now: now.toISOString(),
     agent: found.agent,
     background: found.background,
     last: found.lastState,
-    ended: Boolean(found.endedAt),
+    // A sleeping session's state stands, as a stopped one's does, until it wakes.
+    ended: Boolean(found.endedAt || found.sleeping),
     ...(event ? { event } : {}),
     ...(listed ? { listed } : {}),
     window: window
@@ -221,7 +225,8 @@ export async function managedRow(
     ...(listed?.status === undefined ? {} : { agentStatus: listed.status }),
     ...(listed?.nativeState === undefined ? {} : { nativeState: listed.nativeState }),
     ...(lastOutput ? { lastOutput } : {}),
-    ...(hasConversation(record, events) ? { conversation: true as const } : {}),
+    // The whole log: a conversation before a sleep is still the session's.
+    ...(hasConversation(record, logged) ? { conversation: true as const } : {}),
     supervision: supervisionOf(classified.lastState, reply, want !== undefined && !reply),
   };
 }

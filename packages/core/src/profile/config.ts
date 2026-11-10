@@ -104,6 +104,8 @@ const ConfigShape = z.strictObject({
       prEvents: z.boolean().default(false),
       /** Type a child session's reports into its parent (CONTEXT.md, Child report). */
       childReports: z.boolean().default(true),
+      /** A finished, unseen session sleeps after this many idle minutes; 0 is off (#897). */
+      sleepAfterMinutes: z.number().int().nonnegative().default(0),
       // The agent-guidelines skill for every project, and the pointer line naming it.
       guidelines: z.boolean().default(true),
       /** When the app keeps the Mac from idle-sleeping (CONTEXT.md, Keep awake). */

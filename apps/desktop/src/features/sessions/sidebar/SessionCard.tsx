@@ -6,7 +6,16 @@ import {
   sessionLabel,
   sessionTitle,
 } from '@mesa/core/browser';
-import { ChevronsDown, ChevronsUp, Clock3, GitBranch, Plus, TerminalSquare, X } from 'lucide-react';
+import {
+  ChevronsDown,
+  ChevronsUp,
+  Clock3,
+  GitBranch,
+  Moon,
+  Plus,
+  TerminalSquare,
+  X,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AutomationBanner } from '@/features/automations/AutomationBanner';
 import { cn } from '@/lib/utils';
@@ -100,6 +109,17 @@ export function SessionCard(props: {
             />
           )}
           <span className={cn('truncate', unread && 'font-bold')}>{sessionTitle(session)}</span>
+          {session.managed && session.sleeping && (
+            <Badge
+              variant="outline"
+              data-testid="session-sleeping"
+              title="Asleep: its agent quit to save memory; Wake reopens it"
+              className="gap-1 px-1.5 py-0 font-mono text-[10px] text-muted-foreground"
+            >
+              <Moon aria-hidden className="size-3" />
+              Sleeping
+            </Badge>
+          )}
           {session.managed &&
             session.additional?.map(({ project }) => (
               <Badge

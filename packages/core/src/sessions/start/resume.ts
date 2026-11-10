@@ -101,27 +101,7 @@ export async function resumeSession(
     },
     {
       prepare: claim,
-      command: (record, deny) => {
-        if (old.backgroundId) return claudeBackgroundAttach(old.backgroundId);
-        if (agent === 'antigravity')
-          return AGENTS.antigravity.resume(
-            agentId,
-            prepareAntigravityLog(deps.profile.paths.logs, record.id),
-            deps.profile.config.agents,
-            old.mode,
-            additionalDirs(old),
-          );
-        return AGENTS[agent].resume(
-          agentId,
-          folder,
-          deps.mounts,
-          deps.profile.config.agents,
-          old.mode,
-          additionalDirs(old),
-          // Still a review: the same deny rules as its first start.
-          deny,
-        );
-      },
+      command: (record, deny) => resumeCommand(deps, old, record.id, folder, deny),
     },
   ).catch((error) => {
     try {
@@ -145,6 +125,41 @@ export async function resumeSession(
     const why = `session ${id} not marked ended: ${toFail(error).error.message}`;
     return { record, from: old, warning: joinWarnings(warning, why) };
   }
+}
+
+/**
+ * The command that reopens `old`'s conversation in the window of session `id` (a resume's new one,
+ * or a wake's same one), from its folder, with `deny` (a review's rules).
+ */
+export function resumeCommand(
+  deps: Pick<LaunchDeps, 'profile' | 'mounts'>,
+  old: SessionRecord,
+  id: string,
+  folder: string,
+  deny: Parameters<(typeof AGENTS)['claude']['resume']>[6],
+) {
+  const agentId = old.backgroundId ?? old.agentSessionId;
+  if (old.agent === 'terminal' || !agentId)
+    throw new MesaError('usage', `session ${old.id} has no conversation to reopen`);
+  if (old.backgroundId) return claudeBackgroundAttach(old.backgroundId);
+  if (old.agent === 'antigravity')
+    return AGENTS.antigravity.resume(
+      agentId,
+      prepareAntigravityLog(deps.profile.paths.logs, id),
+      deps.profile.config.agents,
+      old.mode,
+      additionalDirs(old),
+    );
+  return AGENTS[old.agent].resume(
+    agentId,
+    folder,
+    deps.mounts,
+    deps.profile.config.agents,
+    old.mode,
+    additionalDirs(old),
+    // Still a review: the same deny rules as its first start.
+    deny,
+  );
 }
 
 const alreadyResumed = (id: string, by: string) =>

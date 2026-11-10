@@ -31,8 +31,9 @@ export async function recordPaneDied(
   const found = id ? deps.store.find(id) : undefined;
   const ours = found?.tmux.window === window;
   const shown = project === found?.tmux.session || project.startsWith(VIEW_PREFIX);
+  // A sleeping session's agent quit on purpose: it is not an exit (sleep.ts).
   const recorded = (r: SessionRecord) =>
-    Boolean(r.endedAt) || r.events.some((e) => e.type === 'exited');
+    Boolean(r.endedAt || r.sleeping) || r.events.some((e) => e.type === 'exited');
   if (!found || !ours || !shown || recorded(found)) return undefined;
   // The pane is only a view: Claude's background process may still be running.
   if (found.backgroundId) return undefined;

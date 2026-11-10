@@ -93,6 +93,7 @@ import { send } from './send.js';
 import { sessions } from './sessions.js';
 import { show } from './show.js';
 import { skillsList, skillsRead, skillsSet, skillsSync, skillsWrite } from './skills.js';
+import { sleep } from './sleep.js';
 import { sourcesBrowse, sourcesConnect, sourcesDisconnect, sourcesList } from './sources.js';
 import { statusline } from './statusline.js';
 import { stop } from './stop.js';
@@ -105,6 +106,7 @@ import { updateChannel, updateCheck, updateInstall, updateRevoked } from './upda
 import { usage } from './usage.js';
 import { VAULT_COMMANDS } from './vault/index.js';
 import { view } from './view.js';
+import { wake } from './wake.js';
 import { whatsNew } from './whats-new.js';
 import { windows } from './windows.js';
 import { workflow } from './workflow.js';
@@ -240,6 +242,7 @@ export const COMMANDS: Command[] = [
   sourcesDisconnect,
   sourcesBrowse,
   statusline,
+  sleep,
   stop,
   unregister,
   unarchive,
@@ -251,6 +254,7 @@ export const COMMANDS: Command[] = [
   usage,
   ...VAULT_COMMANDS,
   view,
+  wake,
   whatsNew,
   windows,
   workflow,

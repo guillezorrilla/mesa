@@ -1,5 +1,6 @@
 import type { SavedPrompt, TreeRow } from '@mesa/core';
 import {
+  asleep,
   exited,
   GENERAL_PROJECT,
   isRun,
@@ -91,7 +92,7 @@ export function SessionActionsMenu({
             variant="outline"
             size="sm"
             onClick={() => commands.stop(row.id)}
-            disabled={!(row.alive || queued(row)) || acting}
+            disabled={!(row.alive || queued(row) || asleep(row)) || acting}
           >
             <Square aria-hidden /> {queued(row) ? 'Cancel' : 'Stop'}
           </Button>
