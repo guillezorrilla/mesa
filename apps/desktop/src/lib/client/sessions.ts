@@ -2,6 +2,7 @@ import type {
   Agent,
   Attached,
   ConversationSearch,
+  CrewRow,
   DecisionDeliveryStatus,
   DescendantResult,
   DiscoveryAdoption,
@@ -222,6 +223,13 @@ export const sessionsCommands = {
     ({ id, base }) => ['diff', ...(base ? ['--base', base] : []), '--', id],
   ),
   // A project's sessions side by side, in the user's terminal app.
+  // A session's children, each with its branch, newest report and diff counts.
+  'sessions.crew': commandWith<{ id: string }, CrewRow[]>(({ id }) => [
+    'sessions',
+    '--children',
+    '--',
+    id,
+  ]),
   'sessions.show': commandWith<
     { id: string },
     SessionRecord & {

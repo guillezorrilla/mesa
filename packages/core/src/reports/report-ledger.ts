@@ -35,9 +35,19 @@ const State = z
     explicit: z.record(z.string(), ChildReportSchema).default({}),
     /** Workers' questions, open and answered, oldest first. */
     questions: z.array(QuestionSchema).default([]),
+    /** Each child's newest report that says something, of any kind, kept after delivery. */
+    latest: z.record(z.string(), ChildReportSchema).default({}),
   })
   .describe('child reports');
 type State = z.infer<typeof State>;
+
+/** `latest` with `report` kept as its child's newest when it says something and is newer. */
+const withLatest = (latest: State['latest'], report: ChildReport): State['latest'] => {
+  const kept = latest[report.child];
+  return report.message && (!kept || kept.at <= report.at)
+    ? { ...latest, [report.child]: report }
+    : latest;
+};
 
 /**
  * The profile's child reports not yet typed into their parent, `reports.json`: read from each
@@ -71,6 +81,7 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
           ...state,
           pending: addReport(state.pending, report),
           questions: [...state.questions, question],
+          latest: withLatest(state.latest, report),
         },
         result: undefined,
       })),
@@ -109,6 +120,8 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
       }),
     /** `child`'s newest explicit report, delivered or not. */
     explicit: (child: string): ChildReport | undefined => readJson(file, State)?.explicit[child],
+    /** Each child's newest report that says something, delivered or not, as last written. */
+    latest: (): Record<string, ChildReport> => readJson(file, State)?.latest ?? {},
     /**
      * Adds a worker's explicit report to the pending ones in place of its older explicit one
      * (even one made the same millisecond), and keeps it as its newest.
@@ -122,6 +135,7 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
             report,
           ),
           explicit: { ...state.explicit, [report.child]: report },
+          latest: withLatest(state.latest, report),
         },
         result: undefined,
       })),
@@ -135,6 +149,7 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
         const since = state.since ?? now;
         const known = new Set(records.map((record) => record.id));
         let pending = state.pending;
+        let latest = state.latest;
         const offsets: Record<string, number> = {};
         const ended = state.ended.filter((id) => known.has(id));
         for (const child of records.filter(reportsToParent)) {
@@ -148,7 +163,9 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
               // A child that reported its work itself makes no `finished` report after it.
               const said = state.explicit[child.id];
               if (report && report.kind === 'finished' && said && report.at >= said.at) return;
-              if (report) pending = addReport(pending, report);
+              if (!report) return;
+              pending = addReport(pending, report);
+              latest = withLatest(latest, report);
             },
           );
           if (child.endedAt && !ended.includes(child.id)) {
@@ -162,8 +179,9 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
           Object.entries(state.explicit).filter(([child]) => known.has(child)),
         );
         const questions = state.questions.filter((q) => known.has(q.parent) && known.has(q.child));
+        latest = Object.fromEntries(Object.entries(latest).filter(([child]) => known.has(child)));
         return {
-          next: { since, offsets, ended, pending, explicit, questions },
+          next: { since, offsets, ended, pending, explicit, questions, latest },
           result: pending,
         };
       }),

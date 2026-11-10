@@ -18,7 +18,13 @@ export const sessions = defineCommand({
   name: 'sessions',
   summary:
     'List the sessions, foreign ones too, by attention: agent (a headless one says run), state (and whether it is unread), confidence, attention, context use (ctx), running time, last output (or what a queued one waits on, or, with --archived, when it was archived)',
+  args: ['id?'],
   flags: {
+    children: {
+      type: 'boolean',
+      description:
+        "With an id, that session's crew: each child with its state, branch, newest report (kind, at, first lines) and +added -removed",
+    },
     all: { type: 'boolean', description: 'Include sessions stopped more than a day ago' },
     archived: {
       type: 'boolean',
@@ -30,7 +36,26 @@ export const sessions = defineCommand({
     },
   },
   example: 'mesa sessions --tree',
-  run: async ({ mesa, flags }) => {
+  run: async ({ mesa, flags, args }) => {
+    if (args.id !== undefined || flags.children) {
+      if (!args.id || !flags.children || flags.all || flags.archived || flags.tree)
+        throw new MesaError('usage', 'list a crew with mesa sessions <id> --children');
+      const crew = await mesa.sessions.crew(args.id);
+      const text = crew.length
+        ? columns(
+            crew.map((s) => [
+              sessionLabel(s),
+              s.lastState.state,
+              s.branch ?? '-',
+              s.diff ? `+${s.diff.added} -${s.diff.removed}` : '-',
+              s.report
+                ? `${s.report.kind} ${s.report.at}: ${s.report.message.split('\n').slice(0, 2).join(' ')}`
+                : 'no report yet',
+            ]),
+          ).join('\n')
+        : `session ${args.id} has no children; start one with mesa worker`;
+      return { data: crew, text };
+    }
     if (flags.all && flags.archived)
       throw new MesaError('usage', 'pass --all or --archived, not both');
     const scope = flags.archived ? 'archived' : flags.all ? 'all' : 'board';

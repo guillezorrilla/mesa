@@ -58,6 +58,7 @@ Check state before you act: `waiting-permission` or `waiting-question` means a p
 
 ```sh
 mesa sessions --tree            # every session, children under their parent, most urgent first
+mesa sessions b2c3d4e5 --children --json  # one session's workers: state, branch, newest report, +added -removed
 mesa show b2c3d4e5 --json       # one session's record, and whether it is alive
 mesa logs b2c3d4e5 --tail 50    # the last lines it printed, as plain text
 ```

@@ -24,6 +24,12 @@ export type GitDiff = {
 /** How Mesa asks Git for a patch: no external or textconv drivers, no colour, renames found. */
 export const PATCH_FLAGS = ['--no-ext-diff', '--no-textconv', '--no-color', '--find-renames'];
 
+/** How many lines `rows` add and remove. */
+export const diffCounts = (rows: readonly DiffRow[]) => ({
+  added: rows.filter((row) => row.kind === 'change' && row.newLine !== undefined).length,
+  removed: rows.filter((row) => row.kind === 'change' && row.oldLine !== undefined).length,
+});
+
 /** Align consecutive removed and added lines for the side-by-side view. */
 export function diffRows(patch: string): DiffRow[] {
   const lines = patch.replace(/\n$/, '').split('\n');

@@ -7,7 +7,7 @@ import {
   reviewable,
   sessionTitle,
 } from '@mesa/core/browser';
-import { Archive, GitCompareArrows, Globe, MessageSquareQuote } from 'lucide-react';
+import { Archive, GitCompareArrows, Globe, MessageSquareQuote, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { AutomationBanner } from '@/features/automations/AutomationBanner';
@@ -17,8 +17,8 @@ import { SelectedSessionDetails } from './SelectedSessionDetails';
 import type { SidePanel } from './useSidePanel';
 
 /**
- * The selected session's bar: its project and title, details, agent, the Replies, Browser and Diff
- * toggles, Archive, and then `children` (its Session actions menu).
+ * The selected session's bar: its project and title, details, agent, the Replies, Browser, Diff and
+ * Crew (with children) toggles, Archive, and then `children` (its Session actions menu).
  */
 export function SelectedSessionBar({
   sessionId,
@@ -115,6 +115,18 @@ export function SelectedSessionBar({
           onClick={() => onTogglePanel('diff')}
         >
           <GitCompareArrows aria-hidden /> Diff
+        </Button>
+      )}
+      {row?.managed && row.children.length > 0 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Show crew"
+          aria-pressed={panel === 'crew'}
+          title="This session's workers and what each last reported"
+          onClick={() => onTogglePanel('crew')}
+        >
+          <Users aria-hidden /> Crew
         </Button>
       )}
       {row && recoverable(row) && (

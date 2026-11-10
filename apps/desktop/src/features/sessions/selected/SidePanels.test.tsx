@@ -14,6 +14,8 @@ import {
 import { SidePanels } from './SidePanels';
 import type { OpenPanel } from './useSidePanel';
 
+const NO_CREW = { send: () => {}, stop: () => {} };
+
 test("a session's panel stays as it was while another session is selected", async () => {
   const { bridge, calls } = fakeBridge({ diff: () => sessionDiff() });
   const reads = () => calls.filter((argv) => argv[1] === 'diff').length;
@@ -31,6 +33,7 @@ test("a session's panel stays as it was while another session is selected", asyn
         panels={{ aaaaaaaa: { panel: 'diff' } }}
         selectedSession={selected}
         onClose={() => {}}
+        crew={NO_CREW}
       />
     );
   }
@@ -94,6 +97,7 @@ test('a hidden Browser hides its native view and shows it again as it was; closi
         panels={panels}
         selectedSession={selected}
         onClose={(session) => setPanels((all) => ({ ...all, [session]: undefined }))}
+        crew={NO_CREW}
       />
     );
   }
@@ -114,4 +118,75 @@ test('a hidden Browser hides its native view and shows it again as it was; closi
   await click(document.querySelector<HTMLElement>('[aria-label="Close browser"]') ?? undefined);
   expect(document.querySelector('[aria-label="Session browser"]')).toBeNull();
   expect(log.slice(mark)).toEqual(['hide aaaaaaaa', 'close aaaaaaaa']);
+});
+
+/** The element `selector` finds in `root`, for click. */
+const within = (root: ParentNode | undefined, selector: string) =>
+  root?.querySelector<HTMLElement>(selector) ?? undefined;
+
+test("a parent's Crew tab lists each child's state, newest report, branch and diff; Send messages it, Stop asks first", async () => {
+  const child = (id: string, extra: object) => ({
+    ...managedRow(id, { parent: 'aaaaaaaa' }),
+    branch: null,
+    ...extra,
+  });
+  const { bridge } = fakeBridge({
+    sessions: () =>
+      envelope([
+        child('bbbbbbbb', {
+          agentName: 'tide-charts',
+          branch: 'mesa/tide-charts',
+          report: {
+            kind: 'done',
+            outcome: 'succeeded',
+            at: '2026-09-25T12:05:00.000Z',
+            message: 'Charted the north reef\nand the bay\nand more',
+          },
+          diff: { added: 12, removed: 3 },
+        }),
+        child('cccccccc', {
+          agentName: 'buoy-lights',
+          lastState: { state: 'idle', confidence: 1, at: 'x', source: 'hook' },
+        }),
+      ]),
+  });
+  const sent: string[] = [];
+  const stopped: string[] = [];
+  await renderWithMesa(
+    <SidePanels
+      rows={[managedRow('aaaaaaaa', { children: ['bbbbbbbb', 'cccccccc'] })]}
+      panels={{ aaaaaaaa: { panel: 'crew' } }}
+      selectedSession="aaaaaaaa"
+      onClose={() => {}}
+      crew={{
+        send: (id, text) => sent.push(`${id} ${text}`),
+        stop: (id) => stopped.push(id),
+      }}
+    />,
+    bridge,
+  );
+  const rows = [...document.querySelectorAll<HTMLElement>('[data-testid="crew-row"]')];
+  expect(
+    rows.map((row) => row.querySelector('[data-testid="session-state"]')?.textContent),
+  ).toEqual(['◉ working', '◉ idle']);
+  expect(rows[0]?.textContent).toContain('tide-charts');
+  expect(rows[0]?.textContent).toContain('Charted the north reef\nand the bay');
+  expect(rows[0]?.textContent).not.toContain('and more');
+  expect(rows[0]?.textContent).toContain('mesa/tide-charts');
+  expect(rows[0]?.textContent).toContain('+12 -3');
+  expect(rows[1]?.textContent).toContain('No report yet');
+
+  await click(within(rows[0], '[aria-label="Message tide-charts"]'));
+  const field = document.querySelector<HTMLTextAreaElement>(
+    '[aria-label="Message for tide-charts"]',
+  );
+  if (!field) throw new Error('no composer');
+  field.value = 'Also chart the shoals';
+  await click(within(document, '[aria-label="Send to tide-charts"]'));
+  expect(sent).toEqual(['bbbbbbbb Also chart the shoals']);
+
+  await click(within(rows[1], '[aria-label="Stop buoy-lights"]'));
+  expect(stopped).toEqual([]);
+  await click(within(document, '[data-testid="crew-stop-confirm"]'));
+  expect(stopped).toEqual(['cccccccc']);
 });

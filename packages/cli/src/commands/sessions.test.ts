@@ -259,3 +259,23 @@ test('sessions asks only the rules, under a config and a record an older Mesa wr
     threshold: 0.7,
   });
 });
+
+test("sessions <id> --children lists that session's crew; either alone is a usage error", async () => {
+  await mesa('init', '--vault', 'vault');
+  const store = testStore(cli.home, 'default', shortIds('aaaaaaaa', 'bbbbbbbb', 'cccccccc'));
+  const parent = store.create(() => newSession({ project: 'lantern-cove' }));
+  store.create(() =>
+    newSession({ project: 'lantern-cove', parent: parent.id, agentName: 'tide-charts' }),
+  );
+  store.create(() => newSession({ project: 'lantern-cove' }));
+  cli.run = scriptedRunner({ tmux: fakeTmux().answer }).run;
+  const { json } = await mesa('sessions', parent.id, '--children', '--json');
+  expect(json.data.map((s: { id: string; branch: string | null }) => [s.id, s.branch])).toEqual([
+    ['bbbbbbbb', null],
+  ]);
+  expect((await mesa('sessions', 'bbbbbbbb', '--children')).stdout).toBe(
+    'session bbbbbbbb has no children; start one with mesa worker\n',
+  );
+  expect((await mesa('sessions', parent.id)).code).toBe(2);
+  expect((await mesa('sessions', '--children')).code).toBe(2);
+});

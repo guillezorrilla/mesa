@@ -265,3 +265,13 @@ export function keptReport(ctx: MesaContext, child: string): KeptReport | undefi
     }
   );
 }
+
+/**
+ * Each child's newest report that says something, delivered or not (the Crew panel's), with their
+ * news collected first when reports are on.
+ */
+export function latestReports(ctx: MesaContext): Record<string, ChildReport> {
+  const ledger = ledgerOf(ctx);
+  if (ctx.configIfAny()?.sessions.childReports) collectAll(ctx, ledger);
+  return ledger.latest();
+}

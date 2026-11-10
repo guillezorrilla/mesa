@@ -4,6 +4,7 @@ import { Activity, memo } from 'react';
 import { DiffPanel } from '../diff/DiffPanel';
 import { BrowserPanel } from '../review/BrowserPanel';
 import { RepliesPanel } from '../review/RepliesPanel';
+import { type CrewActions, CrewPanel } from './CrewPanel';
 import type { OpenPanel } from './useSidePanel';
 
 /**
@@ -17,11 +18,21 @@ export function SidePanels(props: {
   selectedSession?: string;
   /** Stable (useSidePanel), so a hidden panel skips the Board's every look. */
   onClose: (session: string) => void;
+  /** The Crew panel's Send and Stop; given only to a session whose Crew is open. */
+  crew: CrewActions;
 }) {
   return Object.entries(props.panels).map(([id, open]) => {
     const row = props.rows?.find((each) => each.id === id);
     if (!open || !row) return null;
     const mine = row.managed ? row : undefined;
+    // Its children's states, so the Crew reads again when one changes.
+    const crewStamp =
+      open.panel === 'crew'
+        ? (props.rows ?? [])
+            .filter((each) => each.managed && each.parent === id)
+            .map((each) => `${each.id}:${each.lastState.state}`)
+            .join(' ')
+        : '';
     return (
       <SessionPanel
         key={id}
@@ -34,6 +45,8 @@ export function SidePanels(props: {
         checkout={mine && sessionFolder(mine)}
         branch={mine && (mine.cwd ? mine.gitBranch || undefined : mine.worktree?.branch)}
         state={row.lastState.state}
+        crewStamp={crewStamp}
+        crew={open.panel === 'crew' ? props.crew : undefined}
         onClose={props.onClose}
       />
     );
@@ -51,6 +64,8 @@ const SessionPanel = memo(function SessionPanel(props: {
   checkout?: string;
   branch?: string;
   state: string;
+  crewStamp: string;
+  crew?: CrewActions;
   onClose: (session: string) => void;
 }) {
   const { id, open } = props;
@@ -75,6 +90,9 @@ const SessionPanel = memo(function SessionPanel(props: {
           state={props.state}
           onClose={close}
         />
+      )}
+      {props.crew && open.panel === 'crew' && (
+        <CrewPanel sessionId={id} stamp={props.crewStamp} actions={props.crew} onClose={close} />
       )}
       {props.managed && open.panel === 'browser' && (
         <BrowserPanel sessionId={id} initialUrl={open.browserTarget} onClose={close} />

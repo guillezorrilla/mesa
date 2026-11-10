@@ -216,6 +216,10 @@ export function SessionsScreen(
           panels={side.panels}
           selectedSession={props.selectedSession}
           onClose={side.close}
+          crew={{
+            send: (id, text, form) => prompt.send(id, text, form),
+            stop: commands.stop,
+          }}
         />
       </div>
     </section>
