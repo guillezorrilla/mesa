@@ -436,7 +436,7 @@ test('a sleeping parent gets its reports through the send, which wakes it; an en
   service.list();
   hook('Stop', { last_assistant_message: 'Done.' });
   // Asleep: no window runs its agent, but it is still a session Mesa types into.
-  const sleeping = { ...rowOf(parent, 'idle'), alive: false, sleeping: { at: START } };
+  const sleeping = { ...placedRow(parent, 'idle'), alive: false, sleeping: { at: START } };
   setBoard([sleeping as SessionRow]);
   expect((await service.deliver()).deliveries).toMatchObject([
     { session: parent.id, status: 'delivered' },
