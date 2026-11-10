@@ -338,7 +338,7 @@ Not: workflow status, session state.
 
 ## Pending draft
 
-A review comment that exists on the provider but only its author can see: a comment in a GitHub pending review, or a Bitbucket comment created with `--pending`. A review session writes only these; the person submits them on the provider (GitHub's review page, Bitbucket's Finish review).
+A review comment that exists on the provider but only its author can see: a comment in a GitHub pending review, or a Bitbucket comment created with `--pending`. A review session writes only these; the person submits them on the provider (GitHub's review page, Bitbucket's Finish review). A review session scores each finding 1-10 (how sure and how much it matters) with `mesa prs draft --score`, and a finding under the draft bar, 7, never becomes a draft.
 Not: a posted comment, a vault draft.
 
 ## Comment verdict

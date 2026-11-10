@@ -194,8 +194,6 @@ export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open' 
       if (!input.text.trim()) throw new MesaError('usage', 'a draft needs --text');
       if (score !== undefined && (!Number.isInteger(score) || score < 1 || score > 10))
         throw new MesaError('usage', '--score must be a whole number from 1 to 10');
-      if (score !== undefined && score < DRAFT_BAR)
-        return { drafted: false as const, score, bar: DRAFT_BAR };
       if (input.replyTo !== undefined && (input.path !== undefined || input.line !== undefined))
         throw new MesaError(
           'usage',
@@ -205,6 +203,8 @@ export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open' 
         throw new MesaError('usage', 'an inline draft needs both --path and --line');
       if (input.line !== undefined && (!Number.isInteger(input.line) || input.line < 1))
         throw new MesaError('usage', '--line must be a positive whole number');
+      if (score !== undefined && score < DRAFT_BAR)
+        return { drafted: false as const, score, bar: DRAFT_BAR };
       const { provider, repo, api, cli } = await reach(project);
       return ctx.record(
         {

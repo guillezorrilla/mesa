@@ -216,8 +216,8 @@ test('prs diff --json reads the PR patch through its provider as diff rows, the 
   expect(blocked.stdout).toContain('twg');
 });
 
-test('prs draft leaves one pending inline comment, never submitting, and refuses half an anchor', async () => {
-  await world();
+/** gh answering pending-draft writes on lantern-cove #12; the GraphQL queries it was sent. */
+function draftingGh() {
   const run = cli.run;
   const queries: string[] = [];
   const data = (d: unknown) => ({ ok: true as const, stdout: JSON.stringify({ data: d }) });
@@ -245,6 +245,12 @@ test('prs draft leaves one pending inline comment, never submitting, and refuses
       }),
     );
   };
+  return queries;
+}
+
+test('prs draft leaves one pending inline comment, never submitting, and refuses half an anchor', async () => {
+  await world();
+  const queries = draftingGh();
 
   const half = await cli.mesa(
     'prs',
@@ -278,15 +284,18 @@ test('prs draft leaves one pending inline comment, never submitting, and refuses
   expect(drafted.json.data.receipt).toMatchObject({ id: expect.any(String) });
   expect(queries).toHaveLength(3);
   for (const query of queries) expect(query).not.toMatch(/submitPullRequestReview|event/);
+});
 
-  // A finding scored 7 or more is drafted and its receipt keeps the score.
+test('prs draft keeps a finding scored 7 or more, with its score, and drops one under the bar', async () => {
+  await world();
+  const queries = draftingGh();
   const ranked = await cli.mesa(
     ...['prs', 'draft', 'lantern-cove', '12', '--path', 'src/cart.ts', '--line', '57'],
     ...['--text', 'Round once', '--score', '8', '--json'],
   );
   expect(ranked.code, ranked.stdout).toBe(0);
   expect(ranked.json.data).toMatchObject({ id: 'PRRC_1' });
-  expect(queries).toHaveLength(6);
+  expect(queries).toHaveLength(3);
   const receipt = await cli.mesa('receipts', 'show', ranked.json.data.receipt.id, '--json');
   expect(receipt.json.data.receipt.inputs).toMatchObject({ score: 8 });
 
@@ -315,7 +324,23 @@ test('prs draft leaves one pending inline comment, never submitting, and refuses
     );
     expect(refused.code, bad).toBe(2);
   }
-  expect(queries).toHaveLength(6);
+  // Bad input is reported before the bar drops anything.
+  const halfLow = await cli.mesa(
+    ...[
+      'prs',
+      'draft',
+      'lantern-cove',
+      '12',
+      '--path',
+      'src/cart.ts',
+      '--text',
+      'x',
+      '--score',
+      '6',
+    ],
+  );
+  expect(halfLow.code).toBe(2);
+  expect(queries).toHaveLength(3);
 });
 
 test('prs publish is refused outside a review session started with Post now, touching nothing', async () => {

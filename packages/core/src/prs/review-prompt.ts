@@ -12,7 +12,8 @@ export type ReviewPromptInput = {
  * The goal of a review session, as a person would ask it (#808): run /code-review on the PR, then
  * add what it found as drafts through Mesa, and in post mode submit them. It carries no PR text:
  * the review reads the PR itself. Mesa adds what any project's /code-review may miss: the reuse
- * and simplicity axis, and a score per finding that `mesa prs draft` holds to DRAFT_BAR. The session's `mesa` is the Mesa that started it, first on its
+ * and simplicity axis, and a score per finding that `mesa prs draft` holds to DRAFT_BAR. The
+ * session's `mesa` is the Mesa that started it, first on its
  * PATH, and knows the project from the session (sessions/window/mesa-shim.ts, prs callerProject).
  */
 export function reviewPrompt({ number, mode, rereview }: ReviewPromptInput): string {
