@@ -219,6 +219,7 @@ export function SessionsScreen(
           crew={{
             send: (id, text, form) => prompt.send(id, text, form),
             stop: commands.stop,
+            select: (id) => props.onSelectSession?.(id),
           }}
         />
       </div>

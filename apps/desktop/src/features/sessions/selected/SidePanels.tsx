@@ -94,7 +94,13 @@ const SessionPanel = memo(function SessionPanel(props: {
         />
       )}
       {props.crew && open.panel === 'crew' && (
-        <CrewPanel sessionId={id} stamp={props.crewStamp} actions={props.crew} onClose={close} />
+        <CrewPanel
+          sessionId={id}
+          project={props.project}
+          stamp={props.crewStamp}
+          actions={props.crew}
+          onClose={close}
+        />
       )}
       {props.managed && open.panel === 'browser' && (
         <BrowserPanel sessionId={id} initialUrl={open.browserTarget} onClose={close} />

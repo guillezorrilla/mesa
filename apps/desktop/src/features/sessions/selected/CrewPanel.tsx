@@ -11,20 +11,25 @@ import { Textarea } from '@/components/ui/textarea';
 import { useCommand } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { StateBadge } from '../StateBadge';
+import { CrewTasks } from './CrewTasks';
 
-/** What the Crew panel does to a child: the Sessions screen's own send and stop. */
+/** What the Crew panel does to a child: the Sessions screen's own send, stop and select. */
 export type CrewActions = {
   send: (id: string, prompt: string, form: HTMLFormElement) => void;
   stop: (id: string) => void;
+  select: (id: string) => void;
 };
 
 /**
  * A parent's crew beside its terminal (CONTEXT.md, Crew): each child's state, name, newest report,
- * branch and diff counts, with Send, which opens a composer to it, and Stop, after a confirmation.
- * A new `stamp` (a child's state changed on the Board) reads the crew again.
+ * branch and diff counts, with Send, which opens a composer to it, and Stop, after a confirmation;
+ * then the tasks it coordinates (CrewTasks). A new `stamp` (a child's state changed on the Board)
+ * reads them again.
  */
 export function CrewPanel(props: {
   sessionId: string;
+  /** Its project, where a task's worker starts; none for a General session. */
+  project?: string;
   stamp: string;
   actions: CrewActions;
   onClose: () => void;
@@ -77,6 +82,16 @@ export function CrewPanel(props: {
             ))}
           </ul>
         )}
+        <CrewTasks
+          coordinator={props.sessionId}
+          project={props.project}
+          stamp={props.stamp}
+          nameOf={(id) => {
+            const child = rows?.find((row) => row.id === id);
+            return child ? sessionTitle(child) : id;
+          }}
+          onSelect={props.actions.select}
+        />
       </div>
       {stopping && (
         <ActionDialog

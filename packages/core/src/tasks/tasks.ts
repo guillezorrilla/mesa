@@ -122,10 +122,24 @@ export function tasksService(ctx: MesaContext, deps: TasksDeps) {
         return { tasks: [...tasks, made], result: made };
       });
     },
-    /** The tasks, oldest first: `graph`'s only, and only `ready` ones with `ready`. */
-    list: ({ graph, ready = false }: { graph?: string; ready?: boolean } = {}) => ({
+    /**
+     * The tasks, oldest first: `graph`'s only, `coordinator`'s only, and only `ready` ones with
+     * `ready`.
+     */
+    list: ({
+      graph,
+      coordinator,
+      ready = false,
+    }: {
+      graph?: string;
+      coordinator?: string;
+      ready?: boolean;
+    } = {}) => ({
       tasks: all().filter(
-        (t) => (graph === undefined || t.graph === graph) && (!ready || t.state === 'ready'),
+        (t) =>
+          (graph === undefined || t.graph === graph) &&
+          (coordinator === undefined || t.coordinator === coordinator) &&
+          (!ready || t.state === 'ready'),
       ),
     }),
     /** One task with each dep's spec and state, and the dep holding it; not_found for an unknown id. */

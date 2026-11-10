@@ -11,11 +11,16 @@ export const tasks = defineCommand({
     'List the planned tasks, oldest first, with their graph and state; --ready only those ready to start',
   flags: {
     graph: { type: 'string', description: 'Only this task graph' },
+    coordinator: { type: 'string', description: 'Only the tasks this session coordinates' },
     ready: { type: 'boolean', description: 'Only tasks ready to start: every dep succeeded' },
   },
   example: 'mesa tasks --graph tides --ready',
   run: ({ mesa, flags }) => {
-    const data = mesa.tasks.list({ graph: flags.graph, ready: flags.ready });
+    const data = mesa.tasks.list({
+      graph: flags.graph,
+      coordinator: flags.coordinator,
+      ready: flags.ready,
+    });
     return { data, text: data.tasks.length ? data.tasks.map(line).join('\n') : 'no tasks' };
   },
 });

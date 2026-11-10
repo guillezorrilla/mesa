@@ -36,6 +36,8 @@ test('tasks create, list --ready and show plan a graph; an unknown dep writes no
   expect((await mesa('tasks', '--json')).json.data).toEqual(before);
   expect((await mesa('tasks', 'show', 't-nope', '--json')).json.error.code).toBe('not_found');
   expect((await mesa('help', '--agent')).stdout).toContain('mesa tasks create');
+  const theirs = await mesa('tasks', '--coordinator', 'nobody00', '--json');
+  expect(theirs.json.data).toEqual({ tasks: [] });
 });
 
 test('tasks cancel takes a waiting task and retry brings it back', async () => {
