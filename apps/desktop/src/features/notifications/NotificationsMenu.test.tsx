@@ -408,7 +408,11 @@ test('a gate notice shows its question and one button per option; a click resolv
     at: '2026-09-23T11:00:00.000Z',
     kind: 'gate',
     title: 'Store tide heights in metres or feet?',
-    gate: { id: 'g-metres00', options: ['metres', 'feet'] },
+    gate: {
+      id: 'g-metres00',
+      options: ['metres', 'feet'],
+      question: 'Store tide heights in metres or feet?',
+    },
     read: false,
     target: { kind: 'session', id: 'aaaaaaaa' },
   };

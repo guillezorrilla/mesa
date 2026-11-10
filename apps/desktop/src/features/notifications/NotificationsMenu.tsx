@@ -41,6 +41,10 @@ export function NotificationsMenu(props: {
   useEffect(() => {
     if (props.open || props.doctor || props.session) void inbox.refresh();
   }, [props.open, props.doctor, props.session]);
+  // A refused resolve's reason is for the menu it happened in.
+  useEffect(() => {
+    if (!props.open) setGateRefused(undefined);
+  }, [props.open]);
   useEffect(() => {
     const timer = window.setInterval(() => void inbox.refresh(), 60_000);
     return () => window.clearInterval(timer);

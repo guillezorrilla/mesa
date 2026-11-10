@@ -183,7 +183,7 @@ test('an open gate raises an Inbox notice that resolving clears', () => {
     expect.objectContaining({ title: 'Keep the old notes?', target: { kind: 'inbox' } }),
     expect.objectContaining({
       title: 'Metres or feet?',
-      gate: { id: gate.id, options: ['metres', 'feet'] },
+      gate: { id: gate.id, options: ['metres', 'feet'], question: 'Metres or feet?' },
       session: lead.id,
       target: { kind: 'session', id: lead.id },
     }),
