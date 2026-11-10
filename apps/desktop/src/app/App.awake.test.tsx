@@ -2,7 +2,14 @@
 import type { Config } from '@mesa/core';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
-import { envelope, fakeBridge, fakePlatform, managedRow, renderWithMesa } from '@/lib/testing';
+import {
+  envelope,
+  fakeBridge,
+  fakePlatform,
+  fakeSessionEvents,
+  managedRow,
+  renderWithMesa,
+} from '@/lib/testing';
 import { App } from './App';
 
 const configWith = async (keepAwake: Config['sessions']['keepAwake']) => {
@@ -21,12 +28,14 @@ test('While agents work holds the assertion while a session works, and releases 
       sessions: () =>
         envelope([managedRow('aaaaaaaa', { lastState: { ...managedRow('x').lastState, state } })]),
     });
-    const platform = fakePlatform();
+    const events = fakeSessionEvents();
+    const platform = fakePlatform({ sessions: events.host });
     await renderWithMesa(<App />, bridge, platform);
     expect(platform.awake.calls).toEqual(['hold']);
     expect(icon()?.getAttribute('title')).toBe('Keeping the Mac awake');
     state = 'idle';
-    await act(async () => vi.advanceTimersByTime(2000));
+    // The session's Stop hook lands: the board looks (#895).
+    await act(async () => events.push());
     expect(platform.awake.calls).toEqual(['hold', 'release']);
     expect(icon()).toBeNull();
   } finally {
