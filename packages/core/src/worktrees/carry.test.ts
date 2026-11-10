@@ -1,4 +1,5 @@
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -10,7 +11,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import type { Runner } from '../lib/process.js';
 import { gitRepo, scriptedRunner, tempDir, testRunner } from '../testing/index.js';
-import { carryEntries } from './carry.js';
+import { CARRY_BUDGET, carryEntries } from './carry.js';
 
 /** A repository whose `.env` and `node_modules` are ignored, and an empty worktree beside it. */
 function checkout() {
@@ -34,9 +35,16 @@ const realGitOnly =
   (file, args, ms, options) =>
     (file === 'git' ? testRunner : run)(file, args, ms, options);
 
+/** A clone that works (copying, as `cp -c` would), or one that fails, so a plain copy follows. */
+const cloning = realGitOnly(async (file, args) => {
+  cpSync(args[3] ?? '', args[4] ?? '', { recursive: true, verbatimSymlinks: true });
+  return { ok: true, stdout: '' };
+});
+const copying = realGitOnly(scriptedRunner({}, { failing: ['/bin/cp'] }).run);
+
 for (const [copy, run] of [
   ['as a clone where it can', testRunner],
-  ['by plain copy when cp fails', realGitOnly(scriptedRunner({}, { failing: ['/bin/cp'] }).run)],
+  ['by plain copy when cp fails', copying],
 ] as const) {
   test(`a file and a folder are carried ${copy}`, async () => {
     const { repo, worktree } = checkout();
@@ -61,29 +69,58 @@ test('the clone is /bin/cp -c -R -n', async () => {
   ]);
 });
 
-test('a carry past its budget stops at that entry and says which and why', async () => {
+test('a clone is charged entries only, so it carries past the plain budget', async () => {
   const { repo, worktree } = checkout();
-  // .env is one entry; node_modules is four (itself, pkg, index.js, entry).
-  const stopped = await carryEntries(testRunner, repo, worktree, ['.env', 'node_modules'], {
-    bytes: 1024,
-    entries: 4,
-  });
-  expect(stopped).toBe(
-    'carry stopped at node_modules: the carry would pass 4 entries; it was not carried',
+  // .env is one entry of 20 bytes; node_modules is four (itself, pkg, index.js, entry).
+  const budget = { bytes: 8, entries: 2, cloneEntries: 5 };
+  expect(await carryEntries(cloning, repo, worktree, ['.env', 'node_modules'], budget)).toBe(
+    undefined,
   );
-  expect(existsSync(join(worktree, '.env'))).toBe(true);
-  expect(existsSync(join(worktree, 'node_modules'))).toBe(false);
+  expect(existsSync(join(worktree, 'node_modules', 'pkg', 'index.js'))).toBe(true);
+  // The same carry by plain copy stops at once.
+  const copied = checkout();
+  expect(
+    await carryEntries(copying, copied.repo, copied.worktree, ['.env', 'node_modules'], budget),
+  ).toBe(
+    'carry stopped at .env: a plain copy would pass 8 bytes; it and 1 after it were not carried',
+  );
 });
 
-test('a carry past its bytes stops before anything is copied', async () => {
-  const { repo, worktree } = checkout();
+test('a plain copy past its entries or bytes stops at that entry and says which and why', async () => {
+  const entries = checkout();
   expect(
-    await carryEntries(testRunner, repo, worktree, ['.env', 'node_modules'], {
+    await carryEntries(copying, entries.repo, entries.worktree, ['.env', 'node_modules'], {
+      bytes: 1024,
+      entries: 4,
+      cloneEntries: 10,
+    }),
+  ).toBe('carry stopped at node_modules: a plain copy would pass 4 entries; it was not carried');
+  expect(existsSync(join(entries.worktree, '.env'))).toBe(true);
+  expect(existsSync(join(entries.worktree, 'node_modules'))).toBe(false);
+
+  const bytes = checkout();
+  expect(
+    await carryEntries(copying, bytes.repo, bytes.worktree, ['.env', 'node_modules'], {
       bytes: 8,
       entries: 10,
+      cloneEntries: 10,
     }),
-  ).toBe('carry stopped at .env: the carry would pass 8 bytes; it and 1 after it were not carried');
-  expect(existsSync(join(worktree, '.env'))).toBe(false);
+  ).toBe(
+    'carry stopped at .env: a plain copy would pass 8 bytes; it and 1 after it were not carried',
+  );
+  expect(existsSync(join(bytes.worktree, '.env'))).toBe(false);
+});
+
+test('a carry past its clone entries stops before trying the clone', async () => {
+  const { repo, worktree } = checkout();
+  const { run, calls } = scriptedRunner();
+  expect(
+    await carryEntries(realGitOnly(run), repo, worktree, ['.env', 'node_modules'], {
+      ...CARRY_BUDGET,
+      cloneEntries: 4,
+    }),
+  ).toBe('carry stopped at node_modules: the carry would pass 4 entries; it was not carried');
+  expect(calls.filter((c) => c.file === '/bin/cp')).toHaveLength(1);
 });
 
 test('a clone that times out is removed and stops the carry, with no second copy', async () => {
@@ -101,6 +138,7 @@ test('an entry after a budget stop is still checked', async () => {
     carryEntries(testRunner, repo, worktree, ['node_modules', 'README.md'], {
       bytes: 1024,
       entries: 1,
+      cloneEntries: 1,
     }),
   ).rejects.toMatchObject({ code: 'usage' });
 });
