@@ -2,7 +2,11 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { expect, test } from 'vitest';
 import { createContext } from '../context.js';
+import { MesaError } from '../lib/result.js';
+import { reportLedger } from '../reports/report-ledger.js';
+import { explicitReport } from '../reports/reports.js';
 import {
+  lockDeps,
   profilePaths,
   projectProfile,
   scriptedRunner,
@@ -10,26 +14,65 @@ import {
   testStore,
 } from '../testing/index.js';
 import { newSession } from '../testing/sessions.js';
-import { tasksService } from './tasks.js';
+import { type TasksDeps, tasksService } from './tasks.js';
 
 const AT = '2026-11-10T12:00:00.000Z';
 
-/** A profile, and a tasks service as one mesa process sees it, in `window` when given. */
+/**
+ * A profile, and a tasks service as one mesa process sees it, in `window` when given: its workers
+ * open as records in the store (or the start throws `refuse`), and `report` writes a worker's own
+ * explicit report to the profile's reports, as `mesa report` does.
+ */
 function profile() {
   const { home } = projectProfile(scriptedRunner().run);
+  const store = testStore(home);
   let n = 0;
-  const service = (window?: string) =>
+  let now = AT;
+  const lead = store.create(() => newSession());
+  const ledger = reportLedger(
+    profilePaths(home, 'default').reports,
+    profilePaths(home, 'default').events,
+    lockDeps(),
+  );
+  /** The worker's own `mesa report`, as its window would make it. */
+  const report = (worker: string, kind: 'done' | 'failed' | 'blocked', text: string) =>
+    ledger.add(explicitReport({ ...store.get(worker), parent: lead.id }, kind, text, now));
+  const started: { project?: string; spec: string }[] = [];
+  let refuse: Error | undefined;
+  const service = (window?: string, startWorker?: TasksDeps['startWorker']) =>
     tasksService(
       createContext(
         'default',
         testDeps(home, {
-          clock: () => new Date(AT),
+          clock: () => new Date(now),
           newId: () => `01TESTTASK${String(++n).padStart(16, '0')}`,
           env: window ? { MESA_SESSION_ID: window, MESA_PROFILE: 'default' } : {},
         }),
       ),
+      {
+        startWorker:
+          startWorker ??
+          (async (project, spec) => {
+            if (refuse) throw refuse;
+            started.push({ ...(project ? { project } : {}), spec });
+            const result = store.create(() => newSession({ goal: spec, parent: lead.id }));
+            return { result, receipt: null };
+          }),
+      },
     );
-  return { home, service };
+  return {
+    home,
+    store,
+    service,
+    report,
+    started,
+    refuseWith: (error?: Error) => {
+      refuse = error;
+    },
+    later: (iso: string) => {
+      now = iso;
+    },
+  };
 }
 
 test('a task with no deps is ready, one waiting on an unfinished task is pending; the plan is kept on disk', () => {
@@ -94,8 +137,7 @@ test('each create reads the file anew, so two mesa processes taking turns both k
 });
 
 test("a task's coordinator is the caller's session, or one named; an unknown one is not_found", () => {
-  const { home, service } = profile();
-  const store = testStore(home);
+  const { store, service } = profile();
   const lead = store.create(() => newSession());
   expect(service(lead.id).create('Parse').coordinator).toBe(lead.id);
   expect(service().create('Parse', { coordinator: lead.id }).coordinator).toBe(lead.id);
@@ -152,4 +194,132 @@ test('pending and ready are read from the deps, not the file: a settled dep unlo
   expect(tasks.list({ ready: true }).tasks.map((t) => t.id)).toEqual(['t-chart000']);
   expect(tasks.create('Label it', { deps: ['t-chart000'] }).state).toBe('pending');
   expect(tasks.create('Bind it', { deps: ['t-parse000'] }).state).toBe('ready');
+});
+
+test('a ready task starts once with a worker; a pending one is refused, naming its state', async () => {
+  const { store, service, started } = profile();
+  const tasks = service();
+  const parse = tasks.create('Parse the tide tables');
+  const chart = tasks.create('Draw the chart', { deps: [parse.id] });
+  await expect(tasks.start(chart.id, 'lantern-cove')).rejects.toThrow(
+    new RegExp(`task ${chart.id} is pending, not ready`),
+  );
+  await expect(tasks.start('t-nope', 'lantern-cove')).rejects.toThrow(/no task t-nope/);
+  const { task, worker } = (await tasks.start(parse.id, 'lantern-cove')).result;
+  expect(started).toEqual([{ project: 'lantern-cove', spec: 'Parse the tide tables' }]);
+  expect(task).toMatchObject({ state: 'running', worker: worker.id, startedAt: AT });
+  expect(store.get(worker.id).task).toBe(parse.id);
+  // Claimed: a second start finds it running.
+  await expect(tasks.start(parse.id, 'lantern-cove')).rejects.toThrow(/is running, not ready/);
+});
+
+test("a worker's done report settles its task and readies the dependent; failed fails it with the reason", async () => {
+  const { service, report } = profile();
+  const tasks = service();
+  const parse = tasks.create('Parse');
+  const chart = tasks.create('Chart', { deps: [parse.id] });
+  const label = tasks.create('Label', { deps: [chart.id] });
+  const parsing = (await tasks.start(parse.id, undefined)).result;
+  report(parsing.worker.id, 'blocked', 'Which tables?');
+  expect(tasks.show(parse.id).state).toBe('running');
+  report(parsing.worker.id, 'done', 'Parsed 12 tables');
+  expect(tasks.show(parse.id).state).toBe('succeeded');
+  expect(tasks.list({ ready: true }).tasks.map((t) => t.id)).toEqual([chart.id]);
+  const charting = (await tasks.start(chart.id, undefined)).result;
+  report(charting.worker.id, 'failed', 'The feed is down');
+  expect(tasks.show(chart.id)).toMatchObject({ state: 'failed', reason: 'The feed is down' });
+  expect(tasks.show(label.id)).toMatchObject({ state: 'pending', heldBy: chart.id });
+});
+
+test('a running task whose worker ended without a report fails when tasks are next read', async () => {
+  const { store, service } = profile();
+  const tasks = service();
+  const parse = tasks.create('Parse');
+  const { worker } = (await tasks.start(parse.id, undefined)).result;
+  store.update(worker.id, { endedAt: AT });
+  expect(tasks.show(parse.id)).toMatchObject({ state: 'failed', reason: 'ended without a report' });
+});
+
+test('three failed starts in a row fail the task; a start that opens resets the count', async () => {
+  const { service, refuseWith } = profile();
+  const tasks = service();
+  const parse = tasks.create('Parse');
+  refuseWith(new Error('the window would not open'));
+  await expect(tasks.start(parse.id, 'nowhere')).rejects.toThrow('would not open');
+  expect(tasks.show(parse.id)).toMatchObject({ state: 'ready', startFailures: 1 });
+  refuseWith(undefined);
+  const { task } = (await tasks.start(parse.id, undefined)).result;
+  expect(task).not.toHaveProperty('startFailures');
+  const other = tasks.create('Chart');
+  refuseWith(new Error('window would not open'));
+  for (let i = 0; i < 3; i++) await expect(tasks.start(other.id, undefined)).rejects.toThrow();
+  expect(tasks.show(other.id)).toMatchObject({
+    state: 'failed',
+    reason: 'start failed 3 times: window would not open',
+  });
+});
+
+test('a claim whose worker never opened counts as a failed start after the grace', () => {
+  const { home, service, later } = profile();
+  const file = profilePaths(home, 'default').tasks;
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(
+    file,
+    JSON.stringify({
+      tasks: [
+        {
+          id: 't-claimed0',
+          spec: 'x',
+          graph: 'default',
+          deps: [],
+          state: 'running',
+          createdAt: AT,
+          startedAt: AT,
+        },
+      ],
+    }),
+  );
+  expect(service().show('t-claimed0').state).toBe('running');
+  later('2026-11-10T12:31:00.000Z');
+  expect(service().show('t-claimed0')).toMatchObject({ state: 'ready', startFailures: 1 });
+});
+
+test('retry returns a failed or cancelled task to waiting; cancel takes a waiting one; neither a running one', async () => {
+  const { service, report } = profile();
+  const tasks = service();
+  const parse = tasks.create('Parse');
+  const chart = tasks.create('Chart', { deps: [parse.id] });
+  expect(tasks.cancel(chart.id).state).toBe('cancelled');
+  expect(tasks.retry(chart.id).state).toBe('pending');
+  const { worker } = (await tasks.start(parse.id, undefined)).result;
+  expect(() => tasks.cancel(parse.id)).toThrow(`stop its worker first: mesa stop ${worker.id}`);
+  expect(() => tasks.retry(parse.id)).toThrow(/is running/);
+  report(worker.id, 'failed', 'Feed down');
+  const again = tasks.retry(parse.id);
+  expect(again.state).toBe('ready');
+  for (const gone of ['worker', 'reason', 'startFailures', 'startedAt'])
+    expect(again).not.toHaveProperty(gone);
+  expect(() => tasks.retry(chart.id)).toThrow(/retry takes a failed or cancelled task/);
+});
+
+test('a start asked wrong gives the task back uncounted; a late open never takes a claim back', async () => {
+  const { service, refuseWith, later, store } = profile();
+  const tasks = service();
+  const parse = tasks.create('Parse');
+  refuseWith(new MesaError('usage', 'no parent outside a window'));
+  await expect(tasks.start(parse.id, undefined)).rejects.toThrow('no parent');
+  const back = tasks.show(parse.id);
+  expect(back.state).toBe('ready');
+  expect(back).not.toHaveProperty('startFailures');
+  refuseWith(undefined);
+  // Its claim was given back (a read past the grace) while the worker opened.
+  const slow = service(undefined, async () => {
+    later('2026-11-10T12:31:00.000Z');
+    service().list();
+    return { result: store.create(() => newSession()), receipt: null };
+  });
+  const late = await slow.start(parse.id, undefined);
+  expect(late.warning).toMatch(/was given back while its worker opened/);
+  expect(late.result.task).toMatchObject({ state: 'ready', startFailures: 1 });
+  expect(late.result.task).not.toHaveProperty('worker');
 });

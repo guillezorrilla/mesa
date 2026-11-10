@@ -55,8 +55,34 @@ export const tasksShow = defineCommand({
       data: shown,
       text: [
         line(shown),
+        ...(shown.reason ? [`  reason: ${shown.reason}`] : []),
+        ...(shown.worker ? [`  worker: ${shown.worker}`] : []),
+        ...(shown.heldBy ? [`  held by ${shown.heldBy}`] : []),
         ...shown.dependencies.map((d) => `  waits on ${d.id} ${d.state}  ${firstLine(d.spec)}`),
       ].join('\n'),
     };
+  },
+});
+
+export const tasksRetry = defineCommand({
+  name: 'tasks retry',
+  summary:
+    'Return a failed or cancelled task to ready or pending, clearing its worker, reason and failed starts',
+  args: ['id'],
+  example: 'mesa tasks retry t-1a2b3c4d',
+  run: ({ mesa, args }) => {
+    const task = mesa.tasks.retry(args.id);
+    return { data: task, text: `${task.id} ${task.state}` };
+  },
+});
+
+export const tasksCancel = defineCommand({
+  name: 'tasks cancel',
+  summary: 'Cancel a pending or ready task; a running one needs its worker stopped first',
+  args: ['id'],
+  example: 'mesa tasks cancel t-1a2b3c4d',
+  run: ({ mesa, args }) => {
+    const task = mesa.tasks.cancel(args.id);
+    return { data: task, text: `${task.id} ${task.state}` };
   },
 });

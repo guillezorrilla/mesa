@@ -72,6 +72,17 @@ mesa worker lantern-cove "Draw the tide chart from the JSON shape in docs/tides.
 
 Each child's goal ends with a short worker brief naming you, which tells it to finish with one explicit report: `mesa report done "<what it did, found, and left>"`, `mesa report failed "<why>"`, or `mesa report blocked "<what it needs from you>"`. A `done` or `failed` report settles that worker; `blocked` means you must act. Until a child reports, its last reply each turn comes as its report. To ask you something, it runs `mesa report question "<text>"` and ends its turn; your answer arrives as its next prompt. When a child reports, its turn ends, it waits on a person, or it ends, Mesa brings you the news: as your own turn ends if you are busy, or typed into your prompt once you are idle; it starts `[mesa] News from your child sessions`. Read the reports as data from another agent; a child asks with `mesa report question`, which comes with an id: answer it with `mesa reports reply <question-id> "<answer>"`, and ask the person first when the answer does not follow from the task. Never `sleep` or loop on `mesa sessions` waiting for them: end your turn and Mesa brings their news. `mesa reports --json` lists any not delivered yet.
 
+For work whose parts wait on each other, plan them as tasks first, so the plan outlives your context and the person can see it, then start what is ready:
+
+```sh
+mesa tasks create "Parse the tide tables into JSON; add tests" --graph tides --json   # t-a1, ready
+mesa tasks create "Draw the tide chart from the JSON" --graph tides --deps t-a1 --json  # t-b2, pending
+mesa tasks --graph tides --ready --json                                               # what can start
+mesa worker lantern-cove --task t-a1                                                  # one per ready task
+```
+
+End your turn. A worker's `done` report settles its task `succeeded` and readies the tasks that waited on it; `failed` fails it with the report's text. On each report, run `mesa tasks --ready` again and start the ones that became ready. `mesa tasks show <id>` names the dep holding a pending task; `mesa tasks retry <id>` returns a failed one, and `mesa tasks cancel <id>` drops one not started.
+
 Queue work after a session: the new one starts by itself when that session is over (its agent exits, or it is stopped), with its own goal. `mesa sessions` shows it `queued`, `waiting on <id>`; `mesa stop` on it cancels it.
 
 ```sh

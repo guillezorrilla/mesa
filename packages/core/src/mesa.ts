@@ -118,7 +118,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
       send: sessions.sessions.send,
     }),
     /** Planned work and what each part waits on (CONTEXT.md, Task graph). */
-    tasks: tasksService(ctx),
+    tasks: tasksService(ctx, { startWorker: sessions.sessions.worker }),
     prs: prsService(ctx, { open: sessions.sessions.open, stop: sessions.sessions.stop }),
     hooks: hooksService(ctx),
     skills,

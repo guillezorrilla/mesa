@@ -56,6 +56,8 @@ const SessionRecordFields = z.strictObject({
   goal: z.string().optional(),
   /** The goal ends with the worker brief (CONTEXT.md, Worker brief). */
   brief: z.literal(true).optional(),
+  /** The task it was started for (`mesa worker --task`; CONTEXT.md, Task). */
+  task: z.string().optional(),
   /** Provenance assigned before an automation's agent starts. */
   automation: z
     .strictObject({ rule: z.string().min(1).max(80), run: z.string().regex(ULID) })

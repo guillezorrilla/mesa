@@ -99,7 +99,7 @@ import { sourcesBrowse, sourcesConnect, sourcesDisconnect, sourcesList } from '.
 import { statusline } from './statusline.js';
 import { stop } from './stop.js';
 import { swap } from './swap.js';
-import { tasks, tasksCreate, tasksShow } from './tasks.js';
+import { tasks, tasksCancel, tasksCreate, tasksRetry, tasksShow } from './tasks.js';
 import { TICKETS_COMMANDS } from './tickets/index.js';
 import { unarchive } from './unarchive.js';
 import { unread } from './unread.js';
@@ -205,6 +205,8 @@ export const COMMANDS: Command[] = [
   tasks,
   tasksCreate,
   tasksShow,
+  tasksRetry,
+  tasksCancel,
   ...PRS_COMMANDS,
   profile,
   profileList,
