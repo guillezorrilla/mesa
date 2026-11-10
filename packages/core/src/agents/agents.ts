@@ -68,7 +68,7 @@ const codexMount = (mounts: Mounts) =>
 /**
  * How a headless run may act, from the profile's config `run` (CONTEXT.md, Profile), and with
  * `readOnlyVault`, without mesa-vault's write tools (a pipeline skill's run, whose output core lands);
- * `model`, a Claude model it runs on instead of the person's default (runModel), Claude Code's only.
+ * `model`, a Claude model it runs on instead of the person's default (claudeRunModel), Claude Code's only.
  */
 type HeadlessPermissions = {
   permissionMode: string;
