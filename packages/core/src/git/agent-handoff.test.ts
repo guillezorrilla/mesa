@@ -163,10 +163,11 @@ test('every hunk of a long conflict reaches the conflicts file, and the goal nam
   expect(file).toContain('export const high999 = 7;');
   expect(Buffer.byteLength(file)).toBeGreaterThan(50_000);
   const goal = opened[0]?.goal ?? '';
-  expect(goal).toContain(`bytes in ${conflictsFile}; its start:`);
+  expect(goal).toContain(`all ${Buffer.byteLength(file)} bytes in ${conflictsFile}; its start:`);
   expect(goal).not.toContain('high999');
   expect(Buffer.byteLength(goal)).toBeLessThan(12_000);
   // A second resolve replaces it.
+  writeFileSync(conflictsFile, 'stale');
   await resolveConflicts(ctx, deps, 'lantern-cove');
   expect(readFileSync(conflictsFile, 'utf8')).toBe(file);
 });
