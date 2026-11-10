@@ -2,7 +2,7 @@ import type { ChildReport } from '@mesa/core';
 import { defineCommand } from '../command.js';
 
 const line = (r: ChildReport) =>
-  `${r.parent} <- ${r.child} (${r.childName}) ${r.kind}${r.tool ? ` ${r.tool}` : ''}${r.state ? ` ${r.state}` : ''} ${r.at}`;
+  `${r.parent} <- ${r.child} (${r.childName}) ${r.kind}${r.outcome ? ` ${r.outcome}` : ''}${r.tool ? ` ${r.tool}` : ''}${r.state ? ` ${r.state}` : ''} ${r.at}`;
 
 export const reports = defineCommand({
   name: 'reports',

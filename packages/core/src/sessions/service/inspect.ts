@@ -4,6 +4,7 @@ import type { MesaContext } from '../../context.js';
 import { readBranchDiff } from '../../git/branch-diff.js';
 import { MesaError } from '../../lib/result.js';
 import { joinWarnings, type Recorded } from '../../receipts/recorder.js';
+import { keptReport } from '../../reports/report-delivery.js';
 import { recordedBase } from '../../worktrees/base.js';
 import type { SessionScope } from '../board/board.js';
 import { sessionTree } from '../board/tree.js';
@@ -115,6 +116,7 @@ export function inspectActions(
           ? antigravitySessionId({ logs: paths.logs }, current, new Set(), true)
           : undefined;
       const identityEvents = readHookEvents(paths.events, id);
+      const report = keptReport(ctx, id);
       const identityChanged =
         identityEvents.some((event) => event.event === 'SessionIdentityChanged') ||
         Boolean(
@@ -143,6 +145,8 @@ export function inspectActions(
           ctx,
           identityChanged,
         ),
+        // A worker's newest explicit report, delivered or not (CONTEXT.md, Child report).
+        ...(report ? { report } : {}),
       };
     },
     /**

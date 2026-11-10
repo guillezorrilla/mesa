@@ -17,7 +17,7 @@ import {
   testDeps,
   testStore,
 } from '../testing/index.js';
-import { reportsAtTurnEnd, reportsService } from './report-delivery.js';
+import { keptReport, reportsAtTurnEnd, reportsService } from './report-delivery.js';
 import { reportLedger } from './report-ledger.js';
 import { addReport, type ChildReport, reportPrompt } from './reports.js';
 
@@ -301,4 +301,92 @@ test('a busy parent gets its reports as its own turn ends, once, with a receipt 
   expect(await reportsAtTurnEnd(ctx, parent.id)).toBeUndefined();
   mesa.config.set('sessions.childReports', 'true');
   expect(service.list().reports).toHaveLength(1);
+});
+
+/** The reports service as the worker `child` runs it, inside its own Mesa window. */
+const inside = (f: ReturnType<typeof family>, id: string) =>
+  reportsService(
+    createContext(
+      'default',
+      testDeps(f.home, {
+        clock: () => new Date('2026-09-24T12:00:30.000Z'),
+        env: { MESA_SESSION_ID: id, MESA_PROFILE: 'default' },
+      }),
+    ),
+    { board: async () => [], send: async () => Promise.reject(new Error('unused')) },
+  );
+
+test('a worker reports its work itself: done, failed, or blocked, with its files, to its parent', () => {
+  const f = family();
+  const { parent, child, service } = f;
+  service.list();
+  const done = inside(f, child.id).report('done', 'Counted 12 tide tables; none missing', [
+    'docs/tides.md',
+  ]);
+  expect(done).toMatchObject({
+    parent: parent.id,
+    child: child.id,
+    childName: 'tide-charts',
+    kind: 'done',
+    outcome: 'succeeded',
+    message: 'Counted 12 tide tables; none missing',
+    files: ['docs/tides.md'],
+  });
+  expect(service.list(parent.id).reports).toEqual([done]);
+  const prompt = reportPrompt([done]);
+  expect(prompt).toContain(`- ${child.id} (tide-charts) reported done, succeeded:`);
+  expect(prompt).toContain('```untrusted-agent-text');
+  expect(prompt).toContain('files: docs/tides.md');
+  // A newer explicit report replaces the older; blocked has no outcome, the parent must act.
+  const blocked = inside(f, child.id).report('blocked', 'x'.repeat(3_000));
+  expect(blocked.outcome).toBeUndefined();
+  expect(blocked.message).toHaveLength(2_000);
+  expect(reportPrompt([blocked])).toContain('reported blocked, and needs you to act:');
+  expect(service.list().reports.map((r) => r.kind)).toEqual(['blocked']);
+  expect(inside(f, child.id).report('failed', 'The tables are gone').outcome).toBe('failed');
+});
+
+test('an explicit report is refused, writing nothing, outside a window, without a parent, or empty', () => {
+  const f = family();
+  const { parent, child, service } = f;
+  service.list();
+  const outside = inside(f, '');
+  expect(() => outside.report('done', 'x')).toThrow(/no Mesa window/);
+  expect(() => inside(f, parent.id).report('done', 'x')).toThrow(/has no parent/);
+  expect(() => inside(f, child.id).report('done', '  ')).toThrow(MesaError);
+  expect(() => inside(f, child.id).report('maybe', 'x')).toThrow(/done, failed, blocked/);
+  expect(service.list().reports).toEqual([]);
+});
+
+test("after its explicit report a child's turns make no finished report; waits and its end still do, and it is kept after delivery", async () => {
+  const f = family();
+  const { store, parent, child, hook, service, typed } = f;
+  service.list();
+  inside(f, child.id).report('done', 'All charted');
+  // Its hook clock runs at 12:00:01 and on; the report was at 12:00:30.
+  for (let i = 0; i < 30; i++) hook('UserPromptSubmit');
+  hook('Stop', { last_assistant_message: 'Anything else?' });
+  hook('PermissionRequest', { tool_name: 'Bash' });
+  expect(service.list().reports.map((r) => r.kind)).toEqual(['done', 'waiting']);
+  await service.deliver();
+  expect(typed[0]?.prompt).toContain('reported done, succeeded:');
+  expect(service.list().reports).toEqual([]);
+  expect(keptReport(f.ctx, child.id)).toMatchObject({
+    kind: 'done',
+    outcome: 'succeeded',
+    message: 'All charted',
+  });
+  expect(keptReport(f.ctx, parent.id)).toBeUndefined();
+  store.update(child.id, (r) => ({ ...r, endedAt: '2026-09-24T12:10:00.000Z' }));
+  expect(service.list().reports.map((r) => r.kind)).toEqual(['ended']);
+});
+
+test('a busy parent gets an explicit report as its own turn ends, in the same prompt', async () => {
+  const f = family();
+  f.service.list();
+  inside(f, f.child.id).report('failed', 'The tide feed is down', ['feeds/tide.json']);
+  const prompt = await reportsAtTurnEnd(f.ctx, f.parent.id);
+  expect(prompt).toContain('reported failed, failed:');
+  expect(prompt).toContain('files: feeds/tide.json');
+  expect(f.service.list().reports).toEqual([]);
 });

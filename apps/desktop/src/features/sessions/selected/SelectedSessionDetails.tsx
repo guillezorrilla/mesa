@@ -1,6 +1,7 @@
 import type {
   DecisionDeliveryStatus,
   InstructionStatus,
+  KeptReport,
   ManagedRow,
   McpTool,
   SessionRecord,
@@ -56,6 +57,7 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
       instructions: InstructionStatus;
       vault: InstructionStatus;
       decisions: DecisionDeliveryStatus;
+      report?: KeptReport;
     }
   >();
   const [error, setError] = useState<string>();
@@ -130,8 +132,20 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
               <>
                 <dt className="text-muted-foreground">Reports to</dt>
                 <dd data-testid="session-reports-to">
-                  <span className="font-mono">{row.parent}</span>: its last reply each turn goes
-                  back as its report{row.brief ? ', as its goal tells it' : ''}
+                  <span className="font-mono">{row.parent}</span>
+                  {record?.report
+                    ? ': it reported its work itself'
+                    : `: its last reply each turn goes back as its report${row.brief ? ', as its goal tells it' : ''}`}
+                </dd>
+              </>
+            )}
+            {record?.report && (
+              <>
+                <dt className="text-muted-foreground">Reported</dt>
+                <dd data-testid="session-reported">
+                  {[record.report.kind, record.report.outcome].filter(Boolean).join(', ')}
+                  <Muted> {date(record.report.at)}</Muted>
+                  <p className="line-clamp-2">{record.report.message}</p>
                 </dd>
               </>
             )}
