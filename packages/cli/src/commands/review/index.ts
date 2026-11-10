@@ -1,5 +1,11 @@
 import type { Command } from '../../command.js';
-import { reviewNotes, reviewNotesAdd, reviewNotesEdit, reviewNotesRemove } from './notes.js';
+import {
+  reviewNotes,
+  reviewNotesAdd,
+  reviewNotesEdit,
+  reviewNotesRemove,
+  reviewNotesSend,
+} from './notes.js';
 import {
   reviewChangePreview,
   reviewChangeSend,
@@ -21,4 +27,5 @@ export const REVIEW_COMMANDS: Command[] = [
   reviewNotesAdd,
   reviewNotesEdit,
   reviewNotesRemove,
+  reviewNotesSend,
 ];

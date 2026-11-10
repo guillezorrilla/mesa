@@ -83,3 +83,33 @@ export const reviewNotesRemove = defineCommand({
     return { data, text: `Removed ${data.id}` };
   },
 });
+
+export const reviewNotesSend = defineCommand({
+  name: 'review notes send',
+  summary:
+    "Send a session's unsent review notes, or one file's, to its agent as one prompt through the guardrail",
+  args: ['session'],
+  flags: {
+    path: { type: 'string', description: "Send only this file's notes" },
+    yes: { type: 'boolean', description: 'Send past a guardrail ask after confirmation' },
+    'no-from': { type: 'boolean', description: 'Send as a person, not another Mesa session' },
+  },
+  example: 'mesa review notes send a1b2c3d4 --path src/app.ts',
+  run: async ({ mesa, args, flags, confirm }) => {
+    const data = await mesa.sessions.notes.send(args.session, flags.path, {
+      yes: flags.yes,
+      noFrom: flags['no-from'],
+      confirm,
+    });
+    const left = data.stale.length
+      ? `; left ${data.stale.length} stale: ${data.stale.join(' ')}`
+      : '';
+    const what = !data.delivery
+      ? 'No unsent notes to send'
+      : data.sent.length
+        ? `${data.delivery.already ? 'Already sent' : 'Sent'} ${data.sent.length} notes to ${args.session}`
+        : `${data.delivery.status}: ${data.delivery.reason ?? 'nothing marked sent'}`;
+    const warning = data.delivery?.warning ? `\n${data.delivery.warning}` : '';
+    return { data, text: `${what}${left}${warning}` };
+  },
+});

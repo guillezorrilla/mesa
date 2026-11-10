@@ -269,7 +269,7 @@ test('review notes add, list, edit and remove a note on a committed line', async
   const dir = await cli.withProject();
   writeFileSync(join(dir, 'a.ts'), 'one\n');
   gitRepo(dir);
-  cli.withTmux();
+  const world = cli.withTmux();
   cli.run = withRealGit(cli.run);
   const opened = (await cli.mesa('open', 'lantern-cove', '--branch', 'tidy', '--json')).json.data;
   const tree = opened.worktree.path;
@@ -308,6 +308,28 @@ test('review notes add, list, edit and remove a note on a committed line', async
     (await cli.mesa('review', 'notes', 'edit', opened.id, id, '--text', 'tidy', '--json')).json
       .data,
   ).toMatchObject({ id, text: 'tidy' });
+  await cli.mesa(
+    'review',
+    'notes',
+    'add',
+    opened.id,
+    '--path',
+    'a.ts',
+    '--line',
+    '1',
+    '--text',
+    'why',
+    '--json',
+  );
+  const sent = await cli.mesa('review', 'notes', 'send', opened.id, '--no-from', '--json');
+  expect(sent.json.data).toMatchObject({
+    sent: [expect.any(String), expect.any(String)],
+    stale: [],
+  });
+  expect(world.windows[0]?.typed).toEqual([expect.stringContaining('Note: tidy\n\nFile: a.ts')]);
+  expect(
+    (await cli.mesa('review', 'notes', 'send', opened.id, '--no-from', '--json')).json.data,
+  ).toEqual({ sent: [], stale: [] });
   await cli.mesa('review', 'notes', 'remove', opened.id, id, '--json');
-  expect((await cli.mesa('review', 'notes', opened.id, '--json')).json.data).toEqual([]);
+  expect((await cli.mesa('review', 'notes', opened.id, '--json')).json.data).toHaveLength(1);
 });

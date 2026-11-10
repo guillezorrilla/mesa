@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { readWorkspaceFile, textOf } from '../../files/editor.js';
@@ -10,6 +11,7 @@ import type { LockDeps } from '../../lib/lock-file.js';
 import type { Runner } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
 import type { Checkout } from '../../projects/checkout.js';
+import type { ReviewPreview } from './reviews.js';
 
 /** Which diff a note is on: the Session diff against its base, or uncommitted work. */
 export const NOTE_SCOPES = ['branch', 'working', 'staged'] as const;
@@ -112,6 +114,44 @@ function placed(note: ReviewNote, file: NoteFile | undefined): ListedNote {
     : { ...note, stale: true };
 }
 
+const sha = (text: string) => createHash('sha256').update(text).digest('hex');
+
+/** `text` fenced with more backticks than any run inside it. */
+const fenced = (text: string) => {
+  const fence = '`'.repeat(Math.max(3, ...(text.match(/`+/g) ?? []).map((run) => run.length + 1)));
+  return `${fence}\n${text}\n${fence}`;
+};
+
+/**
+ * Notes as the one prompt `sendReview` delivers: a line saying what they are, then each note's
+ * file, lines (or `Scope: file`), the lines it quotes, and the note. Its id is the batch, so the
+ * same notes are sent once.
+ */
+export function notesReview(session: string, notes: ListedNote[]): ReviewPreview {
+  const blocks = notes.map((n) =>
+    [
+      `File: ${n.path}${n.scope === 'branch' ? '' : ` (${n.scope})`}`,
+      ...(n.line === 0 ? ['Scope: file'] : [`Lines: ${n.line}-${n.end}`, fenced(n.quoted)]),
+      `Note: ${n.text}`,
+    ].join('\n'),
+  );
+  const prompt = [
+    `These are the person's review notes on this session's diff (${notes.length}).`,
+    ...blocks,
+  ].join('\n\n');
+  const batch = notes.map((n) => [n.id, n.path, n.line, n.end, n.scope, n.text, n.quoted]);
+  return {
+    id: sha(JSON.stringify([session, batch])),
+    target: session,
+    source: sha(prompt),
+    revision: sha(JSON.stringify(notes.map((n) => [n.id, n.blob]))),
+    passage: notes.map((n) => n.quoted).join('\n'),
+    comment: notes.map((n) => n.text).join('\n'),
+    prompt,
+    notes: notes.map((n) => n.id),
+  };
+}
+
 /**
  * A session's review notes: drafts on exact lines of its diff, kept until sent, each quoting the
  * lines it is on so a later read can tell they changed.
@@ -129,21 +169,22 @@ export function reviewNotes(deps: NotesDeps, session: string) {
     if (!notes.some((n) => n.id === id))
       throw new MesaError('not_found', `session ${session} has no review note ${id}`);
   };
+  const list = async (): Promise<ListedNote[]> => {
+    const notes = readJson(file, Notes)?.notes ?? [];
+    const reads = new Map<string, Promise<NoteFile | undefined>>();
+    const read = (note: ReviewNote) => {
+      const key = `${note.scope}\0${note.path}`;
+      if (!reads.has(key))
+        reads.set(
+          key,
+          readFile(note.scope, note.path).catch(() => undefined),
+        );
+      return reads.get(key) as Promise<NoteFile | undefined>;
+    };
+    return Promise.all(notes.map(async (note) => placed(note, await read(note))));
+  };
   return {
-    list: async (): Promise<ListedNote[]> => {
-      const notes = readJson(file, Notes)?.notes ?? [];
-      const reads = new Map<string, Promise<NoteFile | undefined>>();
-      const read = (note: ReviewNote) => {
-        const key = `${note.scope}\0${note.path}`;
-        if (!reads.has(key))
-          reads.set(
-            key,
-            readFile(note.scope, note.path).catch(() => undefined),
-          );
-        return reads.get(key) as Promise<NoteFile | undefined>;
-      };
-      return Promise.all(notes.map(async (note) => placed(note, await read(note))));
-    },
+    list,
     add: async (input: ReviewNoteInput): Promise<ReviewNote> => {
       const scope = input.scope ?? 'branch';
       if (!NOTE_SCOPES.includes(scope))
@@ -189,6 +230,20 @@ export function reviewNotes(deps: NotesDeps, session: string) {
         });
       });
       return notes.find((n) => n.id === id) as ReviewNote;
+    },
+    /** The unsent notes, or `path`'s: those ready to send, and the stale ones' ids. */
+    unsent: async (path?: string) => {
+      const unsent = (await list()).filter((n) => !n.sentAt && (!path || n.path === path));
+      return {
+        ready: unsent.filter((n) => !n.stale),
+        stale: unsent.filter((n) => n.stale).map((n) => n.id),
+      };
+    },
+    /** Marks `sent` sent now; a note edited since keeps its new, unsent text. */
+    markSent: (sent: readonly ReviewNote[]) => {
+      const at = deps.clock().toISOString();
+      const texts = new Map(sent.map((n) => [n.id, n.text]));
+      change((notes) => notes.map((n) => (texts.get(n.id) === n.text ? { ...n, sentAt: at } : n)));
     },
     remove: (id: string): { id: string } => {
       change((notes) => {

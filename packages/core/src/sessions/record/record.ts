@@ -234,7 +234,9 @@ const SessionRecordFields = z.strictObject({
         revision: z.string().regex(/^[0-9a-f]{64}$/),
         passage: z.string(),
         comment: z.string(),
-        kind: z.enum(['response', 'change', 'browser']).optional(),
+        kind: z.enum(['response', 'change', 'browser', 'notes']).optional(),
+        /** The review notes a `notes` review sent, by id. */
+        notes: z.array(z.string()).optional(),
         path: z.string().optional(),
         baseKind: z.enum(['HEAD', 'index']).optional(),
         base: z.string().optional(),
