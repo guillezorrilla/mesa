@@ -17,7 +17,7 @@ import {
   testStore,
   withRealGit,
 } from '../testing/index.js';
-import { handToAgent, lastBytes } from './agent-handoff.js';
+import { handToAgent, keptBytes } from './agent-handoff.js';
 import { fixPreCommit } from './hook-fix.js';
 import { resolveConflicts } from './resolve.js';
 
@@ -137,6 +137,7 @@ test('a failing pre-commit hook hands over the staged files and its output, fenc
 });
 
 test('a long hook output keeps its last whole lines within the cap, after a line saying what was cut', () => {
+  const lastBytes = (text: string, max: number) => keptBytes(text, max, 'end');
   expect(lastBytes('a\nb\nc', 100)).toBe('a\nb\nc');
   expect(lastBytes('first line\nsecond\nthird', 13)).toBe(
     '[Mesa left out the first 11 bytes]\nsecond\nthird',
@@ -144,6 +145,11 @@ test('a long hook output keeps its last whole lines within the cap, after a line
   // A quote takes four bytes once shell-quoted, and a line longer than the cap keeps its end.
   expect(lastBytes("it's\nit's", 8)).toBe("[Mesa left out the first 5 bytes]\nit's");
   expect(lastBytes('x'.repeat(40), 20)).toBe('[Mesa left out the first 35 bytes]\nxxxxx');
+  // Conflict hunks keep their start instead.
+  expect(keptBytes('first\nsecond\nthird line', 13, 'start')).toBe(
+    'first\nsecond\n[Mesa left out the last 11 bytes]',
+  );
+  expect(keptBytes('y'.repeat(40), 20, 'start')).toBe('yyyyy\n[Mesa left out the last 35 bytes]');
 });
 
 test('a merge conflict hands over its operation, paths and hunks, fenced, and asks to test before continuing', async () => {

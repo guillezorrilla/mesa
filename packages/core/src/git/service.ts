@@ -1,7 +1,7 @@
 import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
 import type { Overrides } from '../decisions/guardrail.js';
-import type { HandoffDeps } from './agent-handoff.js';
+import type { HandoffDeps, HandoffTarget } from './agent-handoff.js';
 import { changeGitBranch, type GitBranchAction, listGitBranches } from './branches.js';
 import { changeGitIndex, commitGit } from './changes.js';
 import { readGitDiff } from './diff.js';
@@ -24,6 +24,21 @@ export function gitService(
   /** The board, send and open a checkout's problem is handed to an agent through. */
   handoff: HandoffDeps,
 ) {
+  /** A hand-off (agent-handoff.ts) with the checkout made absolute. */
+  const handedOver =
+    <T>(
+      action: (
+        ctx: MesaContext,
+        deps: HandoffDeps,
+        project: string,
+        opts: HandoffTarget,
+      ) => Promise<T>,
+    ) =>
+    (project: string, opts: HandoffTarget = {}) =>
+      action(ctx, handoff, project, {
+        ...opts,
+        ...(opts.checkout ? { checkout: ctx.absolute(opts.checkout) } : {}),
+      });
   const sync = (
     project: string,
     checkout: string | undefined,
@@ -219,20 +234,9 @@ export function gitService(
         ...(opts.checkout ? { checkout: ctx.absolute(opts.checkout) } : {}),
       }),
     /** Runs the pre-commit hook; a failure goes to the agent working in the checkout. */
-    fix: (project: string, opts: { checkout?: string; session?: string; fresh?: boolean } = {}) =>
-      fixPreCommit(ctx, handoff, project, {
-        ...opts,
-        ...(opts.checkout ? { checkout: ctx.absolute(opts.checkout) } : {}),
-      }),
+    fix: handedOver(fixPreCommit),
     /** Hands the checkout's merge, rebase or cherry-pick conflicts to the agent working there. */
-    resolve: (
-      project: string,
-      opts: { checkout?: string; session?: string; fresh?: boolean } = {},
-    ) =>
-      resolveConflicts(ctx, handoff, project, {
-        ...opts,
-        ...(opts.checkout ? { checkout: ctx.absolute(opts.checkout) } : {}),
-      }),
+    resolve: handedOver(resolveConflicts),
     /** A pull request's title and body for the checkout's branch, written by an agent. */
     prText: (project: string, opts: { checkout?: string; base?: string; agent?: string } = {}) =>
       writePullRequestText(ctx.open(), ctx.run, runText, project, {

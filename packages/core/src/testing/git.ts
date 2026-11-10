@@ -28,17 +28,19 @@ export function gitRepo(dir: string) {
 
 /**
  * A merge in `dir`, a gitRepo, stopped on a conflict: branches `main` and `swell` each change the
- * line of `tide.ts`, and `swell` is merged into `main`.
+ * `lines` lines of `tide.ts`, and `swell` is merged into `main`.
  */
-export function mergeConflict(dir: string) {
-  writeFileSync(join(dir, 'tide.ts'), 'export const high = 6;\n');
+export function mergeConflict(dir: string, lines = 1) {
+  const tide = (height: number) =>
+    Array.from({ length: lines }, (_, i) => `export const high${i || ''} = ${height};\n`).join('');
+  writeFileSync(join(dir, 'tide.ts'), tide(6));
   testGit(dir, 'add', 'tide.ts');
   testGit(dir, 'commit', '-q', '-m', 'Add the tide');
   testGit(dir, 'switch', '-q', '-c', 'swell');
-  writeFileSync(join(dir, 'tide.ts'), 'export const high = 7;\n');
+  writeFileSync(join(dir, 'tide.ts'), tide(7));
   testGit(dir, 'commit', '-q', '-am', 'Raise the tide');
   testGit(dir, 'switch', '-q', 'main');
-  writeFileSync(join(dir, 'tide.ts'), 'export const high = 5;\n');
+  writeFileSync(join(dir, 'tide.ts'), tide(5));
   testGit(dir, 'commit', '-q', '-am', 'Lower the tide');
   // A conflicted merge exits 1, which testGit would throw on.
   spawnSync(

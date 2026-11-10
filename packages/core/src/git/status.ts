@@ -55,6 +55,8 @@ const OPERATION_MARKS: [GitOperation, string[]][] = [
 async function operationIn(run: Runner, cwd: string): Promise<GitOperation | null> {
   const dir = await gitCommand(run, cwd, ['rev-parse', '--absolute-git-dir']);
   if (!dir.ok) return null;
+  // `git am` keeps its state in rebase-apply too, marked by `applying`: not a rebase.
+  if (existsSync(join(dir.stdout.trim(), 'rebase-apply', 'applying'))) return null;
   const found = OPERATION_MARKS.find(([, marks]) =>
     marks.some((mark) => existsSync(join(dir.stdout.trim(), mark))),
   );

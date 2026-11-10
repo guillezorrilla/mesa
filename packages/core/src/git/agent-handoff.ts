@@ -103,31 +103,47 @@ export async function handToAgent(
 const quotedBytes = (text: string) => Buffer.byteLength(text) + 3 * (text.split("'").length - 1);
 
 /**
- * The end of `text` within `max` quoted bytes, after a line saying how much was cut: whole lines,
- * or the tail of the last line when it alone is longer.
+ * `text` within `max` quoted bytes, its start or its end kept, with a line saying how much was cut:
+ * whole lines, or part of the first (or last) line when it alone is longer.
  */
-export function lastBytes(text: string, max: number) {
+export function keptBytes(text: string, max: number, keep: 'start' | 'end') {
   if (quotedBytes(text) <= max) return text;
+  const lines = text.split('\n');
+  if (keep === 'end') lines.reverse();
   const kept: string[] = [];
   let size = 0;
-  for (const line of text.split('\n').reverse()) {
+  for (const line of lines) {
     if (size + quotedBytes(line) + 1 > max) {
-      if (!kept.length) kept.push(line.slice(-Math.floor(max / 4)));
+      const room = Math.floor(max / 4);
+      if (!kept.length) kept.push(keep === 'end' ? line.slice(-room) : line.slice(0, room));
       break;
     }
     size += quotedBytes(line) + 1;
-    kept.unshift(line);
+    kept.push(line);
   }
+  if (keep === 'end') kept.reverse();
   const cut = Buffer.byteLength(text) - Buffer.byteLength(kept.join('\n'));
-  return [`[Mesa left out the first ${cut} bytes]`, ...kept].join('\n');
+  return keep === 'end'
+    ? [`[Mesa left out the first ${cut} bytes]`, ...kept].join('\n')
+    : [...kept, `[Mesa left out the last ${cut} bytes]`].join('\n');
 }
 
+/** Which session a checkout's problem goes to, as `mesa git fix` and `mesa git resolve` take it. */
+export type HandoffTarget = { checkout?: string; session?: string; fresh?: boolean };
+
 /**
- * `text` from the checkout for a hand-off prompt: redacted, without control characters, its end
- * within `bytes` so a new session's goal fits one tmux command (requireCommandFits), fenced as data.
+ * `text` from the checkout for a hand-off prompt: redacted, without control characters, its start
+ * or end within `bytes` so a new session's goal fits one tmux command (requireCommandFits), fenced
+ * as data.
  */
-export const quoted = (ctx: MesaContext, fence: string, text: string, bytes: number) =>
+export const promptData = (
+  ctx: MesaContext,
+  fence: string,
+  text: string,
+  bytes: number,
+  keep: 'start' | 'end',
+) =>
   dataFence(
     fence,
-    lastBytes(typeable(redactWhole(text, ctx.home, ctx.secrets())).trimEnd(), bytes),
+    keptBytes(typeable(redactWhole(text, ctx.home, ctx.secrets())).trimEnd(), bytes, keep),
   );

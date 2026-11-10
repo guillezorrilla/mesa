@@ -1,7 +1,13 @@
 import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
 import { resolveCheckout } from '../projects/checkout.js';
-import { type AgentHandoff, type HandoffDeps, handToAgent, quoted } from './agent-handoff.js';
+import {
+  type AgentHandoff,
+  type HandoffDeps,
+  type HandoffTarget,
+  handToAgent,
+  promptData,
+} from './agent-handoff.js';
 import { gitCommand, mustGit } from './command.js';
 
 // A failed pre-commit hook, handed to an agent (agent-handoff.ts): Mesa runs the hook, and the
@@ -34,7 +40,7 @@ export async function fixPreCommit(
   ctx: MesaContext,
   deps: HandoffDeps,
   project: string,
-  opts: { checkout?: string; session?: string; fresh?: boolean } = {},
+  opts: HandoffTarget = {},
 ): Promise<GitFix> {
   const checkout = await resolveCheckout(ctx.open(), ctx.run, project, opts.checkout);
   const hook = await gitCommand(
@@ -57,7 +63,7 @@ export async function fixPreCommit(
     ['diff', '--cached', '--name-status'],
     'cannot read the staged files',
   );
-  const data = (text: string, bytes: number) => quoted(ctx, FENCE, text, bytes);
+  const data = (text: string, bytes: number) => promptData(ctx, FENCE, text, bytes, 'end');
   // Both streams: a wrapper (husky, lint-staged) often prints a banner on one and the findings on the other.
   const output = (hook.output || hook.detail).split('\n').slice(-HOOK_LINES).join('\n');
   const prompt = [

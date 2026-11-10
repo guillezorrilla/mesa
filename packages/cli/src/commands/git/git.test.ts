@@ -682,7 +682,8 @@ test('git resolve refuses a checkout with no conflict, and starts a session with
   const none = await cli.mesa('git', 'resolve', 'lantern-cove', '--json');
   expect(none.code).toBe(2);
   expect(none.json.error.message).toContain('no file is conflicted');
-  mergeConflict(repo);
+  // 600 conflicted lines: a new session's goal must still fit one tmux command.
+  mergeConflict(repo, 600);
   const status = (await cli.mesa('git', 'status', 'lantern-cove', '--json')).json.data;
   expect(status.operation).toBe('merge');
   expect(status.changes).toEqual([
@@ -692,7 +693,8 @@ test('git resolve refuses a checkout with no conflict, and starts a session with
   const { json, code } = await cli.mesa('git', 'resolve', 'lantern-cove', '--json');
   expect(code).toBe(0);
   expect(json.data).toEqual({ session: expect.any(String), how: 'started' });
-  expect(tmux.opened.at(-1)?.launch).toContain('>>>>>>> swell');
+  expect(tmux.opened.at(-1)?.launch).toContain('<<<<<<< HEAD');
+  expect(tmux.opened.at(-1)?.launch).toContain('[Mesa left out the last');
   expect((await cli.mesa('help', '--agent')).stdout).toContain('mesa git resolve');
 });
 
