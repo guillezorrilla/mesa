@@ -29,22 +29,34 @@ function checkout() {
   return { repo, worktree };
 }
 
-/** The real git, and `run`'s answers for everything else (the clone). */
+/** What df and diskutil say of a volume: apfs (case-sensitive too) unless `type` says otherwise. */
+const volume = (type = 'apfs') => ({
+  '/bin/df': 'Filesystem 512-blocks Used Available Capacity Mounted on\n/dev/disk9s1 8 4 4 50% /\n',
+  '/usr/sbin/diskutil': `<dict>\n\t<key>FilesystemType</key>\n\t<string>${type}</string>\n</dict>`,
+});
+
+/** The real git, and `run`'s answers for everything else (the volume probe and the clone). */
 const realGitOnly =
   (run: Runner): Runner =>
   (file, args, ms, options) =>
     (file === 'git' ? testRunner : run)(file, args, ms, options);
 
-/** A clone that works (copying, as `cp -c` would), or one that fails, so a plain copy follows. */
-const cloning = realGitOnly(async (file, args) => {
-  cpSync(args[3] ?? '', args[4] ?? '', { recursive: true, verbatimSymlinks: true });
-  return { ok: true, stdout: '' };
-});
-const copying = realGitOnly(scriptedRunner({}, { failing: ['/bin/cp'] }).run);
+/** On APFS, a clone that works (as `cp -c` would), or one that fails, so a copy follows. */
+const cloning = realGitOnly(
+  scriptedRunner({
+    ...volume(),
+    '/bin/cp': (args) => {
+      cpSync(args[3] ?? '', args[4] ?? '', { recursive: true, verbatimSymlinks: true });
+      return '';
+    },
+  }).run,
+);
+const copying = realGitOnly(scriptedRunner(volume(), { failing: ['/bin/cp'] }).run);
 
 for (const [copy, run] of [
   ['as a clone where it can', testRunner],
-  ['by plain copy when cp fails', copying],
+  ['by plain copy when the clone fails', copying],
+  ['by plain copy off APFS', realGitOnly(scriptedRunner(volume('hfs')).run)],
 ] as const) {
   test(`a file and a folder are carried ${copy}`, async () => {
     const { repo, worktree } = checkout();
@@ -57,17 +69,36 @@ for (const [copy, run] of [
   });
 }
 
-test('the clone is /bin/cp -c -R -n', async () => {
+test('the volume is probed once, then each clone is /bin/cp -c -R -n', async () => {
   const { repo, worktree } = checkout();
-  const { run, calls } = scriptedRunner();
-  await carryEntries(realGitOnly(run), repo, worktree, ['.env']);
-  expect(calls).toEqual([
-    expect.objectContaining({
-      file: '/bin/cp',
-      args: ['-c', '-R', '-n', join(repo, '.env'), join(worktree, '.env')],
-    }),
+  const { run, calls } = scriptedRunner(volume());
+  await carryEntries(realGitOnly(run), repo, worktree, ['.env', 'node_modules']);
+  expect(calls.map(({ file, args }) => [file, ...args])).toEqual([
+    ['/bin/df', '-P', repo],
+    ['/usr/sbin/diskutil', 'info', '-plist', '/dev/disk9s1'],
+    ['/bin/cp', '-c', '-R', '-n', join(repo, '.env'), join(worktree, '.env')],
+    ['/bin/cp', '-c', '-R', '-n', join(repo, 'node_modules'), join(worktree, 'node_modules')],
   ]);
 });
+
+for (const [off, runner] of [
+  ['another filesystem', scriptedRunner(volume('hfs'))],
+  ['a df that fails', scriptedRunner(volume(), { failing: ['/bin/df'] })],
+  ['no diskutil, as off macOS', scriptedRunner(volume(), { missing: ['/usr/sbin/diskutil'] })],
+] as const) {
+  test(`on ${off}, nothing is cloned and the plain budget holds`, async () => {
+    const { repo, worktree } = checkout();
+    expect(
+      await carryEntries(realGitOnly(runner.run), repo, worktree, ['.env', 'node_modules'], {
+        bytes: 1024,
+        entries: 4,
+        cloneEntries: 10,
+      }),
+    ).toBe('carry stopped at node_modules: a plain copy would pass 4 entries; it was not carried');
+    expect(readFileSync(join(worktree, '.env'), 'utf8')).toBe('TIDE_TOKEN=invented\n');
+    expect(runner.calls.filter((c) => c.file === '/bin/cp')).toEqual([]);
+  });
+}
 
 test('a clone is charged entries only, so it carries past the plain budget', async () => {
   const { repo, worktree } = checkout();
@@ -113,7 +144,7 @@ test('a plain copy past its entries or bytes stops at that entry and says which 
 
 test('a carry past its clone entries stops before trying the clone', async () => {
   const { repo, worktree } = checkout();
-  const { run, calls } = scriptedRunner();
+  const { run, calls } = scriptedRunner(volume());
   expect(
     await carryEntries(realGitOnly(run), repo, worktree, ['.env', 'node_modules'], {
       ...CARRY_BUDGET,
@@ -125,7 +156,7 @@ test('a carry past its clone entries stops before trying the clone', async () =>
 
 test('a clone that times out is removed and stops the carry, with no second copy', async () => {
   const { repo, worktree } = checkout();
-  const run = realGitOnly(scriptedRunner({}, { slow: ['/bin/cp'] }).run);
+  const run = realGitOnly(scriptedRunner(volume(), { slow: ['/bin/cp'] }).run);
   expect(await carryEntries(run, repo, worktree, ['node_modules'])).toBe(
     'carry stopped at node_modules: the copy took over 120 s; it was not carried',
   );
