@@ -4,6 +4,7 @@ import type { IdSource } from '../../lib/ids.js';
 import { shellWord } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
 import { reviewDeny } from '../../prs/review-guard.js';
+import { worktreeSettings } from '../../worktrees/settings.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import { isOver } from '../record/lifecycle.js';
 import type { SessionRecord } from '../record/record.js';
@@ -13,6 +14,7 @@ import { briefedGoal, requireCommandFits, requireGoalCommandRuns } from './goal.
 import { folderOf, type LaunchDeps, launchAgent, launchProject, launchSession } from './launch.js';
 import { createRecord } from './new-record.js';
 import { type OpenInput, validateOpenInput } from './open-input.js';
+import { notedGoal, setupLine } from './setup-session.js';
 import { goalPreparing, sessionWindowCommand } from './window-command.js';
 
 type OpenDeps = LaunchDeps & {
@@ -107,7 +109,16 @@ export async function openSession(
         name: 'Terminal',
         ...(input.worktree ? { worktree: input.worktree } : {}),
       },
-      { command: () => command, branch: input.branch, base: input.base },
+      {
+        command: () => command,
+        branch: input.branch,
+        base: input.base,
+        ...(entry &&
+        input.branch !== undefined &&
+        worktreeSettings(deps.profile, entry).setupWhile === 'parallel'
+          ? setupBesideIn(deps, entry.name)
+          : {}),
+      },
     );
   }
   const waited = input.after === undefined ? undefined : waitedOn(deps, input.after);
@@ -157,13 +168,19 @@ export async function openSession(
       },
       additionalDirs(more),
     );
+  // A parallel setup's Setup session is named in the goal the agent is given (notedGoal).
+  const beside =
+    input.branch !== undefined &&
+    selected !== null &&
+    worktreeSettings(deps.profile, selected.entry).setupWhile === 'parallel';
+  const given = beside ? notedGoal(goal, 'xxxxxxxx') : goal;
   if (!input.background)
     requireCommandFits(
       sessionWindowCommand(
         agent,
         'interactive',
-        command('xxxxxxxx', { additional: planned }, reviewDeny(agent, input.review)),
-        goalPreparing(deps, 'interactive', goal),
+        command('xxxxxxxx', { additional: planned, goal: given }, reviewDeny(agent, input.review)),
+        goalPreparing(deps, 'interactive', given),
       ),
     );
   const session = {
@@ -196,11 +213,31 @@ export async function openSession(
       command: (record, deny) => command(record.id, record, deny),
       branch: input.branch,
       base: input.base,
+      ...(beside && selected ? setupBesideIn(deps, selected.entry.name) : {}),
       ...(additional
         ? { additional: additional.map((entry) => ({ entry, base: input.base })) }
         : {}),
     },
   );
+}
+
+/**
+ * How a session in `project` opens its Setup session: a plain terminal, its child, in its
+ * worktree (the parent's folder), whose first line runs the setup (setupLine).
+ */
+function setupBesideIn(deps: OpenDeps, project: string) {
+  return {
+    setupBeside: async (owner: SessionRecord, setup: string[]) => {
+      const { record: child } = await openSession(deps, {
+        terminal: true,
+        project,
+        parent: owner.id,
+        run: setupLine(setup, deps.self),
+      });
+      deps.store.update(child.id, { name: 'Setup' });
+      return child.id;
+    },
+  };
 }
 
 /** The session `id` a new one waits on; not_found when there is none. */

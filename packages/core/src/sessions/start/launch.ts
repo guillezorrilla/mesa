@@ -39,9 +39,8 @@ import {
 } from './additional.js';
 import type { NewLaunch } from './new-record.js';
 import { createRecord } from './new-record.js';
-import { notedGoal, setupWindowCommand, setupWindowName } from './setup-window.js';
+import { notedGoal } from './setup-session.js';
 import { goalPreparing, sessionWindowCommand } from './window-command.js';
-import type { Worktree } from './worktree.js';
 
 // Launching a session, the one sequence every start goes through (open, resume, adopt, handoff,
 // and a queued start): its record, its worktree, its folder checked, the project's skills linked
@@ -117,6 +116,11 @@ type Start = {
   base?: string;
   /** Then a worktree on that branch in each of these (mesa open --with; additional.ts). */
   additional?: readonly AdditionalStart[];
+  /**
+   * With it, a new worktree's `setupWhile: parallel` setup is left to it: it opens the Setup
+   * session that runs it, child of `parent`, and returns its id (open.ts).
+   */
+  setupBeside?: (parent: SessionRecord, setup: string[]) => Promise<string>;
 };
 
 /**
@@ -142,25 +146,33 @@ export async function startSession(
   // A configured setup can create user data. A failed agent launch must leave it intact.
   const made = launchWorktrees(deps.run);
   let backgroundId: string | undefined;
-  let setupWindow: { window: string; setup: readonly string[] } | undefined;
+  let setupSession: string | undefined;
   try {
     const worktreeWarnings: (string | undefined)[] = [];
     if (!record.worktree && start.branch !== undefined) {
       if (!project) throw new MesaError('usage', 'General sessions cannot use a worktree');
-      const selected = await worktreeFor(deps, project, start.branch, start.base);
+      const selected = await worktreeFor(deps, project, start, start.branch);
       made.add(deps.profile, project, selected);
       worktreeWarnings.push(selected.warning);
       record = deps.store.update(record.id, { worktree: selected.worktree });
       // At once, so a launch that fails later has setup running, as the kept worktree says.
-      if (selected.setup) {
-        setupWindow = await setupBeside(deps, record, selected.worktree, selected.setup);
-        record = deps.store.update(record.id, { setupWindow: setupWindow.window });
+      if (selected.setup && start.setupBeside) {
+        try {
+          setupSession = await start.setupBeside(record, selected.setup);
+          record = deps.store.update(record.id, { setupSession });
+        } catch (error) {
+          // The agent still starts; the worktree waits for its setup to be run by hand.
+          worktreeWarnings.push(
+            `setup did not start: ${toFail(error).error.message}; run mesa worktrees rerun ${project.name} ${selected.worktree.path}`,
+          );
+        }
       }
     }
     if (start.additional?.length)
       record = await createAdditional(deps, record, start.additional, made, worktreeWarnings);
-    // The goal the agent is given, background or not, names the window; the record keeps its own.
-    const given = { ...record, goal: notedGoal(record.goal, setupWindow) };
+    // The goal the agent is given, background or not, names the Setup session; the record keeps
+    // its own.
+    const given = { ...record, goal: notedGoal(record.goal, setupSession) };
     const cwd = agentFolder(record, project);
     const hooks =
       record.agent === 'codex' ? codexHooks(codexHome(deps.home, deps.env), deps.self) : undefined;
@@ -299,28 +311,20 @@ function syncSkillsInto(deps: Pick<LaunchDeps, 'syncSkills'>, project: string, f
   }
 }
 
-/** A new worktree on `branch`, unless a session has the worktree there. */
-function worktreeFor(deps: LaunchDeps, entry: RegistryEntry, branch: string, base?: string) {
-  return sessionWorktree(deps.profile, deps.run, deps.lock, deps.store, entry, branch, base, true);
-}
-
-/** Opens `setup` in a window beside the session's (setupWindowCommand), before its agent starts. */
-async function setupBeside(
-  deps: LaunchDeps,
-  record: SessionRecord,
-  worktree: Worktree,
-  setup: string[],
-) {
-  const window = setupWindowName(record.id);
-  await deps.tmux.openWindow({
-    project: record.tmux.session,
-    window,
-    cwd: worktree.path,
-    command: setupWindowCommand(setup, window, deps.self),
-    env: {
-      ...windowEnv(record.id, deps.profileName),
-      PATH: mesaOnPath(deps.profile.paths.bin, deps.self, deps.env.PATH),
-    },
-  });
-  return { window, setup };
+/**
+ * A new worktree on `branch`, unless a session has the worktree there; its parallel setup left
+ * unrun only when `start` opens a Setup session for it.
+ */
+function worktreeFor(deps: LaunchDeps, entry: RegistryEntry, start: Start, branch: string) {
+  const beside = start.setupBeside !== undefined;
+  return sessionWorktree(
+    deps.profile,
+    deps.run,
+    deps.lock,
+    deps.store,
+    entry,
+    branch,
+    start.base,
+    beside,
+  );
 }

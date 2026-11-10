@@ -33,8 +33,8 @@ export type InboxItem = {
   /** A gate notice's gate: its question and the options a person picks from (`mesa gates resolve`). */
   gate?: Pick<Gate, 'id' | 'options' | 'question'>;
   read: boolean;
-  target: /** `window`: a window beside the session's, such as its setup's (SETUP_FAILED). */
-    | { kind: 'session'; id: string; window?: string }
+  target:
+    | { kind: 'session'; id: string }
     | { kind: 'doctor' }
     | { kind: 'automations' }
     | { kind: 'release'; version: string }
@@ -61,6 +61,7 @@ export const CandidateSchema = z.strictObject({
     .optional(),
   fingerprint: z.string(),
   target: z.discriminatedUnion('kind', [
+    // `window`: read only, a #901 setup window's notice from before the Setup session (#985).
     z.strictObject({
       kind: z.literal('session'),
       id: z.string(),
@@ -170,7 +171,7 @@ export function hookItem(session: string, event: HookEvent): Candidate | undefin
       : {};
   const child = !parentHook(event);
   const question = payload.tool_name === 'AskUserQuestion';
-  // A setup window beside the session failed (setupWindowCommand): the person looks at it.
+  // A Setup session's setup failed (setupLine): the person opens that session.
   const setupFailed = event.event === SETUP_FAILED;
   // A subagent finishing needs nothing from the user, so SubagentStop raises no notice (#687).
   const kind =
@@ -182,9 +183,8 @@ export function hookItem(session: string, event: HookEvent): Candidate | undefin
         ? 'finished'
         : undefined;
   if (!kind) return undefined;
-  const window = setupFailed && typeof payload.window === 'string' ? payload.window : undefined;
   const title = setupFailed
-    ? `Worktree setup failed in window ${window ?? 'setup'}`
+    ? 'Worktree setup failed'
     : kind === 'input-required'
       ? question
         ? 'Question needs an answer'
@@ -201,7 +201,7 @@ export function hookItem(session: string, event: HookEvent): Candidate | undefin
         payload.tool_name ?? null,
         payload.tool_input ?? null,
         // Only a setup failure adds one: every other notice keeps the id it had.
-        ...(setupFailed ? [SETUP_FAILED, payload.window ?? null] : []),
+        ...(setupFailed ? [SETUP_FAILED] : []),
       ]),
     )
     .digest('hex')
@@ -212,7 +212,7 @@ export function hookItem(session: string, event: HookEvent): Candidate | undefin
     kind,
     title,
     fingerprint,
-    target: { kind: 'session', id: session, ...(window ? { window } : {}) },
+    target: { kind: 'session', id: session },
   };
 }
 

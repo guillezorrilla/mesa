@@ -86,49 +86,33 @@ test('a session keeps only its newest notice, a subagent finishing raises none, 
   expect(createMesa('other', testDeps(home)).notifications.list()).toEqual([]);
 });
 
-test("a failed setup window is its own notice, naming the window, that the session's turns keep", () => {
+test('a Setup session whose setup failed raises a notice that opens it', () => {
   const { run } = scriptedRunner();
   const { home, mesa } = projectProfile(run);
   const store = testStore(home);
-  const session = store.create(() => newSession());
-  let second = 0;
-  const deps = {
-    store,
-    eventsDir: profilePaths(home, 'default').events,
-    clock: () => new Date(`2026-09-24T12:00:${String(second++).padStart(2, '0')}.000Z`),
-    home,
-    secrets: () => [],
-  };
-  const hook = (payload: Record<string, unknown>) =>
-    recordHookEvent(deps, {
+  const setup = store.create(() => newSession({ agent: 'terminal', kind: 'terminal' }));
+  // Its first line logs it as claude's (setupLine), which a terminal session takes.
+  recordHookEvent(
+    {
+      store,
+      eventsDir: profilePaths(home, 'default').events,
+      clock: () => new Date('2026-09-24T12:00:00.000Z'),
+      home,
+      secrets: () => [],
+    },
+    {
       agent: 'claude',
-      mesaSessionId: session.id,
-      payload: JSON.stringify(payload),
-    });
-  hook({ hook_event_name: 'SetupFailed', window: `setup-${session.id}` });
-  hook({ hook_event_name: 'PermissionRequest', tool_name: 'Bash' });
-  hook({ hook_event_name: 'Stop' });
+      mesaSessionId: setup.id,
+      payload: JSON.stringify({ hook_event_name: 'SetupFailed' }),
+    },
+  );
   expect(mesa.notifications.list()).toMatchObject([
     {
       kind: 'input-required',
-      title: `Worktree setup failed in window setup-${session.id}`,
-      target: { kind: 'session', id: session.id, window: `setup-${session.id}` },
+      title: 'Worktree setup failed',
+      target: { kind: 'session', id: setup.id },
     },
   ]);
-  // The window logs it as claude's whatever the session's agent (setupWindowCommand).
-  for (const agent of ['codex', 'terminal'] as const) {
-    const other = store.create(() =>
-      newSession(agent === 'terminal' ? { agent, kind: 'terminal' } : { agent }),
-    );
-    recordHookEvent(deps, {
-      agent: 'claude',
-      mesaSessionId: other.id,
-      payload: JSON.stringify({ hook_event_name: 'SetupFailed', window: `setup-${other.id}` }),
-    });
-    expect(mesa.notifications.list()[0]).toMatchObject({
-      title: `Worktree setup failed in window setup-${other.id}`,
-    });
-  }
 });
 
 const HOOKS_HINT = 'not installed: run `mesa hooks install`';

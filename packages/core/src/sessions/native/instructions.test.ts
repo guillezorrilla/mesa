@@ -38,6 +38,12 @@ test.each(['claude', 'codex', 'antigravity'] as const)(
   },
 );
 
+test('a session with a Setup session is told of it in its pointer, still under 1,000 bytes', () => {
+  const pointer = mesaPointer(record({ setupSession: 'k5m6n7p8' }), PROFILE, CWD);
+  expect(Buffer.byteLength(pointer)).toBeLessThan(1000);
+  expect(pointer).toContain('Mesa session abcdefgh; setup in session k5m6n7p8; profile');
+});
+
 test('a General pointer falls back to the General vault context, with no project to name', () => {
   const pointer = mesaPointer(record({ project: GENERAL_PROJECT }), PROFILE, '/Users/alexandra');
   expect(Buffer.byteLength(pointer)).toBeLessThan(1000);

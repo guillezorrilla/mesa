@@ -169,7 +169,7 @@ export function WorktreeSettingsPanel() {
         </SettingRow>
         <SettingRow
           title="Run setup"
-          description="Before a new session's agent starts, or in a setup window beside it."
+          description="Before a new session's agent starts, or in a Setup session beside it."
           htmlFor="worktree-setup-while"
           control={
             <NativeSelect
