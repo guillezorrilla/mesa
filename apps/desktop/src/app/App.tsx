@@ -18,6 +18,7 @@ import { sidebarGroups } from '@/features/sessions/sidebar/sidebarGroups';
 import { useReorderSessions } from '@/features/sessions/sidebar/useReorderSessions';
 import { useStartSession } from '@/features/sessions/start/useStartSession';
 import { type IdleDeliveryCommand, useIdleDelivery } from '@/features/sessions/useIdleDelivery';
+import { useKeepAwake } from '@/features/sessions/useKeepAwake';
 import { useRestoreSessions } from '@/features/sessions/useRestoreSessions';
 import { UnreadContext, useUnread } from '@/features/sessions/useUnread';
 import { OpenSettingsContext } from '@/features/settings/useOpenSettings';
@@ -143,6 +144,7 @@ function AppShell() {
   if (config.data?.sessions?.prEvents) delivery.push('prEvents.deliver');
   if (config.data?.sessions?.childReports) delivery.push('reports.deliver');
   useIdleDelivery(delivery, sessions);
+  const awake = useKeepAwake(config.data?.sessions?.keepAwake, sessions);
   const linkGuidance = useMesaLinks({
     session: (id) => navigateLatest({ kind: 'session', id }),
     clone: (url) => {
@@ -189,6 +191,7 @@ function AppShell() {
           doctor={doctor.data}
           onRecheck={doctor.refresh}
           profileMenu={profileMenu}
+          awake={awake}
         />
         {linkGuidance && (
           <p role="status" data-testid="mesa-link-guidance" className="px-6 py-2 text-sm">

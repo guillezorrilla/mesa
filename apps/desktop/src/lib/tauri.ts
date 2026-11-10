@@ -114,6 +114,7 @@ export const tauriPlatform: Platform = {
       }),
   },
   clipboard: { write: (text) => invoke('clipboard_write', { text }) },
+  awake: { hold: () => invoke('awake_hold'), release: () => invoke('awake_release') },
   updates: {
     status: () => invoke('update_status'),
     onStatus: (listener) =>

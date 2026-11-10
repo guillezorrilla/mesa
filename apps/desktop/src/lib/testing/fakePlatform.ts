@@ -141,10 +141,13 @@ export const fakePlatform = ({
 } = {}): Platform & {
   pasteboard: string[];
   badges: number[];
+  /** Each hold and release the app asked for, in order. */
+  awake: Platform['awake'] & { calls: ('hold' | 'release')[] };
   switched: string[];
 } => {
   const pasteboard: string[] = [];
   const badges: number[] = [];
+  const awake: ('hold' | 'release')[] = [];
   const switched: string[] = [];
   return {
     lifecycle,
@@ -159,6 +162,11 @@ export const fakePlatform = ({
     pasteboard,
     dock: { badge: async (count) => void badges.push(count) },
     badges,
+    awake: {
+      hold: async () => void awake.push('hold'),
+      release: async () => void awake.push('release'),
+      calls: awake,
+    },
     updates,
     menu,
     profiles: { switch: async (name) => void switched.push(name) },
