@@ -198,8 +198,10 @@ export function endSignals(
      * any within Mesa's deadline (DecisionAssistance.advise).
      */
     hookEvent: async (agent: string, payload: string) => {
+      // When the hook fired: an async hook's node may write after a later event's (#894).
+      const fired = () => ctx.processStartedAt ?? clock();
       const event = recordHookEvent(
-        { store, eventsDir: paths.events, clock, home, secrets: ctx.secretsOrRefuse },
+        { store, eventsDir: paths.events, clock: fired, home, secrets: ctx.secretsOrRefuse },
         { agent, mesaSessionId: windowId(env), payload },
       );
       const id = event?.mesaSessionId;
