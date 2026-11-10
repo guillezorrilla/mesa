@@ -1,6 +1,8 @@
 import { AGENTS } from '../../agents/agents.js';
 import type { Env } from '../../lib/process.js';
-import { GENERAL_PROJECT } from '../record/general.js';
+import { MesaError } from '../../lib/result.js';
+import { sessionFolder } from '../record/folder.js';
+import { GENERAL_PROJECT, projectScope } from '../record/general.js';
 import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
 
@@ -41,4 +43,15 @@ export function refreshReadings(
   } catch {
     return record;
   }
+}
+
+/**
+ * Where a project session's agent works now (refreshReadings): its refreshed record, its project
+ * and its folder. A General session has none.
+ */
+export function workingFolder(deps: { store: SessionStore; home: string; env: Env }, id: string) {
+  const found = refreshReadings(deps, deps.store.get(id));
+  const project = projectScope(found.project);
+  if (!project) throw new MesaError('usage', 'a General session has no project checkout');
+  return { found, project, folder: sessionFolder(found) };
 }

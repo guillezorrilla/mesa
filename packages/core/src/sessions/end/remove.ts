@@ -9,6 +9,7 @@ import { MesaError } from '../../lib/result.js';
 import type { Profile } from '../../profile/profile.js';
 import { findProject } from '../../projects/projects.js';
 import { costTally } from '../../usage/session-cost.js';
+import { reviewNotesFile } from '../input/review-notes.js';
 import {
   checkoutHolders,
   heldWorktrees,
@@ -48,8 +49,8 @@ export type Removed = {
 };
 
 /**
- * Removes a session's record, its hook log, its output log, a run's output, its cost tally, and
- * its decision assistance, with `deleteWorktree` its git worktree and each additional project's,
+ * Removes a session's record, its hook log, its output log, a run's output, its cost tally, its
+ * decision assistance and its review notes, with `deleteWorktree` its git worktree and each additional project's,
  * and with `deleteBranch` their branch, at once: it starts no Vault capture, which a turn's end
  * takes (#844). A queued session is refused, to be cancelled first; a live one is refused unless
  * `force`, which closes its window first. A worktree a newer session holds stays with it, with its
@@ -73,6 +74,8 @@ export async function removeSession(
     costs: string;
     /** The profile's sessions/decisions/, where a session's decision assistance is. */
     decisions: string;
+    /** The profile's review-notes/, where a session's review notes are. */
+    reviewNotes: string;
   },
   id: string,
   { force = false, deleteWorktree: askedWorktree = false, deleteBranch: dropBranch = false } = {},
@@ -167,6 +170,7 @@ export async function removeSession(
   rmSync(runInput(deps.runs, id), { force: true });
   rmSync(costTally(deps.costs, id), { force: true });
   rmSync(sessionDecisionsFile(deps.decisions, id), { force: true });
+  rmSync(reviewNotesFile(deps.reviewNotes, id), { force: true });
   deps.store.remove(id);
   return removed;
 }

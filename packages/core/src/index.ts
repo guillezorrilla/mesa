@@ -149,6 +149,12 @@ export type {
   ChangeReviewPreview,
 } from './sessions/input/change-review.js';
 export type { SessionImage } from './sessions/input/images.js';
+export type {
+  ListedNote,
+  NoteScope,
+  ReviewNote,
+  ReviewNoteInput,
+} from './sessions/input/review-notes.js';
 export type { ReviewDelivery, SavedReview } from './sessions/input/reviews.js';
 export type { Sent } from './sessions/input/send.js';
 export type {
