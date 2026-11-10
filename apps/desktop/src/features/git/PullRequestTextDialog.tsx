@@ -34,7 +34,11 @@ export function PullRequestTextDialog(props: {
       setWriting(false);
     }
   };
+  // Once per opening: StrictMode's second mount must not start a second agent run.
+  const started = useRef(false);
   useEffect(() => {
+    if (started.current) return;
+    started.current = true;
     void generate.current();
   }, []);
   const copy = (label: string, text: string) => (
