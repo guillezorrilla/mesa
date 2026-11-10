@@ -29,12 +29,15 @@ test('hooks install, status, uninstall, and a hook appending its payload', async
     event: null,
   });
   cli.env = { MESA_SESSION_ID: 'aaaaaaaa' };
+  // Its `at` is when the hook process started, as an async hook's node may finish late (#894).
+  cli.deps = { processStartedAt: new Date('2026-11-10T09:00:00.000Z') };
   expect((await mesa('hook', 'claude', '--json')).json.data).toEqual({
     recorded: true,
     event: 'Stop',
   });
   const log = readFileSync(join(cli.paths.events, 'aaaaaaaa.jsonl'), 'utf8');
   expect(JSON.parse(log)).toMatchObject({
+    at: '2026-11-10T09:00:00.000Z',
     agent: 'claude',
     event: 'Stop',
     agentSessionId: 'uuid-1',
@@ -68,6 +71,19 @@ test('hooks an older mesa wrote need an update, in hooks status and doctor, unti
   expect(claude).toMatchObject({ status: 'warn', hint: update });
   await mesa('hooks', 'install');
   expect((await mesa('hooks', 'status')).stdout).not.toContain(update);
+});
+
+test('hooks installed before PostToolUse went async need an update until install', async () => {
+  await mesa('init', '--vault', 'vault');
+  await mesa('hooks', 'install');
+  const path = join(cli.home, '.claude/settings.json');
+  const settings = JSON.parse(readFileSync(path, 'utf8'));
+  delete settings.hooks.PostToolUse[0].hooks[0].async;
+  writeFileSync(path, JSON.stringify(settings));
+  expect((await mesa('hooks', 'status', '--json')).json.data.needsUpdate).toBe(true);
+  await mesa('hooks', 'install');
+  expect((await mesa('hooks', 'status', '--json')).json.data.needsUpdate).toBe(false);
+  expect(JSON.parse(readFileSync(path, 'utf8')).hooks.PostToolUse[0].hooks[0].async).toBe(true);
 });
 
 test('SessionStart gives only the owning native session a bounded Mesa pointer', async () => {

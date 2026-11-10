@@ -157,7 +157,10 @@ function findRecord(store: SessionStore, id: string) {
   }
 }
 
-/** The session's hook events, oldest first; a bounded read drops an incomplete first line. */
+/**
+ * The session's hook events, oldest first by `at`: an async hook can append after a later one
+ * (#894). A bounded read drops an incomplete first line.
+ */
 export function readHookEvents(eventsDir: string, id: string, maxBytes?: number): HookEvent[] {
   if (!isSessionId(id)) return [];
   const file = eventsLog(eventsDir, id);
@@ -180,10 +183,13 @@ export function readHookEvents(eventsDir: string, id: string, maxBytes?: number)
     text = buffer.subarray(0, read).toString('utf8');
     text = text.slice(text.indexOf('\n') + 1);
   } else text = readFileSync(file, 'utf8');
-  return text.split('\n').flatMap((line) => {
-    const event = parseHookEvent(line);
-    return event ? [event] : [];
-  });
+  return text
+    .split('\n')
+    .flatMap((line) => {
+      const event = parseHookEvent(line);
+      return event ? [event] : [];
+    })
+    .sort((a, b) => a.at.localeCompare(b.at));
 }
 
 function parseHookEvent(line: string): HookEvent | undefined {
