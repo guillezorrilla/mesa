@@ -55,6 +55,7 @@ import {
 } from './notifications.js';
 import { obsidianManager, obsidianVaults } from './obsidian.js';
 import { open } from './open.js';
+import { ports } from './ports.js';
 import { prEvents } from './pr-events.js';
 import {
   profile,
@@ -195,6 +196,7 @@ export const COMMANDS: Command[] = [
   notificationsDelivered,
   open,
   worker,
+  ports,
   prEvents,
   report,
   reports,
