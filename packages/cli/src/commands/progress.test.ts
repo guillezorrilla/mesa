@@ -36,5 +36,8 @@ test('progress outside a Mesa session without --session is a usage error', async
   const result = await cli.mesa('progress', 'Running the tide-table tests', '--json');
   expect(result.code).toBe(2);
   expect(result.json.error.message).toContain('--session');
-  expect((await cli.mesa('progress', '--json')).code).toBe(2);
+});
+
+test('progress needs either the text or --clear', async () => {
+  expect((await cli.mesa('progress', '--session', await open(), '--json')).code).toBe(2);
 });

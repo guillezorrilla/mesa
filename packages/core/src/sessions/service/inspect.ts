@@ -253,7 +253,7 @@ export function inspectActions(
      */
     progress: (text: string | undefined, session?: string) => {
       const id = session ?? deps.caller().session?.id;
-      if (!id) throw new MesaError('usage', 'not in a Mesa session: pass --session <id>');
+      if (!id) throw new MesaError('usage', 'not in a Mesa session: name one with --session <id>');
       return setProgress(store, id, text, ctx.clock().toISOString());
     },
     /**

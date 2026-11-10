@@ -35,11 +35,12 @@ export function setWorkflowStatus(store: SessionStore, id: string, status: strin
 const PROGRESS_MAX = 120;
 
 /**
- * Sets a session's Progress line, one plain line of at most 120 characters, or clears it with
- * `text` undefined; a line with nothing left once cleaned is refused.
+ * Sets a session's Progress line, one plain line of at most PROGRESS_MAX characters, or clears it
+ * with `text` undefined; a line with nothing left once cleaned is refused.
  */
 export function setProgress(store: SessionStore, id: string, text: string | undefined, at: string) {
-  const line = text === undefined ? undefined : short(text, PROGRESS_MAX);
-  if (line === '') throw new MesaError('usage', 'the progress line is empty');
-  return store.update(id, { progress: line === undefined ? undefined : { text: line, at } });
+  if (text === undefined) return store.update(id, { progress: undefined });
+  const line = short(text, PROGRESS_MAX);
+  if (!line) throw new MesaError('usage', 'the progress line is empty');
+  return store.update(id, { progress: { text: line, at } });
 }
