@@ -32,7 +32,7 @@ import {
 } from '../../testing/index.js';
 import { readNote } from '../notes.js';
 import { CAPTURE_EVERY_MS, CAPTURE_MIN_MESSAGES } from './claim.js';
-import { captureItems } from './items.js';
+import { CAPTURE_MAX_ITEMS, captureItems } from './items.js';
 
 // Vault capture (CONTEXT.md): a turn's end, once enough has been said since the last capture,
 // starts one vault-capture run over the new conversation, and the run's end lands its decisions
@@ -595,14 +595,15 @@ test('mesa vault capture runs it by hand, waited for, past the turn throttle, an
   await expect(w.mesa.vault.capture(terminal.id)).rejects.toMatchObject({ code: 'usage' });
 });
 
-test('a run that returns more than 5 items keeps its first 5', () => {
-  const notes = Array.from({ length: 6 }, (_, n) => ({
+test('a run that returns more than 3 items keeps its first 3', () => {
+  expect(CAPTURE_MAX_ITEMS).toBe(3);
+  const notes = Array.from({ length: CAPTURE_MAX_ITEMS + 1 }, (_, n) => ({
     kind: 'note',
     title: `Tide ${n}`,
     body: 'x',
   }));
   expect(captureItems(JSON.stringify(notes)).map((i) => i.title)).toEqual(
-    notes.slice(0, 5).map((n) => n.title),
+    notes.slice(0, CAPTURE_MAX_ITEMS).map((n) => n.title),
   );
 });
 

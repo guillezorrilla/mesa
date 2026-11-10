@@ -2,10 +2,10 @@ import { z } from 'zod';
 import { MesaError } from '../../lib/result.js';
 import { VAULT_CAPTURE } from '../../skills/library.js';
 
-// What a vault-capture run returns (skills/vault-capture): at most 5 decisions and notes, as JSON.
+// What a vault-capture run returns (skills/vault-capture): at most CAPTURE_MAX_ITEMS decisions and notes, as JSON.
 
 /** The most items one capture saves. */
-export const CAPTURE_MAX_ITEMS = 5;
+export const CAPTURE_MAX_ITEMS = 3;
 
 const text = z.string().trim().min(1);
 const unit = z.number().min(0).max(1);
@@ -24,7 +24,7 @@ const CaptureItemSchema = z.discriminatedUnion('kind', [
 ]);
 export type CaptureItem = z.infer<typeof CaptureItemSchema>;
 
-// The skill lists the most durable first, so a run that returns more keeps its first 5.
+// The skill lists the most durable first, so a run that returns more keeps its first CAPTURE_MAX_ITEMS.
 const CaptureSchema = z
   .array(CaptureItemSchema)
   .transform((items) => items.slice(0, CAPTURE_MAX_ITEMS));
