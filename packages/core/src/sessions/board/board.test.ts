@@ -904,3 +904,46 @@ test("a row carries its main agent's newest Stop reply; a subagent's is not one"
   });
   expect(byId.get(quiet.id)).not.toHaveProperty('lastReply');
 });
+
+test("an ended session's card keeps its last reply, read from its hook log once and kept on its record", async () => {
+  const store = storeIn();
+  const ended = store.create(() => ({
+    ...inWindow('lantern-cove', '2026-09-24T11:59:00.000Z', 'claude-aaaaaa'),
+    endedAt: '2026-09-24T11:59:50.000Z',
+  }));
+  const silent = store.create(() => ({
+    ...inWindow('tide', '2026-09-24T11:59:00.000Z', 'claude-bbbbbb'),
+    endedAt: '2026-09-24T11:59:50.000Z',
+  }));
+  const reads: string[] = [];
+  const look = () =>
+    listSessions({
+      ...noListing,
+      store,
+      tmux: tmuxWith(),
+      events: (id) => {
+        reads.push(id);
+        return id === ended.id
+          ? [
+              {
+                at: '2026-09-24T11:59:40.000Z',
+                agent: 'claude',
+                event: 'Stop',
+                payload: { hook_event_name: 'Stop', last_assistant_message: 'Merged the tide PR.' },
+              },
+            ]
+          : [];
+      },
+      clock: fixedClock('2026-09-24T12:00:00.000Z'),
+    });
+  const reply = { text: 'Merged the tide PR.', at: '2026-09-24T11:59:40.000Z' };
+  const first = new Map((await look()).map((row) => [row.id, row]));
+  expect(first.get(ended.id)).toMatchObject({ lastReply: reply });
+  expect(first.get(silent.id)).not.toHaveProperty('lastReply');
+  expect(store.get(ended.id).finalReply).toEqual(reply);
+  expect(store.get(silent.id).finalReply).toBeNull();
+  const before = reads.length;
+  const second = new Map((await look()).map((row) => [row.id, row]));
+  expect(second.get(ended.id)).toMatchObject({ lastReply: reply });
+  expect(reads).toHaveLength(before);
+});

@@ -35,6 +35,26 @@ const RECENT_MS = 24 * 60 * 60 * 1000;
 export type SessionScope = 'board' | 'all' | 'archived';
 
 /**
+ * An ended session's last reply: the one its record kept (`finalReply`), else read from its hook
+ * log once and kept, null when it had none, so its log is not read again. A locked record is not
+ * waited for: this look shows the reply, the next one keeps it.
+ */
+function finalReply(
+  store: SessionStore,
+  found: SessionRecord,
+  events: (id: string) => HookEvent[],
+) {
+  if (found.finalReply !== undefined) return found.finalReply ?? undefined;
+  const reply = lastReply(events(found.id));
+  try {
+    store.update(found.id, { finalReply: reply ?? null }, { wait: false });
+  } catch {
+    // Locked, or removed meanwhile.
+  }
+  return reply;
+}
+
+/**
  * The profile's sessions in `scope` merged with live tmux and the agent listing: those not
  * archived and not stopped, or stopped within a day; every one with `all`; or only the archived
  * ones, newest archive first, with `archived`. Then, but for `archived`, the listed sessions none
@@ -147,8 +167,9 @@ export async function listSessions(
       });
       const kept = takenOver(found, holders);
       const reportsTo = parents.get(found.id);
-      // An ended session's hook log is not read again (managedRow): its card keeps no reply.
-      const reply = found.endedAt ? undefined : lastReply(events(found.id));
+      const reply = found.endedAt
+        ? finalReply(deps.store, found, events)
+        : lastReply(events(found.id));
       const row = {
         ...base,
         ...(reportsTo === undefined ? {} : { parentNow: reportsTo }),

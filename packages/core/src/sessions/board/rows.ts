@@ -35,9 +35,15 @@ export type ManagedRow = { hasOutputLog?: boolean } & SessionRecord &
     conversation?: true;
     /** Who placed its state, the rules or the chosen model, and that model's reply (#461). */
     supervision: Supervision;
-    /** Its main agent's newest reply that ended a turn (stopReply), as its hook log keeps it. */
+    /**
+     * Its main agent's newest reply that ended a turn (stopReply), as its hook log keeps it; once
+     * it ended, the one its record kept (`finalReply`).
+     */
     lastReply?: { text: string; at: string };
-    /** The lines its checkout added and removed since it left its base (lineCounts). */
+    /**
+     * The lines its checkout added and removed since it left its base, untracked files too, as
+     * its crew row counts them (lineCounts).
+     */
     lines?: LineCounts;
     /** The pull request of its branch in its project's repository (withPullRequests). */
     pr?: BranchPullRequest;

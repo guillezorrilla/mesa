@@ -1,14 +1,15 @@
 import { statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { z } from 'zod';
+import { readSessionDiff } from '../../git/branch-diff.js';
 import { gitCommand } from '../../git/command.js';
+import { diffCounts } from '../../git/diff.js';
 import { changeJson, readCache } from '../../lib/json-file.js';
 import type { LockDeps } from '../../lib/lock-file.js';
 import { mapLimit } from '../../lib/map-limit.js';
 import type { Runner } from '../../lib/process.js';
 import type { Profile } from '../../profile/profile.js';
 import { findProject } from '../../projects/projects.js';
-import { sessionDiffBase } from '../../worktrees/base.js';
 import { sessionFolder } from '../record/folder.js';
 import { projectScope } from '../record/general.js';
 import type { ManagedRow, SessionRow } from './rows.js';
@@ -22,12 +23,6 @@ const Cache = z
     z.strictObject({ key: z.string(), at: z.string(), added: z.number(), removed: z.number() }),
   )
   .describe('line counts');
-
-/** Added and removed lines from `git diff --shortstat`; none changed reads as zero. */
-export function shortstat(output: string): LineCounts {
-  const count = (what: RegExp) => Number(output.match(what)?.[1] ?? 0);
-  return { added: count(/(\d+) insertions?\(\+\)/), removed: count(/(\d+) deletions?\(-\)/) };
-}
 
 type Deps = LockDeps & { run: Runner; profile: () => Profile; file: string };
 
@@ -57,28 +52,18 @@ async function stateKey(run: Runner, folder: string, row: ManagedRow) {
   return `${head}:${mtime}:${row.lastState.at}`;
 }
 
-/** `git diff --shortstat <merge-base>` in the checkout, against the base `mesa diff` uses. */
-async function measure(deps: Deps, row: ManagedRow, project: string, folder: string) {
-  const base = await sessionDiffBase(deps.profile(), deps.run, { ...row, project, folder });
-  if (!base) return undefined;
-  const mergeBase = await gitCommand(deps.run, folder, ['merge-base', base, 'HEAD']);
-  if (!mergeBase.ok) return undefined;
-  const stat = await gitCommand(
-    deps.run,
-    folder,
-    ['diff', '--shortstat', mergeBase.stdout.trim(), '--'],
-    30_000,
-  );
-  return stat.ok ? shortstat(stat.stdout) : undefined;
-}
+/** The checkout's diff as `mesa diff` reads it (readSessionDiff), counted as its crew row is. */
+const measure = async (deps: Deps, row: ManagedRow, project: string, folder: string) =>
+  diffCounts((await readSessionDiff(deps.profile(), deps.run, { ...row, project, folder })).rows);
 
 /** How many sessions' checkouts a look reads at once. */
 const AT_ONCE = 4;
 
 /**
- * Each Mesa session row with the lines its checkout added and removed since its base (committed
- * and uncommitted, untracked files aside), cached in `file` per session by its checkout's HEAD,
- * index mtime and its last state change, so a look with nothing changed runs no diff. A session
+ * Each Mesa session row with the lines its checkout added and removed since its base (committed,
+ * uncommitted and untracked, as its crew row counts them), cached in `file` per session by its
+ * checkout's HEAD, index mtime and its last state change, so a look with nothing changed runs no
+ * diff. A session
  * at rest whose state has not changed since its count is not read again (as its readings are
  * not: listSessions); an ended one keeps its last count; a General or terminal session, or a
  * checkout Git cannot read, has none. Four checkouts are read at once.
