@@ -162,8 +162,29 @@ test('a look while another lists the project reuses its claim, with no gh of its
   };
   await withPullRequests({ ...deps, run }, rows);
   await during;
+  // One look's gh in all: the second asks nothing, not even gh auth status.
   expect(calls.filter((args) => args[0] === 'pr')).toHaveLength(1);
+  expect(calls.filter((args) => args[0] === 'auth')).toHaveLength(1);
   expect(prs(await withPullRequests(deps, rows))[0]).toMatchObject({ number: 12 });
+});
+
+test('a list that fails keeps the last good one, still marked cut at the limit', async () => {
+  const { deps, calls, row, later } = setUp('ready', FULL);
+  const rows = [row('aaaaaaaa', 'old-tides')];
+  await withPullRequests(deps, rows);
+  const cache = () => JSON.parse(readFileSync(deps.file, 'utf8'))['lantern-cove'];
+  expect(cache().limited).toBe(true);
+  later(61);
+  const failing: Runner = (file, args, ms, options) =>
+    file === 'gh' && args[0] === 'pr' && !args.includes('--head')
+      ? Promise.resolve({ ok: false, reason: 'failed', detail: 'HTTP 502' })
+      : deps.run(file, args, ms, options);
+  expect(prs(await withPullRequests({ ...deps, run: failing }, rows))[0]).toMatchObject({
+    number: 3,
+  });
+  expect(cache()).toMatchObject({ limited: true, at: deps.clock().toISOString() });
+  // #3, found by --head before, is in the kept list: no new ask.
+  expect(calls.filter((args) => args.includes('--head'))).toHaveLength(1);
 });
 
 test('each write drops projects no longer registered and entries over a day old', async () => {

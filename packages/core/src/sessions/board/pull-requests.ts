@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ghState } from '../../git/gh.js';
 import {
+  branchPullRequests,
   HttpsUrl,
   listPullRequests,
   matchBranches,
@@ -43,7 +44,8 @@ const Cache = z
     }),
   )
   .describe('pull request branches');
-type Entry = z.infer<typeof Cache>[string];
+type Cache = z.infer<typeof Cache>;
+type Entry = Cache[string];
 
 /** How long one project's `gh pr list` is reused: the app looks every 2 s, each a new process. */
 const FRESH_MS = 60_000;
@@ -72,21 +74,104 @@ export const cardState = (
       ? 'merged'
       : 'closed';
 
+type Deps = LockDeps & { run: Runner; profile: () => Profile; file: string };
+
+/** How long ago `entry` was listed, at `now`. */
+const age = (entry: Entry, now: Date) => now.getTime() - Date.parse(entry.at);
+
+/**
+ * Changes `file` under its lock, dropping the projects no longer registered (all kept when the
+ * registry cannot be read) and entries over a day old: the cache written, or undefined when the
+ * lock is busy.
+ */
+function saveCache(deps: Deps, now: Date, change: (current: Cache) => void): Cache | undefined {
+  let names: Set<string> | undefined;
+  try {
+    names = new Set(readRegistry(deps.profile().paths.registry).map((entry) => entry.name));
+  } catch {
+    // Pruned by age alone this time.
+  }
+  try {
+    return changeJson(
+      deps.file,
+      Cache,
+      (current = {}) => {
+        const kept = Object.fromEntries(
+          Object.entries(current).filter(
+            ([project, entry]) => (names?.has(project) ?? true) && age(entry, now) < KEEP_MS,
+          ),
+        );
+        change(kept);
+        return kept;
+      },
+      deps,
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Claims each of `stale` still stale under the lock, its entry dated `now` and otherwise kept, so
+ * a look meanwhile reuses the last list: the projects this look lists, and the cache. A busy lock
+ * claims none and lists them all, as before claims.
+ */
+function claimStale(deps: Deps, now: Date, stale: readonly string[]) {
+  const at = now.toISOString();
+  const claimed: string[] = [];
+  const cache = saveCache(deps, now, (current) => {
+    for (const project of stale) {
+      const entry = current[project];
+      if (entry && age(entry, now) < FRESH_MS) continue;
+      claimed.push(project);
+      current[project] = { pullRequests: [], ...entry, at, asked: [] };
+    }
+  });
+  return cache ? { mine: claimed, cache } : { mine: [...stale], cache: undefined };
+}
+
+/**
+ * Asks `gh pr list --head` for `asks`, claimed first in each project's `asked` (a failed ask counts
+ * as none until the project is listed again, as a failed list keeps the last one): the pull
+ * requests found, by project.
+ */
+async function askMissed(
+  deps: Deps,
+  now: Date,
+  asks: readonly { project: string; branch: string }[],
+  pathOf: (project: string) => Promise<string>,
+) {
+  const claimed: { project: string; branch: string }[] = [];
+  saveCache(deps, now, (current) => {
+    for (const ask of asks) {
+      const entry = current[ask.project];
+      if (!entry || entry.asked?.includes(ask.branch)) continue;
+      entry.asked = [...(entry.asked ?? []), ask.branch];
+      claimed.push(ask);
+    }
+  });
+  return Promise.all(
+    claimed.map(({ project, branch }) =>
+      pathOf(project)
+        .then((path) => branchPullRequests(deps.run, path, branch))
+        .then((list) => ({ project, prs: list.ok ? list.pullRequests.map(listedOf) : [] }))
+        .catch(() => ({ project, prs: [] })),
+    ),
+  );
+}
+
 /**
  * Each Mesa session row on a branch with a pull request in its project's repository, with that
  * pull request: the newest, as `gh pr list` orders them, matched by branch name (matchBranches, so
  * never a fork's). One `gh pr list` per project, the projects side by side, kept in `file` for
- * 60 s; a look claims a project in `file` before listing it, so a look meanwhile reuses the last
- * list rather than starting its own. A list cut at gh's limit leaves a branch it misses to
- * `--head`, at most 5 a look, each kept for the list's 60 s. With `gh` missing or logged out,
- * none, kept for the 60 s too; a list that fails keeps the last good one. Each write drops the
- * projects no longer registered and entries over a day old. A project that cannot be read, or any
- * other failure, gives its rows none and the look goes on.
+ * 60 s; a look claims a project in `file` before it asks gh anything, so a look meanwhile reuses
+ * the last list rather than starting its own. A list cut at gh's limit leaves a branch it misses
+ * to `--head`, at most 5 a look, each answer kept for the list's 60 s. With `gh` missing or logged
+ * out, none, kept for the 60 s too; a list that fails keeps the last good one. Each write drops
+ * the projects no longer registered and entries over a day old. A project that cannot be read, or
+ * any other failure, gives its rows none and the look goes on.
  */
-export async function withPullRequests(
-  deps: LockDeps & { run: Runner; profile: () => Profile; file: string },
-  rows: SessionRow[],
-): Promise<SessionRow[]> {
+export async function withPullRequests(deps: Deps, rows: SessionRow[]): Promise<SessionRow[]> {
   try {
     const branches = new Map<string, Map<string, string[]>>();
     for (const row of rows) {
@@ -99,112 +184,74 @@ export async function withPullRequests(
     if (!branches.size) return rows;
     const now = deps.clock();
     const at = now.toISOString();
-    const fresh = (entry: Entry | undefined) =>
-      entry !== undefined && now.getTime() - Date.parse(entry.at) < FRESH_MS;
-    const registered = () =>
-      new Set(readRegistry(deps.profile().paths.registry).map((e) => e.name));
-    /** Changes `file` under its lock, pruned; undefined when another process holds it. */
-    const save = (change: (current: Record<string, Entry>) => void) => {
-      try {
-        changeJson(
-          deps.file,
-          Cache,
-          (current = {}) => {
-            const names = registered();
-            const kept = Object.fromEntries(
-              Object.entries(current).filter(
-                ([project, entry]) =>
-                  names.has(project) && now.getTime() - Date.parse(entry.at) < KEEP_MS,
-              ),
-            );
-            change(kept);
-            return kept;
-          },
-          deps,
-        );
-        return true;
-      } catch {
-        return false;
-      }
-    };
+    let known = readCache(deps.file, Cache, {});
+    const stale = [...branches.keys()].filter(
+      (project) => !known[project] || age(known[project], now) >= FRESH_MS,
+    );
     const pathOf = (project: string) =>
       Promise.resolve().then(() => findProject(deps.profile(), project).path);
-    let known = readCache(deps.file, Cache, {});
-    const stale = [...branches.keys()].filter((project) => !fresh(known[project]));
-    const ready = stale.length > 0 && (await ghState(deps.run)).state === 'ready';
-    // Claim first, keeping the last list; a busy file lists anyway, as before claims.
-    let mine = stale;
-    save((current) => {
-      mine = stale.filter((project) => !fresh(current[project]));
-      for (const project of mine)
-        current[project] = { pullRequests: current[project]?.pullRequests ?? [], at };
-      known = { ...current };
-    });
-    const listed = await Promise.all(
-      mine.map(async (project) => {
-        // A project that cannot be read (no longer registered) lists none, alone.
-        const list = ready
-          ? await pathOf(project)
-              .then((path) => listPullRequests(deps.run, path))
-              .catch(() => undefined)
-          : undefined;
-        const entry: Entry = list?.ok
-          ? {
-              at,
-              pullRequests: list.pullRequests.map(listedOf),
-              ...(list.limited ? { limited: true as const } : {}),
-            }
-          : // gh not ready: none. A list that failed: the last good one, asked again in 60 s.
-            { at, pullRequests: ready ? (known[project]?.pullRequests ?? []) : [] };
-        return [project, entry] as const;
-      }),
-    );
-    if (listed.length) {
-      known = { ...known, ...Object.fromEntries(listed) };
-      save((current) => Object.assign(current, Object.fromEntries(listed)));
+    // Asked once a look, and only once this look has gh work of its own.
+    let ready: Promise<boolean> | undefined;
+    const ghReady = () => {
+      ready ??= ghState(deps.run).then((gh) => gh.state === 'ready');
+      return ready;
+    };
+    if (stale.length) {
+      const { mine, cache } = claimStale(deps, now, stale);
+      if (cache) known = cache;
+      const ok = mine.length > 0 && (await ghReady());
+      const listed = await Promise.all(
+        mine.map(async (project): Promise<[string, Entry]> => {
+          // A project that cannot be read (no longer registered) lists none, alone.
+          const list = ok
+            ? await pathOf(project)
+                .then((path) => listPullRequests(deps.run, path))
+                .catch(() => undefined)
+            : undefined;
+          if (list?.ok)
+            return [
+              project,
+              {
+                at,
+                pullRequests: list.pullRequests.map(listedOf),
+                ...(list.limited ? { limited: true as const } : {}),
+              },
+            ];
+          // gh not ready: none. A list that failed: the last good one, asked again in 60 s.
+          return [
+            project,
+            ok ? { pullRequests: [], ...known[project], at } : { at, pullRequests: [] },
+          ];
+        }),
+      );
+      if (listed.length) {
+        const lists = Object.fromEntries(listed);
+        known = { ...known, ...lists };
+        saveCache(deps, now, (current) => Object.assign(current, lists));
+      }
     }
-    // A list cut at the limit: the branches it misses, asked one by one, claimed the same way.
-    const matched = (project: string) =>
-      new Set(
-        (known[project]?.pullRequests ?? [])
-          .filter((pr) => !pr.isCrossRepository)
-          .map((pr) => pr.headRefName),
-      );
-    const missed = [...branches].flatMap(([project, bySession]) => {
-      const entry = known[project];
-      if (!entry?.limited) return [];
-      const has = matched(project);
-      return [...bySession.keys()]
-        .filter((branch) => !has.has(branch) && !entry.asked?.includes(branch))
-        .map((branch) => ({ project, branch }));
-    });
-    let asks = missed.slice(0, ASK_AT_ONCE);
-    if (asks.length && (await ghState(deps.run)).state === 'ready') {
-      save((current) => {
-        asks = asks.filter(({ project, branch }) => {
-          const entry = current[project];
-          if (!entry || entry.asked?.includes(branch)) return false;
-          entry.asked = [...(entry.asked ?? []), branch];
-          return true;
-        });
-      });
-      const found = await Promise.all(
-        asks.map(({ project, branch }) =>
-          pathOf(project)
-            .then((path) => listPullRequests(deps.run, path, branch))
-            .then((list) => ({ project, prs: list.ok ? list.pullRequests.map(listedOf) : [] }))
-            .catch(() => ({ project, prs: [] })),
-        ),
-      );
-      const add = (target: Record<string, Entry>) => {
+    // A list cut at gh's limit: the branches it misses, asked one by one.
+    const asks = [...branches]
+      .flatMap(([project, bySession]) => {
+        const entry = known[project];
+        if (!entry?.limited) return [];
+        const listed = new Set(entry.pullRequests.map((pr) => pr.headRefName));
+        return [...bySession.keys()]
+          .filter((branch) => !listed.has(branch) && !entry.asked?.includes(branch))
+          .map((branch) => ({ project, branch }));
+      })
+      .slice(0, ASK_AT_ONCE);
+    if (asks.length && (await ghReady())) {
+      const found = (await askMissed(deps, now, asks, pathOf)).filter(({ prs }) => prs.length);
+      const add = (cache: Cache) => {
         for (const { project, prs } of found) {
-          const entry = target[project];
-          if (entry) target[project] = { ...entry, pullRequests: [...entry.pullRequests, ...prs] };
+          const entry = cache[project];
+          if (entry) cache[project] = { ...entry, pullRequests: [...entry.pullRequests, ...prs] };
         }
       };
-      known = { ...known };
+      known = structuredClone(known);
       add(known);
-      if (found.some(({ prs }) => prs.length)) save(add);
+      if (found.length) saveCache(deps, now, add);
     }
     const prOf = new Map<string, BranchPullRequest>();
     for (const [project, bySession] of branches) {
