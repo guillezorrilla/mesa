@@ -7,7 +7,7 @@ import type { IdSource } from '../../lib/ids.js';
 import type { LockDeps } from '../../lib/lock-file.js';
 import { shellWord } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
-import { claudeRunModel, isPipelineSkill } from '../../skills/library.js';
+import { claudeRunModel, isPipelineSkill, isTextOnlySkill } from '../../skills/library.js';
 import type { SkillRow } from '../../skills/sync.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import type { SessionRecord } from '../record/record.js';
@@ -106,10 +106,13 @@ export async function startRun(deps: RunDeps, input: RunInput) {
   const prompt = runPrompt(spec.headless.skillPrefix, input.skill, input.args);
   const agentSessionId = newSessionId(agent, deps.newUuid);
   const model = claudeRunModel(input.skill);
+  const textOnly = isTextOnlySkill(input.skill);
   const may = {
-    ...deps.profile.config.run,
+    // A text-only run is allowed nothing the profile allows, and asks for nothing (ADR-0013).
+    ...(textOnly ? { permissionMode: 'default', allowedTools: [] } : deps.profile.config.run),
     // A pipeline skill's output is landed by core (ADR-0006), so its run gets no vault writes.
     readOnlyVault: isPipelineSkill(input.skill),
+    ...(textOnly ? { textOnly } : {}),
     ...(model ? { model } : {}),
   };
   const command = (id: string) =>

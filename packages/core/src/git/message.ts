@@ -32,9 +32,9 @@ export type GitTextRunner = (
 
 /**
  * The commit message for the checkout's staged changes, from the project's
- * `git.commitMessageRecipe` (else the profile's) with `{stagedPatch}` (fenced as data, cut at
- * 200 KB), `{stagedFiles}`, `{branch}` and `{recentCommits}` (the last 10 subjects) filled in.
- * usage, before any run starts, when nothing is staged.
+ * `git.commitMessageRecipe` (else the profile's) with `{stagedPatch}` (cut at 200 KB),
+ * `{stagedFiles}`, `{branch}` and `{recentCommits}` (the last 10 subjects) filled in, each fenced
+ * as data. Refuses with usage, before any run starts, when nothing is staged.
  */
 export async function writeCommitMessage(
   profile: Profile,
@@ -62,11 +62,12 @@ export async function writeCommitMessage(
   );
   const recipe =
     readProjectFile(entry.path).git?.commitMessageRecipe ?? profile.config.git.commitMessageRecipe;
+  // Every value is fenced: a file name, branch or commit subject is as anyone wrote it.
   const input = fillRecipe(recipe, {
     stagedPatch: dataFence('diff', cutPatch(patch)),
-    stagedFiles: files.trimEnd(),
-    branch: await currentBranch(run, checkout.path),
-    recentCommits: await recentSubjects(run, checkout.path),
+    stagedFiles: dataFence('text', files.trimEnd()),
+    branch: dataFence('text', await currentBranch(run, checkout.path)),
+    recentCommits: dataFence('text', await recentSubjects(run, checkout.path)),
   });
   return textOf(runText, entry.name, input, opts.agent);
 }
@@ -84,12 +85,7 @@ async function recentSubjects(run: Runner, path: string) {
 }
 
 /** One `git-text` run on `project` with `input` on its stdin: its answer, trimmed, and the run. */
-export async function textOf(
-  runText: GitTextRunner,
-  project: string,
-  input: string,
-  agent?: string,
-) {
+async function textOf(runText: GitTextRunner, project: string, input: string, agent?: string) {
   const { result } = await runText(GIT_TEXT, { project, input, ...(agent ? { agent } : {}) });
   const run: GitTextRunInfo = {
     session: result.session,

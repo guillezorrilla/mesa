@@ -1,5 +1,5 @@
 import { defineCommand } from '../command.js';
-import { AS_FLAG, requireTty, ticketStartOf } from '../input/flags.js';
+import { AGENT_FLAG, AS_FLAG, requireTty, ticketStartOf } from '../input/flags.js';
 import { recordedOutput } from '../output/recorded.js';
 
 export const open = defineCommand({
@@ -8,11 +8,7 @@ export const open = defineCommand({
   args: ['project?'],
   flags: {
     general: { type: 'boolean', description: 'Start without a project in the profile home folder' },
-    agent: {
-      type: 'string',
-      description:
-        'claude, codex, or antigravity; default: the project mesa.yaml, else the profile default',
-    },
+    agent: AGENT_FLAG,
     attach: { type: 'boolean', description: 'Attach this terminal to the new window' },
     terminal: { type: 'boolean', description: 'Start a plain shell session with no coding agent' },
     run: {

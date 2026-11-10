@@ -1,6 +1,6 @@
 import { duration, EXIT_CODES, listPrice } from '@mesa/core';
 import { defineCommand } from '../command.js';
-import { wholeNumber } from '../input/flags.js';
+import { AGENT_FLAG, wholeNumber } from '../input/flags.js';
 import { recordedOutput } from '../output/recorded.js';
 
 export const run = defineCommand({
@@ -16,11 +16,7 @@ export const run = defineCommand({
       description:
         'Read this session output log; use its project, and write session-summary to wiki/sessions/<id>.md',
     },
-    agent: {
-      type: 'string',
-      description:
-        'claude, codex, or antigravity; default: the project mesa.yaml, else the profile default',
-    },
+    agent: AGENT_FLAG,
     timeout: {
       type: 'string',
       description:

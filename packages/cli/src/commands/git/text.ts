@@ -1,11 +1,5 @@
 import { defineCommand } from '../../command.js';
-import { CHECKOUT_FLAG } from '../../input/flags.js';
-
-const AGENT_FLAG = {
-  type: 'string',
-  description:
-    'claude, codex, or antigravity; default: the project mesa.yaml, else the profile default',
-} as const;
+import { AGENT_FLAG, CHECKOUT_FLAG } from '../../input/flags.js';
 
 export const gitMessage = defineCommand({
   name: 'git message',

@@ -203,6 +203,8 @@ export function GitTab(props: {
                 )}
               </section>
               <GitCommitBox
+                // A message generated for one checkout never lands in another's box.
+                key={checkout}
                 canCommit={sections.some((section) => section.title === 'Staged')}
                 acting={acting}
                 stashesOpen={panel === 'stashes'}

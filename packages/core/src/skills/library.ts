@@ -28,6 +28,12 @@ export const isPipelineSkill = (skill: string) => PIPELINE_SKILLS.includes(skill
  * The Claude model a skill's run uses instead of the person's default: Haiku for a Vault capture,
  * at about a twentieth of Opus's cost per run (ADR-0023, docs/spikes/token-usage.md).
  */
+/**
+ * Whether a skill's run answers from its stdin alone, with no tool that changes a file or runs a
+ * command: git-text, whose stdin holds a patch anyone could have written.
+ */
+export const isTextOnlySkill = (skill: string) => skill === GIT_TEXT;
+
 export const claudeRunModel = (skill: string) => (skill === VAULT_CAPTURE ? 'haiku' : undefined);
 
 /** A skill's own file, read by both agents. */

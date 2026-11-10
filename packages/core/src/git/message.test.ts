@@ -48,6 +48,7 @@ test('the fence outgrows any backticks in the patch, and a long patch is cut at 
 
 test('a commit message comes from a git-text run given the filled recipe on stdin, and nothing is committed', async () => {
   const { dir, mesa, world, inputs } = setUp();
+  mesa.config.set('run.allowedTools', '["Bash(git log:*)"]');
   writeFileSync(join(dir, 'tides.md'), 'High water at 06:12\n');
   testGit(dir, 'add', 'tides.md');
   const head = testGit(dir, 'rev-parse', 'HEAD');
@@ -57,9 +58,18 @@ test('a commit message comes from a git-text run given the filled recipe on stdi
     message: 'Add the harbour tide table',
     run: { session: expect.any(String), durationMs: 19113, costUsd: 0.2621986 },
   });
-  expect(world.tmux.opened[0]?.launch).toContain("claude -p '/git-text'");
+  const launch = world.tmux.opened[0]?.launch ?? '';
+  expect(launch).toContain("claude -p '/git-text'");
+  // Text only: nothing the profile allows, and no tool that writes a file or runs a command.
+  expect(launch).toContain("--permission-mode 'default'");
+  expect(launch).toMatch(
+    /--disallowedTools .*'Bash' 'Edit' 'MultiEdit' 'Write' 'NotebookEdit' --allowedTools/,
+  );
+  expect(launch).not.toContain('Bash(git log:*)');
   const [input] = inputs;
-  expect(input).toContain('Branch: main\n\nRecent commits:\ninit\n\nStaged files:\nA\ttides.md\n');
+  expect(input).toContain(
+    'Branch: ```text\nmain\n```\n\nRecent commits:\n```text\ninit\n```\n\nStaged files:\n```text\nA\ttides.md\n```\n',
+  );
   expect(input).toMatch(
     /Staged patch:\n```diff\ndiff --git a\/tides.md b\/tides.md\n[\s\S]*\+High water at 06:12\n```$/,
   );
@@ -75,18 +85,22 @@ test("the project's recipe overrides the profile's, and an empty index is refuse
   });
   expect(world.tmux.opened).toEqual([]);
 
-  mesa.projects.override(
-    'lantern-cove',
-    'git.commitMessageRecipe',
-    'One imperative line about: {stagedFiles} {ticket}',
-  );
-  expect(readFileSync(join(dir, 'mesa.yaml'), 'utf8')).toContain(
-    'commitMessageRecipe: "One imperative line about: {stagedFiles} {ticket}"',
-  );
+  // As a person types it at a shell: prose, kept exactly, not read as YAML.
+  const recipe = 'One imperative line #tides about: {stagedFiles}\nKeep {ticket}.';
+  mesa.projects.override('lantern-cove', 'git.commitMessageRecipe', recipe);
   writeFileSync(join(dir, 'tides.md'), 'Low water\n');
   testGit(dir, 'add', 'tides.md');
   expect((await mesa.git.message('lantern-cove')).message).toBe('Tide table');
-  expect(inputs).toEqual(['One imperative line about: A\ttides.md {ticket}']);
+  expect(inputs).toEqual([
+    'One imperative line #tides about: ```text\nA\ttides.md\n```\nKeep {ticket}.',
+  ]);
+  // The app sends it as a JSON string.
+  const sent = mesa.projects.override(
+    'lantern-cove',
+    'git.commitMessageRecipe',
+    JSON.stringify('A: {branch}'),
+  );
+  expect(sent.result.value).toBe('A: {branch}');
 });
 
 test('a staged patch over 200 KB reaches the run cut, with the line saying so', async () => {
@@ -111,4 +125,14 @@ test('a failed run is an error naming the run and its reason', async () => {
     code: 'internal',
     message: expect.stringMatching(/^the git-text run \w{8} wrote no text: /),
   });
+});
+
+test('with --agent codex, the run is in Codex read-only sandbox', async () => {
+  const { dir, mesa, world } = setUp();
+  writeFileSync(join(dir, 'tides.md'), 'x\n');
+  testGit(dir, 'add', 'tides.md');
+  await mesa.git.message('lantern-cove', { agent: 'codex' }).catch(() => undefined);
+  const launch = world.tmux.opened[0]?.launch ?? '';
+  expect(launch).toContain('codex exec');
+  expect(launch).toContain('-c sandbox_mode=read-only');
 });

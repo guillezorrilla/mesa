@@ -244,13 +244,14 @@ export function overrideProject(
 }
 
 /**
- * An override's value from the words given: YAML, except that a git recipe is prose, so one that
- * does not read as a YAML string (`Summarise: {stagedFiles}` reads as a map) is taken as written.
+ * An override's value from the words given: YAML, except that a git recipe is prose, kept exactly
+ * as written (YAML would drop a `#` comment and fold its lines) unless it is a JSON string, as the
+ * app sends it.
  */
 function overrideValue(dotted: string, value: string): unknown {
   if (!dotted.startsWith('git.')) return parse(value);
   try {
-    const read: unknown = parse(value);
+    const read: unknown = JSON.parse(value);
     return typeof read === 'string' ? read : value;
   } catch {
     return value;

@@ -28,6 +28,13 @@ export const CHECKOUT_FLAG = {
   description: 'Select a linked worktree path',
 } as const;
 
+/** The agent a command starts, for a session or a run. */
+export const AGENT_FLAG = {
+  type: 'string',
+  description:
+    'claude, codex, or antigravity; default: the project mesa.yaml, else the profile default',
+} as const;
+
 /** What a command about one Mesa session's decision assistance takes to name it. */
 export const SESSION_FLAG = {
   type: 'string',
