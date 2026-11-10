@@ -137,7 +137,8 @@ export async function managedRow(
   // A stopped session keeps its state, and swaps nothing, so its hook log is not read.
   // Since its last wake: the slept agent's SessionEnd no longer speaks for it.
   const woke = found.events.filter((e) => e.type === 'woke').at(-1)?.at ?? '';
-  const events = found.endedAt ? [] : deps.events(found.id).filter((e) => e.at >= woke);
+  const logged = found.endedAt ? [] : deps.events(found.id);
+  const events = logged.filter((e) => e.at >= woke);
   const event = stateEvent(found.agent, events);
   const signals: SessionSignals = {
     now: now.toISOString(),
@@ -224,7 +225,8 @@ export async function managedRow(
     ...(listed?.status === undefined ? {} : { agentStatus: listed.status }),
     ...(listed?.nativeState === undefined ? {} : { nativeState: listed.nativeState }),
     ...(lastOutput ? { lastOutput } : {}),
-    ...(hasConversation(record, events) ? { conversation: true as const } : {}),
+    // The whole log: a conversation before a sleep is still the session's.
+    ...(hasConversation(record, logged) ? { conversation: true as const } : {}),
     supervision: supervisionOf(classified.lastState, reply, want !== undefined && !reply),
   };
 }

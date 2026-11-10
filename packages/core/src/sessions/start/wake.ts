@@ -36,7 +36,8 @@ export async function wakeSession(
     // Its idle time starts again, so the next sleep pass waits the whole time anew.
     return {
       sleeping: undefined,
-      lastState: { ...current.lastState, at, source: 'tmux' as const },
+      // Idle from now: its agent starts again, and a `done` it slept as would read as exited.
+      lastState: { ...current.lastState, state: 'idle' as const, at, source: 'tmux' as const },
       events: [...current.events, { type: 'woke' as const, at }],
     };
   });
