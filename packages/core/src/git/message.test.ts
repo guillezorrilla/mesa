@@ -173,4 +173,8 @@ test('pull request text comes from the branch since its merge-base, its commits 
     'Commits:\n```text\nAdd the tide table\n\nWhy: tides.md\n\nAdd the soundings\n\nWhy: soundings.md\n```',
   );
   expect(input).toMatch(/Patch:\n```diff\n[\s\S]*\+Add the soundings\n[\s\S]*```$/);
+
+  mesa.projects.override('lantern-cove', 'git.pullRequestRecipe', 'A title for {branch}');
+  await mesa.git.prText('lantern-cove', { base: 'main' });
+  expect(inputs[1]).toBe('A title for ```text\nharbour-tables\n```');
 });
