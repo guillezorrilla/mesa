@@ -12,14 +12,23 @@ export const IMPORT_NOTES = 'import-notes';
 /** The skill whose run picks what a session's Vault capture saves (skills/vault-capture). */
 export const VAULT_CAPTURE = 'vault-capture';
 
+/** The skill whose run writes git text: a commit message (skills/git-text). */
+export const GIT_TEXT = 'git-text';
+
 /**
  * Skills Mesa's own pipelines run (an Import's notes, a Vault capture): enabled for their own
  * Skill run whatever the skills lists say, and for nothing else.
  */
-export const PIPELINE_SKILLS: readonly string[] = [IMPORT_NOTES, VAULT_CAPTURE];
+export const PIPELINE_SKILLS: readonly string[] = [IMPORT_NOTES, VAULT_CAPTURE, GIT_TEXT];
 
 /** Whether `skill` is one of Mesa's own pipeline skills. */
 export const isPipelineSkill = (skill: string) => PIPELINE_SKILLS.includes(skill);
+
+/**
+ * Whether a skill's run answers from its stdin alone, with no tool that changes a file or runs a
+ * command: git-text, whose stdin holds a patch anyone could have written.
+ */
+export const isTextOnlySkill = (skill: string) => skill === GIT_TEXT;
 
 /**
  * The Claude model a skill's run uses instead of the person's default: Haiku for a Vault capture,

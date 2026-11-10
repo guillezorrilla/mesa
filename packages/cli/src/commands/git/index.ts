@@ -5,6 +5,7 @@ import { gitCompare, gitGraph } from './history.js';
 import { gitInsight } from './insight.js';
 import { gitStashApply, gitStashCreate, gitStashDrop, gitStashes, gitStashPop } from './stash.js';
 import { gitPull, gitPush, gitTracking } from './sync.js';
+import { gitMessage } from './text.js';
 
 // Every `mesa git` subcommand, in help order.
 export const GIT_COMMANDS: Command[] = [
@@ -17,6 +18,7 @@ export const GIT_COMMANDS: Command[] = [
   gitDiff,
   gitGraph,
   gitInsight,
+  gitMessage,
   gitPull,
   gitPush,
   gitStage,

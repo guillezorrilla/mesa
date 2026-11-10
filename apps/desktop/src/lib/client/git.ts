@@ -6,6 +6,7 @@ import type {
   GitComparison,
   GitDiff,
   GitGraph,
+  GitMessage,
   GitPathAction,
   GitStatus,
   GitSync,
@@ -83,6 +84,15 @@ export const gitCommands = {
     '--',
     project,
   ]),
+  'git.message': commandWith<{ project: string; checkout?: string }, GitMessage>(
+    ({ project, checkout }) => [
+      'git',
+      'message',
+      ...(checkout ? ['--checkout', checkout] : []),
+      '--',
+      project,
+    ],
+  ),
   'git.branches': commandWith<
     { project: string; checkout?: string },
     { checkout: Checkout; branches: GitBranch[]; remotes: string[] }

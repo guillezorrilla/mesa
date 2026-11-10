@@ -203,11 +203,14 @@ export function GitTab(props: {
                 )}
               </section>
               <GitCommitBox
+                // A message generated for one checkout never lands in another's box.
+                key={checkout}
                 canCommit={sections.some((section) => section.title === 'Staged')}
                 acting={acting}
                 stashesOpen={panel === 'stashes'}
                 onToggleStashes={() => togglePanel('stashes')}
                 onCommit={commit}
+                onGenerate={async () => (await run('git.message', target))?.message}
               />
             </aside>
             <section className="flex min-w-0 flex-1 flex-col" aria-label="Git diff">

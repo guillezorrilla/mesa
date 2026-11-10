@@ -135,6 +135,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
       grid: { groups: [] },
       run: { permissionMode: 'acceptEdits', allowedTools: [] },
       agents: { claude: {}, codex: {}, antigravity: {} },
+      git: { commitMessageRecipe: 'Write the commit message for: {stagedFiles}' },
       update: {},
       keys: {},
     } satisfies Config),

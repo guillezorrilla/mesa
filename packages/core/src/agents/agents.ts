@@ -75,7 +75,12 @@ type HeadlessPermissions = {
   allowedTools: readonly string[];
   readOnlyVault?: boolean;
   model?: string;
+  /** It answers from its stdin alone (git-text): no tool that changes a file or runs a command. */
+  textOnly?: boolean;
 };
+
+/** The Claude Code tools a text-only run is denied: every one that writes a file or runs a command. */
+const CLAUDE_CHANGE_TOOLS = ['Bash', 'Edit', 'MultiEdit', 'Write', 'NotebookEdit'];
 
 /**
  * On every codex Mesa starts or resumes. Any `-c` override keeps its TUI embedded, off a running
@@ -164,8 +169,14 @@ export const AGENTS = {
           ...(may.model ? [`--model ${shellWord(may.model)}`] : []),
           `--permission-mode ${shellWord(may.permissionMode)}`,
           shellWord(claudeMcpConfig(mounts)),
-          ...(may.readOnlyVault
-            ? ['--disallowedTools', ...CLAUDE_VAULT_WRITES.map(shellWord)]
+          ...(may.readOnlyVault || may.textOnly
+            ? [
+                '--disallowedTools',
+                ...[
+                  ...(may.readOnlyVault ? CLAUDE_VAULT_WRITES : []),
+                  ...(may.textOnly ? CLAUDE_CHANGE_TOOLS : []),
+                ].map(shellWord),
+              ]
             : []),
           '--allowedTools',
           ...[...claudeMountTools(mounts), ...may.allowedTools].map(shellWord),
@@ -236,7 +247,10 @@ export const AGENTS = {
     submitDelayMs: 300,
     headless: {
       skillPrefix: '$',
-      /** A read-only run turns mesa-vault's write tools off with the server's `disabled_tools`. */
+      /**
+       * A read-only run turns mesa-vault's write tools off with the server's `disabled_tools`; a
+       * text-only one runs in Codex's read-only sandbox.
+       */
       command: (
         _sessionId: string | undefined,
         prompt: string,
@@ -244,7 +258,7 @@ export const AGENTS = {
         folder: string,
         mounts: Mounts,
       ) =>
-        `codex exec --json -C ${shellWord(folder)} -c approval_policy=never -c sandbox_mode=workspace-write ${codexMount(mounts)}${may.readOnlyVault ? ` -c ${shellWord(CODEX_VAULT_READ_ONLY)}` : ''} ${shellWord(prompt)}`,
+        `codex exec --json -C ${shellWord(folder)} -c approval_policy=never -c sandbox_mode=${may.textOnly ? 'read-only' : 'workspace-write'} ${codexMount(mounts)}${may.readOnlyVault ? ` -c ${shellWord(CODEX_VAULT_READ_ONLY)}` : ''} ${shellWord(prompt)}`,
       result: readCodexResult,
     },
     /** Trusted hooks from the embedded Codex process. */

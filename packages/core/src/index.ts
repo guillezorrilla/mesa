@@ -49,6 +49,7 @@ export type { DiffRow, GitDiff } from './git/diff.js';
 export type { GhState } from './git/gh.js';
 export type { GitComparison, GitGraph, GitGraphCommit, GitGraphRow } from './git/history.js';
 export type { RepositoryInsight } from './git/insight.js';
+export type { GitMessage, GitTextRunInfo } from './git/message.js';
 export type { StashAction, StashCreated, StashEntry } from './git/stash.js';
 export type { GitChange, GitStatus } from './git/status.js';
 export type { GitSync, GitTracking } from './git/sync.js';
