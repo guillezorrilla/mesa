@@ -41,7 +41,7 @@ function parentOf(
       );
     }
     // A worker's reports would go to a session that never reads them.
-    if (input.worker && found.endedAt)
+    if (input.worker && isOver(found))
       throw new MesaError(
         'usage',
         `session ${input.parent} has ended; a worker needs a live parent`,
