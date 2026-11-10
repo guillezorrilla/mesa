@@ -210,8 +210,8 @@ export const stopContinuation = (reason: string) => JSON.stringify({ decision: '
 export const STOP_CONTINUED = 'StopContinued';
 
 /**
- * The event a session's setup window logs when its setup fails (sessions/start/setup-window.ts):
- * no agent's state, an Inbox notice naming the window (hookItem).
+ * The event a Setup session logs when its setup fails (setupLine, sessions/start/setup-session.ts):
+ * no agent's state, an Inbox notice that opens the Setup session (hookItem).
  */
 export const SETUP_FAILED = 'SetupFailed';
 

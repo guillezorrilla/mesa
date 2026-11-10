@@ -813,6 +813,20 @@ test('setupWhile parallel runs setup in a child Setup session beside the agent; 
   expect(world.tmux.opened.at(-1)?.window).toBe(blocked.tmux.window);
 });
 
+test('a Setup session that cannot open warns, and a launch failing later removes the worktree', async () => {
+  // Every window fails: the Setup session's, then the agent's.
+  const world = agentWorld({ failing: 'new-session' });
+  const { home, dir, mesa } = await setUp(world, { run: withGit(world) });
+  gitRepo(dir);
+  mesa.config.set('worktrees.setup', '["/usr/bin/touch", "keep.txt"]');
+  mesa.config.set('worktrees.setupWhile', 'parallel');
+  const failed = await mesa.sessions.open('lantern-cove', { branch: 'lost' }).catch((e) => e);
+  expect(failed).toMatchObject({ code: 'internal' });
+  expect(failed.message).not.toContain('where setup ran');
+  expect(existsSync(worktreeAt(home, 'lantern-cove', 'lost'))).toBe(false);
+  expect(await mesa.sessions.list()).toEqual([]);
+});
+
 test('a terminal session on a new branch gets its Setup session too', async () => {
   const world = agentWorld();
   const { dir, mesa } = await setUp(world, { run: withGit(world) });
@@ -834,7 +848,9 @@ test('a launch that fails beside a running Setup session keeps it and the worktr
   await expect(mesa.sessions.open('lantern-cove', { branch: 'beside' })).rejects.toMatchObject({
     code: 'internal',
   });
-  expect((await mesa.sessions.list()).map((s) => s.name)).toEqual(['Setup']);
+  const sessions = await mesa.sessions.list();
+  expect(sessions.map((s) => s.name)).toEqual(['Setup']);
+  expect(sessions[0]).not.toHaveProperty('parent');
   expect(world.tmux.windows).toHaveLength(1);
   expect(existsSync(worktreeAt(home, 'lantern-cove', 'beside'))).toBe(true);
 });

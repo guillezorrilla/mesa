@@ -3,6 +3,7 @@ import { supportsAgentCapability, supportsPlanStart } from '../../agents/names.j
 import type { IdSource } from '../../lib/ids.js';
 import { shellWord } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
+import type { RegistryEntry } from '../../projects/registry.js';
 import { reviewDeny } from '../../prs/review-guard.js';
 import { worktreeSettings } from '../../worktrees/settings.js';
 import { GENERAL_PROJECT } from '../record/general.js';
@@ -17,7 +18,7 @@ import { type OpenInput, validateOpenInput } from './open-input.js';
 import { notedGoal, setupLine } from './setup-session.js';
 import { goalPreparing, sessionWindowCommand } from './window-command.js';
 
-type OpenDeps = LaunchDeps & {
+export type OpenDeps = LaunchDeps & {
   home: string;
   newUuid: IdSource;
   /** Who runs this mesa: the window's session is the default parent. */
@@ -113,11 +114,7 @@ export async function openSession(
         command: () => command,
         branch: input.branch,
         base: input.base,
-        ...(entry &&
-        input.branch !== undefined &&
-        worktreeSettings(deps.profile, entry).setupWhile === 'parallel'
-          ? setupBesideIn(deps, entry.name)
-          : {}),
+        ...setupBesideFor(deps, entry, input.branch),
       },
     );
   }
@@ -150,7 +147,7 @@ export async function openSession(
   const agentSessionId = input.background ? undefined : newSessionId(agent, deps.newUuid);
   const command = (
     id: string,
-    // The record's goal, when given: the launch may add a note of a setup window to it.
+    // The record's goal, when given: the launch may add a note of its Setup session to it.
     more: Pick<SessionRecord, 'additional' | 'goal'>,
     disallowed: readonly string[],
   ) =>
@@ -169,11 +166,8 @@ export async function openSession(
       additionalDirs(more),
     );
   // A parallel setup's Setup session is named in the goal the agent is given (notedGoal).
-  const beside =
-    input.branch !== undefined &&
-    selected !== null &&
-    worktreeSettings(deps.profile, selected.entry).setupWhile === 'parallel';
-  const given = beside ? notedGoal(goal, 'xxxxxxxx') : goal;
+  const besideStart = setupBesideFor(deps, selected?.entry, input.branch);
+  const given = besideStart.setupBeside ? notedGoal(goal, 'xxxxxxxx') : goal;
   if (!input.background)
     requireCommandFits(
       sessionWindowCommand(
@@ -213,7 +207,7 @@ export async function openSession(
       command: (record, deny) => command(record.id, record, deny),
       branch: input.branch,
       base: input.base,
-      ...(beside && selected ? setupBesideIn(deps, selected.entry.name) : {}),
+      ...besideStart,
       ...(additional
         ? { additional: additional.map((entry) => ({ entry, base: input.base })) }
         : {}),
@@ -222,15 +216,22 @@ export async function openSession(
 }
 
 /**
- * How a session in `project` opens its Setup session: a plain terminal, its child, in its
- * worktree (the parent's folder), whose first line runs the setup (setupLine).
+ * How a session on a new `branch` of `entry` opens its Setup session under `setupWhile: parallel`
+ * (Start's setupBeside): a plain terminal, its child, in its worktree (the parent's folder), whose
+ * first line runs the setup (setupLine). Nothing otherwise, so setup runs first.
  */
-function setupBesideIn(deps: OpenDeps, project: string) {
+export function setupBesideFor(
+  deps: OpenDeps,
+  entry: RegistryEntry | null | undefined,
+  branch: string | undefined,
+): { setupBeside?: (owner: SessionRecord, setup: string[]) => Promise<string> } {
+  if (!entry || branch === undefined) return {};
+  if (worktreeSettings(deps.profile, entry).setupWhile !== 'parallel') return {};
   return {
-    setupBeside: async (owner: SessionRecord, setup: string[]) => {
+    setupBeside: async (owner, setup) => {
       const { record: child } = await openSession(deps, {
         terminal: true,
-        project,
+        project: entry.name,
         parent: owner.id,
         run: setupLine(setup, deps.self),
       });

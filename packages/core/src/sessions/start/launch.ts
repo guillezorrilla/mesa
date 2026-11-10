@@ -159,9 +159,11 @@ export async function startSession(
       if (selected.setup && start.setupBeside) {
         try {
           setupSession = await start.setupBeside(record, selected.setup);
+          made.keep(selected.worktree.path);
           record = deps.store.update(record.id, { setupSession });
         } catch (error) {
-          // The agent still starts; the worktree waits for its setup to be run by hand.
+          // The agent still starts; the worktree waits for its setup to be run by hand, and a
+          // launch that fails later removes it, as setup never ran.
           worktreeWarnings.push(
             `setup did not start: ${toFail(error).error.message}; run mesa worktrees rerun ${project.name} ${selected.worktree.path}`,
           );
@@ -239,7 +241,6 @@ export async function startSession(
     return { record, ...(warning ? { warning } : {}) };
   } catch (error) {
     if (backgroundId) await stopClaudeBackground(deps.run, backgroundId).catch(() => undefined);
-    // A setup window stays open: closing it would cut its setup off in the kept worktree.
     // What it removed leaves the record, so a retry makes it again; a worktree kept or stuck
     // stays. The additional ones are on the primary's branch, so they go with it.
     const removed = await made.undo();
@@ -273,6 +274,9 @@ export async function launchSession(
     const record = start.prepare ? start.prepare(created) : created;
     return await startSession(deps, record, s.project, start);
   } catch (error) {
+    // Its Setup session goes on in the kept worktree, with no parent left to name.
+    const setup = deps.store.find(created.id)?.setupSession;
+    if (setup) deps.store.update(setup, { parent: undefined });
     deps.store.remove(created.id);
     throw error;
   }
