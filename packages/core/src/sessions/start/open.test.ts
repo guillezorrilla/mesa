@@ -627,6 +627,10 @@ test('a goal opened by another session ends with the worker brief; none without 
   ).result;
   expect(queued.lastState.state).toBe('queued');
   expect(queued.goal).toContain(`started by session ${a.id}`);
+  // A resume is the same conversation: it keeps the goal and its brief.
+  exitAll(world);
+  const resumed = (await mesa.sessions.resume(child.id)).result.record;
+  expect(resumed).toMatchObject({ goal: child.goal, brief: true });
 });
 
 test('a session opened inside another is its child: from MESA_SESSION_ID, --parent, or none', async () => {

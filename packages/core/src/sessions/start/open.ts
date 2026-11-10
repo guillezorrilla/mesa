@@ -94,7 +94,9 @@ export async function openSession(
   }
   const waited = input.after === undefined ? undefined : waitedOn(deps, input.after);
   const parent = parentOf(deps, input);
-  const { goal, brief } = briefedGoal(input.goal, parent, input);
+  // Briefed by the session that starts it, not one it only waits on.
+  const started = input.parent !== undefined || input.after === undefined;
+  const { goal, brief } = briefedGoal(input.goal, parent, started);
   // Read even when --agent is given.
   const selected = input.project ? launchProject(deps.profile, input.project) : null;
   const { agent } = await launchAgent(deps, selected?.project, input.agent);

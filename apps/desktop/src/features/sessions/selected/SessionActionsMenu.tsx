@@ -81,6 +81,7 @@ export function SessionActionsMenu({
                 commands.open({ project: row.project, parent: row.id, worktree: true })
               }
               disabled={exited(row) || acting}
+              title="Its news comes back to this session as child reports"
             >
               <Plus aria-hidden /> New child worktree session
             </Button>

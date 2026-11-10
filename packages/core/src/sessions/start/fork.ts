@@ -9,6 +9,7 @@ import { findProject } from '../../projects/projects.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import { carriedReview } from '../record/record.js';
 import { type AdditionalStart, additionalDirs, additionalProjects } from './additional.js';
+import { withoutBrief } from './goal.js';
 import { folderOf, type LaunchDeps, launchSession } from './launch.js';
 
 /**
@@ -79,7 +80,8 @@ export async function forkSession(
       project,
       agent,
       mode: source.mode,
-      goal: source.goal,
+      // Its parent is the source, so not the brief that named the source's.
+      goal: source.goal === undefined ? undefined : withoutBrief(source.goal),
       parent: source.id,
       ...(!branch ? { cwd: folder } : {}),
       ...(review ? { review } : {}),

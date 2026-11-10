@@ -356,7 +356,7 @@ test('session details list the additional projects with their worktree paths', a
   expect(byTestId('session-also-in')[0]?.textContent).toBe(`tide-pool ${path}`);
 });
 
-test('session details name the parent a briefed worker reports back to', async () => {
+test('session details name the parent a child reports back to', async () => {
   const row = managedRow('aaaaaaaa', { parent: 'bbbbbbbb', brief: true });
   const { bridge } = fakeBridge({
     projects: () => envelope(PROJECTS),
@@ -370,7 +370,26 @@ test('session details name the parent a briefed worker reports back to', async (
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
-  expect(byTestId('session-worker-of')[0]?.textContent).toBe(
+  expect(byTestId('session-reports-to')[0]?.textContent).toBe(
+    'bbbbbbbb: its last reply each turn goes back as its report, as its goal tells it',
+  );
+});
+
+test('a child started with no goal, as the app starts one, still shows whom it reports to', async () => {
+  const row = managedRow('aaaaaaaa', { parent: 'bbbbbbbb' });
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([row]),
+    show: () =>
+      envelope({
+        ...row,
+        instructions: { state: 'missing', reason: 'Run mesa hooks install' },
+        vault: { state: 'missing', reason: 'Run mesa hooks install' },
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
+  expect(byTestId('session-reports-to')[0]?.textContent).toBe(
     'bbbbbbbb: its last reply each turn goes back as its report',
   );
 });
