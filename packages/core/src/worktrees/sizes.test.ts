@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { scriptedRunner, tempDir } from '../testing/index.js';
@@ -63,4 +64,12 @@ test('a du that times out or finds no folder gives null, which is measured again
   expect((await measureSizes(deps, file, ['/w/gone'])).get('/w/gone')?.sizeBytes).toBeNull();
   await measureSizes(deps, file, ['/w/gone']);
   expect(calls).toHaveLength(2);
+});
+
+test('a cache that does not read is dropped, not an error', async () => {
+  const { deps, file } = setUp({ '/w/tide': 1 });
+  writeFileSync(file, '{"/w/tide": {"bytes": "lots"}}');
+  expect((await measureSizes(deps, file, ['/w/tide'])).get('/w/tide')?.sizeBytes).toBe(1024);
+  writeFileSync(file, 'not json');
+  expect((await measureSizes(deps, file, ['/w/tide'], true)).get('/w/tide')?.sizeBytes).toBe(1024);
 });

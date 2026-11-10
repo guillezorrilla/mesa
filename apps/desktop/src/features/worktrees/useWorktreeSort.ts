@@ -1,6 +1,5 @@
 import { worktreeName } from '@mesa/core/browser';
-import { useState } from 'react';
-import { readKept, writeKept } from '@/lib/keptValue';
+import { useKept } from '@/lib/keptValue';
 import { useCommand } from '@/lib/useCommand';
 import type { Card } from './WorktreeCard';
 
@@ -16,14 +15,9 @@ const isSort = (value: string | undefined): value is WorktreeSort =>
  */
 export function useWorktreeSort() {
   const profile = useCommand('profile.get').data?.profile;
-  const key = profile && `mesa.worktrees.sort.${profile}`;
-  const [picked, setPicked] = useState<{ key?: string; sort: WorktreeSort }>();
-  const stored = key ? readKept(key) : undefined;
-  const sort = picked && picked.key === key ? picked.sort : isSort(stored) ? stored : 'name';
-  const setSort = (next: WorktreeSort) => {
-    setPicked({ key, sort: next });
-    if (key) writeKept(key, next);
-  };
+  const [kept, keep] = useKept(profile && `mesa.worktrees.sort.${profile}`);
+  const sort: WorktreeSort = isSort(kept) ? kept : 'name';
+  const setSort = (next: WorktreeSort) => keep(next);
   return [sort, setSort] as const;
 }
 
