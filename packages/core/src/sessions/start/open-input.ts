@@ -1,4 +1,6 @@
+import { AGENT_NAMES, type Agent, supportsAgentCapability } from '../../agents/names.js';
 import { MesaError } from '../../lib/result.js';
+import { GENERAL_PROJECT } from '../record/general.js';
 import type { SessionRecord } from '../record/record.js';
 import type { Worktree } from './worktree.js';
 
@@ -16,6 +18,11 @@ export type OpenInput = {
   automation?: SessionRecord['automation'];
   parent?: string;
   noParent?: boolean;
+  /**
+   * A Worker (`mesa worker`): it must have a live parent, the caller's session or `parent`, a
+   * project with a repository, and an agent whose turns report back.
+   */
+  worker?: boolean;
   /** Queued until this session is over (CONTEXT.md, Queued session). */
   after?: string;
   /** Its own git worktree on this branch (CONTEXT.md, Worktree), started from `base` if new. */
@@ -77,6 +84,17 @@ export function validateOpenInput(input: OpenFlags): void {
   if (input.base !== undefined && input.branch === undefined && !input.worktree) {
     refuse('--base needs --branch');
   }
+  if (input.worker && (input.general || !input.project || input.project === GENERAL_PROJECT))
+    refuse('a worker needs a project with a repository, not General');
+  if (
+    input.worker &&
+    input.agent !== undefined &&
+    !(
+      AGENT_NAMES.includes(input.agent as Agent) &&
+      supportsAgentCapability(input.agent as Agent, 'worker')
+    )
+  )
+    refuse(`a worker runs an agent whose turns report back, not ${input.agent}`);
   if (input.mode !== undefined && input.mode !== 'plan') {
     refuse(`unknown session mode ${input.mode}; use plan`);
   }

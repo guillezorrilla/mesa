@@ -174,6 +174,7 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
             ...(kept ? { goal: kept.short } : {}),
             ...(parent === undefined ? {} : { parent }),
             ...(noParent ? { noParent } : {}),
+            ...(opts.worker ? { worker: true } : {}),
             ...(after === undefined ? {} : { after }),
             ...(branch === undefined ? {} : { branch }),
             ...(base === undefined ? {} : { base }),
@@ -208,6 +209,7 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
             goal,
             parent,
             noParent,
+            worker: opts.worker,
             after,
             branch,
             base,
@@ -226,10 +228,8 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
      * Starts a worker (`mesa worker`): `task` as its goal with the worker brief, a child of the
      * caller or `parent`, in a new worktree (workerOpen), through `open` and its receipt.
      */
-    worker: async (project: string | undefined, task: string, flags: WorkerFlags = {}) => {
-      const { project: name, ...opts } = workerOpen({ store, caller }, project, task, flags);
-      return actions.open(name, opts);
-    },
+    worker: (project: string | undefined, task: string, flags: WorkerFlags = {}) =>
+      actions.open(project, workerOpen(task, flags)),
     /** Runs a skill headlessly and waits for its result (CONTEXT.md, Skill run; runSkill). */
     run: (skill: string, opts: Omit<RunInput, 'skill'> & Overrides) =>
       runSkill(ctx, { faro, caller, start: deps.runDeps, stopped: ends.stopped }, skill, opts),

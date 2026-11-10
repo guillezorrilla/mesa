@@ -33,7 +33,7 @@ async function setUp() {
         newId,
       }),
     );
-  return { mesa, parent, from };
+  return { home, mesa, parent, from };
 }
 
 test("a worker is the caller's child, in a new worktree on a branch Mesa names, its task briefed", async () => {
@@ -69,4 +69,9 @@ test('a worker on --branch takes that branch; from outside a window it needs --p
   const outside = await from().sessions.worker('lantern-cove', 'Check it', { parent: parent.id });
   expect(outside.result).toMatchObject({ parent: parent.id, brief: true });
   expect(outside.result.worktree).toBeDefined();
+  // A parent that has ended never reads a worker's reports.
+  await mesa.sessions.stop(parent.id);
+  await expect(
+    from().sessions.worker('lantern-cove', 'x', { parent: parent.id }),
+  ).rejects.toMatchObject({ code: 'usage', message: expect.stringContaining('has ended') });
 });
