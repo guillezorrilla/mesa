@@ -11,6 +11,7 @@ import { checkoutWorktree } from '../../worktrees/create.js';
 import { applyDescendants } from '../end/descendants.js';
 import { removeSession } from '../end/remove.js';
 import { stopSession } from '../end/stop.js';
+import { withParentsNow } from '../record/family.js';
 import { projectLabel, projectScope } from '../record/general.js';
 import { heldWorktrees } from '../record/holders.js';
 import { recordAgent } from '../record/record.js';
@@ -240,7 +241,7 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
     remove,
     removeDescendants: (id: string, opts: RemoveFlags = {}, expected?: readonly string[]) =>
       applyDescendants(
-        store.list(),
+        withParentsNow(store.list()),
         id,
         async (session) => {
           const recorded = await remove(session.id, {
@@ -256,7 +257,7 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
     stop,
     stopDescendants: (id: string, force = false, expected?: readonly string[]) =>
       applyDescendants(
-        store.list(),
+        withParentsNow(store.list()),
         id,
         async (session) => {
           const recorded = await stop(session.id, force);

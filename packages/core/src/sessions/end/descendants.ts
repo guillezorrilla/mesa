@@ -1,7 +1,9 @@
 import { MesaError, toFail } from '../../lib/result.js';
 import type { EachResult } from '../record/each.js';
 
-type Linked = { id: string; parent?: string };
+/** A session, with where it reports now when that is not its `parent` (familyOf). */
+type Linked = { id: string; parent?: string; parentNow?: string };
+const parentOf = (record: Linked) => record.parentNow ?? record.parent;
 
 /** The exact parent-linked subtree, children before parents so a queued child is cancelled first. */
 export function descendantOrder<T extends Linked>(records: readonly T[], id: string): T[] {
@@ -9,10 +11,11 @@ export function descendantOrder<T extends Linked>(records: readonly T[], id: str
   if (!byId.has(id)) throw new MesaError('not_found', `no session ${id}`);
   const children = new Map<string, T[]>();
   for (const record of records) {
-    if (!record.parent) continue;
-    const group = children.get(record.parent) ?? [];
+    const parent = parentOf(record);
+    if (!parent) continue;
+    const group = children.get(parent) ?? [];
     group.push(record);
-    children.set(record.parent, group);
+    children.set(parent, group);
   }
   for (const group of children.values()) group.sort((a, b) => a.id.localeCompare(b.id));
   const seen = new Set<string>();
@@ -45,7 +48,7 @@ export async function applyDescendants<T extends Linked, R>(
   for (const record of ordered) {
     // ponytail: the subtree is a handful of sessions; index children if this scan grows costly.
     const failedChild = ordered.find(
-      (child) => child.parent === record.id && done.get(child.id) === false,
+      (child) => parentOf(child) === record.id && done.get(child.id) === false,
     );
     if (failedChild) {
       items.push({

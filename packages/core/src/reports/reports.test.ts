@@ -480,3 +480,48 @@ test("an explicit report kept before latest reports were is still a child's newe
   );
   expect(latestReports(f.ctx)[f.child.id]).toMatchObject({ kind: 'done', message: 'Charted it' });
 });
+
+test("a resumed parent's successor gets its child's reports and questions, ones made before the resume too", async () => {
+  const f = family();
+  const { store, parent, child, hook, service } = f;
+  service.list();
+  hook('Stop', { last_assistant_message: 'Charted the bay' });
+  const asked = inside(f, child.id).ask('North or south first?');
+  // The parent is resumed twice; the child still names the first.
+  const resumed = store.create(() => newSession({ resumedFrom: parent.id }));
+  store.update(parent.id, { resumedBy: resumed.id, endedAt: START });
+  const latest = store.create(() => newSession({ resumedFrom: resumed.id }));
+  expect(
+    service
+      .list(latest.id)
+      .reports.map((r) => r.kind)
+      .sort(),
+  ).toEqual(['finished', 'question']);
+  expect(service.list(parent.id).reports).toEqual([]);
+  expect(inside(f, child.id).report('done', 'All charted')).toMatchObject({ parent: latest.id });
+  // Only where it reports now answers, not the session it asked.
+  await expect(inside(f, parent.id).reply(asked.id, 'North')).rejects.toThrow(
+    new RegExp(`is for session ${latest.id}`),
+  );
+  expect(await reportsAtTurnEnd(f.ctx, latest.id)).toContain('Charted the bay');
+});
+
+test('a handoff successor reports to the parent of the session that handed off', () => {
+  const f = family();
+  const { store, parent, child, service } = f;
+  service.list();
+  // The worker handed off: its successor's parent is the worker itself, which stops.
+  const successor = store.create(() =>
+    newSession({ parent: child.id, handoffFrom: child.id, agentName: 'tide-charts-2' }),
+  );
+  store.update(child.id, { endedAt: START });
+  expect(inside(f, successor.id).report('blocked', 'Need the reef map')).toMatchObject({
+    parent: parent.id,
+  });
+  expect(
+    service
+      .list(parent.id)
+      .reports.map((r) => `${r.child} ${r.kind}`)
+      .sort(),
+  ).toEqual([`${child.id} ended`, `${successor.id} blocked`]);
+});

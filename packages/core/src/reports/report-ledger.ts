@@ -146,7 +146,9 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
     /**
      * Reads every child's new hook events and endings in `records` into the pending reports, and
      * forgets the reports, read offsets and endings of sessions no longer in `records`; returns
-     * what is pending. A parent that is over keeps its reports, for a successor to take.
+     * what is pending. Each child's `parent` in `records` is where it reports now, so a pending
+     * report or question follows it there. A parent that is over keeps its reports, for a successor
+     * to take.
      */
     collect: (records: readonly SessionRecord[], now: string): ChildReport[] =>
       change((state) => {
@@ -178,11 +180,21 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
               pending = addReport(pending, endedReport({ ...child, endedAt: child.endedAt }));
           }
         }
-        pending = pending.filter((report) => known.has(report.parent) && known.has(report.child));
+        // A report or question made before its parent was resumed or handed off goes to the successor.
+        const parentOf = new Map(records.map((r) => [r.id, r.parent]));
+        const toParentNow = <T extends { child: string; parent: string }>(r: T): T => {
+          const parent = parentOf.get(r.child);
+          return parent && parent !== r.parent ? { ...r, parent } : r;
+        };
+        pending = pending
+          .map(toParentNow)
+          .filter((report) => known.has(report.parent) && known.has(report.child));
         const explicit = Object.fromEntries(
           Object.entries(state.explicit).filter(([child]) => known.has(child)),
         );
-        const questions = state.questions.filter((q) => known.has(q.parent) && known.has(q.child));
+        const questions = state.questions
+          .map(toParentNow)
+          .filter((q) => known.has(q.parent) && known.has(q.child));
         latest = Object.fromEntries(Object.entries(latest).filter(([child]) => known.has(child)));
         return {
           next: { since, offsets, ended, pending, explicit, questions, latest },

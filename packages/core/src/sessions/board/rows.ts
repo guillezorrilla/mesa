@@ -20,7 +20,12 @@ export type ManagedRow = { hasOutputLog?: boolean } & SessionRecord &
     /** The agent listing's status (`idle`, `busy`, `waiting`), while it lists the session. */
     agentStatus?: string;
     nativeState?: string;
-    /** The ids of the sessions whose `parent` it is, oldest first, listed or not. */
+    /**
+     * Where it reports now (familyOf): its `parent`, or the session that parent was resumed or
+     * handed off as; none without a parent.
+     */
+    parentNow?: string;
+    /** The ids of the sessions that report to it now (`parentNow`), oldest first, listed or not. */
     children: string[];
     /** Its worktrees a newer session took over (takenOver), which removing it leaves; none without. */
     takenOver?: TakenOver[];
