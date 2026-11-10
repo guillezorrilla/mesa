@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createContext } from '../context.js';
@@ -16,7 +17,7 @@ import {
   testDeps,
   testStore,
 } from '../testing/index.js';
-import { keptReport, reportsAtTurnEnd, reportsService } from './report-delivery.js';
+import { keptReport, latestReports, reportsAtTurnEnd, reportsService } from './report-delivery.js';
 import { reportLedger } from './report-ledger.js';
 import { addReport, type ChildReport, reportPrompt } from './reports.js';
 
@@ -447,4 +448,35 @@ test('a sleeping parent gets its reports through the send, which wakes it; an en
   expect((await service.deliver()).deliveries).toMatchObject([
     { session: parent.id, status: 'waiting' },
   ]);
+});
+
+test("a child's newest report that says something is kept after delivery, for its crew", async () => {
+  const f = family();
+  const { store, child, hook, service } = f;
+  service.list();
+  hook('Stop', { last_assistant_message: 'Charted the north reef' });
+  await service.deliver();
+  expect(service.list().reports).toEqual([]);
+  expect(latestReports(f.ctx)[child.id]).toMatchObject({
+    kind: 'finished',
+    message: 'Charted the north reef',
+  });
+  // A wait and an ending say nothing: the reply before them stays the newest.
+  hook('PermissionRequest', { tool_name: 'Bash' });
+  store.update(child.id, (r) => ({ ...r, endedAt: '2026-09-24T12:10:00.000Z' }));
+  expect(latestReports(f.ctx)[child.id]).toMatchObject({ message: 'Charted the north reef' });
+  inside(f, child.id).report('blocked', 'The reef map is locked');
+  expect(latestReports(f.ctx)[child.id]).toMatchObject({ kind: 'blocked' });
+  store.remove(child.id);
+  expect(latestReports(f.ctx)).toEqual({});
+});
+
+test("an explicit report kept before latest reports were is still a child's newest", () => {
+  const f = family();
+  const said = { ...inside(f, f.child.id).report('done', 'Charted it') };
+  writeFileSync(
+    profilePaths(f.home, 'default').reports,
+    JSON.stringify({ explicit: { [f.child.id]: said } }),
+  );
+  expect(latestReports(f.ctx)[f.child.id]).toMatchObject({ kind: 'done', message: 'Charted it' });
 });

@@ -53,9 +53,11 @@ export async function readBranchDiff(
   base?: string,
   selected?: string,
 ): Promise<GitBranchDiff> {
+  // Found first: a throw inside the list would leave resolveCheckout's rejection unhandled.
+  const { path } = findProject(profile, project);
   const [checkout, ref] = await Promise.all([
     resolveCheckout(profile, run, project, selected),
-    base ?? defaultBranchRef(profile, run, findProject(profile, project).path, project),
+    base ?? defaultBranchRef(profile, run, path, project),
   ]);
   if (!ref) throw new MesaError('usage', `${project} has no default branch to compare with`);
   const baseOid = await commitOid(run, checkout.path, ref).catch(() => {

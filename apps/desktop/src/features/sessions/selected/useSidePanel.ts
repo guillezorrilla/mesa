@@ -1,7 +1,7 @@
 import type { NativeResponse } from '@mesa/core';
 import { useCallback, useEffect, useState } from 'react';
 
-export type SidePanel = 'review' | 'browser' | 'diff';
+export type SidePanel = 'review' | 'browser' | 'diff' | 'crew';
 
 /** One session's open panel, with the reply or URL it was opened on. */
 export type OpenPanel = {
@@ -18,7 +18,7 @@ const withPanel = (session: string, open: OpenPanel | undefined) => (all: Panels
 });
 
 /**
- * Which panel sits beside each session's terminal: Replies, Browser or Diff, one at a time per
+ * Which panel sits beside each session's terminal: Replies, Browser, Diff or Crew, one at a time per
  * session. A session keeps its panel while another is selected (SidePanels keeps it mounted,
  * hidden), so going back finds it as it was. A request from a terminal opens its panel once its
  * session is the one selected.

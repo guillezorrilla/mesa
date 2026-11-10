@@ -2,11 +2,13 @@ import { antigravitySessionId } from '../../agents/antigravity/log.js';
 import { listAgentProcesses } from '../../agents/listing.js';
 import type { MesaContext } from '../../context.js';
 import { readBranchDiff } from '../../git/branch-diff.js';
+import { diffCounts } from '../../git/diff.js';
 import { MesaError } from '../../lib/result.js';
 import { joinWarnings, type Recorded } from '../../receipts/recorder.js';
-import { keptReport } from '../../reports/report-delivery.js';
+import { keptReport, latestReports } from '../../reports/report-delivery.js';
 import { recordedBase } from '../../worktrees/base.js';
 import type { SessionScope } from '../board/board.js';
+import { crewOf } from '../board/crew.js';
 import { sessionTree } from '../board/tree.js';
 import { autoName } from '../native/auto-name.js';
 import { decisionStatus } from '../native/decision-status.js';
@@ -84,6 +86,23 @@ export function inspectActions(
       () => store.update(id, { archivedAt: undefined }),
     );
   };
+  /**
+   * Everything the session's checkout holds that `base` lacks (readBranchDiff), read where its
+   * agent works now (refreshReadings). Without `base`, its worktree's recorded base when it works
+   * there (recordedBase), else the project's default.
+   */
+  const diff = async (id: string, base?: string) => {
+    const { found, project, folder } = workingFolder(contextDeps, id);
+    const { worktree } = found;
+    return readBranchDiff(
+      ctx.open(),
+      ctx.run,
+      project,
+      base ??
+        (worktree && worktree.path === folder ? await recordedBase(ctx.run, worktree) : undefined),
+      folder,
+    );
+  };
   return {
     list: board,
     /** The board as a tree: children under their parent, each row with its depth. */
@@ -149,23 +168,24 @@ export function inspectActions(
         ...(report ? { report } : {}),
       };
     },
+    diff,
     /**
-     * Everything the session's checkout holds that `base` lacks (readBranchDiff), read where its
-     * agent works now (refreshReadings). Without `base`, its worktree's recorded base when it works
-     * there (recordedBase), else the project's default.
+     * Session `id`'s crew (crewOf): its children, each with its branch, newest report, and diff
+     * counts against its base (a checkout that cannot be read gives none); not_found for an
+     * unknown id.
      */
-    diff: async (id: string, base?: string) => {
-      const { found, project, folder } = workingFolder(contextDeps, id);
-      const { worktree } = found;
-      return readBranchDiff(
-        ctx.open(),
-        ctx.run,
-        project,
-        base ??
-          (worktree && worktree.path === folder
-            ? await recordedBase(ctx.run, worktree)
-            : undefined),
-        folder,
+    crew: async (id: string) => {
+      store.get(id); // not_found for an unknown id
+      const rows = await board('all');
+      const latest = latestReports(ctx);
+      return crewOf(rows, id, latest, (child) =>
+        diff(child).then(
+          (read) => diffCounts(read.rows),
+          (error) => {
+            if (error instanceof MesaError) return undefined;
+            throw error;
+          },
+        ),
       );
     },
     /** Gives a session the name a person calls it by; the board shows it in place of the id. */
