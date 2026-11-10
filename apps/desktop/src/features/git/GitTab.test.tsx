@@ -121,6 +121,7 @@ const staged = (message: () => unknown) =>
     'git diff': () =>
       envelope({ checkout, staged: true, path: 'docs/tides.md', patch: '', rows: [] }),
     'git message': message,
+    'git branches': () => envelope({ checkout, branches: [], remotes: [] }),
     'git commit': () => envelope({ result: { checkout, oid: 'c'.repeat(40), summary: 'x' } }),
     'worktrees list': () => envelope([]),
   });
@@ -174,4 +175,44 @@ test('Generate replaces a typed message only once confirmed, and a failed run sa
 test('Generate is off while nothing is staged', async () => {
   await renderWithMesa(<GitTab project="lantern-cove" />, bridge());
   expect(button('Generate commit message')?.disabled).toBe(true);
+});
+
+test('a commit its pre-commit hook fails offers Fix with AI, which hands it over and names the session', async () => {
+  const { bridge, calls } = fakeBridge({
+    config: appearanceConfig({}),
+    'git status': () =>
+      envelope({
+        checkout,
+        branch: 'main',
+        changes: [{ path: 'tide.ts', index: 'A', workingTree: ' ' }],
+        hooks: { preCommit: true },
+      }),
+    'git diff': () => envelope({ checkout, staged: true, path: 'tide.ts', patch: '', rows: [] }),
+    'git commit': () => failure('cannot commit: lint: tide.ts:3 missing semicolon', 'usage'),
+    'git fix': () => envelope({ passed: false, session: 'aaaaaaaa', how: 'sent' }),
+    'git branches': () => envelope({ checkout, branches: [], remotes: [] }),
+    'worktrees list': () => envelope([]),
+  });
+  const byTestId = await renderWithMesa(<GitTab project="lantern-cove" />, bridge);
+  await fill(box(), 'Add the tide table');
+  await click(commitButton());
+  expect(toastTexts(byTestId)).toEqual(['cannot commit: lint: tide.ts:3 missing semicolon']);
+  const link = byTestId('toast-link')[0];
+  expect(link?.textContent).toContain('Fix with AI');
+  await click(link);
+  expect(calls).toContainEqual(['--json', 'git', 'fix', '--', 'lantern-cove']);
+  expect(toastTexts(byTestId)).toContain("Sent the hook's failure to session aaaaaaaa");
+});
+
+test('a failed commit with no pre-commit hook offers no Fix with AI', async () => {
+  const { bridge } = staged(() => envelope({}));
+  const byTestId = await renderWithMesa(<GitTab project="lantern-cove" />, async (args, stdin) =>
+    args[1] === 'git' && args[2] === 'commit'
+      ? failure('cannot commit: nothing added', 'usage')
+      : bridge(args, stdin),
+  );
+  await fill(box(), 'x');
+  await click(commitButton());
+  expect(toastTexts(byTestId)).toEqual(['cannot commit: nothing added']);
+  expect(byTestId('toast-link')).toEqual([]);
 });

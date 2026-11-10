@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   claudeAnswer,
@@ -638,4 +638,32 @@ test('git message writes a message for the staged change with an agent, commits 
   });
   expect(log.trim().split('\n')).toHaveLength(1);
   expect((await cli.mesa('help', '--agent')).stdout).toContain('mesa git message');
+});
+
+test('git fix starts a session with a failing hook as its goal, passes with a passing one, and status names the hook', async () => {
+  const tmux = cli.withTmux();
+  cli.run = withRealGit(cli.run);
+  const repo = await cli.withProject();
+  gitRepo(repo);
+  const preCommit = async () =>
+    (await cli.mesa('git', 'status', 'lantern-cove', '--json')).json.data.hooks.preCommit;
+  expect(await preCommit()).toBe(false);
+  const hook = join(repo, '.git/hooks/pre-commit');
+  mkdirSync(join(repo, '.git/hooks'), { recursive: true });
+  writeFileSync(hook, '#!/bin/sh\necho "lint: tide.ts:3 missing semicolon"\nexit 1\n');
+  chmodSync(hook, 0o755);
+  expect(await preCommit()).toBe(true);
+  writeFileSync(join(repo, 'tide.ts'), 'const high = 6\n');
+  execFileSync('git', ['-C', repo, 'add', 'tide.ts'], { env: testEnv });
+
+  const failed = await cli.mesa('git', 'fix', 'lantern-cove', '--json');
+  expect(failed.code).toBe(0);
+  expect(failed.json.data).toEqual({ passed: false, session: expect.any(String), how: 'started' });
+  expect(tmux.opened.at(-1)?.launch).toContain('lint: tide.ts:3 missing semicolon');
+
+  writeFileSync(hook, '#!/bin/sh\nexit 0\n');
+  expect((await cli.mesa('git', 'fix', 'lantern-cove', '--json')).json.data).toEqual({
+    passed: true,
+  });
+  expect((await cli.mesa('help', '--agent')).stdout).toContain('mesa git fix');
 });

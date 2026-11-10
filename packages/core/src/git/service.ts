@@ -1,10 +1,12 @@
 import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
 import type { Overrides } from '../decisions/guardrail.js';
+import type { HandoffDeps } from './agent-handoff.js';
 import { changeGitBranch, type GitBranchAction, listGitBranches } from './branches.js';
 import { changeGitIndex, commitGit } from './changes.js';
 import { readGitDiff } from './diff.js';
 import { compareGitRefs, readGitGraph } from './history.js';
+import { fixPreCommit } from './hook-fix.js';
 import { readRepositoryInsight, type WorktreeCount } from './insight.js';
 import { type GitTextRunner, writeCommitMessage } from './message.js';
 import { changeGitStash, createGitStash, listGitStashes, type StashAction } from './stash.js';
@@ -13,11 +15,13 @@ import { type GitSync, gitTracking, syncGit } from './sync.js';
 
 /** The registered project's selected checkout is the owner of Git reads and actions. */
 export function gitService(
-  ctx: Pick<MesaContext, 'absolute' | 'clock' | 'open' | 'record' | 'run' | 'store'>,
+  ctx: MesaContext,
   faro: Faro,
   worktreeCount: WorktreeCount,
   /** The skill run's owner, which git text runs `git-text` through. */
   runText: GitTextRunner,
+  /** The board, send and open a checkout's problem is handed to an agent through. */
+  handoff: HandoffDeps,
 ) {
   const sync = (
     project: string,
@@ -210,6 +214,12 @@ export function gitService(
     /** A commit message for the staged changes, written by an agent; commits nothing. */
     message: (project: string, opts: { checkout?: string; agent?: string } = {}) =>
       writeCommitMessage(ctx.open(), ctx.run, runText, project, {
+        ...opts,
+        ...(opts.checkout ? { checkout: ctx.absolute(opts.checkout) } : {}),
+      }),
+    /** Runs the pre-commit hook; a failure goes to the agent working in the checkout. */
+    fix: (project: string, opts: { checkout?: string; session?: string; fresh?: boolean } = {}) =>
+      fixPreCommit(ctx, handoff, project, {
         ...opts,
         ...(opts.checkout ? { checkout: ctx.absolute(opts.checkout) } : {}),
       }),

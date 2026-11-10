@@ -97,7 +97,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
     prompts,
     files: filesService(ctx),
     worktrees,
-    git: gitService(ctx, faro, worktrees.count, sessions.sessions.run),
+    git: gitService(ctx, faro, worktrees.count, sessions.sessions.run, {
+      board: () => sessions.sessions.list(),
+      send: sessions.sessions.send,
+      open: async (project, opts) => (await sessions.sessions.open(project, opts)).result,
+    }),
     ...vaults,
     ...mapService(ctx),
     ...dailyService(ctx),
