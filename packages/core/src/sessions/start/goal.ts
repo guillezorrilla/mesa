@@ -65,6 +65,29 @@ export function requireGoalCommandRuns(goal: string | undefined, agent: Agent): 
   }
 }
 
+/**
+ * The paragraph a worker's goal ends with (CONTEXT.md, Worker brief): who its parent is, that its
+ * last reply each turn reaches the parent as a Child report, how to ask, and not to poll.
+ */
+export const workerBrief = (parent: string) =>
+  `[mesa] You are a worker started by session ${parent}. Mesa types your last reply of each turn into it as your report, so end each turn with what you did, what you found, and what is left. To ask it something, end your turn with the question; its answer comes as your next prompt. Do not poll, sleep, or loop waiting for it.`;
+
+/**
+ * `goal` with the worker brief after it, when the session is started by `parent` (the caller, or
+ * --parent; not the session it only waits on). A goal that is a slash command gets none: words
+ * after it would be its arguments.
+ */
+export function briefedGoal(
+  goal: string | undefined,
+  parent: string | undefined,
+  input: { parent?: string; after?: string },
+): { goal: string | undefined; brief: boolean } {
+  const started = input.parent !== undefined || input.after === undefined;
+  if (goal === undefined || parent === undefined || !started || goal.startsWith('/'))
+    return { goal, brief: false };
+  return { goal: `${goal}\n\n${workerBrief(parent)}`, brief: true };
+}
+
 /** A session's goal, or not_found when it was started without one. */
 export function sessionGoal(store: SessionStore, id: string): { id: string; goal: string } {
   const { goal } = store.get(id);

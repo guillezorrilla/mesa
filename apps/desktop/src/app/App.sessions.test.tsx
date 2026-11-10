@@ -356,6 +356,25 @@ test('session details list the additional projects with their worktree paths', a
   expect(byTestId('session-also-in')[0]?.textContent).toBe(`tide-pool ${path}`);
 });
 
+test('session details name the parent a briefed worker reports back to', async () => {
+  const row = managedRow('aaaaaaaa', { parent: 'bbbbbbbb', brief: true });
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([row]),
+    show: () =>
+      envelope({
+        ...row,
+        instructions: { state: 'missing', reason: 'Run mesa hooks install' },
+        vault: { state: 'missing', reason: 'Run mesa hooks install' },
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
+  expect(byTestId('session-worker-of')[0]?.textContent).toBe(
+    'bbbbbbbb: its last reply each turn goes back as its report',
+  );
+});
+
 test("session details show the notes the session's vault capture saved, or why it saved none", async () => {
   const row = managedRow('aaaaaaaa');
   const notes = ['wiki/decisions/2026-09-24-tide-feed-retries.md', 'wiki/notes/tide-feed.md'];

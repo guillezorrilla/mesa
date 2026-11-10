@@ -32,6 +32,7 @@ import {
   worktreeAt,
 } from '../../testing/index.js';
 import { GENERAL_PROJECT } from '../record/general.js';
+import { workerBrief } from './goal.js';
 import { validateOpenInput } from './open-input.js';
 
 /** Every agent in the fake tmux exits, its pane dead, as a session's must before it resumes. */
@@ -583,6 +584,49 @@ test('resume keeps the goal on the new record but does not send it again', async
     `unset NO_COLOR; exec claude --resume ${first.agentSessionId} ${CLAUDE_MOUNT}`,
   );
   expect(result.record.goal).toBe('Print ready');
+});
+
+test('a goal opened by another session ends with the worker brief; none without a parent, for a slash command, or a queue', async () => {
+  const world = agentWorld();
+  const { home, mesa } = await setUp(world);
+  const { result: a } = await mesa.sessions.open('lantern-cove', { goal: 'Chart the tides' });
+  expect(a.goal).toBe('Chart the tides');
+  expect(a.brief).toBeUndefined();
+  const inside = createMesa(
+    'default',
+    testDeps(home, {
+      run: world.run,
+      env: { MESA_SESSION_ID: a.id, MESA_PROFILE: 'default' },
+      newId,
+    }),
+  );
+  const { result: child } = await inside.sessions.open('lantern-cove', {
+    goal: 'Parse the tables',
+  });
+  expect(child.brief).toBe(true);
+  expect(child.goal).toBe(`Parse the tables\n\n${workerBrief(a.id)}`);
+  expect(child.goal).toContain(`started by session ${a.id}`);
+  expect(inside.sessions.goal(child.id).goal).toBe(child.goal);
+  // The agent is started with it: the brief reaches the window command.
+  expect(launched(world)).toContain('Do not poll, sleep, or loop waiting for it.');
+  const explicit = (await mesa.sessions.open('lantern-cove', { goal: 'Check', parent: child.id }))
+    .result;
+  expect(explicit.goal).toContain(`started by session ${child.id}`);
+  for (const opts of [
+    { goal: 'Alone', noParent: true },
+    { goal: '/review 12' },
+    { goal: 'Review what it did', after: child.id },
+  ]) {
+    const { result } = await inside.sessions.open('lantern-cove', opts);
+    expect(result.brief).toBeUndefined();
+    expect(result.goal).toBe(opts.goal);
+  }
+  // A queued start keeps the brief its record was written with.
+  const queued = (
+    await inside.sessions.open('lantern-cove', { goal: 'Then this', after: child.id, parent: a.id })
+  ).result;
+  expect(queued.lastState.state).toBe('queued');
+  expect(queued.goal).toContain(`started by session ${a.id}`);
 });
 
 test('a session opened inside another is its child: from MESA_SESSION_ID, --parent, or none', async () => {

@@ -126,6 +126,15 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
                 </dd>
               </>
             )}
+            {row.managed && row.brief && row.parent && (
+              <>
+                <dt className="text-muted-foreground">Worker of</dt>
+                <dd data-testid="session-worker-of">
+                  <span className="font-mono">{row.parent}</span>: its last reply each turn goes
+                  back as its report
+                </dd>
+              </>
+            )}
             <dt className="text-muted-foreground">Model</dt>
             <dd>{context?.model ?? 'Unknown'}</dd>
             <dt className="text-muted-foreground">Effort</dt>

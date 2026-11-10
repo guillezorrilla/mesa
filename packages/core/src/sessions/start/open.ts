@@ -9,7 +9,7 @@ import { isOver } from '../record/lifecycle.js';
 import type { SessionRecord } from '../record/record.js';
 import type { Caller } from '../window/caller.js';
 import { additionalDirs, additionalProjects, plannedAdditional } from './additional.js';
-import { requireCommandFits, requireGoalCommandRuns } from './goal.js';
+import { briefedGoal, requireCommandFits, requireGoalCommandRuns } from './goal.js';
 import { folderOf, type LaunchDeps, launchAgent, launchProject, launchSession } from './launch.js';
 import { createRecord } from './new-record.js';
 import { type OpenInput, validateOpenInput } from './open-input.js';
@@ -94,6 +94,7 @@ export async function openSession(
   }
   const waited = input.after === undefined ? undefined : waitedOn(deps, input.after);
   const parent = parentOf(deps, input);
+  const { goal, brief } = briefedGoal(input.goal, parent, input);
   // Read even when --agent is given.
   const selected = input.project ? launchProject(deps.profile, input.project) : null;
   const { agent } = await launchAgent(deps, selected?.project, input.agent);
@@ -103,7 +104,7 @@ export async function openSession(
   if (input.background && !supportsAgentCapability(agent, 'background')) {
     throw new MesaError('usage', `${agent} has no qualified native background mode`);
   }
-  requireGoalCommandRuns(input.goal, agent);
+  requireGoalCommandRuns(goal, agent);
   if (extra && !supportsAgentCapability(agent, 'addDir')) {
     throw new MesaError('usage', `${agent} has no qualified way to add a folder, so no --with`);
   }
@@ -129,7 +130,7 @@ export async function openSession(
         id,
         logs: deps.profile.paths.logs,
         agentSessionId,
-        goal: input.goal,
+        goal,
         mode: input.mode === 'plan' ? 'plan' : undefined,
         disallowed,
       },
@@ -141,7 +142,7 @@ export async function openSession(
         agent,
         'interactive',
         command('xxxxxxxx', { additional: planned }, reviewDeny(agent, input.review)),
-        goalPreparing(deps, 'interactive', input.goal),
+        goalPreparing(deps, 'interactive', goal),
       ),
     );
   const session = {
@@ -149,7 +150,8 @@ export async function openSession(
     agent,
     ...(input.mode === 'plan' ? { mode: 'plan' as const } : {}),
     ...(input.background ? { background: true as const } : {}),
-    goal: input.goal,
+    goal,
+    ...(brief ? { brief: true as const } : {}),
     ...(input.automation ? { automation: input.automation } : {}),
     parent,
     ...(input.general ? { cwd: deps.home } : {}),
