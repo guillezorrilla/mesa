@@ -64,8 +64,7 @@ export async function writeCommitMessage(
     ['diff', '--cached', '--no-color', '--no-ext-diff'],
     'cannot read the staged patch',
   );
-  const recipe =
-    readProjectFile(entry.path).git?.commitMessageRecipe ?? profile.config.git.commitMessageRecipe;
+  const recipe = gitRecipe(profile, entry.path, 'commitMessageRecipe');
   // Every value is fenced: a file name, branch or commit subject is as anyone wrote it.
   const input = fillRecipe(recipe, {
     stagedPatch: dataFence('diff', cutPatch(patch)),
@@ -105,8 +104,7 @@ export async function writePullRequestText(
     ['log', '--reverse', '--format=%s%n%n%b', `${diff.mergeBase}..HEAD`],
     'cannot read the branch commits',
   );
-  const recipe =
-    readProjectFile(entry.path).git?.pullRequestRecipe ?? profile.config.git.pullRequestRecipe;
+  const recipe = gitRecipe(profile, entry.path, 'pullRequestRecipe');
   const input = fillRecipe(recipe, {
     branchPatch: dataFence('diff', cutPatch(diff.patch)),
     commits: dataFence('text', commits.trim() || '(none yet: the changes are not committed)'),
@@ -117,11 +115,23 @@ export async function writePullRequestText(
   return { ...splitTitle(message), run: info };
 }
 
-/** An answer's first line, without a leading `#` or `Title:`, as the title; the rest as the body. */
+/** The recipe a project's runs follow: its mesa.yaml's, else the profile's. */
+const gitRecipe = (
+  profile: Profile,
+  dir: string,
+  key: 'commitMessageRecipe' | 'pullRequestRecipe',
+) => readProjectFile(dir).git?.[key] ?? profile.config.git[key];
+
+/**
+ * An answer's first line, without a Markdown heading's `# ` or a `Title:`, as the title, and the
+ * rest as the body; a `Title:` alone on its line takes the next line as the title.
+ */
 export function splitTitle(text: string) {
-  const [first = '', ...rest] = text.trim().split('\n');
+  const lines = text.trim().replaceAll('\r\n', '\n').split('\n');
+  const label = /^(#+\s+)?title:\s*$/i.test(lines[0] ?? '') ? 1 : 0;
+  const [first = '', ...rest] = lines.slice(label);
   const title = first
-    .replace(/^#+\s*/, '')
+    .replace(/^#+\s+/, '')
     .replace(/^title:\s*/i, '')
     .trim();
   return { title, body: rest.join('\n').trim() };

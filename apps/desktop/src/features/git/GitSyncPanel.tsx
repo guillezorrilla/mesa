@@ -8,7 +8,7 @@ import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { PullRequestTextDialog } from './PullRequestTextDialog';
 
-/** Explicit, upstream-bound network actions for one selected checkout, and its pull request text. */
+/** What one selected checkout's branch sends to its remote: push, pull, and the pull request's text. */
 export function GitSyncPanel(props: { project: string; checkout?: string; onChanged: () => void }) {
   const [pending, setPending] = useState<'push' | 'pull'>();
   const [writing, setWriting] = useState(false);

@@ -8,6 +8,7 @@ import {
   newSession,
   shortIds,
   testEnv,
+  testGit,
   testRunner,
   testStore,
   withRealGit,
@@ -647,14 +648,7 @@ test('git pr-text drafts a title and body for the branch, and refuses a branch w
   cli.run = withRealGit(cli.run);
   const repo = await cli.withProject();
   gitRepo(repo);
-  const git = (...args: string[]) =>
-    execFileSync(
-      'git',
-      ['-C', repo, '-c', 'user.name=t', '-c', 'user.email=t@example.com', ...args],
-      {
-        env: testEnv,
-      },
-    );
+  const git = (...args: string[]) => testGit(repo, ...args);
   const empty = await cli.mesa('git', 'pr-text', 'lantern-cove', '--base', 'main', '--json');
   expect(empty.code).toBe(2);
   git('switch', '-q', '-c', 'tides');

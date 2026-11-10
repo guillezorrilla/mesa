@@ -144,6 +144,14 @@ test('the answer splits into a title, without a leading # or Title:, and the bod
     body: 'It lists high and low water.',
   });
   expect(splitTitle('Title: Add soundings')).toEqual({ title: 'Add soundings', body: '' });
+  expect(splitTitle('#123 Fix the tide table')).toEqual({
+    title: '#123 Fix the tide table',
+    body: '',
+  });
+  expect(splitTitle('Title:\r\nAdd soundings\r\n\r\nBerth 3.')).toEqual({
+    title: 'Add soundings',
+    body: 'Berth 3.',
+  });
 });
 
 test('pull request text comes from the branch since its merge-base, its commits and base filled in', async () => {
