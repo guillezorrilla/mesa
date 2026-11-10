@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { listAgentProcesses } from '../../agents/listing.js';
+import { keptListing, listAgentProcesses } from '../../agents/listing.js';
 import {
   fakeTmux,
   fixedClock,
@@ -18,6 +18,8 @@ import {
   tempDir,
 } from '../../testing/index.js';
 import { sessionStore } from '../record/store.js';
+import type { HookEvent } from '../signals/hook-events.js';
+import { FRESH_MS } from '../signals/state.js';
 import { listSessions } from './board.js';
 import { sessionTree } from './tree.js';
 
@@ -762,4 +764,72 @@ test('a row lists the worktrees a newer session took over, which removing it lea
   ]);
   expect(first?.id).toBe(old.id);
   expect(second?.managed && second.takenOver).toBeUndefined();
+});
+
+test("Claude's listing runs only when some live Claude session's hook is stale or a wait", async () => {
+  const store = storeIn();
+  const a = store.create(() =>
+    inWindow('lantern-cove', '2026-09-24T11:00:00.000Z', 'claude-aaaaaa'),
+  );
+  const b = store.create(() => inWindow('tide', '2026-09-24T11:00:00.000Z', 'claude-bbbbbb'));
+  const hook = (event: string, at: string): HookEvent[] => [
+    { at, agent: 'claude', event, payload: { hook_event_name: event } },
+  ];
+  const fresh = '2026-09-24T11:59:50.000Z';
+  const logs: Record<string, HookEvent[]> = {
+    [a.id]: hook('Stop', fresh),
+    [b.id]: hook('Stop', fresh),
+  };
+  const { run, calls } = scriptedRunner({ claude: JSON.stringify([]) });
+  const clock = fixedClock('2026-09-24T12:00:00.000Z');
+  const file = join(tempDir(), 'listing.json');
+  const look = () =>
+    listSessions({
+      ...noListing,
+      store,
+      tmux: tmuxWith(LIVE, { project: 'tide', window: 'claude-bbbbbb' }),
+      listing: keptListing({ ...listingDeps(run, { clock }), file, maxAgeMs: FRESH_MS }),
+      events: (id) => logs[id] ?? [],
+      clock,
+    });
+  const listings = () => calls.filter((c) => c.file === 'claude').length;
+  // No listing kept yet: the first look runs it.
+  await look();
+  expect(listings()).toBe(1);
+  // Every live session's hook is fresh: none, and the states stand on the hooks.
+  const rows = await look();
+  expect(listings()).toBe(1);
+  expect(byStart(rows).map((r) => r.lastState)).toMatchObject([
+    { state: 'idle', confidence: 0.95, source: 'hook' },
+    { state: 'idle', confidence: 0.95, source: 'hook' },
+  ]);
+  // One hook a minute old: the listing runs.
+  logs[b.id] = hook('Stop', '2026-09-24T11:58:59.000Z');
+  await look();
+  expect(listings()).toBe(2);
+  // One waits on a permission, which a denial ends with no hook: the listing runs.
+  logs[b.id] = hook('PermissionRequest', fresh);
+  await look();
+  expect(listings()).toBe(3);
+});
+
+test('a kept listing serves its agents only while young; a foreign row stays meanwhile', async () => {
+  const { run, calls } = scriptedRunner({ claude: JSON.stringify([SPIKE_LISTING.idle]) });
+  let now = '2026-09-24T12:00:00.000Z';
+  const deps = listingDeps(run, { clock: () => new Date(now) });
+  const listing = keptListing({
+    ...deps,
+    file: join(tempDir(), 'listing.json'),
+    maxAgeMs: FRESH_MS,
+  });
+  const first = await listing([]);
+  expect(first).toHaveLength(1);
+  // Reused: the same foreign process, no new run.
+  now = '2026-09-24T12:00:59.000Z';
+  expect(await listing(['claude'])).toEqual(first);
+  expect(calls.filter((c) => c.file === 'claude')).toHaveLength(1);
+  // Too old to reuse: listed again.
+  now = '2026-09-24T12:01:00.000Z';
+  await listing(['claude']);
+  expect(calls.filter((c) => c.file === 'claude')).toHaveLength(2);
 });

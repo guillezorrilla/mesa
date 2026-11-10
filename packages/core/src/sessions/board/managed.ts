@@ -11,9 +11,14 @@ import type { SessionRecord } from '../record/record.js';
 import { FINAL_STATES, isAgentState } from '../record/states.js';
 import type { SessionStore } from '../record/store.js';
 import { unreadOn } from '../record/unread.js';
-import { type HookEvent, parentHook } from '../signals/hook-events.js';
+import type { HookEvent } from '../signals/hook-events.js';
 import { type PlacementStore, supervisionOf, type Want } from '../signals/placements.js';
-import { classifySession, type Placement, type SessionSignals } from '../signals/state.js';
+import {
+  classifySession,
+  type Placement,
+  type SessionSignals,
+  stateEvent,
+} from '../signals/state.js';
 import type { TmuxBackend } from '../tmux/backend.js';
 import type { TmuxWindow } from '../tmux/format.js';
 import { windowOf } from '../window/window-name.js';
@@ -131,11 +136,7 @@ export async function managedRow(
   const listed = listedAs && reader.listing.state(listedAs) ? listedAs : undefined;
   // A stopped session keeps its state, and swaps nothing, so its hook log is not read.
   const events = found.endedAt ? [] : deps.events(found.id);
-  const states = events.filter((e) => parentHook(e) && reader.hookState?.(e.event, e.payload));
-  // An idle_prompt repeats the Stop before it, whose payload names the work still running.
-  const [before, latest] = states.slice(-2);
-  const event =
-    latest?.event === 'Notification' && before?.event === 'Stop' ? before : states.at(-1);
+  const event = stateEvent(found.agent, events);
   const signals: SessionSignals = {
     now: now.toISOString(),
     agent: found.agent,

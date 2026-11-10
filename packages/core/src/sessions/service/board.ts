@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { listAgentProcesses } from '../../agents/listing.js';
+import { keptListing } from '../../agents/listing.js';
 import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
 import { automaticGate } from '../../decisions/site-mode.js';
@@ -9,6 +9,7 @@ import { readRegistry } from '../../projects/registry.js';
 import { listSessions, type SessionScope } from '../board/board.js';
 import { readHookEvents } from '../signals/hook-events.js';
 import { placementStore } from '../signals/placements.js';
+import { FRESH_MS } from '../signals/state.js';
 import { outputLog } from '../window/output-log.js';
 
 /**
@@ -19,6 +20,7 @@ import { outputLog } from '../window/output-log.js';
 export function boardLook(ctx: MesaContext, faro: Faro, elsewhere: () => ReadonlySet<string>) {
   const { paths, open, store, tmux } = ctx;
   const placements = placementStore(paths.placements, ctx);
+  const listing = keptListing({ ...ctx, file: paths.listing, maxAgeMs: FRESH_MS });
   return (scope: SessionScope = 'board') => {
     // The chosen model, if it runs supervision automatically, places unsure rows beside the look.
     const decisions = ctx.configIfAny()?.decisions;
@@ -30,7 +32,7 @@ export function boardLook(ctx: MesaContext, faro: Faro, elsewhere: () => Readonl
       {
         store,
         tmux,
-        listing: () => listAgentProcesses(ctx),
+        listing,
         projects: readRegistry(paths.registry),
         elsewhere,
         events: (id) => readHookEvents(paths.events, id),

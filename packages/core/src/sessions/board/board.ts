@@ -1,4 +1,5 @@
 import type { AgentProcess } from '../../agents/listing.js';
+import type { Agent } from '../../agents/names.js';
 import type { FaroProfile } from '../../decisions/decide.js';
 import type { DecisionRecorder } from '../../decisions/types.js';
 import type { Clock } from '../../lib/clock.js';
@@ -6,9 +7,11 @@ import type { Env } from '../../lib/process.js';
 import type { RegistryEntry } from '../../projects/registry.js';
 import { takenOver, worktreeHolders } from '../record/holders.js';
 import type { SessionRecord } from '../record/record.js';
+import { isAgentState } from '../record/states.js';
 import type { SessionStore } from '../record/store.js';
 import type { HookEvent } from '../signals/hook-events.js';
 import { refreshReadings } from '../signals/readings.js';
+import { hookSettles, stateEvent } from '../signals/state.js';
 import type { TmuxBackend } from '../tmux/backend.js';
 import { targetLabel } from '../tmux/format.js';
 import { windowOf } from '../window/window-name.js';
@@ -47,7 +50,8 @@ export async function listSessions(
   deps: {
     store: SessionStore;
     tmux: Pick<TmuxBackend, 'setPaneDiedHook' | 'listWindows' | 'capturePane'>;
-    listing: () => Promise<AgentProcess[]>;
+    /** Every agent's listed sessions; those of `reuse` may come from the last listing (#896). */
+    listing: (reuse: readonly Agent[]) => Promise<AgentProcess[]>;
     /** The session's hook events, oldest first. */
     events: (id: string) => HookEvent[];
     /** A project's priority from its mesa.yaml (0.5 when unknown). */
@@ -92,7 +96,21 @@ export async function listSessions(
     if (every.length) await deps.tmux.setPaneDiedHook();
     return records.length ? deps.tmux.listWindows() : [];
   };
-  const [listed, windowList] = await Promise.all([deps.listing(), windowsNow()]);
+  // Read once per look: the hooks settle whether Claude's listing runs, and then each row.
+  const logs = new Map<string, HookEvent[]>();
+  const events = (id: string) => logs.get(id) ?? logs.set(id, deps.events(id)).get(id) ?? [];
+  // Claude's listing (0.14 to 0.22 s) runs only when some live Claude session's latest hook is
+  // stale or a wait; while every one is fresh, the last listing does for foreign rows (#896).
+  const live = records.filter(
+    (r) => r.agent === 'claude' && !r.endedAt && isAgentState(r.lastState.state),
+  );
+  const settled =
+    live.length > 0 &&
+    live.every((r) => hookSettles('claude', stateEvent('claude', events(r.id)), now));
+  const [listed, windowList] = await Promise.all([
+    deps.listing(settled ? ['claude'] : []),
+    windowsNow(),
+  ]);
   const elsewhere = deps.elsewhere();
   const held = new Set([...every.flatMap((r) => r.agentSessionId ?? []), ...elsewhere]);
   const read = ownSessionIds(deps, records, held);
@@ -104,7 +122,7 @@ export async function listSessions(
   const holders = worktreeHolders(every);
   const managed = await Promise.all(
     records.map(async (found) => {
-      const base = await managedRow({ ...deps, faro }, found, {
+      const base = await managedRow({ ...deps, events, faro }, found, {
         now,
         listedAs: listedFor(found.id),
         agentSessionId: read.get(found.id),

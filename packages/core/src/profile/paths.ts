@@ -11,6 +11,8 @@ export type ProfilePaths = {
   sessions: string;
   /** The agent hooks' event logs, one `<session id>.jsonl` each. */
   events: string;
+  /** The last agent listing a look ran, reused while hooks are fresh (#896). */
+  listing: string;
   /** Sessions' output logs, one `<session id>.log` each: local only, never in the vault. */
   logs: string;
   /** What each headless run's agent printed, `<session id>.json` each (CONTEXT.md, Skill run). */
@@ -84,6 +86,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     registry: join(root, 'registry.yaml'),
     sessions: join(root, 'sessions'),
     events: join(root, 'sessions', 'events'),
+    listing: join(root, 'sessions', 'listing.json'),
     logs: join(root, 'sessions', 'logs'),
     runs: join(root, 'sessions', 'runs'),
     costs: join(root, 'sessions', 'costs'),
