@@ -1,6 +1,6 @@
 import type { AdvertisedUrl } from '@mesa/core';
 import { ExternalLink, Globe, SquareArrowRight } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CountPill } from '@/components/CountPill';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,24 +18,34 @@ import { useWindowFocused } from '@/lib/useWindowFocused';
 export const PORTS_POLL_MS = 10_000;
 
 /**
- * The title bar's Advertised URLs: a Globe with how many still listen, hidden at none. Its menu
- * lists each URL under its session's name, opens one in the default browser, and goes to the
- * session. Polls `mesa ports` every 10 s while the window has focus; a failed poll is quiet.
+ * The title bar's Advertised URLs: a Globe with how many still listen (or may: lsof could not
+ * tell), hidden at none. Its menu lists each under its session's name, opens one in the default
+ * browser, and goes to the session. Polls `mesa ports` every 10 s while the window has focus, one
+ * at a time; a failed poll is quiet.
  */
 export function PortsMenu(props: { onSession: (id: string) => void }) {
   const call = useCall();
   const run = useRun();
   const focused = useWindowFocused();
-  const [urls, setUrls] = useState<AdvertisedUrl[]>([]);
+  const [all, setAll] = useState<AdvertisedUrl[]>([]);
+  const polling = useRef(false);
   useEffect(() => {
     if (!focused) return;
-    const poll = () =>
-      void call('sessions.ports').then((result) => result.ok && setUrls(result.data.ports));
+    const poll = () => {
+      if (polling.current) return;
+      polling.current = true;
+      void call('sessions.ports')
+        .then((result) => result.ok && setAll(result.data.ports))
+        .finally(() => {
+          polling.current = false;
+        });
+    };
     poll();
     const timer = window.setInterval(poll, PORTS_POLL_MS);
     return () => window.clearInterval(timer);
   }, [call, focused]);
-  const listening = urls.filter((url) => url.listening).length;
+  const urls = all.filter((url) => url.listening !== false);
+  const listening = urls.length;
   if (!listening) return null;
   const sessions = [...new Set(urls.map((url) => url.session))];
   return (
@@ -63,12 +73,13 @@ export function PortsMenu(props: { onSession: (id: string) => void }) {
               {own.map((url) => (
                 <DropdownMenuItem
                   key={url.url}
-                  className={url.listening ? undefined : 'text-muted-foreground'}
                   onSelect={() => void run('browser.external', { url: url.url })}
                 >
                   <ExternalLink aria-hidden className="size-4" />
                   <span className="truncate font-mono text-xs">{url.url}</span>
-                  {!url.listening && <span className="ml-auto text-xs">closed</span>}
+                  {url.listening === null && (
+                    <span className="ml-auto text-xs text-muted-foreground">unknown</span>
+                  )}
                 </DropdownMenuItem>
               ))}
               <DropdownMenuItem onSelect={() => props.onSession(session)}>

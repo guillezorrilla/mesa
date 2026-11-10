@@ -18,7 +18,7 @@ const item = (text: string) =>
     each.textContent?.includes(text),
   );
 
-test('Globe counts the listening URLs, lists each under its session, opens one, and goes to the session', async () => {
+test('Globe counts the listening URLs, lists those under their session, opens one, and goes to the session', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   try {
     let ports = [url('aaaaaaaa', 'harbour ui', 5173, false)];
@@ -31,14 +31,17 @@ test('Globe counts the listening URLs, lists each under its session, opens one, 
     await renderWithMesa(<PortsMenu onSession={(id) => went.push(id)} />, bridge);
     expect(globe()).toBeNull();
 
-    ports = [url('bbbbbbbb', 'tide api', 3000, true), url('aaaaaaaa', 'harbour ui', 5173, false)];
+    ports = [
+      url('bbbbbbbb', 'tide api', 3000, true),
+      url('bbbbbbbb', 'tide api', 3001, null),
+      url('aaaaaaaa', 'harbour ui', 5173, false),
+    ];
     await act(async () => vi.advanceTimersByTime(PORTS_POLL_MS));
-    expect(globe()?.textContent).toBe('1');
+    expect(globe()?.textContent).toBe('2');
     await click(globe() ?? undefined);
     const menu = document.querySelector('[role="menu"]')?.textContent ?? '';
-    // Each session's name, then its URLs, then Go to session; listening sessions first.
-    expect(menu).toMatch(/^tide api.*3000.*Go to session.*harbour ui.*5173.*Go to session$/);
-    expect(item('http://localhost:5173/')?.textContent).toContain('closed');
+    // A session's name, its URLs that listen (or may), then Go to session; a closed one is left out.
+    expect(menu).toMatch(/^tide api.*3000.*3001.*unknown Go to session$/);
     await click(item('http://localhost:3000/'));
     expect(calls).toContainEqual(['--json', 'browser', 'external', '--', 'http://localhost:3000/']);
     await click(globe() ?? undefined);

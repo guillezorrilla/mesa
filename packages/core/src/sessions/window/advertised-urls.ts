@@ -1,12 +1,12 @@
 import type { LockDeps } from '../../lib/lock-file.js';
 import type { Runner } from '../../lib/process.js';
-import { MesaError } from '../../lib/result.js';
 import { sessionTitle } from '../record/labels.js';
 import type { SessionRecord } from '../record/record.js';
+import { listeningPorts } from './listening-ports.js';
 import { outputTail } from './output-log.js';
 
 // Advertised URLs (CONTEXT.md): the local addresses a session's dev server printed in its window,
-// read from its Output log, each marked whether something still listens on its port.
+// read from its Output log.
 
 export type AdvertisedUrl = {
   session: string;
@@ -21,11 +21,15 @@ export type AdvertisedUrl = {
 /** How far back in each Output log Mesa looks. */
 const LOG_LINES = 2000;
 /** An http(s) URL with an explicit port: its scheme, host (a bracketed IPv6 too), port and path. */
-const URL_PATTERN = /\b(https?):\/\/(\[[0-9a-fA-F:]+\]|[A-Za-z0-9.-]+):(\d{1,5})(\/[^\s'"<>`]*)?/g;
+const URL_PATTERN =
+  /\b(https?):\/\/(\[[0-9a-fA-F:]+\]|[A-Za-z0-9.-]+):(\d{1,5})(?!\d)(\/[^\s'"<>`]*)?/g;
+/** This machine's own addresses; the "every interface" ones (`0.0.0.0`, `[::]`) read as `localhost`. */
+const LOOPBACK = ['localhost', '127.0.0.1', '[::1]'];
+const ANY = ['0.0.0.0', '[::]'];
 
 /** Whether `host` is this machine or a private IPv4 address (10/8, 172.16/12, 192.168/16). */
-function local(host: string) {
-  if (['localhost', '127.0.0.1', '0.0.0.0', '[::1]'].includes(host)) return true;
+function isLocal(host: string) {
+  if (LOOPBACK.includes(host) || ANY.includes(host)) return true;
   const octets = host.split('.').map(Number);
   if (octets.length !== 4 || octets.some((n) => !Number.isInteger(n) || n < 0 || n > 255))
     return false;
@@ -34,17 +38,21 @@ function local(host: string) {
 }
 
 /**
- * The local URLs with a port in `lines`, the newest line's per port, in port order. `0.0.0.0`
- * (every interface) reads as `localhost`, the address a browser opens; trailing punctuation a
- * sentence put after a URL is dropped.
+ * The local URLs with a port in `lines`, the newest line's per port, in port order, except that a
+ * LAN address never replaces this machine's for the same port (Vite prints Local, then Network).
+ * `0.0.0.0` and `[::]` (every interface) read as `localhost`, the address a browser opens;
+ * trailing punctuation a sentence put after a URL is dropped.
  */
 export function advertisedIn(lines: readonly string[]) {
   const byPort = new Map<number, { url: string; host: string; port: number }>();
   for (const line of lines) {
-    for (const [, scheme, found = '', digits, path = ''] of line.matchAll(URL_PATTERN)) {
+    for (const [, scheme, printed = '', digits, path = ''] of line.matchAll(URL_PATTERN)) {
       const port = Number(digits);
-      const host = found.toLowerCase() === '0.0.0.0' ? 'localhost' : found.toLowerCase();
-      if (!local(found.toLowerCase()) || port < 1 || port > 65535) continue;
+      const lower = printed.toLowerCase();
+      const host = ANY.includes(lower) ? 'localhost' : lower;
+      if (!isLocal(lower) || port < 1 || port > 65535) continue;
+      const kept = byPort.get(port);
+      if (kept && LOOPBACK.includes(kept.host) && !LOOPBACK.includes(host)) continue;
       const url = `${scheme}://${host}:${port}${path.replace(/[.,;:!?)\]]+$/, '') || '/'}`;
       byPort.set(port, { url, host, port });
     }
@@ -52,30 +60,17 @@ export function advertisedIn(lines: readonly string[]) {
   return [...byPort.values()].sort((a, b) => a.port - b.port);
 }
 
-/** The TCP ports something listens on, from `lsof -Fpn` (`n127.0.0.1:5173`, `n*:3000`). */
-export function listeningIn(lsof: string) {
-  const ports = new Set<number>();
-  for (const line of lsof.split('\n')) {
-    const port = line.startsWith('n') ? Number(line.slice(line.lastIndexOf(':') + 1)) : Number.NaN;
-    if (Number.isInteger(port)) ports.add(port);
-  }
-  return ports;
-}
-
 /**
- * The URLs each unended session's dev server advertised in the last 2000 lines of its Output
- * log (only `session`'s when given: not_found when it is unknown), each marked by one `lsof` call
- * whether its port is listening (null when lsof is missing or fails), the listening ones first.
- * A session with no Output log adds nothing.
+ * The URLs `records`' dev servers advertised in the last 2000 lines of each one's Output log,
+ * each marked by one `lsof` call (listeningPorts) whether its port is listening (null when lsof
+ * could not tell), the listening ones first. A session with no Output log adds nothing.
+ * shortcut: each call reads every log whole (outputTail, at most 20 MB each); read only their
+ * ends if a poll every 10 s grows slow.
  */
 export async function advertisedUrls(
-  deps: { lock: LockDeps; run: Runner; logs: string; records: SessionRecord[] },
-  session?: string,
+  deps: { lock: LockDeps; run: Runner; logs: string },
+  records: readonly SessionRecord[],
 ): Promise<AdvertisedUrl[]> {
-  const records = session
-    ? deps.records.filter((record) => record.id === session)
-    : deps.records.filter((record) => !record.endedAt);
-  if (session && !records.length) throw new MesaError('not_found', `no session ${session}`);
   const found = records.flatMap((record) =>
     advertisedIn(outputTail(deps.lock, deps.logs, record.id, LOG_LINES) ?? []).map((url) => ({
       session: record.id,
@@ -84,8 +79,7 @@ export async function advertisedUrls(
     })),
   );
   if (!found.length) return [];
-  const lsof = await deps.run('lsof', ['-nP', '-iTCP', '-sTCP:LISTEN', '-Fpn'], 5_000);
-  const listening = lsof.ok ? listeningIn(lsof.stdout) : undefined;
+  const listening = await listeningPorts(deps.run);
   return found
     .map((url) => ({ ...url, listening: listening ? listening.has(url.port) : null }))
     .sort((a, b) => Number(b.listening === true) - Number(a.listening === true));

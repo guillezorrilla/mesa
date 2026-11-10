@@ -118,9 +118,15 @@ export function inspectActions(
       store.get(id);
       return sessionLog(ctx, paths.logs, id, tail);
     },
-    /** The local URLs sessions' dev servers printed, and whether each still listens (advertisedUrls). */
+    /**
+     * The local URLs every unended session's dev server printed, or `session`'s (not_found for an
+     * unknown id), and whether each still listens (advertisedUrls).
+     */
     ports: (session?: string) =>
-      advertisedUrls({ lock: ctx, run: ctx.run, logs: paths.logs, records: store.list() }, session),
+      advertisedUrls(
+        { lock: ctx, run: ctx.run, logs: paths.logs },
+        session ? [store.get(session)] : store.list().filter((record) => !record.endedAt),
+      ),
     /**
      * One session's record, its context use read now, with `alive` and who placed its state
      * (`supervision`) as the board reads them, whether its instruction hook and its mesa-vault
