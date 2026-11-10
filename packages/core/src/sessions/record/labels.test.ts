@@ -4,6 +4,7 @@ import type { SessionRow } from '../board/rows.js';
 import {
   attentionScore,
   contextPercent,
+  contextTone,
   nameAsk,
   reviewLabel,
   sessionBranch,
@@ -48,6 +49,12 @@ test('a row reads as its name, else its agent name, else its id; its branch is i
 test('an attention score and a context reading read the same everywhere', () => {
   expect(attentionScore(0.8333)).toBe('0.83');
   expect([21.16, 54.5, 120, -3].map(contextPercent)).toEqual([21, 55, 100, 0]);
+});
+
+test('a context reading turns amber at 200k tokens and red at 250k, or at 55% and 60% of a smaller window', () => {
+  const at = (window: number) => (used: number) => contextTone({ used, window });
+  expect([19.4, 19.6, 24.4, 24.6].map(at(1_000_000))).toEqual(['normal', 'amber', 'amber', 'red']);
+  expect([54.4, 54.5, 59.5, 120].map(at(200_000))).toEqual(['normal', 'amber', 'red', 'red']);
 });
 
 test('a session is worth naming on its first prompt, then between turns, until someone names it', () => {
