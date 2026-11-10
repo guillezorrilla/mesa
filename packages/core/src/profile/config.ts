@@ -15,6 +15,7 @@ import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { readYaml, setYamlPath, valueAt } from '../lib/yaml-file.js';
 import { WORKTREE_OVERRIDE_FIELDS } from '../projects/overrides.js';
+import { KEEP_AWAKE_MODES } from '../sessions/awake.js';
 import { UPDATE_CHANNELS } from '../update/feeds.js';
 import {
   COLOR_VISION_MODES,
@@ -104,6 +105,8 @@ const ConfigShape = z.strictObject({
       childReports: z.boolean().default(true),
       // The agent-guidelines skill for every project, and the pointer line naming it.
       guidelines: z.boolean().default(true),
+      /** When the app keeps the Mac from idle-sleeping (CONTEXT.md, Keep awake). */
+      keepAwake: z.enum(KEEP_AWAKE_MODES).default('off'),
     })
     .prefault({}),
   usage: z

@@ -2923,6 +2923,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
       prEvents: false,
       childReports: true,
       guidelines: true,
+      keepAwake: 'off',
     },
     usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
     notifications: {

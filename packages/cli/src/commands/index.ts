@@ -5,6 +5,7 @@ import { agents } from './agents.js';
 import { archive } from './archive.js';
 import { attach } from './attach.js';
 import { AUTOMATIONS_COMMANDS } from './automations/index.js';
+import { awake } from './awake.js';
 import { backupCreate, backupRestore } from './backup.js';
 import {
   browserAnnotationPreview,
@@ -131,6 +132,7 @@ export const COMMANDS: Command[] = [
   agents,
   archive,
   attach,
+  awake,
   ...AUTOMATIONS_COMMANDS,
   ...TICKETS_COMMANDS,
   backupCreate,
