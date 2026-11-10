@@ -701,3 +701,45 @@ test('with a Decision model a session mounts mesa-decisions, a prompt gets advic
   await mesa('decisions', 'off', '--session', opened.id);
   expect((await show(opened.id)).decisions.advice.state).toBe('disabled');
 });
+
+test("a parent's Stop answers with its pending child reports as a block, once, and never on stop_hook_active", async () => {
+  cli.withTmux();
+  await cli.withProject();
+  const parent = (await mesa('open', 'lantern-cove', '--json')).json.data;
+  const child = (await mesa('open', 'lantern-cove', '--parent', parent.id, '--json')).json.data;
+  expect((await mesa('reports', '--json')).json.data.reports).toEqual([]);
+  const stop = async (
+    id: string,
+    agentSessionId: string,
+    extra: Record<string, unknown> = {},
+    flags = ['--continues'],
+  ) => {
+    cli.env = { MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
+    cli.stdin = JSON.stringify({ session_id: agentSessionId, hook_event_name: 'Stop', ...extra });
+    const ran = await mesa('hook', 'claude', ...flags);
+    cli.env = {};
+    return ran.stdout.trim();
+  };
+  // Nothing pending: nothing printed.
+  expect(await stop(parent.id, parent.agentSessionId)).toBe('');
+  expect(
+    await stop(child.id, child.agentSessionId, { last_assistant_message: 'Tide tables parsed.' }),
+  ).toBe('');
+  // A Stop that already continues a blocked turn never blocks again.
+  expect(await stop(parent.id, parent.agentSessionId, { stop_hook_active: true })).toBe('');
+  // A Stop hook an older mesa installed drops stdout: nothing is claimed for nothing.
+  expect(await stop(parent.id, parent.agentSessionId, {}, [])).toBe('');
+  expect((await mesa('reports', '--json')).json.data.reports).toHaveLength(1);
+  const answer = JSON.parse(await stop(parent.id, parent.agentSessionId));
+  expect(answer.decision).toBe('block');
+  expect(answer.reason).toContain(`- ${child.id} (`);
+  expect(answer.reason).toContain('Tide tables parsed.');
+  expect((await mesa('reports', '--json')).json.data.reports).toEqual([]);
+  // The turn goes on: the parent's log says so after the Stop, so it reads working, not idle.
+  const log = readFileSync(join(cli.paths.events, `${parent.id}.jsonl`), 'utf8')
+    .trim()
+    .split('\n');
+  expect(JSON.parse(log.at(-1) ?? '{}').event).toBe('StopContinued');
+  expect((await mesa('show', parent.id, '--json')).json.data.lastState.state).toBe('working');
+  expect(await stop(parent.id, parent.agentSessionId)).toBe('');
+});

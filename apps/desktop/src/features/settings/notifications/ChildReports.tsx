@@ -10,7 +10,7 @@ export function ChildReports(props: { enabled: boolean }) {
     <SettingRow
       icon={Network}
       title="Send child reports to parents"
-      description="When a session started from another finishes a turn, waits on you, or ends, type its news into the parent once it is idle."
+      description="When a session started from another finishes a turn, waits on you, or ends, bring its news to the parent as the parent's turn ends, or once it is idle."
       htmlFor="sessions-child-reports"
       keywords="orchestrate worker child parent report"
       control={

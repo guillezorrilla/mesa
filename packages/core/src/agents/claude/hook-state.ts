@@ -1,3 +1,4 @@
+import { STOP_CONTINUED } from '../hooks.js';
 import type { AgentState } from '../states.js';
 
 // What Claude Code's hook events mean as a session state (docs/spikes/state-signals.md).
@@ -16,6 +17,7 @@ export function claudeHookState(event: string, payload?: unknown): AgentState | 
       return 'idle';
     case 'UserPromptSubmit':
     case 'PostToolUse':
+    case STOP_CONTINUED:
       return 'working';
     case 'PermissionRequest':
       return question ? 'waiting-question' : 'waiting-permission';

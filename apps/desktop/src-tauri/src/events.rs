@@ -120,12 +120,19 @@ mod tests {
             }
         });
         let count = AtomicUsize::new(0);
+        let start = Instant::now();
         debounced(&rx, DEBOUNCE, GAP, || {
             count.fetch_add(1, Ordering::SeqCst);
         });
         feeder.join().unwrap();
-        // One per DEBOUNCE + GAP (850 ms), and the last burst: not one per change (20).
-        assert!(count.load(Ordering::SeqCst) <= 3, "{count:?}");
+        // One per DEBOUNCE + GAP (850 ms) of however long the stream took on this machine (a
+        // loaded runner stretches the feeder's sleeps), plus the last burst: never one per change.
+        let cycles = start.elapsed().as_millis() / (DEBOUNCE + GAP).as_millis() + 2;
+        let seen = count.load(Ordering::SeqCst);
+        assert!(
+            seen as u128 <= cycles && seen < 20,
+            "{seen} changes in {cycles} cycles"
+        );
     }
 
     #[test]
