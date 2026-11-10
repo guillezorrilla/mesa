@@ -5,7 +5,13 @@ export type Env = Readonly<Record<string, string | undefined>>;
 
 export type RunResult =
   | { ok: true; stdout: string }
-  | { ok: false; reason: 'missing' | 'timeout' | 'failed'; detail: string };
+  | {
+      ok: false;
+      reason: 'missing' | 'timeout' | 'failed';
+      detail: string;
+      /** A failed run's whole output, stdout then stderr, for a caller that needs both. */
+      output?: string;
+    };
 
 /** Runs a binary with a timeout and never throws. The seam for tmux, the agents, and probes. */
 export type Runner = (
@@ -44,6 +50,7 @@ export const envRunner =
             ok: false,
             reason: 'failed',
             detail: (stderr || stdout || error.message).trim(),
+            output: [stdout, stderr].filter((text) => text.trim()).join('\n'),
           });
         },
       );

@@ -651,7 +651,11 @@ test('git fix starts a session with a failing hook as its goal, passes with a pa
   expect(await preCommit()).toBe(false);
   const hook = join(repo, '.git/hooks/pre-commit');
   mkdirSync(join(repo, '.git/hooks'), { recursive: true });
-  writeFileSync(hook, '#!/bin/sh\necho "lint: tide.ts:3 missing semicolon"\nexit 1\n');
+  // 300 lines of a type checker's errors: a new session's goal must still fit one tmux command.
+  writeFileSync(
+    hook,
+    '#!/bin/sh\ni=0; while [ $i -lt 300 ]; do echo "src/tide.ts:$i error TS2322: Type string is not assignable to type number"; i=$((i+1)); done\necho "lint: tide.ts:3 missing semicolon"\nexit 1\n',
+  );
   chmodSync(hook, 0o755);
   expect(await preCommit()).toBe(true);
   writeFileSync(join(repo, 'tide.ts'), 'const high = 6\n');

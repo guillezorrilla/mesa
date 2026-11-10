@@ -1,3 +1,4 @@
+import { realpathSync } from 'node:fs';
 import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
 import type { Checkout } from '../projects/checkout.js';
@@ -19,6 +20,15 @@ export type HandoffDeps = {
   open: (project: string, opts: { goal: string; checkout?: string }) => Promise<{ id: string }>;
 };
 
+/** `path` with its symlinks resolved, as a checkout's is (resolveCheckout); as given when it is gone. */
+function realPath(path: string) {
+  try {
+    return realpathSync.native(path);
+  } catch {
+    return path;
+  }
+}
+
 /** The unended Mesa sessions working in `checkout`: in it as their worktree, or for the main checkout, on the project with none. */
 function sessionsIn(rows: readonly SessionRow[], checkout: Checkout) {
   return rows.filter(
@@ -27,7 +37,7 @@ function sessionsIn(rows: readonly SessionRow[], checkout: Checkout) {
       !row.endedAt &&
       row.kind !== 'run' &&
       row.agent !== 'terminal' &&
-      (heldWorktrees(row).some(({ worktree }) => worktree.path === checkout.path) ||
+      (heldWorktrees(row).some(({ worktree }) => realPath(worktree.path) === checkout.path) ||
         (checkout.registered && row.project === checkout.project && !row.worktree)),
   );
 }
@@ -85,9 +95,12 @@ export async function handToAgent(
     prompt: input.prompt,
   });
   if (delivered.status !== 'delivered') {
+    const why = delivered.reason ?? delivered.status;
     throw new MesaError(
       delivered.status === 'blocked' ? 'guardrail_blocked' : 'usage',
-      `nothing was handed to session ${target.id}: ${delivered.reason ?? delivered.status}`,
+      delivered.status === 'uncertain'
+        ? `the send to session ${target.id} broke partway, so some of it may have been typed: ${why}`
+        : `nothing was handed to session ${target.id}: ${why}`,
     );
   }
   return { session: target.id, how: 'sent' };

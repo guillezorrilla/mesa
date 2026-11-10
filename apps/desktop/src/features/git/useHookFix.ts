@@ -1,4 +1,5 @@
 import { Sparkles } from 'lucide-react';
+import { useRef } from 'react';
 import { useToast } from '@/components/Toast';
 import { useRun } from '@/lib/useCommand';
 
@@ -10,8 +11,14 @@ import { useRun } from '@/lib/useCommand';
 export function useHookFix(target: { project: string; checkout?: string }, hasHook: boolean) {
   const run = useRun();
   const toast = useToast();
+  // The hook can run for minutes: a second click while it does would start a second session.
+  const fixing = useRef(false);
   const fix = async () => {
-    const fixed = await run('git.fix', target);
+    if (fixing.current) return;
+    fixing.current = true;
+    const fixed = await run('git.fix', target).finally(() => {
+      fixing.current = false;
+    });
     if (!fixed) return;
     toast(
       fixed.passed

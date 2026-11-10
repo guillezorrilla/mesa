@@ -17,7 +17,7 @@ import {
   withRealGit,
 } from '../testing/index.js';
 import { handToAgent } from './agent-handoff.js';
-import { fixPreCommit } from './hook-fix.js';
+import { fixPreCommit, lastBytes } from './hook-fix.js';
 
 /** lantern-cove as a git repository, and hand-off deps that record what they send and open. */
 function setUp() {
@@ -108,7 +108,10 @@ test('a failing pre-commit hook hands over the staged files and its output, fenc
   setBoard([placedRow(idle, 'idle')]);
   const hook = join(dir, '.git/hooks/pre-commit');
   mkdirSync(join(dir, '.git/hooks'), { recursive: true });
-  writeFileSync(hook, '#!/bin/sh\necho "lint: tide.ts:3 missing semicolon"\nexit 1\n');
+  writeFileSync(
+    hook,
+    '#!/bin/sh\necho "lint: tide.ts:3 missing semicolon"\necho "husky - pre-commit failed" >&2\nexit 1\n',
+  );
   chmodSync(hook, 0o755);
   writeFileSync(join(dir, 'tide.ts'), 'const high = 6\n');
   testGit(dir, 'add', 'tide.ts');
@@ -123,10 +126,17 @@ test('a failing pre-commit hook hands over the staged files and its output, fenc
   expect(sent?.prompt).toContain('never use --no-verify');
   expect(sent?.prompt).toContain('Staged files:\n```untrusted-hook-output\nA\ttide.ts\n```\n');
   expect(sent?.prompt).toContain(
-    '```untrusted-hook-output\nlint: tide.ts:3 missing semicolon\n```',
+    '```untrusted-hook-output\nlint: tide.ts:3 missing semicolon\nhusky - pre-commit failed\n```',
   );
 
   writeFileSync(hook, '#!/bin/sh\nexit 0\n');
   expect(await fixPreCommit(ctx, deps, 'lantern-cove')).toEqual({ passed: true });
   expect(typed).toHaveLength(1);
+});
+
+test('a long hook output keeps its last whole lines within the cap, after a line saying what was cut', () => {
+  expect(lastBytes('a\nb\nc', 100)).toBe('a\nb\nc');
+  expect(lastBytes('first line\nsecond\nthird', 13)).toBe(
+    '[Mesa left out the first 11 bytes]\nsecond\nthird',
+  );
 });
