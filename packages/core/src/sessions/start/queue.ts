@@ -1,6 +1,5 @@
 import { newSessionId, startCommand } from '../../agents/agents.js';
 import { readyAgent } from '../../doctor/probe.js';
-import type { IdSource } from '../../lib/ids.js';
 import { MesaError } from '../../lib/result.js';
 import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
