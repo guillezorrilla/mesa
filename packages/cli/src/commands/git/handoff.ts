@@ -30,3 +30,21 @@ export const gitFix = defineCommand({
     return { data, text };
   },
 });
+
+export const gitResolve = defineCommand({
+  name: 'git resolve',
+  summary:
+    "Hand a checkout's merge, rebase or cherry-pick conflicts to the idle session working there, or start one, to resolve, test and continue",
+  args: ['project'],
+  flags: HANDOFF_FLAGS,
+  example: 'mesa git resolve lantern-cove',
+  run: async ({ mesa, args, flags }) => {
+    const data = await mesa.git.resolve(args.project, {
+      checkout: flags.checkout,
+      session: flags.session,
+      fresh: flags.new,
+    });
+    const text = `the conflicts were ${data.how === 'sent' ? 'sent to' : 'handed to new'} session ${data.session}`;
+    return { data, text };
+  },
+});

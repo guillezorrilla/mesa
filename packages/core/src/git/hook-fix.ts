@@ -1,11 +1,14 @@
 import type { MesaContext } from '../context.js';
-import { redactWhole } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
-import { typeable } from '../lib/untrusted-text.js';
 import { resolveCheckout } from '../projects/checkout.js';
-import { type AgentHandoff, type HandoffDeps, handToAgent } from './agent-handoff.js';
+import {
+  type AgentHandoff,
+  type HandoffDeps,
+  type HandoffTarget,
+  handToAgent,
+  promptData,
+} from './agent-handoff.js';
 import { gitCommand, mustGit } from './command.js';
-import { dataFence } from './recipes.js';
 
 // A failed pre-commit hook, handed to an agent (agent-handoff.ts): Mesa runs the hook, and the
 // session working in the checkout fixes what it reports.
@@ -37,7 +40,7 @@ export async function fixPreCommit(
   ctx: MesaContext,
   deps: HandoffDeps,
   project: string,
-  opts: { checkout?: string; session?: string; fresh?: boolean } = {},
+  opts: HandoffTarget = {},
 ): Promise<GitFix> {
   const checkout = await resolveCheckout(ctx.open(), ctx.run, project, opts.checkout);
   const hook = await gitCommand(
@@ -60,11 +63,7 @@ export async function fixPreCommit(
     ['diff', '--cached', '--name-status'],
     'cannot read the staged files',
   );
-  const data = (text: string, bytes: number) =>
-    dataFence(
-      FENCE,
-      lastBytes(typeable(redactWhole(text, ctx.home, ctx.secrets())).trimEnd(), bytes),
-    );
+  const data = (text: string, bytes: number) => promptData(ctx, FENCE, text, bytes, 'end');
   // Both streams: a wrapper (husky, lint-staged) often prints a banner on one and the findings on the other.
   const output = (hook.output || hook.detail).split('\n').slice(-HOOK_LINES).join('\n');
   const prompt = [
@@ -83,27 +82,4 @@ export async function fixPreCommit(
     fresh: opts.fresh,
   });
   return { passed: false, ...handed };
-}
-
-/** Bytes `text` takes once shell-quoted into a goal (shellWord): each `'` grows to four. */
-const quotedBytes = (text: string) => Buffer.byteLength(text) + 3 * (text.split("'").length - 1);
-
-/**
- * The end of `text` within `max` quoted bytes, after a line saying how much was cut: whole lines,
- * or the tail of the last line when it alone is longer.
- */
-export function lastBytes(text: string, max: number) {
-  if (quotedBytes(text) <= max) return text;
-  const kept: string[] = [];
-  let size = 0;
-  for (const line of text.split('\n').reverse()) {
-    if (size + quotedBytes(line) + 1 > max) {
-      if (!kept.length) kept.push(line.slice(-Math.floor(max / 4)));
-      break;
-    }
-    size += quotedBytes(line) + 1;
-    kept.unshift(line);
-  }
-  const cut = Buffer.byteLength(text) - Buffer.byteLength(kept.join('\n'));
-  return [`[Mesa left out the first ${cut} bytes]`, ...kept].join('\n');
 }

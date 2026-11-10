@@ -1,4 +1,5 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Runner } from '../lib/process.js';
 import { profilePaths } from '../profile/paths.js';
@@ -23,6 +24,32 @@ export function gitRepo(dir: string) {
   testGit(dir, 'init', '-q', '-b', 'main');
   testGit(dir, 'add', '-A');
   testGit(dir, 'commit', '-q', '-m', 'init');
+}
+
+/**
+ * A merge in `dir`, a gitRepo, stopped on a conflict: branches `main` and `swell` each change the
+ * `lines` lines of `tide.ts`, and `swell` is merged into `main`.
+ */
+export function mergeConflict(dir: string, lines = 1) {
+  const tide = (height: number) =>
+    Array.from({ length: lines }, (_, i) => `export const high${i || ''} = ${height};\n`).join('');
+  writeFileSync(join(dir, 'tide.ts'), tide(6));
+  testGit(dir, 'add', 'tide.ts');
+  testGit(dir, 'commit', '-q', '-m', 'Add the tide');
+  testGit(dir, 'switch', '-q', '-c', 'swell');
+  writeFileSync(join(dir, 'tide.ts'), tide(7));
+  testGit(dir, 'commit', '-q', '-am', 'Raise the tide');
+  testGit(dir, 'switch', '-q', 'main');
+  writeFileSync(join(dir, 'tide.ts'), tide(5));
+  testGit(dir, 'commit', '-q', '-am', 'Lower the tide');
+  // A conflicted merge exits 1, which testGit would throw on.
+  spawnSync(
+    'git',
+    ['-C', dir, '-c', 'user.name=t', '-c', 'user.email=t@example.com', 'merge', '-q', 'swell'],
+    {
+      env: testEnv,
+    },
+  );
 }
 
 /** Where Mesa puts `project`'s worktree for a branch folder, in the default profile. */

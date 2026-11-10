@@ -1,4 +1,5 @@
 import type {
+  AgentHandoff,
   Checkout,
   GitBranch,
   GitBranchAction,
@@ -99,6 +100,15 @@ export const gitCommands = {
     ({ project, checkout }) => [
       'git',
       'fix',
+      ...(checkout ? ['--checkout', checkout] : []),
+      '--',
+      project,
+    ],
+  ),
+  'git.resolve': commandWith<{ project: string; checkout?: string }, AgentHandoff>(
+    ({ project, checkout }) => [
+      'git',
+      'resolve',
       ...(checkout ? ['--checkout', checkout] : []),
       '--',
       project,

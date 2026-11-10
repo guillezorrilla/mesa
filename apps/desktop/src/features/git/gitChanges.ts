@@ -18,6 +18,7 @@ const GLYPH: Record<string, [string, string]> = {
   R: ['>', 'text-state-working'],
   C: ['>', 'text-state-working'],
   '?': ['?', 'text-muted-foreground'],
+  U: ['!', 'text-state-failed'],
 };
 export const glyph = (code: string): [string, string] =>
   GLYPH[code] ?? [code, 'text-muted-foreground'];
@@ -37,7 +38,8 @@ export function gitSections(changes: readonly GitChange[], filter: string): GitS
       title: 'Staged' as const,
       action: 'unstage' as const,
       entries: wanted
-        .filter((change) => change.index !== ' ' && change.index !== '?')
+        // A conflicted file is not staged yet, whatever its index letter: it lists under Changes.
+        .filter((change) => !change.conflicted && change.index !== ' ' && change.index !== '?')
         .map((change) => ({ change, staged: true, code: change.index })),
     },
     {
@@ -45,7 +47,11 @@ export function gitSections(changes: readonly GitChange[], filter: string): GitS
       action: 'stage' as const,
       entries: wanted
         .filter((change) => change.workingTree !== ' ')
-        .map((change) => ({ change, staged: false, code: change.workingTree })),
+        .map((change) => ({
+          change,
+          staged: false,
+          code: change.conflicted ? 'U' : change.workingTree,
+        })),
     },
   ].filter((section) => section.entries.length);
 }
