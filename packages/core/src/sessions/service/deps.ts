@@ -6,6 +6,7 @@ import type { Guarded, Override } from '../../decisions/guardrail.js';
 import type { DecisionAssistance } from '../../decisions/service.js';
 import { shortId } from '../../lib/ids.js';
 import { redactWhole } from '../../lib/redact.js';
+import { reportsAtTurnEnd } from '../../reports/report-delivery.js';
 import { VAULT_CAPTURE } from '../../skills/library.js';
 import type { skillsService } from '../../skills/service.js';
 import { startCapture } from '../../vault/capture/trigger.js';
@@ -121,6 +122,7 @@ export function sessionDeps(
     context: contextDeps,
     assistance,
     capture,
+    reports: (parent: string) => reportsAtTurnEnd(ctx, parent),
   });
   return {
     assistance,

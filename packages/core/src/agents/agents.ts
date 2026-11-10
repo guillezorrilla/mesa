@@ -188,6 +188,8 @@ export const AGENTS = {
     hookState: claudeHookState,
     /** Whether a hook event says background work still runs after the turn. */
     backgroundWork: claudeBackgroundWork,
+    /** Its Stop hook may answer `{"decision":"block","reason"}` to go on with the reason as input. */
+    stopContinues: true,
     /** Its pane's screen: the state it shows, and the board's last output line. */
     screen: { state: claudeScreenState, lastLine: claudeLastOutputLine },
     /** Its live sessions on the machine, and the state each listed status means. */
@@ -259,6 +261,8 @@ export const AGENTS = {
     /** Trusted hooks from the embedded Codex process. */
     hookState: codexHookState,
     backgroundWork: undefined,
+    /** Qualified live in Codex 0.162.1 (docs/spikes/codex.md, Stop hook continuation). */
+    stopContinues: true,
     screen: { state: codexScreenState, lastLine: codexLastOutputLine },
     /** Its sessions written in the last 10 minutes, whose rows say no state. */
     listing: { list: listCodexSessions, state: () => undefined },
@@ -307,6 +311,7 @@ export const AGENTS = {
     },
     hookState: undefined,
     backgroundWork: undefined,
+    stopContinues: false,
     screen: { state: antigravityScreenState, lastLine: antigravityLastOutputLine },
     listing: { list: async () => [], state: () => undefined },
     context: undefined,

@@ -33,7 +33,8 @@ export type FileChange = {
   from?: string;
 };
 
-function textOf(bytes: Buffer, path: string): string {
+/** Bytes as the editor takes them: at most 64 KiB of UTF-8 text with no NUL. */
+export function textOf(bytes: Buffer, path: string): string {
   if (bytes.length > MAX_TEXT)
     throw new MesaError('usage', `${path} exceeds the 64 KiB editor limit`);
   if (bytes.includes(0)) throw new MesaError('usage', `${path} is binary`);

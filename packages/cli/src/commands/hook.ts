@@ -26,8 +26,14 @@ export const hook = defineCommand({
   name: 'hook',
   summary: 'Record an agent hook payload from stdin (run by the hooks mesa hooks install adds)',
   args: ['agent'],
+  flags: {
+    continues: {
+      type: 'boolean',
+      description: 'Its stdout reaches the agent, so a Stop may continue the turn (the Stop hook)',
+    },
+  },
   example: 'mesa hook claude < payload.json',
-  run: async ({ mesa, args, stdin }) => {
+  run: async ({ mesa, args, flags, stdin }) => {
     if (args.agent === 'antigravity') {
       let instruction: string | undefined;
       try {
@@ -42,7 +48,9 @@ export const hook = defineCommand({
         ),
       };
     }
-    const event = await mesa.hookEvent(args.agent, await stdin());
+    const event = await mesa.hookEvent(args.agent, await stdin(), {
+      continues: flags.continues,
+    });
     const advice = event && 'advice' in event ? event.advice : undefined;
     return {
       data: {

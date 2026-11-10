@@ -14,17 +14,24 @@ type Settings = { hooks?: Record<string, Group[]> } & Record<string, unknown>;
 
 const GUARD = `[ -z "$${SESSION_ID_VAR}" ] || `;
 /**
- * The events whose stdout reaches the agent's context: SessionStart's pointer (ADR-0010), and
- * UserPromptSubmit's decision advice as `additionalContext` (ADR-0019, #463).
+ * The events whose stdout reaches the agent's context: SessionStart's pointer (ADR-0010),
+ * UserPromptSubmit's decision advice as `additionalContext` (ADR-0019, #463), and Stop's child
+ * reports as a block that continues the turn (#888).
  */
-export const SPEAKING_EVENTS: readonly string[] = ['SessionStart', 'UserPromptSubmit'];
+export const SPEAKING_EVENTS: readonly string[] = ['SessionStart', 'UserPromptSubmit', 'Stop'];
+/**
+ * Stop's command says `--continues`: its stdout reaches the agent, so Mesa may continue the turn.
+ * A Stop entry an older mesa wrote drops stdout and lacks it, so nothing is claimed for nothing.
+ */
 const tail = (agent: Agent, event?: string) =>
-  ` hook ${agent} ${event && SPEAKING_EVENTS.includes(event) ? '2>/dev/null' : '>/dev/null 2>&1'} || true`;
+  ` hook ${agent}${event === 'Stop' ? ' --continues' : ''} ${event && SPEAKING_EVENTS.includes(event) ? '2>/dev/null' : '>/dev/null 2>&1'} || true`;
 /** A hook entry Mesa wrote: exactly its guard and its tail, whatever mesa path sits between. */
 const isMesaHook = (h: Hook, agent: Agent) =>
   typeof h.command === 'string' &&
   h.command.startsWith(GUARD) &&
-  [tail(agent), tail(agent, 'SessionStart')].some((end) => h.command?.endsWith(end));
+  [tail(agent), tail(agent, 'SessionStart'), tail(agent, 'Stop')].some((end) =>
+    h.command?.endsWith(end),
+  );
 
 /**
  * The hook's command line. Outside a Mesa session it is a no-op in the shell itself, so the user's
@@ -189,6 +196,24 @@ export const promptContext = (text: string) =>
   JSON.stringify({
     hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: text },
   });
+
+/**
+ * A Stop hook's JSON output that continues the turn with `reason` as its input, which Claude Code
+ * and Codex both read (docs/spikes/codex.md, Stop hook continuation).
+ */
+export const stopContinuation = (reason: string) => JSON.stringify({ decision: 'block', reason });
+
+/**
+ * The event Mesa logs after it continued a turn: the turn goes on, so the session is working
+ * (each agent's hookState), not idle as the Stop before it says.
+ */
+export const STOP_CONTINUED = 'StopContinued';
+
+/** Whether a Stop payload ends a turn a Stop hook already continued: it must not continue again. */
+export const stopHookActive = (payload: unknown) =>
+  typeof payload === 'object' &&
+  payload !== null &&
+  (payload as Record<string, unknown>).stop_hook_active === true;
 
 /** Locations of this mesa's handlers, including user groups and handlers before them. */
 export function hookPositions(file: HookFile, self: readonly string[]) {
