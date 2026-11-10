@@ -639,6 +639,17 @@ test('a goal opened by another session ends with the worker brief; none without 
     .result;
   expect(outside).toMatchObject({ parent: child.id, after: child.id });
   expect(outside.brief).toBeUndefined();
+  // --parent and --no-parent still win inside a window.
+  const given = (
+    await inside.sessions.open('lantern-cove', { goal: 'Hers', after: child.id, parent: child.id })
+  ).result;
+  expect(given).toMatchObject({ parent: child.id, brief: true });
+  expect(given.goal).toContain(`started by session ${child.id}`);
+  const alone = (
+    await inside.sessions.open('lantern-cove', { goal: 'Alone', after: child.id, noParent: true })
+  ).result;
+  expect(alone.parent).toBeUndefined();
+  expect(alone.brief).toBeUndefined();
   // A queued start keeps the brief its record was written with.
   const queued = (
     await inside.sessions.open('lantern-cove', { goal: 'Then this', after: child.id, parent: a.id })
