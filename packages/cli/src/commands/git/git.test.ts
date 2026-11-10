@@ -692,7 +692,11 @@ test('git resolve refuses a checkout with no conflict, and starts a session with
 
   const { json, code } = await cli.mesa('git', 'resolve', 'lantern-cove', '--json');
   expect(code).toBe(0);
-  expect(json.data).toEqual({ session: expect.any(String), how: 'started' });
+  expect(json.data).toEqual({
+    session: expect.any(String),
+    how: 'started',
+    conflictsFile: expect.stringMatching(/mesa-conflicts\.md$/),
+  });
   expect(tmux.opened.at(-1)?.launch).toContain('<<<<<<< HEAD');
   expect(tmux.opened.at(-1)?.launch).toContain('[Mesa left out the last');
   expect((await cli.mesa('help', '--agent')).stdout).toContain('mesa git resolve');

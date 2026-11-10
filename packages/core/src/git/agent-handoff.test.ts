@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createContext } from '../context.js';
@@ -152,6 +152,26 @@ test('a long hook output keeps its last whole lines within the cap, after a line
   expect(keptBytes('y'.repeat(40), 20, 'start')).toBe('yyyyy\n[Mesa left out the last 35 bytes]');
 });
 
+test('every hunk of a long conflict reaches the conflicts file, and the goal names it with an excerpt', async () => {
+  const { ctx, dir, deps, opened, setBoard } = setUp();
+  setBoard([]);
+  mergeConflict(dir, 1000);
+  const { conflictsFile } = await resolveConflicts(ctx, deps, 'lantern-cove');
+  const file = readFileSync(conflictsFile, 'utf8');
+  expect(file).toMatch(/^# Conflict hunks \(git diff\) of the merge in /);
+  expect(file).toContain('```untrusted-conflict\ndiff --cc tide.ts\n');
+  expect(file).toContain('export const high999 = 7;');
+  expect(Buffer.byteLength(file)).toBeGreaterThan(50_000);
+  const goal = opened[0]?.goal ?? '';
+  expect(goal).toContain(`all ${Buffer.byteLength(file)} bytes in ${conflictsFile}; its start:`);
+  expect(goal).not.toContain('high999');
+  expect(Buffer.byteLength(goal)).toBeLessThan(12_000);
+  // A second resolve replaces it.
+  writeFileSync(conflictsFile, 'stale');
+  await resolveConflicts(ctx, deps, 'lantern-cove');
+  expect(readFileSync(conflictsFile, 'utf8')).toBe(file);
+});
+
 test('a merge conflict hands over its operation, paths and hunks, fenced, and asks to test before continuing', async () => {
   const { ctx, dir, store, deps, typed, setBoard } = setUp();
   const idle = store.create(() => newSession());
@@ -165,6 +185,7 @@ test('a merge conflict hands over its operation, paths and hunks, fenced, and as
   expect(await resolveConflicts(ctx, deps, 'lantern-cove')).toEqual({
     session: idle.id,
     how: 'sent',
+    conflictsFile: join(dir, '.git', 'mesa-conflicts.md'),
   });
   const prompt = typed[0]?.prompt ?? '';
   expect(prompt).toMatch(/^\[mesa\] A merge in .* stopped on conflicts in 1 file\. /);

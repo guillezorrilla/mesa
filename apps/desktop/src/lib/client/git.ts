@@ -1,6 +1,6 @@
 import type {
-  AgentHandoff,
   Checkout,
+  ConflictHandoff,
   GitBranch,
   GitBranchAction,
   GitCommit,
@@ -105,7 +105,7 @@ export const gitCommands = {
       project,
     ],
   ),
-  'git.resolve': commandWith<{ project: string; checkout?: string }, AgentHandoff>(
+  'git.resolve': commandWith<{ project: string; checkout?: string }, ConflictHandoff>(
     ({ project, checkout }) => [
       'git',
       'resolve',
