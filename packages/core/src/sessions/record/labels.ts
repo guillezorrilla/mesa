@@ -1,5 +1,6 @@
 import { counted, odds } from '../../lib/format.js';
 import type { SessionRow } from '../board/rows.js';
+import { projectLabel } from './general.js';
 import type { SessionRecord, SessionReview } from './record.js';
 import { sessionProjects } from './session-projects.js';
 import { WAITING_STATES } from './states.js';
@@ -61,6 +62,20 @@ export const additionalLabel = (s: SessionRow) =>
  */
 export const sessionBranch = (s: SessionRow) =>
   s.managed ? s.gitBranch || s.worktree?.branch || s.pending?.branch : undefined;
+
+/**
+ * Where a session runs and on what: its projects, agent, branch and pull request (`#12`), as the
+ * Session switcher shows them beside its state.
+ */
+export const sessionDetail = (s: SessionRow) =>
+  [
+    [projectLabel(s.project ?? null), additionalLabel(s)].filter(Boolean).join(' '),
+    s.agent,
+    sessionBranch(s),
+    s.managed && s.pr && `#${s.pr.number}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
 /**
  * A session Mesa may name (autoName): an interactive one no person, or its agent, has named, and

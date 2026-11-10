@@ -3,8 +3,7 @@ import { DEFAULT_SHORTCUTS, FIXED_SHORTCUTS, type Shortcuts } from '../profile/s
 import type { ProjectRow } from '../projects/projects.js';
 import type { SavedPrompt } from '../prompts/prompts.js';
 import type { TreeRow } from '../sessions/board/tree.js';
-import { projectLabel } from '../sessions/record/general.js';
-import { additionalLabel, sessionBranch, sessionLabel } from '../sessions/record/labels.js';
+import { sessionDetail, sessionLabel } from '../sessions/record/labels.js';
 import { isOver } from '../sessions/record/lifecycle.js';
 import { WAITING_STATES } from '../sessions/record/states.js';
 
@@ -148,12 +147,6 @@ const need = (s: TreeRow) =>
 const byNeed = (a: TreeRow, b: TreeRow) =>
   need(a) - need(b) || b.lastState.at.localeCompare(a.lastState.at);
 
-/** `hits` with those whose id is in `first` moved to the front, each part in its order. */
-const putFirst = (hits: SearchHit[], first: ReadonlySet<string>) => [
-  ...hits.filter((hit) => hit.kind === 'session' && first.has(hit.id)),
-  ...hits.filter((hit) => !(hit.kind === 'session' && first.has(hit.id))),
-];
-
 /**
  * Hits ranked by match-sorter: every label match first, then the hits whose detail or id contains
  * the text, each part best first; ties keep the input order.
@@ -195,33 +188,28 @@ export function searchWorkspace(
   // `#123` or `123`: the sessions whose branch has that pull request rank first.
   const number = /^#?(\d+)$/.exec(text)?.[1];
   const withPr = new Set(
-    sessions.filter((s) => s.managed && String(s.pr?.number) === number).map((s) => s.id),
+    number === undefined
+      ? []
+      : sessions.filter((s) => s.managed && s.pr?.number === Number(number)).map((s) => s.id),
   );
   const sessionHits = [...sessions]
     .filter((session) => text || !isOver(session))
     .sort(options.sessionsOnly && !text ? byNeed : byActivity)
-    .map((session): SearchHit => {
-      const pr = session.managed && session.pr ? `#${session.pr.number}` : undefined;
-      return {
+    .map(
+      (session): SearchHit => ({
         kind: 'session',
         id: session.id,
         label: sessionLabel(session),
-        detail: [
-          [projectLabel(session.project ?? null), additionalLabel(session)]
-            .filter(Boolean)
-            .join(' '),
-          session.agent,
-          session.lastState.state,
-          sessionBranch(session),
-          pr,
-        ]
-          .filter(Boolean)
-          .join(' · '),
-      };
-    });
-  if (options.sessionsOnly)
-    return putFirst(ranked(sessionHits, text), withPr).slice(0, GROUP_LIMIT);
-  const hits = putFirst(
+        detail: `${sessionDetail(session)} · ${session.lastState.state}`,
+      }),
+    );
+  // The sessions a typed `#123` names lead, matched by the text or not.
+  const prFirst = (hits: SearchHit[]) => [
+    ...sessionHits.filter((hit) => withPr.has(hit.id)),
+    ...hits.filter((hit) => !(hit.kind === 'session' && withPr.has(hit.id))),
+  ];
+  if (options.sessionsOnly) return prFirst(ranked(sessionHits, text)).slice(0, GROUP_LIMIT);
+  const hits = prFirst(
     ranked(
       [
         ...commands(
@@ -248,7 +236,6 @@ export function searchWorkspace(
       ],
       text,
     ),
-    withPr,
   );
   // Groups in the order of their best hit, which with no text is the fixed order above.
   const grouped = [...new Set(hits.map((hit) => hit.kind))].flatMap((kind) =>

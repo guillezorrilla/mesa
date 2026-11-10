@@ -184,8 +184,8 @@ test("typed text finds a session by its branch or its pull request's number, sho
   ];
   const hit = searchWorkspace(projects, sessions, 'tide-flake', { sessionsOnly: true });
   expect(ids(hit)).toEqual(['tides000']);
-  expect(hit[0]?.detail).toBe('lantern-cove · claude · working · fix/tide-flake · #42');
-  for (const query of ['#42', '42'])
+  expect(hit[0]?.detail).toBe('lantern-cove · claude · fix/tide-flake · #42 · working');
+  for (const query of ['#42', '42', '#042'])
     expect(ids(searchWorkspace(projects, sessions, query, { sessionsOnly: true }))[0]).toBe(
       'tides000',
     );

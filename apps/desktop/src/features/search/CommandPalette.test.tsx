@@ -88,7 +88,7 @@ test('a disabled hit renders muted and cannot be chosen', async () => {
   expect(calls.some((call) => call.includes('open'))).toBe(false);
 });
 
-test('the switcher lists open sessions by last activity; Backspace on no text leaves it', async () => {
+test('the switcher lists open sessions, idle before working; Backspace on no text leaves it', async () => {
   await renderWithMesa(
     <App />,
     fakeBridge({
