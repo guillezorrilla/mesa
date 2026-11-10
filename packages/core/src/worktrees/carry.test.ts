@@ -35,9 +35,16 @@ const realGitOnly =
   (file, args, ms, options) =>
     (file === 'git' ? testRunner : run)(file, args, ms, options);
 
+/** A clone that works (copying, as `cp -c` would), or one that fails, so a plain copy follows. */
+const cloning = realGitOnly(async (file, args) => {
+  cpSync(args[3] ?? '', args[4] ?? '', { recursive: true, verbatimSymlinks: true });
+  return { ok: true, stdout: '' };
+});
+const copying = realGitOnly(scriptedRunner({}, { failing: ['/bin/cp'] }).run);
+
 for (const [copy, run] of [
   ['as a clone where it can', testRunner],
-  ['by plain copy when cp fails', realGitOnly(scriptedRunner({}, { failing: ['/bin/cp'] }).run)],
+  ['by plain copy when cp fails', copying],
 ] as const) {
   test(`a file and a folder are carried ${copy}`, async () => {
     const { repo, worktree } = checkout();
@@ -62,13 +69,6 @@ test('the clone is /bin/cp -c -R -n', async () => {
   ]);
 });
 
-/** A clone that works (copying, as `cp -c` would), or one that fails, so a plain copy follows. */
-const cloning = realGitOnly(async (file, args) => {
-  cpSync(args[3] ?? '', args[4] ?? '', { recursive: true, verbatimSymlinks: true });
-  return { ok: true, stdout: '' };
-});
-const copying = realGitOnly(scriptedRunner({}, { failing: ['/bin/cp'] }).run);
-
 test('a clone is charged entries only, so it carries past the plain budget', async () => {
   const { repo, worktree } = checkout();
   // .env is one entry of 20 bytes; node_modules is four (itself, pkg, index.js, entry).
@@ -77,6 +77,13 @@ test('a clone is charged entries only, so it carries past the plain budget', asy
     undefined,
   );
   expect(existsSync(join(worktree, 'node_modules', 'pkg', 'index.js'))).toBe(true);
+  // The same carry by plain copy stops at once.
+  const copied = checkout();
+  expect(
+    await carryEntries(copying, copied.repo, copied.worktree, ['.env', 'node_modules'], budget),
+  ).toBe(
+    'carry stopped at .env: a plain copy would pass 8 bytes; it and 1 after it were not carried',
+  );
 });
 
 test('a plain copy past its entries or bytes stops at that entry and says which and why', async () => {
