@@ -3,7 +3,7 @@ import type { Config } from '@mesa/core';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
 import { SLEEP_PASS_MS } from '@/features/sessions/useSleepIdle';
-import { envelope, fakeBridge, managedRow, renderWithMesa } from '@/lib/testing';
+import { click, envelope, fakeBridge, managedRow, renderWithMesa } from '@/lib/testing';
 import { App } from './App';
 
 const sleeps = (calls: string[][]) => calls.filter((args) => args[1] === 'sleep');
@@ -55,4 +55,27 @@ test('with sessions.sleepAfterMinutes on, the app runs the sleep pass at once an
   } finally {
     vi.useRealTimers();
   }
+});
+
+test('a sleeping session shown offers Wake in place of its terminal, which wakes it', async () => {
+  let sleeping = true;
+  const { bridge, calls } = fakeBridge({
+    sessions: () =>
+      envelope([
+        managedRow('aaaaaaaa', sleeping ? { sleeping: { at: '2026-11-10T12:00:00.000Z' } } : {}),
+      ]),
+    wake: () => {
+      sleeping = false;
+      return envelope({ ...managedRow('aaaaaaaa'), receipt: null });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-session')[0]);
+  expect(byTestId('session-asleep')).toHaveLength(1);
+  expect(byTestId('terminal-aaaaaaaa')).toHaveLength(0);
+  await click(
+    [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Wake'),
+  );
+  expect(calls).toContainEqual(['--json', 'wake', '--', 'aaaaaaaa']);
+  expect(byTestId('session-asleep')).toHaveLength(0);
 });
