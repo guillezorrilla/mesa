@@ -139,7 +139,8 @@ export async function openSession(
   const agentSessionId = input.background ? undefined : newSessionId(agent, deps.newUuid);
   const command = (
     id: string,
-    more: Pick<SessionRecord, 'additional'>,
+    // The record's goal, when given: the launch may add a note of a setup window to it.
+    more: Pick<SessionRecord, 'additional' | 'goal'>,
     disallowed: readonly string[],
   ) =>
     startCommand(
@@ -150,7 +151,7 @@ export async function openSession(
         id,
         logs: deps.profile.paths.logs,
         agentSessionId,
-        goal,
+        goal: more.goal ?? goal,
         mode: input.mode === 'plan' ? 'plan' : undefined,
         disallowed,
       },

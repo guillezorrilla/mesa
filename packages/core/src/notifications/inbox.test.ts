@@ -115,6 +115,20 @@ test("a failed setup window is its own notice, naming the window, that the sessi
       target: { kind: 'session', id: session.id, window: `setup-${session.id}` },
     },
   ]);
+  // The window logs it as claude's whatever the session's agent (setupWindowCommand).
+  for (const agent of ['codex', 'terminal'] as const) {
+    const other = store.create(() =>
+      newSession(agent === 'terminal' ? { agent, kind: 'terminal' } : { agent }),
+    );
+    recordHookEvent(deps, {
+      agent: 'claude',
+      mesaSessionId: other.id,
+      payload: JSON.stringify({ hook_event_name: 'SetupFailed', window: `setup-${other.id}` }),
+    });
+    expect(mesa.notifications.list()[0]).toMatchObject({
+      title: `Worktree setup failed in window setup-${other.id}`,
+    });
+  }
 });
 
 const HOOKS_HINT = 'not installed: run `mesa hooks install`';

@@ -10,6 +10,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { AGENTS, AgentSchema } from '../../agents/agents.js';
+import { SETUP_FAILED } from '../../agents/hooks.js';
 import type { Agent } from '../../agents/names.js';
 import type { Clock } from '../../lib/clock.js';
 import { scanLines } from '../../lib/file-lines.js';
@@ -73,7 +74,8 @@ export function recordHookEvent(
   const event = typeof payload.hook_event_name === 'string' ? payload.hook_event_name : 'unknown';
   let record = findRecord(deps.store, id);
   // An agent started inside another agent's session, or in a plain terminal, inherits its id.
-  if (record && record.agent !== agent.data) return undefined;
+  // A setup window's failure (SETUP_FAILED) comes as claude's for a session of any agent.
+  if (record && record.agent !== agent.data && event !== SETUP_FAILED) return undefined;
   // A background claude keeps the environment of the record that started it, also once that
   // record was resumed: the live record holding its conversation owns its events.
   if (agent.data === 'claude' && record?.endedAt && agentSessionId) {
