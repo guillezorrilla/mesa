@@ -21,6 +21,7 @@ import type { RunInput } from '../run/start.js';
 import { readGoal } from '../start/goal.js';
 import { openSession } from '../start/open.js';
 import { type OpenFlags, validateOpenInput } from '../start/open-input.js';
+import { type WorkerFlags, workerOpen } from '../start/worker.js';
 import { windowOf } from '../window/window-name.js';
 import type { SessionDeps } from './deps.js';
 
@@ -116,7 +117,7 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
           opts,
         ),
     );
-  return {
+  const actions = {
     /**
      * Starts `agent` (else the project's, else the profile's) in a new window, with the goal
      * as its first prompt, and with `branch`, in its own git worktree. The goal is read first,
@@ -173,6 +174,7 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
             ...(kept ? { goal: kept.short } : {}),
             ...(parent === undefined ? {} : { parent }),
             ...(noParent ? { noParent } : {}),
+            ...(opts.worker ? { worker: true } : {}),
             ...(after === undefined ? {} : { after }),
             ...(branch === undefined ? {} : { branch }),
             ...(base === undefined ? {} : { base }),
@@ -207,6 +209,7 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
             goal,
             parent,
             noParent,
+            worker: opts.worker,
             after,
             branch,
             base,
@@ -221,6 +224,12 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
         },
       ).then((recorded) => ({ ...recorded, result: recorded.result.record }));
     },
+    /**
+     * Starts a worker (`mesa worker`): `task` as its goal with the worker brief, a child of the
+     * caller or `parent`, in a new worktree (workerOpen), through `open` and its receipt.
+     */
+    worker: (project: string | undefined, task: string, flags: WorkerFlags = {}) =>
+      actions.open(project, workerOpen(task, flags)),
     /** Runs a skill headlessly and waits for its result (CONTEXT.md, Skill run; runSkill). */
     run: (skill: string, opts: Omit<RunInput, 'skill'> & Overrides) =>
       runSkill(ctx, { faro, caller, start: deps.runDeps, stopped: ends.stopped }, skill, opts),
@@ -260,4 +269,5 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
         expected,
       ),
   };
+  return actions;
 }

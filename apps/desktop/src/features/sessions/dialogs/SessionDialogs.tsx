@@ -9,6 +9,7 @@ import { HandoffDialog } from './HandoffDialog';
 import { LogDialog } from './LogDialog';
 import { RemoveDialog } from './RemoveDialog';
 import { RenameDialog } from './RenameDialog';
+import { WorkerDialog } from './WorkerDialog';
 
 /**
  * The one dialog open in Sessions, if any: a row's Rename, Hand off, Log, or
@@ -23,7 +24,8 @@ export type OpenDialog =
         | 'fork'
         | 'dependency'
         | 'stop-descendants'
-        | 'remove-descendants';
+        | 'remove-descendants'
+        | 'worker';
       row: ManagedRow;
     }
   /** Archive one session, or several confirmed together. */
@@ -66,6 +68,15 @@ export function SessionDialogs({
 }) {
   return (
     <>
+      {dialog?.kind === 'worker' && (
+        <WorkerDialog
+          sessionId={dialog.row.id}
+          project={dialog.row.project}
+          disabled={acting}
+          onStart={(task) => commands.startWorker(dialog.row, task)}
+          onCancel={onClose}
+        />
+      )}
       {dialog?.kind === 'handoff' && (
         <HandoffDialog
           row={dialog.row}

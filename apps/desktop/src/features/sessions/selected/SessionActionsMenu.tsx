@@ -79,13 +79,11 @@ export function SessionActionsMenu({
             <Button
               variant="outline"
               size="sm"
-              onClick={() =>
-                commands.open({ project: row.project, parent: row.id, worktree: true })
-              }
+              onClick={() => onDialog({ kind: 'worker', row })}
               disabled={exited(row) || acting}
               title={CHILD_START_HINT}
             >
-              <Plus aria-hidden /> New child worktree session
+              <Plus aria-hidden /> New worker
             </Button>
           )}
           <Button

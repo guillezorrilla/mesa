@@ -292,6 +292,11 @@ export const sessionsCommands = {
       ...(project ? [project] : []),
     ],
   ),
+  // A worker of `parent` (mesa worker): its task as goal, in a new worktree.
+  'sessions.worker': commandWith<
+    { project: string; task: string; parent: string },
+    Recorded<SessionRecord>
+  >(({ project, task, parent }) => ['worker', '--parent', parent, '--', project, task]),
   // The row's project, which the board read from its folder, so both place it alike.
   'sessions.adopt': commandWith<
     { agentSessionId: string; project?: string },

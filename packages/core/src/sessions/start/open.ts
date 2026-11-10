@@ -30,16 +30,34 @@ type OpenDeps = LaunchDeps & {
  */
 function parentOf(
   deps: Pick<OpenDeps, 'store' | 'caller'>,
-  input: { parent?: string; noParent?: boolean; after?: string },
+  input: { parent?: string; noParent?: boolean; after?: string; worker?: boolean },
 ): string | undefined {
   if (input.parent !== undefined) {
-    if (!deps.store.find(input.parent)) {
+    const found = deps.store.find(input.parent);
+    if (!found) {
       throw new MesaError(
         'not_found',
         `no session ${input.parent} to be the parent; see mesa sessions, or pass --no-parent`,
       );
     }
+    // A worker's reports would go to a session that never reads them.
+    if (input.worker && isOver(found))
+      throw new MesaError(
+        'usage',
+        `session ${input.parent} has ended; a worker needs a live parent`,
+      );
     return input.parent;
+  }
+  if (input.worker) {
+    const caller = deps.caller();
+    if (!caller.session)
+      throw new MesaError(
+        'usage',
+        caller.inMesaWindow
+          ? "this Mesa window's session is not in this profile; pass --parent <id>"
+          : 'mesa worker runs inside a Mesa window; outside one pass --parent <id>',
+      );
+    return caller.session.id;
   }
   return input.noParent ? undefined : (input.after ?? deps.caller().session?.id);
 }

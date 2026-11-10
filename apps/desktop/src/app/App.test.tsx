@@ -21,6 +21,7 @@ import {
   fakePlatform,
   fakeSessionEvents,
   fakeTerminals,
+  fill,
   foreignRow,
   impactReport,
   managedRow,
@@ -2587,7 +2588,7 @@ test('global New session offers General without a registered project', async () 
   expect(byTestId('project-workspace')).toHaveLength(0);
 });
 
-test('selected session actions launch a child terminal and a child worktree', async () => {
+test('selected session actions launch a child terminal and a worker with its task', async () => {
   const parent = managedRow('parent01', {
     worktree: { path: '/h/worktrees/feature', branch: 'feature' },
   });
@@ -2595,6 +2596,7 @@ test('selected session actions launch a child terminal and a child worktree', as
     projects: () => envelope(PROJECTS),
     sessions: () => envelope([parent]),
     open: () => envelope(managedRow('child001', { kind: 'terminal', agent: 'terminal' })),
+    worker: () => envelope(managedRow('child002', { parent: 'parent01' })),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   const actions = () => document.querySelector('[aria-label="Session actions"]') as HTMLElement;
@@ -2617,18 +2619,23 @@ test('selected session actions launch a child terminal and a child worktree', as
   await click(byTestId('sidebar-session')[0]);
   await click(actions());
   const childStart = [...(actions().parentElement?.querySelectorAll('button') ?? [])].find(
-    (button) => button.textContent?.includes('New child worktree session'),
+    (button) => button.textContent?.includes('New worker'),
   );
   expect(childStart?.title).toBe('Its news comes back to this session as child reports');
   await click(childStart);
+  const dialog = byTestId('worker-dialog')[0];
+  expect(dialog?.textContent).toContain('Task');
+  expect(dialog?.textContent).toContain('Its news comes back to this session as child reports.');
+  await fill('worker-task', 'Parse the tide tables');
+  await click(byTestId('worker-submit')[0]);
   expect(calls).toContainEqual([
     '--json',
-    'open',
+    'worker',
     '--parent',
     parent.id,
-    '--worktree',
     '--',
     'lantern-cove',
+    'Parse the tide tables',
   ]);
 });
 

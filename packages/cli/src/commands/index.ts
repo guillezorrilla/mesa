@@ -109,6 +109,7 @@ import { view } from './view.js';
 import { wake } from './wake.js';
 import { whatsNew } from './whats-new.js';
 import { windows } from './windows.js';
+import { worker } from './worker.js';
 import { workflow } from './workflow.js';
 import {
   worktreesApply,
@@ -193,6 +194,7 @@ export const COMMANDS: Command[] = [
   notificationsDelivery,
   notificationsDelivered,
   open,
+  worker,
   prEvents,
   report,
   reports,

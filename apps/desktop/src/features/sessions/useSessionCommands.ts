@@ -259,6 +259,16 @@ export function useSessionCommands({
       onSelectSession?.(opened.id);
       return warningOf(opened);
     });
+  /** Starts a worker of `row` on `task` (mesa worker), and shows it. */
+  const startWorker = (row: ManagedRow, task: string) =>
+    once(async () => {
+      const opened = await run('sessions.worker', { project: row.project, task, parent: row.id });
+      await look();
+      if (!opened) return undefined;
+      closeDialog();
+      onSelectSession?.(opened.id);
+      return warningOf(opened);
+    });
   const openChildTerminal = (row: ManagedRow) =>
     once(async () => {
       const opened = await run('sessions.open', {
@@ -289,6 +299,7 @@ export function useSessionCommands({
     unarchive,
     deletePermanently,
     open,
+    startWorker,
     openChildTerminal,
   };
 }

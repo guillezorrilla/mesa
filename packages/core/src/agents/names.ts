@@ -30,6 +30,8 @@ export const AGENT_CAPABILITIES = {
     search: true,
     context: true,
     addDir: true,
+    /** Its turns report back to a parent (CONTEXT.md, Child report), so it can be a Worker. */
+    worker: true,
     nativeState: 'hook-and-listing',
   },
   codex: {
@@ -47,6 +49,7 @@ export const AGENT_CAPABILITIES = {
     search: true,
     context: true,
     addDir: true,
+    worker: true,
     nativeState: 'hook-or-screen',
   },
   antigravity: {
@@ -64,6 +67,7 @@ export const AGENT_CAPABILITIES = {
     search: false,
     context: false,
     addDir: true,
+    worker: false,
     nativeState: 'screen-only',
   },
 } as const;
