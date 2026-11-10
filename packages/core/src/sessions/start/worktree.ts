@@ -23,6 +23,7 @@ export type Worktree = {
 // ponytail: a checkout of a large repository takes a while; 60 s, raise it when one takes longer.
 const ADD_MS = 60_000;
 const ASK_MS = 5_000;
+const LS_REMOTE_MS = 10_000;
 
 const GIT_MISSING = 'git not found on PATH; --branch needs it';
 
@@ -49,6 +50,29 @@ async function defaultBase(run: Runner, repo: string, branch: string) {
     throw new MesaError('usage', `${repo} has no default branch to start from: pass --base`);
   }
   return base;
+}
+
+/**
+ * A branch only on origin is continued from there (defaultBase), so one pushed since the last
+ * fetch is fetched first. `ls-remote` asks without a fetch that would fail for a new branch; a
+ * failed or slow answer is no branch, and the base's own fetch follows.
+ */
+async function fetchIfOnOrigin(
+  run: Runner,
+  lock: AsyncLockDeps,
+  stamps: string,
+  repo: string,
+  branch: string,
+) {
+  if (await ask(run, repo, ['show-ref', '--verify', `refs/remotes/origin/${branch}`])) return;
+  let listed = false;
+  try {
+    const ref = ['ls-remote', '--exit-code', 'origin', `refs/heads/${branch}`];
+    listed = (await git(run, repo, ref, LS_REMOTE_MS)).ok;
+  } catch {
+    listed = false;
+  }
+  if (listed) await fetchBase(run, lock, stamps, repo, `origin/${branch}`);
 }
 
 /** Refuses `repo` unless it is a git repository's top folder, where a worktree is added from. */
@@ -115,10 +139,8 @@ export async function addWorktree(
       `branch ${branch} exists and is reused as it is: drop --base, or pick a new branch`,
     );
   }
-  // A branch only on origin is continued from there (defaultBase): fetched first, so one pushed
-  // since the last fetch is found. Not there, it is no warning: the base's own fetch follows.
   if (input.fetch && local === undefined && !input.base && !input.defaultBase)
-    await fetchBase(run, lock, input.fetch, repo, `origin/${branch}`);
+    await fetchIfOnOrigin(run, lock, input.fetch, repo, branch);
   const base =
     local === undefined
       ? (input.base ?? input.defaultBase ?? (await defaultBase(run, repo, branch)))
