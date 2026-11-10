@@ -141,10 +141,12 @@ export async function startSession(
   const made = launchWorktrees(deps.run);
   let backgroundId: string | undefined;
   try {
+    let carryStopped: string | undefined;
     if (!record.worktree && start.branch !== undefined) {
       if (!project) throw new MesaError('usage', 'General sessions cannot use a worktree');
       const selected = await worktreeFor(deps, project, start.branch, start.base);
       made.add(deps.profile, project, selected);
+      carryStopped = selected.warning;
       record = deps.store.update(record.id, { worktree: selected.worktree });
     }
     if (start.additional?.length)
@@ -153,6 +155,7 @@ export async function startSession(
     const hooks =
       record.agent === 'codex' ? codexHooks(codexHome(deps.home, deps.env), deps.self) : undefined;
     const warning = joinWarnings(
+      carryStopped,
       record.kind === 'terminal' || !project ? undefined : syncSkillsInto(deps, project.name, cwd),
       ...(record.additional ?? []).map((a) => syncSkillsInto(deps, a.project, a.worktree.path)),
       hooks?.events.SessionStart && !hooks.trusted.SessionStart

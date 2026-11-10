@@ -8,7 +8,7 @@ import { parseWith } from '../lib/schema.js';
 import { slugify } from '../lib/slug.js';
 import { readYaml, setYamlPath, writeYaml } from '../lib/yaml-file.js';
 import { PROJECT_TERMINAL_THEMES } from '../profile/terminal-palettes.js';
-import { GIT_OVERRIDE_FIELDS, WORKTREE_OVERRIDE_FIELDS } from './overrides.js';
+import { GIT_OVERRIDE_FIELDS, WORKTREE_OVERRIDE_FIELDS, withCarryRenamed } from './overrides.js';
 
 export { slugify } from '../lib/slug.js';
 
@@ -29,7 +29,9 @@ const ProjectSchema = z.strictObject({
   tmux: z.strictObject({ layout: z.string().optional() }).optional(),
   skills: z.array(z.string()).optional(),
   // Overrides of the profile's settings for this project; one left out is the profile's.
-  worktrees: z.strictObject(WORKTREE_OVERRIDE_FIELDS).partial().optional(),
+  worktrees: z
+    .preprocess(withCarryRenamed, z.strictObject(WORKTREE_OVERRIDE_FIELDS).partial())
+    .optional(),
   git: z.strictObject(GIT_OVERRIDE_FIELDS).partial().optional(),
   // No `custom`: its colors are each user's own, in their profile.
   terminal: z.strictObject({ theme: z.enum(PROJECT_TERMINAL_THEMES).optional() }).optional(),

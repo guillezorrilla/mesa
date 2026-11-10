@@ -128,7 +128,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
         location: 'profile',
         fetch: false,
         sparseDirectories: [],
-        carryIgnoredDirectories: [],
+        carry: [],
         setup: [],
         teardown: [],
         deleteBranch: false,

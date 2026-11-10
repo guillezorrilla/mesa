@@ -175,6 +175,18 @@ test('worktree settings save whole, so clearing the base removes it and custom n
   expect(custom).toMatchObject({ location: 'custom', customRoot: '/h/worktrees' });
 });
 
+test('the carry row takes ignored files as well as folders', async () => {
+  const config = await base();
+  const { bridge, calls } = fakeBridge({ 'config set': () => envelope({}) });
+  await render(bridge, 'git');
+  const field = document.getElementById('worktree-carry') as HTMLInputElement;
+  expect(field.closest('[data-setting-row]')?.textContent).toContain('Ignored files and folders');
+  await type('worktree-carry', '.env, node_modules');
+  expect(sets(calls).map(([path, value]) => [path, JSON.parse(value ?? '{}')])).toEqual([
+    ['worktrees', { ...config.worktrees, carry: ['.env', 'node_modules'] }],
+  ]);
+});
+
 test('profile scripts say they are one executable and its arguments, run without a shell', async () => {
   await render(fakeBridge().bridge, 'git');
   for (const id of ['worktree-setup', 'worktree-teardown']) {

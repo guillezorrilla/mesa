@@ -32,3 +32,7 @@ Issue #373 lets a project override the profile's worktree settings (`base`, `fet
 - An agent in a Mesa session cannot approve its own commands through Mesa, or replace the profile's scripts with `mesa config set` (`worktrees/settings.test.ts`, by path and through `worktrees`): `trust` refuses it and its `set` stays unapproved (`worktrees/settings.test.ts`, `packages/cli/src/commands/projects.test.ts`). The check reads the window's `MESA_SESSION_ID`, so a process that runs as the person and drops that variable, or edits `registry.yaml` directly, is outside what Mesa can tell apart from the person; the guard stops the agents Mesa starts from approving through Mesa, not every program on the machine.
 - A profile that wants a different policy for one repository without touching the repository has no place for it; that would be a registry field, added beside these, not instead of them.
 - Removing a field later breaks every `mesa.yaml` that sets it, as the schema is strict: a removal needs a deprecation that accepts and ignores it first.
+
+## Amendment 2026-11-10: `carryIgnoredDirectories` is `carry`
+
+Issue #899 lets a carry hold files such as `.env` as well as folders, so the field is now `worktrees.carry`. As the last consequence asks, the old name is still accepted in both files and read as `carry` unless `carry` is also set (`withCarryRenamed`, `projects/overrides.ts`); `profile/config.test.ts` and `projects/projects.test.ts` read it.

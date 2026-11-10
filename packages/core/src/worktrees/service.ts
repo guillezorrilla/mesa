@@ -51,6 +51,7 @@ export function worktreesService(ctx: MesaContext) {
         {
           summary: (result) => `Created ${result.branch} worktree in ${project}`,
           failure: `Could not create ${branch} worktree in ${project}`,
+          warning: (result) => result.warning,
           project: () => project,
           inputs: { project, branch, base, settings: ctx.open().config.worktrees },
         },

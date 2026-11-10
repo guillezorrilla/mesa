@@ -1,14 +1,14 @@
 import { z } from 'zod';
 import { relativeFilePath } from '../git/path.js';
 
-const relativeDirectory = z.string().refine((value) => {
+const relativePath = z.string().refine((value) => {
   try {
     relativeFilePath(value);
     return true;
   } catch {
     return false;
   }
-}, 'must be a repository-relative directory');
+}, 'must be a repository-relative path');
 
 const argv = z.array(z.string().min(1)).max(32);
 
@@ -19,8 +19,9 @@ const argv = z.array(z.string().min(1)).max(32);
 export const WORKTREE_OVERRIDE_FIELDS = {
   base: z.string().min(1),
   fetch: z.boolean(),
-  sparseDirectories: z.array(relativeDirectory),
-  carryIgnoredDirectories: z.array(relativeDirectory),
+  sparseDirectories: z.array(relativePath),
+  // Ignored files and folders a new worktree copies from the checkout (worktrees/carry.ts).
+  carry: z.array(relativePath),
   setup: argv,
   teardown: argv,
 };
@@ -33,3 +34,13 @@ export const GIT_OVERRIDE_FIELDS = {
   commitMessageRecipe: z.string().trim().min(1),
   pullRequestRecipe: z.string().trim().min(1),
 };
+
+/**
+ * A `worktrees` block with `carryIgnoredDirectories`, the name `carry` had before it took files,
+ * read as `carry` unless it is also set.
+ */
+export function withCarryRenamed(value: unknown) {
+  if (!value || typeof value !== 'object' || !('carryIgnoredDirectories' in value)) return value;
+  const { carryIgnoredDirectories, ...rest } = value as Record<string, unknown>;
+  return 'carry' in rest ? rest : { ...rest, carry: carryIgnoredDirectories };
+}
