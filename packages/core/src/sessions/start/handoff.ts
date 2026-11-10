@@ -11,7 +11,7 @@ import { requireOwnWorktree } from '../record/holders.js';
 import { refuseRun, type SessionRecord } from '../record/record.js';
 import { isAgentState } from '../record/states.js';
 import { additionalDirs } from './additional.js';
-import { requireCommandFits, requireGoalCommandRuns } from './goal.js';
+import { requireCommandFits, requireGoalCommandRuns, withoutBrief } from './goal.js';
 import { type LaunchDeps, launchProject, launchSession } from './launch.js';
 import { goalPreparing, sessionWindowCommand } from './window-command.js';
 
@@ -20,9 +20,12 @@ import { goalPreparing, sessionWindowCommand } from './window-command.js';
 
 const NOTE_LINE = /\n\nRead the handoff note at .+ first\.$/;
 
-/** The successor's goal: the session's own, its earlier handoff line dropped, then its note's. */
+/**
+ * The successor's goal: the session's own, its earlier handoff line and worker brief dropped (its
+ * parent is the session it continues), then its note's.
+ */
 const handoffGoal = (goal: string, note: string) =>
-  `${goal.replace(NOTE_LINE, '')}\n\nRead the handoff note at ${note} first.`;
+  `${withoutBrief(goal.replace(NOTE_LINE, ''))}\n\nRead the handoff note at ${note} first.`;
 
 type HandoffDeps = LaunchDeps & {
   newUuid: IdSource;

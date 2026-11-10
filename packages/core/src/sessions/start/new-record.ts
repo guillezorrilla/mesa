@@ -23,6 +23,8 @@ export type NewLaunch = {
   /** None while queued: a session that never ran has no conversation. */
   agentSessionId?: string;
   goal?: string;
+  /** The goal ends with the worker brief. */
+  brief?: true;
   automation?: SessionRecord['automation'];
   parent?: string;
   /** The session a skill run is about (mesa run --session). */
@@ -74,6 +76,7 @@ export function createRecord(
     ...(s.backgroundId ? { backgroundId: s.backgroundId } : {}),
     ...(s.agentSessionId === undefined ? {} : { agentSessionId: s.agentSessionId }),
     ...(s.goal === undefined ? {} : { goal: s.goal }),
+    ...(s.brief ? { brief: s.brief } : {}),
     ...(s.automation ? { automation: s.automation } : {}),
     ...(s.parent === undefined ? {} : { parent: s.parent }),
     ...(s.about === undefined ? {} : { about: s.about }),

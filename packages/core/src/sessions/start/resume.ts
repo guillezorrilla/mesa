@@ -83,6 +83,7 @@ export async function resumeSession(
       agentSessionId: old.agentSessionId,
       // The same conversation, so the same goal; it is not typed in again.
       goal: old.goal,
+      ...(old.brief ? { brief: old.brief } : {}),
       // Its place in the tree too, and its folder: claude finds the conversation by its cwd.
       parent: old.parent,
       worktree: old.worktree,

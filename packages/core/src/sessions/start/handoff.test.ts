@@ -8,6 +8,7 @@ import {
   projectProfile,
   withRealGit,
 } from '../../testing/index.js';
+import { briefedGoal, withoutBrief, workerBrief } from './goal.js';
 
 /**
  * A profile with lantern-cove as a git repository, claude, a fake tmux, and a note file; the tmux
@@ -107,4 +108,24 @@ test('a successor whose folder is gone is not_found, never an agent started in $
   await expect(mesa.sessions.handoff(a.id, { note })).rejects.toMatchObject({ code: 'not_found' });
   expect(tmux.windows).toHaveLength(1);
   expect((await mesa.sessions.list('all')).map((r) => r.id)).toEqual([a.id]);
+});
+
+test("a worker's successor and a fork drop the brief naming its parent; a resume keeps it", async () => {
+  const { home, mesa, note } = setUp();
+  const parent = (await mesa.sessions.open('lantern-cove', { goal: 'Lead' })).result;
+  const worker = (await mesa.sessions.open('lantern-cove', { goal: 'Tidy up', parent: parent.id }))
+    .result;
+  expect(worker.goal).toBe(`Tidy up\n\n${workerBrief(parent.id)}`);
+  const fork = (await mesa.sessions.fork(worker.id)).result;
+  expect(fork.goal).toBe('Tidy up');
+  const { result } = await mesa.sessions.handoff(worker.id, { note });
+  expect(result.to.goal).toBe(
+    `Tidy up\n\nRead the handoff note at ${join(home, '.mesa', 'default', 'handoffs', `${result.to.id}.md`)} first.`,
+  );
+  expect(result.to.brief).toBeUndefined();
+  expect(briefedGoal('$tidy-skill now', parent.id, true)).toEqual({
+    goal: '$tidy-skill now',
+    brief: false,
+  });
+  expect(withoutBrief('No brief here')).toBe('No brief here');
 });

@@ -65,6 +65,36 @@ export function requireGoalCommandRuns(goal: string | undefined, agent: Agent): 
   }
 }
 
+const BRIEF_START = '[mesa] You are a worker started by session';
+
+/**
+ * The paragraph a worker's goal ends with (CONTEXT.md, Worker brief): who its parent is, that its
+ * last reply each turn reaches the parent as a Child report, how to ask, and not to poll.
+ */
+export const workerBrief = (parent: string) =>
+  `${BRIEF_START} ${parent}. Mesa types your last reply of each turn into it as your report, so end each turn with what you did, what you found, and what is left. To ask it something, end your turn with the question; its answer comes as your next prompt. Do not poll, sleep, or loop waiting for it.`;
+
+/**
+ * `goal` with the worker brief after it, when the session is `started` by `parent` (the caller, or
+ * --parent; not the session it only waits on). A goal that is a slash command or a skill (`/`,
+ * Codex's `$`) gets none: words after it would be its arguments.
+ */
+export function briefedGoal(
+  goal: string | undefined,
+  parent: string | undefined,
+  started: boolean,
+): { goal: string | undefined; brief: boolean } {
+  if (goal === undefined || parent === undefined || !started || /^[/$]/.test(goal))
+    return { goal, brief: false };
+  return { goal: `${goal}\n\n${workerBrief(parent)}`, brief: true };
+}
+
+/** `goal` without its worker brief: a fork or a handoff successor has another parent. */
+export const withoutBrief = (goal: string) => {
+  const at = goal.lastIndexOf(`\n\n${BRIEF_START} `);
+  return at < 0 ? goal : goal.slice(0, at);
+};
+
 /** A session's goal, or not_found when it was started without one. */
 export function sessionGoal(store: SessionStore, id: string): { id: string; goal: string } {
   const { goal } = store.get(id);

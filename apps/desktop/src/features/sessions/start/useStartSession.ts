@@ -8,6 +8,9 @@ import type { WorkspaceView } from '@/lib/workspaceView';
 /** Where a new session runs: the project's main checkout, a new worktree, or a plain terminal. */
 export type SessionLocation = 'main' | 'worktree' | 'terminal';
 
+/** What a child start says: a child's news comes back to its parent (CONTEXT.md, Child report). */
+export const CHILD_START_HINT = 'Its news comes back to this session as child reports';
+
 /** What a new session starts from: by default the project in view, on its main checkout. */
 export type SessionPreset = {
   project?: string;

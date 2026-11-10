@@ -54,6 +54,8 @@ const SessionRecordFields = z.strictObject({
   agentSessionId: z.string().optional(),
   /** The first prompt the agent was started with (CONTEXT.md, Goal). */
   goal: z.string().optional(),
+  /** The goal ends with the worker brief (CONTEXT.md, Worker brief). */
+  brief: z.literal(true).optional(),
   /** Provenance assigned before an automation's agent starts. */
   automation: z
     .strictObject({ rule: z.string().min(1).max(80), run: z.string().regex(ULID) })

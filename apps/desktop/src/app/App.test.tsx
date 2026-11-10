@@ -2614,11 +2614,11 @@ test('selected session actions launch a child terminal and a child worktree', as
 
   await click(byTestId('sidebar-session')[0]);
   await click(actions());
-  await click(
-    [...(actions().parentElement?.querySelectorAll('button') ?? [])].find((button) =>
-      button.textContent?.includes('New child worktree session'),
-    ),
+  const childStart = [...(actions().parentElement?.querySelectorAll('button') ?? [])].find(
+    (button) => button.textContent?.includes('New child worktree session'),
   );
+  expect(childStart?.title).toBe('Its news comes back to this session as child reports');
+  await click(childStart);
   expect(calls).toContainEqual([
     '--json',
     'open',
