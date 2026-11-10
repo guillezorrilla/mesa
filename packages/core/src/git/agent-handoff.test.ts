@@ -139,4 +139,7 @@ test('a long hook output keeps its last whole lines within the cap, after a line
   expect(lastBytes('first line\nsecond\nthird', 13)).toBe(
     '[Mesa left out the first 11 bytes]\nsecond\nthird',
   );
+  // A quote takes four bytes once shell-quoted, and a line longer than the cap keeps its end.
+  expect(lastBytes("it's\nit's", 8)).toBe("[Mesa left out the first 5 bytes]\nit's");
+  expect(lastBytes('x'.repeat(40), 20)).toBe('[Mesa left out the first 35 bytes]\nxxxxx');
 });

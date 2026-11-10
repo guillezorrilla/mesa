@@ -1,10 +1,9 @@
-import { realpathSync } from 'node:fs';
 import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
 import type { Checkout } from '../projects/checkout.js';
 import type { ManagedRow, SessionRow } from '../sessions/board/rows.js';
 import { deliverIdle, idlePlacement, type Send } from '../sessions/input/idle-delivery.js';
-import { heldWorktrees } from '../sessions/record/holders.js';
+import { heldWorktrees, real } from '../sessions/record/holders.js';
 
 // Handing a checkout's problem (a failed pre-commit hook, a conflict) to an agent: the one owner
 // of which session gets it, and of sending it there or starting one with it as its goal. Mesa
@@ -20,15 +19,6 @@ export type HandoffDeps = {
   open: (project: string, opts: { goal: string; checkout?: string }) => Promise<{ id: string }>;
 };
 
-/** `path` with its symlinks resolved, as a checkout's is (resolveCheckout); as given when it is gone. */
-function realPath(path: string) {
-  try {
-    return realpathSync.native(path);
-  } catch {
-    return path;
-  }
-}
-
 /** The unended Mesa sessions working in `checkout`: in it as their worktree, or for the main checkout, on the project with none. */
 function sessionsIn(rows: readonly SessionRow[], checkout: Checkout) {
   return rows.filter(
@@ -37,7 +27,7 @@ function sessionsIn(rows: readonly SessionRow[], checkout: Checkout) {
       !row.endedAt &&
       row.kind !== 'run' &&
       row.agent !== 'terminal' &&
-      (heldWorktrees(row).some(({ worktree }) => realPath(worktree.path) === checkout.path) ||
+      (heldWorktrees(row).some(({ worktree }) => real(worktree.path) === checkout.path) ||
         (checkout.registered && row.project === checkout.project && !row.worktree)),
   );
 }

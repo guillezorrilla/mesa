@@ -28,7 +28,8 @@ export type GitFix = { passed: true } | ({ passed: false } & AgentHandoff);
 /**
  * Runs the checkout's pre-commit hook (`git hook run --ignore-missing pre-commit`); when it fails,
  * hands the session working there (handToAgent) the staged files and the hook's last 200 lines,
- * redacted and without control characters, fenced as data, asking it to fix and stage them and
+ * both streams, each cut to its end within a byte cap so a new session's goal fits one tmux
+ * command, redacted and without control characters, fenced as data, asking it to fix and stage them and
  * never to commit with `--no-verify`. A passing hook sends nothing. A Git without `git hook run`
  * is usage, naming its version.
  */
@@ -84,14 +85,23 @@ export async function fixPreCommit(
   return { passed: false, ...handed };
 }
 
-/** The whole lines at the end of `text` that fit in `max` bytes, after a line saying what was cut. */
+/** Bytes `text` takes once shell-quoted into a goal (shellWord): each `'` grows to four. */
+const quotedBytes = (text: string) => Buffer.byteLength(text) + 3 * (text.split("'").length - 1);
+
+/**
+ * The end of `text` within `max` quoted bytes, after a line saying how much was cut: whole lines,
+ * or the tail of the last line when it alone is longer.
+ */
 export function lastBytes(text: string, max: number) {
-  if (Buffer.byteLength(text) <= max) return text;
+  if (quotedBytes(text) <= max) return text;
   const kept: string[] = [];
   let size = 0;
   for (const line of text.split('\n').reverse()) {
-    size += Buffer.byteLength(line) + 1;
-    if (size > max) break;
+    if (size + quotedBytes(line) + 1 > max) {
+      if (!kept.length) kept.push(line.slice(-Math.floor(max / 4)));
+      break;
+    }
+    size += quotedBytes(line) + 1;
     kept.unshift(line);
   }
   const cut = Buffer.byteLength(text) - Buffer.byteLength(kept.join('\n'));
