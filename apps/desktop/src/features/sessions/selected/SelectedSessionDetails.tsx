@@ -132,8 +132,10 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
               <>
                 <dt className="text-muted-foreground">Reports to</dt>
                 <dd data-testid="session-reports-to">
-                  <span className="font-mono">{row.parent}</span>: its last reply each turn goes
-                  back as its report{row.brief ? ', as its goal tells it' : ''}
+                  <span className="font-mono">{row.parent}</span>
+                  {record?.report
+                    ? ': it reported its work itself'
+                    : `: its last reply each turn goes back as its report${row.brief ? ', as its goal tells it' : ''}`}
                 </dd>
               </>
             )}

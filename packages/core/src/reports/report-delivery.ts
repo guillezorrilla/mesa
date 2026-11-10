@@ -13,8 +13,8 @@ import { reportLedger } from './report-ledger.js';
 import {
   type ChildReport,
   EXPLICIT_KINDS,
-  type ExplicitKind,
   explicitReport,
+  isExplicitKind,
   reportPrompt,
 } from './reports.js';
 
@@ -55,7 +55,7 @@ export function reportsService(
      * window, from a session with no parent, or with no text.
      */
     report: (kind: string, text: string, files: readonly string[] = []): ChildReport => {
-      if (!(EXPLICIT_KINDS as readonly string[]).includes(kind))
+      if (!isExplicitKind(kind))
         throw new MesaError('usage', `report ${EXPLICIT_KINDS.join(', ')}, not ${kind}`);
       const caller = callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile });
       const child = caller.session;
@@ -71,7 +71,7 @@ export function reportsService(
       if (!text.trim()) throw new MesaError('usage', 'say what you did, found, and left');
       const report = explicitReport(
         { ...child, parent: child.parent },
-        kind as ExplicitKind,
+        kind,
         text,
         ctx.clock().toISOString(),
         files,

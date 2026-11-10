@@ -416,6 +416,9 @@ test("session details show a worker's own report: its kind, outcome, time and te
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
+  expect(byTestId('session-reports-to')[0]?.textContent).toBe(
+    'bbbbbbbb: it reported its work itself',
+  );
   const shown = byTestId('session-reported')[0]?.textContent;
   expect(shown).toContain('done, succeeded');
   expect(shown).toContain(new Date(row.startedAt).toLocaleString());

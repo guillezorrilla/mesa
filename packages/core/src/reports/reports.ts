@@ -31,9 +31,12 @@ export const ChildReportSchema = z.object({
 });
 export type ChildReport = z.infer<typeof ChildReportSchema>;
 
+/** Whether `kind` is one a worker reports itself (`mesa report`). */
+export const isExplicitKind = (kind: string): kind is ExplicitKind =>
+  (EXPLICIT_KINDS as readonly string[]).includes(kind);
+
 /** Whether `report` is one a worker made itself (`mesa report`). */
-export const isExplicit = (report: Pick<ChildReport, 'kind'>) =>
-  (EXPLICIT_KINDS as readonly string[]).includes(report.kind);
+export const isExplicit = (report: Pick<ChildReport, 'kind'>) => isExplicitKind(report.kind);
 
 /** How much of a child's last reply a report keeps; `mesa review responses` has all of it. */
 const MESSAGE_CHARS = 2_000;
@@ -68,8 +71,9 @@ export function eventReport(child: SessionRecord & { parent: string }, event: Ho
   } satisfies ChildReport;
 }
 
-/** How many files an explicit report names, each cut as a path is. */
-const FILES = 20;
+/** How many files an explicit report names, and how long each path may be. */
+const MAX_FILES = 20;
+const PATH_CHARS = 200;
 
 /** The report a worker makes itself with `mesa report`, at `at`. */
 export const explicitReport = (
@@ -88,7 +92,7 @@ export const explicitReport = (
     at,
     message: short(text, MESSAGE_CHARS),
     ...(kind === 'blocked' ? {} : { outcome: kind === 'done' ? 'succeeded' : 'failed' }),
-    ...(files.length ? { files: files.slice(0, FILES).map((f) => short(f, 200)) } : {}),
+    ...(files.length ? { files: files.slice(0, MAX_FILES).map((f) => short(f, PATH_CHARS)) } : {}),
   }) satisfies ChildReport;
 
 /** The report a child that ended makes, once. */

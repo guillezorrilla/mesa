@@ -380,3 +380,13 @@ test("after its explicit report a child's turns make no finished report; waits a
   store.update(child.id, (r) => ({ ...r, endedAt: '2026-09-24T12:10:00.000Z' }));
   expect(service.list().reports.map((r) => r.kind)).toEqual(['ended']);
 });
+
+test('a busy parent gets an explicit report as its own turn ends, in the same prompt', async () => {
+  const f = family();
+  f.service.list();
+  inside(f, f.child.id).report('failed', 'The tide feed is down', ['feeds/tide.json']);
+  const prompt = await reportsAtTurnEnd(f.ctx, f.parent.id);
+  expect(prompt).toContain('reported failed, failed:');
+  expect(prompt).toContain('files: feeds/tide.json');
+  expect(f.service.list().reports).toEqual([]);
+});

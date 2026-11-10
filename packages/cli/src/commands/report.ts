@@ -1,4 +1,5 @@
 import { defineCommand } from '../command.js';
+import { commaList } from '../input/flags.js';
 
 /** Run by a worker inside its Mesa window, once, when its work is done, failed, or blocked. */
 export const report = defineCommand({
@@ -11,10 +12,7 @@ export const report = defineCommand({
   },
   example: 'mesa report done "Counted 12 tide tables; none missing" --files docs/tides.md',
   run: ({ mesa, args, flags }) => {
-    const files = flags.files
-      ?.split(',')
-      .map((f) => f.trim())
-      .filter(Boolean);
+    const files = flags.files === undefined ? undefined : commaList(flags.files);
     const made = mesa.reports.report(args.kind, args.text, files);
     return {
       data: { report: made },
