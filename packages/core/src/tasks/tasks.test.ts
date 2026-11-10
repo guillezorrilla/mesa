@@ -145,6 +145,9 @@ test("a task's coordinator is the caller's session, or one named; an unknown one
   expect(() => service().create('Parse', { coordinator: 'nobody00' })).toThrow(
     /no session nobody00/,
   );
+  const tasks = service();
+  expect(tasks.list({ coordinator: lead.id }).tasks).toHaveLength(2);
+  expect(tasks.list({ coordinator: 'someone0' }).tasks).toEqual([]);
 });
 
 test('a create waits on the lock another mesa holds, and writes nothing when it stays held', () => {

@@ -19,6 +19,7 @@ import { settingsCommands } from './settings';
 import { skillsCommands } from './skills';
 import { sourcesCommands } from './sources';
 import type { Spec } from './spec';
+import { tasksCommands } from './tasks';
 import { ticketsCommands } from './tickets';
 import { updateCommands } from './update';
 import { usageCommands } from './usage';
@@ -52,6 +53,7 @@ const COMMANDS = {
   ...vaultCommands,
   ...settingsCommands,
   ...notificationsCommands,
+  ...tasksCommands,
   ...doctorCommands,
   ...feedbackCommands,
   ...installsCommands,

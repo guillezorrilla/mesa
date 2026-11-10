@@ -14,7 +14,7 @@ import {
 import { SidePanels } from './SidePanels';
 import type { OpenPanel } from './useSidePanel';
 
-const NO_CREW = { send: () => {}, stop: () => {} };
+const NO_CREW = { send: () => {}, stop: () => {}, select: () => {}, nameOf: (id: string) => id };
 
 test("a session's panel stays as it was while another session is selected", async () => {
   const { bridge, calls } = fakeBridge({ diff: () => sessionDiff() });
@@ -161,6 +161,8 @@ test("a parent's Crew tab lists each child's state, newest report, branch and di
       crew={{
         send: (id, text) => sent.push(`${id} ${text}`),
         stop: (id) => stopped.push(id),
+        select: () => {},
+        nameOf: (id) => id,
       }}
     />,
     bridge,
@@ -189,4 +191,98 @@ test("a parent's Crew tab lists each child's state, newest report, branch and di
   expect(stopped).toEqual([]);
   await click(within(document, '[data-testid="crew-stop-confirm"]'));
   expect(stopped).toEqual(['cccccccc']);
+});
+
+test("a coordinator's Crew lists its tasks with states, deps and worker; Start starts a ready one, and a refused start says why", async () => {
+  const task = (id: string, extra: object) => ({
+    id,
+    spec: `${id} spec\nmore`,
+    graph: 'tides',
+    deps: [],
+    state: 'ready',
+    coordinator: 'aaaaaaaa',
+    createdAt: '2026-09-25T12:00:00.000Z',
+    ...extra,
+  });
+  let refuse = false;
+  let started = false;
+  const { bridge, calls } = fakeBridge({
+    sessions: () =>
+      envelope([
+        {
+          ...managedRow('bbbbbbbb', { parent: 'aaaaaaaa', agentName: 'tide-charts' }),
+          branch: null,
+        },
+      ]),
+    tasks: () =>
+      envelope({
+        tasks: [
+          task('t-parse000', started ? { state: 'running', worker: 'cccccccc' } : {}),
+          task('t-chart000', { deps: ['t-parse000'], state: 'pending' }),
+          task('t-print000', { state: 'running', worker: 'bbbbbbbb' }),
+          task('t-label000', { state: 'failed', reason: 'The feed is down' }),
+        ],
+      }),
+    worker: () => {
+      if (refuse)
+        return { ok: false, error: { code: 'usage', message: 'the window would not open' } };
+      started = true;
+      return envelope({
+        task: task('t-parse000', { state: 'running' }),
+        worker: {},
+        receipt: null,
+      });
+    },
+  });
+  const selected: string[] = [];
+  await renderWithMesa(
+    <SidePanels
+      rows={[managedRow('aaaaaaaa', { children: ['bbbbbbbb'] })]}
+      panels={{ aaaaaaaa: { panel: 'crew' } }}
+      selectedSession="aaaaaaaa"
+      onClose={() => {}}
+      crew={{
+        ...NO_CREW,
+        select: (id) => selected.push(id),
+        nameOf: (id) => (id === 'bbbbbbbb' ? 'tide-charts' : id),
+      }}
+    />,
+    bridge,
+  );
+  const rows = [...document.querySelectorAll<HTMLElement>('[data-testid="crew-task"]')];
+  expect(rows.map((row) => row.querySelector('[data-testid="task-state"]')?.textContent)).toEqual([
+    'ready',
+    'pending',
+    'running',
+    'failed',
+  ]);
+  expect(rows[3]?.textContent).toContain('The feed is down');
+  expect(rows[0]?.textContent).toContain('t-parse000 spec');
+  expect(rows[0]?.textContent).not.toContain('more');
+  expect(rows[1]?.textContent).toContain('after t-parse000 ready');
+  expect(rows[1]?.querySelector('[aria-label^="Start"]')).toBeNull();
+  await click(within(rows[2], 'button'));
+  expect(selected).toEqual(['bbbbbbbb']);
+  expect(rows[2]?.textContent).toContain('tide-charts');
+
+  refuse = true;
+  await click(within(rows[0], '[aria-label="Start t-parse000"]'));
+  expect(document.querySelector('[role="alert"]')?.textContent).toBe('the window would not open');
+  refuse = false;
+  await click(within(document, '[aria-label="Start t-parse000"]'));
+  expect(calls.filter((argv) => argv[1] === 'worker').at(-1)).toEqual([
+    '--json',
+    'worker',
+    '--task',
+    't-parse000',
+    '--parent',
+    'aaaaaaaa',
+    '--',
+    'lantern-cove',
+  ]);
+  // The row turns running with its worker, and the refusal is gone.
+  const first = () => document.querySelector<HTMLElement>('[data-testid="crew-task"]');
+  expect(first()?.querySelector('[data-testid="task-state"]')?.textContent).toBe('running');
+  expect(first()?.textContent).toContain('cccccccc');
+  expect(document.querySelector('[role="alert"]')).toBeNull();
 });

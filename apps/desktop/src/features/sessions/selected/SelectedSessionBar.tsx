@@ -11,14 +11,16 @@ import { Archive, GitCompareArrows, Globe, MessageSquareQuote, Users } from 'luc
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { AutomationBanner } from '@/features/automations/AutomationBanner';
+import { useCommand } from '@/lib/useCommand';
 import type { OpenDialog } from '../dialogs/SessionDialogs';
 import { AgentSwitcher } from './AgentSwitcher';
 import { SelectedSessionDetails } from './SelectedSessionDetails';
+import { useRefreshOnStamp } from './useRefreshOnStamp';
 import type { SidePanel } from './useSidePanel';
 
 /**
  * The selected session's bar: its project and title, details, agent, the Replies, Browser, Diff and
- * Crew (with children) toggles, Archive, and then `children` (its Session actions menu).
+ * Crew (with children or tasks) toggles, Archive, and then `children` (its Session actions menu).
  */
 export function SelectedSessionBar({
   sessionId,
@@ -46,6 +48,11 @@ export function SelectedSessionBar({
   onDialog: (dialog: OpenDialog) => void;
   children?: ReactNode;
 }) {
+  // A session that coordinates tasks has a Crew too, before it has any worker; read again as its
+  // state changes, so tasks it made this turn show the toggle when the turn ends.
+  const coordinated = useCommand('tasks.list', { coordinator: sessionId });
+  useRefreshOnStamp(row?.lastState.state ?? '', coordinated.refresh);
+  const coordinates = Boolean(coordinated.data?.tasks.length);
   return (
     <div
       data-testid="selected-session"
@@ -117,7 +124,7 @@ export function SelectedSessionBar({
           <GitCompareArrows aria-hidden /> Diff
         </Button>
       )}
-      {row?.managed && row.children.length > 0 && (
+      {row?.managed && (row.children.length > 0 || coordinates) && (
         <Button
           variant="ghost"
           size="sm"
