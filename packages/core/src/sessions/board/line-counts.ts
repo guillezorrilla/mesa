@@ -4,10 +4,11 @@ import { z } from 'zod';
 import { gitCommand } from '../../git/command.js';
 import { changeJson, readCache } from '../../lib/json-file.js';
 import type { LockDeps } from '../../lib/lock-file.js';
+import { mapLimit } from '../../lib/map-limit.js';
 import type { Runner } from '../../lib/process.js';
 import type { Profile } from '../../profile/profile.js';
 import { findProject } from '../../projects/projects.js';
-import { defaultBranchRef, recordedBase } from '../../worktrees/base.js';
+import { sessionDiffBase } from '../../worktrees/base.js';
 import { sessionFolder } from '../record/folder.js';
 import { projectScope } from '../record/general.js';
 import type { ManagedRow, SessionRow } from './rows.js';
@@ -16,7 +17,10 @@ import type { ManagedRow, SessionRow } from './rows.js';
 export type LineCounts = { added: number; removed: number };
 
 const Cache = z
-  .record(z.string(), z.strictObject({ key: z.string(), added: z.number(), removed: z.number() }))
+  .record(
+    z.string(),
+    z.strictObject({ key: z.string(), at: z.string(), added: z.number(), removed: z.number() }),
+  )
   .describe('line counts');
 
 /** Added and removed lines from `git diff --shortstat`; none changed reads as zero. */
@@ -55,15 +59,7 @@ async function stateKey(run: Runner, folder: string, row: ManagedRow) {
 
 /** `git diff --shortstat <merge-base>` in the checkout, against the base `mesa diff` uses. */
 async function measure(deps: Deps, row: ManagedRow, project: string, folder: string) {
-  const worktree = row.worktree;
-  const base =
-    (worktree && worktree.path === folder ? await recordedBase(deps.run, worktree) : undefined) ??
-    (await defaultBranchRef(
-      deps.profile(),
-      deps.run,
-      findProject(deps.profile(), project).path,
-      project,
-    ));
+  const base = await sessionDiffBase(deps.profile(), deps.run, { ...row, project, folder });
   if (!base) return undefined;
   const mergeBase = await gitCommand(deps.run, folder, ['merge-base', base, 'HEAD']);
   if (!mergeBase.ok) return undefined;
@@ -76,40 +72,46 @@ async function measure(deps: Deps, row: ManagedRow, project: string, folder: str
   return stat.ok ? shortstat(stat.stdout) : undefined;
 }
 
+/** How many sessions' checkouts a look reads at once. */
+const AT_ONCE = 4;
+
 /**
  * Each Mesa session row with the lines its checkout added and removed since its base (committed
- * and uncommitted, untracked files aside), cached in `file` per checkout by its HEAD, index mtime
- * and the session's last state change, so a look with nothing changed runs no diff. An ended
- * session keeps its last count; a General or terminal session, or a checkout Git cannot read,
- * has none.
- * shortcut: entries are never pruned (one small entry per checkout); prune by age if it grows.
+ * and uncommitted, untracked files aside), cached in `file` per session by its checkout's HEAD,
+ * index mtime and its last state change, so a look with nothing changed runs no diff. A session
+ * at rest whose state has not changed since its count is not read again (as its readings are
+ * not: listSessions); an ended one keeps its last count; a General or terminal session, or a
+ * checkout Git cannot read, has none. Four checkouts are read at once.
+ * shortcut: entries are never pruned (one small entry per session); prune by age if it grows.
  */
 export async function withLineCounts(deps: Deps, rows: SessionRow[]): Promise<SessionRow[]> {
-  const cached = readCache(deps.file, Cache, {});
-  const fresh: Record<string, { key: string } & LineCounts> = {};
+  const fresh: Record<string, { key: string; at: string } & LineCounts> = {};
   // A count is never worth failing the board over: a row it cannot read keeps none.
-  const count = async (row: SessionRow): Promise<SessionRow> => {
-    if (!row.managed) return row;
-    const checkout = checkoutOf(deps, row);
-    if (!checkout) return row;
-    const kept = cached[checkout.folder];
-    if (row.endedAt) return kept ? { ...row, lines: countsOf(kept) } : row;
-    const key = await stateKey(deps.run, checkout.folder, row);
-    if (!key) return row;
-    if (kept?.key === key) return { ...row, lines: countsOf(kept) };
-    const lines = await measure(deps, row, checkout.project, checkout.folder);
-    if (!lines) return row;
-    fresh[checkout.folder] = { key, ...lines };
-    return { ...row, lines };
-  };
-  const counted = await Promise.all(rows.map((row) => count(row).catch(() => row)));
   try {
+    const cached = readCache(deps.file, Cache, {});
+    const count = async (row: SessionRow): Promise<SessionRow> => {
+      if (!row.managed) return row;
+      const checkout = checkoutOf(deps, row);
+      if (!checkout) return row;
+      const kept = cached[row.id];
+      const resting = row.lastState.state !== 'working' && kept?.at === row.lastState.at;
+      if (row.endedAt || resting) return kept ? { ...row, lines: countsOf(kept) } : row;
+      const key = await stateKey(deps.run, checkout.folder, row);
+      if (!key) return row;
+      if (kept?.key === key) return { ...row, lines: countsOf(kept) };
+      const lines = await measure(deps, row, checkout.project, checkout.folder);
+      if (!lines) return row;
+      fresh[row.id] = { key, at: row.lastState.at, ...lines };
+      return { ...row, lines };
+    };
+    const counted = await mapLimit(rows, AT_ONCE, (row) => count(row).catch(() => row));
     if (Object.keys(fresh).length)
       changeJson(deps.file, Cache, (current = {}) => ({ ...current, ...fresh }), deps);
+    return counted;
   } catch {
-    // Kept for the next look only: a busy cache file costs a diff then, nothing more.
+    // A cache that cannot be read or written: this look has no counts, the next tries again.
+    return rows;
   }
-  return counted;
 }
 
 const countsOf = ({ added, removed }: LineCounts) => ({ added, removed });

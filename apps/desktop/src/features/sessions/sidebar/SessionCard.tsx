@@ -165,7 +165,7 @@ export function SessionCard(props: {
                 title={reply.text}
                 className="truncate pl-4 text-[11px] text-muted-foreground"
               >
-                {reply.text.split('\n', 1)[0]}
+                {reply.text.trimStart().split('\n', 1)[0]}
               </span>
             )}
           </>

@@ -4,7 +4,7 @@ import { hookItem } from '../notifications/inbox-items.js';
 import { sessionTitle } from '../sessions/record/labels.js';
 import type { SessionRecord } from '../sessions/record/record.js';
 import { SESSION_STATES } from '../sessions/record/states.js';
-import type { HookEvent } from '../sessions/signals/hook-events.js';
+import { type HookEvent, parentHook } from '../sessions/signals/hook-events.js';
 
 /** What a worker says of its work with `mesa report`: done, failed, or blocked on its parent. */
 export const EXPLICIT_KINDS = ['done', 'failed', 'blocked'] as const;
@@ -72,10 +72,10 @@ const nameOf = (record: SessionRecord) => short(sessionTitle(record), 80);
 
 /**
  * The main agent's reply that ended a turn, from a `Stop` hook event's `last_assistant_message`
- * (a subagent's is not one: hookItem); undefined for any other event or an empty reply.
+ * (a subagent's is not one: parentHook); undefined for any other event or an empty reply.
  */
 export function stopReply(event: HookEvent): { text: string; at: string } | undefined {
-  if (hookItem('', event)?.kind !== 'finished') return undefined;
+  if (event.event !== 'Stop' || !parentHook(event)) return undefined;
   const said = (event.payload as Record<string, unknown> | undefined)?.last_assistant_message;
   return typeof said === 'string' && said.trim() ? { text: said, at: event.at } : undefined;
 }

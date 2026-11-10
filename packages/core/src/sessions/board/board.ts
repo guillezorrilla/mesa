@@ -147,7 +147,8 @@ export async function listSessions(
       });
       const kept = takenOver(found, holders);
       const reportsTo = parents.get(found.id);
-      const reply = lastReply(events(found.id));
+      // An ended session's hook log is not read again (managedRow): its card keeps no reply.
+      const reply = found.endedAt ? undefined : lastReply(events(found.id));
       const row = {
         ...base,
         ...(reportsTo === undefined ? {} : { parentNow: reportsTo }),

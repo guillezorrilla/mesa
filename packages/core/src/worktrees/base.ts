@@ -36,6 +36,22 @@ export async function defaultBranchRef(
 }
 
 /**
+ * The base a session's diff compares with when none is given: its worktree's recorded base while
+ * its agent works there (recordedBase), else the project's default (defaultBranchRef).
+ */
+export async function sessionDiffBase(
+  profile: Profile,
+  run: Runner,
+  session: { project: string; worktree?: Worktree; folder?: string },
+): Promise<string | undefined> {
+  const { project, worktree, folder } = session;
+  return (
+    (worktree && worktree.path === folder ? await recordedBase(run, worktree) : undefined) ??
+    (await defaultBranchRef(profile, run, findProject(profile, project).path, project))
+  );
+}
+
+/**
  * The base a worktree was made from, while it is still on the branch it was made with. Once its
  * agent moves it to another branch, or detaches it, that branch's start is not known: none, so
  * the project's default stands in.

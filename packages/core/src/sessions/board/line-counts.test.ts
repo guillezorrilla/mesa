@@ -77,3 +77,32 @@ test('a General or terminal session has no count', async () => {
   expect(await linesOf(deps, row({ project: GENERAL_PROJECT, cwd: '/tmp' }))).toBeUndefined();
   expect(await linesOf(deps, row({ agent: 'terminal' }))).toBeUndefined();
 });
+
+test('two sessions in one checkout keep their own counts, and one at rest is not read again', async () => {
+  const { deps, dir, diffs, row } = setUp();
+  appendFileSync(join(dir, 'README.md'), 'High water at six.\n');
+  const at = (minute: number) => `2026-09-24T12:0${minute}:00.000Z`;
+  const first = row({
+    id: 'aaaaaaaa',
+    lastState: { state: 'working', confidence: 1, at: at(1), source: 'hook' },
+  });
+  const second = row({
+    id: 'bbbbbbbb',
+    lastState: { state: 'working', confidence: 1, at: at(2), source: 'hook' },
+  });
+  await withLineCounts(deps, [first, second]);
+  expect(diffs).toHaveLength(2);
+  await withLineCounts(deps, [first, second]);
+  expect(diffs).toHaveLength(2);
+
+  // At rest since its count, it is not read again, even once its checkout changes.
+  const resting = row({
+    id: 'aaaaaaaa',
+    lastState: { state: 'idle', confidence: 1, at: at(3), source: 'hook' },
+  });
+  expect(await linesOf(deps, resting)).toEqual({ added: 1, removed: 0 });
+  expect(diffs).toHaveLength(3);
+  appendFileSync(join(dir, 'README.md'), 'Low water at noon.\n');
+  expect(await linesOf(deps, resting)).toEqual({ added: 1, removed: 0 });
+  expect(diffs).toHaveLength(3);
+});
