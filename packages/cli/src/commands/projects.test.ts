@@ -233,6 +233,31 @@ test('projects set writes one mesa.yaml override and --unset removes it, keeping
   expect(file()).toBe(original);
 });
 
+test('a carry set or unset in mesa.yaml takes the old carryIgnoredDirectories with it', async () => {
+  await mesa('init', '--vault', 'vault');
+  const dir = join(cli.home, 'lantern-cove');
+  mkdirSync(dir);
+  const original = 'name: lantern-cove\n';
+  writeFileSync(
+    join(dir, 'mesa.yaml'),
+    `${original}worktrees:\n  carryIgnoredDirectories: [cache]\n`,
+  );
+  await mesa('register', 'lantern-cove');
+  const file = () => readFileSync(join(dir, 'mesa.yaml'), 'utf8');
+  expect((await mesa('projects', '--json')).json.data[0].overrides).toEqual({
+    worktrees: { carry: ['cache'] },
+  });
+  await mesa('projects', 'set', 'lantern-cove', 'worktrees.carry', '--unset');
+  expect(file()).toBe(original);
+
+  writeFileSync(
+    join(dir, 'mesa.yaml'),
+    `${original}worktrees:\n  carryIgnoredDirectories: [cache]\n`,
+  );
+  await mesa('projects', 'set', 'lantern-cove', 'worktrees.carry', '[.env]');
+  expect(file()).toBe(`${original}worktrees:\n  carry:\n    - .env\n`);
+});
+
 test('projects trust approves the setup a repository names, records a receipt, and a change asks again', async () => {
   await mesa('init', '--vault', 'vault');
   await mesa('vault', 'init');

@@ -86,6 +86,25 @@ test('a carry past its bytes stops before anything is copied', async () => {
   expect(existsSync(join(worktree, '.env'))).toBe(false);
 });
 
+test('a clone that times out is removed and stops the carry, with no second copy', async () => {
+  const { repo, worktree } = checkout();
+  const run = realGitOnly(scriptedRunner({}, { slow: ['/bin/cp'] }).run);
+  expect(await carryEntries(run, repo, worktree, ['node_modules'])).toBe(
+    'carry stopped at node_modules: the copy took over 120 s; it was not carried',
+  );
+  expect(existsSync(join(worktree, 'node_modules'))).toBe(false);
+});
+
+test('an entry after a budget stop is still checked', async () => {
+  const { repo, worktree } = checkout();
+  await expect(
+    carryEntries(testRunner, repo, worktree, ['node_modules', 'README.md'], {
+      bytes: 1024,
+      entries: 1,
+    }),
+  ).rejects.toMatchObject({ code: 'usage' });
+});
+
 test('a tracked or missing entry is refused', async () => {
   const { repo, worktree } = checkout();
   await expect(carryEntries(testRunner, repo, worktree, ['README.md'])).rejects.toMatchObject({

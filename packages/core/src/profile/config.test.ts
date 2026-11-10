@@ -231,6 +231,9 @@ test('worktree settings retain the profile default and reject unsafe directories
 test('a config written before carry took files is still read', () => {
   writeFileSync(file, 'vault: /tmp/v\nworktrees:\n  carryIgnoredDirectories: [cache, .env]\n');
   expect(loadConfig(file).worktrees.carry).toEqual(['cache', '.env']);
+  // Set by the old name, it is the new one.
+  setConfigValue(file, 'worktrees.carryIgnoredDirectories', '[cache]', lockDeps());
+  expect(loadConfig(file).worktrees.carry).toEqual(['cache']);
 });
 
 test('a YAML syntax error reports the position, never the source text', () => {

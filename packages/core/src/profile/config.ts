@@ -62,7 +62,11 @@ const REMOVED_KEYS: Record<string, string> = {
  * Dotted paths `mesa config set` takes for a field stored under another name: `vault` is the
  * vault's path, so its capture switch sits beside it as `vaultCapture`.
  */
-const CONFIG_ALIASES: Record<string, string> = { 'vault.capture': 'vaultCapture' };
+const CONFIG_ALIASES: Record<string, string> = {
+  'vault.capture': 'vaultCapture',
+  // The name `worktrees.carry` had before it took files (withCarryRenamed).
+  'worktrees.carryIgnoredDirectories': 'worktrees.carry',
+};
 
 const WithoutRemovedKeys = z
   .unknown()

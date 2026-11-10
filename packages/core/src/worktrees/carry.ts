@@ -5,7 +5,7 @@ import { gitCommand } from '../git/command.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 
-/** What one worktree's carry may copy in all, measured before each entry (after orca's budget). */
+/** What one worktree's carry may copy in all, measured before each entry. */
 export const CARRY_BUDGET = { bytes: 2 * 1024 ** 3, entries: 50_000 };
 
 // A clone of a large node_modules is quick, but not instant.
@@ -23,15 +23,18 @@ export async function carryEntries(
   entries: readonly string[],
   budget = CARRY_BUDGET,
 ): Promise<string | undefined> {
+  // Every entry is checked first, so one unsafe after a stop is still refused.
+  const sources: string[] = [];
+  for (const entry of entries) sources.push(await carrySource(run, repo, worktree, entry));
   const left = { ...budget };
   for (const [index, entry] of entries.entries()) {
-    const source = await carrySource(run, repo, worktree, entry);
-    const over = spend(source, left, budget);
+    const source = sources[index] as string;
+    const target = createCheckedFilePath(worktree, entry);
+    const over = spend(source, left, budget) ?? (await copyEntry(run, source, target));
     if (over) {
       const rest = entries.length - index - 1;
       return `carry stopped at ${entry}: ${over}; ${rest ? `it and ${rest} after it were` : 'it was'} not carried`;
     }
-    await copyEntry(run, source, createCheckedFilePath(worktree, entry));
   }
   return undefined;
 }
@@ -80,13 +83,16 @@ function spend(source: string, left: Budget, budget: Budget) {
   return undefined;
 }
 
+/**
+ * Clones `source` to `target`, which createCheckedFilePath found absent, else copies it; a clone
+ * that times out is removed and named, as a second, slower copy would only take longer.
+ */
 async function copyEntry(run: Runner, source: string, target: string) {
-  if (lstatSync(target, { throwIfNoEntry: false }))
-    throw new MesaError('usage', `${target} already exists in the new worktree`);
   // shortcut: no APFS probe; cp -c fails off APFS (or off macOS), and the plain copy takes over.
   const cloned = await run('/bin/cp', ['-c', '-R', '-n', source, target], CLONE_MS);
-  if (cloned.ok) return;
+  if (cloned.ok) return undefined;
   rmSync(target, { recursive: true, force: true });
+  if (cloned.reason === 'timeout') return `the copy took over ${CLONE_MS / 1000} s`;
   // verbatimSymlinks: a relative link such as pnpm's node_modules/pkg -> ../packages/pkg stays
   // relative, so the worktree uses its own packages rather than the source checkout's.
   cpSync(source, target, {
@@ -96,4 +102,5 @@ async function copyEntry(run: Runner, source: string, target: string) {
     errorOnExist: true,
     force: false,
   });
+  return undefined;
 }

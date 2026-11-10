@@ -84,5 +84,14 @@ export function setProjectOverride(
       `${dotted} is not a project override: ${PROJECT_OVERRIDES.join(', ')}`,
     );
   }
+  // The old name would otherwise outlive a carry set or unset under the new one (withCarryRenamed).
+  if (dotted === 'worktrees.carry')
+    setYamlPath(
+      projectFile(dir),
+      ProjectSchema,
+      'worktrees.carryIgnoredDirectories',
+      undefined,
+      lock,
+    );
   return setYamlPath(projectFile(dir), ProjectSchema, dotted, value, lock);
 }
