@@ -11,7 +11,7 @@ const Cache = z
   .record(z.string(), z.strictObject({ bytes: z.number().nullable(), at: z.string() }))
   .describe('worktree sizes');
 
-/** How long a measured size is reused: 10 minutes. */
+/** How long a size, or a null one, is reused: 10 minutes. */
 const FRESH_MS = 10 * 60_000;
 /** How long `du` may take over one checkout, a large `node_modules` included. */
 const DU_TIMEOUT_MS = 60_000;
