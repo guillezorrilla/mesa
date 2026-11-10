@@ -1,4 +1,5 @@
 import type { MesaContext } from '../context.js';
+import { shortId } from '../lib/ids.js';
 import { MesaError } from '../lib/result.js';
 import type { SessionRow } from '../sessions/board/rows.js';
 import {
@@ -15,11 +16,13 @@ import {
   EXPLICIT_KINDS,
   explicitReport,
   isExplicitKind,
+  type Question,
+  questionOf,
   reportPrompt,
 } from './reports.js';
 
-/** What `mesa reports` lists: whether delivery is on, and the pending reports. */
-export type ReportList = { enabled: boolean; reports: ChildReport[] };
+/** What `mesa reports` lists: whether delivery is on, the pending reports and open questions. */
+export type ReportList = { enabled: boolean; reports: ChildReport[]; questions: Question[] };
 
 /** One parent's share of a delivery pass, with the ids of the reports it typed, or held. */
 export type ReportDelivery = IdleDelivery & { reports: string[] };
@@ -48,6 +51,21 @@ export function reportsService(
   const ledger = ledgerOf(ctx);
   const enabled = () => ctx.open().config.sessions.childReports;
   const collect = () => collectAll(ctx, ledger);
+  /** The caller's session, a worker with a parent to report to, or a usage error naming why. */
+  const reportingChild = () => {
+    const caller = callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile });
+    const child = caller.session;
+    if (!child)
+      throw new MesaError(
+        'usage',
+        caller.inMesaWindow
+          ? "this Mesa window's session is not in this profile"
+          : 'mesa report runs inside a worker session started by another; this is no Mesa window',
+      );
+    if (child.parent === undefined)
+      throw new MesaError('usage', `session ${child.id} has no parent to report to`);
+    return { ...child, parent: child.parent };
+  };
   return {
     /**
      * The caller's own report of its work (`mesa report`), for its parent: added to the pending
@@ -57,40 +75,75 @@ export function reportsService(
     report: (kind: string, text: string, files: readonly string[] = []): ChildReport => {
       if (!isExplicitKind(kind))
         throw new MesaError('usage', `report ${EXPLICIT_KINDS.join(', ')}, not ${kind}`);
-      const caller = callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile });
-      const child = caller.session;
-      if (!child)
-        throw new MesaError(
-          'usage',
-          caller.inMesaWindow
-            ? "this Mesa window's session is not in this profile"
-            : 'mesa report runs inside a worker session started by another; this is no Mesa window',
-        );
-      if (child.parent === undefined)
-        throw new MesaError('usage', `session ${child.id} has no parent to report to`);
+      const child = reportingChild();
       if (!text.trim()) throw new MesaError('usage', 'say what you did, found, and left');
-      const report = explicitReport(
-        { ...child, parent: child.parent },
-        kind,
-        text,
-        ctx.clock().toISOString(),
-        files,
-      );
+      const report = explicitReport(child, kind, text, ctx.clock().toISOString(), files);
       ledger.add(report);
       return report;
     },
     /**
-     * The pending reports, every parent's or `parent`'s; sends nothing. Off, it reads what was
-     * pending without collecting more.
+     * The caller's question for its parent (`mesa report question`): open, with a short id, and
+     * pending as a `question` report until delivered. Refused as `report` is.
+     */
+    ask: (text: string): Question => {
+      const child = reportingChild();
+      if (!text.trim()) throw new MesaError('usage', 'say what you want to ask');
+      const taken = new Set(ledger.questions().map((q) => q.id));
+      const draw = () => `q-${shortId(ctx.newId).slice(-4)}`;
+      // Four characters a person can type; a clash draws again, then takes eight.
+      let id = draw();
+      for (let tries = 0; taken.has(id) && tries < 8; tries++) id = draw();
+      if (taken.has(id)) id = `q-${shortId(ctx.newId)}`;
+      const { question, report } = questionOf(child, id, text, ctx.clock().toISOString());
+      ledger.ask(question, report);
+      return question;
+    },
+    /**
+     * Answers open question `id`: types `[mesa] answer to your question <id>:` and `answer` into
+     * its worker through `send` (its sender, guardrail, and waiting refusals), then marks it
+     * answered. From a Mesa window only the question's parent may; a person outside one may. An
+     * unknown id is not_found, an answered one a usage error; a send that fails leaves it open.
+     */
+    reply: async (id: string, answer: string) => {
+      const asked = ledger.questions().find((q) => q.id === id);
+      if (!asked) throw new MesaError('not_found', `no question ${id}; see mesa reports`);
+      if (asked.answeredAt)
+        throw new MesaError('usage', `question ${id} was answered at ${asked.answeredAt}`);
+      if (!answer.trim()) throw new MesaError('usage', 'the answer is empty');
+      const caller = callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile });
+      if (caller.inMesaWindow && caller.session?.id !== asked.parent)
+        throw new MesaError(
+          'usage',
+          `question ${id} is for session ${asked.parent}; only it, or a person, answers it`,
+        );
+      const sent = await deps.send(
+        asked.child,
+        `[mesa] answer to your question ${id}:\n${answer}`,
+        {},
+      );
+      const answered = ledger.answer(id, {
+        answer,
+        answeredAt: ctx.clock().toISOString(),
+        answeredBy: caller.session?.id ?? 'person',
+      });
+      return { question: answered ?? asked, sent: sent.result, receipt: sent.receipt };
+    },
+    /**
+     * The pending reports and open questions, every parent's or `parent`'s, oldest first; sends
+     * nothing. Off, it reads what was pending without collecting more.
      */
     list: (parent?: string): ReportList => {
       if (parent !== undefined && !ctx.store.find(parent))
         throw new MesaError('not_found', `no session ${parent}; see mesa sessions`);
       const on = enabled();
-      const reports = (on ? collect() : ledger.pending()).filter(
-        (r) => parent === undefined || r.parent === parent,
-      );
-      return { enabled: on, reports };
+      const mine = <T extends { parent: string }>(r: T) =>
+        parent === undefined || r.parent === parent;
+      const reports = (on ? collect() : ledger.pending()).filter(mine);
+      const questions = ledger
+        .questions()
+        .filter((q) => !q.answeredAt && mine(q))
+        .sort((a, b) => a.at.localeCompare(b.at));
+      return { enabled: on, reports, questions };
     },
     /**
      * With `sessions.childReports` on, types each idle parent's pending reports as one prompt;

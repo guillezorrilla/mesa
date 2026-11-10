@@ -81,7 +81,7 @@ import { receipts, receiptsShow } from './receipts.js';
 import { register } from './register.js';
 import { rename } from './rename.js';
 import { report } from './report.js';
-import { reports } from './reports.js';
+import { reports, reportsReply } from './reports.js';
 import { resize } from './resize.js';
 import { resume } from './resume.js';
 import { REVIEW_COMMANDS } from './review/index.js';
@@ -198,6 +198,7 @@ export const COMMANDS: Command[] = [
   prEvents,
   report,
   reports,
+  reportsReply,
   ...PRS_COMMANDS,
   profile,
   profileList,

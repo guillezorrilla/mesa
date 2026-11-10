@@ -304,7 +304,12 @@ test('a busy parent gets its reports as its own turn ends, once, with a receipt 
 });
 
 /** The reports service as the worker `child` runs it, inside its own Mesa window. */
-const inside = (f: ReturnType<typeof family>, id: string) =>
+const inside = (
+  f: ReturnType<typeof family>,
+  id: string,
+  send: Parameters<typeof reportsService>[1]['send'] = async () =>
+    Promise.reject(new Error('unused')),
+) =>
   reportsService(
     createContext(
       'default',
@@ -313,7 +318,7 @@ const inside = (f: ReturnType<typeof family>, id: string) =>
         env: { MESA_SESSION_ID: id, MESA_PROFILE: 'default' },
       }),
     ),
-    { board: async () => [], send: async () => Promise.reject(new Error('unused')) },
+    { board: async () => [], send },
   );
 
 test('a worker reports its work itself: done, failed, or blocked, with its files, to its parent', () => {
@@ -389,4 +394,68 @@ test('a busy parent gets an explicit report as its own turn ends, in the same pr
   expect(prompt).toContain('reported failed, failed:');
   expect(prompt).toContain('files: feeds/tide.json');
   expect(f.service.list().reports).toEqual([]);
+});
+
+test("a worker's questions get ids, wait side by side, and go out with how to answer", () => {
+  const f = family();
+  const { parent, child, service } = f;
+  service.list();
+  const metres = inside(f, child.id).ask('Use metres or feet for tide heights?');
+  expect(metres).toMatchObject({
+    id: expect.stringMatching(/^q-[0-9a-z]{4}$/),
+    parent: parent.id,
+    child: child.id,
+    childName: 'tide-charts',
+    text: 'Use metres or feet for tide heights?',
+  });
+  const moon = inside(f, child.id).ask('Plot the moon phase too?');
+  expect(moon.id).not.toBe(metres.id);
+  inside(f, child.id).report('blocked', 'Waiting on units');
+  // Questions never replace one another or the child's other reports.
+  const { reports, questions } = service.list(parent.id);
+  expect(reports.map((r) => r.kind)).toEqual(['question', 'question', 'blocked']);
+  expect(questions.map((q) => q.id)).toEqual([metres.id, moon.id]);
+  const prompt = reportPrompt(reports);
+  expect(prompt).toContain(`- ${child.id} (tide-charts) asks you question ${metres.id}:`);
+  expect(prompt).toContain(`Answer it: mesa reports reply ${metres.id} "<answer>"`);
+  expect(prompt.match(/```untrusted-agent-text/g)).toHaveLength(3);
+  expect(() => inside(f, parent.id).ask('x')).toThrow(/has no parent/);
+  expect(() => inside(f, '').ask('x')).toThrow(/no Mesa window/);
+});
+
+test('a reply types the answer into the worker and closes the question; others are refused', async () => {
+  const f = family();
+  const { parent, child, service, typed, refuseWith } = f;
+  service.list();
+  const asked = inside(f, child.id).ask('Metres or feet?');
+  // A send refused before typing leaves the question open.
+  refuseWith(new MesaError('usage', 'the pane runs a shell'));
+  await expect(service.reply(asked.id, 'Metres')).rejects.toMatchObject({ code: 'usage' });
+  expect(service.list().questions).toHaveLength(1);
+  refuseWith(undefined);
+  // From a window, only the question's parent answers it.
+  await expect(inside(f, child.id).reply(asked.id, 'Feet')).rejects.toThrow(/only it, or a person/);
+  const sent: { id: string; prompt: string }[] = [];
+  const fromParent = inside(f, parent.id, async (id, prompt) => {
+    sent.push({ id, prompt });
+    return {
+      result: { sent: true, session: id, project: 'lantern-cove', from: parent.id, chars: 1 },
+      receipt: null,
+    };
+  });
+  const { question } = await fromParent.reply(asked.id, 'Metres');
+  expect(sent).toEqual([
+    { id: child.id, prompt: `[mesa] answer to your question ${asked.id}:\nMetres` },
+  ]);
+  expect(question).toMatchObject({ answer: 'Metres', answeredBy: parent.id });
+  expect(service.list().questions).toEqual([]);
+  await expect(service.reply(asked.id, 'Feet')).rejects.toMatchObject({ code: 'usage' });
+  await expect(service.reply('q-zzzz', 'Feet')).rejects.toMatchObject({ code: 'not_found' });
+  // A person outside a window may answer.
+  const second = inside(f, child.id).ask('Plot the moon?');
+  expect((await service.reply(second.id, 'Yes')).question.answeredBy).toBe('person');
+  expect(typed.at(-1)).toEqual({
+    id: child.id,
+    prompt: `[mesa] answer to your question ${second.id}:\nYes`,
+  });
 });

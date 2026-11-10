@@ -135,7 +135,7 @@ export type {
   ReportList,
   ReportsDelivered,
 } from './reports/report-delivery.js';
-export type { ChildReport } from './reports/reports.js';
+export type { ChildReport, Question } from './reports/reports.js';
 export { type SearchHit, searchWorkspace } from './search/search.js';
 export { awakeStatus, isKeepAwakeMode, KEEP_AWAKE_MODES } from './sessions/awake.js';
 export type { SessionScope } from './sessions/board/board.js';
