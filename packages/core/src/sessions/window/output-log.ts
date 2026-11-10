@@ -19,6 +19,8 @@ import { plainText } from './terminal-text.js';
 /** A log past this size is cut to its last KEEP_BYTES the next time Mesa reads it. */
 const MAX_BYTES = 20 * 1024 * 1024;
 const KEEP_BYTES = 5 * 1024 * 1024;
+/** How much of a log's end a tail reads first; it doubles until it holds the lines asked for. */
+const TAIL_BYTES = 64 * 1024;
 
 /** Where session `id`'s output log is, in the profile's logs folder. */
 export const outputLog = (dir: string, id: string) => join(dir, `${id}.log`);
@@ -63,11 +65,31 @@ function cut(lock: LockDeps, file: string) {
   );
 }
 
+/** A raw stretch of the stream as plain lines: trailing spaces and blank lines dropped. */
+const plainLines = (raw: string) =>
+  plainText(raw)
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter(Boolean);
+
+/** Bytes `start` to the end of `file`. */
+function readFrom(file: string, start: number, size: number) {
+  const bytes = Buffer.alloc(size - start);
+  const fd = openSync(file, 'r');
+  try {
+    return bytes.subarray(0, readSync(fd, bytes, 0, bytes.length, start));
+  } finally {
+    closeSync(fd);
+  }
+}
+
 /**
  * The last `lines` lines of session `id`'s output (every line without `lines`), as plain text:
  * escape sequences dropped (plainText), trailing spaces and blank lines too, as a TUI pads its
  * screen with them. Undefined when the session has no log: logging was off when it started, or
- * it has not started. The one reader of a session's output, for people and receipts alike.
+ * it has not started. The one reader of a session's output, for people and receipts alike. With
+ * `lines` it reads only the log's end, from a whole line, 64 KB first and twice as much until
+ * it holds them, so a poll of a 20 MB log reads a few KB.
  */
 export function outputTail(
   lock: LockDeps,
@@ -78,11 +100,17 @@ export function outputTail(
   const file = outputLog(dir, id);
   if (!existsSync(file)) return undefined;
   cut(lock, file);
-  const text = plainText(readFileSync(file, 'utf8'))
-    .split('\n')
-    .map((line) => line.trimEnd())
-    .filter(Boolean);
-  return lines === undefined ? text : text.slice(Math.max(0, text.length - lines));
+  if (lines === undefined) return plainLines(readFileSync(file, 'utf8'));
+  const { size } = statSync(file);
+  for (let chunk = TAIL_BYTES; ; chunk *= 2) {
+    const start = Math.max(0, size - chunk);
+    const raw = readFrom(file, start, size);
+    // Past the start, the first line may be cut: from the first newline, or a bigger chunk.
+    const from = start === 0 ? 0 : raw.indexOf(0x0a) + 1;
+    if (start > 0 && from === 0) continue;
+    const text = plainLines(raw.subarray(from).toString('utf8'));
+    if (start === 0 || text.length >= lines) return text.slice(Math.max(0, text.length - lines));
+  }
 }
 
 /** What `mesa logs` prints: a session's output lines, and its log's path, null when it has none. */
