@@ -48,7 +48,7 @@ Not: index, fuzzy search, Search Mesa (the palette over Mesa's destinations).
 
 ## Session switcher
 
-The command palette listing only sessions: `searchWorkspace(..., { sessionsOnly: true })` (`search/search.ts`), `mesa search --sessions [words...]`, and the app's palette opened with the profile's `switchSession` key (`Mod+Shift+K` by default) or its Switch session row. With no text it lists open sessions (state not `done`, `failed` or `stopped`) by last activity (`lastState.at`), newest first; typed text ranks every session with the palette's match-sorter ranking and adds ended ones below open ones of equal match.
+The command palette listing only sessions: `searchWorkspace(..., { sessionsOnly: true })` (`search/search.ts`), `mesa search --sessions [words...]`, and the app's palette opened with the profile's `switchSession` key (`Mod+Shift+K` by default) or its Switch session row. With no text it lists open sessions (state not `done`, `failed` or `stopped`) by what needs a person: `waiting-permission` or `waiting-question` first, then unread ones, then `idle` ones, then the rest, each group by last activity (`lastState.at`), newest first; the full palette's sessions stay by last activity. Typed text ranks every session with the palette's match-sorter ranking, matching its label and its detail, which holds its branch and its pull request (`#123`), and adds ended ones below open ones of equal match; `#123` or `123` puts the sessions whose pull request has that number first.
 Not: Sessions (the workspace screen), the sidebar's session list.
 
 ## Vault browser

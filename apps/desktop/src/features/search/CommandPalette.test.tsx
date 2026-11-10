@@ -22,7 +22,7 @@ const rows = () => [
   ...(palette()?.querySelectorAll<HTMLElement>('[data-testid="palette-hit"]') ?? []),
 ];
 const row = (value: string) => rows().find((hit) => hit.dataset.value === value);
-const at = (iso: string, state: 'working' | 'idle' | 'done') => ({
+const at = (iso: string, state: 'working' | 'idle' | 'done' | 'waiting-permission') => ({
   lastState: { state, confidence: 0.9, at: iso, source: 'hook' as const },
 });
 const SESSIONS = [
@@ -88,7 +88,7 @@ test('a disabled hit renders muted and cannot be chosen', async () => {
   expect(calls.some((call) => call.includes('open'))).toBe(false);
 });
 
-test('the switcher lists open sessions by last activity; Backspace on no text leaves it', async () => {
+test('the switcher lists open sessions, idle before working; Backspace on no text leaves it', async () => {
   await renderWithMesa(
     <App />,
     fakeBridge({
@@ -118,6 +118,33 @@ test('the switcher lists open sessions by last activity; Backspace on no text le
     'session:aaaaaaaa',
     'session:cccccccc',
   ]);
+});
+
+test('the switcher puts a session waiting on a person first, and #<number> finds its pull request', async () => {
+  await renderWithMesa(
+    <App />,
+    fakeBridge({
+      projects: () => envelope(PROJECTS),
+      sessions: () =>
+        envelope([
+          ...SESSIONS,
+          managedRow('dddddddd', {
+            ...at('2026-09-25T11:00:00.000Z', 'waiting-permission'),
+            gitBranch: 'fix/tide-flake',
+            pr: { number: 42, state: 'open', url: 'https://github.example/lantern-cove/pull/42' },
+          }),
+        ]),
+    }).bridge,
+  );
+  await pressKey({ key: 'K', metaKey: true, shiftKey: true });
+  expect(rows().map((hit) => hit.dataset.value)).toEqual([
+    'session:dddddddd',
+    'session:bbbbbbbb',
+    'session:aaaaaaaa',
+  ]);
+  await searchFor('#42');
+  expect(rows()[0]?.dataset.value).toBe('session:dddddddd');
+  expect(rows()[0]?.textContent).toContain('fix/tide-flake · #42');
 });
 
 test('Set up smarter decisions opens Settings on Smarter decisions', async () => {

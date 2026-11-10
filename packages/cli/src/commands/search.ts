@@ -9,7 +9,7 @@ export const search = defineCommand({
   flags: {
     sessions: {
       type: 'boolean',
-      description: 'Only sessions, open ones by last activity: the app session switcher',
+      description: 'Only sessions, open ones waiting on you first: the app session switcher',
     },
   },
   example: 'mesa search lantern',

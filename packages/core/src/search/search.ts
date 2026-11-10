@@ -3,9 +3,9 @@ import { DEFAULT_SHORTCUTS, FIXED_SHORTCUTS, type Shortcuts } from '../profile/s
 import type { ProjectRow } from '../projects/projects.js';
 import type { SavedPrompt } from '../prompts/prompts.js';
 import type { TreeRow } from '../sessions/board/tree.js';
-import { projectLabel } from '../sessions/record/general.js';
-import { additionalLabel, sessionLabel } from '../sessions/record/labels.js';
+import { sessionDetail, sessionLabel } from '../sessions/record/labels.js';
 import { isOver } from '../sessions/record/lifecycle.js';
+import { WAITING_STATES } from '../sessions/record/states.js';
 
 /** A fixed command's hit carries its `CommandId`; the rest an id their kind gives them. */
 export type SearchHit = (
@@ -81,7 +81,7 @@ function commands(shortcuts: Shortcuts, canStart: boolean): SearchHit[] {
       kind: 'action',
       id: 'switch-session',
       label: 'Switch session',
-      detail: 'Jump to an open session by last activity',
+      detail: 'Jump to an open session, what needs you first',
       shortcut: shortcuts.switchSession,
     },
     {
@@ -133,6 +133,20 @@ const RECENT_SESSIONS = 8;
 const byActivity = (a: TreeRow, b: TreeRow) =>
   Number(isOver(a)) - Number(isOver(b)) || b.lastState.at.localeCompare(a.lastState.at);
 
+/** The switcher's group with no text: waiting on a person, then unread, then idle, then the rest. */
+const need = (s: TreeRow) =>
+  WAITING_STATES.has(s.lastState.state)
+    ? 0
+    : s.managed && s.unread
+      ? 1
+      : s.lastState.state === 'idle'
+        ? 2
+        : 3;
+
+/** The Session switcher's order with no text: by `need`, each group newest first. */
+const byNeed = (a: TreeRow, b: TreeRow) =>
+  need(a) - need(b) || b.lastState.at.localeCompare(a.lastState.at);
+
 /**
  * Hits ranked by match-sorter: every label match first, then the hits whose detail or id contains
  * the text, each part best first; ties keep the input order.
@@ -160,8 +174,9 @@ export type SearchOptions = {
 /**
  * The bounded index behind `mesa search` and the app palette, best match first. With no text,
  * groups come in a fixed order and only open sessions show; typed text orders groups by their best
- * hit and offers Search vault last, its id the text (Vault search). `sessionsOnly` returns the
- * session hits alone (Session switcher).
+ * hit and offers Search vault last, its id the text (Vault search). A session's detail holds its
+ * branch and pull request, and `#123` or `123` puts the sessions with that pull request first.
+ * `sessionsOnly` returns the session hits alone, with no text in `byNeed` order (Session switcher).
  */
 export function searchWorkspace(
   projects: readonly ProjectRow[],
@@ -170,43 +185,57 @@ export function searchWorkspace(
   options: SearchOptions = {},
 ): SearchHit[] {
   const text = query.trim();
+  // `#123` or `123`: the sessions whose branch has that pull request rank first.
+  const number = /^#?(\d+)$/.exec(text)?.[1];
+  const withPr = new Set(
+    number === undefined
+      ? []
+      : sessions.filter((s) => s.managed && s.pr?.number === Number(number)).map((s) => s.id),
+  );
   const sessionHits = [...sessions]
     .filter((session) => text || !isOver(session))
-    .sort(byActivity)
+    .sort(options.sessionsOnly && !text ? byNeed : byActivity)
     .map(
       (session): SearchHit => ({
         kind: 'session',
         id: session.id,
         label: sessionLabel(session),
-        detail: `${[projectLabel(session.project ?? null), additionalLabel(session)].filter(Boolean).join(' ')} · ${session.agent} · ${session.lastState.state}`,
+        detail: `${sessionDetail(session)} · ${session.lastState.state}`,
       }),
     );
-  if (options.sessionsOnly) return ranked(sessionHits, text).slice(0, GROUP_LIMIT);
-  const hits = ranked(
-    [
-      ...commands(
-        options.shortcuts ?? DEFAULT_SHORTCUTS,
-        projects.some((project) => project.exists),
-      ),
-      ...projects.map(
-        (project): SearchHit => ({
-          kind: 'project',
-          id: project.name,
-          label: project.label,
-          detail: `${project.name} · ${project.path}`,
-        }),
-      ),
-      ...sessionHits,
-      ...(options.prompts ?? []).map(
-        (prompt): SearchHit => ({
-          kind: 'prompt',
-          id: prompt.name,
-          label: prompt.name,
-          detail: 'Insert saved prompt',
-        }),
-      ),
-    ],
-    text,
+  // The sessions a typed `#123` names lead, matched by the text or not.
+  const prFirst = (hits: SearchHit[]) => [
+    ...sessionHits.filter((hit) => withPr.has(hit.id)),
+    ...hits.filter((hit) => !(hit.kind === 'session' && withPr.has(hit.id))),
+  ];
+  if (options.sessionsOnly) return prFirst(ranked(sessionHits, text)).slice(0, GROUP_LIMIT);
+  const hits = prFirst(
+    ranked(
+      [
+        ...commands(
+          options.shortcuts ?? DEFAULT_SHORTCUTS,
+          projects.some((project) => project.exists),
+        ),
+        ...projects.map(
+          (project): SearchHit => ({
+            kind: 'project',
+            id: project.name,
+            label: project.label,
+            detail: `${project.name} · ${project.path}`,
+          }),
+        ),
+        ...sessionHits,
+        ...(options.prompts ?? []).map(
+          (prompt): SearchHit => ({
+            kind: 'prompt',
+            id: prompt.name,
+            label: prompt.name,
+            detail: 'Insert saved prompt',
+          }),
+        ),
+      ],
+      text,
+    ),
   );
   // Groups in the order of their best hit, which with no text is the fixed order above.
   const grouped = [...new Set(hits.map((hit) => hit.kind))].flatMap((kind) =>
