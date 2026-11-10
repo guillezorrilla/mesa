@@ -1,5 +1,4 @@
 import { expect, test } from 'vitest';
-import { MesaError } from '../../lib/result.js';
 import { agentWorld, profilePaths, projectProfile, testStore } from '../../testing/index.js';
 import { recordHookEvent } from '../signals/hook-events.js';
 
@@ -34,12 +33,13 @@ async function waiting() {
         source: 'hook',
       },
     });
-  const hook = (id: string, event: string, extra: Record<string, unknown> = {}) =>
+  /** `id`'s hook `event`, stamped now, or at `when` (a hook that ran late). */
+  const hook = (id: string, event: string, extra: Record<string, unknown> = {}, when?: number) =>
     recordHookEvent(
       {
         store,
         eventsDir: profilePaths(home, 'default').events,
-        clock: () => new Date(now),
+        clock: () => new Date(when ?? now),
         home,
         secrets: () => [],
       },
@@ -49,7 +49,7 @@ async function waiting() {
         payload: JSON.stringify({ hook_event_name: event, ...extra }),
       },
     );
-  return { mesa, a, b, hook, at, sleeps: () => sleeps };
+  return { mesa, a, b, hook, at, store, sleeps: () => sleeps };
 }
 
 test('wait returns once every session left working, each with its state', async () => {
@@ -78,20 +78,36 @@ test('--any returns on the first session to leave working', async () => {
   expect(sleeps()).toBe(3);
 });
 
-test('past --timeout it is a timeout error with the states so far', async () => {
-  const { mesa, a, b, hook, at } = await waiting();
+test('past --timeout it returns the states so far with timeout; a session over ends the wait', async () => {
+  const { mesa, a, b, hook, at, store } = await waiting();
   at.set(1, () => hook(a.id, 'Stop'));
-  const failed = await mesa.sessions.wait([a.id, b.id], { timeoutSeconds: 5 }).catch((e) => e);
-  expect(failed).toBeInstanceOf(MesaError);
-  expect(failed).toMatchObject({
-    code: 'timeout',
-    message: `${b.id} still working after 5 s`,
-    details: {
-      sessions: [
-        { id: a.id, state: 'idle' },
-        { id: b.id, state: 'working' },
-      ],
-    },
+  expect(await mesa.sessions.wait([a.id, b.id], { timeoutSeconds: 5 })).toEqual({
+    sessions: [
+      { id: a.id, state: 'idle' },
+      { id: b.id, state: 'working' },
+    ],
+    timeout: true,
   });
   await expect(mesa.sessions.wait(['nobody00'])).rejects.toMatchObject({ code: 'not_found' });
+  // A crash fires no hook: its record, once over, ends the wait.
+  at.clear();
+  const crashed = {
+    state: 'failed',
+    confidence: 1,
+    at: new Date(START).toISOString(),
+    source: 'tmux',
+  } as const;
+  at.set(8, () => store.update(b.id, { lastState: crashed, endedAt: crashed.at }));
+  expect((await mesa.sessions.wait([b.id])).sessions).toEqual([{ id: b.id, state: 'failed' }]);
+});
+
+test('the latest state hook by time wins, not the last line logged', async () => {
+  const { mesa, a, hook, at } = await waiting();
+  // A tool hook that ran before the Stop but was logged after it: the Stop is still the latest.
+  at.set(1, () => {
+    hook(a.id, 'Stop');
+    hook(a.id, 'PostToolUse', { tool_name: 'Bash' }, START);
+  });
+  const done = await mesa.sessions.wait([a.id]);
+  expect(done.sessions).toEqual([{ id: a.id, state: 'idle' }]);
 });
