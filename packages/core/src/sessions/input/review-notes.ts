@@ -11,6 +11,7 @@ import type { LockDeps } from '../../lib/lock-file.js';
 import type { Runner } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
 import type { Checkout } from '../../projects/checkout.js';
+import { notesPrompt } from './notes-prompt.js';
 import type { ReviewDelivery, ReviewPreview } from './reviews.js';
 
 /** Which diff a note is on: the Session diff against its base, or uncommitted work. */
@@ -119,29 +120,13 @@ function placed(note: ReviewNote, file: NoteFile | undefined): ListedNote {
 
 const sha = (text: string) => createHash('sha256').update(text).digest('hex');
 
-/** `text` fenced with more backticks than any run inside it. */
-const fenced = (text: string) => {
-  const fence = '`'.repeat(Math.max(3, ...(text.match(/`+/g) ?? []).map((run) => run.length + 1)));
-  return `${fence}\n${text}\n${fence}`;
-};
-
 /**
  * Notes as the one prompt `sendReview` delivers: a line saying what they are, then each note's
  * file, lines (or `Scope: file`), the lines it quotes, and the note. Its id is the batch, so the
  * same notes are sent once.
  */
 export function notesReview(session: string, notes: ListedNote[]): ReviewPreview {
-  const blocks = notes.map((n) =>
-    [
-      `File: ${n.path}${n.scope === 'branch' ? '' : ` (${n.scope})`}`,
-      ...(n.line === 0 ? ['Scope: file'] : [`Lines: ${n.line}-${n.end}`, fenced(n.quoted)]),
-      `Note: ${n.text}`,
-    ].join('\n'),
-  );
-  const prompt = [
-    `These are the person's review notes on this session's diff (${notes.length}).`,
-    ...blocks,
-  ].join('\n\n');
+  const prompt = notesPrompt(notes);
   const batch = notes.map((n) => [n.id, n.path, n.line, n.end, n.scope, n.text, n.quoted]);
   return {
     id: sha(JSON.stringify([session, batch])),
@@ -247,6 +232,24 @@ export function reviewNotes(deps: NotesDeps, session: string) {
       const at = deps.clock().toISOString();
       const texts = new Map(sent.map((n) => [n.id, n.text]));
       change((notes) => notes.map((n) => (texts.get(n.id) === n.text ? { ...n, sentAt: at } : n)));
+    },
+    /**
+     * Deletes the sent notes whose lines are as they were; a changed one stays for the person to
+     * check and resolve, and one edited meanwhile (unsent again) stays too.
+     */
+    clearSent: async (): Promise<{ removed: string[] }> => {
+      const done = new Map(
+        (await list()).filter((n) => n.sentAt && !n.stale).map((n) => [n.id, n.sentAt]),
+      );
+      const removed: string[] = [];
+      change((notes) =>
+        notes.filter((n) => {
+          const gone = n.sentAt !== undefined && done.get(n.id) === n.sentAt;
+          if (gone) removed.push(n.id);
+          return !gone;
+        }),
+      );
+      return { removed };
     },
     remove: (id: string): { id: string } => {
       change((notes) => {

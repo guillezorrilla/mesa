@@ -1,9 +1,11 @@
-import { counted, DEFAULT_APPEARANCE } from '@mesa/core/browser';
+import type { ListedNote } from '@mesa/core';
+import { counted, DEFAULT_APPEARANCE, notesPrompt } from '@mesa/core/browser';
 import {
   GitBranch,
   Maximize2,
   MessageSquarePlus,
   Minimize2,
+  NotebookPen,
   RefreshCw,
   SquareArrowOutUpRight,
   X,
@@ -13,16 +15,19 @@ import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
 import { ResizeHandle } from '@/components/ResizeHandle';
 import { Stat } from '@/components/Stat';
+import { useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { DiffViewToggles } from '@/features/git/diff/DiffViewToggles';
 import { diffFiles } from '@/features/git/diff/diffFiles';
 import { GitDiffFiles } from '@/features/git/diff/GitDiffFiles';
 import { useDiffView } from '@/features/git/diff/useDiffView';
+import { usePlatform } from '@/lib/MesaRoot';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { useKeptWidth } from '@/lib/useKeptWidth';
 import { cn } from '@/lib/utils';
 import { GuardrailDialog } from '../dialogs/GuardrailDialog';
 import { DiffBasePicker } from './DiffBasePicker';
+import { NotesListPanel } from './NotesListPanel';
 import { SendNotesMenu } from './SendNotesMenu';
 import { useDiffNotes } from './useDiffNotes';
 import { useLineNotes } from './useLineNotes';
@@ -76,6 +81,33 @@ export function DiffPanel(props: {
   const { file } = view;
   const notes = useDiffNotes(props.sessionId);
   const lineNotes = useLineNotes(file?.path, file?.rows ?? [], notes);
+  const [showNotes, setShowNotes] = useState(true);
+  const [jump, setJump] = useState<ListedNote>();
+  const { clipboard } = usePlatform();
+  const toast = useToast();
+  // A note picked in the list: its file opens, then, once it shows, the diff scrolls to it.
+  useEffect(() => {
+    if (!jump || file?.path !== jump.path) return;
+    document.getElementById(`note-${jump.id}`)?.scrollIntoView({ block: 'center' });
+    setJump(undefined);
+  }, [jump, file]);
+  const jumpTo = (note: ListedNote) => {
+    // A note on a file this diff no longer has stays in the list only.
+    if (!files.some((f) => f.path === note.path)) return;
+    view.open(note.path);
+    setJump(note);
+  };
+  const copyAll = async () => {
+    try {
+      await clipboard.write(notesPrompt(notes.notes));
+      toast(`Copied ${counted(notes.notes.length, 'note')}`, 'confirmation');
+    } catch (error) {
+      toast(
+        `Could not copy the notes: ${error instanceof Error ? error.message : String(error)}`,
+        'alert',
+      );
+    }
+  };
   // The notes are read with the diff, so a note whose lines changed shows it.
   const refresh = () => {
     void changes.refresh();
@@ -140,6 +172,12 @@ export function DiffPanel(props: {
             onSend={(onlyFile) => void notes.send(onlyFile ? file?.path : undefined)}
           />
           <IconButton
+            label={showNotes ? 'Hide notes' : 'Show notes'}
+            icon={NotebookPen}
+            active={showNotes}
+            onClick={() => setShowNotes(!showNotes)}
+          />
+          <IconButton
             label="Refresh changes"
             icon={RefreshCw}
             disabled={changes.busy}
@@ -188,6 +226,17 @@ export function DiffPanel(props: {
           wide={expanded}
           before={lineNotes.before}
           slots={lineNotes.slots}
+          listFooter={
+            showNotes && (
+              <NotesListPanel
+                notes={notes.notes}
+                busy={notes.acting}
+                onJump={jumpTo}
+                onCopy={() => void copyAll()}
+                onClearSent={() => void notes.clearSent()}
+              />
+            )
+          }
           actions={
             <>
               <IconButton

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import type { DiffRow } from '@mesa/core';
 import { act } from 'react';
-import { beforeEach, expect, test } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import {
   click,
   diffMeta,
@@ -22,6 +22,7 @@ const diff = (data: object) => () => sessionDiff(data);
 const buttons = () => [...document.querySelectorAll<HTMLElement>('button')];
 
 beforeEach(() => localStorage.clear());
+afterEach(() => vi.restoreAllMocks());
 
 test('the session diff lists every changed file in its folder tree, walks them with j and k, and opens one in the editor', async () => {
   const { bridge, calls } = fakeBridge({
@@ -370,4 +371,63 @@ test('Esc closes a note being written, and Add file note writes one on the whole
   expect(document.querySelector('article[aria-label="Note on file"]')?.textContent).toContain(
     'split this file',
   );
+});
+
+test('the Notes list groups notes by file, unsent before sent; a click jumps to one; Resolve hides a changed one', async () => {
+  const note = (id: string, path: string, line: number, extra: object = {}) => ({
+    id,
+    path,
+    line,
+    end: line,
+    scope: 'branch',
+    text: `about ${id}`,
+    quoted: '',
+    blob: 'b',
+    at: '2026-11-10T12:00:00.000Z',
+    stale: false,
+    ...extra,
+  });
+  let notes = [
+    note('sent0001', 'src/tide.ts', 2, { sentAt: '2026-11-10T12:01:00.000Z' }),
+    note('draft001', 'src/tide.ts', 1),
+    note('moved001', 'notes.txt', 1, { sentAt: '2026-11-10T12:01:00.000Z', stale: true }),
+  ];
+  const { bridge, calls } = fakeBridge({
+    diff: diff({}),
+    'review notes': () => envelope(structuredClone(notes)),
+    'review notes resolve': (args) => {
+      notes = notes.filter((n) => n.id !== args.at(-1));
+      return envelope({ id: args.at(-1) });
+    },
+  });
+  const scroll = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {});
+  await renderWithMesa(
+    <DiffPanel sessionId="aaaaaaaa" project="lantern-cove" state="idle" onClose={() => {}} />,
+    bridge,
+  );
+  const list = () => document.querySelector<HTMLElement>('aside[aria-label="Notes"]');
+  const groups = () =>
+    [...(list()?.querySelectorAll('section') ?? [])].map((section) => [
+      section.getAttribute('aria-label'),
+      ...[...section.querySelectorAll('button')].map((b) => b.textContent),
+    ]);
+  expect(groups()).toEqual([
+    ['notes.txt', 'Line 1Changed since sentabout moved001'],
+    ['src/tide.ts', 'Line 1Unsentabout draft001', 'Line 2Sentabout sent0001'],
+  ]);
+
+  await click(
+    [...(list()?.querySelectorAll('button') ?? [])].find((b) =>
+      b.textContent?.includes('moved001'),
+    ),
+  );
+  expect(document.querySelector('section[aria-label="notes.txt"] article')).not.toBeNull();
+  expect(scroll.mock.contexts.map((el) => (el as Element).id)).toEqual(['note-moved001']);
+
+  const card = document.getElementById('note-moved001');
+  expect(card?.textContent).toContain('Changed since sent');
+  await click(card?.querySelector<HTMLElement>('[aria-label="Resolve note"]') ?? undefined);
+  expect(calls).toContainEqual(expect.arrayContaining(['resolve', 'aaaaaaaa', 'moved001']));
+  expect(document.getElementById('note-moved001')).toBeNull();
+  expect(groups().map((g) => g[0])).toEqual(['src/tide.ts']);
 });

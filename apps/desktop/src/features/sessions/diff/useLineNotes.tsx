@@ -40,7 +40,7 @@ export function useLineNotes(path: string | undefined, rows: DiffRow[], notes: D
     () => new Set(rows.flatMap((r) => (r.kind !== 'meta' && r.newLine ? [r.newLine] : []))),
     [rows],
   );
-  const { acting, add, edit, remove } = notes;
+  const { acting, add, edit, remove, resolve } = notes;
   const mine = useMemo(() => notes.notes.filter((n) => n.path === path), [notes.notes, path]);
   const open = draft?.path === path ? draft : undefined;
 
@@ -56,6 +56,7 @@ export function useLineNotes(path: string | undefined, rows: DiffRow[], notes: D
         busy={acting}
         onEdit={(text) => edit(note, text)}
         onDelete={() => void remove(note)}
+        onResolve={() => void resolve(note)}
       />
     );
     const field = (at: Draft) => (
@@ -124,7 +125,7 @@ export function useLineNotes(path: string | undefined, rows: DiffRow[], notes: D
         </div>
       ) : null;
     return { slots, before };
-  }, [path, mine, shown, open, drag, acting, add, edit, remove]);
+  }, [path, mine, shown, open, drag, acting, add, edit, remove, resolve]);
 
   return {
     ...view,
