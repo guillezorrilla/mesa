@@ -134,3 +134,31 @@ Filed as #902; child issues are filed when it starts, once SwiftUI or Expo is ch
 4. **Push only when away** (S). Skip a push while the Mac has had input in the last few minutes.
 5. **Read and reply** (M). The sessions waiting on the owner, a session's state and latest reply, and a reply that becomes `mesa send` as the person, through the guardrail, with a receipt.
 6. **Answer a prompt from the phone** (M). Permission and question prompts answered with the keys the agent's prompt takes; needs a qualification run per agent.
+
+## Review AI output
+
+| Step | orca | Mesa |
+| --- | --- | --- |
+| Where | Notes straight on the diff of a worktree, unstaged, staged or the whole branch | Replies > Changes, uncommitted work only; the Session diff, where committed branch work shows, takes no note |
+| Anchor | A line, a dragged range, or a whole file; also passages of rendered Markdown | One whole hunk, picked from a list |
+| Keeping notes | Saved as written, across restarts; a Notes shelf lists them | One note at a time, lost when the file changes in the view |
+| Sending | All unsent notes, or one file's, as one prompt of `File:`, `Lines:`, `User comment:` blocks; to any agent in the worktree, or into its input without sending | One hunk per prompt, quoting the hunk, through the guardrail with a receipt and a staleness check orca lacks |
+| Answer | In the terminal | Replies lists the agent's answers, and a passage of one can be reviewed in turn, which orca lacks |
+| Re-review | Sent notes stay pinned; editing one makes it unsent | Nothing on the diff |
+
+So Mesa keeps its sending path and gains line notes on the Session diff, kept as drafts and sent in one prompt: epic #903 (#904 to #907). orca's docs describe a Resolve state and AI line attribution that its code does not seem to have yet.
+
+## More of orca for the Mac app
+
+From a second pass, the owner picked these as well: epic #910 (#913 to #923), after #903.
+
+- **Keep the Mac awake** while agents work (orca holds a power assertion: off, on, or only while an agent is working).
+- **AI git actions**: draft a commit message or a PR title and body from editable recipes; hand a failed pre-commit hook, or a merge conflict, to an agent.
+- **Worktree sizes and dev-server ports**: a size per worktree beside the safe cleanup Mesa has; the localhost URLs each session printed.
+- **Richer session cards and a jump palette**: the last reply's first line, PR state and changed lines on each card; a progress line an agent sets on its own card; a switcher that ranks sessions waiting on the owner first and matches a PR number.
+
+Seen and not taken for now: account hot-swap (Mesa's profiles cover part), a floating global terminal, saved shell commands per project, voice dictation, contextual tours, a status bar.
+
+## License
+
+orca is MIT, as is Mesa, so its code may be copied with its notice. Where a piece is copied, its attribution goes in the release's attributions (`packages/core/src/about`, `ATTRIBUTION_SOURCES`, which would need a source kind for copied code). The designs above reimplement orca's ideas on Mesa's own seams (tmux, hooks, the broker), so no code is copied so far.
