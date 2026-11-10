@@ -107,7 +107,7 @@ export function WorktreeSettingsPanel() {
         <SettingRow
           icon={RefreshCw}
           title="Fetch before creating worktree"
-          description="Run git fetch origin before checkout."
+          description="Fetch the new branch's base from its remote first, at most every 30 s."
           htmlFor="worktree-fetch"
           control={
             <Switch

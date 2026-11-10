@@ -146,7 +146,7 @@ export async function createWorktree(
     branch,
     base,
     defaultBase: settings.base,
-    fetch: settings.fetch,
+    fetch: settings.fetch ? profile.paths.fetches : undefined,
   });
   try {
     ignoreNestedWorktrees(profile, project);

@@ -23,6 +23,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     events: '/h/.mesa/work/sessions/events',
     listing: '/h/.mesa/work/sessions/listing.json',
     lineCounts: '/h/.mesa/work/sessions/line-counts.json',
+    fetches: '/h/.mesa/work/sessions/fetches.json',
     logs: '/h/.mesa/work/sessions/logs',
     runs: '/h/.mesa/work/sessions/runs',
     costs: '/h/.mesa/work/sessions/costs',
