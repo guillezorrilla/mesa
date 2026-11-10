@@ -48,7 +48,7 @@ export const open = defineCommand({
     after: {
       type: 'string',
       description:
-        'Queue it until this session is over, then start it; its parent by default. At once if it is over',
+        'Queue it until this session is over, then start it; outside a Mesa window it is its parent. At once if it is over',
     },
     branch: {
       type: 'string',

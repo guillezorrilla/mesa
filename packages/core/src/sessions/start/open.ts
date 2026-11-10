@@ -28,8 +28,8 @@ export type OpenDeps = LaunchDeps & {
 
 /**
  * The parent a new session gets: `parent` when given (not_found if it is not a session here),
- * none with `noParent`, else the session it waits on, else the session whose window this runs in
- * (the caller).
+ * none with `noParent`, else the session whose window this runs in (the caller), which queued it,
+ * else the session it waits on.
  */
 function parentOf(
   deps: Pick<OpenDeps, 'store' | 'caller'>,
@@ -62,7 +62,7 @@ function parentOf(
       );
     return caller.session.id;
   }
-  return input.noParent ? undefined : (input.after ?? deps.caller().session?.id);
+  return input.noParent ? undefined : (deps.caller().session?.id ?? input.after);
 }
 
 /**
@@ -121,7 +121,7 @@ export async function openSession(
   const waited = input.after === undefined ? undefined : waitedOn(deps, input.after);
   const parent = parentOf(deps, input);
   // Briefed by the session that starts it, not one it only waits on.
-  const started = input.parent !== undefined || input.after === undefined;
+  const started = input.parent !== undefined || parent !== input.after;
   const { goal, brief } = briefedGoal(input.goal, parent, started);
   // Read even when --agent is given.
   const selected = input.project ? launchProject(deps.profile, input.project) : null;
