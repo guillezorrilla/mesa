@@ -1,10 +1,7 @@
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { z } from 'zod';
 import { gitCommand } from '../git/command.js';
-import { writeFileAtomic } from '../lib/atomic-file.js';
-import type { Clock } from '../lib/clock.js';
-import { readJson } from '../lib/json-file.js';
+import { changeJson, readCache } from '../lib/json-file.js';
+import type { LockDeps } from '../lib/lock-file.js';
 import type { Runner } from '../lib/process.js';
 import { toFail } from '../lib/result.js';
 
@@ -24,25 +21,24 @@ const Stamps = z.record(z.string(), z.string()).describe('fetch stamps');
  */
 export async function fetchBase(
   run: Runner,
-  clock: Clock,
+  lock: LockDeps,
   stamps: string,
   repo: string,
   base: string,
 ): Promise<string | undefined> {
   const remotes = await gitCommand(run, repo, ['remote']);
+  // The longest name, so `foo/bar/main` is remote `foo/bar`'s main when `foo` is a remote too.
   const remote = remotes.ok
-    ? remotes.stdout.split('\n').find((name) => name && base.startsWith(`${name}/`))
+    ? remotes.stdout
+        .split('\n')
+        .filter((name) => name && base.startsWith(`${name}/`))
+        .sort((a, b) => b.length - a.length)[0]
     : undefined;
   if (!remote) return undefined;
   const key = `${repo} ${base}`;
-  let kept: Record<string, string> = {};
-  try {
-    kept = readJson(stamps, Stamps) ?? {};
-  } catch {
-    kept = {};
-  }
-  const now = clock().getTime();
-  if (now - Date.parse(kept[key] ?? '') < FETCH_REUSE_MS) return undefined;
+  const now = lock.clock().getTime();
+  const fresh = (at: string | undefined) => now - Date.parse(at ?? '') < FETCH_REUSE_MS;
+  if (fresh(readCache(stamps, Stamps, {})[key])) return undefined;
   let detail: string | undefined;
   try {
     const fetched = await gitCommand(
@@ -56,12 +52,16 @@ export async function fetchBase(
     detail = toFail(error).error.message;
   }
   if (detail) return `cannot fetch ${base}: ${detail}; started from the local ${base}`;
-  const fresh = Object.fromEntries(
-    Object.entries(kept).filter(([, at]) => now - Date.parse(at) < FETCH_REUSE_MS),
-  );
   try {
-    mkdirSync(dirname(stamps), { recursive: true });
-    writeFileAtomic(stamps, JSON.stringify({ ...fresh, [key]: new Date(now).toISOString() }));
+    changeJson(
+      stamps,
+      Stamps,
+      (kept = {}) => ({
+        ...Object.fromEntries(Object.entries(kept).filter(([, at]) => fresh(at))),
+        [key]: new Date(now).toISOString(),
+      }),
+      lock,
+    );
   } catch {
     // ponytail: an unwritten stamp only means the next new branch fetches again.
   }

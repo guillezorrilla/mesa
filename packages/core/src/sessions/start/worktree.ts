@@ -115,13 +115,17 @@ export async function addWorktree(
       `branch ${branch} exists and is reused as it is: drop --base, or pick a new branch`,
     );
   }
+  // A branch only on origin is continued from there (defaultBase): fetched first, so one pushed
+  // since the last fetch is found. Not there, it is no warning: the base's own fetch follows.
+  if (input.fetch && local === undefined && !input.base && !input.defaultBase)
+    await fetchBase(run, lock, input.fetch, repo, `origin/${branch}`);
   const base =
     local === undefined
       ? (input.base ?? input.defaultBase ?? (await defaultBase(run, repo, branch)))
       : undefined;
   const warning =
     input.fetch && base !== undefined
-      ? await fetchBase(run, lock.clock, input.fetch, repo, base)
+      ? await fetchBase(run, lock, input.fetch, repo, base)
       : undefined;
   const path = worktreePath(input.root, branch);
   mkdirSync(input.root, { recursive: true });

@@ -574,6 +574,30 @@ test('custom location and fetched base are shared settings; failed carryover pre
   expect(readFileSync(join(created.json.data.path, 'remote.txt'), 'utf8')).toBe(
     'new remote content\n',
   );
+  // With no base set, a branch only a teammate pushed is fetched and continued from origin.
+  execFileSync('git', ['-C', peer, 'push', '-q', 'origin', 'main:teammate'], { env: testEnv });
+  expect(
+    (
+      await settings({
+        location: 'custom',
+        customRoot,
+        fetch: true,
+        sparseDirectories: [],
+        carry: [],
+      })
+    ).code,
+  ).toBe(0);
+  const continued = await cli.mesa('worktrees', 'create', 'lantern-cove', 'teammate', '--json');
+  expect(continued.code, continued.stdout).toBe(0);
+  expect(continued.json.data.base).toBe('origin/teammate');
+  await settings({
+    location: 'custom',
+    customRoot,
+    base: 'origin/main',
+    fetch: true,
+    sparseDirectories: [],
+    carry: [],
+  });
   // Under 30 s later the fetch is reused; an unreachable origin then only warns.
   execFileSync('git', ['-C', repo, 'remote', 'set-url', 'origin', join(cli.home, 'gone.git')], {
     env: testEnv,
