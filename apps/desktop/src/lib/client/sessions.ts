@@ -18,6 +18,7 @@ import type {
   Sent,
   SessionImage,
   SessionLog,
+  SessionMerge,
   SessionRecord,
   StopOutcome,
   TreeRow,
@@ -229,6 +230,12 @@ export const sessionsCommands = {
   'sessions.crew': commandWith<{ id: string }, CrewRow[]>(({ id }) => [
     'sessions',
     '--children',
+    '--',
+    id,
+  ]),
+  // A worker's branch into the checkout of the session it reports to; a conflict is aborted.
+  'sessions.merge': commandWith<{ id: string }, Recorded<SessionMerge>>(({ id }) => [
+    'merge',
     '--',
     id,
   ]),

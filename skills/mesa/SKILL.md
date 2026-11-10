@@ -83,6 +83,8 @@ mesa worker lantern-cove --task t-a1                                            
 
 End your turn. A worker's `done` report settles its task `succeeded` and readies the tasks that waited on it; `failed` fails it with the report's text. On each report, run `mesa tasks --ready` again and start the ones that became ready. `mesa tasks show <id>` names the dep holding a pending task; `mesa tasks retry <id>` returns a failed one, and `mesa tasks cancel <id>` drops one not started.
 
+When a worker reports done, bring its committed branch into your checkout with `mesa merge <worker-id> --json` (`--into <session>` for another). It refuses while the worker is working or while either checkout has uncommitted changes. On a conflict it aborts the merge, leaves both checkouts as they were, exits 1 and returns `{merged: false, conflicts: [paths]}`: resolve it yourself or ask the worker to rebase, then merge again.
+
 When a task needs a choice that neither it nor the person's instructions settle, and that is the person's to make (ship the migration now, which API to break), open a decision gate instead of asking in your reply, then end your turn:
 
 ```sh
