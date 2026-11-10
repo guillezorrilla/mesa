@@ -123,6 +123,8 @@ export async function createAdditional(
   record: SessionRecord,
   entries: readonly AdditionalStart[],
   made: ReturnType<typeof launchWorktrees>,
+  /** Where each new worktree's warning (createWorktree) goes. */
+  warnings: (string | undefined)[] = [],
 ): Promise<SessionRecord> {
   const branch = record.worktree?.branch;
   if (branch === undefined)
@@ -140,6 +142,7 @@ export async function createAdditional(
       base,
     );
     made.add(deps.profile, entry, selected);
+    warnings.push(selected.warning);
     const added = { project: entry.name, worktree: selected.worktree };
     current = deps.store.update(current.id, (r) => ({
       additional: [...(r.additional ?? []), added],

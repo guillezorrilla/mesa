@@ -6,6 +6,7 @@ import { type AsyncLockDeps, lockedBy, withLock } from '../../lib/lock-file.js';
 import type { Runner } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
 import { checkoutDefault } from '../../worktrees/base.js';
+import { fetchBase } from '../../worktrees/fetch.js';
 
 // A session's own git worktree (CONTEXT.md, Worktree): git through the injected Runner.
 // ponytail: git inherits mesa's environment, so a GIT_DIR exported around mesa (a git hook runs
@@ -22,6 +23,7 @@ export type Worktree = {
 // ponytail: a checkout of a large repository takes a while; 60 s, raise it when one takes longer.
 const ADD_MS = 60_000;
 const ASK_MS = 5_000;
+const LS_REMOTE_MS = 10_000;
 
 const GIT_MISSING = 'git not found on PATH; --branch needs it';
 
@@ -50,6 +52,29 @@ async function defaultBase(run: Runner, repo: string, branch: string) {
   return base;
 }
 
+/**
+ * A branch only on origin is continued from there (defaultBase), so one pushed since the last
+ * fetch is fetched first. `ls-remote` asks without a fetch that would fail for a new branch; a
+ * failed or slow answer is no branch, and the base's own fetch follows.
+ */
+async function fetchIfOnOrigin(
+  run: Runner,
+  lock: AsyncLockDeps,
+  stamps: string,
+  repo: string,
+  branch: string,
+) {
+  if (await ask(run, repo, ['show-ref', '--verify', `refs/remotes/origin/${branch}`])) return;
+  let listed = false;
+  try {
+    const ref = ['ls-remote', '--exit-code', 'origin', `refs/heads/${branch}`];
+    listed = (await git(run, repo, ref, LS_REMOTE_MS)).ok;
+  } catch {
+    listed = false;
+  }
+  if (listed) await fetchBase(run, lock, stamps, repo, `origin/${branch}`);
+}
+
 /** Refuses `repo` unless it is a git repository's top folder, where a worktree is added from. */
 export async function requireGitTop(run: Runner, repo: string) {
   const below = await must(
@@ -76,7 +101,8 @@ export const worktreePath = (root: string, branch: string) =>
 /**
  * Adds a worktree for `branch` at worktreePath: an existing branch not checked out elsewhere,
  * reused as it is, or a new one from `base` (defaultBase). A new branch tracks only the branch of
- * its name on origin, so a push never lands on the branch it started from.
+ * its name on origin, so a push never lands on the branch it started from. With `fetch`, a new
+ * branch's base is fetched first (fetchBase); a failed fetch is the returned `warning`.
  * ponytail: a `git branch` that hangs past 5 s may leave its branch, which a retry then reuses. `repo` must be a
  * repository's top folder. Every refusal is `usage`; a failed add removes what it made, and only
  * that: the path is claimed with one mkdir first, and the branch made in its own step.
@@ -90,23 +116,16 @@ export async function addWorktree(
     branch: string;
     base?: string;
     defaultBase?: string;
-    fetch?: boolean;
+    /** Where fetchBase keeps its stamps; absent, a new branch's base is not fetched. */
+    fetch?: string;
   },
-): Promise<Worktree> {
+): Promise<Worktree & { warning?: string }> {
   const { repo, branch } = input;
   await requireGitTop(run, repo);
   // git prints the name it would use: a different one (`@{-1}`) is not the branch asked for.
   if ((await ask(run, repo, ['check-ref-format', '--branch', branch])) !== branch) {
     throw new MesaError('usage', `${branch} is not a valid branch name`);
   }
-  if (input.fetch)
-    await must(
-      run,
-      repo,
-      ['fetch', '--all', '--prune'],
-      'cannot fetch before worktree creation',
-      ADD_MS,
-    );
   const local = await ask(run, repo, ['show-ref', '--verify', `refs/heads/${branch}`]);
   // A create killed after it made the branch left it on its base: a retry reuses it.
   const reused =
@@ -120,9 +139,15 @@ export async function addWorktree(
       `branch ${branch} exists and is reused as it is: drop --base, or pick a new branch`,
     );
   }
+  if (input.fetch && local === undefined && !input.base && !input.defaultBase)
+    await fetchIfOnOrigin(run, lock, input.fetch, repo, branch);
   const base =
     local === undefined
       ? (input.base ?? input.defaultBase ?? (await defaultBase(run, repo, branch)))
+      : undefined;
+  const warning =
+    input.fetch && base !== undefined
+      ? await fetchBase(run, lock, input.fetch, repo, base)
       : undefined;
   const path = worktreePath(input.root, branch);
   mkdirSync(input.root, { recursive: true });
@@ -169,7 +194,12 @@ export async function addWorktree(
         if (!added) await discard(run, repo, path, made ? branch : undefined);
       }
       const started = base ?? (reused ? input.base : undefined);
-      return { path, branch, ...(started === undefined ? {} : { base: started }) };
+      return {
+        path,
+        branch,
+        ...(started === undefined ? {} : { base: started }),
+        ...(warning ? { warning } : {}),
+      };
     },
     () => lockedBy(`the worktree ${path}`, lockPath, 'worktree'),
   );

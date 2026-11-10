@@ -15,6 +15,8 @@ export type ProfilePaths = {
   listing: string;
   /** Each session's added and removed lines, by its checkout's HEAD and index (sessions/board/line-counts.ts). */
   lineCounts: string;
+  /** When each repository's base was last fetched for a new branch, reused for 30 s (#900). */
+  fetches: string;
   /** Sessions' output logs, one `<session id>.log` each: local only, never in the vault. */
   logs: string;
   /** What each headless run's agent printed, `<session id>.json` each (CONTEXT.md, Skill run). */
@@ -96,6 +98,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     events: join(root, 'sessions', 'events'),
     listing: join(root, 'sessions', 'listing.json'),
     lineCounts: join(root, 'sessions', 'line-counts.json'),
+    fetches: join(root, 'sessions', 'fetches.json'),
     logs: join(root, 'sessions', 'logs'),
     runs: join(root, 'sessions', 'runs'),
     costs: join(root, 'sessions', 'costs'),
