@@ -1,7 +1,14 @@
-import type { DeliveryPlan, InboxItem, PrEventList, PrEventsDelivered } from '@mesa/core';
+import type {
+  DeliveryPlan,
+  InboxItem,
+  PrEventList,
+  PrEventsDelivered,
+  ReportList,
+  ReportsDelivered,
+} from '@mesa/core';
 import { command, commandWith } from './spec';
 
-/** Notification commands: the inbox, its delivery, and PR events. */
+/** Notification commands: the inbox, its delivery, PR events, and child reports. */
 export const notificationsCommands = {
   'notifications.list': command<InboxItem[]>('notifications'),
   'notifications.delivery': command<DeliveryPlan>('notifications', 'delivery'),
@@ -24,4 +31,6 @@ export const notificationsCommands = {
   'notifications.clearAll': command<{ count: number }>('notifications', 'clear', '--all'),
   'prEvents.list': command<PrEventList>('pr-events'),
   'prEvents.deliver': command<PrEventsDelivered>('pr-events', '--deliver'),
+  'reports.list': command<ReportList>('reports'),
+  'reports.deliver': command<ReportsDelivered>('reports', '--deliver'),
 };

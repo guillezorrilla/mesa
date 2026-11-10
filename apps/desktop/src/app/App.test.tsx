@@ -2915,7 +2915,13 @@ test('shortcut settings validate conflicts and update the active profile key', a
     defaultAgent: 'claude',
     skills: [],
     decisions: { model: 'none', threshold: 0.7 },
-    sessions: { log: true, statusLineCost: false, prEvents: false, guidelines: true },
+    sessions: {
+      log: true,
+      statusLineCost: false,
+      prEvents: false,
+      childReports: true,
+      guidelines: true,
+    },
     usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
     notifications: {
       quiet: false,
@@ -3676,6 +3682,34 @@ test('with sessions.prEvents off, the app never delivers PR events', async () =>
     state = 'idle';
     await act(async () => vi.advanceTimersByTime(62_000));
     expect(calls.filter((args) => args[1] === 'pr-events')).toEqual([]);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test('with sessions.childReports on (the default), the app delivers child reports at start and when a session goes idle', async () => {
+  vi.useFakeTimers();
+  try {
+    let state: 'working' | 'idle' = 'working';
+    const healthy = (await fakeBridge().bridge(['--json', 'config'])) as { data: Config };
+    const { bridge, calls } = fakeBridge({
+      config: () =>
+        envelope({ ...healthy.data, sessions: { ...healthy.data.sessions, childReports: true } }),
+      sessions: () =>
+        envelope([
+          managedRow('aaaaaaaa', {
+            lastState: { state, confidence: 0.95, at: '2026-09-25T12:00:00.000Z', source: 'hook' },
+          }),
+        ]),
+      'reports --deliver': () => envelope({ deliveries: [] }),
+    });
+    const delivered = () =>
+      calls.filter((args) => args[1] === 'reports' && args[2] === '--deliver').length;
+    await renderWithMesa(<App />, bridge);
+    expect(delivered()).toBe(1);
+    state = 'idle';
+    await act(async () => vi.advanceTimersByTime(2_000));
+    expect(delivered()).toBe(2);
   } finally {
     vi.useRealTimers();
   }

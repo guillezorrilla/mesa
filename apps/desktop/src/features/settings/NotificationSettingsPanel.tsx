@@ -2,6 +2,7 @@ import type { Config } from '@mesa/core';
 import { BadgeAlert, Bell, BellOff } from 'lucide-react';
 import { ChoiceField } from './controls/ChoiceField';
 import { ToggleField } from './controls/ToggleField';
+import { ChildReports } from './notifications/ChildReports';
 import { ClearCenter } from './notifications/ClearCenter';
 import { PrEvents } from './notifications/PrEvents';
 import { SessionHooks } from './notifications/SessionHooks';
@@ -92,6 +93,7 @@ export function NotificationSettingsPanel() {
       >
         <SessionHooks />
         <PrEvents enabled={config.sessions.prEvents} />
+        <ChildReports enabled={config.sessions.childReports} />
       </SettingSection>
     </>
   );

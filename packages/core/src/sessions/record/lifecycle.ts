@@ -23,6 +23,8 @@ export const waitingForInput = (s: SessionRow) =>
 /** A Mesa session with an interactive agent, whose native responses Review reads. */
 export const reviewable = (s: SessionRow): s is ManagedRow =>
   s.managed && s.kind === 'interactive' && s.agent !== 'terminal';
+/** A live Mesa session with an interactive agent: one Mesa can type a prompt into. */
+export const liveAgent = (s: SessionRow): s is ManagedRow => reviewable(s) && s.alive && !s.endedAt;
 /** A Mesa session in a registered project, whose checkout the Diff panel compares with its base. */
 export const diffable = (s: SessionRow): s is ManagedRow =>
   s.managed && s.project !== GENERAL_PROJECT;

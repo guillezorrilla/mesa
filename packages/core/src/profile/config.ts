@@ -100,6 +100,8 @@ const ConfigShape = z.strictObject({
       statusLineCost: z.boolean().default(false),
       /** Forward PR events into their sessions (CONTEXT.md, PR event). */
       prEvents: z.boolean().default(false),
+      /** Type a child session's reports into its parent (CONTEXT.md, Child report). */
+      childReports: z.boolean().default(true),
       // The agent-guidelines skill for every project, and the pointer line naming it.
       guidelines: z.boolean().default(true),
     })

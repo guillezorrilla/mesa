@@ -27,6 +27,7 @@ import { promptsService } from './prompts/prompts.js';
 import { prsService } from './prs/service.js';
 import { receiptsService } from './receipts/service.js';
 import { whatsNew } from './release/notes.js';
+import { reportsService } from './reports/report-delivery.js';
 import { sessionsService } from './sessions/service/index.js';
 import { skillsService } from './skills/service.js';
 import { importService } from './sources/import-service.js';
@@ -103,6 +104,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
     receipts: receiptsService(ctx),
     ...sessions,
     prEvents: prEventsService(ctx, {
+      board: () => sessions.sessions.list(),
+      send: sessions.sessions.send,
+    }),
+    /** Child sessions' news, typed into their idle parents (CONTEXT.md, Child report). */
+    reports: reportsService(ctx, {
       board: () => sessions.sessions.list(),
       send: sessions.sessions.send,
     }),

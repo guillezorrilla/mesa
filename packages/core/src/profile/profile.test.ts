@@ -30,6 +30,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     prs: '/h/.mesa/work/prs',
     prVoice: '/h/.mesa/work/prs/voice.md',
     prEvents: '/h/.mesa/work/pr-events.json',
+    reports: '/h/.mesa/work/reports.json',
     placements: '/h/.mesa/work/placements.json',
     prompts: '/h/.mesa/work/prompts.json',
     automations: '/h/.mesa/work/automations.yaml',
@@ -60,7 +61,13 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
     defaultAgent: 'claude',
     skills: ['mesa', 'mesa-handoff', 'mesa-vault'],
     decisions: { model: 'none', threshold: 0.7 },
-    sessions: { log: true, statusLineCost: false, prEvents: false, guidelines: true },
+    sessions: {
+      log: true,
+      statusLineCost: false,
+      prEvents: false,
+      childReports: true,
+      guidelines: true,
+    },
     usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
     notifications: {
       quiet: false,

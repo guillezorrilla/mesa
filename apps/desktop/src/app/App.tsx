@@ -17,7 +17,7 @@ import { useSearchPalette } from '@/features/search/useSearchPalette';
 import { sidebarGroups } from '@/features/sessions/sidebar/sidebarGroups';
 import { useReorderSessions } from '@/features/sessions/sidebar/useReorderSessions';
 import { useStartSession } from '@/features/sessions/start/useStartSession';
-import { usePrEventDelivery } from '@/features/sessions/usePrEventDelivery';
+import { type IdleDeliveryCommand, useIdleDelivery } from '@/features/sessions/useIdleDelivery';
 import { useRestoreSessions } from '@/features/sessions/useRestoreSessions';
 import { UnreadContext, useUnread } from '@/features/sessions/useUnread';
 import { OpenSettingsContext } from '@/features/settings/useOpenSettings';
@@ -139,7 +139,10 @@ function AppShell() {
     navigateLatest,
   });
   useCostAlerts(navigateLatest);
-  usePrEventDelivery(config.data?.sessions?.prEvents ?? false, sessions);
+  const delivery: IdleDeliveryCommand[] = [];
+  if (config.data?.sessions?.prEvents) delivery.push('prEvents.deliver');
+  if (config.data?.sessions?.childReports) delivery.push('reports.deliver');
+  useIdleDelivery(delivery, sessions);
   const linkGuidance = useMesaLinks({
     session: (id) => navigateLatest({ kind: 'session', id }),
     clone: (url) => {
