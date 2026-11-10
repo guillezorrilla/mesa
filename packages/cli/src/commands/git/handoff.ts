@@ -44,7 +44,7 @@ export const gitResolve = defineCommand({
       session: flags.session,
       fresh: flags.new,
     });
-    const text = `the conflicts were ${data.how === 'sent' ? 'sent to' : 'handed to new'} session ${data.session}`;
+    const text = `the conflicts were ${data.how === 'sent' ? 'sent to' : 'handed to new'} session ${data.session}; every hunk is in ${data.conflictsFile}`;
     return { data, text };
   },
 });
