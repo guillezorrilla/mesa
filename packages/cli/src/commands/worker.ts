@@ -34,7 +34,11 @@ export const worker = defineCommand({
       if (args.task !== undefined)
         throw new MesaError('usage', 'pass a task text or --task <id>, not both');
       const started = await mesa.tasks.start(flags.task, args.project, how);
-      return { data: started, text: `${started.task.id} running in ${started.worker.id}` };
+      const { task, worker } = started.result;
+      return recordedOutput(started, {
+        data: started.result,
+        text: `${task.id} running in ${worker.id}`,
+      });
     }
     if (args.task === undefined)
       throw new MesaError(

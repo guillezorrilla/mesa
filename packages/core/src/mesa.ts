@@ -27,7 +27,7 @@ import { promptsService } from './prompts/prompts.js';
 import { prsService } from './prs/service.js';
 import { receiptsService } from './receipts/service.js';
 import { whatsNew } from './release/notes.js';
-import { keptReport, reportsService } from './reports/report-delivery.js';
+import { reportsService } from './reports/report-delivery.js';
 import { sessionsService } from './sessions/service/index.js';
 import { skillsService } from './skills/service.js';
 import { importService } from './sources/import-service.js';
@@ -118,11 +118,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
       send: sessions.sessions.send,
     }),
     /** Planned work and what each part waits on (CONTEXT.md, Task graph). */
-    tasks: tasksService(ctx, {
-      startWorker: async (project, spec, flags) =>
-        (await sessions.sessions.worker(project, spec, flags)).result,
-      reportOf: (worker) => keptReport(ctx, worker),
-    }),
+    tasks: tasksService(ctx, { startWorker: sessions.sessions.worker }),
     prs: prsService(ctx, { open: sessions.sessions.open, stop: sessions.sessions.stop }),
     hooks: hooksService(ctx),
     skills,

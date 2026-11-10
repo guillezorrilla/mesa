@@ -2,7 +2,10 @@ import type { MesaContext } from '../context.js';
 import { shortId } from '../lib/ids.js';
 import { changeJson } from '../lib/json-file.js';
 import { MesaError } from '../lib/result.js';
+import { joinWarnings, type Recorded } from '../receipts/recorder.js';
+import { keptReport } from '../reports/report-delivery.js';
 import type { SessionRecord } from '../sessions/record/record.js';
+import type { WorkerFlags } from '../sessions/start/worker.js';
 import { callerOf } from '../sessions/window/caller.js';
 import {
   failedStart,
@@ -29,21 +32,20 @@ const SPEC_CHARS = 4_000;
 
 export type CreateTask = { graph?: string; deps?: readonly string[]; coordinator?: string };
 
-/** What `mesa worker --task` takes beside the task: where, and how, its worker opens. */
-export type TaskStart = { agent?: string; branch?: string; parent?: string };
-
 export type TasksDeps = {
-  /** Opens a worker with `spec` as its goal (the sessions' `worker`), returning its record. */
+  /** Opens a worker with `spec` as its goal: the sessions' `worker`, with its receipt. */
   startWorker: (
     project: string | undefined,
     spec: string,
-    flags: TaskStart,
-  ) => Promise<SessionRecord>;
-  /** A worker's newest explicit report (`mesa report`), delivered or not. */
-  reportOf: (worker: string) => WorkerNews['report'];
+    flags: WorkerFlags,
+  ) => Promise<Recorded<SessionRecord>>;
 };
 
-const notFound = (id: string) => new MesaError('not_found', `no task ${id}; see mesa tasks`);
+const notFound = (ids: string) => new MesaError('not_found', `no task ${ids}; see mesa tasks`);
+
+/** Errors that say the start was asked wrong, not that it broke: they count no failed start. */
+const askedWrong = (error: unknown) =>
+  error instanceof MesaError && (error.code === 'usage' || error.code === 'not_found');
 
 /**
  * The profile's tasks, `tasks.json`, changed under the profile lock so two processes both keep
@@ -54,7 +56,7 @@ export function tasksService(ctx: MesaContext, deps: TasksDeps) {
   const file = ctx.paths.tasks;
   const newsOf = (worker: string): WorkerNews => {
     const record = ctx.store.find(worker);
-    const report = deps.reportOf(worker);
+    const report = keptReport(ctx, worker);
     return { ...(report ? { report } : {}), ended: !record || Boolean(record.endedAt) };
   };
   /** Changes the settled tasks under the lock with `fn`, which returns the next ones and a result. */
@@ -107,8 +109,7 @@ export function tasksService(ctx: MesaContext, deps: TasksDeps) {
       return change((tasks) => {
         const states = new Map(tasks.map((t) => [t.id, t.state]));
         const unknown = wanted.filter((dep) => !states.has(dep));
-        if (unknown.length)
-          throw new MesaError('not_found', `no task ${unknown.join(', ')}; see mesa tasks`);
+        if (unknown.length) throw notFound(unknown.join(', '));
         const made: Task = {
           id: `t-${shortId(ctx.newId)}`,
           spec: text,
@@ -150,26 +151,42 @@ export function tasksService(ctx: MesaContext, deps: TasksDeps) {
      * records each on the other (`worker` here, `task` on the session). A start whose session
      * never opens puts the task back and counts it; the third in a row fails it (failedStart).
      */
-    start: async (id: string, project: string | undefined, flags: TaskStart = {}) => {
-      const claimed = update(id, (task) => {
+    start: async (id: string, project: string | undefined, flags: WorkerFlags = {}) => {
+      const startedAt = ctx.clock().toISOString();
+      update(id, (task) => {
         if (task.state !== 'ready')
           throw new MesaError('usage', `task ${id} is ${task.state}, not ready`);
-        return { ...task, state: 'running', startedAt: ctx.clock().toISOString() };
+        return { ...task, state: 'running', startedAt };
       });
-      let worker: SessionRecord;
+      // This start's claim still holds: no read gave it back meanwhile, and no other start took it.
+      const ours = (task: Task) => task.state === 'running' && task.startedAt === startedAt;
+      const spec = all().find((t) => t.id === id)?.spec ?? '';
+      let opened: Recorded<SessionRecord>;
       try {
-        worker = await deps.startWorker(project, claimed.spec, flags);
+        opened = await deps.startWorker(project, spec, flags);
       } catch (error) {
         const why = error instanceof Error ? error.message : String(error);
-        update(id, (task) => failedStart(task, why));
+        update(id, (task) => {
+          if (!ours(task)) return task;
+          if (!askedWrong(error)) return failedStart(task, why);
+          const { startedAt: _s, ...rest } = task;
+          return { ...rest, state: 'pending' };
+        });
         throw error;
       }
+      const worker = opened.result;
       ctx.store.update(worker.id, { task: id });
-      const task = update(id, ({ startFailures: _count, ...rest }) => ({
-        ...rest,
-        worker: worker.id,
-      }));
-      return { task, worker };
+      const task = update(id, (current) => {
+        if (!ours(current)) return current;
+        const { startFailures: _count, ...rest } = current;
+        return { ...rest, worker: worker.id };
+      });
+      const lost =
+        task.worker === worker.id
+          ? undefined
+          : `task ${id} was given back while its worker opened; ${worker.id} runs without it`;
+      const warning = joinWarnings(opened.warning, lost);
+      return { ...opened, result: { task, worker }, ...(warning ? { warning } : {}) };
     },
     /**
      * Returns a failed or cancelled task to waiting (`ready` or `pending`, as its deps say),

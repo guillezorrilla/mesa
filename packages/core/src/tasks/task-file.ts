@@ -68,9 +68,12 @@ export type WorkerNews = {
   ended: boolean;
 };
 
-/** How long a claimed start may go without its worker before it counts as a failed start. */
-const START_GRACE_MS = 10 * 60_000;
-export const START_LIMIT = 3;
+/**
+ * How long a claimed start may go without its worker before it counts as a failed start (the
+ * mesa that claimed it was killed); longer than any worktree setup and agent start.
+ */
+const START_GRACE_MS = 30 * 60_000;
+const START_LIMIT = 3;
 
 /** `task` back to waiting, with one more failed start, or failed at the START_LIMIT. */
 export function failedStart(task: Task, why: string): Task {
