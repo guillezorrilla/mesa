@@ -4,9 +4,18 @@ import { z } from 'zod';
 
 /**
  * Where a task stands: `pending` while a dep has not succeeded, `ready` to start (no deps, or all
- * succeeded), `running` with a worker, then `succeeded`, `failed` or `cancelled`.
+ * succeeded), `running` with a worker, then `succeeded`, `failed` or `cancelled`. `blocked` is how
+ * a waiting or running task reads while it has an open gate (withGates); it is never written.
  */
-const TASK_STATES = ['pending', 'ready', 'running', 'succeeded', 'failed', 'cancelled'] as const;
+const TASK_STATES = [
+  'pending',
+  'ready',
+  'running',
+  'blocked',
+  'succeeded',
+  'failed',
+  'cancelled',
+] as const;
 export type TaskState = (typeof TASK_STATES)[number];
 
 /** A unit of planned work a worker session may do, in a Task graph (CONTEXT.md, Task). */
@@ -34,8 +43,29 @@ const TaskSchema = z.strictObject({
 });
 export type Task = z.infer<typeof TaskSchema>;
 
+/**
+ * A decision only a person makes on a task (CONTEXT.md, Decision gate): open until resolved with
+ * one of its `options`, which records the `option` and when.
+ */
+const GateSchema = z.strictObject({
+  id: z.string(),
+  task: z.string(),
+  question: z.string(),
+  options: z.array(z.string()),
+  /** The session that opened it: the Caller's; none from a person outside a Mesa window. */
+  by: z.string().optional(),
+  at: z.iso.datetime(),
+  option: z.string().optional(),
+  resolvedAt: z.iso.datetime().optional(),
+});
+export type Gate = z.infer<typeof GateSchema>;
+
 export const TaskFile = z
-  .strictObject({ tasks: z.array(TaskSchema).default([]) })
+  .strictObject({
+    tasks: z.array(TaskSchema).default([]),
+    /** Every gate, open and resolved, oldest first. */
+    gates: z.array(GateSchema).default([]),
+  })
   .describe('task graphs');
 export type TaskFile = z.infer<typeof TaskFile>;
 
@@ -59,6 +89,21 @@ export function withStates(tasks: readonly Task[]): Task[] {
     states.set(task.id, state);
     return state === task.state ? task : { ...task, state };
   });
+}
+
+/** Whether `task` is not over: waiting or running, so an open gate blocks it. */
+const isLive = (task: Pick<Task, 'state'>) => isOpen(task) || task.state === 'running';
+
+/**
+ * `tasks` as they read: a waiting or running one with an open gate in `gates` is `blocked`, so no
+ * start takes it; its worker, if any, keeps running. Never written: a resolve returns it to the
+ * state it has underneath.
+ */
+export function withGates(tasks: readonly Task[], gates: readonly Gate[]): Task[] {
+  const gated = new Set(gates.filter((g) => !g.resolvedAt).map((g) => g.task));
+  return tasks.map((task) =>
+    gated.has(task.id) && isLive(task) ? { ...task, state: 'blocked' } : task,
+  );
 }
 
 /** What settling reads of a running task's worker: its newest explicit report, and its ending. */

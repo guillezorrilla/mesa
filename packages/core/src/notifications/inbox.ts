@@ -15,6 +15,8 @@ import {
   doctorFindings,
   doctorItem,
   failureItems,
+  type GateNotice,
+  gateItems,
   hookItem,
   type InboxItem,
   releaseItem,
@@ -60,12 +62,17 @@ function inboxItems(
 
 /**
  * A bounded, durable inbox projected from the profile's redacted hooks, its Doctor findings, the
- * failed runs `automationRuns` reads from the run ledger, and the versions installed since the
- * last one seen, from the changelog Mesa ships.
+ * failed runs `automationRuns` reads from the run ledger, the open gates `openGates` reads from
+ * the task store, and the versions installed since the last one seen, from the changelog Mesa
+ * ships.
  */
-export function inbox(ctx: MesaContext, automationRuns: () => readonly AutomationRunNotice[]) {
-  // The run ledger is the event owner: a crash between failure and notification loses no notice.
-  const failures = () => failureItems(automationRuns());
+export function inbox(
+  ctx: MesaContext,
+  automationRuns: () => readonly AutomationRunNotice[],
+  openGates: () => readonly GateNotice[],
+) {
+  // Each owner is the event's: a crash between the event and its notice loses no notice.
+  const failures = () => [...failureItems(automationRuns()), ...gateItems(openGates())];
   const store = inboxStore(ctx.paths.notifications, ctx, failures);
   let changelog: ReleaseNotes[] | undefined;
   const notes = () => {

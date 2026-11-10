@@ -27,6 +27,7 @@ import { feedback } from './feedback.js';
 import { FILES_COMMANDS } from './files/index.js';
 import { forceStart } from './force-start.js';
 import { fork } from './fork.js';
+import { gates, gatesCreate, gatesResolve } from './gates.js';
 import { GIT_COMMANDS } from './git/index.js';
 import { goal } from './goal.js';
 import { grid, gridRemove, gridSave } from './grid.js';
@@ -208,6 +209,9 @@ export const COMMANDS: Command[] = [
   tasksShow,
   tasksRetry,
   tasksCancel,
+  gates,
+  gatesCreate,
+  gatesResolve,
   ...PRS_COMMANDS,
   profile,
   profileList,

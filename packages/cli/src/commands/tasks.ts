@@ -64,6 +64,9 @@ export const tasksShow = defineCommand({
         ...(shown.worker ? [`  worker: ${shown.worker}`] : []),
         ...(shown.heldBy ? [`  held by ${shown.heldBy}`] : []),
         ...shown.dependencies.map((d) => `  waits on ${d.id} ${d.state}  ${firstLine(d.spec)}`),
+        ...shown.gates.map(
+          (g) => `  gate ${g.id} ${g.resolvedAt ? `resolved: ${g.option}` : 'open'}  ${g.question}`,
+        ),
       ].join('\n'),
     };
   },

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { changeJson, readJson } from '../lib/json-file.js';
 import type { LockDeps } from '../lib/lock-file.js';
+import { familyOf } from '../sessions/record/family.js';
 import type { SessionRecord } from '../sessions/record/record.js';
 import { scanHookEvents } from '../sessions/signals/hook-events.js';
 import {
@@ -143,6 +144,12 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
         },
         result: undefined,
       })),
+    /** Adds a `gate` report, pending until delivered; it is no child's news, so nothing else keeps it. */
+    addGate: (report: ChildReport) =>
+      change((state) => ({
+        next: { ...state, pending: addReport(state.pending, report) },
+        result: undefined,
+      })),
     /**
      * Reads every child's new hook events and endings in `records` into the pending reports, and
      * forgets the reports, read offsets and endings of sessions no longer in `records`; returns
@@ -186,8 +193,15 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
           const parent = parentOf.get(r.child);
           return parent && parent !== r.parent ? { ...r, parent } : r;
         };
+        // A gate report has no child: it follows its parent's own successor.
+        const successor = familyOf(records);
+        const reportToParentNow = (r: ChildReport): ChildReport => {
+          if (r.kind !== 'gate') return toParentNow(r);
+          const parent = successor({ id: r.id, parent: r.parent });
+          return parent && parent !== r.parent ? { ...r, parent } : r;
+        };
         pending = pending
-          .map(toParentNow)
+          .map(reportToParentNow)
           .filter((report) => known.has(report.parent) && known.has(report.child));
         const explicit = Object.fromEntries(
           Object.entries(state.explicit).filter(([child]) => known.has(child)),

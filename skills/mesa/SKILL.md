@@ -83,6 +83,14 @@ mesa worker lantern-cove --task t-a1                                            
 
 End your turn. A worker's `done` report settles its task `succeeded` and readies the tasks that waited on it; `failed` fails it with the report's text. On each report, run `mesa tasks --ready` again and start the ones that became ready. `mesa tasks show <id>` names the dep holding a pending task; `mesa tasks retry <id>` returns a failed one, and `mesa tasks cancel <id>` drops one not started.
 
+When a task needs a choice that neither it nor the person's instructions settle, and that is the person's to make (ship the migration now, which API to break), open a decision gate instead of asking in your reply, then end your turn:
+
+```sh
+mesa gates create --task t-a1 "Store tide heights in metres or feet?" --options metres,feet --json
+```
+
+The task reads `blocked` and no worker starts it until the person picks an option; only a person can, from outside a Mesa window or the app. Their choice comes back to you as a `gate` report, like a child's news.
+
 Set a progress line at each step of long work; your card shows it under your state. It is not a message to anyone:
 
 ```sh
