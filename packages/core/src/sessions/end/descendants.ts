@@ -2,8 +2,10 @@ import { MesaError, toFail } from '../../lib/result.js';
 import type { EachResult } from '../record/each.js';
 
 /** A session, with where it reports now when that is not its `parent` (familyOf). */
-type Linked = { id: string; parent?: string; parentNow?: string };
-const parentOf = (record: Linked) => record.parentNow ?? record.parent;
+type Linked = { id: string; parent?: string; parentNow?: string | null };
+/** Where it reports now when that is known (null: no session), else its recorded parent. */
+const parentOf = (record: Linked) =>
+  record.parentNow === undefined ? record.parent : (record.parentNow ?? undefined);
 
 /** The exact parent-linked subtree, children before parents so a queued child is cancelled first. */
 export function descendantOrder<T extends Linked>(records: readonly T[], id: string): T[] {

@@ -129,7 +129,7 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
                 </dd>
               </>
             )}
-            {row.managed && row.parent && (
+            {row.managed && row.parent && row.parentNow !== null && (
               <>
                 <dt className="text-muted-foreground">Reports to</dt>
                 <dd data-testid="session-reports-to">

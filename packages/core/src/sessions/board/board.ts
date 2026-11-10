@@ -6,7 +6,7 @@ import type { DecisionRecorder } from '../../decisions/types.js';
 import type { Clock } from '../../lib/clock.js';
 import type { Env } from '../../lib/process.js';
 import type { RegistryEntry } from '../../projects/registry.js';
-import { familyOf } from '../record/family.js';
+import { withParentsNow } from '../record/family.js';
 import { takenOver, worktreeHolders } from '../record/holders.js';
 import type { SessionRecord } from '../record/record.js';
 import { isAgentState } from '../record/states.js';
@@ -84,8 +84,9 @@ export async function listSessions(
   const every = deps.store.readable();
   const records = every.filter(inScope);
   // Each child under where it reports now (familyOf): a resumed or handed-off parent's successor.
-  const parentNow = familyOf(every);
-  const parents = new Map(every.flatMap((r) => (r.parent ? [[r.id, parentNow(r)] as const] : [])));
+  const parents = new Map(
+    withParentsNow(every).flatMap((r) => (r.parent ? [[r.id, r.parentNow ?? null] as const] : [])),
+  );
   const children = new Map<string, string[]>();
   for (const [id, parent] of parents) {
     if (!parent) continue;
@@ -145,7 +146,7 @@ export async function listSessions(
       });
       const kept = takenOver(found, holders);
       const reportsTo = parents.get(found.id);
-      const placed = reportsTo ? { ...base, parentNow: reportsTo } : base;
+      const placed = reportsTo === undefined ? base : { ...base, parentNow: reportsTo };
       const row = kept.length ? { ...placed, takenOver: kept } : placed;
       // A live session's readings (context use, branch, folder) are read on every look while it
       // works, as a turn can move it (EnterWorktree), and when its state just changed (a reply ends

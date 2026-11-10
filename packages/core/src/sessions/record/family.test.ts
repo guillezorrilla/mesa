@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { descendantOrder } from '../end/descendants.js';
 import { familyOf, withParentsNow } from './family.js';
 
 test('a child reports to the newest session its parent was resumed as, through a chain', () => {
@@ -45,4 +46,13 @@ test("a handoff successor reports to its predecessor's parent, and the predecess
   expect(of('w2')).toBe('lead2');
   expect(of('helper')).toBe('w3');
   expect(of('lead2')).toBeUndefined();
+});
+
+test('a handoff successor of a session with no parent reports to none, and is not its descendant', () => {
+  const records = withParentsNow([
+    { id: 'lone' },
+    { id: 'next', parent: 'lone', handoffFrom: 'lone' },
+  ]);
+  expect(records[1]).toMatchObject({ parent: 'lone', parentNow: null });
+  expect(descendantOrder(records, 'lone').map((r) => r.id)).toEqual(['lone']);
 });

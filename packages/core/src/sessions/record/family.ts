@@ -45,13 +45,17 @@ export function familyOf(records: readonly Linked[]) {
   };
 }
 
-/** `records`, each with a parent given `parentNow`, where it reports now (familyOf). */
+/**
+ * `records`, each with a parent given `parentNow`, where it reports now (familyOf): null when it
+ * reports to no session (a handoff successor of a session with no parent), never its `parent`.
+ */
 export function withParentsNow<T extends Linked>(
   records: readonly T[],
-): (T & { parentNow?: string })[] {
+): (T & { parentNow?: string | null })[] {
   const parentNow = familyOf(records);
-  return records.map((r) => {
-    const now = r.parent && parentNow(r);
-    return now ? { ...r, parentNow: now } : r;
-  });
+  return records.map((r) => (r.parent ? { ...r, parentNow: parentNow(r) ?? null } : r));
 }
+
+/** Where `record` reports now among `records` (familyOf), for one record. */
+export const parentNowOf = (records: readonly Linked[], record: Linked) =>
+  familyOf(records)(record);

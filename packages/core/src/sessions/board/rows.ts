@@ -22,9 +22,9 @@ export type ManagedRow = { hasOutputLog?: boolean } & SessionRecord &
     nativeState?: string;
     /**
      * Where it reports now (familyOf): its `parent`, or the session that parent was resumed or
-     * handed off as; none without a parent.
+     * handed off as; null when it reports to no session; none without a parent.
      */
-    parentNow?: string;
+    parentNow?: string | null;
     /** The ids of the sessions that report to it now (`parentNow`), oldest first, listed or not. */
     children: string[];
     /** Its worktrees a newer session took over (takenOver), which removing it leaves; none without. */
