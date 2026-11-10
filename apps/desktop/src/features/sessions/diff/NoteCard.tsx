@@ -4,14 +4,7 @@ import { useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { cn } from '@/lib/utils';
 import { NoteField } from './NoteField';
-
-/** What a note is on, as its card and field say it. */
-export const noteLabel = (note: { line: number; end: number }) =>
-  note.line === 0
-    ? 'File'
-    : note.end > note.line
-      ? `Lines ${note.line}-${note.end}`
-      : `Line ${note.line}`;
+import { noteLabel } from './noteLabel';
 
 /**
  * One saved note under its lines: what it is on, whether it is stale or was sent, its text, and
@@ -66,6 +59,7 @@ export function NoteCard(props: {
             label="Edit note"
             icon={Pencil}
             size="icon-xs"
+            disabled={props.busy}
             onClick={() => setEditing(true)}
           />
           <IconButton

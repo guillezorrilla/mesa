@@ -1,13 +1,8 @@
-import { ChevronDown, Play } from 'lucide-react';
+import { Play } from 'lucide-react';
 import { useState } from 'react';
+import { SplitButton } from '@/components/SplitButton';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { DropdownMenuCheckboxItem, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 
 /**
  * Starts a review: Leave as drafts unless Post now is picked in its menu for this one start, so
@@ -31,28 +26,13 @@ export function ReviewStartButton(props: {
       </Button>
     );
   return (
-    <div className="flex">
-      <Button
-        size="sm"
-        className="rounded-r-none"
-        data-testid="start-review"
-        onClick={() => props.onStart(post)}
-      >
-        <Play aria-hidden />
-        {post ? `${props.label} and post` : props.label}
-      </Button>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            size="sm"
-            className="rounded-l-none border-l border-l-primary-foreground/20 px-2"
-            aria-label="How to deliver the review"
-            data-testid="review-mode"
-          >
-            <ChevronDown aria-hidden />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+    <SplitButton
+      testId="start-review"
+      menuTestId="review-mode"
+      menuLabel="How to deliver the review"
+      onClick={() => props.onStart(post)}
+      menu={
+        <>
           <DropdownMenuLabel>Deliver the review</DropdownMenuLabel>
           <DropdownMenuCheckboxItem
             data-testid="review-mode-drafts"
@@ -72,8 +52,11 @@ export function ReviewStartButton(props: {
           {props.noPost && (
             <p className="max-w-56 px-2 pb-1.5 text-muted-foreground text-xs">{props.noPost}</p>
           )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+        </>
+      }
+    >
+      <Play aria-hidden />
+      {post ? `${props.label} and post` : props.label}
+    </SplitButton>
   );
 }

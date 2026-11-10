@@ -261,7 +261,7 @@ function notesBridge() {
     args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
   return fakeBridge({
     diff: diff({}),
-    'review notes': () => envelope(notes),
+    'review notes': () => envelope(structuredClone(notes)),
     'review notes add': (args) => {
       const line = Number(flag(args, 'line'));
       const note = {

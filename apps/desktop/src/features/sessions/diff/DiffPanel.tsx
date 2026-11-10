@@ -58,8 +58,7 @@ export function DiffPanel(props: {
   const seenState = useRef<string | undefined>(props.state);
   // biome-ignore lint/correctness/useExhaustiveDependencies: only a new session state reads again.
   useEffect(() => {
-    if (seenState.current !== undefined && props.state !== seenState.current)
-      void changes.refresh();
+    if (seenState.current !== undefined && props.state !== seenState.current) refresh();
     seenState.current = props.state;
   }, [props.state]);
   // Hidden while another session is selected (SidePanels): showing it again reads anew
@@ -77,6 +76,11 @@ export function DiffPanel(props: {
   const { file } = view;
   const notes = useDiffNotes(props.sessionId);
   const lineNotes = useLineNotes(file?.path, file?.rows ?? [], notes);
+  // The notes are read with the diff, so a note whose lines changed shows it.
+  const refresh = () => {
+    void changes.refresh();
+    void notes.refresh();
+  };
   // The branch the diff read, as the board's may lag a move; the main checkout keeps its name.
   const label = props.branch ? (data?.branch ?? props.branch) : 'This checkout';
   const added = files.reduce((sum, each) => sum + each.added, 0);
@@ -140,7 +144,7 @@ export function DiffPanel(props: {
             icon={RefreshCw}
             disabled={changes.busy}
             className={cn(changes.busy && '[&_svg]:animate-spin')}
-            onClick={() => void changes.refresh()}
+            onClick={refresh}
           />
           <DiffViewToggles view={view} />
           <IconButton
@@ -185,11 +189,11 @@ export function DiffPanel(props: {
           before={lineNotes.before}
           slots={lineNotes.slots}
           actions={
-            file.status !== 'D' && (
-              <>
-                <Button variant="ghost" size="xs" onClick={lineNotes.addFileNote}>
-                  <MessageSquarePlus aria-hidden /> Add file note
-                </Button>
+            <>
+              <Button variant="ghost" size="xs" onClick={lineNotes.addFileNote}>
+                <MessageSquarePlus aria-hidden /> Add file note
+              </Button>
+              {file.status !== 'D' && (
                 <Button
                   variant="ghost"
                   size="xs"
@@ -204,8 +208,8 @@ export function DiffPanel(props: {
                 >
                   <SquareArrowOutUpRight aria-hidden /> Open in editor
                 </Button>
-              </>
-            )
+              )}
+            </>
           }
         />
       )}
