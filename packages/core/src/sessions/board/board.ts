@@ -1,5 +1,6 @@
+import { AGENTS } from '../../agents/agents.js';
 import type { AgentProcess } from '../../agents/listing.js';
-import type { Agent } from '../../agents/names.js';
+import { AGENT_NAMES, type Agent } from '../../agents/names.js';
 import type { FaroProfile } from '../../decisions/decide.js';
 import type { DecisionRecorder } from '../../decisions/types.js';
 import type { Clock } from '../../lib/clock.js';
@@ -87,7 +88,8 @@ export async function listSessions(
     if (children.has(r.parent)) children.get(r.parent)?.push(r.id);
     else children.set(r.parent, [r.id]);
   }
-  // One tmux look and one listing for the whole board, side by side, rather than one per record.
+  // One tmux look and one listing for the whole board, rather than one per record; the listing
+  // after the look, which says whether it is needed.
   // The look sets the pane-died hook first, so a server an older mesa started gets it; it never
   // starts a server. ponytail: two tmux calls in a row per look (about 8 ms); chain the hook into
   // list-windows if looks ever need to be faster.
@@ -96,21 +98,29 @@ export async function listSessions(
     if (every.length) await deps.tmux.setPaneDiedHook();
     return records.length ? deps.tmux.listWindows() : [];
   };
-  // Read once per look: the hooks settle whether Claude's listing runs, and then each row.
+  // Read once per look: the hooks settle which listings run, and then each row.
   const logs = new Map<string, HookEvent[]>();
   const events = (id: string) => logs.get(id) ?? logs.set(id, deps.events(id)).get(id) ?? [];
-  // Claude's listing (0.14 to 0.22 s) runs only when some live Claude session's latest hook is
-  // stale or a wait; while every one is fresh, the last listing does for foreign rows (#896).
-  const live = records.filter(
-    (r) => r.agent === 'claude' && !r.endedAt && isAgentState(r.lastState.state),
-  );
-  const settled =
-    live.length > 0 &&
-    live.every((r) => hookSettles('claude', stateEvent('claude', events(r.id)), now));
-  const [listed, windowList] = await Promise.all([
-    deps.listing(settled ? ['claude'] : []),
-    windowsNow(),
-  ]);
+  const windowList = await windowsNow();
+  const live = new Set(windowList.filter((w) => !w.dead).map(targetLabel));
+  // A costly listing (Claude's) is reused from the last look while every live session of its agent
+  // has a running window and a fresh hook that is not a wait; a board with none of them lists, for
+  // the foreign rows it gives (#896).
+  const reuse = AGENT_NAMES.filter((agent) => {
+    if (!AGENTS[agent].listing.costly) return false;
+    const running = records.filter(
+      (r) => r.agent === agent && !r.endedAt && isAgentState(r.lastState.state),
+    );
+    return (
+      running.length > 0 &&
+      running.every(
+        (r) =>
+          live.has(targetLabel(windowOf(r))) &&
+          hookSettles(agent, stateEvent(agent, events(r.id)), now),
+      )
+    );
+  });
+  const listed = await deps.listing(reuse);
   const elsewhere = deps.elsewhere();
   const held = new Set([...every.flatMap((r) => r.agentSessionId ?? []), ...elsewhere]);
   const read = ownSessionIds(deps, records, held);

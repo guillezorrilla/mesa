@@ -1,7 +1,8 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { keptListing, listAgentProcesses } from '../../agents/listing.js';
+import { keptListing } from '../../agents/kept-listing.js';
+import { listAgentProcesses } from '../../agents/listing.js';
 import {
   fakeTmux,
   fixedClock,
@@ -813,23 +814,34 @@ test("Claude's listing runs only when some live Claude session's hook is stale o
   expect(listings()).toBe(3);
 });
 
-test('a kept listing serves its agents only while young; a foreign row stays meanwhile', async () => {
-  const { run, calls } = scriptedRunner({ claude: JSON.stringify([SPIKE_LISTING.idle]) });
-  let now = '2026-09-24T12:00:00.000Z';
-  const deps = listingDeps(run, { clock: () => new Date(now) });
-  const listing = keptListing({
-    ...deps,
-    file: join(tempDir(), 'listing.json'),
-    maxAgeMs: FRESH_MS,
-  });
-  const first = await listing([]);
-  expect(first).toHaveLength(1);
-  // Reused: the same foreign process, no new run.
-  now = '2026-09-24T12:00:59.000Z';
-  expect(await listing(['claude'])).toEqual(first);
+test('a live Claude session whose window died lists, though its hook is fresh', async () => {
+  const store = storeIn();
+  store.create(() => inWindow('lantern-cove', '2026-09-24T11:00:00.000Z', 'claude-aaaaaa'));
+  const { run, calls } = scriptedRunner({ claude: JSON.stringify([]) });
+  const clock = fixedClock('2026-09-24T12:00:00.000Z');
+  const file = join(tempDir(), 'listing.json');
+  const tmux = tmuxWith(LIVE);
+  const look = () =>
+    listSessions({
+      ...noListing,
+      store,
+      tmux,
+      listing: keptListing({ ...listingDeps(run, { clock }), file, maxAgeMs: FRESH_MS }),
+      events: () => [
+        {
+          at: '2026-09-24T11:59:50.000Z',
+          agent: 'claude',
+          event: 'UserPromptSubmit',
+          payload: { hook_event_name: 'UserPromptSubmit' },
+        },
+      ],
+      clock,
+    });
+  await look();
+  await look();
   expect(calls.filter((c) => c.file === 'claude')).toHaveLength(1);
-  // Too old to reuse: listed again.
-  now = '2026-09-24T12:01:00.000Z';
-  await listing(['claude']);
+  // The agent crashed with no SessionEnd: only a listing without it says so.
+  for (const w of tmux.windows) w.dead = true;
+  await look();
   expect(calls.filter((c) => c.file === 'claude')).toHaveLength(2);
 });

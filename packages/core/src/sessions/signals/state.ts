@@ -124,11 +124,8 @@ export function stateEvent(agent: Agent, events: readonly HookEvent[]): HookEven
  */
 export function hookSettles(agent: Agent, event: HookEvent | undefined, now: Date) {
   const state = event && AGENTS[agent].hookState?.(event.event, event.payload);
-  return (
-    Boolean(state) &&
-    !WAITING_STATES.has(state as SessionState) &&
-    now.getTime() - Date.parse(event?.at ?? '') < FRESH_MS
-  );
+  if (!event || !state || WAITING_STATES.has(state)) return false;
+  return now.getTime() - Date.parse(event.at) < FRESH_MS;
 }
 
 // Attention levels, lowest first; a Score's position runs 0 (none) to 1 (urgent).

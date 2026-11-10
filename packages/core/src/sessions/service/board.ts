@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { keptListing } from '../../agents/listing.js';
+import { keptListing } from '../../agents/kept-listing.js';
 import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
 import { automaticGate } from '../../decisions/site-mode.js';
