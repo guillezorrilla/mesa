@@ -9,6 +9,8 @@ export const CAPTURE_MAX_ITEMS = 3;
 
 const text = z.string().trim().min(1);
 const unit = z.number().min(0).max(1);
+/** The path of a note this session saved that the item replaces (coveringNote's ownPath checks it). */
+const updates = text.optional();
 
 const CaptureItemSchema = z.discriminatedUnion('kind', [
   z.object({
@@ -19,8 +21,9 @@ const CaptureItemSchema = z.discriminatedUnion('kind', [
     /** Only where the Decision model scored it, as the transcript shows. */
     probabilities: z.record(z.string().min(1), unit).optional(),
     confidence: unit.optional(),
+    updates,
   }),
-  z.object({ kind: z.literal('note'), title: text, body: text }),
+  z.object({ kind: z.literal('note'), title: text, body: text, updates }),
 ]);
 export type CaptureItem = z.infer<typeof CaptureItemSchema>;
 

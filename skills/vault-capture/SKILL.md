@@ -44,6 +44,8 @@ Drop, even when it took the session real work:
 
 When the session settled several points of one design, return one decision that holds them all, not one per point.
 
+When the session changed or extended a note that an earlier capture of this same session saved, return the whole new version with `updates` set to that note's path. Before you do, `read_note` it and check that its `session` is this session's id, the one on stdin's first line; Mesa then replaces it in place. A note any other session saved is never replaced. When this session changed one of those, return a new item that links the earlier note in its rationale or body.
+
 ## Output
 
 ```json
@@ -55,4 +57,5 @@ When the session settled several points of one design, return one decision that 
 
 - `title`: a short name of 60 characters or fewer, not every detail in one sentence; Mesa names the note after it. "Tide feed answers 503 on the hour", not "The tide feed answers HTTP 503 for about ten seconds at the top of each hour while it rebuilds".
 - `decision` and `rationale`, or `body`: plain Markdown, no headings, no frontmatter, written for a reader who never saw the session.
+- `updates`: only on an item that replaces a note this session saved, as above: that note's vault path, e.g. `wiki/decisions/2026-03-02-tide-alerts-retry-three-times.md`. Mesa ignores a path to any other note and matches the item by its title instead.
 - `probabilities` and `confidence`: only for a decision the conversation shows the Decision model scored (`decision_evaluate` or `mesa decide`), copied from that answer: its probability per option and its confidence. Every other item has neither.
