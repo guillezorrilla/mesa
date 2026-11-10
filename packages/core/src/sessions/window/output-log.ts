@@ -9,6 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import { tailLines } from '../../lib/file-tail.js';
 import { type LockDeps, lockedBy, withLockSync } from '../../lib/lock-file.js';
 import { plainText } from './terminal-text.js';
 
@@ -72,24 +73,13 @@ const plainLines = (raw: string) =>
     .map((line) => line.trimEnd())
     .filter(Boolean);
 
-/** Bytes `start` to the end of `file`. */
-function readFrom(file: string, start: number, size: number) {
-  const bytes = Buffer.alloc(size - start);
-  const fd = openSync(file, 'r');
-  try {
-    return bytes.subarray(0, readSync(fd, bytes, 0, bytes.length, start));
-  } finally {
-    closeSync(fd);
-  }
-}
-
 /**
  * The last `lines` lines of session `id`'s output (every line without `lines`), as plain text:
  * escape sequences dropped (plainText), trailing spaces and blank lines too, as a TUI pads its
  * screen with them. Undefined when the session has no log: logging was off when it started, or
  * it has not started. The one reader of a session's output, for people and receipts alike. With
  * `lines` it reads only the log's end, from a whole line, 64 KB first and twice as much until
- * it holds them, so a poll of a 20 MB log reads a few KB.
+ * it holds them (tailLines), so a poll of a 20 MB log reads tens of KB.
  */
 export function outputTail(
   lock: LockDeps,
@@ -101,15 +91,11 @@ export function outputTail(
   if (!existsSync(file)) return undefined;
   cut(lock, file);
   if (lines === undefined) return plainLines(readFileSync(file, 'utf8'));
-  const { size } = statSync(file);
   for (let chunk = TAIL_BYTES; ; chunk *= 2) {
-    const start = Math.max(0, size - chunk);
-    const raw = readFrom(file, start, size);
-    // Past the start, the first line may be cut: from the first newline, or a bigger chunk.
-    const from = start === 0 ? 0 : raw.indexOf(0x0a) + 1;
-    if (start > 0 && from === 0) continue;
-    const text = plainLines(raw.subarray(from).toString('utf8'));
-    if (start === 0 || text.length >= lines) return text.slice(Math.max(0, text.length - lines));
+    const read = tailLines(file, chunk);
+    const text = plainLines(read.lines.join('\n'));
+    if (!read.truncated || text.length >= lines)
+      return text.slice(Math.max(0, text.length - lines));
   }
 }
 
