@@ -22,7 +22,7 @@ const ESCAPE_SETTLE_MS = 300;
  */
 export type StopOutcome = 'exited' | 'killed' | 'gone' | 'cancelled' | 'already-ended';
 
-type StopDeps = {
+export type StopDeps = {
   store: SessionStore;
   tmux: Pick<TmuxBackend, 'findWindow' | 'pressKey' | 'sendText' | 'killWindow'>;
   clock: Clock;
@@ -46,31 +46,37 @@ export async function stopSession(
   if (found.lastState.state === 'queued') {
     return { record: cancelQueued(deps.store, id, deps.clock()), outcome: 'cancelled' };
   }
+  const outcome = await quitAgent(deps, found, { force });
+  const at = deps.clock().toISOString();
+  const record = deps.store.update(id, (current) => ending(current, at));
+  return { record, outcome };
+}
+
+/**
+ * Quits a session's agent and closes its window, leaving its record to the caller (a stop ends
+ * it, a sleep keeps it): a Claude background process is stopped; otherwise Escape and the quit
+ * command (unless `force`), up to POLITE_WAIT_MS, then `kill-window`.
+ */
+export async function quitAgent(
+  deps: StopDeps,
+  found: SessionRecord,
+  { force = false } = {},
+): Promise<Exclude<StopOutcome, 'cancelled' | 'already-ended'>> {
   const target = windowOf(found);
   const pane = () => deps.tmux.findWindow(target);
-
-  let outcome: StopOutcome = 'gone';
   const first = await pane();
   if (found.backgroundId) {
     await stopClaudeBackground(deps.run, found.backgroundId);
     if (first) await killIfThere(deps.tmux, target);
-    const at = deps.clock().toISOString();
-    return {
-      record: deps.store.update(id, (current) => ending(current, at)),
-      outcome: 'exited',
-    };
+    return 'exited';
   }
-  if (first) {
-    if (!force && !first.dead && found.agent !== 'terminal')
-      await askToQuit(deps, target, AGENTS[found.agent], pane);
-    const last = await pane();
-    outcome = !last || last.dead ? 'exited' : 'killed';
-    // A pane that exited stays, dead, under remain-on-exit; the window goes either way.
-    if (last) await killIfThere(deps.tmux, target);
-  }
-  const at = deps.clock().toISOString();
-  const record = deps.store.update(id, (current) => ending(current, at));
-  return { record, outcome };
+  if (!first) return 'gone';
+  if (!force && !first.dead && found.agent !== 'terminal')
+    await askToQuit(deps, target, AGENTS[found.agent], pane);
+  const last = await pane();
+  // A pane that exited stays, dead, under remain-on-exit; the window goes either way.
+  if (last) await killIfThere(deps.tmux, target);
+  return !last || last.dead ? 'exited' : 'killed';
 }
 
 /**

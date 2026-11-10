@@ -142,7 +142,8 @@ export async function managedRow(
     agent: found.agent,
     background: found.background,
     last: found.lastState,
-    ended: Boolean(found.endedAt),
+    // A sleeping session's state stands, as a stopped one's does, until it wakes.
+    ended: Boolean(found.endedAt || found.sleeping),
     ...(event ? { event } : {}),
     ...(listed ? { listed } : {}),
     window: window

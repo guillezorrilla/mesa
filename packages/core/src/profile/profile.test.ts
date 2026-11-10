@@ -68,6 +68,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
       statusLineCost: false,
       prEvents: false,
       childReports: true,
+      sleepAfterMinutes: 0,
       guidelines: true,
       keepAwake: 'off',
     },

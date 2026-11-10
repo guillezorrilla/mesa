@@ -280,6 +280,11 @@ const SessionRecordFields = z.strictObject({
   handoffFrom: z.string().regex(SHORT_ID).optional(),
   resumedFrom: z.string().optional(),
   resumedBy: z.string().optional(),
+  /**
+   * Put to sleep at `at` (CONTEXT.md, Sleeping session): its agent quit to free its process, the
+   * record kept as it was, until `mesa wake` resumes the conversation in the same session.
+   */
+  sleeping: z.strictObject({ at: z.string() }).optional(),
 });
 
 /**

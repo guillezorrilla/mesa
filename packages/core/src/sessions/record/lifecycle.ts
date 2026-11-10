@@ -12,7 +12,10 @@ export const isOver = (r: Pick<SessionRecord, 'endedAt' | 'lastState'>) =>
   Boolean(r.endedAt) || FINAL_STATES.has(r.lastState.state);
 
 /** Its agent has exited: stopped, its window gone, or its pane dead (done or failed). */
-export const exited = (s: SessionRow) => !s.alive || FINAL_STATES.has(s.lastState.state);
+export const exited = (s: SessionRow) =>
+  !asleep(s) && (!s.alive || FINAL_STATES.has(s.lastState.state));
+/** A Mesa session put to sleep: no agent runs, but it has not exited (CONTEXT.md, Sleeping session). */
+export const asleep = (s: SessionRow) => s.managed && Boolean(s.sleeping);
 /** A Mesa session waiting to start (mesa open --after): a Stop cancels it. */
 export const queued = (s: SessionRow) => s.managed && s.lastState.state === 'queued';
 /** A running or queued Mesa session shown in the Sessions tab. */

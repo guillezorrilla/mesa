@@ -20,6 +20,7 @@ import { useStartSession } from '@/features/sessions/start/useStartSession';
 import { type IdleDeliveryCommand, useIdleDelivery } from '@/features/sessions/useIdleDelivery';
 import { useKeepAwake } from '@/features/sessions/useKeepAwake';
 import { useRestoreSessions } from '@/features/sessions/useRestoreSessions';
+import { useSleepIdle } from '@/features/sessions/useSleepIdle';
 import { UnreadContext, useUnread } from '@/features/sessions/useUnread';
 import { OpenSettingsContext } from '@/features/settings/useOpenSettings';
 import { useCostAlerts } from '@/features/usage/useCostAlerts';
@@ -145,6 +146,7 @@ function AppShell() {
   if (config.data?.sessions?.childReports) delivery.push('reports.deliver');
   useIdleDelivery(delivery, sessions);
   const awake = useKeepAwake(config.data?.sessions?.keepAwake, sessions);
+  useSleepIdle(view, config.data?.sessions?.sleepAfterMinutes);
   const linkGuidance = useMesaLinks({
     session: (id) => navigateLatest({ kind: 'session', id }),
     clone: (url) => {

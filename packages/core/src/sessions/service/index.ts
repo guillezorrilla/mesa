@@ -6,6 +6,7 @@ import { gridActions, type SetConfig } from './grid.js';
 import { inputActions } from './input.js';
 import { inspectActions } from './inspect.js';
 import { lifecycleActions } from './lifecycle.js';
+import { sleepActions } from './sleep.js';
 import { windowActions } from './windows.js';
 
 /**
@@ -30,6 +31,7 @@ export function sessionsService(
       ...lifecycle,
       ...continued,
       ...windowActions(ctx, deps),
+      ...sleepActions(ctx, deps),
     },
     hookEvent: deps.ends.hookEvent,
     antigravityInstruction: deps.ends.antigravityInstruction,
