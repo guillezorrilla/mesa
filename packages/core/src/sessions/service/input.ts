@@ -167,7 +167,13 @@ export function inputActions(ctx: MesaContext, faro: Faro, deps: SessionDeps) {
         );
         if (delivery.status !== 'delivered') return { sent: [] as string[], stale, delivery };
         const sent = ready.map((n) => n.id);
-        notes.markSent(sent);
+        try {
+          notes.markSent(ready);
+        } catch (error) {
+          // Delivered already: a retry finds the batch delivered and marks them then.
+          const warning = `Notes were sent, but could not be marked sent: ${String(error)}. Do not retry.`;
+          return { sent, stale, delivery: { ...delivery, warning } };
+        }
         return { sent, stale, delivery };
       },
     },

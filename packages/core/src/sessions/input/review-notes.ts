@@ -239,10 +239,11 @@ export function reviewNotes(deps: NotesDeps, session: string) {
         stale: unsent.filter((n) => n.stale).map((n) => n.id),
       };
     },
-    /** Marks the notes `ids` sent now. */
-    markSent: (ids: readonly string[]) => {
+    /** Marks `sent` sent now; a note edited since keeps its new, unsent text. */
+    markSent: (sent: readonly ReviewNote[]) => {
       const at = deps.clock().toISOString();
-      change((notes) => notes.map((n) => (ids.includes(n.id) ? { ...n, sentAt: at } : n)));
+      const texts = new Map(sent.map((n) => [n.id, n.text]));
+      change((notes) => notes.map((n) => (texts.get(n.id) === n.text ? { ...n, sentAt: at } : n)));
     },
     remove: (id: string): { id: string } => {
       change((notes) => {

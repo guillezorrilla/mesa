@@ -107,8 +107,9 @@ export const reviewNotesSend = defineCommand({
     const what = !data.delivery
       ? 'No unsent notes to send'
       : data.sent.length
-        ? `Sent ${data.sent.length} notes to ${args.session}`
+        ? `${data.delivery.already ? 'Already sent' : 'Sent'} ${data.sent.length} notes to ${args.session}`
         : `${data.delivery.status}: ${data.delivery.reason ?? 'nothing marked sent'}`;
-    return { data, text: `${what}${left}` };
+    const warning = data.delivery?.warning ? `\n${data.delivery.warning}` : '';
+    return { data, text: `${what}${left}${warning}` };
   },
 });
