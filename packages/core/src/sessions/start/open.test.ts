@@ -624,15 +624,32 @@ test('a goal opened by another session ends with the worker brief; none without 
   const explicit = (await mesa.sessions.open('lantern-cove', { goal: 'Check', parent: child.id }))
     .result;
   expect(explicit.goal).toContain(`started by session ${child.id}`);
-  for (const opts of [
-    { goal: 'Alone', noParent: true },
-    { goal: '/review 12' },
-    { goal: 'Review what it did', after: child.id },
-  ]) {
+  for (const opts of [{ goal: 'Alone', noParent: true }, { goal: '/review 12' }]) {
     const { result } = await inside.sessions.open('lantern-cove', opts);
     expect(result.brief).toBeUndefined();
     expect(result.goal).toBe(opts.goal);
   }
+  // Queued from inside a, after its worker: a's child, briefed, not the child of the one it waits on.
+  const next = (await inside.sessions.open('lantern-cove', { goal: 'Review it', after: child.id }))
+    .result;
+  expect(next).toMatchObject({ parent: a.id, after: child.id, brief: true });
+  expect(next.goal).toBe(`Review it\n\n${workerBrief(a.id)}`);
+  // Outside a Mesa window, the session it waits on is its parent, and it is not briefed.
+  const outside = (await mesa.sessions.open('lantern-cove', { goal: 'Then', after: child.id }))
+    .result;
+  expect(outside).toMatchObject({ parent: child.id, after: child.id });
+  expect(outside.brief).toBeUndefined();
+  // --parent and --no-parent still win inside a window.
+  const given = (
+    await inside.sessions.open('lantern-cove', { goal: 'Hers', after: child.id, parent: child.id })
+  ).result;
+  expect(given).toMatchObject({ parent: child.id, brief: true });
+  expect(given.goal).toContain(`started by session ${child.id}`);
+  const alone = (
+    await inside.sessions.open('lantern-cove', { goal: 'Alone', after: child.id, noParent: true })
+  ).result;
+  expect(alone.parent).toBeUndefined();
+  expect(alone.brief).toBeUndefined();
   // A queued start keeps the brief its record was written with.
   const queued = (
     await inside.sessions.open('lantern-cove', { goal: 'Then this', after: child.id, parent: a.id })
