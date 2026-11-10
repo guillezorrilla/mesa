@@ -395,6 +395,48 @@ test('another decision with the same title on the same day gets its own note, ne
   expect(w.receipts()).toHaveLength(3);
 });
 
+test('a long title names its note cut at a word within 80 characters, accents folded', async () => {
+  const w = world();
+  const { vault } = w.mesa();
+  const title =
+    'The harbour tide feed answers 503 for about ten seconds while it rebuilds its café cache on the hour';
+  const { result } = await vault.saveNote({ project: 'lantern-cove', title, body: 'Retry.' });
+  expect(result.path).toBe(
+    'wiki/notes/the-harbour-tide-feed-answers-503-for-about-ten-seconds-while-it-rebuilds-its.md',
+  );
+  const decision = await vault.saveDecision({ ...tide, title });
+  expect(decision.result.path).toBe(
+    'wiki/decisions/2026-09-24-the-harbour-tide-feed-answers-503-for-about-ten-seconds-while-it-rebuilds-its.md',
+  );
+  const one = await vault.saveNote({ project: 'lantern-cove', title: 'x'.repeat(90), body: 'X.' });
+  expect(one.result.path).toBe(`wiki/notes/${'x'.repeat(80)}.md`);
+});
+
+test('saving again a note an older Mesa named mid-word updates that note, adding none', async () => {
+  const w = world();
+  const { vault } = w.mesa();
+  const title =
+    'The harbour tide feed answers 503 for about ten seconds while it rebuilds its cache on the hour';
+  const old =
+    'wiki/notes/the-harbour-tide-feed-answers-503-for-about-ten-seconds-while-it-rebuilds-its-ca.md';
+  w.put(old, `---\nsource: mesa\ntype: note\nproject: lantern-cove\n---\n# ${title}\n\nRetry.\n`);
+  const { result } = await vault.saveNote({
+    project: 'lantern-cove',
+    title,
+    body: 'Retry after 15 s.',
+  });
+  expect(result).toEqual({ path: old, changed: true });
+  expect(w.read(old)).toContain('Retry after 15 s.');
+  expect(
+    existsSync(
+      join(
+        w.vault,
+        'wiki/notes/the-harbour-tide-feed-answers-503-for-about-ten-seconds-while-it-rebuilds-its.md',
+      ),
+    ),
+  ).toBe(false);
+});
+
 test('session writes enforce the canonical project folder, while own-project aliases work', async () => {
   const w = world();
   const vault = w.mesa({ MESA_SESSION_ID: w.session, MESA_PROFILE: 'default' }).vault;
