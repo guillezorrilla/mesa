@@ -2,7 +2,6 @@ import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
 import type { Guarded, Overrides } from '../../decisions/guardrail.js';
 import type { DecisionRecorder } from '../../decisions/types.js';
-import { MesaError } from '../../lib/result.js';
 import { resolveCheckout } from '../../projects/checkout.js';
 import { receiptText } from '../../receipts/command.js';
 import { openBrowserExternal } from '../input/browser-address.js';
@@ -18,10 +17,9 @@ import { type ReviewNoteInput, reviewNotes } from '../input/review-notes.js';
 import { sendReview } from '../input/reviews.js';
 import { sendPrompt } from '../input/send.js';
 import { previewResponseReview, sessionResponses } from '../native/responses.js';
-import { sessionFolder } from '../record/folder.js';
 import { projectScope } from '../record/general.js';
 import { recordAgent } from '../record/record.js';
-import { refreshReadings } from '../signals/readings.js';
+import { workingFolder } from '../signals/readings.js';
 import type { SessionDeps } from './deps.js';
 
 /**
@@ -33,9 +31,7 @@ export function inputActions(ctx: MesaContext, faro: Faro, deps: SessionDeps) {
   const { caller, ensureBackgroundView, contextDeps } = deps;
   /** A session's review notes, read against the checkout its agent works in now. */
   const notesOf = (id: string) => {
-    const found = refreshReadings(contextDeps, store.get(id));
-    const project = projectScope(found.project);
-    if (!project) throw new MesaError('usage', 'a General session has no diff to note');
+    const { project, folder } = workingFolder(contextDeps, id);
     return reviewNotes(
       {
         dir: ctx.paths.reviewNotes,
@@ -43,7 +39,7 @@ export function inputActions(ctx: MesaContext, faro: Faro, deps: SessionDeps) {
         clock: ctx.clock,
         newId: ctx.newId,
         run: ctx.run,
-        checkout: () => resolveCheckout(ctx.open(), ctx.run, project, sessionFolder(found)),
+        checkout: () => resolveCheckout(ctx.open(), ctx.run, project, folder),
       },
       id,
     );

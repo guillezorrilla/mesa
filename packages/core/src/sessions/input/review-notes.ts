@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { z } from 'zod';
-import { readWorkspaceFile } from '../../files/editor.js';
-import { gitCommand } from '../../git/command.js';
+import { readWorkspaceFile, textOf } from '../../files/editor.js';
+import { mustGit } from '../../git/command.js';
 import { literalPath, relativeFilePath } from '../../git/path.js';
 import type { Clock } from '../../lib/clock.js';
 import { type IdSource, shortId } from '../../lib/ids.js';
@@ -59,17 +59,14 @@ async function readNoteFile(
   scope: NoteScope,
   path: string,
 ): Promise<NoteFile | undefined> {
-  const git = async (args: string[]) => {
-    const r = await gitCommand(run, checkout.path, args);
-    if (!r.ok) throw new MesaError('usage', `cannot read ${path} from Git: ${r.detail}`);
-    return r.stdout;
-  };
+  const git = (args: string[]) => mustGit(run, checkout.path, args, `cannot read ${path} from Git`);
   if (scope === 'staged') {
     const entry = (await git(['ls-files', '--stage', '-z', '--', literalPath(path)])).match(
       /^\d+ ([0-9a-f]{40,64}) 0\t/,
     );
     if (!entry) return undefined;
-    return { text: await git(['cat-file', 'blob', entry[1] as string]), blob: entry[1] as string };
+    const blob = entry[1] as string;
+    return { text: textOf(Buffer.from(await git(['cat-file', 'blob', blob])), path), blob };
   }
   let text: string;
   try {
@@ -106,6 +103,8 @@ function placed(note: ReviewNote, file: NoteFile | undefined): ListedNote {
   const span = note.end - note.line + 1;
   const at = (start: number) => lines.slice(start, start + span).join('\n') === note.quoted;
   if (at(note.line - 1)) return { ...note, stale: false };
+  // A blank quote would match every blank line; it only stays where it was.
+  if (!note.quoted.trim()) return { ...note, stale: true };
   const found = lines.flatMap((_, start) => (at(start) ? [start] : []));
   return found.length === 1
     ? { ...note, line: (found[0] as number) + 1, end: (found[0] as number) + span, stale: false }
@@ -125,7 +124,7 @@ export function reviewNotes(deps: NotesDeps, session: string) {
   };
   const change = (fn: (notes: ReviewNote[]) => ReviewNote[]) =>
     changeJson(file, Notes, (current) => ({ notes: fn(current?.notes ?? []) }), deps.lock).notes;
-  const find = (notes: ReviewNote[], id: string) => {
+  const mustHave = (notes: ReviewNote[], id: string) => {
     if (!notes.some((n) => n.id === id))
       throw new MesaError('not_found', `session ${session} has no review note ${id}`);
   };
@@ -181,7 +180,7 @@ export function reviewNotes(deps: NotesDeps, session: string) {
     edit: (id: string, text: string): ReviewNote => {
       checkedText(text);
       const notes = change((notes) => {
-        find(notes, id);
+        mustHave(notes, id);
         return notes.map((n) => {
           if (n.id !== id) return n;
           const { sentAt: _sent, ...rest } = n;
@@ -192,7 +191,7 @@ export function reviewNotes(deps: NotesDeps, session: string) {
     },
     remove: (id: string): { id: string } => {
       change((notes) => {
-        find(notes, id);
+        mustHave(notes, id);
         return notes.filter((n) => n.id !== id);
       });
       return { id };

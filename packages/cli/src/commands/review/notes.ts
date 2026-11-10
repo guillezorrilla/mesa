@@ -1,4 +1,4 @@
-import type { NoteScope } from '@mesa/core';
+import { MesaError, type NoteScope } from '@mesa/core';
 import { defineCommand } from '../../command.js';
 
 const where = (n: { path: string; line: number; end: number }) =>
@@ -41,15 +41,19 @@ export const reviewNotesAdd = defineCommand({
     scope: {
       type: 'string',
       description:
-        'branch (default: the Session diff against its base), working (unstaged) or staged',
+        'branch (default: the Session diff against its base), working (the working tree) or staged (the index)',
     },
   },
   example: 'mesa review notes add a1b2c3d4 --path src/app.ts --line 3 --end 5 --text "rename"',
   run: async ({ mesa, args, flags }) => {
+    const whole = (flag: string, value: string) => {
+      if (!/^\d+$/.test(value)) throw new MesaError('usage', `--${flag} must be a whole number`);
+      return Number(value);
+    };
     const data = await mesa.sessions.notes.add(args.session, {
       path: flags.path,
-      line: Number(flags.line),
-      ...(flags.end === undefined ? {} : { end: Number(flags.end) }),
+      line: whole('line', flags.line),
+      ...(flags.end === undefined ? {} : { end: whole('end', flags.end) }),
       text: flags.text,
       ...(flags.scope ? { scope: flags.scope as NoteScope } : {}),
     });

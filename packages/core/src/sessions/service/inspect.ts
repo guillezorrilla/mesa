@@ -16,12 +16,11 @@ import { searchConversations } from '../native/search.js';
 import { vaultStatus } from '../native/vault-status.js';
 import { applyEach } from '../record/each.js';
 import { renameSession, setWorkflowStatus } from '../record/edits.js';
-import { sessionFolder } from '../record/folder.js';
 import { projectScope } from '../record/general.js';
 import { recordAgent, type SessionRecord } from '../record/record.js';
 import { markRead, markUnread } from '../record/unread.js';
 import { readHookEvents } from '../signals/hook-events.js';
-import { refreshReadings } from '../signals/readings.js';
+import { refreshReadings, workingFolder } from '../signals/readings.js';
 import { sessionGoal } from '../start/goal.js';
 import { sessionLog } from '../window/output-log.js';
 import type { continueActions } from './continue.js';
@@ -152,12 +151,8 @@ export function inspectActions(
      * there (recordedBase), else the project's default.
      */
     diff: async (id: string, base?: string) => {
-      const found = refreshReadings(contextDeps, store.get(id));
-      const project = projectScope(found.project);
-      if (!project)
-        throw new MesaError('usage', 'a General session has no project checkout to diff');
+      const { found, project, folder } = workingFolder(contextDeps, id);
       const { worktree } = found;
-      const folder = sessionFolder(found);
       return readBranchDiff(
         ctx.open(),
         ctx.run,
