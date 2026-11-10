@@ -20,6 +20,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     registry: '/h/.mesa/work/registry.yaml',
     sessions: '/h/.mesa/work/sessions',
     events: '/h/.mesa/work/sessions/events',
+    listing: '/h/.mesa/work/sessions/listing.json',
     logs: '/h/.mesa/work/sessions/logs',
     runs: '/h/.mesa/work/sessions/runs',
     costs: '/h/.mesa/work/sessions/costs',

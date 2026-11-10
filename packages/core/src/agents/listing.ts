@@ -33,10 +33,13 @@ export type AgentProcess = {
 /** What the listings read: Claude Code's runs `claude agents`, Codex's reads `$CODEX_HOME`. */
 export type ListingDeps = { run: Runner; env: Env; home: string; clock: Clock };
 
-/** Every agent's listed sessions; an agent whose listing fails lists none. */
-export async function listAgentProcesses(deps: ListingDeps): Promise<AgentProcess[]> {
+/** Every agent's listed sessions, or only `agents`'; an agent whose listing fails lists none. */
+export async function listAgentProcesses(
+  deps: ListingDeps,
+  agents: readonly Agent[] = AGENT_NAMES,
+): Promise<AgentProcess[]> {
   const lists = await Promise.all(
-    AGENT_NAMES.map(async (a) => {
+    agents.map(async (a) => {
       try {
         return await AGENTS[a].listing.list(deps);
       } catch {

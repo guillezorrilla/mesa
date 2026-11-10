@@ -181,8 +181,11 @@ export const AGENTS = {
     stopContinues: true,
     /** Its pane's screen: the state it shows, and the board's last output line. */
     screen: { state: claudeScreenState, lastLine: claudeLastOutputLine },
-    /** Its live sessions on the machine, and the state each listed status means. */
-    listing: { list: listClaudeProcesses, state: claudeListedState },
+    /**
+     * Its live sessions on the machine, and the state each listed status means. `costly`: a
+     * process spawn (0.14 to 0.22 s), so a look skips it while hooks settle every session (#896).
+     */
+    listing: { list: listClaudeProcesses, state: claudeListedState, costly: true },
     /** A session's context use, from its transcript. */
     context: claudeContext,
     /** Its native conversations: each one's transcript, name, first prompt, and messages. */
@@ -251,7 +254,7 @@ export const AGENTS = {
     stopContinues: true,
     screen: { state: codexScreenState, lastLine: codexLastOutputLine },
     /** Its sessions written in the last 10 minutes, whose rows say no state. */
-    listing: { list: listCodexSessions, state: () => undefined },
+    listing: { list: listCodexSessions, state: () => undefined, costly: false },
     /** Last native per-turn token usage and context window from the exact rollout. */
     context: codexContext,
     transcripts: codexTranscriptReader,
@@ -299,7 +302,7 @@ export const AGENTS = {
     backgroundWork: undefined,
     stopContinues: false,
     screen: { state: antigravityScreenState, lastLine: antigravityLastOutputLine },
-    listing: { list: async () => [], state: () => undefined },
+    listing: { list: async () => [], state: () => undefined, costly: false },
     context: undefined,
     transcripts: undefined,
     usage: undefined,

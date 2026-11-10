@@ -8,6 +8,7 @@ import type { SystemOneProvider } from '../../decisions/systemone.js';
 import type { Decision, Question } from '../../decisions/types.js';
 import type { SessionRecord } from '../record/record.js';
 import { FINAL_STATES, type SessionState, WAITING_STATES } from '../record/states.js';
+import { type HookEvent, parentHook } from './hook-events.js';
 
 type LastState = SessionRecord['lastState'];
 
@@ -35,7 +36,8 @@ export type SessionSignals = {
   priority: number;
 };
 
-const FRESH_MS = 60_000;
+/** A hook younger than this settles a session's state without the listing (#896). */
+export const FRESH_MS = 60_000;
 /** The listing trails a hook by about 0.3 s (the spike): a newer wait does not yield to it. */
 const LISTING_LAG_MS = 2_000;
 /**
@@ -103,6 +105,27 @@ export function classify(s: SessionSignals): LastState {
   const fromTail = s.tail === undefined ? undefined : reader.screen.state(s.tail);
   if (fromTail) return seen(fromTail, TAIL, 'tmux');
   return s.last;
+}
+
+/**
+ * The hook event a session's state reads from: its latest parent state hook, by `at`; an
+ * idle_prompt Notification repeats the Stop before it, whose payload names the work still running.
+ */
+export function stateEvent(agent: Agent, events: readonly HookEvent[]): HookEvent | undefined {
+  const reader = AGENTS[agent];
+  const states = events.filter((e) => parentHook(e) && reader.hookState?.(e.event, e.payload));
+  const [before, latest] = states.slice(-2);
+  return latest?.event === 'Notification' && before?.event === 'Stop' ? before : states.at(-1);
+}
+
+/**
+ * Whether `event` alone settles the state at `now`, so the listing cannot change it: fresh, and
+ * not a wait, which a later listing may show the agent moved on from (a denial fires no hook).
+ */
+export function hookSettles(agent: Agent, event: HookEvent | undefined, now: Date) {
+  const state = event && AGENTS[agent].hookState?.(event.event, event.payload);
+  if (!event || !state || WAITING_STATES.has(state)) return false;
+  return now.getTime() - Date.parse(event.at) < FRESH_MS;
 }
 
 // Attention levels, lowest first; a Score's position runs 0 (none) to 1 (urgent).

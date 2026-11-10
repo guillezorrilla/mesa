@@ -142,3 +142,7 @@ ADR-0020 removed the adapter backend. The rules' reading is the session's state,
 ## Amendment 2026-11-10: async hooks, events ordered by `at` (#894)
 
 Claude Code runs the hooks whose output Mesa never returns (PostToolUse, Notification, SubagentStart, SubagentStop) with `async: true`, so the agent no longer waits about 0.13 s of Node on each. Their lines can land after a later event's, so a line's `at` is when its hook process started, and `readHookEvents` returns events ordered by `at` rather than file order. PermissionRequest, which blocks on a person anyway, and SessionEnd, which must finish before Claude exits, stay synchronous with SessionStart, UserPromptSubmit, PreToolUse and Stop.
+
+## Amendment 2026-11-10: the listing only when hooks cannot settle it (#896)
+
+A look runs Claude Code's listing only when some live Claude session has no running window, or its latest hook is older than `FRESH_MS` (60 s) or is a wait, which a denial ends with no hook. Otherwise the last listing, kept in `sessions/listing.json` and reused while under `FRESH_MS` old, gives foreign rows, pids and names, so a /rename or a foreign session can show up to a minute late. A board with no live Claude session always lists, as foreign rows have no other signal. Codex's listing reads files and always runs. Which listing is costly is the agent's (`AGENTS[agent].listing.costly`). States and confidences are unchanged.

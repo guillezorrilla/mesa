@@ -1,4 +1,6 @@
+import { AGENTS } from '../../agents/agents.js';
 import type { AgentProcess } from '../../agents/listing.js';
+import { AGENT_NAMES, type Agent } from '../../agents/names.js';
 import type { FaroProfile } from '../../decisions/decide.js';
 import type { DecisionRecorder } from '../../decisions/types.js';
 import type { Clock } from '../../lib/clock.js';
@@ -6,9 +8,11 @@ import type { Env } from '../../lib/process.js';
 import type { RegistryEntry } from '../../projects/registry.js';
 import { takenOver, worktreeHolders } from '../record/holders.js';
 import type { SessionRecord } from '../record/record.js';
+import { isAgentState } from '../record/states.js';
 import type { SessionStore } from '../record/store.js';
 import type { HookEvent } from '../signals/hook-events.js';
 import { refreshReadings } from '../signals/readings.js';
+import { hookSettles, stateEvent } from '../signals/state.js';
 import type { TmuxBackend } from '../tmux/backend.js';
 import { targetLabel } from '../tmux/format.js';
 import { windowOf } from '../window/window-name.js';
@@ -47,7 +51,8 @@ export async function listSessions(
   deps: {
     store: SessionStore;
     tmux: Pick<TmuxBackend, 'setPaneDiedHook' | 'listWindows' | 'capturePane'>;
-    listing: () => Promise<AgentProcess[]>;
+    /** Every agent's listed sessions; those of `reuse` may come from the last listing (#896). */
+    listing: (reuse: readonly Agent[]) => Promise<AgentProcess[]>;
     /** The session's hook events, oldest first. */
     events: (id: string) => HookEvent[];
     /** A project's priority from its mesa.yaml (0.5 when unknown). */
@@ -83,7 +88,8 @@ export async function listSessions(
     if (children.has(r.parent)) children.get(r.parent)?.push(r.id);
     else children.set(r.parent, [r.id]);
   }
-  // One tmux look and one listing for the whole board, side by side, rather than one per record.
+  // One tmux look and one listing for the whole board, rather than one per record; the listing
+  // after the look, which says whether it is needed.
   // The look sets the pane-died hook first, so a server an older mesa started gets it; it never
   // starts a server. ponytail: two tmux calls in a row per look (about 8 ms); chain the hook into
   // list-windows if looks ever need to be faster.
@@ -92,7 +98,29 @@ export async function listSessions(
     if (every.length) await deps.tmux.setPaneDiedHook();
     return records.length ? deps.tmux.listWindows() : [];
   };
-  const [listed, windowList] = await Promise.all([deps.listing(), windowsNow()]);
+  // Read once per look: the hooks settle which listings run, and then each row.
+  const logs = new Map<string, HookEvent[]>();
+  const events = (id: string) => logs.get(id) ?? logs.set(id, deps.events(id)).get(id) ?? [];
+  const windowList = await windowsNow();
+  const live = new Set(windowList.filter((w) => !w.dead).map(targetLabel));
+  // A costly listing (Claude's) is reused from the last look while every live session of its agent
+  // has a running window and a fresh hook that is not a wait; a board with none of them lists, for
+  // the foreign rows it gives (#896).
+  const reuse = AGENT_NAMES.filter((agent) => {
+    if (!AGENTS[agent].listing.costly) return false;
+    const running = records.filter(
+      (r) => r.agent === agent && !r.endedAt && isAgentState(r.lastState.state),
+    );
+    return (
+      running.length > 0 &&
+      running.every(
+        (r) =>
+          live.has(targetLabel(windowOf(r))) &&
+          hookSettles(agent, stateEvent(agent, events(r.id)), now),
+      )
+    );
+  });
+  const listed = await deps.listing(reuse);
   const elsewhere = deps.elsewhere();
   const held = new Set([...every.flatMap((r) => r.agentSessionId ?? []), ...elsewhere]);
   const read = ownSessionIds(deps, records, held);
@@ -104,7 +132,7 @@ export async function listSessions(
   const holders = worktreeHolders(every);
   const managed = await Promise.all(
     records.map(async (found) => {
-      const base = await managedRow({ ...deps, faro }, found, {
+      const base = await managedRow({ ...deps, events, faro }, found, {
         now,
         listedAs: listedFor(found.id),
         agentSessionId: read.get(found.id),
