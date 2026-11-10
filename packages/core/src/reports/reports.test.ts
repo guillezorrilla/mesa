@@ -5,7 +5,6 @@ import { MesaError } from '../lib/result.js';
 import { listReceipts } from '../receipts/store.js';
 import type { SessionRow } from '../sessions/board/rows.js';
 import type { Sent } from '../sessions/input/send.js';
-import type { SessionRecord } from '../sessions/record/record.js';
 import { recordHookEvent } from '../sessions/signals/hook-events.js';
 import {
   lockDeps,
