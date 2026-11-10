@@ -82,14 +82,7 @@ import { rename } from './rename.js';
 import { reports } from './reports.js';
 import { resize } from './resize.js';
 import { resume } from './resume.js';
-import {
-  reviewChangePreview,
-  reviewChangeSend,
-  reviewChanges,
-  reviewPreview,
-  reviewResponses,
-  reviewSend,
-} from './review.js';
+import { REVIEW_COMMANDS } from './review/index.js';
 import { rewind } from './rewind.js';
 import { rm } from './rm.js';
 import { run } from './run.js';
@@ -223,12 +216,7 @@ export const COMMANDS: Command[] = [
   rewind,
   impact,
   impactMark,
-  reviewResponses,
-  reviewPreview,
-  reviewSend,
-  reviewChanges,
-  reviewChangePreview,
-  reviewChangeSend,
+  ...REVIEW_COMMANDS,
   resize,
   resume,
   rm,

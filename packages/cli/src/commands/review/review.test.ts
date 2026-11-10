@@ -3,7 +3,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gitRepo, plantTranscript, testEnv, withRealGit } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
-import { cliHarness } from '../testing.js';
+import { cliHarness } from '../../testing.js';
 
 const cli = cliHarness();
 beforeEach(cli.reset);
@@ -263,4 +263,51 @@ test('external browser opens only checked web URLs with literal argv', async () 
     (await cli.mesa('browser', 'external', 'file:///etc/passwd', '--json')).json,
   ).toMatchObject({ ok: false });
   expect(calls).toEqual([['/usr/bin/open', 'https://example.test/page']]);
+});
+
+test('review notes add, list, edit and remove a note on a committed line', async () => {
+  const dir = await cli.withProject();
+  writeFileSync(join(dir, 'a.ts'), 'one\n');
+  gitRepo(dir);
+  cli.withTmux();
+  cli.run = withRealGit(cli.run);
+  const opened = (await cli.mesa('open', 'lantern-cove', '--branch', 'tidy', '--json')).json.data;
+  const tree = opened.worktree.path;
+  writeFileSync(join(tree, 'a.ts'), 'one\ntwo\nthree\n');
+  execFileSync(
+    'git',
+    ['-C', tree, '-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit', '-qam', 'more'],
+    { env: testEnv },
+  );
+  const added = await cli.mesa(
+    'review',
+    'notes',
+    'add',
+    opened.id,
+    '--path',
+    'a.ts',
+    '--line',
+    '3',
+    '--text',
+    'rename',
+    '--json',
+  );
+  expect(added.json.data).toMatchObject({
+    path: 'a.ts',
+    line: 3,
+    end: 3,
+    scope: 'branch',
+    quoted: 'three',
+  });
+  const id = added.json.data.id;
+  const listed = await cli.mesa('review', 'notes', opened.id, '--json');
+  expect(listed.json.data).toEqual([
+    expect.objectContaining({ id, quoted: 'three', stale: false }),
+  ]);
+  expect(
+    (await cli.mesa('review', 'notes', 'edit', opened.id, id, '--text', 'tidy', '--json')).json
+      .data,
+  ).toMatchObject({ id, text: 'tidy' });
+  await cli.mesa('review', 'notes', 'remove', opened.id, id, '--json');
+  expect((await cli.mesa('review', 'notes', opened.id, '--json')).json.data).toEqual([]);
 });

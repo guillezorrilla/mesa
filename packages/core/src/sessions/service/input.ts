@@ -2,6 +2,8 @@ import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
 import type { Guarded, Overrides } from '../../decisions/guardrail.js';
 import type { DecisionRecorder } from '../../decisions/types.js';
+import { MesaError } from '../../lib/result.js';
+import { resolveCheckout } from '../../projects/checkout.js';
 import { receiptText } from '../../receipts/command.js';
 import { openBrowserExternal } from '../input/browser-address.js';
 import {
@@ -12,11 +14,14 @@ import {
 } from '../input/browser-annotation.js';
 import { changeReview, previewChangeReview } from '../input/change-review.js';
 import { previewSessionImage, sessionImagePrompt } from '../input/images.js';
+import { type ReviewNoteInput, reviewNotes } from '../input/review-notes.js';
 import { sendReview } from '../input/reviews.js';
 import { sendPrompt } from '../input/send.js';
 import { previewResponseReview, sessionResponses } from '../native/responses.js';
+import { sessionFolder } from '../record/folder.js';
 import { projectScope } from '../record/general.js';
 import { recordAgent } from '../record/record.js';
+import { refreshReadings } from '../signals/readings.js';
 import type { SessionDeps } from './deps.js';
 
 /**
@@ -25,7 +30,24 @@ import type { SessionDeps } from './deps.js';
  */
 export function inputActions(ctx: MesaContext, faro: Faro, deps: SessionDeps) {
   const { profile, store, tmux, record, secrets, absolute } = ctx;
-  const { caller, ensureBackgroundView } = deps;
+  const { caller, ensureBackgroundView, contextDeps } = deps;
+  /** A session's review notes, read against the checkout its agent works in now. */
+  const notesOf = (id: string) => {
+    const found = refreshReadings(contextDeps, store.get(id));
+    const project = projectScope(found.project);
+    if (!project) throw new MesaError('usage', 'a General session has no diff to note');
+    return reviewNotes(
+      {
+        dir: ctx.paths.reviewNotes,
+        lock: ctx,
+        clock: ctx.clock,
+        newId: ctx.newId,
+        run: ctx.run,
+        checkout: () => resolveCheckout(ctx.open(), ctx.run, project, sessionFolder(found)),
+      },
+      id,
+    );
+  };
   const send = (
     id: string,
     prompt: string,
@@ -124,6 +146,13 @@ export function inputActions(ctx: MesaContext, faro: Faro, deps: SessionDeps) {
           () => previewChangeReview({ profile, store, open: ctx.open, run: ctx.run }, id, input),
           opts,
         ),
+    },
+    /** Drafts on exact lines of a session's diff (CONTEXT.md, Review note). */
+    notes: {
+      list: (id: string) => notesOf(id).list(),
+      add: (id: string, input: ReviewNoteInput) => notesOf(id).add(input),
+      edit: (id: string, note: string, text: string) => notesOf(id).edit(note, text),
+      remove: (id: string, note: string) => notesOf(id).remove(note),
     },
     browser: {
       external: (url: string) => openBrowserExternal(url, ctx.run),

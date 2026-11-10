@@ -1,4 +1,4 @@
-import { defineCommand } from '../command.js';
+import { defineCommand } from '../../command.js';
 
 const passageFlags = {
   source: { type: 'string', required: true, description: 'Source from review responses' },
