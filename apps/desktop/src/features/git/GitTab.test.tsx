@@ -205,6 +205,45 @@ test('a commit its pre-commit hook fails offers Fix with AI, which hands it over
   expect(toastTexts(byTestId)).toContain("Sent the hook's failure to session aaaaaaaa");
 });
 
+test('a rebase stopped on conflicts shows a banner, marks the conflicted rows, and Resolve with AI hands them over', async () => {
+  const { bridge, calls } = fakeBridge({
+    config: appearanceConfig({}),
+    'git status': () =>
+      envelope({
+        checkout,
+        branch: null,
+        operation: 'rebase',
+        changes: [
+          { path: 'tide.ts', index: 'U', workingTree: 'U', conflicted: true },
+          { path: 'src/harbour.ts', index: 'A', workingTree: 'A', conflicted: true },
+          { path: 'README.md', index: 'M', workingTree: ' ' },
+        ],
+      }),
+    'git diff': () => envelope({ checkout, staged: false, path: 'tide.ts', patch: '', rows: [] }),
+    'git resolve': () => envelope({ session: 'aaaaaaaa', how: 'started' }),
+    'git branches': () => envelope({ checkout, branches: [], remotes: [] }),
+    'worktrees list': () => envelope([]),
+  });
+  const byTestId = await renderWithMesa(<GitTab project="lantern-cove" />, bridge);
+  const banner = document.querySelector('[role="status"]');
+  expect(banner?.textContent).toContain('Rebase in progress: 2 conflicted files');
+  const rows = [...document.querySelectorAll('button[title$="(conflicted)"]')];
+  expect(rows.map((row) => row.getAttribute('title'))).toEqual([
+    'tide.ts (conflicted)',
+    'src/harbour.ts (conflicted)',
+  ]);
+  // A conflicted file is listed once, under Changes, never as staged.
+  expect(document.querySelector('[aria-label="Unstage tide.ts"]')).toBeNull();
+  await click(button('Resolve with AI'));
+  expect(calls).toContainEqual(['--json', 'git', 'resolve', '--', 'lantern-cove']);
+  expect(toastTexts(byTestId)).toContain('Started session aaaaaaaa to resolve the conflicts');
+});
+
+test('no banner shows without an operation in progress', async () => {
+  await renderWithMesa(<GitTab project="lantern-cove" />, bridge());
+  expect(button('Resolve with AI')).toBeUndefined();
+});
+
 test('a failed commit with no pre-commit hook offers no Fix with AI', async () => {
   const { bridge } = staged(() => envelope({}));
   const byTestId = await renderWithMesa(<GitTab project="lantern-cove" />, async (args, stdin) =>

@@ -7,6 +7,7 @@ import type { SessionRow } from '../sessions/board/rows.js';
 import type { Sent } from '../sessions/input/send.js';
 import {
   gitRepo,
+  mergeConflict,
   newSession,
   placedRow,
   projectProfile,
@@ -16,8 +17,9 @@ import {
   testStore,
   withRealGit,
 } from '../testing/index.js';
-import { handToAgent } from './agent-handoff.js';
-import { fixPreCommit, lastBytes } from './hook-fix.js';
+import { handToAgent, lastBytes } from './agent-handoff.js';
+import { fixPreCommit } from './hook-fix.js';
+import { resolveConflicts } from './resolve.js';
 
 /** lantern-cove as a git repository, and hand-off deps that record what they send and open. */
 function setUp() {
@@ -142,4 +144,29 @@ test('a long hook output keeps its last whole lines within the cap, after a line
   // A quote takes four bytes once shell-quoted, and a line longer than the cap keeps its end.
   expect(lastBytes("it's\nit's", 8)).toBe("[Mesa left out the first 5 bytes]\nit's");
   expect(lastBytes('x'.repeat(40), 20)).toBe('[Mesa left out the first 35 bytes]\nxxxxx');
+});
+
+test('a merge conflict hands over its operation, paths and hunks, fenced, and asks to test before continuing', async () => {
+  const { ctx, dir, store, deps, typed, setBoard } = setUp();
+  const idle = store.create(() => newSession());
+  setBoard([placedRow(idle, 'idle')]);
+  await expect(resolveConflicts(ctx, deps, 'lantern-cove')).rejects.toMatchObject({
+    code: 'usage',
+    message: expect.stringContaining('no file is conflicted'),
+  });
+  mergeConflict(dir);
+
+  expect(await resolveConflicts(ctx, deps, 'lantern-cove')).toEqual({
+    session: idle.id,
+    how: 'sent',
+  });
+  const prompt = typed[0]?.prompt ?? '';
+  expect(prompt).toMatch(/^\[mesa\] A merge in .* stopped on conflicts in 1 file\. /);
+  expect(prompt).toContain("git add each file. Then run the project's tests");
+  expect(prompt).toContain('continue with git commit --no-edit');
+  expect(prompt).toContain('Conflicted files:\n```untrusted-conflict\ntide.ts\n```');
+  expect(prompt).toContain('```untrusted-conflict\ndiff --cc tide.ts\n');
+  expect(prompt).toContain(
+    '--- a/tide.ts\n+++ b/tide.ts\n@@@ -1,1 -1,1 +1,5 @@@\n++<<<<<<< HEAD\n +export const high = 5;\n++=======\n+ export const high = 7;\n++>>>>>>> swell\n```',
+  );
 });

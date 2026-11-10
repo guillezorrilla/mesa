@@ -23,6 +23,7 @@ import { GitDiffView } from './diff/GitDiffView';
 import { GitBranches } from './GitBranches';
 import { GitChangeList } from './GitChangeList';
 import { GitCommitBox } from './GitCommitBox';
+import { GitConflictBanner } from './GitConflictBanner';
 import { GitHistory } from './GitHistory';
 import { GitStashes } from './GitStashes';
 import { GitSyncPanel } from './GitSyncPanel';
@@ -87,6 +88,7 @@ export function GitTab(props: {
     return done;
   };
   const changes = status.data?.changes ?? [];
+  const conflicted = changes.filter((change) => change.conflicted).length;
   const sections = gitSections(changes, filter);
   const order = listOrder(sections);
   const at = Math.max(
@@ -177,6 +179,13 @@ export function GitTab(props: {
               />
             </span>
           </div>
+          {status.data?.operation && conflicted > 0 && (
+            <GitConflictBanner
+              target={target}
+              operation={status.data.operation}
+              conflicted={conflicted}
+            />
+          )}
           <div className="flex min-h-0 flex-1">
             <aside className="flex w-72 shrink-0 flex-col border-r bg-card">
               <div className="border-b p-2">

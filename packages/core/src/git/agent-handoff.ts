@@ -1,9 +1,12 @@
 import type { MesaContext } from '../context.js';
+import { redactWhole } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
+import { typeable } from '../lib/untrusted-text.js';
 import type { Checkout } from '../projects/checkout.js';
 import type { ManagedRow, SessionRow } from '../sessions/board/rows.js';
 import { deliverIdle, idlePlacement, type Send } from '../sessions/input/idle-delivery.js';
 import { heldWorktrees, real } from '../sessions/record/holders.js';
+import { dataFence } from './recipes.js';
 
 // Handing a checkout's problem (a failed pre-commit hook, a conflict) to an agent: the one owner
 // of which session gets it, and of sending it there or starting one with it as its goal. Mesa
@@ -95,3 +98,36 @@ export async function handToAgent(
   }
   return { session: target.id, how: 'sent' };
 }
+
+/** Bytes `text` takes once shell-quoted into a goal (shellWord): each `'` grows to four. */
+const quotedBytes = (text: string) => Buffer.byteLength(text) + 3 * (text.split("'").length - 1);
+
+/**
+ * The end of `text` within `max` quoted bytes, after a line saying how much was cut: whole lines,
+ * or the tail of the last line when it alone is longer.
+ */
+export function lastBytes(text: string, max: number) {
+  if (quotedBytes(text) <= max) return text;
+  const kept: string[] = [];
+  let size = 0;
+  for (const line of text.split('\n').reverse()) {
+    if (size + quotedBytes(line) + 1 > max) {
+      if (!kept.length) kept.push(line.slice(-Math.floor(max / 4)));
+      break;
+    }
+    size += quotedBytes(line) + 1;
+    kept.unshift(line);
+  }
+  const cut = Buffer.byteLength(text) - Buffer.byteLength(kept.join('\n'));
+  return [`[Mesa left out the first ${cut} bytes]`, ...kept].join('\n');
+}
+
+/**
+ * `text` from the checkout for a hand-off prompt: redacted, without control characters, its end
+ * within `bytes` so a new session's goal fits one tmux command (requireCommandFits), fenced as data.
+ */
+export const quoted = (ctx: MesaContext, fence: string, text: string, bytes: number) =>
+  dataFence(
+    fence,
+    lastBytes(typeable(redactWhole(text, ctx.home, ctx.secrets())).trimEnd(), bytes),
+  );

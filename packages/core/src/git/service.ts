@@ -9,6 +9,7 @@ import { compareGitRefs, readGitGraph } from './history.js';
 import { fixPreCommit } from './hook-fix.js';
 import { readRepositoryInsight, type WorktreeCount } from './insight.js';
 import { type GitTextRunner, writeCommitMessage, writePullRequestText } from './message.js';
+import { resolveConflicts } from './resolve.js';
 import { changeGitStash, createGitStash, listGitStashes, type StashAction } from './stash.js';
 import { readGitStatus } from './status.js';
 import { type GitSync, gitTracking, syncGit } from './sync.js';
@@ -220,6 +221,15 @@ export function gitService(
     /** Runs the pre-commit hook; a failure goes to the agent working in the checkout. */
     fix: (project: string, opts: { checkout?: string; session?: string; fresh?: boolean } = {}) =>
       fixPreCommit(ctx, handoff, project, {
+        ...opts,
+        ...(opts.checkout ? { checkout: ctx.absolute(opts.checkout) } : {}),
+      }),
+    /** Hands the checkout's merge, rebase or cherry-pick conflicts to the agent working there. */
+    resolve: (
+      project: string,
+      opts: { checkout?: string; session?: string; fresh?: boolean } = {},
+    ) =>
+      resolveConflicts(ctx, handoff, project, {
         ...opts,
         ...(opts.checkout ? { checkout: ctx.absolute(opts.checkout) } : {}),
       }),

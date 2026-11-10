@@ -132,11 +132,20 @@ function ChangeRow(props: {
           'flex min-w-0 flex-1 items-center gap-3 py-1.5 text-left',
           props.nested ? 'pl-9' : 'pl-5',
         )}
-        title={change.oldPath ? `${change.oldPath} -> ${change.path}` : change.path}
+        title={
+          change.conflicted
+            ? `${change.path} (conflicted)`
+            : change.oldPath
+              ? `${change.oldPath} -> ${change.path}`
+              : change.path
+        }
         onClick={() => props.onSelect(props.entry)}
       >
         <span className={cn('w-3 shrink-0 font-mono', tone)}>{sign}</span>
         <span className="truncate">{nameOf(change.path)}</span>
+        {change.conflicted && (
+          <span className="ml-auto shrink-0 text-xs text-state-failed">Conflicted</span>
+        )}
       </button>
       <button
         type="button"

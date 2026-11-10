@@ -53,7 +53,7 @@ export type { GitFix } from './git/hook-fix.js';
 export type { RepositoryInsight } from './git/insight.js';
 export type { GitMessage, GitPullRequestText, GitTextRunInfo } from './git/message.js';
 export type { StashAction, StashCreated, StashEntry } from './git/stash.js';
-export type { GitChange, GitStatus } from './git/status.js';
+export type { GitChange, GitOperation, GitStatus } from './git/status.js';
 export type { GitSync, GitTracking } from './git/sync.js';
 export type {
   ImpactReport,

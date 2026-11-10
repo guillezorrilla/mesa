@@ -1,7 +1,7 @@
 import type { Command } from '../../command.js';
 import { gitBranchCheckout, gitBranchCreate, gitBranchDelete, gitBranches } from './branches.js';
 import { gitCommit, gitDiff, gitStage, gitStatus, gitUnstage } from './changes.js';
-import { gitFix } from './handoff.js';
+import { gitFix, gitResolve } from './handoff.js';
 import { gitCompare, gitGraph } from './history.js';
 import { gitInsight } from './insight.js';
 import { gitStashApply, gitStashCreate, gitStashDrop, gitStashes, gitStashPop } from './stash.js';
@@ -24,6 +24,7 @@ export const GIT_COMMANDS: Command[] = [
   gitPrText,
   gitPull,
   gitPush,
+  gitResolve,
   gitStage,
   gitStashApply,
   gitStashCreate,
