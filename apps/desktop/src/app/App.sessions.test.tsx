@@ -12,6 +12,7 @@ import {
   failure,
   fakeBridge,
   fakePlatform,
+  fakeSessionEvents,
   fakeTerminals,
   fill,
   foreignRow,
@@ -536,10 +537,11 @@ test('an unsure row is placed beside the look, and the next look shows by whom',
   });
   vi.useFakeTimers();
   try {
-    const byTestId = await renderWithMesa(<App />, bridge);
+    const events = fakeSessionEvents();
+    const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ sessions: events.host }));
     await act(async () => {});
     expect(calls.filter((c) => c[1] === 'decisions' && c[2] === 'place')).toHaveLength(1);
-    await act(async () => vi.advanceTimersByTime(2000));
+    await act(async () => events.push());
     await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
     expect(byTestId('session-placed-by')[0]?.textContent).toBe(
       'clef (clef), margin 88%, 318 ms, 466 tokens',

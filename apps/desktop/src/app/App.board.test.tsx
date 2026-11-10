@@ -13,6 +13,7 @@ import {
   failure,
   fakeBridge,
   fakePlatform,
+  fakeSessionEvents,
   guardrailStopped,
   managedRow,
   PROJECTS,
@@ -21,6 +22,7 @@ import {
   toasts,
   toastTexts,
 } from '@/lib/testing';
+import { FOCUSED_POLL_MS, UNFOCUSED_POLL_MS } from '@/lib/useSessionEvents';
 import { App } from './App';
 
 const button = (label: string) =>
@@ -270,7 +272,7 @@ test('an action ends once Sessions shows what it did, even with a look already i
   }
 });
 
-test('Sessions refreshes every two seconds without overlapping requests', async () => {
+test('Sessions looks when a hook event lands, polls only as a fallback, and never overlaps', async () => {
   vi.useFakeTimers();
   try {
     let release = () => {};
@@ -282,20 +284,49 @@ test('Sessions refreshes every two seconds without overlapping requests', async 
           ? new Promise((done) => (release = () => done(envelope([asking]))))
           : envelope([asking]),
     });
-    await renderSession(<App />, bridge);
+    const events = fakeSessionEvents();
+    await renderSession(<App />, bridge, fakePlatform({ sessions: events.host }));
     const looks = () => calls.filter(look).length;
     expect(looks()).toBe(1);
-    await act(async () => vi.advanceTimersByTime(1000));
-    await act(async () => vi.advanceTimersByTime(1000));
+    // A hook event: a look at once, well within a second.
+    await act(async () => events.push());
     expect(looks()).toBe(2);
-    // A slow look: the ticks meanwhile ask for one more look, run once it lands.
-    slow = true;
-    await act(async () => vi.advanceTimersByTime(2000));
-    await act(async () => vi.advanceTimersByTime(4000));
+    // No event: the fallback poll, every 10 s while focused and 30 s while not (happy-dom: not).
+    const every = document.hasFocus() ? FOCUSED_POLL_MS : UNFOCUSED_POLL_MS;
+    await act(async () => vi.advanceTimersByTime(every - 1));
+    expect(looks()).toBe(2);
+    await act(async () => vi.advanceTimersByTime(1));
     expect(looks()).toBe(3);
+    // A slow look: the events meanwhile ask for one more look, run once it lands.
+    slow = true;
+    await act(async () => events.push());
+    await act(async () => events.push());
+    await act(async () => events.push());
+    expect(looks()).toBe(4);
     slow = false;
     await act(async () => release());
-    expect(looks()).toBe(4);
+    expect(looks()).toBe(5);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test('the fallback poll is 10 s while the window is focused and 30 s while it is not', async () => {
+  vi.useFakeTimers();
+  try {
+    const { bridge, calls } = fakeBridge({ sessions: () => envelope([asking]) });
+    await renderWithMesa(<App />, bridge);
+    const looks = () => calls.filter(look).length;
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    const focused = looks();
+    await act(async () => vi.advanceTimersByTime(FOCUSED_POLL_MS));
+    expect(looks()).toBe(focused + 1);
+    await act(async () => window.dispatchEvent(new Event('blur')));
+    const blurred = looks();
+    await act(async () => vi.advanceTimersByTime(FOCUSED_POLL_MS));
+    expect(looks()).toBe(blurred);
+    await act(async () => vi.advanceTimersByTime(UNFOCUSED_POLL_MS - FOCUSED_POLL_MS));
+    expect(looks()).toBe(blurred + 1);
   } finally {
     vi.useRealTimers();
   }

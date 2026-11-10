@@ -106,6 +106,8 @@ export type Platform = {
     onOpen: (handler: (target: NativeNotice['target']) => void) => Promise<() => void>;
     takeOpened: () => Promise<NativeNotice['target'] | null>;
   };
+  /** A hook event landed in the profile's `sessions/events/` (events.rs, debounced). Returns the unsubscribe. */
+  sessions: { onChanged: (handler: () => void) => Promise<() => void> };
   /** The app's Dock icon: `badge(count)` shows the count, and 0 clears it. */
   dock: { badge: (count: number) => Promise<void> };
   terminal: TerminalHost;

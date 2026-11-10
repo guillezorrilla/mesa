@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
-import { FINISHED_HOLD_MS, planDelivery } from './delivery-plan.js';
+import { planDelivery } from './delivery-plan.js';
+import { FINISHED_HOLD_MS } from './finished-hold.js';
 import type { InboxItem } from './inbox-items.js';
 
 const SETTINGS = {

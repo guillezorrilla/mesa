@@ -1,44 +1,48 @@
-import { useEffect, useRef } from 'react';
+import { FINISHED_HOLD_MS } from '@mesa/core/browser';
+import { useCallback, useEffect, useRef } from 'react';
 import { usePlatform } from '@/lib/MesaRoot';
 import type { NativeNotice } from '@/lib/platform';
 import { useRun } from '@/lib/useCommand';
+import { useSessionEvents } from '@/lib/useSessionEvents';
 import type { WorkspaceView } from '@/lib/workspaceView';
 
-/** How often the app sends pending native notifications. */
-const DELIVERY_INTERVAL_MS = 5_000;
-
 /**
- * Sends the pending native notifications while the system allows them, now and every five
- * seconds, and opens a clicked one's target (including the one that launched the app) through
- * `navigate`, which must be stable. Each notice is sent at most once: one delivery runs at a time,
- * even across a re-run of the effect. Core claims each notice across the app and scheduler before sending, so a
- * failed mark leaves it pending rather than sounding it again every poll. A failed send loses only
- * the banner; the Inbox keeps the notice.
+ * Sends the pending native notifications while the system allows them, now, when a hook event
+ * lands and on the fallback poll (useSessionEvents), and opens a clicked one's target (including
+ * the one that launched the app) through `navigate`, which must be stable. Each notice is sent at
+ * most once: one delivery runs at a time. Core claims each notice across the app and scheduler
+ * before sending, so a failed mark leaves it pending rather than sounding it again every poll. A
+ * failed send loses only the banner; the Inbox keeps the notice.
  */
 export function useNativeNotifications(navigate: (view: WorkspaceView) => void) {
   const { notifications } = usePlatform();
   const run = useRun();
   const busy = useRef(false);
+  const deliver = useCallback(async () => {
+    if (busy.current) return;
+    busy.current = true;
+    try {
+      const status = await notifications.status();
+      if (!['authorized', 'provisional', 'ephemeral'].includes(status.authorization)) return;
+      const plan = await run('notifications.claimDelivery');
+      if (!plan || plan.kind === 'none') return;
+      await notifications.send(plan);
+    } catch {
+      // A failed native send is not retried: the notice stays in the Inbox.
+    } finally {
+      busy.current = false;
+    }
+  }, [notifications, run]);
+  // A finished turn waits FINISHED_HOLD_MS for its plan, so each event asks again once that is over.
+  const again = useRef<number | undefined>(undefined);
+  useSessionEvents(() => {
+    void deliver();
+    window.clearTimeout(again.current);
+    again.current = window.setTimeout(() => void deliver(), FINISHED_HOLD_MS + 250);
+  });
+  useEffect(() => () => window.clearTimeout(again.current), []);
   useEffect(() => {
     let active = true;
-    const deliver = async () => {
-      if (busy.current) return;
-      busy.current = true;
-      try {
-        const status = await notifications.status();
-        if (!active || !['authorized', 'provisional', 'ephemeral'].includes(status.authorization))
-          return;
-        const plan = await run('notifications.claimDelivery');
-        if (!active || !plan || plan.kind === 'none') return;
-        await notifications.send(plan);
-      } catch {
-        // A failed native send is not retried: the notice stays in the Inbox.
-      } finally {
-        busy.current = false;
-      }
-    };
-    void deliver();
-    const timer = window.setInterval(() => void deliver(), DELIVERY_INTERVAL_MS);
     let stop: (() => void) | undefined;
     const open = (target: NativeNotice['target']) => {
       if (active)
@@ -62,8 +66,7 @@ export function useNativeNotifications(navigate: (view: WorkspaceView) => void) 
       });
     return () => {
       active = false;
-      window.clearInterval(timer);
       stop?.();
     };
-  }, [notifications, run, navigate]);
+  }, [notifications, navigate]);
 }

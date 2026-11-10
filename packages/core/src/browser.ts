@@ -38,6 +38,7 @@ export { relativeAgo, shortAgo, timeAgo } from './lib/ago.js';
 export * from './lib/format.js';
 export { localClock, localDay, validLocalDay } from './lib/time.js';
 export { mapSession } from './map/map.js';
+export { FINISHED_HOLD_MS } from './notifications/finished-hold.js';
 export {
   COLOR_VISION_MODES,
   DEFAULT_APPEARANCE,

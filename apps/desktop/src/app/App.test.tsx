@@ -19,6 +19,7 @@ import {
   failure,
   fakeBridge,
   fakePlatform,
+  fakeSessionEvents,
   fakeTerminals,
   foreignRow,
   impactReport,
@@ -1636,10 +1637,11 @@ test('Sessions selects a newly discovered managed session after initially seeing
     projects: () => envelope(PROJECTS),
     sessions: () => envelope(rows),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const events = fakeSessionEvents();
+  const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ sessions: events.host }));
   expect(byTestId('selected-session')).toHaveLength(0);
   rows = [foreignRow, managedRow('aaaaaaaa')];
-  await act(async () => new Promise((resolve) => setTimeout(resolve, 2100)));
+  await act(async () => events.push());
   expect(byTestId('selected-session')).toHaveLength(1);
   expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
 });
@@ -3583,10 +3585,11 @@ test('the visual alert badges the Dock and dots the Sessions tab with the waitin
         return envelope({ path: 'notifications.visualAlert', value: visualAlert });
       },
     });
-    const platform = fakePlatform();
+    const events = fakeSessionEvents();
+    const platform = fakePlatform({ sessions: events.host });
     const byTestId = await renderWithMesa(<App />, bridge, platform);
     const dot = () => byTestId('sessions-waiting')[0]?.getAttribute('aria-label');
-    const poll = () => act(async () => vi.advanceTimersByTimeAsync(2000));
+    const poll = () => act(async () => events.push());
     expect(platform.badges.at(-1)).toBe(2);
     expect(dot()).toBe('2 waiting for input');
 
@@ -3645,18 +3648,19 @@ test('with sessions.prEvents on, the app delivers PR events on an interval and w
         envelope({ gh: { state: 'ready' }, deliveries: [], problems: [] }),
     });
     const delivered = () => calls.filter((args) => args[1] === 'pr-events').length;
-    await renderWithMesa(<App />, bridge);
+    const events = fakeSessionEvents();
+    await renderWithMesa(<App />, bridge, fakePlatform({ sessions: events.host }));
     expect(calls.filter((args) => args[1] === 'pr-events')).toEqual([
       ['--json', 'pr-events', '--deliver'],
     ]);
     // Still working: the board's next look sends nothing more.
-    await act(async () => vi.advanceTimersByTime(2_000));
+    await act(async () => events.push());
     expect(delivered()).toBe(1);
     // The session goes idle: one pass at once.
     state = 'idle';
-    await act(async () => vi.advanceTimersByTime(2_000));
+    await act(async () => events.push());
     expect(delivered()).toBe(2);
-    await act(async () => vi.advanceTimersByTime(2_000));
+    await act(async () => events.push());
     expect(delivered()).toBe(2);
     // And one each interval.
     await act(async () => vi.advanceTimersByTime(60_000));
@@ -3705,10 +3709,11 @@ test('with sessions.childReports on (the default), the app delivers child report
     });
     const delivered = () =>
       calls.filter((args) => args[1] === 'reports' && args[2] === '--deliver').length;
-    await renderWithMesa(<App />, bridge);
+    const events = fakeSessionEvents();
+    await renderWithMesa(<App />, bridge, fakePlatform({ sessions: events.host }));
     expect(delivered()).toBe(1);
     state = 'idle';
-    await act(async () => vi.advanceTimersByTime(2_000));
+    await act(async () => events.push());
     expect(delivered()).toBe(2);
   } finally {
     vi.useRealTimers();

@@ -68,6 +68,23 @@ export function fakeTerminals() {
   return { host, calls, push };
 }
 
+/** The Rust watcher on `sessions/events/`: `push` plays one debounced change. */
+export function fakeSessionEvents() {
+  const listeners = new Set<() => void>();
+  const host: Platform['sessions'] = {
+    onChanged: async (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+  return {
+    host,
+    push: () => {
+      for (const listener of listeners) listener();
+    },
+  };
+}
+
 /** Files dropped on the window, handed to every terminal listening. */
 export function fakeFileDrops() {
   const listeners = new Set<(drop: FileDrop) => void>();
@@ -127,6 +144,7 @@ export const fakePlatform = ({
   updates = fakeUpdates().host,
   menu = { onAbout: async () => () => {} },
   fileDrops = fakeFileDrops().host,
+  sessions = fakeSessionEvents().host,
 }: {
   folder?: string | null;
   file?: string | null;
@@ -138,6 +156,7 @@ export const fakePlatform = ({
   updates?: UpdateHost;
   menu?: Platform['menu'];
   fileDrops?: Platform['fileDrops'];
+  sessions?: Platform['sessions'];
 } = {}): Platform & {
   pasteboard: string[];
   badges: number[];
@@ -155,6 +174,7 @@ export const fakePlatform = ({
     terminal,
     browser,
     fileDrops,
+    sessions,
     clipboard: { write: async (text) => void pasteboard.push(text) },
     pasteboard,
     dock: { badge: async (count) => void badges.push(count) },
