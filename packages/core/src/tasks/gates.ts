@@ -2,7 +2,7 @@ import type { MesaContext } from '../context.js';
 import { shortId } from '../lib/ids.js';
 import { MesaError } from '../lib/result.js';
 import { callerOf } from '../sessions/window/caller.js';
-import type { Gate, Task } from './task-file.js';
+import { type Gate, isLive, type ResolvedGate } from './task-file.js';
 import { taskStore } from './task-store.js';
 
 const QUESTION_CHARS = 1_000;
@@ -12,14 +12,11 @@ const MAX_OPTIONS = 8;
 
 export type GatesDeps = {
   /** Tells `coordinator` how a person resolved `gate` on its task: a `gate` child report. */
-  report: (gate: Gate & { option: string; resolvedAt: string }, coordinator: string) => void;
+  report: (gate: ResolvedGate, coordinator: string) => void;
 };
 
 /** A gate the Inbox shows: open, with its task's coordinator. */
 export type OpenGate = Gate & { coordinator?: string };
-
-const settled = (task: Task) =>
-  task.state === 'succeeded' || task.state === 'failed' || task.state === 'cancelled';
 
 /**
  * Decision gates on tasks (CONTEXT.md, Decision gate), kept in `tasks.json` beside them: an agent
@@ -29,17 +26,19 @@ const settled = (task: Task) =>
 export function gatesService(ctx: MesaContext, deps: GatesDeps) {
   const store = taskStore(ctx);
   const caller = () => callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile });
-  const open = () =>
-    store.change((file) => {
-      const coordinators = new Map(file.tasks.map((t) => [t.id, t.coordinator]));
-      const gates: OpenGate[] = file.gates
-        .filter((g) => !g.resolvedAt)
-        .map((g) => {
-          const coordinator = coordinators.get(g.task);
-          return coordinator ? { ...g, coordinator } : g;
-        });
-      return { next: file, result: gates };
+  /**
+   * The open gates on tasks not over, with each task's coordinator: read without the lock, as the
+   * Inbox reads it inside its own. A gate whose task settled first asks nothing any more.
+   */
+  const open = (): OpenGate[] => {
+    const file = store.peek();
+    const tasks = new Map(file.tasks.map((t) => [t.id, t]));
+    return file.gates.flatMap((g) => {
+      const task = tasks.get(g.task);
+      if (g.resolvedAt || !task || !isLive(task)) return [];
+      return [task.coordinator ? { ...g, coordinator: task.coordinator } : g];
     });
+  };
   return {
     /**
      * Opens a gate on task `task` with `question` and two to eight distinct `options`, by the
@@ -61,7 +60,7 @@ export function gatesService(ctx: MesaContext, deps: GatesDeps) {
       return store.change((file) => {
         const found = file.tasks.find((t) => t.id === task);
         if (!found) throw new MesaError('not_found', `no task ${task}; see mesa tasks`);
-        if (settled(found))
+        if (!isLive(found))
           throw new MesaError('usage', `task ${task} is ${found.state}; a gate needs a live task`);
         const gate: Gate = {
           id: `g-${shortId(ctx.newId)}`,
@@ -78,7 +77,6 @@ export function gatesService(ctx: MesaContext, deps: GatesDeps) {
     list: (task?: string) => ({
       gates: open().filter((g) => task === undefined || g.task === task),
     }),
-    /** The open gates with their task's coordinator, for the Inbox. */
     open,
     /**
      * Resolves open gate `id` with `option`, outside a Mesa window only: a person decides. Records

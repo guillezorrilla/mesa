@@ -1,5 +1,5 @@
 import type { MesaContext } from '../context.js';
-import { changeJson } from '../lib/json-file.js';
+import { changeJson, readJson } from '../lib/json-file.js';
 import { keptReport } from '../reports/report-delivery.js';
 import { settle, TaskFile, type WorkerNews } from './task-file.js';
 
@@ -15,6 +15,8 @@ export function taskStore(ctx: MesaContext) {
     return { ...(report ? { report } : {}), ended: !record || Boolean(record.endedAt) };
   };
   return {
+    /** The file as last written, unsettled and without the lock: for reads that must not wait. */
+    peek: (): TaskFile => readJson(ctx.paths.tasks, TaskFile) ?? { tasks: [], gates: [] },
     /** Changes the settled file with `fn`, which returns the next file and a result. */
     change: <R>(fn: (current: TaskFile) => { next: TaskFile; result: R }): R => {
       let result: R | undefined;

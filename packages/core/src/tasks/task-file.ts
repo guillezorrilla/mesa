@@ -59,6 +59,8 @@ const GateSchema = z.strictObject({
   resolvedAt: z.iso.datetime().optional(),
 });
 export type Gate = z.infer<typeof GateSchema>;
+/** A gate a person resolved. */
+export type ResolvedGate = Gate & { option: string; resolvedAt: string };
 
 export const TaskFile = z
   .strictObject({
@@ -92,7 +94,7 @@ export function withStates(tasks: readonly Task[]): Task[] {
 }
 
 /** Whether `task` is not over: waiting or running, so an open gate blocks it. */
-const isLive = (task: Pick<Task, 'state'>) => isOpen(task) || task.state === 'running';
+export const isLive = (task: Pick<Task, 'state'>) => isOpen(task) || task.state === 'running';
 
 /**
  * `tasks` as they read: a waiting or running one with an open gate in `gates` is `blocked`, so no

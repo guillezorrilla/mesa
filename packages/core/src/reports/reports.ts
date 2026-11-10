@@ -5,6 +5,7 @@ import { sessionTitle } from '../sessions/record/labels.js';
 import type { SessionRecord } from '../sessions/record/record.js';
 import { SESSION_STATES } from '../sessions/record/states.js';
 import { type HookEvent, parentHook } from '../sessions/signals/hook-events.js';
+import type { ResolvedGate } from '../tasks/task-file.js';
 
 /** What a worker says of its work with `mesa report`: done, failed, or blocked on its parent. */
 export const EXPLICIT_KINDS = ['done', 'failed', 'blocked'] as const;
@@ -161,10 +162,7 @@ export function questionOf(
 }
 
 /** The `gate` report telling `parent`, the coordinator of the gate's task, what a person chose. */
-export const gateReport = (
-  gate: { id: string; task: string; question: string; option: string; resolvedAt: string },
-  parent: string,
-) =>
+export const gateReport = (gate: ResolvedGate, parent: string) =>
   ({
     id: `${parent}:gate:${gate.id}`,
     parent,

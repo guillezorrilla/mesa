@@ -12,6 +12,7 @@ import { parentNowOf, withParentsNow } from '../sessions/record/family.js';
 import { sendable } from '../sessions/record/lifecycle.js';
 import type { SessionRecord } from '../sessions/record/record.js';
 import { callerOf } from '../sessions/window/caller.js';
+import type { ResolvedGate } from '../tasks/task-file.js';
 import { reportLedger } from './report-ledger.js';
 import {
   type ChildReport,
@@ -121,10 +122,7 @@ export function reportsService(
      * Tells `coordinator`, or the session that continues it now, how a person resolved `gate`:
      * a pending `gate` report, delivered as other reports are.
      */
-    gate: (
-      gate: { id: string; task: string; question: string; option: string; resolvedAt: string },
-      coordinator: string,
-    ) => {
+    gate: (gate: ResolvedGate, coordinator: string) => {
       const parent = parentNowOf(ctx.store.readable(), { id: gate.id, parent: coordinator });
       ledger.addGate(gateReport(gate, parent ?? coordinator));
     },

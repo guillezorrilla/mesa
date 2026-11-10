@@ -165,8 +165,8 @@ test('a gate report follows its coordinator to the session that resumed it', () 
   expect(
     mesa()
       .reports.list()
-      .reports.map((r) => r.parent),
-  ).toEqual([next.id]);
+      .reports.map((r) => [r.parent, r.child]),
+  ).toEqual([[next.id, next.id]]);
 });
 
 test('an open gate raises an Inbox notice that resolving clears', () => {
@@ -189,6 +189,10 @@ test('an open gate raises an Inbox notice that resolving clears', () => {
   ]);
   person.gates.resolve(gate.id, 'metres');
   expect(gates().map((item) => item.title)).toEqual(['Keep the old notes?']);
+  // A gate whose task is over asks nothing any more.
+  person.tasks.cancel(orphan.id);
+  expect(gates()).toEqual([]);
+  expect(person.gates.list().gates).toEqual([]);
 });
 
 test('a running task with an open gate reads blocked and keeps its worker', () => {

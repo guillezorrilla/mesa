@@ -8,7 +8,7 @@ import { callerOf } from '../sessions/window/caller.js';
 import { failedStart, type Gate, isOpen, type Task, withGates, withStates } from './task-file.js';
 import { taskStore } from './task-store.js';
 
-export type { Gate, Task, TaskState } from './task-file.js';
+export type { Gate, ResolvedGate, Task, TaskState } from './task-file.js';
 
 /** A task with each dep's spec and state, and its gates, as `mesa tasks show` gives it. */
 export type ShownTask = Task & {
@@ -60,15 +60,15 @@ export function tasksService(ctx: MesaContext, deps: TasksDeps) {
     }));
   const all = () => read().tasks;
   /**
-   * Replaces task `id` with what `fn` makes of it (given whether an open gate blocks it), then
-   * works out the states; returns it as it reads. not_found for an unknown id.
+   * Replaces task `id` with what `fn` makes of it (given the state it reads, `blocked` with an
+   * open gate), then works out the states; returns it as it reads. not_found for an unknown id.
    */
-  const update = (id: string, fn: (task: Task, blocked: boolean) => Task) =>
+  const update = (id: string, fn: (task: Task, reads: Task['state']) => Task) =>
     store.change((file) => {
       const found = file.tasks.find((t) => t.id === id);
       if (!found) throw notFound(id);
-      const blocked = file.gates.some((g) => g.task === id && !g.resolvedAt);
-      const tasks = withStates(file.tasks.map((t) => (t.id === id ? fn(found, blocked) : t)));
+      const reads = (withGates([found], file.gates)[0] as Task).state;
+      const tasks = withStates(file.tasks.map((t) => (t.id === id ? fn(found, reads) : t)));
       const shown = withGates(tasks, file.gates).find((t) => t.id === id) as Task;
       return { next: { ...file, tasks }, result: shown };
     });
@@ -146,7 +146,9 @@ export function tasksService(ctx: MesaContext, deps: TasksDeps) {
       return {
         ...task,
         dependencies,
-        ...(task.state === 'pending' && holding ? { heldBy: holding.id } : {}),
+        ...((task.state === 'pending' || task.state === 'blocked') && holding
+          ? { heldBy: holding.id }
+          : {}),
         gates: gates.filter((g) => g.task === id),
       };
     },
@@ -158,12 +160,11 @@ export function tasksService(ctx: MesaContext, deps: TasksDeps) {
      */
     start: async (id: string, project: string | undefined, flags: WorkerFlags = {}) => {
       const startedAt = ctx.clock().toISOString();
-      update(id, (task, blocked) => {
-        const state = blocked && isOpen(task) ? 'blocked' : task.state;
-        if (state !== 'ready')
+      update(id, (task, reads) => {
+        if (reads !== 'ready')
           throw new MesaError(
             'usage',
-            `task ${id} is ${state}, not ready${blocked ? ': a person must resolve its gate first (mesa gates)' : ''}`,
+            `task ${id} is ${reads}, not ready${reads === 'blocked' ? ': a person must resolve its gate first (mesa gates)' : ''}`,
           );
         return { ...task, state: 'running', startedAt };
       });
