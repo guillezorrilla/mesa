@@ -1,14 +1,16 @@
 import type { MesaContext } from '../context.js';
-import type { Overrides } from '../decisions/guardrail.js';
-import type { Decision } from '../decisions/types.js';
 import type { GhState } from '../git/gh.js';
-import { MesaError, toFail } from '../lib/result.js';
+import { MesaError } from '../lib/result.js';
 import { UNTRUSTED_FENCE as FENCE } from '../lib/untrusted-text.js';
-import type { Recorded } from '../receipts/recorder.js';
 import type { ManagedRow, SessionRow } from '../sessions/board/rows.js';
-import type { Sent } from '../sessions/input/send.js';
+import {
+  deliverIdle,
+  type IdleDelivery,
+  idlePlacement,
+  type Placement,
+  type Send,
+} from '../sessions/input/idle-delivery.js';
 import { heldWorktrees } from '../sessions/record/holders.js';
-import type { SessionState } from '../sessions/record/states.js';
 import { prEventLedger } from './pr-event-ledger.js';
 import { type PrEvent, type PrProblem, type PrWatch, scanPrEvents } from './pr-events.js';
 
@@ -20,24 +22,8 @@ export type PrEventList = {
   problems: PrProblem[];
 };
 
-/** One session's share of a delivery pass. */
-export type PrEventDelivery = {
-  session: string;
-  /** The ids of the events this pass forwarded, or held. */
-  events: string[];
-  /**
-   * `delivered`: typed, once. `waiting`: the session is not idle, so they wait for the next pass.
-   * `failed`: refused before anything was typed, so they wait too. `blocked`: the guardrail
-   * refused them, and `uncertain`: the send broke mid-way; neither is sent again.
-   */
-  status: 'delivered' | 'waiting' | 'failed' | 'blocked' | 'uncertain';
-  /** The session's state as the board placed it, with Faro's confidence. */
-  state: SessionState;
-  confidence: number;
-  receipt?: Recorded<unknown>['receipt'];
-  reason?: string;
-  warning?: string;
-};
+/** One session's share of a delivery pass, with the ids of the events it forwarded, or held. */
+export type PrEventDelivery = IdleDelivery & { events: string[] };
 
 export type PrEventsDelivered = Omit<PrEventList, 'events' | 'enabled'> & {
   deliveries: PrEventDelivery[];
@@ -45,12 +31,6 @@ export type PrEventsDelivered = Omit<PrEventList, 'events' | 'enabled'> & {
 
 /** At most this many events go in one prompt; the rest wait for the session's next idle turn. */
 const PER_PROMPT = 10;
-
-type Send = (
-  id: string,
-  prompt: string,
-  opts: Overrides & { noFrom?: boolean },
-) => Promise<Recorded<Sent>>;
 
 /** A live Mesa agent session in its own worktree: the ones whose branch can have a pull request. */
 const watched = (
@@ -114,36 +94,6 @@ export function prEventPrompt(events: readonly PrEvent[]): string {
   ].join('\n');
 }
 
-/** Whether a refused send typed nothing, so its events can wait for another pass (as sendReview). */
-const typedNothing = (error: unknown) =>
-  error instanceof MesaError &&
-  (error.code === 'usage' ||
-    (error.code === 'not_found' &&
-      typeof error.details === 'object' &&
-      error.details !== null &&
-      'safeNoSend' in error.details &&
-      error.details.safeNoSend === true));
-
-/** The board's Faro placement of a session: its state, with its confidence and probabilities. */
-type Placement = {
-  state: SessionState;
-  confidence: number;
-  probabilities: Record<string, number>;
-  decision: Decision;
-};
-
-/** A row's placement, from Faro's state answer; none without a Decision that has one. */
-function placementOf(row: ManagedRow): Placement | undefined {
-  const answer = row.decision?.answers.find((a) => a.id === 'state');
-  if (!row.decision || answer?.kind !== 'Choice') return undefined;
-  return {
-    state: row.lastState.state,
-    confidence: row.lastState.confidence,
-    probabilities: answer.probabilities,
-    decision: row.decision,
-  };
-}
-
 /**
  * PR events for one profile: the pending ones, and their delivery into idle sessions. A session
  * mid-turn or waiting on a person is never typed into: its events wait for a pass that finds it
@@ -184,52 +134,22 @@ export function prEventsService(
     placement: Placement,
     pending: PrEvent[],
   ): Promise<PrEventDelivery | undefined> => {
-    const placed = { session: row.id, state: placement.state, confidence: placement.confidence };
     const claimed = ledger.claim(pending.slice(0, PER_PROMPT));
     const events = claimed.map((event) => event.id);
     // Another mesa claimed them since the scan: its pass delivers them.
     if (!claimed.length) return undefined;
-    try {
-      const recorded = await ctx.record(
-        {
-          kind: 'decision',
-          summary: () => `Forwarded ${claimed.length} PR events to session ${row.id}`,
-          failure: `Could not forward PR events to session ${row.id}`,
-          project: () => row.project,
-          session: () => row.id,
-          inputs: {
-            session: row.id,
-            events,
-            pullRequests: [...new Set(claimed.map((event) => event.pr.url))],
-          },
-          outputs: (sent: Sent) => ({
-            chars: sent.chars,
-            state: placement.state,
-            confidence: placement.confidence,
-            probabilities: placement.probabilities,
-          }),
-          warning: (sent: Sent) => sent.warning,
-        },
-        async (decisions) => {
-          decisions.record(placement.decision);
-          return (await deps.send(row.id, prEventPrompt(claimed), { noFrom: true })).result;
-        },
-      );
-      return {
-        ...placed,
+    const delivery = await deliverIdle(ctx, deps.send, row, placement, {
+      summary: `Forwarded ${claimed.length} PR events to session ${row.id}`,
+      failure: `Could not forward PR events to session ${row.id}`,
+      inputs: {
+        session: row.id,
         events,
-        status: 'delivered',
-        receipt: recorded.receipt,
-        ...(recorded.warning ? { warning: recorded.warning } : {}),
-      };
-    } catch (error) {
-      const reason = toFail(error).error.message;
-      if (error instanceof MesaError && error.code === 'guardrail_blocked')
-        return { ...placed, events, status: 'blocked', reason };
-      if (!typedNothing(error)) return { ...placed, events, status: 'uncertain', reason };
-      ledger.release(claimed);
-      return { ...placed, events, status: 'failed', reason };
-    }
+        pullRequests: [...new Set(claimed.map((event) => event.pr.url))],
+      },
+      prompt: prEventPrompt(claimed),
+    });
+    if (delivery.status === 'failed') ledger.release(claimed);
+    return { ...delivery, events };
   };
 
   return {
@@ -260,28 +180,12 @@ export function prEventsService(
         const pending = found.events.filter((event) => event.session === row.id);
         const current = now.get(row.id);
         if (!pending.length || !current) continue;
-        const placement = placementOf(current);
-        // Idle by a guess under the threshold could be mid-turn: it waits, as working does. So
-        // does an idle with no Faro placement to keep in the receipt.
-        if (placement?.state !== 'idle' || placement.confidence < threshold) {
-          const { state, confidence } = current.lastState;
-          deliveries.push({
-            session: row.id,
-            events: pending.map((event) => event.id),
-            status: 'waiting',
-            state,
-            confidence,
-            ...(state !== 'idle'
-              ? {}
-              : placement
-                ? {
-                    reason: `idle at confidence ${confidence}, under decisions.threshold ${threshold}`,
-                  }
-                : { reason: 'idle with no Faro placement' }),
-          });
+        const idle = idlePlacement(current, threshold);
+        if ('waiting' in idle) {
+          deliveries.push({ ...idle.waiting, events: pending.map((event) => event.id) });
           continue;
         }
-        const delivery = await deliverTo(current, placement, pending);
+        const delivery = await deliverTo(current, idle.placement, pending);
         if (delivery) deliveries.push(delivery);
       }
       return { ...report, deliveries };

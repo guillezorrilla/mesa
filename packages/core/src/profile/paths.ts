@@ -42,6 +42,8 @@ export type ProfilePaths = {
   prs: string;
   /** The PR events forwarded into sessions, so each is sent once (CONTEXT.md, PR event). */
   prEvents: string;
+  /** Child reports not yet typed into their parent (CONTEXT.md, Child report). */
+  reports: string;
   /** What the Board wants a decision model to place, and its replies (decisions/supervision). */
   placements: string;
   /** Named, literal prompts saved only in this profile. */
@@ -92,6 +94,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     notifications: join(root, 'notifications.json'),
     prs: join(root, 'prs'),
     prEvents: join(root, 'pr-events.json'),
+    reports: join(root, 'reports.json'),
     placements: join(root, 'placements.json'),
     prompts: join(root, 'prompts.json'),
     automations: join(root, 'automations.yaml'),

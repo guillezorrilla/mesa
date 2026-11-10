@@ -476,6 +476,22 @@ test('Notifications has the PR events toggle, saved to sessions.prEvents, and sh
   expect(sets(calls)).toEqual([['sessions.prEvents', 'true']]);
 });
 
+test('Notifications has the child reports toggle, on by default, saved to sessions.childReports, with the waiting count', async () => {
+  const { bridge, calls } = fakeBridge({
+    'config set': () => envelope({}),
+    reports: () => envelope({ enabled: true, reports: [{ id: 'r1' }, { id: 'r2' }] }),
+  });
+  await render(bridge);
+  await click(nav('Notifications'));
+  const toggle = document.getElementById('sessions-child-reports');
+  expect(toggle?.getAttribute('aria-checked')).toBe('true');
+  const row = toggle?.closest<HTMLElement>('[data-setting-row]');
+  expect(row?.textContent).toContain('Send child reports to parents');
+  expect(row?.textContent).toContain('2 waiting');
+  await click(toggle ?? undefined);
+  expect(sets(calls)).toEqual([['sessions.childReports', 'false']]);
+});
+
 test('General changes the shared vault with the native folder picker and reloads its path', async () => {
   let config = await base();
   const { bridge, calls } = fakeBridge({

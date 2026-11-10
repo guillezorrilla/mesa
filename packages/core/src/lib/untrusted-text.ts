@@ -5,6 +5,9 @@
 /** The language tag of the fence untrusted provider text is quoted in. */
 export const UNTRUSTED_FENCE = 'untrusted-github-text';
 
+/** The language tag of the fence another agent's own words are quoted in (CONTEXT.md, Child report). */
+export const AGENT_FENCE = 'untrusted-agent-text';
+
 /**
  * `text` with no control or format character (ESC, ^C, DEL, a bidi override) and no backtick,
  * so it can neither drive the terminal nor close the fence it is quoted in, on one line.

@@ -79,6 +79,7 @@ import { read } from './read.js';
 import { receipts, receiptsShow } from './receipts.js';
 import { register } from './register.js';
 import { rename } from './rename.js';
+import { reports } from './reports.js';
 import { resize } from './resize.js';
 import { resume } from './resume.js';
 import {
@@ -195,6 +196,7 @@ export const COMMANDS: Command[] = [
   notificationsDelivered,
   open,
   prEvents,
+  reports,
   ...PRS_COMMANDS,
   profile,
   profileList,

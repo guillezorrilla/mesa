@@ -90,7 +90,13 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
       defaultAgent: 'claude',
       skills: [],
       decisions: { model: 'none', threshold: 0.7 },
-      sessions: { log: true, statusLineCost: false, prEvents: false, guidelines: true },
+      sessions: {
+        log: true,
+        statusLineCost: false,
+        prEvents: false,
+        childReports: true,
+        guidelines: true,
+      },
       usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
       notifications: {
         quiet: false,
