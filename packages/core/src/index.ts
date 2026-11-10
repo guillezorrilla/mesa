@@ -158,6 +158,7 @@ export type { SessionImage } from './sessions/input/images.js';
 export type {
   ListedNote,
   NoteScope,
+  NotesSent,
   ReviewNote,
   ReviewNoteInput,
 } from './sessions/input/review-notes.js';
