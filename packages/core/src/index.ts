@@ -123,6 +123,7 @@ export type { PrDraft } from './prs/reader.js';
 export { PROMPT_ONLY } from './prs/review-guard.js';
 export type { PrDetail, PrList, PrPatch, PrRow, PrSetupRow } from './prs/service.js';
 export { type CommentVerdict, type ThreadVerdict, VERDICT_STATES } from './prs/verdicts.js';
+export type { ReviewVoice } from './prs/voice.js';
 export { RECORD_KINDS } from './receipts/policy.js';
 export type { Recorded } from './receipts/recorder.js';
 export { DEFAULT_RECEIPT_LIMIT, type ReceiptEntry } from './receipts/store.js';

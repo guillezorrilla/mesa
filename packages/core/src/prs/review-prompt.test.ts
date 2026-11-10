@@ -27,3 +27,19 @@ test('Post now submits the drafts; a re-review records a verdict on each earlier
     'Comment only through these commands; never approve or merge.',
   );
 });
+
+test("the person's Review voice goes in after the draft lines, and the guard stays last", () => {
+  const voice = 'Short questions.\nNever a bullet list.';
+  const prompt = reviewPrompt({ number: 36, mode: 'post', rereview: true, voice });
+  const lines = prompt.split('\n');
+  const at = lines.indexOf('Write every comment in my voice, as described here:');
+  expect(lines[at - 1]).toMatch(/^Score each finding/);
+  expect(lines.slice(at + 1, at + 3)).toEqual(['Short questions.', 'Never a bullet list.']);
+  expect(lines[at + 3]).toMatch(/^This is a re-review/);
+  expect(lines.at(-1)).toBe('Comment only through these commands; never approve or merge.');
+  // No voice, no line.
+  for (const none of [undefined, null])
+    expect(reviewPrompt({ number: 36, mode: 'post', rereview: true, voice: none })).not.toContain(
+      'voice',
+    );
+});

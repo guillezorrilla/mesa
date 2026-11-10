@@ -11,6 +11,7 @@ import { canPost, reviewsOf, roundInProgress } from './review-sessions.js';
 import { type ReviewStartDeps, startReview } from './review-start.js';
 import type { PrDetail } from './service.js';
 import { type CommentVerdict, prVerdicts, VERDICT_STATES } from './verdicts.js';
+import { reviewVoice } from './voice.js';
 
 /** A project reached through its origin remote (service.ts reach). */
 export type Reached = {
@@ -68,7 +69,12 @@ export function reviewActions(
           },
           goal: ({ round, mode }) => {
             if (!pr) throw new MesaError('internal', `#${number} was not read before its goal`);
-            return reviewPrompt({ number, mode, rereview: round > 1 && pr.threads.length > 0 });
+            return reviewPrompt({
+              number,
+              mode,
+              rereview: round > 1 && pr.threads.length > 0,
+              voice: reviewVoice(ctx.paths.prs).text,
+            });
           },
         },
       );

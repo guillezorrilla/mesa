@@ -1,5 +1,5 @@
-import type { Mesa, PrDetail, PrList, PrPatch, PrSetupRow } from '@mesa/core';
-import { commandWith } from './spec';
+import type { Mesa, PrDetail, PrList, PrPatch, PrSetupRow, ReviewVoice } from '@mesa/core';
+import { command, commandWith } from './spec';
 
 /** What `mesa prs start` answers: the session it opened, or the review of that PR already running. */
 export type ReviewStarted = Awaited<ReturnType<Mesa['prs']['start']>>;
@@ -60,4 +60,6 @@ export const prsCommands = {
     String(number),
     id,
   ]),
+  /** The profile's Review voice: the file review sessions write comments in, and its text when set. */
+  'prs.voice': command<ReviewVoice>('prs', 'voice'),
 };

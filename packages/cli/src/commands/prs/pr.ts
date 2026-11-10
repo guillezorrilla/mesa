@@ -138,3 +138,18 @@ export const prsDiscard = defineCommand({
     });
   },
 });
+export const prsVoice = defineCommand({
+  name: 'prs voice',
+  summary:
+    'Show your review voice: the profile file whose text review sessions follow when writing comments',
+  example: 'mesa prs voice',
+  run: async ({ mesa }) => {
+    const data = mesa.prs.voice();
+    return {
+      data,
+      text: data.text
+        ? `${data.path}\n\n${data.text}`
+        : `No review voice: create ${data.path} to set one`,
+    };
+  },
+});
