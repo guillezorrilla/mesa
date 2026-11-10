@@ -185,6 +185,16 @@ export const reviewCommands = {
   'review.notesRemove': commandWith<{ id: string; note: string }, { id: string }>(
     ({ id, note }) => ['review', 'notes', 'remove', '--', id, note],
   ),
+  'review.notesResolve': commandWith<{ id: string; note: string }, { id: string }>(
+    ({ id, note }) => ['review', 'notes', 'resolve', '--', id, note],
+  ),
+  'review.notesClear': commandWith<{ id: string }, { removed: string[] }>(({ id }) => [
+    'review',
+    'notes',
+    'clear',
+    '--',
+    id,
+  ]),
   'review.notesSend': commandWith<{ id: string; path?: string; yes?: boolean }, NotesSent>(
     ({ id, path, yes }) => [
       'review',

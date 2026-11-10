@@ -29,6 +29,8 @@ export function GitDiffFiles(props: {
   /** What shows above the open file's rows, and on each of its lines (GitDiffRows). */
   before?: ReactNode;
   slots?: LineSlots;
+  /** What shows under the file list, in its column. */
+  listFooter?: ReactNode;
 }) {
   const { view } = props;
   const { file } = view;
@@ -43,13 +45,16 @@ export function GitDiffFiles(props: {
           // The cap holds when the room shrinks after a drag (a narrower panel).
           style={{ width, maxWidth: `calc(100% - ${OPEN_DIFF_MIN}px)` }}
         >
-          <DiffFileList
-            files={view.files}
-            tree={view.tree}
-            open={file.path}
-            onOpen={view.open}
-            className="w-full"
-          />
+          <div className="flex min-h-0 w-full flex-col">
+            <DiffFileList
+              files={view.files}
+              tree={view.tree}
+              open={file.path}
+              onOpen={view.open}
+              className="min-h-0 w-full flex-1"
+            />
+            {props.listFooter}
+          </div>
           <ResizeHandle
             label="Resize file list"
             edge="right"

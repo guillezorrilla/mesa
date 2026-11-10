@@ -330,6 +330,39 @@ test('review notes add, list, edit and remove a note on a committed line', async
   expect(
     (await cli.mesa('review', 'notes', 'send', opened.id, '--no-from', '--json')).json.data,
   ).toEqual({ sent: [], stale: [] });
-  await cli.mesa('review', 'notes', 'remove', opened.id, id, '--json');
-  expect((await cli.mesa('review', 'notes', opened.id, '--json')).json.data).toHaveLength(1);
+  expect(
+    (await cli.mesa('review', 'notes', 'clear', opened.id, '--json')).json.data.removed,
+  ).toHaveLength(2);
+  expect((await cli.mesa('review', 'notes', opened.id, '--json')).json.data).toEqual([]);
+  await cli.mesa(
+    'review',
+    'notes',
+    'add',
+    opened.id,
+    '--path',
+    'a.ts',
+    '--line',
+    '2',
+    '--text',
+    'two',
+    '--json',
+  );
+  const two = (await cli.mesa('review', 'notes', opened.id, '--json')).json.data[0].id;
+  await cli.mesa('review', 'notes', 'resolve', opened.id, two, '--json');
+  await cli.mesa(
+    'review',
+    'notes',
+    'add',
+    opened.id,
+    '--path',
+    'a.ts',
+    '--line',
+    '1',
+    '--text',
+    'one',
+    '--json',
+  );
+  const one = (await cli.mesa('review', 'notes', opened.id, '--json')).json.data[0].id;
+  await cli.mesa('review', 'notes', 'remove', opened.id, one, '--json');
+  expect((await cli.mesa('review', 'notes', opened.id, '--json')).json.data).toEqual([]);
 });

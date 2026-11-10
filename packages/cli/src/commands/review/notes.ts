@@ -113,3 +113,25 @@ export const reviewNotesSend = defineCommand({
     return { data, text: `${what}${left}${warning}` };
   },
 });
+
+export const reviewNotesResolve = defineCommand({
+  name: 'review notes resolve',
+  summary: 'Hide a review note from the list once its re-review is done',
+  args: ['session', 'id'],
+  example: 'mesa review notes resolve a1b2c3d4 k7m2p9qx',
+  run: ({ mesa, args }) => {
+    const data = mesa.sessions.notes.resolve(args.session, args.id);
+    return { data, text: `Resolved ${data.id}` };
+  },
+});
+
+export const reviewNotesClear = defineCommand({
+  name: 'review notes clear',
+  summary: "Delete a session's sent review notes whose lines have not changed since",
+  args: ['session'],
+  example: 'mesa review notes clear a1b2c3d4',
+  run: async ({ mesa, args }) => {
+    const data = await mesa.sessions.notes.clearSent(args.session);
+    return { data, text: `Cleared ${data.removed.length} sent notes` };
+  },
+});

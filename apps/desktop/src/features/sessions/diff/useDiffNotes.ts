@@ -85,6 +85,16 @@ export function useDiffNotes(sessionId: string) {
       return reviewOutcome(delivery, 'Notes').message;
     });
 
+  const resolve = useCallback(
+    (note: ListedNote) =>
+      change(() => call('review.notesResolve', { id: sessionId, note: note.id })),
+    [change, call, sessionId],
+  );
+  const clearSent = useCallback(
+    () => change(() => call('review.notesClear', { id: sessionId })),
+    [change, call, sessionId],
+  );
+
   return {
     notes,
     refresh,
@@ -93,6 +103,8 @@ export function useDiffNotes(sessionId: string) {
     add,
     edit,
     remove,
+    resolve,
+    clearSent,
     send,
     ask,
     cancelAsk: () => setAsk(undefined),
