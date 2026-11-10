@@ -151,7 +151,7 @@ test('Generate fills an empty message from mesa git message, spinning with Commi
 });
 
 test('Generate replaces a typed message only once confirmed, and a failed run says why', async () => {
-  let reply = () => generated('Add the tide table');
+  let reply: () => unknown = () => generated('Add the tide table');
   const { bridge } = staged(() => reply());
   const byTestId = await renderWithMesa(<GitTab project="lantern-cove" />, bridge);
   await fill(box(), 'my words');
