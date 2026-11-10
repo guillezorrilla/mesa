@@ -21,6 +21,8 @@ export type ReviewPreview = {
   staged?: boolean;
   url?: string;
   selector?: string;
+  /** The review notes it sends, by id: kept on the event and in the send's receipt. */
+  notes?: string[];
 };
 export type ReviewDelivery = {
   id: string;
@@ -39,7 +41,7 @@ type DeliveryDeps = {
   send: (
     id: string,
     prompt: string,
-    opts: Overrides & { noFrom?: boolean },
+    opts: Overrides & { noFrom?: boolean; notes?: string[] },
   ) => Promise<Recorded<Sent>>;
 };
 
@@ -47,7 +49,7 @@ type DeliveryDeps = {
 export async function sendReview(
   deps: DeliveryDeps,
   id: string,
-  kind: 'response' | 'change' | 'browser',
+  kind: NonNullable<SavedReview['kind']>,
   preview: () => ReviewPreview | Promise<ReviewPreview>,
   opts: Overrides & { noFrom?: boolean } = {},
 ): Promise<ReviewDelivery> {
@@ -81,6 +83,7 @@ export async function sendReview(
     ...(checked.staged === undefined ? {} : { staged: checked.staged }),
     ...(checked.url ? { url: checked.url } : {}),
     ...(checked.selector ? { selector: checked.selector } : {}),
+    ...(checked.notes ? { notes: checked.notes } : {}),
     status: 'pending',
   };
   let claimed = false;
@@ -118,7 +121,10 @@ export async function sendReview(
     }));
   let delivery: Recorded<Sent>;
   try {
-    delivery = await deps.send(id, checked.prompt, opts);
+    delivery = await deps.send(id, checked.prompt, {
+      ...opts,
+      ...(checked.notes ? { notes: checked.notes } : {}),
+    });
   } catch (error) {
     const safe =
       (error instanceof MesaError && error.code === 'guardrail_blocked') || typedNothing(error);

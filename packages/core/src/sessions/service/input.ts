@@ -13,7 +13,7 @@ import {
 } from '../input/browser-annotation.js';
 import { changeReview, previewChangeReview } from '../input/change-review.js';
 import { previewSessionImage, sessionImagePrompt } from '../input/images.js';
-import { type ReviewNoteInput, reviewNotes } from '../input/review-notes.js';
+import { notesReview, type ReviewNoteInput, reviewNotes } from '../input/review-notes.js';
 import { sendReview } from '../input/reviews.js';
 import { sendPrompt } from '../input/send.js';
 import { previewResponseReview, sessionResponses } from '../native/responses.js';
@@ -47,9 +47,9 @@ export function inputActions(ctx: MesaContext, faro: Faro, deps: SessionDeps) {
   const send = (
     id: string,
     prompt: string,
-    opts: { from?: string; noFrom?: boolean } & Overrides = {},
+    opts: { from?: string; noFrom?: boolean; notes?: string[] } & Overrides = {},
   ) => {
-    const { force = false, yes, confirm, from, noFrom } = opts;
+    const { force = false, yes, confirm, from, noFrom, notes } = opts;
     const kept = receiptText(prompt, ctx.argv, secrets());
     const target = store.find(id);
     return record(
@@ -75,6 +75,7 @@ export function inputActions(ctx: MesaContext, faro: Faro, deps: SessionDeps) {
           ...(yes ? { yes } : {}),
           ...(from === undefined ? {} : { from }),
           ...(noFrom ? { noFrom } : {}),
+          ...(notes ? { notes } : {}),
         },
         outputs: (r) => ({
           chars: r.chars,
@@ -149,6 +150,26 @@ export function inputActions(ctx: MesaContext, faro: Faro, deps: SessionDeps) {
       add: (id: string, input: ReviewNoteInput) => notesOf(id).add(input),
       edit: (id: string, note: string, text: string) => notesOf(id).edit(note, text),
       remove: (id: string, note: string) => notesOf(id).remove(note),
+      /**
+       * Sends every unsent note, or `path`'s, as one prompt through sendReview, then marks them
+       * sent; a stale one stays behind, named in `stale`. Nothing to send sends nothing.
+       */
+      send: async (id: string, path?: string, opts: { noFrom?: boolean } & Overrides = {}) => {
+        const notes = notesOf(id);
+        const { ready, stale } = await notes.unsent(path);
+        if (!ready.length) return { sent: [] as string[], stale };
+        const delivery = await sendReview(
+          { store, clock: ctx.clock, send },
+          id,
+          'notes',
+          () => notesReview(id, ready),
+          opts,
+        );
+        if (delivery.status !== 'delivered') return { sent: [] as string[], stale, delivery };
+        const sent = ready.map((n) => n.id);
+        notes.markSent(sent);
+        return { sent, stale, delivery };
+      },
     },
     browser: {
       external: (url: string) => openBrowserExternal(url, ctx.run),

@@ -275,7 +275,7 @@ Not: review (the feedback a person sends from it), transcript, history.
 
 ## Review note
 
-A person's draft note on exact lines of a session's diff: a line, a range, or a whole file (line 0), on the Session diff against its base (`branch`, the default) or on uncommitted work (`working`, `staged`). It keeps the lines it quotes and the Git blob it was written on, so a later read follows the lines when they only moved and marks it `stale` when they changed. Notes stay drafts until sent; editing one makes it unsent. `mesa review notes <session>` lists them, and `add`, `edit` and `remove` change them; they live in `~/.mesa/<profile>/review-notes/<session>.json` and go with `mesa rm`.
+A person's draft note on exact lines of a session's diff: a line, a range, or a whole file (line 0), on the Session diff against its base (`branch`, the default) or on uncommitted work (`working`, `staged`). It keeps the lines it quotes and the Git blob it was written on, so a later read follows the lines when they only moved and marks it `stale` when they changed. Notes stay drafts until sent: `mesa review notes send <session> [--path <p>]` sends every unsent note that is not stale, or one file's, as one prompt through the guardrail (sendReview), each as `File:`, `Lines:` (or `Scope: file`), its quoted lines and `Note:`, and marks them sent; a stale one stays behind, named in the result. Editing one makes it unsent. `mesa review notes <session>` lists them, and `add`, `edit` and `remove` change them; they live in `~/.mesa/<profile>/review-notes/<session>.json` and go with `mesa rm`.
 Not: Pending draft (a hosted PR comment), review (what is sent).
 
 ## Terminal palette
