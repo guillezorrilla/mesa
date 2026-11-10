@@ -86,6 +86,37 @@ test('a session keeps only its newest notice, a subagent finishing raises none, 
   expect(createMesa('other', testDeps(home)).notifications.list()).toEqual([]);
 });
 
+test("a failed setup window is its own notice, naming the window, that the session's turns keep", () => {
+  const { run } = scriptedRunner();
+  const { home, mesa } = projectProfile(run);
+  const store = testStore(home);
+  const session = store.create(() => newSession());
+  let second = 0;
+  const deps = {
+    store,
+    eventsDir: profilePaths(home, 'default').events,
+    clock: () => new Date(`2026-09-24T12:00:${String(second++).padStart(2, '0')}.000Z`),
+    home,
+    secrets: () => [],
+  };
+  const hook = (payload: Record<string, unknown>) =>
+    recordHookEvent(deps, {
+      agent: 'claude',
+      mesaSessionId: session.id,
+      payload: JSON.stringify(payload),
+    });
+  hook({ hook_event_name: 'SetupFailed', window: `setup-${session.id}` });
+  hook({ hook_event_name: 'PermissionRequest', tool_name: 'Bash' });
+  hook({ hook_event_name: 'Stop' });
+  expect(mesa.notifications.list()).toMatchObject([
+    {
+      kind: 'input-required',
+      title: `Worktree setup failed in window setup-${session.id}`,
+      target: { kind: 'session', id: session.id, window: `setup-${session.id}` },
+    },
+  ]);
+});
+
 const HOOKS_HINT = 'not installed: run `mesa hooks install`';
 
 test('each Doctor fix is its own notice, and a finding without one keeps its name and hint', () => {

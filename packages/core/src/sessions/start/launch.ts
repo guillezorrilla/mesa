@@ -39,7 +39,9 @@ import {
 } from './additional.js';
 import type { NewLaunch } from './new-record.js';
 import { createRecord } from './new-record.js';
+import { setupWindowCommand, setupWindowName } from './setup-window.js';
 import { goalPreparing, sessionWindowCommand } from './window-command.js';
+import type { Worktree } from './worktree.js';
 
 // Launching a session, the one sequence every start goes through (open, resume, adopt, handoff,
 // and a queued start): its record, its worktree, its folder checked, the project's skills linked
@@ -142,11 +144,13 @@ export async function startSession(
   let backgroundId: string | undefined;
   try {
     const worktreeWarnings: (string | undefined)[] = [];
+    let setup: string[] | undefined;
     if (!record.worktree && start.branch !== undefined) {
       if (!project) throw new MesaError('usage', 'General sessions cannot use a worktree');
       const selected = await worktreeFor(deps, project, start.branch, start.base);
       made.add(deps.profile, project, selected);
       worktreeWarnings.push(selected.warning);
+      setup = selected.setup;
       record = deps.store.update(record.id, { worktree: selected.worktree });
     }
     if (start.additional?.length)
@@ -183,6 +187,7 @@ export async function startSession(
       record = deps.store.update(record.id, { backgroundId });
     }
     const { paths, config } = deps.profile;
+    if (setup && record.worktree) record = await setupBeside(deps, record, record.worktree, setup);
     const deny = reviewDeny(record.agent, record.review);
     const command = record.backgroundId
       ? claudeBackgroundAttach(record.backgroundId)
@@ -290,5 +295,33 @@ function syncSkillsInto(deps: Pick<LaunchDeps, 'syncSkills'>, project: string, f
 
 /** A new worktree on `branch`, unless a session has the worktree there. */
 function worktreeFor(deps: LaunchDeps, entry: RegistryEntry, branch: string, base?: string) {
-  return sessionWorktree(deps.profile, deps.run, deps.lock, deps.store, entry, branch, base);
+  return sessionWorktree(deps.profile, deps.run, deps.lock, deps.store, entry, branch, base, true);
+}
+
+/**
+ * Opens `setup` in a window beside the session's (setupWindowCommand) before its agent starts,
+ * and keeps the window's name on the record and a note of it in the goal the agent is given.
+ */
+async function setupBeside(
+  deps: LaunchDeps,
+  record: SessionRecord,
+  worktree: Worktree,
+  setup: string[],
+) {
+  const window = setupWindowName(record.id);
+  const note = `Worktree setup (${setup.join(' ')}) is running in tmux window ${window} beside this session: check it before relying on what it installs.`;
+  await deps.tmux.openWindow({
+    project: record.tmux.session,
+    window,
+    cwd: worktree.path,
+    command: setupWindowCommand(setup, window, deps.self, record.agent),
+    env: {
+      ...windowEnv(record.id, deps.profileName),
+      PATH: mesaOnPath(deps.profile.paths.bin, deps.self, deps.env.PATH),
+    },
+  });
+  return deps.store.update(record.id, {
+    setupWindow: window,
+    ...(record.goal ? { goal: `${record.goal}\n\n${note}` } : {}),
+  });
 }

@@ -774,6 +774,42 @@ test('a failed session launch preserves data written by configured worktree setu
   expect(await mesa.sessions.list()).toEqual([]);
 });
 
+test('setupWhile parallel runs setup in a window beside the agent; block runs it first', async () => {
+  const world = agentWorld();
+  const original = withGit(world);
+  const ran: string[][] = [];
+  const run: Runner = (file, args, ms, options) => {
+    if (file !== '/usr/bin/touch') return original(file, args, ms, options);
+    ran.push(args);
+    return Promise.resolve({ ok: true, stdout: '' });
+  };
+  const { home, dir, mesa } = await setUp(world, { run });
+  gitRepo(dir);
+  mesa.config.set('worktrees.setup', '["/usr/bin/touch", "keep.txt"]');
+  mesa.config.set('worktrees.setupWhile', 'parallel');
+  const { result } = await mesa.sessions.open('lantern-cove', {
+    branch: 'beside',
+    goal: 'Tidy the docs',
+  });
+  expect(ran).toEqual([]);
+  const [setup, agent] = world.tmux.opened.slice(-2);
+  expect(setup).toMatchObject({
+    window: `setup-${result.id}`,
+    path: worktreeAt(home, 'lantern-cove', 'beside'),
+    env: expect.objectContaining({ MESA_SESSION_ID: result.id }),
+  });
+  expect(setup?.launch).toContain("'/usr/bin/touch' 'keep.txt'");
+  expect(agent?.window).toBe(result.tmux.window);
+  expect(result.setupWindow).toBe(`setup-${result.id}`);
+  expect(result.goal).toMatch(/^Tidy the docs\n\nWorktree setup .* tmux window setup-/);
+
+  mesa.config.set('worktrees.setupWhile', 'block');
+  const { result: blocked } = await mesa.sessions.open('lantern-cove', { branch: 'blocking' });
+  expect(ran).toEqual([['keep.txt']]);
+  expect(blocked.setupWindow).toBeUndefined();
+  expect(world.tmux.opened.at(-1)?.window).toBe(blocked.tmux.window);
+});
+
 test("--branch refuses a project's unapproved worktree setup and creates nothing", async () => {
   const world = agentWorld();
   const mesaYaml = 'name: lantern-cove\nworktrees:\n  setup: [/usr/bin/touch, repo-file]\n';

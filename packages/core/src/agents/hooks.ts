@@ -209,6 +209,12 @@ export const stopContinuation = (reason: string) => JSON.stringify({ decision: '
  */
 export const STOP_CONTINUED = 'StopContinued';
 
+/**
+ * The event a session's setup window logs when its setup fails (sessions/start/setup-window.ts):
+ * no agent's state, an Inbox notice naming the window (hookItem).
+ */
+export const SETUP_FAILED = 'SetupFailed';
+
 /** Whether a Stop payload ends a turn a Stop hook already continued: it must not continue again. */
 export const stopHookActive = (payload: unknown) =>
   typeof payload === 'object' &&

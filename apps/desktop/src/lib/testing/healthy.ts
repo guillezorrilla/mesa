@@ -131,6 +131,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
         sparseDirectories: [],
         carry: [],
         setup: [],
+        setupWhile: 'block',
         teardown: [],
         deleteBranch: false,
       },

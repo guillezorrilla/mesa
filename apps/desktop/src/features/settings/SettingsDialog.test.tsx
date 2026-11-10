@@ -187,6 +187,18 @@ test('the carry row takes ignored files as well as folders', async () => {
   ]);
 });
 
+test('Run setup chooses before or beside the agent, saved with the other worktree settings', async () => {
+  const config = await base();
+  const { bridge, calls } = fakeBridge({ 'config set': () => envelope({}) });
+  await render(bridge, 'git');
+  const field = document.getElementById('worktree-setup-while') as HTMLSelectElement;
+  expect(field.value).toBe('block');
+  await choose(field, 'parallel');
+  expect(sets(calls).map(([path, value]) => [path, JSON.parse(value ?? '{}')])).toEqual([
+    ['worktrees', { ...config.worktrees, setupWhile: 'parallel' }],
+  ]);
+});
+
 test('profile scripts say they are one executable and its arguments, run without a shell', async () => {
   await render(fakeBridge().bridge, 'git');
   for (const id of ['worktree-setup', 'worktree-teardown']) {

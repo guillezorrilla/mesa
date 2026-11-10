@@ -37,7 +37,7 @@ const EMPTY: InboxState = {
 
 /**
  * Adds `change` to the state: hook notices deduplicated within two seconds, one per session (its
- * newest, as a later event makes the earlier ones stale) and the latest 500 sessions, the latest
+ * newest, as a later event makes the earlier ones stale), and one per window beside it and the latest 500 sessions, the latest
  * 5 release notices, marks joined, offsets only moving forward. A mark lives as long as its notice, including
  * the `failures` the state does not keep.
  */
@@ -53,12 +53,16 @@ function merge(current: InboxState, change: Partial<InboxState>, failures: Candi
     distinct.push(entry);
     last.set(entry.fingerprint, at);
   }
-  const newest = new Map(distinct.map((entry) => [entry.session, entry]));
+  const own = (entry: Candidate) =>
+    entry.target.kind === 'session' && entry.target.window
+      ? `${entry.session} ${entry.target.window}`
+      : entry.session;
+  const newest = new Map(distinct.map((entry) => [own(entry), entry]));
   const next = {
     read: [...new Set([...current.read, ...(change.read ?? [])])],
     cleared: [...new Set([...current.cleared, ...(change.cleared ?? [])])],
     delivered: [...new Set([...current.delivered, ...(change.delivered ?? [])])],
-    items: distinct.filter((entry) => newest.get(entry.session) === entry).slice(-500),
+    items: distinct.filter((entry) => newest.get(own(entry)) === entry).slice(-500),
     offsets: Object.fromEntries(
       [...new Set([...Object.keys(current.offsets), ...Object.keys(change.offsets ?? {})])].map(
         (id) => [id, Math.max(current.offsets[id] ?? 0, change.offsets?.[id] ?? 0)],

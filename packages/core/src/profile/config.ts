@@ -248,6 +248,8 @@ const ConfigShape = z.strictObject({
           sparseDirectories: WORKTREE_OVERRIDE_FIELDS.sparseDirectories.default([]),
           carry: WORKTREE_OVERRIDE_FIELDS.carry.default([]),
           setup: WORKTREE_OVERRIDE_FIELDS.setup.default([]),
+          // A new session's setup blocks its start, or runs in a window beside its agent (#901).
+          setupWhile: z.enum(['block', 'parallel']).default('block'),
           teardown: WORKTREE_OVERRIDE_FIELDS.teardown.default([]),
           // Pre-checks "also delete branch" when the app removes a session's worktree.
           deleteBranch: z.boolean().default(false),

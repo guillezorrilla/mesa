@@ -99,6 +99,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
       sparseDirectories: [],
       carry: [],
       setup: [],
+      setupWhile: 'block',
       teardown: [],
       deleteBranch: false,
     },
