@@ -1,5 +1,5 @@
 import type { CrewRow } from '@mesa/core';
-import { asleep, queued, sendable, sessionTitle, timeAgo } from '@mesa/core/browser';
+import { sendable, sessionTitle, stoppable, timeAgo } from '@mesa/core/browser';
 import { GitBranch, MessageSquare, RefreshCw, Send, Square, Users, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
@@ -133,7 +133,7 @@ function CrewMember(props: {
           label={`Stop ${name}`}
           icon={Square}
           size="icon-xs"
-          disabled={!(row.alive || queued(row) || asleep(row))}
+          disabled={!stoppable(row)}
           onClick={props.onStop}
         />
       </div>

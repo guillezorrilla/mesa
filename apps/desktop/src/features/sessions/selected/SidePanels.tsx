@@ -27,10 +27,12 @@ export function SidePanels(props: {
     const mine = row.managed ? row : undefined;
     // Its children's states, so the Crew reads again when one changes.
     const crewStamp =
-      open.panel === 'crew'
-        ? (props.rows ?? [])
-            .filter((each) => each.managed && each.parent === id)
-            .map((each) => `${each.id}:${each.lastState.state}`)
+      mine && open.panel === 'crew'
+        ? mine.children
+            .map(
+              (child) =>
+                `${child}:${props.rows?.find((each) => each.id === child)?.lastState.state}`,
+            )
             .join(' ')
         : '';
     return (

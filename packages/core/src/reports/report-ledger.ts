@@ -121,7 +121,11 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
     /** `child`'s newest explicit report, delivered or not. */
     explicit: (child: string): ChildReport | undefined => readJson(file, State)?.explicit[child],
     /** Each child's newest report that says something, delivered or not, as last written. */
-    latest: (): Record<string, ChildReport> => readJson(file, State)?.latest ?? {},
+    latest: (): Record<string, ChildReport> => {
+      const state = readJson(file, State);
+      // An explicit report from before `latest` was kept still counts as the child's newest.
+      return { ...state?.explicit, ...state?.latest };
+    },
     /**
      * Adds a worker's explicit report to the pending ones in place of its older explicit one
      * (even one made the same millisecond), and keeps it as its newest.

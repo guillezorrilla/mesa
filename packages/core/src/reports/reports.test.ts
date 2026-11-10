@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createContext } from '../context.js';
@@ -468,4 +469,14 @@ test("a child's newest report that says something is kept after delivery, for it
   expect(latestReports(f.ctx)[child.id]).toMatchObject({ kind: 'blocked' });
   store.remove(child.id);
   expect(latestReports(f.ctx)).toEqual({});
+});
+
+test("an explicit report kept before latest reports were is still a child's newest", () => {
+  const f = family();
+  const said = { ...inside(f, f.child.id).report('done', 'Charted it') };
+  writeFileSync(
+    profilePaths(f.home, 'default').reports,
+    JSON.stringify({ explicit: { [f.child.id]: said } }),
+  );
+  expect(latestReports(f.ctx)[f.child.id]).toMatchObject({ kind: 'done', message: 'Charted it' });
 });

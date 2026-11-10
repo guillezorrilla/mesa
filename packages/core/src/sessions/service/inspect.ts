@@ -175,7 +175,7 @@ export function inspectActions(
      * unknown id.
      */
     crew: async (id: string) => {
-      store.get(id);
+      store.get(id); // not_found for an unknown id
       const rows = await board('all');
       const latest = latestReports(ctx);
       return crewOf(rows, id, latest, (child) =>
