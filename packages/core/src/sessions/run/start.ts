@@ -7,7 +7,7 @@ import type { IdSource } from '../../lib/ids.js';
 import type { LockDeps } from '../../lib/lock-file.js';
 import { shellWord } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
-import { isPipelineSkill } from '../../skills/library.js';
+import { isPipelineSkill, runModel } from '../../skills/library.js';
 import type { SkillRow } from '../../skills/sync.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import type { SessionRecord } from '../record/record.js';
@@ -106,7 +106,12 @@ export async function startRun(deps: RunDeps, input: RunInput) {
   const prompt = runPrompt(spec.headless.skillPrefix, input.skill, input.args);
   const agentSessionId = newSessionId(agent, deps.newUuid);
   // A pipeline skill's output is landed by core (ADR-0006), so its run gets no vault writes.
-  const may = { ...deps.profile.config.run, readOnlyVault: isPipelineSkill(input.skill) };
+  const model = runModel(input.skill);
+  const may = {
+    ...deps.profile.config.run,
+    readOnlyVault: isPipelineSkill(input.skill),
+    ...(model ? { model } : {}),
+  };
   const command = (id: string) =>
     agent === 'antigravity'
       ? AGENTS.antigravity.headless.command(

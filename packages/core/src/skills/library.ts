@@ -21,6 +21,12 @@ export const PIPELINE_SKILLS: readonly string[] = [IMPORT_NOTES, VAULT_CAPTURE];
 /** Whether `skill` is one of Mesa's own pipeline skills. */
 export const isPipelineSkill = (skill: string) => PIPELINE_SKILLS.includes(skill);
 
+/**
+ * The Claude model a skill's run uses instead of the person's default: Haiku for a Vault capture,
+ * at about a twentieth of Opus's cost per run (ADR-0023, docs/spikes/token-usage.md).
+ */
+export const runModel = (skill: string) => (skill === VAULT_CAPTURE ? 'haiku' : undefined);
+
 /** A skill's own file, read by both agents. */
 const SKILL_FILE = 'SKILL.md';
 

@@ -223,6 +223,8 @@ test("a turn's end with 10 new messages and no capture in 20 minutes starts one 
   await w.turnEnd(s);
   await w.turnEnd(s, 0);
   expect(w.captures()).toHaveLength(1);
+  // On Haiku, not the person's default model (ADR-0023).
+  expect(w.captures()[0]?.launch).toContain("--output-format json --model 'haiku' ");
   const running = testStore(w.home).get(s.id).capture;
   expect(running).toMatchObject({ state: 'running', run: expect.any(String) });
   // Its stdin: the conversation, redacted, never the agent's screen.
