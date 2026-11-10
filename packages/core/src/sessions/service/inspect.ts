@@ -1,12 +1,11 @@
 import { antigravitySessionId } from '../../agents/antigravity/log.js';
 import { listAgentProcesses } from '../../agents/listing.js';
 import type { MesaContext } from '../../context.js';
-import { readBranchDiff } from '../../git/branch-diff.js';
+import { readSessionDiff } from '../../git/branch-diff.js';
 import { diffCounts } from '../../git/diff.js';
 import { MesaError } from '../../lib/result.js';
 import { joinWarnings, type Recorded } from '../../receipts/recorder.js';
 import { keptReport, latestReports } from '../../reports/report-delivery.js';
-import { sessionDiffBase } from '../../worktrees/base.js';
 import type { SessionScope } from '../board/board.js';
 import { crewOf } from '../board/crew.js';
 import { sessionTree } from '../board/tree.js';
@@ -89,19 +88,13 @@ export function inspectActions(
     );
   };
   /**
-   * Everything the session's checkout holds that `base` lacks (readBranchDiff), read where its
+   * Everything the session's checkout holds that `base` lacks (readSessionDiff), read where its
    * agent works now (refreshReadings). Without `base`, its worktree's recorded base when it works
    * there (recordedBase), else the project's default.
    */
-  const diff = async (id: string, base?: string) => {
+  const diff = (id: string, base?: string) => {
     const { found, project, folder } = workingFolder(contextDeps, id);
-    return readBranchDiff(
-      ctx.open(),
-      ctx.run,
-      project,
-      base ?? (await sessionDiffBase(ctx.open(), ctx.run, { ...found, project, folder })),
-      folder,
-    );
+    return readSessionDiff(ctx.open(), ctx.run, { ...found, project, folder }, base);
   };
   return {
     list: board,

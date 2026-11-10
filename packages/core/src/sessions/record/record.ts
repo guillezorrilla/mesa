@@ -168,6 +168,11 @@ const SessionRecordFields = z.strictObject({
   tmux: z.strictObject({ socket: z.string(), session: z.string(), window: z.string() }),
   startedAt: z.iso.datetime(),
   endedAt: z.iso.datetime().optional(),
+  /**
+   * Its main agent's last reply as the board read it once after the session ended (finalReply),
+   * null when it had none: an ended session's hook log is not read again.
+   */
+  finalReply: z.strictObject({ text: z.string(), at: z.iso.datetime() }).nullable().optional(),
   /** Hidden from the active board while retaining the record and logs for later review. */
   archivedAt: z.iso.datetime().optional(),
   lastState: z.strictObject({

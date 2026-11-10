@@ -4,7 +4,8 @@ import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import { type Checkout, resolveCheckout } from '../projects/checkout.js';
 import { findProject } from '../projects/projects.js';
-import { defaultBranchRef } from '../worktrees/base.js';
+import type { Worktree } from '../sessions/start/worktree.js';
+import { defaultBranchRef, sessionDiffBase } from '../worktrees/base.js';
 import { gitCommand } from './command.js';
 import { type DiffRow, diffRows, PATCH_FLAGS } from './diff.js';
 import { commitOid, currentBranch } from './ref.js';
@@ -90,4 +91,29 @@ export async function readBranchDiff(
     patch,
     rows: diffRows(patch),
   };
+}
+
+/**
+ * Everything a session's checkout holds that `base` lacks (readBranchDiff), from the top of the
+ * folder its agent works in, which may be a subfolder (an adopted session's own); without `base`,
+ * its worktree's recorded base when it works there, else the project's default (sessionDiffBase).
+ * The one read of a session's diff: `mesa diff`, its crew row's counts and its card's lines.
+ */
+export async function readSessionDiff(
+  profile: Profile,
+  run: Runner,
+  session: { project: string; worktree?: Worktree; folder?: string },
+  base?: string,
+): Promise<GitBranchDiff> {
+  const top = session.folder
+    ? await gitCommand(run, session.folder, ['rev-parse', '--show-toplevel'])
+    : undefined;
+  const folder = top?.ok ? top.stdout.trim() : session.folder;
+  return readBranchDiff(
+    profile,
+    run,
+    session.project,
+    base ?? (await sessionDiffBase(profile, run, { ...session, folder })),
+    folder,
+  );
 }

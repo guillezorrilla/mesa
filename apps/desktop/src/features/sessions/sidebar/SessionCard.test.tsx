@@ -44,6 +44,11 @@ test('a card shows the lines its work changed after its branch, and its last rep
   expect(reply?.getAttribute('title')).toBe('Added the tide table.\nAll tests pass.');
 });
 
+test("an ended session's card still shows its last reply", async () => {
+  const ended = { ...session, endedAt: '2026-09-25T12:05:00.000Z' } as TreeRow;
+  expect((await card(false, ended))('session-reply')[0]?.textContent).toBe('Added the tide table.');
+});
+
 test('a compact card shows only its pull request, on its title row, left of the hover actions while they show', async () => {
   const byTestId = await card(true);
   const pr = byTestId('session-pr')[0];
