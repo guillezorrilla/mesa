@@ -50,6 +50,20 @@ test('send types the prompt and records a local event without vault history', as
   expect(listReceipts(join(home, 'vault'))).toEqual([]);
 });
 
+test('send pastes a prompt over 1 KB in one buffer of its own, gone after the paste', async () => {
+  const { mesa, window, opened, calls } = await setUp();
+  const prompt = Array.from({ length: 80 }, (_, i) => `line ${i} of the harbour log`).join('\n');
+  await mesa.sessions.send(opened.id, prompt);
+  expect(window.typed).toEqual([prompt]);
+  const tmux = calls.filter((call) => call.file === 'tmux').map((call) => call.args.slice(5));
+  const load = tmux.find((args) => args[0] === 'load-buffer');
+  expect(load?.slice(0, 2)).toEqual(['load-buffer', '-b']);
+  expect(calls.find((call) => call.args.includes('load-buffer'))?.options?.input).toBe(prompt);
+  expect(tmux.filter((args) => args[0] === 'delete-buffer')).toEqual([
+    ['delete-buffer', '-b', load?.[2]],
+  ]);
+});
+
 test('send leaves out what an agent would hold for a person: zero-width, bidi, fillers, ESC; separators become newlines', async () => {
   const { mesa, window, opened } = await setUp();
   const { result } = await mesa.sessions.send(

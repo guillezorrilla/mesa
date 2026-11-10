@@ -187,11 +187,12 @@ export function fakeTmux(
         const text = buffers.get(flag(rest, '-b'));
         if (!w) return failed("can't find window");
         if (text === undefined) return failed('no buffer');
-        if (rest.includes('-d')) buffers.delete(flag(rest, '-b'));
         w.typed.push(text);
         opts.onKeys?.(w, text);
         return ok();
       }
+      case 'delete-buffer':
+        return buffers.delete(flag(rest, '-b')) ? ok() : failed('no buffer');
       case 'pipe-pane': {
         const w = find(target);
         if (!w) return failed("can't find window");

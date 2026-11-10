@@ -140,7 +140,7 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
       /cat/,
     );
     const text = Array.from(
-      { length: 60 },
+      { length: 66 },
       (_, i) => `line ${i} of the tide table, high water`,
     ).join('\n');
     expect(Buffer.byteLength(text)).toBeGreaterThan(2048);
@@ -159,11 +159,12 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
       'display-message',
       'load-buffer',
       'paste-buffer',
+      'delete-buffer',
       'send-keys',
     ]);
-    expect(calls[2]).toEqual(expect.arrayContaining(['-p', '-r', '-d']));
+    expect(calls[2]).toEqual(expect.arrayContaining(['-p', '-r']));
     const written = () => Promise.resolve(existsSync(out) ? readFileSync(out, 'utf8') : '');
-    expect(await eventually(written, /line 59 of the tide table, high water\n$/)).toBe(`${text}\n`);
+    expect(await eventually(written, /line 65 of the tide table, high water\n$/)).toBe(`${text}\n`);
     expect(await raw('list-buffers', '-F', '#{buffer_name}')).not.toContain('mesa-send');
     // Short text is still typed, so a slash command runs.
     calls.length = 0;

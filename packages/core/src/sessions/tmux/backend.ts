@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { TMUX_INSTALL } from '../../doctor/probe.js';
 import { type Env, type Runner, shellWord } from '../../lib/process.js';
 import { type ErrorCode, MesaError } from '../../lib/result.js';
@@ -315,10 +316,15 @@ export function tmuxBackend({
         throw new MesaError('agent_unavailable', `no agent in ${targetLabel(target)}: ${why}`);
       }
       if (Buffer.byteLength(text) > PASTE_BYTES) {
-        // From stdin, past any argument limit; -r keeps newlines as typed, -d drops the buffer.
-        const buffer = `mesa-send-${target.window}`;
+        // From stdin, past any argument limit, in a buffer of its own so two sends at once never
+        // swap texts; -r keeps newlines as typed, and the buffer goes whether the paste worked.
+        const buffer = `mesa-send-${randomUUID()}`;
         await must(['load-buffer', '-b', buffer, '-'], 'internal', 'cannot load the text', text);
-        await onWindow(target, 'paste-buffer', '-p', '-r', '-d', '-b', buffer);
+        try {
+          await onWindow(target, 'paste-buffer', '-p', '-r', '-b', buffer);
+        } finally {
+          await tmux(['delete-buffer', '-b', buffer]);
+        }
       } else {
         // `--` so text starting with `-` is typed, not read as a flag. tmux reads any word ending
         // in `;` as the end of a command and turns a closing `\;` into `;`, so a closing `;` goes
