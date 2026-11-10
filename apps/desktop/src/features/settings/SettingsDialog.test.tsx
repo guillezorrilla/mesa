@@ -106,6 +106,21 @@ test('Sessions has the agent guidelines toggle, on by default, saved to sessions
   expect(sets(calls)).toEqual([['sessions.guidelines', 'false']]);
 });
 
+test('Sessions has the keep awake select, off by default, saved to sessions.keepAwake', async () => {
+  const { bridge, calls } = fakeBridge({ 'config set': () => envelope({}) });
+  await render(bridge);
+  await click(nav('Sessions'));
+  const select = document.getElementById('sessions-keep-awake') as HTMLSelectElement;
+  expect(select.value).toBe('off');
+  expect([...select.options].map((option) => option.text)).toEqual([
+    'Off',
+    'On',
+    'While agents work',
+  ]);
+  await choose(select, 'working');
+  expect(sets(calls)).toEqual([['sessions.keepAwake', '"working"']]);
+});
+
 test('General has the vault capture toggle, on by default, saved to vault.capture', async () => {
   const { bridge, calls } = fakeBridge({ 'config set': () => envelope({}) });
   await render(bridge);

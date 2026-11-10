@@ -12,7 +12,13 @@ export {
   toastTexts,
 } from './dom';
 export { fakeBridge } from './fakeBridge';
-export { fakeFileDrops, fakePlatform, fakeTerminals, fakeUpdates } from './fakePlatform';
+export {
+  fakeFileDrops,
+  fakePlatform,
+  fakeSessionEvents,
+  fakeTerminals,
+  fakeUpdates,
+} from './fakePlatform';
 export {
   asking,
   busy,

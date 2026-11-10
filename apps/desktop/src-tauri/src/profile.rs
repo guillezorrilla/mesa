@@ -4,11 +4,16 @@
 //! other profile, so its tmux server, notifications and windows all start clean.
 
 use std::ffi::OsStr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
+/// Where every profile's folder lives (core's profile/paths.ts `profilesDir`).
+pub fn profiles_dir(home: &Path) -> PathBuf {
+    home.join(".mesa")
+}
+
 /// Core's rule for a profile name (profile/profile-name.ts).
-fn valid_name(name: &str) -> bool {
+pub fn valid_name(name: &str) -> bool {
     (1..=64).contains(&name.len())
         && name
             .bytes()
@@ -17,7 +22,7 @@ fn valid_name(name: &str) -> bool {
 
 /// The app's last profile under `home`, when it is still an initialised profile.
 fn last_used(home: &Path) -> Option<String> {
-    let mesa = home.join(".mesa");
+    let mesa = profiles_dir(home);
     let name = std::fs::read_to_string(mesa.join(".app-profile")).ok()?;
     let name = name.trim();
     (valid_name(name) && mesa.join(name).join("config.yaml").is_file()).then(|| name.to_string())

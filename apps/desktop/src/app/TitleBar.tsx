@@ -1,5 +1,5 @@
 import type { DoctorReport, ProjectRow } from '@mesa/core';
-import { DollarSign, Search } from 'lucide-react';
+import { Coffee, DollarSign, Search } from 'lucide-react';
 import type { RefObject } from 'react';
 import { Kbd } from '@/components/Kbd';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,8 @@ export function TitleBar(props: {
   doctor: DoctorReport | undefined;
   onRecheck: () => Promise<void>;
   profileMenu: RefObject<HTMLDetailsElement | null>;
+  /** The app holds the Mac's idle-sleep assertion (Keep awake). */
+  awake: boolean;
 }) {
   const { view, navigate } = props;
   return (
@@ -66,6 +68,17 @@ export function TitleBar(props: {
         />
       </div>
       <nav aria-label="Workspace shortcuts" className="ml-auto flex shrink-0 items-center gap-2">
+        {props.awake && (
+          <span
+            role="img"
+            data-testid="keep-awake"
+            aria-label="Keeping the Mac awake"
+            title="Keeping the Mac awake"
+            className="flex size-8 items-center justify-center text-muted-foreground"
+          >
+            <Coffee aria-hidden className="size-4" />
+          </span>
+        )}
         {(
           [
             ['Impact', COMMAND_ICONS.impact, 'impact', 'impact'],

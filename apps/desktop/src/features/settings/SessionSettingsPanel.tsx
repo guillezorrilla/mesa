@@ -1,7 +1,8 @@
-import { AGENT_LABELS, AGENT_NAMES } from '@mesa/core/browser';
+import { AGENT_LABELS, AGENT_NAMES, KEEP_AWAKE_LABELS, KEEP_AWAKE_MODES } from '@mesa/core/browser';
 import {
   BookMarked,
   CircleDollarSign,
+  Coffee,
   GraduationCap,
   ScrollText,
   SquareTerminal,
@@ -17,7 +18,8 @@ import { useSettings } from './useSettings';
 
 /**
  * What a new session starts with, whether its output is kept, whether Claude's status line shows
- * its cost, whether its agent gets the agent guidelines, the review voice, and the saved prompts.
+ * its cost, whether its agent gets the agent guidelines, when the Mac stays awake, the review voice,
+ * and the saved prompts.
  */
 export function SessionSettingsPanel(props: { onSavedPrompts: () => void }) {
   const { config } = useSettings();
@@ -101,6 +103,27 @@ export function SessionSettingsPanel(props: { onSavedPrompts: () => void }) {
               id="sessions-guidelines"
               path="sessions.guidelines"
               checked={config.sessions.guidelines}
+            />
+          }
+        />
+      </SettingSection>
+      <SettingSection
+        id="keep-awake"
+        title="Sleep"
+        description="Whether the Mac may idle-sleep while the app is open"
+      >
+        <SettingRow
+          icon={Coffee}
+          title="Keep the Mac awake"
+          description="Stop the Mac from idle-sleeping, always or while any session is working, so a long turn does not stall. Only while the app is open; the display can still sleep."
+          htmlFor="sessions-keep-awake"
+          keywords="sleep caffeinate awake power idle"
+          control={
+            <ChoiceField
+              id="sessions-keep-awake"
+              path="sessions.keepAwake"
+              value={config.sessions.keepAwake}
+              options={KEEP_AWAKE_MODES.map((mode) => [mode, KEEP_AWAKE_LABELS[mode]] as const)}
             />
           }
         />

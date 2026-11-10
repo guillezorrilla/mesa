@@ -263,3 +263,17 @@ test.each([
     );
   },
 );
+
+test('a late async write does not make an older event the latest: events come by `at`', () => {
+  const { id, deps } = setUp();
+  mkdirSync(deps.eventsDir, { recursive: true });
+  const line = (at: string, event: string) =>
+    `${JSON.stringify({ at, agent: 'claude', event, payload: { hook_event_name: event } })}\n`;
+  // The async PostToolUse fired first but its node wrote after the synchronous Stop.
+  appendFileSync(join(deps.eventsDir, `${id}.jsonl`), line('2026-11-10T09:00:02.000Z', 'Stop'));
+  appendFileSync(
+    join(deps.eventsDir, `${id}.jsonl`),
+    line('2026-11-10T09:00:01.000Z', 'PostToolUse'),
+  );
+  expect(readHookEvents(deps.eventsDir, id).map((e) => e.event)).toEqual(['PostToolUse', 'Stop']);
+});

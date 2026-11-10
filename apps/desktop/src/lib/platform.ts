@@ -106,6 +106,8 @@ export type Platform = {
     onOpen: (handler: (target: NativeNotice['target']) => void) => Promise<() => void>;
     takeOpened: () => Promise<NativeNotice['target'] | null>;
   };
+  /** A hook event landed in the profile's `sessions/events/` (events.rs, debounced). Returns the unsubscribe. */
+  sessions: { onChanged: (handler: () => void) => Promise<() => void> };
   /** The app's Dock icon: `badge(count)` shows the count, and 0 clears it. */
   dock: { badge: (count: number) => Promise<void> };
   terminal: TerminalHost;
@@ -115,6 +117,8 @@ export type Platform = {
   /** The macOS pasteboard, through Rust: WKWebView refuses `navigator.clipboard` (SP-3). Paste
    * needs no seam: Cmd+V fires a paste event that xterm handles. */
   clipboard: { write: (text: string) => Promise<void> };
+  /** Keep awake (CONTEXT.md): Rust's one `caffeinate` child, held and released by the app. */
+  awake: { hold: () => Promise<void>; release: () => Promise<void> };
   updates: UpdateHost;
   /** The macOS app menu's items that open a screen: About Mesa. Returns the unsubscribe. */
   menu: { onAbout: (handler: () => void) => Promise<() => void> };

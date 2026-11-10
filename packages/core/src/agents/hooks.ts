@@ -8,7 +8,7 @@ import type { Agent } from './names.js';
 
 // The shared JSON hook format Claude Code and Codex read.
 
-type Hook = { type?: string; command?: string };
+type Hook = { type?: string; command?: string; async?: boolean };
 type Group = { matcher?: string; hooks?: Hook[] };
 type Settings = { hooks?: Record<string, Group[]> } & Record<string, unknown>;
 
@@ -31,8 +31,6 @@ const isMesaHook = (h: Hook, agent: Agent) =>
  * other sessions never start node. Only the speaking events pass stdout into provider context;
  * other hook output is dropped. Its status is always 0 (exit 2 would block a tool call).
  */
-// ponytail: synchronous, about 0.1 s of node per event inside Mesa sessions only; add "async": true
-// if that shows, and order events by their `at` then.
 export const hookCommand = (self: readonly string[], agent: Agent, event?: string) =>
   `${GUARD}${self.map(shellWord).join(' ')}${tail(agent, event)}`;
 
@@ -40,7 +38,11 @@ export const hookCommand = (self: readonly string[], agent: Agent, event?: strin
 export type HookFile = {
   path: string;
   agent: Agent;
-  events: readonly { event: string; matcher?: string }[];
+  /**
+   * `async`: Claude Code runs the hook in the background, so the agent never waits on an event
+   * whose output Mesa never returns (#894); readers order events by `at` for that.
+   */
+  events: readonly { event: string; matcher?: string; async?: boolean }[];
 };
 export type HookFileStatus = {
   path: string;
@@ -104,18 +106,36 @@ const mesaHooks = (settings: Settings, event: string, agent: Agent) =>
     (g.hooks ?? []).filter((h) => isMesaHook(h, agent)),
   );
 
+/** The entry this mesa writes for one event. */
+const mesaEntry = (
+  self: readonly string[],
+  agent: Agent,
+  event: string,
+  async?: boolean,
+): Hook => ({
+  type: 'command',
+  command: hookCommand(self, agent, event),
+  ...(async ? { async: true } : {}),
+});
+const isCurrent = (h: Hook, want: Hook) => h.command === want.command && h.async === want.async;
+
 export function hooksStatus(file: HookFile, self: readonly string[]): HookFileStatus {
   const { path, agent } = file;
   const { settings } = read(path);
   const events = Object.fromEntries(
-    file.events.map(({ event }) => [
+    file.events.map(({ event, async }) => [
       event,
-      mesaHooks(settings, event, agent).some((h) => h.command === hookCommand(self, agent, event)),
+      mesaHooks(settings, event, agent).some((h) =>
+        isCurrent(h, mesaEntry(self, agent, event, async)),
+      ),
     ]),
   );
   const installed = Object.values(events).every(Boolean);
-  const other = file.events.some(({ event }) =>
-    mesaHooks(settings, event, agent).some((h) => h.command !== hookCommand(self, agent, event)),
+  // Another mesa's command, or this one's from before an event went async (#894).
+  const other = file.events.some(({ event, async }) =>
+    mesaHooks(settings, event, agent).some(
+      (h) => !isCurrent(h, mesaEntry(self, agent, event, async)),
+    ),
   );
   // An event Mesa hooks now has no entry where Mesa wrote others (an older mesa's set, #678).
   const missing =
@@ -136,10 +156,10 @@ export function installHooks(
   const loaded = read(now.path);
   const base = withoutMesa(loaded.settings, file.agent);
   const hooks = { ...base.hooks };
-  for (const { event, matcher } of file.events) {
+  for (const { event, matcher, async } of file.events) {
     const group: Group = {
       ...(matcher ? { matcher } : {}),
-      hooks: [{ type: 'command', command: hookCommand(self, file.agent, event) }],
+      hooks: [mesaEntry(self, file.agent, event, async)],
     };
     hooks[event] = [...(hooks[event] ?? []), group];
   }

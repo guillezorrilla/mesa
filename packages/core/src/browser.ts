@@ -38,6 +38,7 @@ export { relativeAgo, shortAgo, timeAgo } from './lib/ago.js';
 export * from './lib/format.js';
 export { localClock, localDay, validLocalDay } from './lib/time.js';
 export { mapSession } from './map/map.js';
+export { FINISHED_HOLD_MS } from './notifications/finished-hold.js';
 export {
   COLOR_VISION_MODES,
   DEFAULT_APPEARANCE,
@@ -82,6 +83,12 @@ export { PROMPT_ONLY, promptGuarded } from './prs/review-guard.js';
 export { canPost, reviewing, reviewsOf } from './prs/review-sessions.js';
 export { parseChangelog, RELEASE_GROUPS, type ReleaseNotes } from './release/notes.js';
 export { type CommandId, type SearchHit, searchWorkspace } from './search/search.js';
+export {
+  KEEP_AWAKE_LABELS,
+  KEEP_AWAKE_MODES,
+  type KeepAwakeMode,
+  wantsAwake,
+} from './sessions/awake.js';
 export { descendantOrder } from './sessions/end/descendants.js';
 export { sessionFolder } from './sessions/record/folder.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/record/general.js';

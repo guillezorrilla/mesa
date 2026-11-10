@@ -68,6 +68,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
       prEvents: false,
       childReports: true,
       guidelines: true,
+      keepAwake: 'off',
     },
     usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
     notifications: {

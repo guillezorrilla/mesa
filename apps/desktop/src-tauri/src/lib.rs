@@ -1,5 +1,7 @@
+mod awake;
 mod bridge;
 mod browser;
+mod events;
 mod install_location;
 mod menu;
 mod notifications;
@@ -49,6 +51,7 @@ pub fn run() {
                 )
                 .build(),
         )
+        .manage(awake::Awake::default())
         .manage(terminal::Terms::default())
         .manage(updater::Updates::default())
         .setup(move |app| {
@@ -73,6 +76,7 @@ pub fn run() {
                     updater::Trigger::Link,
                 ));
             }
+            events::start(app.handle(), &launch_profile);
             if let Err(error) = tauri::async_runtime::block_on(notifications::install(
                 app.handle().clone(),
                 launch_profile,
@@ -87,6 +91,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             run_mesa,
+            awake::awake_hold,
+            awake::awake_release,
             profile::profile_switch,
             terminal::term_open,
             terminal::term_write,

@@ -1,14 +1,15 @@
 import type { TreeRow } from '@mesa/core';
 import { wantsName } from '@mesa/core/browser';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { oneAtATime } from '@/lib/oneAtATime';
 import { useCall, useNewFailureAlert } from '@/lib/useCommand';
+import { useSessionEvents } from '@/lib/useSessionEvents';
 
 /**
- * Refresh session state every two seconds and after actions, without overlapping requests. A row
- * the Board is unsure of is placed by the chosen model beside the look, never inside it; the next
- * look shows the reply, so a screen that keeps changing costs at most one ask per look. A session
- * no one has named is named (mesa rename --auto) when it wants one (wantsName): once from its
+ * Refresh session state when a hook event lands, on the fallback poll (useSessionEvents) and after
+ * actions, without overlapping requests. A row the Board is unsure of is placed by the chosen
+ * model beside the look, never inside it; the next look shows the reply, so a screen that keeps
+ * changing costs at most one ask per look. A session no one has named is named (mesa rename --auto) when it wants one (wantsName): once from its
  * item's title, else once per turn, between turns, until it has one.
  */
 export function useSessions() {
@@ -25,7 +26,7 @@ export function useSessions() {
     return oneAtATime(async () => {
       const result = await call('sessions.list');
       setLoaded(true);
-      // Every two seconds: a failure alerts once, not on each look.
+      // Looked at often: a failure alerts once, not on each look.
       alertNew(result.ok ? undefined : result.error);
       if (!result.ok) return;
       const rows = result.data;
@@ -35,10 +36,6 @@ export function useSessions() {
       for (const row of rows) if (wantsName(row)) void call('sessions.autoName', { id: row.id });
     });
   }, [call, alertNew]);
-  useEffect(() => {
-    look();
-    const timer = setInterval(look, 2000);
-    return () => clearInterval(timer);
-  }, [look]);
+  useSessionEvents(look);
   return { data, loaded, look };
 }

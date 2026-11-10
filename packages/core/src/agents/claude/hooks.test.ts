@@ -14,6 +14,19 @@ import { HOOK_EVENTS, hookCommand, hooksStatus, installHooks, uninstallHooks } f
 
 const SELF = ['/opt/node/bin/node', '/src/mesa/packages/cli/dist/mesa.js'];
 
+const mesaEntries = (path: string) =>
+  Object.fromEntries(
+    Object.entries(
+      JSON.parse(readFileSync(path, 'utf8')).hooks as Record<
+        string,
+        { hooks: { command: string; async?: boolean }[] }[]
+      >,
+    ).map(([event, groups]) => [
+      event,
+      groups.flatMap((g) => g.hooks).find((h) => h.command === hookCommand(SELF, event)),
+    ]),
+  );
+
 /** Settings the user wrote by hand, as Claude Code writes them: two-space JSON. */
 const USER_SETTINGS = `${JSON.stringify(
   {
@@ -50,7 +63,7 @@ test('install adds one Mesa entry per event, beside the user hooks, and twice ch
     expect(mesa).toEqual([
       {
         ...(matcher ? { matcher } : {}),
-        hooks: [{ type: 'command', command: hookCommand(SELF, event) }],
+        hooks: [expect.objectContaining({ type: 'command', command: hookCommand(SELF, event) })],
       },
     ]);
   }
@@ -147,4 +160,25 @@ test('with CLAUDE_CONFIG_DIR set, hooks go into its settings and ~/.claude is le
   expect(settings.hooks.Stop[0].hooks[0].command).toBe(hookCommand(SELF, 'Stop'));
   expect(readFileSync(decoy, 'utf8')).toBe(USER_SETTINGS);
   expect(hooksStatus(home, {}, SELF).installed).toBe(false);
+});
+
+test('only events whose output Mesa never returns run async; the rest stay synchronous', () => {
+  const { home, path } = homeWith();
+  installHooks(home, {}, SELF);
+  const entries = mesaEntries(path);
+  const async = Object.keys(entries).filter((event) => entries[event]?.async === true);
+  expect(async.sort()).toEqual(['Notification', 'PostToolUse', 'SubagentStart', 'SubagentStop']);
+  for (const event of ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'Stop'])
+    expect(entries[event]).not.toHaveProperty('async');
+});
+
+test('a Mesa entry from before an event went async is stale, and install makes it async', () => {
+  const { home, path } = homeWith();
+  installHooks(home, {}, SELF);
+  const settings = JSON.parse(readFileSync(path, 'utf8'));
+  delete settings.hooks.PostToolUse[0].hooks[0].async;
+  writeFileSync(path, JSON.stringify(settings, null, 2));
+  expect(hooksStatus(home, {}, SELF)).toMatchObject({ installed: false, stale: true });
+  expect(installHooks(home, {}, SELF)).toMatchObject({ installed: true, stale: false });
+  expect(mesaEntries(path).PostToolUse?.async).toBe(true);
 });

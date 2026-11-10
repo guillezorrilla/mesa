@@ -47,7 +47,8 @@ export type MesaDeps = {
   processId: number;
   /**
    * When this process started, so a hook's per-turn budget counts its own start-up (ADR-0019:
-   * 3,000 ms in all); without it, the budget starts when the advice is asked for.
+   * 3,000 ms in all), and a hook event's `at` is when it fired, not when its node got to it (#894);
+   * without it, both use the clock.
    */
   processStartedAt?: Date;
   /** When the machine last started, so a restore finds the sessions its restart ended. */
