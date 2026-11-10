@@ -1,9 +1,9 @@
 import type { SessionRecord } from '@mesa/core';
-import { contextPercent, contextTone, timeAgo } from '@mesa/core/browser';
+import { contextPercent, timeAgo } from '@mesa/core/browser';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { toneIndicator } from '../ContextBar';
+import { contextTone, toneIndicator } from '../ContextBar';
 
 /** The ring's colour for each context tone: the Board's context bar's. */
 const RING = {
@@ -19,7 +19,7 @@ const RING = {
 export function ContextRing(props: { context?: SessionRecord['context'] }) {
   const { context } = props;
   const shown = context ? contextPercent(context.used) : 0;
-  const tone = context ? contextTone(context) : 'normal';
+  const tone = context ? contextTone(context.used) : 'normal';
   return (
     <Popover>
       <PopoverTrigger

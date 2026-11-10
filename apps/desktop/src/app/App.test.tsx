@@ -1874,7 +1874,7 @@ test('selected session details read native context by exact id and keep unknown 
   expect(details?.textContent).toContain('transcript');
   const ring = document.querySelector<HTMLElement>('[aria-label="Context window: 58%"]');
   expect(ring?.tagName).toBe('BUTTON');
-  // The Board's context bar tones: amber from 55% on a window under 364k tokens.
+  // The Board's context bar tones: amber from 55%.
   expect(ring?.getAttribute('data-tone')).toBe('amber');
   reading = false;
   await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
