@@ -5,6 +5,7 @@ import { MesaError } from '../../lib/result.js';
 import type { SessionRecord } from '../../sessions/record/record.js';
 import { sessionProjects } from '../../sessions/record/session-projects.js';
 import type { SessionStore } from '../../sessions/record/store.js';
+import { withoutBrief } from '../../sessions/start/goal.js';
 import { sessionSummaryPath } from '../layout.js';
 import { outOfScope } from '../scope.js';
 
@@ -59,7 +60,7 @@ export function sessionGoals(
         agent: r.agent,
         started: r.startedAt,
         ...(r.endedAt ? { ended: r.endedAt } : {}),
-        ...(r.goal === undefined ? {} : { goal: clip(r.goal, GOAL_CHARS) }),
+        ...(r.goal === undefined ? {} : { goal: clip(withoutBrief(r.goal), GOAL_CHARS) }),
         ...(holds(deps.vault, summary) ? { summary } : {}),
       };
     });

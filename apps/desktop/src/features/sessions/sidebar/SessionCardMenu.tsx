@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { CHILD_START_HINT } from '@/features/sessions/start/useStartSession';
 import type { SessionLocation } from '../start/useStartSession';
 import { HoverAction } from './HoverAction';
 import { MarkUnreadItem } from './MarkUnreadItem';
@@ -45,6 +46,7 @@ export function SessionCardMenu(props: {
         </DropdownMenuItem>
         {session.project !== GENERAL_PROJECT && (
           <DropdownMenuItem
+            title={CHILD_START_HINT}
             onSelect={() => props.onNewSession?.(session.project, 'worktree', session.id)}
           >
             New child worktree session

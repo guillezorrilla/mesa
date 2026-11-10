@@ -3,6 +3,7 @@ import { clip } from '../lib/clip.js';
 import { projectLabel, projectScope } from '../sessions/record/general.js';
 import type { SessionRecord } from '../sessions/record/record.js';
 import type { SessionStore } from '../sessions/record/store.js';
+import { withoutBrief } from '../sessions/start/goal.js';
 import { itemCategory, itemProject, type VaultCategory } from '../vault/item.js';
 import { projectContext } from '../vault/mount/project-context.js';
 import { noteOf } from '../vault/reader.js';
@@ -152,7 +153,7 @@ export async function scopedContext(
     project: projectLabel(session.project),
     query,
     required: {
-      ...(session.goal ? { goal: clip(session.goal, GOAL_CHARS) } : {}),
+      ...(session.goal ? { goal: clip(withoutBrief(session.goal), GOAL_CHARS) } : {}),
       ...(hub ? { hub } : {}),
     },
     sources: ranked(sent, evaluation),

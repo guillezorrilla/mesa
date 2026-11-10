@@ -18,6 +18,7 @@ import {
   TerminalSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CHILD_START_HINT } from '@/features/sessions/start/useStartSession';
 import { KnowledgeContext } from '@/features/vault/KnowledgeContext';
 import type { OpenDialog } from '../dialogs/SessionDialogs';
 import type { SessionCommands } from '../useSessionCommands';
@@ -81,7 +82,7 @@ export function SessionActionsMenu({
                 commands.open({ project: row.project, parent: row.id, worktree: true })
               }
               disabled={exited(row) || acting}
-              title="Its news comes back to this session as child reports"
+              title={CHILD_START_HINT}
             >
               <Plus aria-hidden /> New child worktree session
             </Button>
