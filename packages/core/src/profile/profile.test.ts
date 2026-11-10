@@ -1,6 +1,6 @@
 import { readFileSync, statSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { DEFAULT_COMMIT_RECIPE } from '../git/recipes.js';
+import { DEFAULT_COMMIT_RECIPE, DEFAULT_PULL_REQUEST_RECIPE } from '../git/recipes.js';
 import { lockDeps, tempDir, thrown } from '../testing/index.js';
 import { loadConfig, setConfigValue } from './config.js';
 import { profilePaths } from './paths.js';
@@ -69,6 +69,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
       statusLineCost: false,
       prEvents: false,
       childReports: true,
+      sleepAfterMinutes: 0,
       guidelines: true,
       keepAwake: 'off',
     },
@@ -101,7 +102,10 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
     grid: { groups: [] },
     run: { permissionMode: 'acceptEdits', allowedTools: [] },
     agents: { claude: {}, codex: {}, antigravity: {} },
-    git: { commitMessageRecipe: DEFAULT_COMMIT_RECIPE },
+    git: {
+      commitMessageRecipe: DEFAULT_COMMIT_RECIPE,
+      pullRequestRecipe: DEFAULT_PULL_REQUEST_RECIPE,
+    },
     update: {},
     keys: {},
   });

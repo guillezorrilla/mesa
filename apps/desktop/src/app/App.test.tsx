@@ -2922,6 +2922,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
       statusLineCost: false,
       prEvents: false,
       childReports: true,
+      sleepAfterMinutes: 0,
       guidelines: true,
       keepAwake: 'off',
     },
@@ -2962,7 +2963,10 @@ test('shortcut settings validate conflicts and update the active profile key', a
     grid: { groups: [] },
     run: { permissionMode: 'acceptEdits', allowedTools: [] },
     agents: { claude: {}, codex: {}, antigravity: {} },
-    git: { commitMessageRecipe: 'Write the commit message for: {stagedFiles}' },
+    git: {
+      commitMessageRecipe: 'Write the commit message for: {stagedFiles}',
+      pullRequestRecipe: 'Write the pull request for: {commits}',
+    },
     update: {},
     keys: {},
   });

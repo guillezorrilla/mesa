@@ -395,6 +395,36 @@ test('a child started with no goal, as the app starts one, still shows whom it r
   );
 });
 
+test("session details show a worker's own report: its kind, outcome, time and text", async () => {
+  const row = managedRow('aaaaaaaa', { parent: 'bbbbbbbb', brief: true });
+  const report = {
+    kind: 'done',
+    outcome: 'succeeded',
+    at: row.startedAt,
+    message: 'Counted 12 tide tables; none missing',
+  };
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([row]),
+    show: () =>
+      envelope({
+        ...row,
+        report,
+        instructions: { state: 'missing', reason: 'Run mesa hooks install' },
+        vault: { state: 'missing', reason: 'Run mesa hooks install' },
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
+  expect(byTestId('session-reports-to')[0]?.textContent).toBe(
+    'bbbbbbbb: it reported its work itself',
+  );
+  const shown = byTestId('session-reported')[0]?.textContent;
+  expect(shown).toContain('done, succeeded');
+  expect(shown).toContain(new Date(row.startedAt).toLocaleString());
+  expect(shown).toContain('Counted 12 tide tables; none missing');
+});
+
 test("session details show the notes the session's vault capture saved, or why it saved none", async () => {
   const row = managedRow('aaaaaaaa');
   const notes = ['wiki/decisions/2026-09-24-tide-feed-retries.md', 'wiki/notes/tide-feed.md'];

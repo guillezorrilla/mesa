@@ -172,6 +172,7 @@ export function SessionsScreen(
           loaded={Boolean(data)}
           acting={acting}
           onResume={commands.resume}
+          onWake={commands.wake}
           onDialog={setDialog}
         />
       ) : null}

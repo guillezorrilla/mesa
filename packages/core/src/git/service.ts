@@ -8,7 +8,7 @@ import { readGitDiff } from './diff.js';
 import { compareGitRefs, readGitGraph } from './history.js';
 import { fixPreCommit } from './hook-fix.js';
 import { readRepositoryInsight, type WorktreeCount } from './insight.js';
-import { type GitTextRunner, writeCommitMessage } from './message.js';
+import { type GitTextRunner, writeCommitMessage, writePullRequestText } from './message.js';
 import { changeGitStash, createGitStash, listGitStashes, type StashAction } from './stash.js';
 import { readGitStatus } from './status.js';
 import { type GitSync, gitTracking, syncGit } from './sync.js';
@@ -220,6 +220,12 @@ export function gitService(
     /** Runs the pre-commit hook; a failure goes to the agent working in the checkout. */
     fix: (project: string, opts: { checkout?: string; session?: string; fresh?: boolean } = {}) =>
       fixPreCommit(ctx, handoff, project, {
+        ...opts,
+        ...(opts.checkout ? { checkout: ctx.absolute(opts.checkout) } : {}),
+      }),
+    /** A pull request's title and body for the checkout's branch, written by an agent. */
+    prText: (project: string, opts: { checkout?: string; base?: string; agent?: string } = {}) =>
+      writePullRequestText(ctx.open(), ctx.run, runText, project, {
         ...opts,
         ...(opts.checkout ? { checkout: ctx.absolute(opts.checkout) } : {}),
       }),

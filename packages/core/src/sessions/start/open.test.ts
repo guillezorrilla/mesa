@@ -609,6 +609,15 @@ test('a goal opened by another session ends with the worker brief; none without 
   expect(inside.sessions.goal(child.id).goal).toBe(child.goal);
   // The agent is started with it: the brief reaches the window command.
   expect(launched(world)).toContain('Do not poll, sleep, or loop waiting for it.');
+  // It ends its work with one explicit report, and fits the command cap with room to spare.
+  expect(workerBrief(a.id)).toContain(
+    'run mesa report done "<what you did, found, and left>" exactly once',
+  );
+  expect(workerBrief(a.id)).toContain('mesa report failed "<why>" when it is not done');
+  expect(workerBrief(a.id)).toContain(
+    `mesa report blocked "<what you need>" when ${a.id} must act`,
+  );
+  expect(Buffer.byteLength(workerBrief(a.id))).toBeLessThan(1_000);
   const explicit = (await mesa.sessions.open('lantern-cove', { goal: 'Check', parent: child.id }))
     .result;
   expect(explicit.goal).toContain(`started by session ${child.id}`);

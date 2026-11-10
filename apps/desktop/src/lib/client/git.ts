@@ -9,6 +9,7 @@ import type {
   GitGraph,
   GitMessage,
   GitPathAction,
+  GitPullRequestText,
   GitStatus,
   GitSync,
   GitTracking,
@@ -98,6 +99,15 @@ export const gitCommands = {
     ({ project, checkout }) => [
       'git',
       'fix',
+      ...(checkout ? ['--checkout', checkout] : []),
+      '--',
+      project,
+    ],
+  ),
+  'git.prText': commandWith<{ project: string; checkout?: string }, GitPullRequestText>(
+    ({ project, checkout }) => [
+      'git',
+      'pr-text',
       ...(checkout ? ['--checkout', checkout] : []),
       '--',
       project,

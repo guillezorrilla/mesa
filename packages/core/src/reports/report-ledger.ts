@@ -9,6 +9,7 @@ import {
   ChildReportSchema,
   endedReport,
   eventReport,
+  isExplicit,
   reportsToParent,
 } from './reports.js';
 
@@ -25,6 +26,11 @@ const State = z
     /** Children whose `ended` report was made. */
     ended: z.array(z.string()).default([]),
     pending: z.array(ChildReportSchema).default([]),
+    /**
+     * Each child's newest explicit report (`mesa report`), kept after delivery: once one is made,
+     * the child's later turns make no `finished` report.
+     */
+    explicit: z.record(z.string(), ChildReportSchema).default({}),
   })
   .describe('child reports');
 type State = z.infer<typeof State>;
@@ -52,6 +58,24 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
   return {
     /** The pending reports as last collected, read without collecting. */
     pending: (): ChildReport[] => readJson(file, State)?.pending ?? [],
+    /** `child`'s newest explicit report, delivered or not. */
+    explicit: (child: string): ChildReport | undefined => readJson(file, State)?.explicit[child],
+    /**
+     * Adds a worker's explicit report to the pending ones in place of its older explicit one
+     * (even one made the same millisecond), and keeps it as its newest.
+     */
+    add: (report: ChildReport) =>
+      change((state) => ({
+        next: {
+          ...state,
+          pending: addReport(
+            state.pending.filter((r) => r.child !== report.child || !isExplicit(r)),
+            report,
+          ),
+          explicit: { ...state.explicit, [report.child]: report },
+        },
+        result: undefined,
+      })),
     /**
      * Reads every child's new hook events and endings in `records` into the pending reports, and
      * forgets the reports, read offsets and endings of sessions no longer in `records`; returns
@@ -72,6 +96,9 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
             state.offsets[child.id] ?? 0,
             (event) => {
               const report = event.at >= since && eventReport(child, event);
+              // A child that reported its work itself makes no `finished` report after it.
+              const said = state.explicit[child.id];
+              if (report && report.kind === 'finished' && said && report.at >= said.at) return;
               if (report) pending = addReport(pending, report);
             },
           );
@@ -82,7 +109,10 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
           }
         }
         pending = pending.filter((report) => known.has(report.parent) && known.has(report.child));
-        return { next: { since, offsets, ended, pending }, result: pending };
+        const explicit = Object.fromEntries(
+          Object.entries(state.explicit).filter(([child]) => known.has(child)),
+        );
+        return { next: { since, offsets, ended, pending, explicit }, result: pending };
       }),
     /** Takes `ids` off the pending list for one send: those no other process took first. */
     claim: (ids: readonly string[]): ChildReport[] =>

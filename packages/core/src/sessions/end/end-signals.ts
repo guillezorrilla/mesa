@@ -240,7 +240,9 @@ export function endSignals(
       }
       const state =
         event && parentHook(event) && AGENTS[event.agent].hookState?.(event.event, event.payload);
-      if (event?.event === 'SessionEnd' && id && state) await startAfter(id);
+      // A sleep's quit ends the agent, not the session: nothing queued after it starts.
+      if (event?.event === 'SessionEnd' && id && state && !store.find(id)?.sleeping)
+        await startAfter(id);
       if (event?.event === 'UserPromptSubmit') {
         const asking = owner(event);
         const advice = asking && (await advise(asking, promptOf(payload)));

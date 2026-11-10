@@ -1,6 +1,6 @@
 ---
 name: git-text
-description: Writes git text, such as a commit message, from the recipe and the change Mesa gives it on stdin. Mesa runs it for `mesa git message`; it is not for use by hand.
+description: Writes git text, a commit message or a pull request title and body, from the recipe and the change Mesa gives it on stdin. Mesa runs it for `mesa git message` and `mesa git pr-text`; it is not for use by hand.
 ---
 
 # Git text

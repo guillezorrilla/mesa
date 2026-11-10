@@ -57,6 +57,13 @@ export function useSessionCommands({
         onSelectSession?.(resumed.id);
       return resumed && warningOf(resumed);
     });
+  /** Wakes a sleeping session in the same session (CONTEXT.md, Sleeping session). */
+  const wake = (id: string) =>
+    act(async () => {
+      const woke = await run('sessions.wake', { id });
+      await look();
+      return woke && warningOf(woke);
+    });
   const forceStart = (id: string) =>
     act(async () => {
       const started = await run('sessions.forceStart', { id });
@@ -268,6 +275,7 @@ export function useSessionCommands({
     openTerminal,
     stop,
     resume,
+    wake,
     forceStart,
     adopt,
     handoff,
