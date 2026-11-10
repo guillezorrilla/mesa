@@ -362,7 +362,7 @@ test('Esc closes a note being written, and Add file note writes one on the whole
   const box = () => document.querySelector<HTMLTextAreaElement>('textarea');
   await press(box(), 'Escape');
   expect(box()).toBeNull();
-  await click(buttons().find((b) => b.textContent?.trim() === 'Add file note'));
+  await click(document.querySelector<HTMLElement>('[aria-label="Add file note"]') ?? undefined);
   await fill(box(), 'split this file');
   await press(box(), 'Enter', { metaKey: true });
   expect(calls).toContainEqual(expect.arrayContaining(['--line=0', '--text=split this file']));

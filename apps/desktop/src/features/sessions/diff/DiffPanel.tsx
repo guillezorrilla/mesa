@@ -190,9 +190,12 @@ export function DiffPanel(props: {
           slots={lineNotes.slots}
           actions={
             <>
-              <Button variant="ghost" size="xs" onClick={lineNotes.addFileNote}>
-                <MessageSquarePlus aria-hidden /> Add file note
-              </Button>
+              <IconButton
+                label="Add file note"
+                icon={MessageSquarePlus}
+                size="icon-xs"
+                onClick={lineNotes.addFileNote}
+              />
               {file.status !== 'D' && (
                 <Button
                   variant="ghost"
