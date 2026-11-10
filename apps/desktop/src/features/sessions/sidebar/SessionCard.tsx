@@ -116,7 +116,7 @@ export function SessionCard(props: {
           className={cn(
             'flex w-full min-w-0 items-center gap-2 font-medium group-focus-within:pr-17 group-hover:pr-17',
             // Clears a compact card's pull request too, which sits on this row, left of the hover actions while they show.
-            compact && pr && 'pr-12 group-focus-within:pr-28 group-hover:pr-28',
+            compact && pr && 'pr-14 group-focus-within:pr-30 group-hover:pr-30',
           )}
         >
           {unread ? (

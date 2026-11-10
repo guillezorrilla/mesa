@@ -124,14 +124,15 @@ function claimStale(deps: Deps, now: Date, stale: readonly string[]) {
       const entry = current[project];
       if (entry && age(entry, now) < FRESH_MS) continue;
       claimed.push(project);
-      current[project] = { pullRequests: [], ...entry, at, asked: [] };
+      // Its `asked` too: a look meanwhile must not ask again what was asked of this list.
+      current[project] = { pullRequests: [], ...entry, at };
     }
   });
   return cache ? { mine: claimed, cache } : { mine: [...stale], cache: undefined };
 }
 
 /**
- * Asks `gh pr list --head` for `asks`, claimed first in each project's `asked` (a failed ask counts
+ * Asks `gh pr list --head` for `asks` once gh is ready, claimed first in each project's `asked` (a failed ask counts
  * as none until the project is listed again, as a failed list keeps the last one): the pull
  * requests found, by project.
  */
@@ -140,6 +141,7 @@ async function askMissed(
   now: Date,
   asks: readonly { project: string; branch: string }[],
   pathOf: (project: string) => Promise<string>,
+  ghReady: () => Promise<boolean>,
 ) {
   const claimed: { project: string; branch: string }[] = [];
   saveCache(deps, now, (current) => {
@@ -150,6 +152,7 @@ async function askMissed(
       claimed.push(ask);
     }
   });
+  if (!claimed.length || !(await ghReady())) return [];
   return Promise.all(
     claimed.map(({ project, branch }) =>
       pathOf(project)
@@ -235,14 +238,18 @@ export async function withPullRequests(deps: Deps, rows: SessionRow[]): Promise<
       .flatMap(([project, bySession]) => {
         const entry = known[project];
         if (!entry?.limited) return [];
-        const listed = new Set(entry.pullRequests.map((pr) => pr.headRefName));
+        const listed = new Set(
+          entry.pullRequests.filter((pr) => !pr.isCrossRepository).map((pr) => pr.headRefName),
+        );
         return [...bySession.keys()]
           .filter((branch) => !listed.has(branch) && !entry.asked?.includes(branch))
           .map((branch) => ({ project, branch }));
       })
       .slice(0, ASK_AT_ONCE);
-    if (asks.length && (await ghReady())) {
-      const found = (await askMissed(deps, now, asks, pathOf)).filter(({ prs }) => prs.length);
+    if (asks.length) {
+      const found = (await askMissed(deps, now, asks, pathOf, ghReady)).filter(
+        ({ prs }) => prs.length,
+      );
       const add = (cache: Cache) => {
         for (const { project, prs } of found) {
           const entry = cache[project];
