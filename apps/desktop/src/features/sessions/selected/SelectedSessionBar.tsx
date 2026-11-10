@@ -15,6 +15,7 @@ import { useCommand } from '@/lib/useCommand';
 import type { OpenDialog } from '../dialogs/SessionDialogs';
 import { AgentSwitcher } from './AgentSwitcher';
 import { SelectedSessionDetails } from './SelectedSessionDetails';
+import { useRefreshOnStamp } from './useRefreshOnStamp';
 import type { SidePanel } from './useSidePanel';
 
 /**
@@ -47,10 +48,11 @@ export function SelectedSessionBar({
   onDialog: (dialog: OpenDialog) => void;
   children?: ReactNode;
 }) {
-  // A session that coordinates tasks has a Crew too, before it has any worker.
-  const coordinates = Boolean(
-    useCommand('tasks.list', { coordinator: sessionId }).data?.tasks.length,
-  );
+  // A session that coordinates tasks has a Crew too, before it has any worker; read again as its
+  // state changes, so tasks it made this turn show the toggle when the turn ends.
+  const coordinated = useCommand('tasks.list', { coordinator: sessionId });
+  useRefreshOnStamp(row?.lastState.state ?? '', coordinated.refresh);
+  const coordinates = Boolean(coordinated.data?.tasks.length);
   return (
     <div
       data-testid="selected-session"

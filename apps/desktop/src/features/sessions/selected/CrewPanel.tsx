@@ -1,7 +1,7 @@
 import type { CrewRow } from '@mesa/core';
 import { sendable, sessionTitle, stoppable, timeAgo } from '@mesa/core/browser';
 import { GitBranch, MessageSquare, RefreshCw, Send, Square, Users, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
@@ -12,12 +12,15 @@ import { useCommand } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { StateBadge } from '../StateBadge';
 import { CrewTasks } from './CrewTasks';
+import { useRefreshOnStamp } from './useRefreshOnStamp';
 
 /** What the Crew panel does to a child: the Sessions screen's own send, stop and select. */
 export type CrewActions = {
   send: (id: string, prompt: string, form: HTMLFormElement) => void;
   stop: (id: string) => void;
   select: (id: string) => void;
+  /** What a session is called on the Board, by id; its id when it is not listed. */
+  nameOf: (id: string) => string;
 };
 
 /**
@@ -37,12 +40,7 @@ export function CrewPanel(props: {
   const crew = useCommand('sessions.crew', { id: props.sessionId });
   const [composing, setComposing] = useState<string>();
   const [stopping, setStopping] = useState<CrewRow>();
-  const seen = useRef(props.stamp);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: only a new stamp reads again.
-  useEffect(() => {
-    if (props.stamp !== seen.current) void crew.refresh();
-    seen.current = props.stamp;
-  }, [props.stamp]);
+  useRefreshOnStamp(props.stamp, crew.refresh);
   const rows = crew.data;
   return (
     <aside
@@ -86,10 +84,7 @@ export function CrewPanel(props: {
           coordinator={props.sessionId}
           project={props.project}
           stamp={props.stamp}
-          nameOf={(id) => {
-            const child = rows?.find((row) => row.id === id);
-            return child ? sessionTitle(child) : id;
-          }}
+          nameOf={props.actions.nameOf}
           onSelect={props.actions.select}
         />
       </div>

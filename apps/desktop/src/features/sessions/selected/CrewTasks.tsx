@@ -1,13 +1,14 @@
 import type { Task, TaskState } from '@mesa/core';
 import { Play } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
 import { Button } from '@/components/ui/button';
 import { useCall, useCommand } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
+import { useRefreshOnStamp } from './useRefreshOnStamp';
 
-/** Each task state's colour, from the session state tones. */
+/** Each task state's colour, in the session state tokens (task states are not session states). */
 const TONE: Record<TaskState, string> = {
   pending: 'text-muted-foreground',
   ready: 'text-state-idle',
@@ -17,7 +18,7 @@ const TONE: Record<TaskState, string> = {
   cancelled: 'text-muted-foreground',
 };
 
-function TaskState(props: { state: TaskState }) {
+function TaskStateBadge(props: { state: TaskState }) {
   return (
     <span
       data-testid="task-state"
@@ -39,7 +40,7 @@ export function CrewTasks(props: {
   /** The coordinator's project, where a worker opens; none for a General session. */
   project?: string;
   stamp: string;
-  /** What each session is called, by id: the crew's names. */
+  /** What each session is called on the Board, by id. */
   nameOf: (id: string) => string;
   onSelect: (id: string) => void;
 }) {
@@ -47,12 +48,7 @@ export function CrewTasks(props: {
   const call = useCall();
   const [starting, setStarting] = useState<string>();
   const [refused, setRefused] = useState<Record<string, string>>({});
-  const seen = useRef(props.stamp);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: only a new stamp reads again.
-  useEffect(() => {
-    if (props.stamp !== seen.current) void listed.refresh();
-    seen.current = props.stamp;
-  }, [props.stamp]);
+  useRefreshOnStamp(props.stamp, listed.refresh);
   const tasks = listed.data?.tasks;
   if (!tasks?.length) return null;
   const stateOf = new Map(tasks.map((t) => [t.id, t.state]));
@@ -81,7 +77,7 @@ export function CrewTasks(props: {
             className="mx-1.5 grid gap-1 rounded-md px-2 py-1.5 hover:bg-accent/40"
           >
             <div className="flex min-w-0 items-center gap-2">
-              <TaskState state={task.state} />
+              <TaskStateBadge state={task.state} />
               <span className="min-w-0 flex-1 truncate text-[13px]" title={task.spec}>
                 {task.spec.split('\n')[0]}
               </span>
