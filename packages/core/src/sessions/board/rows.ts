@@ -1,10 +1,10 @@
 import type { AgentProcess } from '../../agents/listing.js';
-import type { BranchPullRequest } from '../../git/branch-pull-requests.js';
 import type { TakenOver } from '../record/holders.js';
 import type { foreignId, SessionRecord } from '../record/record.js';
 import type { Supervision } from '../signals/placements.js';
 import type { Placement } from '../signals/state.js';
 import type { LineCounts } from './line-counts.js';
+import type { BranchPullRequest } from './pull-requests.js';
 
 // The Board's rows (CONTEXT.md, Board): a Mesa session's, or a foreign one's.
 

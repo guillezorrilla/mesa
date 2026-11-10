@@ -58,20 +58,16 @@ export async function listPullRequests(run: Runner, cwd: string): Promise<PullRe
   return { ok: true, pullRequests: parsed.data, limited: parsed.data.length === LIMIT };
 }
 
-/** Whether `pr`'s head branch is this repository's: a fork's is someone else's, whatever its name. */
-export const fromThisRepository = (pr: Pick<PullRequest, 'isCrossRepository'>) =>
-  !pr.isCrossRepository;
-
 /**
  * Links pull requests to sessions by branch name alone, never by authorship: each pull request
  * from this repository whose head branch a session works on, with those sessions' ids. A fork's
  * pull request never matches, since a session's branch is never in someone else's fork.
  */
-export const matchBranches = (
-  pullRequests: readonly PullRequest[],
+export const matchBranches = <T extends Pick<PullRequest, 'headRefName' | 'isCrossRepository'>>(
+  pullRequests: readonly T[],
   branchSessions: ReadonlyMap<string, readonly string[]>,
 ) =>
   pullRequests.flatMap((pr) => {
-    const sessionIds = fromThisRepository(pr) ? branchSessions.get(pr.headRefName) : undefined;
+    const sessionIds = pr.isCrossRepository ? undefined : branchSessions.get(pr.headRefName);
     return sessionIds ? [{ pr, sessionIds: [...sessionIds] }] : [];
   });

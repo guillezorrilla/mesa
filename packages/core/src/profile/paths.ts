@@ -50,7 +50,7 @@ export type ProfilePaths = {
   prVoice: string;
   /** The PR events forwarded into sessions, so each is sent once (CONTEXT.md, PR event). */
   prEvents: string;
-  /** Each project's pull requests by branch, reused for 60 s (git/branch-pull-requests.ts). */
+  /** Each project's pull requests by branch, reused for 60 s (sessions/board/pull-requests.ts). */
   prBranches: string;
   /** Each session's review notes, `<session id>.json` each (CONTEXT.md, Review note). */
   reviewNotes: string;

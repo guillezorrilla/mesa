@@ -1,15 +1,15 @@
 import { expect, test } from 'vitest';
-import { createContext } from '../context.js';
-import type { Runner } from '../lib/process.js';
-import type { SessionRow } from '../sessions/board/rows.js';
+import { createContext } from '../../context.js';
+import type { Runner } from '../../lib/process.js';
 import {
   lockDeps,
   newSession,
   projectProfile,
   scriptedRunner,
   testDeps,
-} from '../testing/index.js';
-import { cardState, withPullRequests } from './branch-pull-requests.js';
+} from '../../testing/index.js';
+import { cardState, withPullRequests } from './pull-requests.js';
+import type { SessionRow } from './rows.js';
 
 const pr = (number: number, branch: string, state: string, extra: object = {}) => ({
   number,
@@ -102,4 +102,13 @@ test('gh logged out gives no pull request and no error, and is asked again only 
   await withPullRequests(deps, rows);
   expect(calls.length).toBeGreaterThan(asked);
   expect(calls.some((args) => args[0] === 'pr')).toBe(false);
+});
+
+test('a project that cannot be read gives its rows none, and the others still get theirs', async () => {
+  const { deps, row } = setUp();
+  const gone = { ...row('dddddddd', 'tides'), project: 'old-harbour' } as SessionRow;
+  expect(prs(await withPullRequests(deps, [row('aaaaaaaa', 'tides'), gone]))).toEqual([
+    { number: 12, state: 'draft', url: 'https://github.example/lantern-cove/pull/12' },
+    undefined,
+  ]);
 });
