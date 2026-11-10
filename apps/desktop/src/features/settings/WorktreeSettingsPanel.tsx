@@ -168,6 +168,27 @@ export function WorktreeSettingsPanel() {
           />
         </SettingRow>
         <SettingRow
+          title="Run setup"
+          description="Before a new session's agent starts, or in a setup window beside it."
+          htmlFor="worktree-setup-while"
+          control={
+            <NativeSelect
+              id="worktree-setup-while"
+              className="min-w-40"
+              value={worktrees.setupWhile}
+              disabled={acting}
+              onChange={(event) =>
+                update({
+                  setupWhile: event.currentTarget.value as Config['worktrees']['setupWhile'],
+                })
+              }
+            >
+              <NativeSelectOption value="block">Before the agent</NativeSelectOption>
+              <NativeSelectOption value="parallel">Beside the agent</NativeSelectOption>
+            </NativeSelect>
+          }
+        />
+        <SettingRow
           icon={Trash2}
           title="Teardown script"
           description="Runs before a worktree folder is deleted. The executable and its arguments, one per line; runs without a shell."

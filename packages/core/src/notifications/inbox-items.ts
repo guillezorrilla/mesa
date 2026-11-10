@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
+import { SETUP_FAILED } from '../agents/hooks.js';
 import { HOOKS_UPDATE_DETAIL, HOOKS_UPDATE_HINT } from '../agents/hooks-update.js';
 import type { DoctorReport } from '../doctor/doctor.js';
 import type { ReleaseNotes } from '../release/notes.js';
@@ -29,8 +30,8 @@ export type InboxItem = {
   /** A release notice's notes, from the changelog Mesa ships. */
   notes?: ReleaseNotes;
   read: boolean;
-  target:
-    | { kind: 'session'; id: string }
+  target: /** `window`: a window beside the session's, such as its setup's (SETUP_FAILED). */
+    | { kind: 'session'; id: string; window?: string }
     | { kind: 'doctor' }
     | { kind: 'automations' }
     | { kind: 'release'; version: string };
@@ -45,7 +46,11 @@ export const CandidateSchema = z.strictObject({
   fix: z.enum(INBOX_FIXES).optional(),
   fingerprint: z.string(),
   target: z.discriminatedUnion('kind', [
-    z.strictObject({ kind: z.literal('session'), id: z.string() }),
+    z.strictObject({
+      kind: z.literal('session'),
+      id: z.string(),
+      window: z.string().optional(),
+    }),
     z.strictObject({ kind: z.literal('doctor') }),
     z.strictObject({ kind: z.literal('automations') }),
     z.strictObject({ kind: z.literal('release'), version: z.string() }),
@@ -149,9 +154,11 @@ export function hookItem(session: string, event: HookEvent): Candidate | undefin
       : {};
   const child = !parentHook(event);
   const question = payload.tool_name === 'AskUserQuestion';
+  // A setup window beside the session failed (setupWindowCommand): the person looks at it.
+  const setupFailed = event.event === SETUP_FAILED;
   // A subagent finishing needs nothing from the user, so SubagentStop raises no notice (#687).
   const kind =
-    event.event === 'PermissionRequest' || (event.event === 'PreToolUse' && question)
+    setupFailed || event.event === 'PermissionRequest' || (event.event === 'PreToolUse' && question)
       ? child
         ? 'subagent'
         : 'input-required'
@@ -159,8 +166,10 @@ export function hookItem(session: string, event: HookEvent): Candidate | undefin
         ? 'finished'
         : undefined;
   if (!kind) return undefined;
-  const title =
-    kind === 'input-required'
+  const window = setupFailed && typeof payload.window === 'string' ? payload.window : undefined;
+  const title = setupFailed
+    ? `Worktree setup failed in window ${window ?? 'setup'}`
+    : kind === 'input-required'
       ? question
         ? 'Question needs an answer'
         : 'Session needs permission'
@@ -175,6 +184,8 @@ export function hookItem(session: string, event: HookEvent): Candidate | undefin
         payload.agent_id ?? null,
         payload.tool_name ?? null,
         payload.tool_input ?? null,
+        // Only a setup failure adds one: every other notice keeps the id it had.
+        ...(setupFailed ? [SETUP_FAILED, payload.window ?? null] : []),
       ]),
     )
     .digest('hex')
@@ -185,7 +196,7 @@ export function hookItem(session: string, event: HookEvent): Candidate | undefin
     kind,
     title,
     fingerprint,
-    target: { kind: 'session', id: session },
+    target: { kind: 'session', id: session, ...(window ? { window } : {}) },
   };
 }
 

@@ -36,7 +36,7 @@ function refuseHeld(store: SessionStore, path: string) {
 
 /**
  * A session may take an existing unheld worktree at its configured branch path; a new one carries
- * createWorktree's warning.
+ * createWorktree's warning, and with `setupBeside` the setup it left to run beside the agent.
  */
 export async function sessionWorktree(
   profile: Profile,
@@ -46,12 +46,13 @@ export async function sessionWorktree(
   project: RegistryEntry,
   branch: string,
   base?: string,
+  setupBeside = false,
 ) {
   const path = worktreePath(worktreeRoot(profile, project), branch);
   const present = lstatSync(path, { throwIfNoEntry: false });
   // An empty folder a killed create left is no worktree: creating again reclaims it.
   if (!present || isLeftover(path)) {
-    const { warning, ...worktree } = await createWorktree(
+    const { warning, setup, ...worktree } = await createWorktree(
       profile,
       run,
       lock,
@@ -59,8 +60,14 @@ export async function sessionWorktree(
       project,
       branch,
       base,
+      setupBeside,
     );
-    return { worktree, created: true, ...(warning ? { warning } : {}) };
+    return {
+      worktree,
+      created: true,
+      ...(warning ? { warning } : {}),
+      ...(setup ? { setup } : {}),
+    };
   }
   const taken = () =>
     new MesaError('usage', `${path} already exists: pick another branch, or remove it`);
@@ -123,7 +130,8 @@ export async function checkoutWorktree(
 /**
  * Manual and session worktrees take one policy, the profile's under the project's overrides, with
  * explicit branch/base overrides. A base that did not fetch, or a carry that stops at its budget,
- * keeps the worktree and runs setup; its `warning` says so.
+ * keeps the worktree and runs setup; its `warning` says so. With `setupBeside` (a session's
+ * start) and `setupWhile: parallel`, setup is not run but returned, for a window beside the agent.
  */
 export async function createWorktree(
   profile: Profile,
@@ -133,7 +141,8 @@ export async function createWorktree(
   project: RegistryEntry,
   branch: string,
   base?: string,
-) {
+  setupBeside = false,
+): Promise<Worktree & { warning?: string; setup?: string[] }> {
   const root = worktreeRoot(profile, project);
   const path = worktreePath(root, branch);
   if (lstatSync(path, { throwIfNoEntry: false })) refuseHeld(store, path);
@@ -172,10 +181,13 @@ export async function createWorktree(
     }
     throw error;
   }
+  const warning = joinWarnings(notFetched, carryStopped);
+  const made = { ...worktree, ...(warning ? { warning } : {}) };
+  // `setupWhile: parallel`: the session runs it in a window beside its agent (launch.ts).
+  if (setup.length && setupBeside && settings.setupWhile === 'parallel') return { ...made, setup };
   // Setup may write user data. If it fails, leave the linked checkout for an explicit rerun.
   if (setup.length) await worktreeCommand(run, worktree.path, setup, 'setup');
-  const warning = joinWarnings(notFetched, carryStopped);
-  return { ...worktree, ...(warning ? { warning } : {}) };
+  return made;
 }
 
 /** Run an explicitly configured command in a selected worktree, without a shell. */

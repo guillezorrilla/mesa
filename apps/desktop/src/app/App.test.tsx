@@ -2962,6 +2962,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
       sparseDirectories: [],
       carry: [],
       setup: [],
+      setupWhile: 'block',
       teardown: [],
       deleteBranch: false,
     },

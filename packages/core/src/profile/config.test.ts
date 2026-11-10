@@ -207,6 +207,7 @@ test('worktree settings retain the profile default and reject unsafe directories
     sparseDirectories: [],
     carry: [],
     setup: [],
+    setupWhile: 'block',
     teardown: [],
     deleteBranch: false,
   });

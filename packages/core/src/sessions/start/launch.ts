@@ -39,7 +39,9 @@ import {
 } from './additional.js';
 import type { NewLaunch } from './new-record.js';
 import { createRecord } from './new-record.js';
+import { notedGoal, setupWindowCommand, setupWindowName } from './setup-window.js';
 import { goalPreparing, sessionWindowCommand } from './window-command.js';
+import type { Worktree } from './worktree.js';
 
 // Launching a session, the one sequence every start goes through (open, resume, adopt, handoff,
 // and a queued start): its record, its worktree, its folder checked, the project's skills linked
@@ -140,6 +142,7 @@ export async function startSession(
   // A configured setup can create user data. A failed agent launch must leave it intact.
   const made = launchWorktrees(deps.run);
   let backgroundId: string | undefined;
+  let setupWindow: { window: string; setup: readonly string[] } | undefined;
   try {
     const worktreeWarnings: (string | undefined)[] = [];
     if (!record.worktree && start.branch !== undefined) {
@@ -148,9 +151,16 @@ export async function startSession(
       made.add(deps.profile, project, selected);
       worktreeWarnings.push(selected.warning);
       record = deps.store.update(record.id, { worktree: selected.worktree });
+      // At once, so a launch that fails later has setup running, as the kept worktree says.
+      if (selected.setup) {
+        setupWindow = await setupBeside(deps, record, selected.worktree, selected.setup);
+        record = deps.store.update(record.id, { setupWindow: setupWindow.window });
+      }
     }
     if (start.additional?.length)
       record = await createAdditional(deps, record, start.additional, made, worktreeWarnings);
+    // The goal the agent is given, background or not, names the window; the record keeps its own.
+    const given = { ...record, goal: notedGoal(record.goal, setupWindow) };
     const cwd = agentFolder(record, project);
     const hooks =
       record.agent === 'codex' ? codexHooks(codexHome(deps.home, deps.env), deps.self) : undefined;
@@ -176,7 +186,7 @@ export async function startSession(
         windowEnv(record.id, deps.profileName),
         deps.profile.config.agents,
         additionalDirs(record),
-        record.goal,
+        given.goal,
         record.mode,
         env,
       );
@@ -187,8 +197,8 @@ export async function startSession(
     const command = record.backgroundId
       ? claudeBackgroundAttach(record.backgroundId)
       : record.agent === 'claude' && record.kind === 'interactive' && config.sessions.statusLineCost
-        ? withMesaStatusLine(start.command(record, deny), deps.self)
-        : start.command(record, deny);
+        ? withMesaStatusLine(start.command(given, deny), deps.self)
+        : start.command(given, deny);
     // What this launch mounts; a process it attaches to keeps what it was started with.
     const decisionsMounted = deps.mounts.decisions ? (true as const) : undefined;
     if (
@@ -206,7 +216,7 @@ export async function startSession(
         record.agent,
         record.kind,
         command,
-        goalPreparing(deps, record.kind, record.goal),
+        goalPreparing(deps, record.kind, given.goal),
       ),
       env: {
         ...windowEnv(record.id, deps.profileName),
@@ -217,6 +227,7 @@ export async function startSession(
     return { record, ...(warning ? { warning } : {}) };
   } catch (error) {
     if (backgroundId) await stopClaudeBackground(deps.run, backgroundId).catch(() => undefined);
+    // A setup window stays open: closing it would cut its setup off in the kept worktree.
     // What it removed leaves the record, so a retry makes it again; a worktree kept or stuck
     // stays. The additional ones are on the primary's branch, so they go with it.
     const removed = await made.undo();
@@ -290,5 +301,26 @@ function syncSkillsInto(deps: Pick<LaunchDeps, 'syncSkills'>, project: string, f
 
 /** A new worktree on `branch`, unless a session has the worktree there. */
 function worktreeFor(deps: LaunchDeps, entry: RegistryEntry, branch: string, base?: string) {
-  return sessionWorktree(deps.profile, deps.run, deps.lock, deps.store, entry, branch, base);
+  return sessionWorktree(deps.profile, deps.run, deps.lock, deps.store, entry, branch, base, true);
+}
+
+/** Opens `setup` in a window beside the session's (setupWindowCommand), before its agent starts. */
+async function setupBeside(
+  deps: LaunchDeps,
+  record: SessionRecord,
+  worktree: Worktree,
+  setup: string[],
+) {
+  const window = setupWindowName(record.id);
+  await deps.tmux.openWindow({
+    project: record.tmux.session,
+    window,
+    cwd: worktree.path,
+    command: setupWindowCommand(setup, window, deps.self),
+    env: {
+      ...windowEnv(record.id, deps.profileName),
+      PATH: mesaOnPath(deps.profile.paths.bin, deps.self, deps.env.PATH),
+    },
+  });
+  return { window, setup };
 }
