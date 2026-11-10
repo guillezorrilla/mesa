@@ -142,6 +142,7 @@ export { type SearchHit, searchWorkspace } from './search/search.js';
 export { awakeStatus, isKeepAwakeMode, KEEP_AWAKE_MODES } from './sessions/awake.js';
 export type { SessionScope } from './sessions/board/board.js';
 export type { CrewReport, CrewRow } from './sessions/board/crew.js';
+export type { BranchPullRequest } from './sessions/board/pull-requests.js';
 export type { ForeignRow, ManagedRow, SessionRow } from './sessions/board/rows.js';
 export type { TreeRow } from './sessions/board/tree.js';
 export type { DescendantResult } from './sessions/end/descendants.js';

@@ -63,8 +63,8 @@ export async function listPullRequests(run: Runner, cwd: string): Promise<PullRe
  * from this repository whose head branch a session works on, with those sessions' ids. A fork's
  * pull request never matches, since a session's branch is never in someone else's fork.
  */
-export const matchBranches = (
-  pullRequests: readonly PullRequest[],
+export const matchBranches = <T extends Pick<PullRequest, 'headRefName' | 'isCrossRepository'>>(
+  pullRequests: readonly T[],
   branchSessions: ReadonlyMap<string, readonly string[]>,
 ) =>
   pullRequests.flatMap((pr) => {

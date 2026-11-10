@@ -11,6 +11,7 @@ import {
   ChevronsUp,
   Clock3,
   GitBranch,
+  GitPullRequest,
   Moon,
   Plus,
   TerminalSquare,
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AutomationBanner } from '@/features/automations/AutomationBanner';
+import { useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import type { SessionLocation } from '../start/useStartSession';
 import { stateTone } from '../stateTone';
@@ -25,9 +27,21 @@ import { HoverAction } from './HoverAction';
 import { SessionCardMenu } from './SessionCardMenu';
 
 /**
+ * A pull request's state as its colour, a tracker's open green and closed purple for open and
+ * merged: draft muted, closed red.
+ */
+const PR_TONE = {
+  open: 'text-issue-open',
+  draft: 'text-muted-foreground',
+  merged: 'text-issue-closed',
+  closed: 'text-state-failed',
+} as const;
+
+/**
  * One session in the sidebar: its state and title with a badge per additional project, and while
  * not compact its branch with the lines its work added and removed, its state line, and its
- * agent's last reply in one line (the whole stored reply in its tooltip); while unread, filled green with a dot and a bold title.
+ * agent's last reply in one line (the whole stored reply in its tooltip); its branch's pull request
+ * in its corner, a link that opens it and never selects the card; while unread, filled green with a dot and a bold title.
  * On hover, a child session, compact, archive, and More actions. Its keys: Arrows step to the
  * next card, Shift+Arrow ranges to it, Option+Arrow moves it within its project, and Shift+Enter or
  * Cmd+Enter act as a Shift- or Cmd-click.
@@ -62,6 +76,9 @@ export function SessionCard(props: {
   const { unread } = props;
   const lines = session.managed ? session.lines : undefined;
   const reply = session.managed ? session.lastReply : undefined;
+  // Not on a compact card, whose one row the hover actions take, as its lines and reply are not.
+  const pr = session.managed && !compact ? session.pr : undefined;
+  const run = useRun();
   return (
     <div className="group relative mb-1">
       <button
@@ -94,7 +111,11 @@ export function SessionCard(props: {
         }}
       >
         {/* Clears the hover actions so the title never runs under them. */}
-        <span className="flex w-full min-w-0 items-center gap-2 font-medium group-focus-within:pr-17 group-hover:pr-17">
+        <span
+          className={cn(
+            'flex w-full min-w-0 items-center gap-2 font-medium group-focus-within:pr-17 group-hover:pr-17',
+          )}
+        >
           {unread ? (
             // Unread's own mark in place of the state's; the state line still names the state.
             <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-state-unread" />
@@ -163,7 +184,7 @@ export function SessionCard(props: {
               <span
                 data-testid="session-reply"
                 title={reply.text}
-                className="truncate pl-4 text-[11px] text-muted-foreground"
+                className={cn('truncate pl-4 text-[11px] text-muted-foreground', pr && 'pr-12')}
               >
                 {reply.text.trimStart().split('\n', 1)[0]}
               </span>
@@ -173,6 +194,22 @@ export function SessionCard(props: {
         {compact && unread && <span className="sr-only">, unread</span>}
         {chosen && <span className="sr-only">, selected</span>}
       </button>
+      {pr && (
+        <button
+          type="button"
+          data-testid="session-pr"
+          data-state={pr.state}
+          aria-label={`Open pull request #${pr.number} (${pr.state})`}
+          title={`Pull request #${pr.number}, ${pr.state}`}
+          className={cn(
+            'absolute right-2 bottom-1.5 flex items-center gap-0.5 rounded px-1 font-mono text-[10px] hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring',
+            PR_TONE[pr.state],
+          )}
+          onClick={() => void run('browser.external', { url: pr.url })}
+        >
+          <GitPullRequest aria-hidden className="size-3" />#{pr.number}
+        </button>
+      )}
       {session.managed && session.project !== GENERAL_PROJECT && (
         <HoverAction
           aria-label={`New child session from ${sessionTitle(session)} (${session.id})`}
