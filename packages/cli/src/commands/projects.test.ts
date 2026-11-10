@@ -254,6 +254,9 @@ test('a carry set or unset in mesa.yaml takes the old carryIgnoredDirectories wi
     join(dir, 'mesa.yaml'),
     `${original}worktrees:\n  carryIgnoredDirectories: [cache]\n`,
   );
+  // A refused value writes nothing, the old key included.
+  expect((await mesa('projects', 'set', 'lantern-cove', 'worktrees.carry', '[../x]')).code).toBe(4);
+  expect(file()).toContain('carryIgnoredDirectories');
   await mesa('projects', 'set', 'lantern-cove', 'worktrees.carry', '[.env]');
   expect(file()).toBe(`${original}worktrees:\n  carry:\n    - .env\n`);
 });

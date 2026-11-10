@@ -29,8 +29,9 @@ export async function carryEntries(
   const left = { ...budget };
   for (const [index, entry] of entries.entries()) {
     const source = sources[index] as string;
-    const target = createCheckedFilePath(worktree, entry);
-    const over = spend(source, left, budget) ?? (await copyEntry(run, source, target));
+    const over =
+      spend(source, left, budget) ??
+      (await copyEntry(run, source, createCheckedFilePath(worktree, entry)));
     if (over) {
       const rest = entries.length - index - 1;
       return `carry stopped at ${entry}: ${over}; ${rest ? `it and ${rest} after it were` : 'it was'} not carried`;
