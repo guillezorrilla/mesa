@@ -135,7 +135,9 @@ export async function managedRow(
   const reader = AGENTS[found.agent];
   const listed = listedAs && reader.listing.state(listedAs) ? listedAs : undefined;
   // A stopped session keeps its state, and swaps nothing, so its hook log is not read.
-  const events = found.endedAt ? [] : deps.events(found.id);
+  // Since its last wake: the slept agent's SessionEnd no longer speaks for it.
+  const woke = found.events.filter((e) => e.type === 'woke').at(-1)?.at ?? '';
+  const events = found.endedAt ? [] : deps.events(found.id).filter((e) => e.at >= woke);
   const event = stateEvent(found.agent, events);
   const signals: SessionSignals = {
     now: now.toISOString(),

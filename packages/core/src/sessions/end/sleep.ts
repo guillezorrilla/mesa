@@ -24,6 +24,8 @@ export function sleepBlocker(r: SessionRecord, seen: SleepSeen): string | undefi
   if (r.kind !== 'interactive' || (r.agent !== 'claude' && r.agent !== 'codex'))
     return 'not an interactive Claude Code or Codex session';
   if (r.background) return 'a background session';
+  // Only a conversation Mesa can name reopens: without one a wake could never succeed.
+  if (!r.agentSessionId) return 'no conversation to reopen';
   if (r.endedAt || r.sleeping) return 'not running';
   if (!seen.alive) return 'its agent is not running';
   if (r.lastState.state !== 'idle' && r.lastState.state !== 'done') return 'not finished';

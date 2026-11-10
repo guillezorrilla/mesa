@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { readyAgent } from '../../doctor/probe.js';
 import { MesaError } from '../../lib/result.js';
 import { findProject } from '../../projects/projects.js';
 import { GENERAL_PROJECT } from '../record/general.js';
@@ -19,22 +20,30 @@ export async function wakeSession(
   id: string,
 ): Promise<{ record: SessionRecord; warning?: string }> {
   const found = deps.store.get(id);
-  if (!found.sleeping) throw notAsleep(id);
+  if (!found.sleeping || found.endedAt || found.agent === 'terminal') throw notAsleep(id);
   const project =
     found.project === GENERAL_PROJECT ? null : findProject(deps.profile, found.project);
   const folder = folderOf(found, project);
   if (!existsSync(folder))
     throw new MesaError('not_found', `session ${id}'s folder ${folder} is gone`);
-  // A window left from the sleep (a pane that stayed dead) gives way to the new one.
-  await killIfThere(deps.tmux, windowOf(found));
+  await readyAgent(deps.run, found.agent);
   const slept = found.sleeping;
   let claimed = false;
+  const at = deps.clock().toISOString();
   const record = deps.store.update(id, (current) => {
-    if (current.sleeping?.at !== slept.at) return {};
+    if (current.sleeping?.at !== slept.at || current.endedAt) return {};
     claimed = true;
-    return { sleeping: undefined };
+    // Its idle time starts again, so the next sleep pass waits the whole time anew.
+    return {
+      sleeping: undefined,
+      lastState: { ...current.lastState, at, source: 'tmux' as const },
+      events: [...current.events, { type: 'woke' as const, at }],
+    };
   });
   if (!claimed) throw notAsleep(id);
+  // Claimed, so no other wake is opening it: a pane the sleep left dead gives way to the new one.
+  const left = await deps.tmux.findWindow(windowOf(found));
+  if (left?.dead) await killIfThere(deps.tmux, windowOf(found));
   try {
     return await startSession(deps, record, project, {
       command: (r, deny) => resumeCommand(deps, found, r.id, folder, deny),

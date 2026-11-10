@@ -1,5 +1,5 @@
 import type { ManagedRow, TreeRow } from '@mesa/core';
-import { exited } from '@mesa/core/browser';
+import { asleep, exited } from '@mesa/core/browser';
 import { useEffect, useState } from 'react';
 
 /**
@@ -14,7 +14,9 @@ export function useTerminalPanels(
   const [zoomed, setZoomed] = useState<string>();
   // A panel goes with its session: once it is not live (stopped, resumed, exited), tmux would
   // show the view another window of the project.
-  const liveRows = (rows ?? []).filter((s): s is ManagedRow & TreeRow => s.managed && !exited(s));
+  const liveRows = (rows ?? []).filter(
+    (s): s is ManagedRow & TreeRow => s.managed && !exited(s) && !asleep(s),
+  );
   const live = new Set(liveRows.map((s) => s.id));
   if (rows && panels.some((id) => !live.has(id))) setPanels(panels.filter((id) => live.has(id)));
   useEffect(() => {

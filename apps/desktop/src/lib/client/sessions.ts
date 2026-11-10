@@ -129,10 +129,9 @@ export const sessionsCommands = {
     EachResult<SessionRecord & { warning?: string }>
   >(({ ids }) => ['archive', '--', ...ids]),
   /** The sleep pass (CONTEXT.md, Sleeping session): every session it put to sleep. */
-  'sessions.sleep': commandWith<{ shown?: string }, { slept: string[] }>(({ shown }) => [
-    'sleep',
-    ...(shown ? ['--shown', shown] : []),
-  ]),
+  'sessions.sleep': commandWith<{ shown?: string }, { slept: string[]; warning?: string }>(
+    ({ shown }) => ['sleep', ...(shown ? ['--shown', shown] : [])],
+  ),
   'sessions.wake': commandWith<{ id: string }, Recorded<SessionRecord>>(({ id }) => [
     'wake',
     '--',

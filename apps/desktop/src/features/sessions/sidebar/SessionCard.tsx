@@ -113,7 +113,7 @@ export function SessionCard(props: {
             <Badge
               variant="outline"
               data-testid="session-sleeping"
-              title="Asleep: its agent quit to save memory; opening it wakes it"
+              title="Asleep: its agent quit to save memory; Wake reopens it"
               className="gap-1 px-1.5 py-0 font-mono text-[10px] text-muted-foreground"
             >
               <Moon aria-hidden className="size-3" />
@@ -148,7 +148,6 @@ export function SessionCard(props: {
               className={cn('pl-4 font-mono text-[11px]', stateTone(session.lastState.state).line)}
             >
               {session.lastState.state}
-              {session.managed && session.sleeping && ' · sleeping'}
               {unread && ' · unread'}
             </span>
           </>

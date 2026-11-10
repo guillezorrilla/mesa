@@ -244,6 +244,11 @@ const SessionRecordFields = z.strictObject({
         status: z.enum(['pending', 'delivered', 'failed', 'uncertain']),
         reason: z.string().optional(),
       }),
+      /**
+       * Woke from sleep (mesa wake): hook events before it are the slept agent's, and its last
+       * SessionEnd no longer says the session's state (CONTEXT.md, Sleeping session).
+       */
+      z.strictObject({ type: z.literal('woke'), at: z.iso.datetime() }),
       /** Handed off (mesa handoff): to its successor, or, on the successor, from the session. */
       z.strictObject({
         type: z.literal('handoff'),

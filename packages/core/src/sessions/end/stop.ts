@@ -48,7 +48,10 @@ export async function stopSession(
   }
   const outcome = await quitAgent(deps, found, { force });
   const at = deps.clock().toISOString();
-  const record = deps.store.update(id, (current) => ending(current, at));
+  const record = deps.store.update(id, (current) => ({
+    ...ending(current, at),
+    ...(current.sleeping ? { sleeping: undefined } : {}),
+  }));
   return { record, outcome };
 }
 

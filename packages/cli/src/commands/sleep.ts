@@ -9,10 +9,10 @@ export const sleep = defineCommand({
   },
   example: 'mesa sleep --shown a1b2c3d4',
   run: async ({ mesa, flags }) => {
-    const slept = await mesa.sessions.sleepIdle(flags.shown ? { shown: flags.shown } : {});
-    return {
-      data: { slept },
-      text: slept.length ? `asleep: ${slept.join(', ')}` : 'no session to put to sleep',
-    };
+    const data = await mesa.sessions.sleepIdle(flags.shown ? { shown: flags.shown } : {});
+    const said = data.slept.length
+      ? `asleep: ${data.slept.join(', ')}`
+      : 'no session to put to sleep';
+    return { data, text: data.warning ? `${said}\nwarning: ${data.warning}` : said };
   },
 });

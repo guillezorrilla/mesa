@@ -1,19 +1,20 @@
 import type { TreeRow } from '@mesa/core';
 import { recoverable, resumable } from '@mesa/core/browser';
-import { RotateCcw } from 'lucide-react';
+import { Moon, RotateCcw } from 'lucide-react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import type { OpenDialog } from '../dialogs/SessionDialogs';
 
 /**
- * What the selected session shows in place of its terminal when it has none: Restore or Dismiss
- * once its terminal ended, or why it is missing.
+ * What the selected session shows in place of its terminal when it has none: Wake while it sleeps,
+ * Restore or Dismiss once its terminal ended, or why it is missing.
  */
 export function SessionRecovery({
   row,
   loaded,
   acting,
   onResume,
+  onWake,
   onDialog,
 }: {
   row?: TreeRow;
@@ -21,8 +22,24 @@ export function SessionRecovery({
   loaded: boolean;
   acting: boolean;
   onResume: (id: string) => void;
+  onWake: (id: string) => void;
   onDialog: (dialog: OpenDialog) => void;
 }) {
+  if (row?.managed && row.sleeping)
+    return (
+      <div
+        data-testid="session-asleep"
+        className="m-4 flex flex-wrap items-center gap-3 rounded-lg border bg-card p-4 text-sm"
+      >
+        <p className="flex-1">
+          This session is asleep: its agent quit to save memory. Waking it reopens the same
+          conversation here.
+        </p>
+        <Button disabled={acting} onClick={() => onWake(row.id)}>
+          <Moon aria-hidden /> Wake
+        </Button>
+      </div>
+    );
   return row && recoverable(row) ? (
     <div
       data-testid="session-recovery"

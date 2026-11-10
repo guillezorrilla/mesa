@@ -84,7 +84,7 @@ export function SessionSettingsPanel(props: { onSavedPrompts: () => void }) {
         <SettingRow
           icon={Moon}
           title="Sleep finished sessions"
-          description="A Claude Code or Codex session you have read, that is not shown and has no child running, quits its agent after this long idle. Opening it, or sending to it, wakes it in the same session."
+          description="A Claude Code or Codex session you have read, that is not shown and has no child running, quits its agent after this long idle. Wake on the session, or mesa wake, reopens it in the same session."
           htmlFor="sessions-sleep-after"
           keywords="hibernate memory idle sleep wake"
           control={
