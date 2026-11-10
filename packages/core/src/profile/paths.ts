@@ -54,6 +54,8 @@ export type ProfilePaths = {
   reviewNotes: string;
   /** Child reports not yet typed into their parent (CONTEXT.md, Child report). */
   reports: string;
+  /** The profile's tasks, in their task graphs (CONTEXT.md, Task graph). */
+  tasks: string;
   /** What the Board wants a decision model to place, and its replies (decisions/supervision). */
   placements: string;
   /** Named, literal prompts saved only in this profile. */
@@ -110,6 +112,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     prEvents: join(root, 'pr-events.json'),
     reviewNotes: join(root, 'review-notes'),
     reports: join(root, 'reports.json'),
+    tasks: join(root, 'tasks.json'),
     placements: join(root, 'placements.json'),
     prompts: join(root, 'prompts.json'),
     automations: join(root, 'automations.yaml'),
