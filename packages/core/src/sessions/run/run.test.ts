@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createContext } from '../../context.js';
 import { listReceipts } from '../../receipts/store.js';
+import { claudeRunModel } from '../../skills/library.js';
 import {
   agentWorld,
   CLAUDE_HEADLESS_MOUNT,
@@ -55,7 +56,7 @@ test('a run execs claude -p on the skill, reads its result, and ends done, its w
   // stdin closed, stdout into the profile's runs/, and exec, so the pane's exit is claude's.
   expect(world.tmux.windows).toEqual([]);
   expect(world.tmux.opened[0]?.launch).toBe(
-    `exec claude -p '/session-summary focus on tests' --session-id ${UUID} --output-format json --permission-mode 'acceptEdits' ${CLAUDE_HEADLESS_MOUNT} 'Read' 'Bash(git log:*)' </dev/null >'${output}'`,
+    `exec claude -p '/session-summary focus on tests' --session-id ${UUID} --output-format json --model 'haiku' --permission-mode 'acceptEdits' ${CLAUDE_HEADLESS_MOUNT} 'Read' 'Bash(git log:*)' </dev/null >'${output}'`,
   );
   expect(existsSync(output)).toBe(true);
   // Logged as every window is: its pane, claude's errors, goes to its output log.
@@ -312,7 +313,7 @@ test('a skill the project does not see or enable, or a bad timeout starts nothin
   expect(await refused('session-summary', { timeoutSeconds: 0 })).toMatchObject({ code: 'usage' });
   // Counted on the line tmux gets: claude's command fits, with its redirects it does not.
   const bare = (n: number) =>
-    `claude -p '/session-summary ${'x'.repeat(n)}' --session-id ${UUID} --output-format json --permission-mode 'acceptEdits' ${CLAUDE_HEADLESS_MOUNT}`;
+    `claude -p '/session-summary ${'x'.repeat(n)}' --session-id ${UUID} --output-format json --model 'haiku' --permission-mode 'acceptEdits' ${CLAUDE_HEADLESS_MOUNT}`;
   const long = 'x'.repeat(11_990 - bare(0).length);
   expect(bare(long.length)).toHaveLength(11_990);
   expect(await refused('session-summary', { args: [long] })).toMatchObject({
@@ -767,4 +768,20 @@ test('the Board finishes an orphaned run when its waiter and exit hook are gone'
   expect(row).toMatchObject({ endedAt: expect.any(String), lastState: { state: 'done' } });
   expect(world.tmux.windows).toEqual([]);
   expect(listReceipts(join(home, 'vault'))).toEqual([]);
+});
+
+test("each of Mesa's own skill runs starts on its cheapest fitting model; any other on the person's default", async () => {
+  for (const [skill, model] of [
+    ['git-text', 'haiku'],
+    ['import-notes', 'sonnet'],
+    ['vault-capture', 'haiku'],
+    ['session-summary', 'haiku'],
+  ] as const) {
+    expect(claudeRunModel(skill)).toBe(model);
+  }
+  expect(claudeRunModel('tidy-readme')).toBeUndefined();
+  const world = agentWorld({ onOpen: finishesRun({ output: claudeResult('success') }) });
+  const { mesa } = setUp(world);
+  await mesa.sessions.run('import-notes', { project: 'lantern-cove' });
+  expect(world.tmux.opened[0]?.launch).toContain("--output-format json --model 'sonnet' ");
 });
