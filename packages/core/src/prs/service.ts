@@ -19,7 +19,15 @@ import {
 import { failure, unwrap } from './cli-read.js';
 import { githubApi } from './github.js';
 import { PR_CLIS, type PrProvider, prCli, resolveRemote } from './provider.js';
-import type { DraftInput, PrDraft, PrHead, PrProviderApi, PrRead, PrThread } from './reader.js';
+import {
+  DRAFT_BAR,
+  type DraftInput,
+  type PrDraft,
+  type PrHead,
+  type PrProviderApi,
+  type PrRead,
+  type PrThread,
+} from './reader.js';
 import { type Reached, reviewActions } from './review.js';
 import type { ReviewStartDeps } from './review-start.js';
 import { prVerdicts, type ThreadVerdict, withVerdicts } from './verdicts.js';
@@ -175,10 +183,19 @@ export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open' 
 
     /**
      * Leaves one Pending draft on the PR (mesa prs draft): inline, a reply, or the summary. No one
-     * sees it until I submit the review on the provider; Mesa never submits.
+     * sees it until I submit the review on the provider; Mesa never submits. A finding with a
+     * `score` under DRAFT_BAR is dropped before any provider call.
      */
-    draft: async (project: string, number: number, input: DraftInput) => {
+    draft: async (
+      project: string,
+      number: number,
+      { score, ...input }: DraftInput & { score?: number },
+    ) => {
       if (!input.text.trim()) throw new MesaError('usage', 'a draft needs --text');
+      if (score !== undefined && (!Number.isInteger(score) || score < 1 || score > 10))
+        throw new MesaError('usage', '--score must be a whole number from 1 to 10');
+      if (score !== undefined && score < DRAFT_BAR)
+        return { drafted: false as const, score, bar: DRAFT_BAR };
       if (input.replyTo !== undefined && (input.path !== undefined || input.line !== undefined))
         throw new MesaError(
           'usage',
@@ -200,6 +217,7 @@ export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open' 
             number,
             ...(input.path ? { path: input.path, line: input.line } : {}),
             ...(input.replyTo ? { replyTo: input.replyTo } : {}),
+            ...(score !== undefined ? { score } : {}),
           },
           outputs: (d) => ({ provider, id: d.id, pending: true }),
           project: () => project,

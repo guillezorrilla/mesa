@@ -278,6 +278,44 @@ test('prs draft leaves one pending inline comment, never submitting, and refuses
   expect(drafted.json.data.receipt).toMatchObject({ id: expect.any(String) });
   expect(queries).toHaveLength(3);
   for (const query of queries) expect(query).not.toMatch(/submitPullRequestReview|event/);
+
+  // A finding scored 7 or more is drafted and its receipt keeps the score.
+  const ranked = await cli.mesa(
+    ...['prs', 'draft', 'lantern-cove', '12', '--path', 'src/cart.ts', '--line', '57'],
+    ...['--text', 'Round once', '--score', '8', '--json'],
+  );
+  expect(ranked.code, ranked.stdout).toBe(0);
+  expect(ranked.json.data).toMatchObject({ id: 'PRRC_1' });
+  expect(queries).toHaveLength(6);
+  const receipt = await cli.mesa('receipts', 'show', ranked.json.data.receipt.id, '--json');
+  expect(receipt.json.data.receipt.inputs).toMatchObject({ score: 8 });
+
+  // Under the bar, or out of range, nothing reaches the provider.
+  const low = await cli.mesa(
+    ...['prs', 'draft', 'lantern-cove', '12', '--path', 'src/cart.ts', '--line', '57'],
+    ...['--text', 'Nit', '--score', '6'],
+  );
+  expect(low.code).toBe(0);
+  expect(low.stdout).toContain('Not drafted: scored 6, under the bar of 7');
+  const lowJson = await cli.mesa(
+    'prs',
+    'draft',
+    'lantern-cove',
+    '12',
+    '--text',
+    'Nit',
+    '--score',
+    '6',
+    '--json',
+  );
+  expect(lowJson.json.data).toEqual({ drafted: false, score: 6, bar: 7 });
+  for (const bad of ['0', '11', '7.5']) {
+    const refused = await cli.mesa(
+      ...['prs', 'draft', 'lantern-cove', '12', '--text', 'x', '--score', bad],
+    );
+    expect(refused.code, bad).toBe(2);
+  }
+  expect(queries).toHaveLength(6);
 });
 
 test('prs publish is refused outside a review session started with Post now, touching nothing', async () => {

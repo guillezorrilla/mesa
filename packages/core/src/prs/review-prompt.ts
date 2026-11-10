@@ -1,4 +1,5 @@
 import type { SessionReview } from '../sessions/record/record.js';
+import { DRAFT_BAR } from './reader.js';
 
 export type ReviewPromptInput = {
   number: number;
@@ -10,13 +11,15 @@ export type ReviewPromptInput = {
 /**
  * The goal of a review session, as a person would ask it (#808): run /code-review on the PR, then
  * add what it found as drafts through Mesa, and in post mode submit them. It carries no PR text:
- * the review reads the PR itself. The session's `mesa` is the Mesa that started it, first on its
+ * the review reads the PR itself. Mesa adds what any project's /code-review may miss: the reuse
+ * and simplicity axis, and a score per finding that `mesa prs draft` holds to DRAFT_BAR. The session's `mesa` is the Mesa that started it, first on its
  * PATH, and knows the project from the session (sessions/window/mesa-shim.ts, prs callerProject).
  */
 export function reviewPrompt({ number, mode, rereview }: ReviewPromptInput): string {
   return [
     `Run /code-review on PR #${number}.`,
-    `Add each finding as a draft comment with \`mesa prs draft ${number} --path <file> --line <n> --text "..."\`, and a summary with \`mesa prs draft ${number} --text "..."\`.`,
+    'Besides bugs, look for code the PR could reuse from the codebase, simpler forms, duplication, and modules doing more than one job.',
+    `Score each finding 1-10 on how sure you are and how much it matters, and add it as a draft comment with \`mesa prs draft ${number} --score <1-10> --path <file> --line <n> --text "..."\`; Mesa drops any under ${DRAFT_BAR}. Add a summary with \`mesa prs draft ${number} --text "..."\`.`,
     ...(rereview
       ? [
           `This is a re-review: for each of your earlier comments, run \`mesa prs verdict ${number} --thread <id> --state addressed|partly|not --note "..."\`.`,

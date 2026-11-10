@@ -1,12 +1,13 @@
 import { expect, test } from 'vitest';
 import { reviewPrompt } from './review-prompt.js';
 
-test('a review asks for /code-review on the PR and its findings as drafts, in a few lines', () => {
+test('a review asks for /code-review on the PR, the reuse axis too, and its scored findings as drafts', () => {
   const prompt = reviewPrompt({ number: 36, mode: 'drafts', rereview: false });
   expect(prompt).toBe(
     [
       'Run /code-review on PR #36.',
-      'Add each finding as a draft comment with `mesa prs draft 36 --path <file> --line <n> --text "..."`, and a summary with `mesa prs draft 36 --text "..."`.',
+      'Besides bugs, look for code the PR could reuse from the codebase, simpler forms, duplication, and modules doing more than one job.',
+      'Score each finding 1-10 on how sure you are and how much it matters, and add it as a draft comment with `mesa prs draft 36 --score <1-10> --path <file> --line <n> --text "..."`; Mesa drops any under 7. Add a summary with `mesa prs draft 36 --text "..."`.',
       'Comment only through these commands; never approve or merge.',
     ].join('\n'),
   );

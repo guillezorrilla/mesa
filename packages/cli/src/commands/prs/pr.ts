@@ -82,8 +82,14 @@ export const prsDraft = defineCommand({
     path: { type: 'string', description: 'Inline: the file, with --line' },
     line: { type: 'string', description: 'Inline: the line in the new version, with --path' },
     'reply-to': { type: 'string', description: 'Reply in this thread (an id from mesa prs show)' },
+    score: {
+      type: 'string',
+      description:
+        'The finding ranked 1-10, how sure and how much it matters; under 7 is not drafted',
+    },
   },
-  example: 'mesa prs draft lantern-cove 482 --path src/cart.ts --line 57 --text "Round once"',
+  example:
+    'mesa prs draft lantern-cove 482 --path src/cart.ts --line 57 --score 8 --text "Round once"',
   run: async ({ mesa, args, flags }) => {
     const { project, number } = prTarget(mesa, args);
     const recorded = await mesa.prs.draft(project, number, {
@@ -91,7 +97,13 @@ export const prsDraft = defineCommand({
       ...(flags.path ? { path: flags.path } : {}),
       ...(flags.line ? { line: wholeNumber(flags.line, '--line') } : {}),
       ...(flags['reply-to'] ? { replyTo: flags['reply-to'] } : {}),
+      ...(flags.score ? { score: wholeNumber(flags.score, '--score') } : {}),
     });
+    if ('drafted' in recorded)
+      return {
+        data: recorded,
+        text: `Not drafted: scored ${recorded.score}, under the bar of ${recorded.bar}`,
+      };
     const d = recorded.result;
     return recordedOutput(recorded, {
       data: d,

@@ -64,6 +64,9 @@ export type PrRead = {
 /** A draft to leave: inline with `path` and `line`, a reply with `replyTo`, else the summary. */
 export type DraftInput = { text: string; path?: string; line?: number; replyTo?: string };
 
+/** The least score a ranked finding needs to become a draft: 1-10, how sure and how much it matters. */
+export const DRAFT_BAR = 7;
+
 /**
  * One provider through its CLI. Every write but `publish` is a Pending draft. `publish` posts my
  * drafts on one PR, only as comments: never an approval or a change request (ADR-0024).
