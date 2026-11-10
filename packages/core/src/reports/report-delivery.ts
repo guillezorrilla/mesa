@@ -8,7 +8,7 @@ import {
   idlePlacement,
   type Send,
 } from '../sessions/input/idle-delivery.js';
-import { liveAgent } from '../sessions/record/lifecycle.js';
+import { sendable } from '../sessions/record/lifecycle.js';
 import { callerOf } from '../sessions/window/caller.js';
 import { reportLedger } from './report-ledger.js';
 import {
@@ -165,7 +165,7 @@ export function reportsService(
       const pending = collect();
       if (!pending.length) return { deliveries: [] };
       const board = await deps.board();
-      const rows = new Map(board.filter(liveAgent).map((row) => [row.id, row]));
+      const rows = new Map(board.filter(sendable).map((row) => [row.id, row]));
       const { threshold } = ctx.open().config.decisions;
       const deliveries: ReportDelivery[] = [];
       for (const parent of new Set(pending.map((r) => r.parent))) {

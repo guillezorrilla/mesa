@@ -11,7 +11,7 @@ import {
   type Send,
 } from '../sessions/input/idle-delivery.js';
 import { heldWorktrees } from '../sessions/record/holders.js';
-import { liveAgent } from '../sessions/record/lifecycle.js';
+import { sendable } from '../sessions/record/lifecycle.js';
 import { prEventLedger } from './pr-event-ledger.js';
 import { type PrEvent, type PrProblem, type PrWatch, scanPrEvents } from './pr-events.js';
 
@@ -37,7 +37,7 @@ const PER_PROMPT = 10;
 const watched = (
   row: SessionRow,
 ): row is ManagedRow & { worktree: { path: string; branch: string } } =>
-  liveAgent(row) && row.worktree !== undefined;
+  sendable(row) && row.worktree !== undefined;
 
 const REVIEW_STATES: Record<string, string> = {
   APPROVED: 'approved',

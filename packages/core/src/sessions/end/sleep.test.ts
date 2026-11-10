@@ -91,8 +91,10 @@ async function opened() {
   });
   const scripted = scriptedRunner({ tmux: world.answer, claude: CLAUDE_VERSION });
   let now = '2026-11-10T12:00:00.000Z';
+  let onPause = () => {};
   const { mesa, home } = projectProfile(scripted.run, {
-    sleep: async () => {},
+    // A pause is the agent getting on: one asked for by a wake's wait sees its SessionStart.
+    sleep: async () => onPause(),
     clock: () => new Date(now),
   });
   const { result } = await mesa.sessions.open('lantern-cove');
@@ -110,6 +112,10 @@ async function opened() {
     world,
     store,
     home,
+    /** Runs at every pause Mesa takes from now on. */
+    whilePausing: (run: () => void) => {
+      onPause = run;
+    },
     id: result.id,
     calls: scripted.calls,
     later: (iso: string) => (now = iso),
@@ -166,4 +172,28 @@ test('the sleep pass quits an idle session after the set time, keeps its record,
   const { result: stopped } = await mesa.sessions.stop(id);
   expect(stopped.record.endedAt).toBeDefined();
   expect(stopped.record.sleeping).toBeUndefined();
+});
+
+test('a send to a sleeping session wakes it, waits for its SessionStart, then types', async () => {
+  const { mesa, world, store, home, id, later, whilePausing } = await opened();
+  mesa.config.set('sessions.sleepAfterMinutes', '30');
+  later('2026-11-10T12:31:00.000Z');
+  expect((await mesa.sessions.sleepIdle()).slept).toEqual([id]);
+  later('2026-11-10T12:40:00.000Z');
+  const log = join(profilePaths(home, 'default').events, `${id}.jsonl`);
+  let started = false;
+  whilePausing(() => {
+    if (started || !world.windows.some((w) => w.window === `claude-${id}`)) return;
+    started = true;
+    mkdirSync(dirname(log), { recursive: true });
+    appendFileSync(
+      log,
+      `${JSON.stringify({ at: '2026-11-10T12:40:01.000Z', agent: 'claude', event: 'SessionStart', agentSessionId: '36c173f2-803e-4845-bd97-a032b37c6d6d', payload: { hook_event_name: 'SessionStart', source: 'resume' } })}\n`,
+    );
+  });
+  const { result } = await mesa.sessions.send(id, 'what is left?', { noFrom: true });
+  expect(result).toMatchObject({ sent: true, woke: true });
+  expect(result.warning).toBeUndefined();
+  expect(store.get(id).sleeping).toBeUndefined();
+  expect(world.windows.find((w) => w.window === `claude-${id}`)?.typed).toEqual(['what is left?']);
 });

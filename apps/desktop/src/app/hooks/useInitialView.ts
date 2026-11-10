@@ -1,5 +1,5 @@
 import type { Config, ProjectRow, TreeRow } from '@mesa/core';
-import { activeSession, recoverable } from '@mesa/core/browser';
+import { activeSession, asleep, recoverable } from '@mesa/core/browser';
 import {
   type Dispatch,
   type SetStateAction,
@@ -45,7 +45,10 @@ export function useInitialView(props: {
       sessions.length === 0
     )
       return;
-    const first = sessions.find((session) => activeSession(session) || recoverable(session));
+    // Not a sleeping one: showing it would wake it, and launching the app is no reason to.
+    const first = sessions.find(
+      (session) => (activeSession(session) && !asleep(session)) || recoverable(session),
+    );
     if (!first) return;
     openedInitialSession.current = true;
     setView((current) =>

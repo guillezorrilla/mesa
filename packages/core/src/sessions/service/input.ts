@@ -2,8 +2,10 @@ import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
 import type { Guarded, Overrides } from '../../decisions/guardrail.js';
 import type { DecisionRecorder } from '../../decisions/types.js';
+import { typeable } from '../../lib/untrusted-text.js';
 import { resolveCheckout } from '../../projects/checkout.js';
 import { receiptText } from '../../receipts/command.js';
+import { joinWarnings } from '../../receipts/recorder.js';
 import { openBrowserExternal } from '../input/browser-address.js';
 import {
   type BrowserAnnotationInput,
@@ -25,6 +27,7 @@ import { previewResponseReview, sessionResponses } from '../native/responses.js'
 import { projectScope } from '../record/general.js';
 import { recordAgent } from '../record/record.js';
 import { workingFolder } from '../signals/readings.js';
+import { agentStarted, WAKE_WAIT_MS, wakeSession } from '../start/wake.js';
 import type { SessionDeps } from './deps.js';
 
 /**
@@ -48,6 +51,30 @@ export function inputActions(ctx: MesaContext, faro: Faro, deps: SessionDeps) {
       },
       id,
     );
+  };
+  /**
+   * Wakes session `id` when it sleeps (CONTEXT.md, Sleeping session) and waits for its agent to
+   * take input, its SessionStart, up to WAKE_WAIT_MS; then the send types, either way. Undefined
+   * for a session awake.
+   */
+  const wakeFirst = async (id: string, prompt: string) => {
+    // An empty prompt is refused as it is, never after a wake.
+    if (!store.find(id)?.sleeping || !typeable(prompt).trim()) return undefined;
+    let warning: string | undefined;
+    try {
+      ({ warning } = await wakeSession(deps.openDeps(), id));
+    } catch (error) {
+      // Another send or the app woke it first: wait for its agent all the same.
+      if (store.find(id)?.sleeping) throw error;
+    }
+    const since =
+      store
+        .find(id)
+        ?.events.filter((e) => e.type === 'woke')
+        .at(-1)?.at ?? '';
+    const took = await agentStarted({ eventsDir: ctx.paths.events, sleep: ctx.sleep }, id, since);
+    const late = `session ${id} woke, but its agent took no input in ${WAKE_WAIT_MS / 1000} s; sent anyway`;
+    return { warning: joinWarnings(warning, took ? undefined : late) };
   };
   const send = (
     id: string,
@@ -85,6 +112,7 @@ export function inputActions(ctx: MesaContext, faro: Faro, deps: SessionDeps) {
         outputs: (r) => ({
           chars: r.chars,
           from: r.from,
+          ...(r.woke ? { woke: true } : {}),
           ...(r.override ? { override: r.override } : {}),
         }),
       },
@@ -93,11 +121,20 @@ export function inputActions(ctx: MesaContext, faro: Faro, deps: SessionDeps) {
         const guard = (action: Guarded) =>
           faro.guardrail.gate(action, { force, yes, confirm }, decisions);
         await ensureBackgroundView(id);
-        return sendPrompt({ store, tmux, clock: ctx.clock, caller, guard }, id, prompt, {
-          force,
-          from,
-          noFrom,
-        });
+        const woke = await wakeFirst(id, prompt);
+        const sent = await sendPrompt(
+          { store, tmux, clock: ctx.clock, caller, guard },
+          id,
+          prompt,
+          {
+            force,
+            from,
+            noFrom,
+          },
+        );
+        if (!woke) return sent;
+        const warning = joinWarnings(sent.warning, woke.warning);
+        return { ...sent, woke: true as const, ...(warning ? { warning } : {}) };
       },
     );
   };

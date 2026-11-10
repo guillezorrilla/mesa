@@ -57,7 +57,7 @@ test('with sessions.sleepAfterMinutes on, the app runs the sleep pass at once an
   }
 });
 
-test('a sleeping session shown offers Wake in place of its terminal, which wakes it', async () => {
+test('opening a sleeping session wakes it, and its terminal attaches once it is awake', async () => {
   let sleeping = true;
   const { bridge, calls } = fakeBridge({
     sessions: () =>
@@ -70,12 +70,10 @@ test('a sleeping session shown offers Wake in place of its terminal, which wakes
     },
   });
   const byTestId = await renderWithMesa(<App />, bridge);
+  expect(calls).not.toContainEqual(['--json', 'wake', '--', 'aaaaaaaa']);
   await click(byTestId('sidebar-session')[0]);
-  expect(byTestId('session-asleep')).toHaveLength(1);
-  expect(byTestId('terminal-aaaaaaaa')).toHaveLength(0);
-  await click(
-    [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Wake'),
-  );
-  expect(calls).toContainEqual(['--json', 'wake', '--', 'aaaaaaaa']);
+  // Shown: woken once, then the look after it shows it awake, with its terminal.
+  expect(calls.filter((c) => c[1] === 'wake')).toEqual([['--json', 'wake', '--', 'aaaaaaaa']]);
   expect(byTestId('session-asleep')).toHaveLength(0);
+  expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
 });

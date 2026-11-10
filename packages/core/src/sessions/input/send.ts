@@ -23,6 +23,8 @@ export type Sent = {
   override?: Override;
   /** Sent, but an event could not be written. */
   warning?: string;
+  /** It slept, and the send woke it first (CONTEXT.md, Sleeping session). */
+  woke?: true;
 };
 
 /** A prompt's length in characters (code points), as `chars` and receipts count it. */
