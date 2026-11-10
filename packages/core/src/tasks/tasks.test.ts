@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { expect, test } from 'vitest';
 import { createContext } from '../context.js';
 import {
@@ -82,7 +83,7 @@ test('--ready lists only ready tasks, and a graph only its own, oldest first', (
   expect(tasks.list({ graph: 'tides', ready: true }).tasks.map((t) => t.id)).toEqual([a.id]);
 });
 
-test('two mesa processes creating tasks both keep theirs', () => {
+test('each create reads the file anew, so two mesa processes taking turns both keep theirs', () => {
   const { service } = profile();
   const one = service();
   const two = service();
@@ -102,4 +103,53 @@ test("a task's coordinator is the caller's session, or one named; an unknown one
   expect(() => service().create('Parse', { coordinator: 'nobody00' })).toThrow(
     /no session nobody00/,
   );
+});
+
+test('a create waits on the lock another mesa holds, and writes nothing when it stays held', () => {
+  const { home, service } = profile();
+  const tasks = service();
+  tasks.create('Parse');
+  const file = profilePaths(home, 'default').tasks;
+  const before = readFileSync(file, 'utf8');
+  // Another live mesa (this test's own process) is mid-change.
+  writeFileSync(`${file}.lock`, String(process.pid));
+  expect(() => tasks.create('Chart')).toThrow(expect.objectContaining({ code: 'locked' }));
+  expect(readFileSync(file, 'utf8')).toBe(before);
+});
+
+test('pending and ready are read from the deps, not the file: a settled dep unlocks its dependent', () => {
+  const { home, service } = profile();
+  const file = profilePaths(home, 'default').tasks;
+  const task = (id: string, state: string, deps: string[] = []) => ({
+    id,
+    spec: id,
+    graph: 'tides',
+    deps,
+    state,
+    createdAt: AT,
+  });
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(
+    file,
+    JSON.stringify({
+      tasks: [
+        task('t-parse000', 'succeeded'),
+        task('t-chart000', 'pending', ['t-parse000']),
+        task('t-broken00', 'failed'),
+        task('t-afterbad', 'ready', ['t-broken00']),
+        task('t-printing', 'running', ['t-parse000']),
+      ],
+    }),
+  );
+  const tasks = service();
+  expect(tasks.list().tasks.map((t) => `${t.id} ${t.state}`)).toEqual([
+    't-parse000 succeeded',
+    't-chart000 ready',
+    't-broken00 failed',
+    't-afterbad pending',
+    't-printing running',
+  ]);
+  expect(tasks.list({ ready: true }).tasks.map((t) => t.id)).toEqual(['t-chart000']);
+  expect(tasks.create('Label it', { deps: ['t-chart000'] }).state).toBe('pending');
+  expect(tasks.create('Bind it', { deps: ['t-parse000'] }).state).toBe('ready');
 });

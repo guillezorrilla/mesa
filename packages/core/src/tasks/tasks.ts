@@ -10,22 +10,18 @@ import { callerOf } from '../sessions/window/caller.js';
  * start (no deps, or all succeeded), `running` with a worker, then `succeeded`, `failed` or
  * `cancelled`.
  */
-export const TASK_STATES = [
-  'pending',
-  'ready',
-  'running',
-  'succeeded',
-  'failed',
-  'cancelled',
-] as const;
+const TASK_STATES = ['pending', 'ready', 'running', 'succeeded', 'failed', 'cancelled'] as const;
 export type TaskState = (typeof TASK_STATES)[number];
 
 /** A unit of planned work a worker session may do, in a Task graph (CONTEXT.md, Task). */
-export const TaskSchema = z.strictObject({
+const TaskSchema = z.strictObject({
   id: z.string(),
   spec: z.string(),
   graph: z.string(),
-  /** The tasks it waits on; they existed when it was made and never change, so no cycle forms. */
+  /**
+   * The tasks it waits on, in any graph; they existed when it was made and never change, so no
+   * cycle forms. A shortcut id clash (40 random bits) is not checked.
+   */
   deps: z.array(z.string()),
   state: z.enum(TASK_STATES),
   /** The session that planned it: the Caller, or `--coordinator`; none from a person outside one. */
@@ -46,17 +42,31 @@ const SPEC_CHARS = 4_000;
 export type CreateTask = { graph?: string; deps?: readonly string[]; coordinator?: string };
 
 /**
+ * `tasks` with `pending` and `ready` worked out from their deps, never trusted from the file, so
+ * a settled dep unlocks its dependents without anyone writing them. Deps are older than their
+ * task (they existed when it was made), so one pass in file order sees each dep's state first.
+ */
+function withStates(tasks: readonly Task[]): Task[] {
+  const states = new Map<string, TaskState>();
+  return tasks.map((task) => {
+    const open = task.state === 'pending' || task.state === 'ready';
+    const state = !open
+      ? task.state
+      : task.deps.every((dep) => states.get(dep) === 'succeeded')
+        ? 'ready'
+        : 'pending';
+    states.set(task.id, state);
+    return state === task.state ? task : { ...task, state };
+  });
+}
+
+/**
  * The profile's tasks, `tasks.json`, changed under the profile lock so two processes creating at
  * once both keep theirs (CONTEXT.md, Task graph).
  */
 export function tasksService(ctx: MesaContext) {
   const file = ctx.paths.tasks;
-  const all = () => readJson(file, State)?.tasks ?? [];
-  const find = (id: string) => {
-    const task = all().find((t) => t.id === id);
-    if (!task) throw new MesaError('not_found', `no task ${id}; see mesa tasks`);
-    return task;
-  };
+  const all = () => withStates(readJson(file, State)?.tasks ?? []);
   return {
     /**
      * Writes a new task and returns it: `ready` when every dep has succeeded (or it has none),
@@ -86,7 +96,7 @@ export function tasksService(ctx: MesaContext) {
         State,
         (current) => {
           const tasks = current?.tasks ?? [];
-          const states = new Map(tasks.map((t) => [t.id, t.state]));
+          const states = new Map(withStates(tasks).map((t) => [t.id, t.state]));
           const unknown = deps.filter((dep) => !states.has(dep));
           if (unknown.length)
             throw new MesaError('not_found', `no task ${unknown.join(', ')}; see mesa tasks`);
@@ -113,11 +123,12 @@ export function tasksService(ctx: MesaContext) {
     }),
     /** One task with each dep's spec and state; not_found for an unknown id. */
     show: (id: string): ShownTask => {
-      const task = find(id);
       const byId = new Map(all().map((t) => [t.id, t]));
+      const task = byId.get(id);
+      if (!task) throw new MesaError('not_found', `no task ${id}; see mesa tasks`);
       return {
         ...task,
-        // Tasks are never removed, so each dep is found.
+        // flatMap: tasks are never removed, so each dep is found; none is dropped.
         dependencies: task.deps.flatMap((dep) => {
           const found = byId.get(dep);
           return found ? [{ id: found.id, spec: found.spec, state: found.state }] : [];

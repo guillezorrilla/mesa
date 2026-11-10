@@ -2,7 +2,8 @@ import type { Task } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { commaList } from '../input/flags.js';
 
-const line = (t: Task) => `${t.id}  ${t.graph}  ${t.state}  ${t.spec.split('\n')[0]}`;
+const firstLine = (text: string) => text.split('\n')[0];
+const line = (t: Task) => `${t.id}  ${t.graph}  ${t.state}  ${firstLine(t.spec)}`;
 
 export const tasks = defineCommand({
   name: 'tasks',
@@ -54,7 +55,7 @@ export const tasksShow = defineCommand({
       data: shown,
       text: [
         line(shown),
-        ...shown.dependencies.map((d) => `  waits on ${d.id} ${d.state}  ${d.spec.split('\n')[0]}`),
+        ...shown.dependencies.map((d) => `  waits on ${d.id} ${d.state}  ${firstLine(d.spec)}`),
       ].join('\n'),
     };
   },
