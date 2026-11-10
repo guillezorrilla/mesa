@@ -55,15 +55,35 @@ test('sizes are measured side by side and reused for 10 minutes, or measured aga
   ]);
 });
 
-test('a du that times out or finds no folder gives null, which is measured again next time', async () => {
-  const { deps, file, calls } = setUp({ '/w/gone': Number.NaN });
-  const slow = setUp({}, { slow: ['du'] });
-  expect(
-    (await measureSizes(slow.deps, slow.file, ['/w/big'])).get('/w/big')?.sizeBytes,
-  ).toBeNull();
-  expect((await measureSizes(deps, file, ['/w/gone'])).get('/w/gone')?.sizeBytes).toBeNull();
-  await measureSizes(deps, file, ['/w/gone']);
+test('a du that times out or finds no folder gives null, kept 10 minutes like a size', async () => {
+  const { deps, file, calls, later } = setUp({}, { slow: ['du'] });
+  const big = async (refresh = false) =>
+    (await measureSizes(deps, file, ['/w/big'], refresh)).get('/w/big');
+  expect(await big()).toEqual({ sizeBytes: null, sizeAt: '2026-11-10T12:00:00.000Z' });
+  later(9);
+  expect(await big()).toEqual({ sizeBytes: null, sizeAt: '2026-11-10T12:00:00.000Z' });
+  expect(calls).toHaveLength(1);
+  later(2);
+  await big();
   expect(calls).toHaveLength(2);
+  await big(true);
+  expect(calls).toHaveLength(3);
+  const gone = setUp({ '/w/gone': Number.NaN });
+  expect(
+    (await measureSizes(gone.deps, gone.file, ['/w/gone'])).get('/w/gone')?.sizeBytes,
+  ).toBeNull();
+  await measureSizes(gone.deps, gone.file, ['/w/gone']);
+  expect(gone.calls).toHaveLength(1);
+});
+
+test('a cache written before null was kept still reads', async () => {
+  const { deps, file, calls } = setUp({});
+  writeFileSync(
+    file,
+    JSON.stringify({ '/w/tide': { bytes: 2048, at: '2026-11-10T11:55:00.000Z' } }),
+  );
+  expect((await measureSizes(deps, file, ['/w/tide'])).get('/w/tide')?.sizeBytes).toBe(2048);
+  expect(calls).toHaveLength(0);
 });
 
 test('a cache that does not read is dropped, not an error', async () => {

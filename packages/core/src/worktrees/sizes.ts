@@ -8,7 +8,7 @@ import type { Runner } from '../lib/process.js';
 export type WorktreeSize = { sizeBytes: number | null; sizeAt: string };
 
 const Cache = z
-  .record(z.string(), z.strictObject({ bytes: z.number(), at: z.string() }))
+  .record(z.string(), z.strictObject({ bytes: z.number().nullable(), at: z.string() }))
   .describe('worktree sizes');
 
 /** How long a measured size is reused: 10 minutes. */
@@ -27,7 +27,8 @@ export function duBytes(output: string): number | undefined {
 /**
  * Each path's size on disk, `du -sk` over each, four side by side (60 s each), cached by path in `file`
  * for 10 minutes; `refresh` measures again regardless. A timeout, a missing folder or output that
- * is not a size gives null, which is not cached, so the next list tries again.
+ * is not a size gives null, cached the same 10 minutes, so a checkout too big for 60 s does not
+ * hold up every list.
  */
 export async function measureSizes(
   deps: LockDeps & { run: Runner },
@@ -50,9 +51,7 @@ export async function measureSizes(
     return [path, { sizeBytes: bytes ?? null, sizeAt: now.toISOString() }] as const;
   });
   const sizes = new Map<string, WorktreeSize>(measured);
-  const news = measured.filter(
-    ([path, size]) => size.sizeBytes !== null && size.sizeAt !== cached[path]?.at,
-  );
+  const news = measured.filter(([path, size]) => size.sizeAt !== cached[path]?.at);
   if (news.length) {
     changeJson(
       file,
@@ -64,8 +63,7 @@ export async function measureSizes(
             ([, size]) => now.getTime() - Date.parse(size.at) < FRESH_MS,
           ),
         );
-        for (const [path, size] of news)
-          kept[path] = { bytes: size.sizeBytes ?? 0, at: size.sizeAt };
+        for (const [path, size] of news) kept[path] = { bytes: size.sizeBytes, at: size.sizeAt };
         return kept;
       },
       deps,
