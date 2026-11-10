@@ -6,7 +6,7 @@ import { diffCounts } from '../../git/diff.js';
 import { MesaError } from '../../lib/result.js';
 import { joinWarnings, type Recorded } from '../../receipts/recorder.js';
 import { keptReport, latestReports } from '../../reports/report-delivery.js';
-import { recordedBase } from '../../worktrees/base.js';
+import { sessionDiffBase } from '../../worktrees/base.js';
 import type { SessionScope } from '../board/board.js';
 import { crewOf } from '../board/crew.js';
 import { sessionTree } from '../board/tree.js';
@@ -95,13 +95,11 @@ export function inspectActions(
    */
   const diff = async (id: string, base?: string) => {
     const { found, project, folder } = workingFolder(contextDeps, id);
-    const { worktree } = found;
     return readBranchDiff(
       ctx.open(),
       ctx.run,
       project,
-      base ??
-        (worktree && worktree.path === folder ? await recordedBase(ctx.run, worktree) : undefined),
+      base ?? (await sessionDiffBase(ctx.open(), ctx.run, { ...found, project, folder })),
       folder,
     );
   };

@@ -3,6 +3,7 @@ import type { TakenOver } from '../record/holders.js';
 import type { foreignId, SessionRecord } from '../record/record.js';
 import type { Supervision } from '../signals/placements.js';
 import type { Placement } from '../signals/state.js';
+import type { LineCounts } from './line-counts.js';
 
 // The Board's rows (CONTEXT.md, Board): a Mesa session's, or a foreign one's.
 
@@ -33,6 +34,10 @@ export type ManagedRow = { hasOutputLog?: boolean } & SessionRecord &
     conversation?: true;
     /** Who placed its state, the rules or the chosen model, and that model's reply (#461). */
     supervision: Supervision;
+    /** Its main agent's newest reply that ended a turn (stopReply), as its hook log keeps it. */
+    lastReply?: { text: string; at: string };
+    /** The lines its checkout added and removed since it left its base (lineCounts). */
+    lines?: LineCounts;
   };
 
 /**

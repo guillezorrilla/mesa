@@ -4,7 +4,7 @@ import { hookItem } from '../notifications/inbox-items.js';
 import { sessionTitle } from '../sessions/record/labels.js';
 import type { SessionRecord } from '../sessions/record/record.js';
 import { SESSION_STATES } from '../sessions/record/states.js';
-import type { HookEvent } from '../sessions/signals/hook-events.js';
+import { type HookEvent, parentHook } from '../sessions/signals/hook-events.js';
 
 /** What a worker says of its work with `mesa report`: done, failed, or blocked on its parent. */
 export const EXPLICIT_KINDS = ['done', 'failed', 'blocked'] as const;
@@ -70,13 +70,32 @@ export const reportsToParent = (
 
 const nameOf = (record: SessionRecord) => short(sessionTitle(record), 80);
 
+/**
+ * The main agent's reply that ended a turn, from a `Stop` hook event's `last_assistant_message`
+ * (a subagent's is not one: parentHook); undefined for any other event or an empty reply.
+ */
+export function stopReply(event: HookEvent): { text: string; at: string } | undefined {
+  if (event.event !== 'Stop' || !parentHook(event)) return undefined;
+  const said = (event.payload as Record<string, unknown> | undefined)?.last_assistant_message;
+  return typeof said === 'string' && said.trim() ? { text: said, at: event.at } : undefined;
+}
+
+/** The newest reply `events` (oldest first) hold (stopReply), if any. */
+export function lastReply(events: readonly HookEvent[]) {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const reply = stopReply(events[i] as HookEvent);
+    if (reply) return reply;
+  }
+  return undefined;
+}
+
 /** The report one of `child`'s hook events makes, if any: the Inbox's reading of it (hookItem). */
 export function eventReport(child: SessionRecord & { parent: string }, event: HookEvent) {
   const item = hookItem(child.id, event);
   if (!item || item.kind === 'subagent') return undefined;
   const payload = (event.payload ?? {}) as Record<string, unknown>;
   const kind = item.kind === 'finished' ? 'finished' : 'waiting';
-  const said = payload.last_assistant_message;
+  const said = stopReply(event)?.text;
   const tool = payload.tool_name;
   return {
     id: `${child.id}:${kind}:${event.at}`,
@@ -85,9 +104,7 @@ export function eventReport(child: SessionRecord & { parent: string }, event: Ho
     childName: nameOf(child),
     kind,
     at: event.at,
-    ...(kind === 'finished' && typeof said === 'string' && said.trim()
-      ? { message: short(said, MESSAGE_CHARS) }
-      : {}),
+    ...(said ? { message: short(said, MESSAGE_CHARS) } : {}),
     ...(kind === 'waiting' && typeof tool === 'string' ? { tool: short(tool, 60) } : {}),
   } satisfies ChildReport;
 }

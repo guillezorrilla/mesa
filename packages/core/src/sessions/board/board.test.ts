@@ -867,3 +867,40 @@ test('a live Claude session whose window died lists, though its hook is fresh', 
   await look();
   expect(calls.filter((c) => c.file === 'claude')).toHaveLength(2);
 });
+
+test("a row carries its main agent's newest Stop reply; a subagent's is not one", async () => {
+  const store = storeIn();
+  const found = store.create(() =>
+    inWindow('lantern-cove', '2026-09-24T11:59:00.000Z', 'claude-aaaaaa'),
+  );
+  const quiet = store.create(() => inWindow('tide', '2026-09-24T11:59:00.000Z', 'claude-bbbbbb'));
+  const stop = (at: string, said: string, sub = false): HookEvent => ({
+    at,
+    agent: 'claude',
+    event: 'Stop',
+    payload: {
+      hook_event_name: 'Stop',
+      last_assistant_message: said,
+      ...(sub ? { agent_id: 'agent-tide' } : {}),
+    },
+  });
+  const rows = await listSessions({
+    ...noListing,
+    store,
+    tmux: tmuxWith(LIVE, { project: 'tide', window: 'claude-bbbbbb' }),
+    events: (id) =>
+      id === found.id
+        ? [
+            stop('2026-09-24T11:59:10.000Z', 'Drafted the berth map.'),
+            stop('2026-09-24T11:59:30.000Z', 'Added the tide table.\nAll tests pass.'),
+            stop('2026-09-24T11:59:40.000Z', 'Subagent: searched the docs.', true),
+          ]
+        : [stop('2026-09-24T11:59:40.000Z', 'Only a subagent spoke.', true)],
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  });
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  expect(byId.get(found.id)).toMatchObject({
+    lastReply: { text: 'Added the tide table.\nAll tests pass.', at: '2026-09-24T11:59:30.000Z' },
+  });
+  expect(byId.get(quiet.id)).not.toHaveProperty('lastReply');
+});

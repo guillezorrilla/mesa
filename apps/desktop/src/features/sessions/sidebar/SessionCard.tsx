@@ -26,7 +26,8 @@ import { SessionCardMenu } from './SessionCardMenu';
 
 /**
  * One session in the sidebar: its state and title with a badge per additional project, and while
- * not compact its branch and state line; while unread, filled green with a dot and a bold title.
+ * not compact its branch with the lines its work added and removed, its state line, and its
+ * agent's last reply in one line (the whole stored reply in its tooltip); while unread, filled green with a dot and a bold title.
  * On hover, a child session, compact, archive, and More actions. Its keys: Arrows step to the
  * next card, Shift+Arrow ranges to it, Option+Arrow moves it within its project, and Shift+Enter or
  * Cmd+Enter act as a Shift- or Cmd-click.
@@ -59,6 +60,8 @@ export function SessionCard(props: {
   const { session, selected, chosen, compact } = props;
   const branch = sessionBranch(session);
   const { unread } = props;
+  const lines = session.managed ? session.lines : undefined;
+  const reply = session.managed ? session.lastReply : undefined;
   return (
     <div className="group relative mb-1">
       <button
@@ -142,6 +145,12 @@ export function SessionCard(props: {
               <span className="flex min-w-0 items-center gap-1 pl-4 font-mono text-[11px] text-state-working">
                 <GitBranch aria-hidden className="size-3 shrink-0" />
                 <span className="truncate">{branch}</span>
+                {lines && (
+                  <span data-testid="session-lines" className="shrink-0">
+                    <span className="text-state-idle">+{lines.added}</span>{' '}
+                    <span className="text-state-failed">-{lines.removed}</span>
+                  </span>
+                )}
               </span>
             )}
             <span
@@ -150,6 +159,15 @@ export function SessionCard(props: {
               {session.lastState.state}
               {unread && ' · unread'}
             </span>
+            {reply && (
+              <span
+                data-testid="session-reply"
+                title={reply.text}
+                className="truncate pl-4 text-[11px] text-muted-foreground"
+              >
+                {reply.text.trimStart().split('\n', 1)[0]}
+              </span>
+            )}
           </>
         )}
         {compact && unread && <span className="sr-only">, unread</span>}
