@@ -8,7 +8,9 @@ import {
   idlePlacement,
   type Send,
 } from '../sessions/input/idle-delivery.js';
+import { parentNowOf, withParentsNow } from '../sessions/record/family.js';
 import { sendable } from '../sessions/record/lifecycle.js';
+import type { SessionRecord } from '../sessions/record/record.js';
 import { callerOf } from '../sessions/window/caller.js';
 import { reportLedger } from './report-ledger.js';
 import {
@@ -30,9 +32,22 @@ export type ReportDelivery = IdleDelivery & { reports: string[] };
 export type ReportsDelivered = { deliveries: ReportDelivery[] };
 
 const ledgerOf = (ctx: MesaContext) => reportLedger(ctx.paths.reports, ctx.paths.events, ctx);
-/** Every child's new news, collected into the pending reports, which it returns. */
-const collectAll = (ctx: MesaContext, ledger: ReturnType<typeof ledgerOf>) =>
-  ledger.collect(ctx.store.readable(), ctx.clock().toISOString());
+/**
+ * The profile's records, each child's `parent` where it reports now (familyOf): the newest resume
+ * or handoff successor of the session it names. The ledger reads a report's parent from it.
+ */
+const reportingRecords = (ctx: MesaContext): SessionRecord[] =>
+  withParentsNow(ctx.store.readable()).map(({ parentNow, ...r }) => {
+    if (parentNow === undefined) return r;
+    const { parent: _recorded, ...rest } = r;
+    return parentNow ? { ...rest, parent: parentNow } : rest;
+  });
+/** Every child's new news in `records` (reportingRecords), collected into the pending reports. */
+const collectAll = (
+  ctx: MesaContext,
+  ledger: ReturnType<typeof ledgerOf>,
+  records = reportingRecords(ctx),
+) => ledger.collect(records, ctx.clock().toISOString());
 
 /**
  * Child reports for one profile (CONTEXT.md, Child report): the pending ones, and their delivery
@@ -62,9 +77,9 @@ export function reportsService(
           ? "this Mesa window's session is not in this profile"
           : 'mesa report runs inside a worker session started by another; this is no Mesa window',
       );
-    if (child.parent === undefined)
-      throw new MesaError('usage', `session ${child.id} has no parent to report to`);
-    return { ...child, parent: child.parent };
+    const parent = parentNowOf(ctx.store.readable(), child);
+    if (!parent) throw new MesaError('usage', `session ${child.id} has no parent to report to`);
+    return { ...child, parent };
   };
   return {
     /**
@@ -114,10 +129,13 @@ export function reportsService(
         throw new MesaError('usage', `question ${id} was answered at ${asked.answeredAt}`);
       if (!answer.trim()) throw new MesaError('usage', 'the answer is empty');
       const caller = callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile });
-      if (caller.inMesaWindow && caller.session?.id !== asked.parent)
+      // Its worker's parent now: the one it asked, or that one's resume or handoff successor.
+      const worker = ctx.store.find(asked.child);
+      const parent = (worker && parentNowOf(ctx.store.readable(), worker)) ?? asked.parent;
+      if (caller.inMesaWindow && caller.session?.id !== parent)
         throw new MesaError(
           'usage',
-          `question ${id} is for session ${asked.parent}; only it, or a person, answers it`,
+          `question ${id} is for session ${parent}; only it, or a person, answers it`,
         );
       // Claimed first, under the lock, so two replies never both reach the worker.
       const claim = ledger.answer(id, {
@@ -220,9 +238,10 @@ export async function reportsAtTurnEnd(
   // A config that does not read is reports off, never a failed hook.
   if (!ctx.configIfAny()?.sessions.childReports) return undefined;
   // A session no child names has nothing to collect: most Stops end here.
-  if (!ctx.store.readable().some((r) => r.parent === parent)) return undefined;
+  const records = reportingRecords(ctx);
+  if (!records.some((r) => r.parent === parent)) return undefined;
   const ledger = ledgerOf(ctx);
-  const ids = collectAll(ctx, ledger)
+  const ids = collectAll(ctx, ledger, records)
     .filter((r) => r.parent === parent)
     .map((r) => r.id);
   const claimed = ids.length ? ledger.claim(ids) : [];

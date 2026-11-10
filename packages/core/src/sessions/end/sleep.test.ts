@@ -10,6 +10,8 @@ import {
   newSession,
   projectProfile,
   scriptedRunner,
+  shortIds,
+  testStore,
 } from '../../testing/index.js';
 import type { SessionRecord } from '../record/record.js';
 import { sessionStore } from '../record/store.js';
@@ -196,4 +198,17 @@ test('a send to a sleeping session wakes it, waits for its SessionStart, then ty
   expect(result.warning).toBeUndefined();
   expect(store.get(id).sleeping).toBeUndefined();
   expect(world.windows.find((w) => w.window === `claude-${id}`)?.typed).toEqual(['what is left?']);
+});
+
+test("a resumed parent stays awake while its predecessor's worker, which reports to it now, runs", async () => {
+  const { mesa, store, id, later, home } = await opened();
+  mesa.config.set('sessions.sleepAfterMinutes', '30');
+  const records = testStore(home, 'default', shortIds('aaaaaaaa', 'bbbbbbbb'));
+  const before = records.create(() => newSession({ endedAt: IDLE_SINCE, resumedBy: id }));
+  const worker = records.create(() => newSession({ parent: before.id }));
+  store.update(id, { resumedFrom: before.id });
+  later('2026-11-10T12:31:00.000Z');
+  expect((await mesa.sessions.sleepIdle()).slept).not.toContain(id);
+  records.update(worker.id, { endedAt: '2026-11-10T12:30:00.000Z' });
+  expect((await mesa.sessions.sleepIdle()).slept).toContain(id);
 });

@@ -2,6 +2,7 @@ import type { MesaContext } from '../../context.js';
 import { toFail } from '../../lib/result.js';
 import { joinWarnings } from '../../receipts/recorder.js';
 import { type SleepSeen, sleepBlocker, sleepSession } from '../end/sleep.js';
+import { withParentsNow } from '../record/family.js';
 import { projectScope } from '../record/general.js';
 import { recordAgent, type SessionRecord } from '../record/record.js';
 import { wakeSession } from '../start/wake.js';
@@ -33,9 +34,10 @@ export function sleepActions(ctx: MesaContext, deps: SessionDeps) {
         alive: running.has(targetLabel(windowOf(r))),
         children,
       });
+      // Its children are those that report to it now (familyOf), a predecessor's workers too.
       const childrenOf = new Map<string, SessionRecord[]>();
-      for (const r of records)
-        if (r.parent) childrenOf.set(r.parent, [...(childrenOf.get(r.parent) ?? []), r]);
+      for (const r of withParentsNow(records))
+        if (r.parentNow) childrenOf.set(r.parentNow, [...(childrenOf.get(r.parentNow) ?? []), r]);
       const slept: string[] = [];
       const failed: string[] = [];
       for (const r of records) {
@@ -50,7 +52,7 @@ export function sleepActions(ctx: MesaContext, deps: SessionDeps) {
                 current,
                 seenOf(
                   current,
-                  store.readable().filter((c) => c.parent === current.id),
+                  withParentsNow(store.readable()).filter((c) => c.parentNow === current.id),
                 ),
               ),
           );

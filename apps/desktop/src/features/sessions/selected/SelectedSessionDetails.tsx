@@ -129,11 +129,14 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
                 </dd>
               </>
             )}
-            {row.managed && row.parent && (
+            {row.managed && row.parent && row.parentNow !== null && (
               <>
                 <dt className="text-muted-foreground">Reports to</dt>
                 <dd data-testid="session-reports-to">
-                  <span className="font-mono">{row.parent}</span>
+                  <span className="font-mono">{row.parentNow ?? row.parent}</span>
+                  {row.parentNow && row.parentNow !== row.parent && (
+                    <span className="text-muted-foreground"> (continues {row.parent})</span>
+                  )}
                   {record?.report
                     ? ': it reported its work itself'
                     : `: its last reply each turn goes back as its report${row.brief ? ', as its goal tells it' : ''}`}

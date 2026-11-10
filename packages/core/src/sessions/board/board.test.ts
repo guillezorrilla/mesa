@@ -585,7 +585,7 @@ test('children name every record, even one stopped too long ago to be on the boa
   expect(top?.managed && top.children).toEqual([old.id, young.id]);
 });
 
-test('the tree ranks siblings and branches by their highest attention; loops and resumes still place', async () => {
+test('the tree ranks siblings and branches by their highest attention; loops still place', async () => {
   const store = storeIn();
   store.create(() => newSession());
   const [base] = await listSessions({
@@ -595,11 +595,14 @@ test('the tree ranks siblings and branches by their highest attention; loops and
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   });
   if (!base?.managed) throw new Error('expected a managed row');
-  const row = (
-    id: string,
-    attention: number,
-    links: { parent?: string; resumedFrom?: string } = {},
-  ) => ({ ...base, id, attention, ...links });
+  // A row sits under where it reports now, which the board reads (familyOf); here, its parent.
+  const row = (id: string, attention: number, links: { parent?: string } = {}) => ({
+    ...base,
+    id,
+    attention,
+    ...links,
+    ...(links.parent ? { parentNow: links.parent } : {}),
+  });
   const tree = (rows: ReturnType<typeof row>[]) =>
     sessionTree(rows).map((r) => `${r.depth}:${r.id}`);
 
@@ -629,16 +632,35 @@ test('the tree ranks siblings and branches by their highest attention; loops and
     ]),
     // Its own parent counts as none; a loop has no top, so it follows the rows that do.
   ).toEqual(['0:selfself', '0:loopaaaa', '1:loopbbbb', '1:loopkidb']);
+});
 
-  // Its parent was resumed, twice: the child sits under the newest resume, off the board or on it.
-  expect(
-    tree([
-      row('resumed2', 0.3, { resumedFrom: 'resumed1' }),
-      row('resumed1', 0.25, { resumedFrom: 'original' }),
-      row('original', 0.25),
-      row('childofo', 0.2, { parent: 'original' }),
-    ]),
-  ).toEqual(['0:resumed2', '1:childofo', '0:resumed1', '0:original']);
+test('a child sits under, and is a child of, the newest resume of its parent; its recorded parent stays', async () => {
+  const store = storeIn();
+  const at = (minute: number) => `2026-09-24T11:${String(minute).padStart(2, '0')}:00.000Z`;
+  const ended = {
+    endedAt: at(5),
+    lastState: { state: 'done', confidence: 1, at: at(5), source: 'mesa' },
+  } as const;
+  const original = store.create(() => newSession({ startedAt: at(0), ...ended }));
+  const child = store.create(() => newSession({ startedAt: at(1), parent: original.id }));
+  const resumed1 = store.create(() =>
+    newSession({ startedAt: at(6), resumedFrom: original.id, ...ended }),
+  );
+  store.update(original.id, { resumedBy: resumed1.id });
+  const resumed2 = store.create(() => newSession({ startedAt: at(7), resumedFrom: resumed1.id }));
+  const rows = await listSessions({
+    ...noListing,
+    store,
+    tmux: fakeTmux(),
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  });
+  const kid = rows.find((r) => r.id === child.id);
+  expect(kid?.managed && [kid.parent, kid.parentNow]).toEqual([original.id, resumed2.id]);
+  const top = rows.find((r) => r.id === resumed2.id);
+  expect(top?.managed && top.children).toEqual([child.id]);
+  expect(sessionTree(rows).map((r) => `${r.depth}:${r.id}`)).toContain(`1:${child.id}`);
+  const tree = sessionTree(rows).map((r) => r.id);
+  expect(tree.indexOf(child.id)).toBe(tree.indexOf(resumed2.id) + 1);
 });
 
 test('a record another process holds locked still shows its new state, and the board still lists', async () => {

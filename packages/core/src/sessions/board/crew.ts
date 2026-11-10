@@ -19,11 +19,9 @@ export type CrewRow = ManagedRow & {
 };
 
 /**
- * `parent`'s crew: the board rows that name it as parent, oldest first, each with its newest report
- * from `latest` and its diff counts from `diffOf`, which gives none when the checkout cannot be read.
- *
- * ponytail: children of a session `parent` was resumed from are not followed (sessions --tree does);
- * #890 keeps a family together across resume.
+ * `parent`'s crew: the board rows that report to it now (`parentNow`: they name it, or a session it
+ * resumed or took over by handoff), oldest first, each with its newest report from `latest` and its
+ * diff counts from `diffOf`, which gives none when the checkout cannot be read.
  */
 export async function crewOf(
   rows: readonly SessionRow[],
@@ -32,7 +30,7 @@ export async function crewOf(
   diffOf: (id: string) => Promise<{ added: number; removed: number } | undefined>,
 ): Promise<CrewRow[]> {
   const children = rows
-    .filter((row): row is ManagedRow => row.managed && row.parent === parent)
+    .filter((row): row is ManagedRow => row.managed && row.parentNow === parent)
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
   return Promise.all(
     children.map(async (row) => {

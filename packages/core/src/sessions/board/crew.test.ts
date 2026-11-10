@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import type { ChildReport } from '../../reports/reports.js';
 import { newSession, placedRow, testStore } from '../../testing/index.js';
+import { withParentsNow } from '../record/family.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import { crewOf } from './crew.js';
 
@@ -38,7 +39,9 @@ test("a parent's crew is its own children, oldest first, each with its branch, n
   );
   const grandchild = store.create(() => newSession({ parent: later.id }));
   const other = store.create(() => newSession());
-  const rows = [parent, later, first, grandchild, other].map((r) => placedRow(r, 'idle'));
+  const rows = withParentsNow([parent, later, first, grandchild, other]).map((r) =>
+    placedRow(r, 'idle'),
+  );
   const read: string[] = [];
   const crew = await crewOf(
     rows,

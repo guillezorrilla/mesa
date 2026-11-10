@@ -279,3 +279,36 @@ test("sessions <id> --children lists that session's crew; either alone is a usag
   expect((await mesa('sessions', parent.id)).code).toBe(2);
   expect((await mesa('sessions', '--children')).code).toBe(2);
 });
+
+test('a child sits under its resumed parent, which mesa show names as parentNow; a child of no record is a root', async () => {
+  await mesa('init', '--vault', 'vault');
+  const store = testStore(
+    cli.home,
+    'default',
+    shortIds('aaaaaaaa', 'bbbbbbbb', 'cccccccc', 'dddddddd'),
+  );
+  const ended = { endedAt: '2026-09-24T11:05:00.000Z' };
+  const first = store.create(() => newSession({ startedAt: '2026-09-24T11:00:00.000Z', ...ended }));
+  const child = store.create(() =>
+    newSession({ startedAt: '2026-09-24T11:01:00.000Z', parent: first.id }),
+  );
+  const resumed = store.create(() =>
+    newSession({ startedAt: '2026-09-24T11:06:00.000Z', resumedFrom: first.id }),
+  );
+  store.update(first.id, { resumedBy: resumed.id });
+  const orphan = store.create(() =>
+    newSession({ startedAt: '2026-09-24T11:07:00.000Z', parent: 'gonegone' }),
+  );
+  cli.run = scriptedRunner({ tmux: fakeTmux().answer }).run;
+  const shown = (await mesa('show', child.id, '--json')).json.data;
+  expect([shown.parent, shown.parentNow]).toEqual([first.id, resumed.id]);
+  const tree = (await mesa('sessions', '--tree', '--json')).json.data as {
+    id: string;
+    depth: number;
+  }[];
+  const at = (id: string) => tree.findIndex((r) => r.id === id);
+  expect(tree[at(child.id)]?.depth).toBe(1);
+  expect(at(child.id)).toBe(at(resumed.id) + 1);
+  expect(tree[at(orphan.id)]?.depth).toBe(0);
+  expect((await mesa('show', orphan.id, '--json')).json.data.parentNow).toBe('gonegone');
+});

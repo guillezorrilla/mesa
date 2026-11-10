@@ -6,6 +6,7 @@ import type { DecisionRecorder } from '../../decisions/types.js';
 import type { Clock } from '../../lib/clock.js';
 import type { Env } from '../../lib/process.js';
 import type { RegistryEntry } from '../../projects/registry.js';
+import { withParentsNow } from '../record/family.js';
 import { takenOver, worktreeHolders } from '../record/holders.js';
 import type { SessionRecord } from '../record/record.js';
 import { isAgentState } from '../record/states.js';
@@ -82,11 +83,15 @@ export async function listSessions(
   // Oldest first (the store's order), so `children` is too.
   const every = deps.store.readable();
   const records = every.filter(inScope);
+  // Each child under where it reports now (familyOf): a resumed or handed-off parent's successor.
+  const parents = new Map(
+    withParentsNow(every).flatMap((r) => (r.parent ? [[r.id, r.parentNow ?? null] as const] : [])),
+  );
   const children = new Map<string, string[]>();
-  for (const r of every) {
-    if (!r.parent) continue;
-    if (children.has(r.parent)) children.get(r.parent)?.push(r.id);
-    else children.set(r.parent, [r.id]);
+  for (const [id, parent] of parents) {
+    if (!parent) continue;
+    if (children.has(parent)) children.get(parent)?.push(id);
+    else children.set(parent, [id]);
   }
   // One tmux look and one listing for the whole board, rather than one per record; the listing
   // after the look, which says whether it is needed.
@@ -140,7 +145,9 @@ export async function listSessions(
         children: children.get(found.id) ?? [],
       });
       const kept = takenOver(found, holders);
-      const row = kept.length ? { ...base, takenOver: kept } : base;
+      const reportsTo = parents.get(found.id);
+      const placed = reportsTo === undefined ? base : { ...base, parentNow: reportsTo };
+      const row = kept.length ? { ...placed, takenOver: kept } : placed;
       // A live session's readings (context use, branch, folder) are read on every look while it
       // works, as a turn can move it (EnterWorktree), and when its state just changed (a reply ends
       // a turn); a session at rest, once read, is not read again. A few ms each, even on a 40 MB
