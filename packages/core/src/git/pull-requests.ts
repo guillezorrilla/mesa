@@ -28,8 +28,15 @@ export type PullRequestList =
   | { ok: true; pullRequests: PullRequest[]; limited: boolean }
   | { ok: false; reason: 'failed' | 'timeout' | 'invalid-data' };
 
-/** The repository's latest pull requests, any state, as `gh pr list` in `cwd` reports them. */
-export async function listPullRequests(run: Runner, cwd: string): Promise<PullRequestList> {
+/**
+ * The repository's latest pull requests, any state, as `gh pr list` in `cwd` reports them; with
+ * `head`, only the newest from that branch.
+ */
+export async function listPullRequests(
+  run: Runner,
+  cwd: string,
+  head?: string,
+): Promise<PullRequestList> {
   const listed = await run(
     'gh',
     [
@@ -37,8 +44,7 @@ export async function listPullRequests(run: Runner, cwd: string): Promise<PullRe
       'list',
       '--state',
       'all',
-      '--limit',
-      String(LIMIT),
+      ...(head === undefined ? ['--limit', String(LIMIT)] : ['--head', head, '--limit', '1']),
       '--json',
       'number,title,url,state,isDraft,headRefName,isCrossRepository,updatedAt,mergedAt,closedAt',
     ],
@@ -55,7 +61,11 @@ export async function listPullRequests(run: Runner, cwd: string): Promise<PullRe
   }
   const parsed = z.array(PullRequestSchema).safeParse(raw);
   if (!parsed.success) return { ok: false, reason: 'invalid-data' };
-  return { ok: true, pullRequests: parsed.data, limited: parsed.data.length === LIMIT };
+  return {
+    ok: true,
+    pullRequests: parsed.data,
+    limited: head === undefined && parsed.data.length === LIMIT,
+  };
 }
 
 /**
