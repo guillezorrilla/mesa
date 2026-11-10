@@ -128,7 +128,12 @@ export { RECORD_KINDS } from './receipts/policy.js';
 export type { Recorded } from './receipts/recorder.js';
 export { DEFAULT_RECEIPT_LIMIT, type ReceiptEntry } from './receipts/store.js';
 export { RELEASE_GROUPS, type ReleaseNotes } from './release/notes.js';
-export type { ReportDelivery, ReportList, ReportsDelivered } from './reports/report-delivery.js';
+export type {
+  KeptReport,
+  ReportDelivery,
+  ReportList,
+  ReportsDelivered,
+} from './reports/report-delivery.js';
 export type { ChildReport } from './reports/reports.js';
 export { type SearchHit, searchWorkspace } from './search/search.js';
 export { awakeStatus, isKeepAwakeMode, KEEP_AWAKE_MODES } from './sessions/awake.js';

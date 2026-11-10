@@ -8,8 +8,15 @@ import {
   type Send,
 } from '../sessions/input/idle-delivery.js';
 import { liveAgent } from '../sessions/record/lifecycle.js';
+import { callerOf } from '../sessions/window/caller.js';
 import { reportLedger } from './report-ledger.js';
-import { type ChildReport, reportPrompt } from './reports.js';
+import {
+  type ChildReport,
+  EXPLICIT_KINDS,
+  type ExplicitKind,
+  explicitReport,
+  reportPrompt,
+} from './reports.js';
 
 /** What `mesa reports` lists: whether delivery is on, and the pending reports. */
 export type ReportList = { enabled: boolean; reports: ChildReport[] };
@@ -42,6 +49,36 @@ export function reportsService(
   const enabled = () => ctx.open().config.sessions.childReports;
   const collect = () => collectAll(ctx, ledger);
   return {
+    /**
+     * The caller's own report of its work (`mesa report`), for its parent: added to the pending
+     * reports and kept as its newest explicit one. Refused, writing nothing, outside a Mesa
+     * window, from a session with no parent, or with no text.
+     */
+    report: (kind: string, text: string, files: readonly string[] = []): ChildReport => {
+      if (!(EXPLICIT_KINDS as readonly string[]).includes(kind))
+        throw new MesaError('usage', `report ${EXPLICIT_KINDS.join(', ')}, not ${kind}`);
+      const caller = callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile });
+      const child = caller.session;
+      if (!child)
+        throw new MesaError(
+          'usage',
+          caller.inMesaWindow
+            ? "this Mesa window's session is not in this profile"
+            : 'mesa report runs inside a worker session started by another; this is no Mesa window',
+        );
+      if (child.parent === undefined)
+        throw new MesaError('usage', `session ${child.id} has no parent to report to`);
+      if (!text.trim()) throw new MesaError('usage', 'say what you did, found, and left');
+      const report = explicitReport(
+        { ...child, parent: child.parent },
+        kind as ExplicitKind,
+        text,
+        ctx.clock().toISOString(),
+        files,
+      );
+      ledger.add(report);
+      return report;
+    },
     /**
      * The pending reports, every parent's or `parent`'s; sends nothing. Off, it reads what was
      * pending without collecting more.
@@ -148,4 +185,23 @@ export async function reportsAtTurnEnd(
     )
     .catch(() => undefined);
   return prompt;
+}
+
+/** A worker's newest explicit report as `mesa show` gives it (`report`). */
+export type KeptReport = Pick<ChildReport, 'kind' | 'outcome' | 'at' | 'files'> & {
+  message: string;
+};
+
+/** `child`'s newest explicit report (`mesa report`), delivered or not, as `mesa show` gives it. */
+export function keptReport(ctx: MesaContext, child: string): KeptReport | undefined {
+  const said = ledgerOf(ctx).explicit(child);
+  return (
+    said && {
+      kind: said.kind,
+      ...(said.outcome ? { outcome: said.outcome } : {}),
+      at: said.at,
+      message: said.message ?? '',
+      ...(said.files ? { files: said.files } : {}),
+    }
+  );
 }

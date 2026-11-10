@@ -68,11 +68,12 @@ export function requireGoalCommandRuns(goal: string | undefined, agent: Agent): 
 const BRIEF_START = '[mesa] You are a worker started by session';
 
 /**
- * The paragraph a worker's goal ends with (CONTEXT.md, Worker brief): who its parent is, that its
- * last reply each turn reaches the parent as a Child report, how to ask, and not to poll.
+ * The paragraph a worker's goal ends with (CONTEXT.md, Worker brief): who its parent is, to end its
+ * work with one explicit report (`mesa report`), that until then its last reply each turn reaches
+ * the parent as a Child report, how to ask, and not to poll.
  */
 export const workerBrief = (parent: string) =>
-  `${BRIEF_START} ${parent}. Mesa types your last reply of each turn into it as your report, so end each turn with what you did, what you found, and what is left. To ask it something, end your turn with the question; its answer comes as your next prompt. Do not poll, sleep, or loop waiting for it.`;
+  `${BRIEF_START} ${parent}. When your work is done, run mesa report done "<what you did, found, and left>" exactly once; mesa report failed "<why>" when it is not done, never hiding a failure in prose; mesa report blocked "<what you need>" when ${parent} must act. Until then your last reply each turn reaches it. To ask it something, end your turn with the question; its answer comes as your next prompt. Do not poll, sleep, or loop waiting for it.`;
 
 /**
  * `goal` with the worker brief after it, when the session is `started` by `parent` (the caller, or

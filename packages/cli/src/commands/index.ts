@@ -80,6 +80,7 @@ import { read } from './read.js';
 import { receipts, receiptsShow } from './receipts.js';
 import { register } from './register.js';
 import { rename } from './rename.js';
+import { report } from './report.js';
 import { reports } from './reports.js';
 import { resize } from './resize.js';
 import { resume } from './resume.js';
@@ -191,6 +192,7 @@ export const COMMANDS: Command[] = [
   notificationsDelivered,
   open,
   prEvents,
+  report,
   reports,
   ...PRS_COMMANDS,
   profile,

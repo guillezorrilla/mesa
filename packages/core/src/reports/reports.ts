@@ -6,22 +6,34 @@ import type { SessionRecord } from '../sessions/record/record.js';
 import { SESSION_STATES } from '../sessions/record/states.js';
 import type { HookEvent } from '../sessions/signals/hook-events.js';
 
+/** What a worker says of its work with `mesa report`: done, failed, or blocked on its parent. */
+export const EXPLICIT_KINDS = ['done', 'failed', 'blocked'] as const;
+export type ExplicitKind = (typeof EXPLICIT_KINDS)[number];
+
 /**
  * A child session's news for its parent (CONTEXT.md, Child report): its turn `finished` (with the
- * last reply), it is `waiting` on a person (the tool only), or it `ended` (its final state).
+ * last reply), it is `waiting` on a person (the tool only), or it `ended` (its final state); or
+ * what it said of its work itself (`mesa report`): `done`, `failed` (each with its `outcome`), or
+ * `blocked` (none: the parent must act), with the files it names.
  */
 export const ChildReportSchema = z.object({
   id: z.string(),
   parent: z.string(),
   child: z.string(),
   childName: z.string(),
-  kind: z.enum(['finished', 'waiting', 'ended']),
+  kind: z.enum(['finished', 'waiting', 'ended', ...EXPLICIT_KINDS]),
   at: z.string(),
   message: z.string().optional(),
+  outcome: z.enum(['succeeded', 'failed']).optional(),
+  files: z.array(z.string()).optional(),
   tool: z.string().optional(),
   state: z.enum(SESSION_STATES).optional(),
 });
 export type ChildReport = z.infer<typeof ChildReportSchema>;
+
+/** Whether `report` is one a worker made itself (`mesa report`). */
+export const isExplicit = (report: Pick<ChildReport, 'kind'>) =>
+  (EXPLICIT_KINDS as readonly string[]).includes(report.kind);
 
 /** How much of a child's last reply a report keeps; `mesa review responses` has all of it. */
 const MESSAGE_CHARS = 2_000;
@@ -56,6 +68,29 @@ export function eventReport(child: SessionRecord & { parent: string }, event: Ho
   } satisfies ChildReport;
 }
 
+/** How many files an explicit report names, each cut as a path is. */
+const FILES = 20;
+
+/** The report a worker makes itself with `mesa report`, at `at`. */
+export const explicitReport = (
+  child: SessionRecord & { parent: string },
+  kind: ExplicitKind,
+  text: string,
+  at: string,
+  files: readonly string[] = [],
+) =>
+  ({
+    id: `${child.id}:${kind}:${at}`,
+    parent: child.parent,
+    child: child.id,
+    childName: nameOf(child),
+    kind,
+    at,
+    message: short(text, MESSAGE_CHARS),
+    ...(kind === 'blocked' ? {} : { outcome: kind === 'done' ? 'succeeded' : 'failed' }),
+    ...(files.length ? { files: files.slice(0, FILES).map((f) => short(f, 200)) } : {}),
+  }) satisfies ChildReport;
+
 /** The report a child that ended makes, once. */
 export const endedReport = (child: SessionRecord & { parent: string; endedAt: string }) =>
   ({
@@ -77,7 +112,9 @@ export function addReport(pending: readonly ChildReport[], report: ChildReport):
   const replaces = (newer: ChildReport, older: ChildReport) =>
     newer.child === older.child &&
     older.at <= newer.at &&
-    (older.kind === newer.kind || older.kind === 'waiting');
+    (older.kind === newer.kind ||
+      older.kind === 'waiting' ||
+      (isExplicit(older) && isExplicit(newer)));
   if (
     pending.some((kept) => kept.id === report.id || (kept.at > report.at && replaces(kept, report)))
   )
@@ -87,6 +124,14 @@ export function addReport(pending: readonly ChildReport[], report: ChildReport):
 
 function reportLines(report: ChildReport): string[] {
   const who = `${report.child} (${report.childName})`;
+  if (isExplicit(report))
+    return [
+      `- ${who} reported ${report.kind}${report.outcome ? `, ${report.outcome}` : ', and needs you to act'}:`,
+      `  \`\`\`${FENCE}`,
+      `  ${report.message ?? ''}`,
+      ...(report.files?.length ? [`  files: ${report.files.join(', ')}`] : []),
+      '  ```',
+    ];
   if (report.kind === 'ended') return [`- ${who} ended (${report.state ?? 'done'}).`];
   if (report.kind === 'waiting') {
     const what =
