@@ -8,6 +8,7 @@ import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import { resolveCheckout } from '../projects/checkout.js';
 import type { RegistryEntry } from '../projects/registry.js';
+import { joinWarnings } from '../receipts/recorder.js';
 import { checkoutHolders, heldWorktrees, worktreeHolder } from '../sessions/record/holders.js';
 import type { SessionStore } from '../sessions/record/store.js';
 import {
@@ -121,8 +122,8 @@ export async function checkoutWorktree(
 
 /**
  * Manual and session worktrees take one policy, the profile's under the project's overrides, with
- * explicit branch/base overrides. A carry that stops at its budget keeps the worktree and runs
- * setup; its `warning` says what stayed behind.
+ * explicit branch/base overrides. A base that did not fetch, or a carry that stops at its budget,
+ * keeps the worktree and runs setup; its `warning` says so.
  */
 export async function createWorktree(
   profile: Profile,
@@ -140,7 +141,7 @@ export async function createWorktree(
   // Before Git adds anything: an unapproved project setup leaves no worktree behind.
   const setup = worktreeScript(profile, project, 'setup');
   let carryStopped: string | undefined;
-  const worktree = await addWorktree(run, lock, {
+  const { warning: notFetched, ...worktree } = await addWorktree(run, lock, {
     repo: project.path,
     root,
     branch,
@@ -173,7 +174,8 @@ export async function createWorktree(
   }
   // Setup may write user data. If it fails, leave the linked checkout for an explicit rerun.
   if (setup.length) await worktreeCommand(run, worktree.path, setup, 'setup');
-  return { ...worktree, ...(carryStopped ? { warning: carryStopped } : {}) };
+  const warning = joinWarnings(notFetched, carryStopped);
+  return { ...worktree, ...(warning ? { warning } : {}) };
 }
 
 /** Run an explicitly configured command in a selected worktree, without a shell. */

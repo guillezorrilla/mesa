@@ -574,6 +574,17 @@ test('custom location and fetched base are shared settings; failed carryover pre
   expect(readFileSync(join(created.json.data.path, 'remote.txt'), 'utf8')).toBe(
     'new remote content\n',
   );
+  // Under 30 s later the fetch is reused; an unreachable origin then only warns.
+  execFileSync('git', ['-C', repo, 'remote', 'set-url', 'origin', join(cli.home, 'gone.git')], {
+    env: testEnv,
+  });
+  const reused = await cli.mesa('worktrees', 'create', 'lantern-cove', 'reused', '--json');
+  expect(reused.json.data.warning).toBeUndefined();
+  rmSync(cli.paths.fetches);
+  const offline = await cli.mesa('worktrees', 'create', 'lantern-cove', 'offline', '--json');
+  expect(offline.code, offline.stdout).toBe(0);
+  expect(offline.json.data.warning).toMatch(/^cannot fetch origin\/main: /);
+  expect(offline.json.data.warning).toContain('; started from the local origin/main');
 
   expect(
     (
