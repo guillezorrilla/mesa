@@ -15,6 +15,8 @@ import {
   doctorFindings,
   doctorItem,
   failureItems,
+  type GateNotice,
+  gateItems,
   hookItem,
   type InboxItem,
   releaseItem,
@@ -23,12 +25,12 @@ import {
 import { type InboxState, inboxStore } from './inbox-store.js';
 
 /**
- * The notices `state` keeps and `failures` add, newest first, without the cleared ones; a release
+ * The notices `state` keeps and `projected` adds (failed runs, open gates), newest first, without the cleared ones; a release
  * notice gets its notes from `notes`.
  */
 function inboxItems(
   state: InboxState,
-  failures: Candidate[],
+  projected: Candidate[],
   notes: () => ReleaseNotes[],
 ): InboxItem[] {
   // Release notices are kept oldest version first, so the stable sort on equal times lists the
@@ -37,7 +39,7 @@ function inboxItems(
     ...state.items,
     ...state.doctor.map(doctorItem),
     ...state.releases.map(releaseItem),
-    ...failures,
+    ...projected,
   ];
   entries.sort((a, b) => a.at.localeCompare(b.at));
   const cleared = new Set(state.cleared);
@@ -60,13 +62,18 @@ function inboxItems(
 
 /**
  * A bounded, durable inbox projected from the profile's redacted hooks, its Doctor findings, the
- * failed runs `automationRuns` reads from the run ledger, and the versions installed since the
- * last one seen, from the changelog Mesa ships.
+ * failed runs `automationRuns` reads from the run ledger, the open gates `openGates` reads from
+ * the task store, and the versions installed since the last one seen, from the changelog Mesa
+ * ships.
  */
-export function inbox(ctx: MesaContext, automationRuns: () => readonly AutomationRunNotice[]) {
-  // The run ledger is the event owner: a crash between failure and notification loses no notice.
-  const failures = () => failureItems(automationRuns());
-  const store = inboxStore(ctx.paths.notifications, ctx, failures);
+export function inbox(
+  ctx: MesaContext,
+  automationRuns: () => readonly AutomationRunNotice[],
+  openGates: () => readonly GateNotice[],
+) {
+  // Each owner is the event's: a crash between the event and its notice loses no notice.
+  const projected = () => [...failureItems(automationRuns()), ...gateItems(openGates())];
+  const store = inboxStore(ctx.paths.notifications, ctx, projected);
   let changelog: ReleaseNotes[] | undefined;
   const notes = () => {
     changelog ??= changelogNotes(ctx.changelog);
@@ -118,7 +125,7 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
     // A session with no title, or no record left, is named by its id.
     const unnamed = (id: string) => `Session ${id}`;
     const titles = new Map(records.map((r) => [r.id, sessionTitle(r, unnamed(r.id))]));
-    return inboxItems(state, failures(), notes).map((item) =>
+    return inboxItems(state, projected(), notes).map((item) =>
       item.session
         ? { ...item, sessionTitle: titles.get(item.session) ?? unnamed(item.session) }
         : item,

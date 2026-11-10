@@ -13,6 +13,7 @@ const TONE: Record<TaskState, string> = {
   pending: 'text-muted-foreground',
   ready: 'text-state-idle',
   running: 'text-state-working',
+  blocked: 'text-state-waiting',
   succeeded: 'text-state-done',
   failed: 'text-state-failed',
   cancelled: 'text-muted-foreground',

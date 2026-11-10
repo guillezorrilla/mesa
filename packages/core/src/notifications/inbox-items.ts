@@ -17,7 +17,7 @@ export type InboxItem = {
   id: string;
   session: string;
   at: string;
-  kind: 'input-required' | 'finished' | 'subagent' | 'doctor' | 'automation' | 'release';
+  kind: 'input-required' | 'finished' | 'subagent' | 'doctor' | 'automation' | 'release' | 'gate';
   title: string;
   /**
    * What a session's notice calls it: its card's title (sessionTitle), else `Session <id>`. Read
@@ -34,13 +34,22 @@ export type InboxItem = {
     | { kind: 'session'; id: string; window?: string }
     | { kind: 'doctor' }
     | { kind: 'automations' }
-    | { kind: 'release'; version: string };
+    | { kind: 'release'; version: string }
+    | { kind: 'inbox' };
 };
 
 export const CandidateSchema = z.strictObject({
   session: z.string(),
   at: z.iso.datetime(),
-  kind: z.enum(['input-required', 'finished', 'subagent', 'doctor', 'automation', 'release']),
+  kind: z.enum([
+    'input-required',
+    'finished',
+    'subagent',
+    'doctor',
+    'automation',
+    'release',
+    'gate',
+  ]),
   title: z.string(),
   detail: z.string().optional(),
   fix: z.enum(INBOX_FIXES).optional(),
@@ -54,6 +63,7 @@ export const CandidateSchema = z.strictObject({
     z.strictObject({ kind: z.literal('doctor') }),
     z.strictObject({ kind: z.literal('automations') }),
     z.strictObject({ kind: z.literal('release'), version: z.string() }),
+    z.strictObject({ kind: z.literal('inbox') }),
   ]),
 });
 /** A notice before the inbox marks it: its fingerprint and time make its id. */
@@ -214,6 +224,23 @@ export const failureItems = (runs: readonly AutomationRunNotice[]): Candidate[] 
       fingerprint: `automation:${run.id}`,
       target: { kind: 'automations' },
     }));
+
+/** The fields of an open decision gate that its notice reads; the task store owns gates. */
+export type GateNotice = { id: string; question: string; at: string; coordinator?: string };
+
+/**
+ * One notice per open gate, its question the title: it opens the task's coordinator, or stays in
+ * the Inbox without one. Resolving the gate drops it, which clears the notice.
+ */
+export const gateItems = (gates: readonly GateNotice[]): Candidate[] =>
+  gates.map((gate) => ({
+    session: gate.coordinator ?? '',
+    at: gate.at,
+    kind: 'gate',
+    title: Array.from(gate.question).slice(0, 200).join(''),
+    fingerprint: `gate:${gate.id}`,
+    target: gate.coordinator ? { kind: 'session', id: gate.coordinator } : { kind: 'inbox' },
+  }));
 
 /**
  * Whether the Inbox shows a notice: not a finished turn, which needs nothing from the person and

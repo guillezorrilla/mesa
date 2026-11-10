@@ -242,7 +242,8 @@ export type {
 } from './sources/linear-teams.js';
 export type { SourceRow } from './sources/service.js';
 export type { SourceId } from './sources/sources.js';
-export type { ShownTask, Task, TaskState } from './tasks/tasks.js';
+export type { OpenGate } from './tasks/gates.js';
+export type { Gate, ShownTask, Task, TaskState } from './tasks/tasks.js';
 export type { ClickupDetail } from './tickets/clickup-provider.js';
 export type { TicketDefaults } from './tickets/defaults.js';
 export type { GithubDetail } from './tickets/github-provider.js';

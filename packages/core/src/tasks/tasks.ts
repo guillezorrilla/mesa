@@ -1,29 +1,22 @@
 import type { MesaContext } from '../context.js';
 import { shortId } from '../lib/ids.js';
-import { changeJson } from '../lib/json-file.js';
 import { MesaError } from '../lib/result.js';
 import { joinWarnings, type Recorded } from '../receipts/recorder.js';
-import { keptReport } from '../reports/report-delivery.js';
 import type { SessionRecord } from '../sessions/record/record.js';
 import type { WorkerFlags } from '../sessions/start/worker.js';
 import { callerOf } from '../sessions/window/caller.js';
-import {
-  failedStart,
-  isOpen,
-  settle,
-  type Task,
-  TaskFile,
-  type WorkerNews,
-  withStates,
-} from './task-file.js';
+import { failedStart, type Gate, isOpen, type Task, withGates, withStates } from './task-file.js';
+import { taskStore } from './task-store.js';
 
-export type { Task, TaskState } from './task-file.js';
+export type { Gate, ResolvedGate, Task, TaskState } from './task-file.js';
 
-/** A task with each dep's spec and state, as `mesa tasks show` gives it. */
+/** A task with each dep's spec and state, and its gates, as `mesa tasks show` gives it. */
 export type ShownTask = Task & {
   dependencies: Pick<Task, 'id' | 'spec' | 'state'>[];
   /** For a pending task, the dep that holds it: the first that has not succeeded. */
   heldBy?: string;
+  /** Its gates, open and resolved, oldest first. */
+  gates: Gate[];
 };
 
 /** A graph name a person can type: letters, digits, dots, dashes and underscores. */
@@ -48,40 +41,36 @@ const askedWrong = (error: unknown) =>
   error instanceof MesaError && (error.code === 'usage' || error.code === 'not_found');
 
 /**
- * The profile's tasks, `tasks.json`, changed under the profile lock so two processes both keep
- * theirs (CONTEXT.md, Task graph). Every read settles running tasks by their workers' reports and
- * endings first (settle), so a dependent is ready as soon as anyone looks.
+ * The profile's tasks (CONTEXT.md, Task graph), read and changed through the task store, which
+ * settles running ones first; each reads `blocked` while it has an open gate (withGates).
  */
 export function tasksService(ctx: MesaContext, deps: TasksDeps) {
-  const file = ctx.paths.tasks;
-  const newsOf = (worker: string): WorkerNews => {
-    const record = ctx.store.find(worker);
-    const report = keptReport(ctx, worker);
-    return { ...(report ? { report } : {}), ended: !record || Boolean(record.endedAt) };
-  };
-  /** Changes the settled tasks under the lock with `fn`, which returns the next ones and a result. */
-  const change = <R>(fn: (tasks: Task[]) => { tasks: Task[]; result: R }): R => {
-    let result: R | undefined;
-    changeJson(
-      file,
-      TaskFile,
-      (current) => {
-        const changed = fn(settle(current?.tasks ?? [], newsOf, ctx.clock()));
-        result = changed.result;
-        return { tasks: changed.tasks };
-      },
-      ctx,
-    );
-    return result as R;
-  };
-  const all = () => change((tasks) => ({ tasks, result: tasks }));
-  /** Replaces task `id` with what `fn` makes of it, then works out the states; not_found for an unknown id. */
-  const update = (id: string, fn: (task: Task) => Task) =>
-    change((tasks) => {
-      const found = tasks.find((t) => t.id === id);
+  const store = taskStore(ctx);
+  /** Changes the tasks with `fn`, which returns the next ones and a result; gates stay. */
+  const change = <R>(fn: (tasks: Task[]) => { tasks: Task[]; result: R }): R =>
+    store.change((file) => {
+      const changed = fn(file.tasks);
+      return { next: { ...file, tasks: changed.tasks }, result: changed.result };
+    });
+  /** The tasks as they read, and every gate. */
+  const read = () =>
+    store.change((file) => ({
+      next: file,
+      result: { tasks: withGates(file.tasks, file.gates), gates: file.gates },
+    }));
+  const all = () => read().tasks;
+  /**
+   * Replaces task `id` with what `fn` makes of it (given the state it reads, `blocked` with an
+   * open gate), then works out the states; returns it as it reads. not_found for an unknown id.
+   */
+  const update = (id: string, fn: (task: Task, reads: Task['state']) => Task) =>
+    store.change((file) => {
+      const found = file.tasks.find((t) => t.id === id);
       if (!found) throw notFound(id);
-      const next = withStates(tasks.map((t) => (t.id === id ? fn(found) : t)));
-      return { tasks: next, result: next.find((t) => t.id === id) as Task };
+      const reads = (withGates([found], file.gates)[0] as Task).state;
+      const tasks = withStates(file.tasks.map((t) => (t.id === id ? fn(found, reads) : t)));
+      const shown = withGates(tasks, file.gates).find((t) => t.id === id) as Task;
+      return { next: { ...file, tasks }, result: shown };
     });
   return {
     /**
@@ -144,7 +133,8 @@ export function tasksService(ctx: MesaContext, deps: TasksDeps) {
     }),
     /** One task with each dep's spec and state, and the dep holding it; not_found for an unknown id. */
     show: (id: string): ShownTask => {
-      const byId = new Map(all().map((t) => [t.id, t]));
+      const { tasks, gates } = read();
+      const byId = new Map(tasks.map((t) => [t.id, t]));
       const task = byId.get(id);
       if (!task) throw notFound(id);
       // flatMap: tasks are never removed, so each dep is found; none is dropped.
@@ -156,7 +146,10 @@ export function tasksService(ctx: MesaContext, deps: TasksDeps) {
       return {
         ...task,
         dependencies,
-        ...(task.state === 'pending' && holding ? { heldBy: holding.id } : {}),
+        ...((task.state === 'pending' || task.state === 'blocked') && holding
+          ? { heldBy: holding.id }
+          : {}),
+        gates: gates.filter((g) => g.task === id),
       };
     },
     /**
@@ -167,9 +160,12 @@ export function tasksService(ctx: MesaContext, deps: TasksDeps) {
      */
     start: async (id: string, project: string | undefined, flags: WorkerFlags = {}) => {
       const startedAt = ctx.clock().toISOString();
-      update(id, (task) => {
-        if (task.state !== 'ready')
-          throw new MesaError('usage', `task ${id} is ${task.state}, not ready`);
+      update(id, (task, reads) => {
+        if (reads !== 'ready')
+          throw new MesaError(
+            'usage',
+            `task ${id} is ${reads}, not ready${reads === 'blocked' ? ': a person must resolve its gate first (mesa gates)' : ''}`,
+          );
         return { ...task, state: 'running', startedAt };
       });
       // This start's claim still holds: no read gave it back meanwhile, and no other start took it.

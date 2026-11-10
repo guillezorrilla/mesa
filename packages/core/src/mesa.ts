@@ -33,6 +33,7 @@ import { skillsService } from './skills/service.js';
 import { importService } from './sources/import-service.js';
 import { itemSessions } from './sources/item-session.js';
 import { sourcesService } from './sources/service.js';
+import { gatesService } from './tasks/gates.js';
 import { tasksService } from './tasks/tasks.js';
 import { ticketsService } from './tickets/service.js';
 import { updateService } from './update/service.js';
@@ -77,8 +78,14 @@ export function createMesa(profile: string, deps: MesaDeps) {
     refresh: imports.refresh,
     notify: () => notifications.deliver(),
   });
-  // Failed automation runs are notices; the inbox reads them from the run ledger.
-  const notices = inbox(ctx, automations.runs);
+  /** Child sessions' news, typed into their idle parents (CONTEXT.md, Child report). */
+  const reports = reportsService(ctx, {
+    board: () => sessions.sessions.list(),
+    send: sessions.sessions.send,
+  });
+  const gates = gatesService(ctx, { report: reports.gate });
+  // Failed automation runs and open gates are notices; the inbox reads them from their owners.
+  const notices = inbox(ctx, automations.runs, gates.open);
   const notifications = { ...notices, deliver: () => backgroundDelivery(ctx, notices) };
   const worktrees = worktreesService(ctx);
   const installs = installsService(ctx);
@@ -112,13 +119,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
       board: () => sessions.sessions.list(),
       send: sessions.sessions.send,
     }),
-    /** Child sessions' news, typed into their idle parents (CONTEXT.md, Child report). */
-    reports: reportsService(ctx, {
-      board: () => sessions.sessions.list(),
-      send: sessions.sessions.send,
-    }),
+    reports,
     /** Planned work and what each part waits on (CONTEXT.md, Task graph). */
     tasks: tasksService(ctx, { startWorker: sessions.sessions.worker }),
+    /** Decisions only a person makes, which block a task until resolved (CONTEXT.md, Decision gate). */
+    gates,
     prs: prsService(ctx, { open: sessions.sessions.open, stop: sessions.sessions.stop }),
     hooks: hooksService(ctx),
     skills,

@@ -12,11 +12,13 @@ import { parentNowOf, withParentsNow } from '../sessions/record/family.js';
 import { sendable } from '../sessions/record/lifecycle.js';
 import type { SessionRecord } from '../sessions/record/record.js';
 import { callerOf } from '../sessions/window/caller.js';
+import type { ResolvedGate } from '../tasks/task-file.js';
 import { reportLedger } from './report-ledger.js';
 import {
   type ChildReport,
   EXPLICIT_KINDS,
   explicitReport,
+  gateReport,
   isExplicitKind,
   type Question,
   questionOf,
@@ -115,6 +117,14 @@ export function reportsService(
       const { question, report } = questionOf(child, id, text, ctx.clock().toISOString());
       ledger.ask(question, report);
       return question;
+    },
+    /**
+     * Tells `coordinator`, or the session that continues it now, how a person resolved `gate`:
+     * a pending `gate` report, delivered as other reports are.
+     */
+    gate: (gate: ResolvedGate, coordinator: string) => {
+      const parent = parentNowOf(ctx.store.readable(), { id: gate.id, parent: coordinator });
+      ledger.addGate(gateReport(gate, parent ?? coordinator));
     },
     /**
      * Answers open question `id`: types `[mesa] answer to your question <id>:` and `answer` into

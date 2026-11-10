@@ -5,6 +5,7 @@ import { sessionTitle } from '../sessions/record/labels.js';
 import type { SessionRecord } from '../sessions/record/record.js';
 import { SESSION_STATES } from '../sessions/record/states.js';
 import { type HookEvent, parentHook } from '../sessions/signals/hook-events.js';
+import type { ResolvedGate } from '../tasks/task-file.js';
 
 /** What a worker says of its work with `mesa report`: done, failed, or blocked on its parent. */
 export const EXPLICIT_KINDS = ['done', 'failed', 'blocked'] as const;
@@ -15,19 +16,24 @@ export type ExplicitKind = (typeof EXPLICIT_KINDS)[number];
  * last reply), it is `waiting` on a person (the tool only), or it `ended` (its final state); or
  * what it said of its work itself (`mesa report`): `done`, `failed` (each with its `outcome`), or
  * `blocked` (none: the parent must act), with the files it names; or a `question` it asks its
- * parent, with an id the answer names.
+ * parent, with an id the answer names. A `gate` report comes from no child: a person resolved a
+ * decision gate on a task the parent coordinates, so its `child` is the parent itself.
  */
 export const ChildReportSchema = z.object({
   id: z.string(),
   parent: z.string(),
   child: z.string(),
   childName: z.string(),
-  kind: z.enum(['finished', 'waiting', 'ended', 'question', ...EXPLICIT_KINDS]),
+  kind: z.enum(['finished', 'waiting', 'ended', 'question', 'gate', ...EXPLICIT_KINDS]),
   at: z.string(),
   message: z.string().optional(),
   outcome: z.enum(['succeeded', 'failed']).optional(),
   /** A `question` report's question id, which its answer names (`mesa reports reply`). */
   question: z.string().optional(),
+  /** A `gate` report's gate id, its task, and the option the person chose; `message` is its question. */
+  gate: z.string().optional(),
+  task: z.string().optional(),
+  option: z.string().optional(),
   files: z.array(z.string()).optional(),
   tool: z.string().optional(),
   state: z.enum(SESSION_STATES).optional(),
@@ -155,6 +161,21 @@ export function questionOf(
   };
 }
 
+/** The `gate` report telling `parent`, the coordinator of the gate's task, what a person chose. */
+export const gateReport = (gate: ResolvedGate, parent: string) =>
+  ({
+    id: `${parent}:gate:${gate.id}`,
+    parent,
+    child: parent,
+    childName: `gate ${gate.id}`,
+    kind: 'gate',
+    at: gate.resolvedAt,
+    message: short(gate.question, MESSAGE_CHARS),
+    gate: gate.id,
+    task: gate.task,
+    option: short(gate.option, 80),
+  }) satisfies ChildReport;
+
 /** The report a child that ended makes, once. */
 export const endedReport = (child: SessionRecord & { parent: string; endedAt: string }) =>
   ({
@@ -173,10 +194,11 @@ export const endedReport = (child: SessionRecord & { parent: string; endedAt: st
  * a report older than one it would replace (a claimed report given back late) is dropped.
  */
 export function addReport(pending: readonly ChildReport[], report: ChildReport): ChildReport[] {
-  // A question never replaces, and is never replaced: each waits until delivered.
+  // A question or gate never replaces, and is never replaced: each waits until delivered.
+  const lasting = (report: ChildReport) => report.kind === 'question' || report.kind === 'gate';
   const replaces = (newer: ChildReport, older: ChildReport) =>
-    newer.kind !== 'question' &&
-    older.kind !== 'question' &&
+    !lasting(newer) &&
+    !lasting(older) &&
     newer.child === older.child &&
     older.at <= newer.at &&
     (older.kind === newer.kind ||
@@ -206,6 +228,14 @@ function reportLines(report: ChildReport): string[] {
       `  ${report.message ?? ''}`,
       '  ```',
       `  Answer it: mesa reports reply ${report.question} "<answer>"`,
+    ];
+  if (report.kind === 'gate')
+    return [
+      `- A person resolved gate ${report.gate} on task ${report.task}; its question, and the option they chose, in an agent's words:`,
+      `  \`\`\`${FENCE}`,
+      `  ${report.message ?? ''}`,
+      `  chose: ${report.option ?? ''}`,
+      '  ```',
     ];
   if (report.kind === 'ended') return [`- ${who} ended (${report.state ?? 'done'}).`];
   if (report.kind === 'waiting') {

@@ -17,6 +17,7 @@ const ICON = {
   'input-required': [CircleAlert, 'text-state-waiting'],
   doctor: [CircleAlert, 'text-state-waiting'],
   automation: [CircleAlert, 'text-state-waiting'],
+  gate: [CircleAlert, 'text-state-waiting'],
   finished: [CircleCheck, 'text-state-idle'],
   subagent: [Info, 'text-muted-foreground'],
   release: [Info, 'text-state-working'],

@@ -47,8 +47,9 @@ export function planDelivery(
         (item.kind === 'automation' || item.at >= state.startedAt) &&
         !state.delivered.includes(item.id),
     );
+  // A gate needs a person, as a question does, so it follows the same setting.
   const mode = (item: Deliverable) =>
-    settings[item.kind === 'input-required' ? 'inputRequired' : item.kind];
+    settings[item.kind === 'input-required' || item.kind === 'gate' ? 'inputRequired' : item.kind];
   const seen = (item: Deliverable) =>
     item.kind === 'finished' && (state.seenAt(item.session) ?? '') >= item.at;
   const held = (item: Deliverable) =>
