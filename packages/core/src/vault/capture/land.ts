@@ -120,7 +120,7 @@ function plan(ctx: CaptureContext, about: SessionRecord, items: readonly Capture
             },
           })
         : plainNote({ project, session: about.id, title, text: item.body });
-    const covering = coveringNote(vault, project, { ...item, title });
+    const covering = coveringNote(vault, project, { ...item, title }, about.id);
     const name = item.kind === 'decision' ? decisionName(day, title) : noteName(title);
     planned.push({ item, title, note, ...(covering ? { covering } : {}), name });
   }

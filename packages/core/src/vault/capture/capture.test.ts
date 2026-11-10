@@ -402,6 +402,60 @@ test('a capture updates the note of the same title instead of adding a second', 
   ]);
 });
 
+test('a capture replaces the note it names to update when its own session saved that note, whatever its title', async () => {
+  const run = { output: '' };
+  const w = captureWorld(run);
+  const s = await w.session();
+  const { result: earlier } = await w.mesa.vault.saveDecision({
+    project: 'lantern-cove',
+    session: s.id,
+    title: 'Feed retries twice',
+    decision: 'The feed client retries a 503 twice.',
+    rationale: 'The feed answers 503 on the hour.',
+  });
+  run.output = claudeAnswer(JSON.stringify([{ ...DECISION, updates: earlier.path }]));
+  await w.turnEnd(s);
+  await w.land();
+  expect(filesIn(w.vault, 'wiki/decisions')).toEqual([earlier.path.split('/').pop()]);
+  const { frontmatter, body } = readNote(w.vault, earlier.path);
+  expect(body).toContain(`# ${DECISION.title}\n\n${DECISION.decision}`);
+  expect(frontmatter).toMatchObject({ session: s.id, probabilities: DECISION.probabilities });
+  expect(w.receipts()[0]?.receipt.outputs.items).toEqual([
+    expect.objectContaining({ kind: 'decision', path: earlier.path, changed: true }),
+  ]);
+});
+
+test('a capture never replaces a note another session saved, a locked one, or one outside wiki/: it saves its own', async () => {
+  const run = { output: '' };
+  const w = captureWorld(run);
+  const s = await w.session();
+  const own = 'source: mesa\nproject: lantern-cove\ntype: note';
+  const notes = {
+    'wiki/notes/other-feed-notes.md': `---\n${own}\nsession: other123\n---\n# Other\n\nTheirs.\n`,
+    'wiki/notes/locked-feed-notes.md': `---\n${own}\nlocked: true\nsession: ${s.id}\n---\n# Locked\n\nKept.\n`,
+    'wiki/../projects/feed-notes-2.md': `---\n${own}\nsession: ${s.id}\n---\n# Up\n\nOutside wiki.\n`,
+  };
+  for (const [path, text] of Object.entries(notes)) {
+    mkdirSync(join(w.vault, path, '..'), { recursive: true });
+    writeFileSync(join(w.vault, path), text);
+  }
+  run.output = claudeAnswer(
+    JSON.stringify(
+      Object.keys(notes).map((updates, n) => ({ ...NOTE, title: `Feed ${n}`, updates })),
+    ),
+  );
+  await w.turnEnd(s);
+  await w.land();
+  for (const [path, text] of Object.entries(notes)) {
+    expect(readFileSync(join(w.vault, path), 'utf8')).toBe(text);
+  }
+  expect(testStore(w.home).get(s.id).capture?.notes).toEqual([
+    'wiki/notes/feed-0.md',
+    'wiki/notes/feed-1.md',
+    'wiki/notes/feed-2.md',
+  ]);
+});
+
 test("a person's note of the same title is never written over: the capture saves its own beside it", async () => {
   const w = captureWorld({ output: claudeAnswer(JSON.stringify([NOTE])) });
   const mine = `---\nproject: lantern-cove\ntype: note\n---\n# ${NOTE.title}\n\nMy own words.\n`;
