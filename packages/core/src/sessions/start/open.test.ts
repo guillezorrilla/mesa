@@ -812,7 +812,7 @@ test('setupWhile parallel runs setup in a window beside the agent; block runs it
   expect(world.tmux.opened.at(-1)?.window).toBe(blocked.tmux.window);
 });
 
-test('a launch that fails beside a running setup closes its window and keeps the worktree', async () => {
+test('a launch that fails beside a running setup keeps its window and the worktree', async () => {
   // The setup window opens the project's tmux session; the agent's window then fails.
   const world = agentWorld({ failing: 'new-window' });
   const { home, dir, mesa } = await setUp(world, { run: withGit(world) });
@@ -822,8 +822,7 @@ test('a launch that fails beside a running setup closes its window and keeps the
   await expect(mesa.sessions.open('lantern-cove', { branch: 'beside' })).rejects.toMatchObject({
     code: 'internal',
   });
-  expect(world.tmux.opened.map((w) => w.window)).toEqual([expect.stringMatching(/^setup-/)]);
-  expect(world.tmux.windows).toEqual([]);
+  expect(world.tmux.windows.map((w) => w.window)).toEqual([expect.stringMatching(/^setup-/)]);
   expect(existsSync(worktreeAt(home, 'lantern-cove', 'beside'))).toBe(true);
 });
 

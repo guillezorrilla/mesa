@@ -53,7 +53,7 @@ export type LaunchDeps = {
   /** For MESA_PROFILE: a Profile knows its paths, not its name. */
   profileName: string;
   store: SessionStore;
-  tmux: Pick<TmuxBackend, 'openWindow' | 'killWindow'>;
+  tmux: Pick<TmuxBackend, 'openWindow'>;
   run: Runner;
   env: Env;
   home: string;
@@ -227,11 +227,7 @@ export async function startSession(
     return { record, ...(warning ? { warning } : {}) };
   } catch (error) {
     if (backgroundId) await stopClaudeBackground(deps.run, backgroundId).catch(() => undefined);
-    // Its setup goes on in the kept worktree; the window, bound to this session, does not.
-    if (setupWindow)
-      await deps.tmux
-        .killWindow({ project: record.tmux.session, window: setupWindow.window })
-        .catch(() => undefined);
+    // A setup window stays open: closing it would cut its setup off in the kept worktree.
     // What it removed leaves the record, so a retry makes it again; a worktree kept or stuck
     // stays. The additional ones are on the primary's branch, so they go with it.
     const removed = await made.undo();
