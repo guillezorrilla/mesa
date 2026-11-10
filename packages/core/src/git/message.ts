@@ -5,16 +5,19 @@ import { resolveCheckout } from '../projects/checkout.js';
 import { readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
 import { GIT_TEXT } from '../skills/library.js';
+import { readBranchDiff } from './branch-diff.js';
 import { gitCommand, mustGit } from './command.js';
 import { cutPatch, dataFence, fillRecipe } from './recipes.js';
 import { currentBranch } from './ref.js';
 
-// Git text (CONTEXT.md, Skill run): a commit message written by a `git-text` run from the
-// project's recipe, filled with the checkout's staged change; nothing is committed here.
+// Git text (CONTEXT.md, Skill run): a commit message, or a pull request's title and body, written
+// by a `git-text` run from the project's recipe, filled with the checkout's change; nothing is
+// committed or opened here.
 
 /** What a git text run reports: the run that wrote it, how long it took, and its cost. */
 export type GitTextRunInfo = { session: string; durationMs: number; costUsd?: number };
 export type GitMessage = { message: string; run: GitTextRunInfo };
+export type GitPullRequestText = { title: string; body: string; run: GitTextRunInfo };
 
 /** The skill run's owner (`mesa run`), as git text uses it: a project run with stdin given. */
 export type GitTextRunner = (
@@ -71,6 +74,57 @@ export async function writeCommitMessage(
     recentCommits: dataFence('text', await recentSubjects(run, checkout.path)),
   });
   return textOf(runText, entry.name, input, opts.agent);
+}
+
+/**
+ * A pull request's title and body for the checkout's branch, from the project's
+ * `git.pullRequestRecipe` (else the profile's) with `{branchPatch}` (everything since the
+ * merge-base with `base`, the project's default branch unless given, cut at 200 KB), `{commits}`
+ * (their subjects and bodies, oldest first), `{branch}` and `{base}` filled in, each fenced as
+ * data. Refuses with usage, before any run starts, when the branch has no commits past its base
+ * and no changes.
+ */
+export async function writePullRequestText(
+  profile: Profile,
+  run: Runner,
+  runText: GitTextRunner,
+  project: string,
+  opts: { checkout?: string; base?: string; agent?: string } = {},
+): Promise<GitPullRequestText> {
+  const entry = findProject(profile, project);
+  const diff = await readBranchDiff(profile, run, project, opts.base, opts.checkout);
+  if (diff.ahead === 0 && !diff.patch.trim()) {
+    throw new MesaError(
+      'usage',
+      `${diff.branch ?? 'HEAD'} has no commits past ${diff.base} and no changes to describe`,
+    );
+  }
+  const commits = await mustGit(
+    run,
+    diff.checkout.path,
+    ['log', '--reverse', '--format=%s%n%n%b', `${diff.mergeBase}..HEAD`],
+    'cannot read the branch commits',
+  );
+  const recipe =
+    readProjectFile(entry.path).git?.pullRequestRecipe ?? profile.config.git.pullRequestRecipe;
+  const input = fillRecipe(recipe, {
+    branchPatch: dataFence('diff', cutPatch(diff.patch)),
+    commits: dataFence('text', commits.trim() || '(none yet: the changes are not committed)'),
+    branch: dataFence('text', diff.branch ?? '(detached HEAD)'),
+    base: dataFence('text', diff.base),
+  });
+  const { message, run: info } = await textOf(runText, entry.name, input, opts.agent);
+  return { ...splitTitle(message), run: info };
+}
+
+/** An answer's first line, without a leading `#` or `Title:`, as the title; the rest as the body. */
+export function splitTitle(text: string) {
+  const [first = '', ...rest] = text.trim().split('\n');
+  const title = first
+    .replace(/^#+\s*/, '')
+    .replace(/^title:\s*/i, '')
+    .trim();
+  return { title, body: rest.join('\n').trim() };
 }
 
 /** The last 10 commit subjects, newest first, or `(none yet)` before the first commit. */

@@ -444,6 +444,12 @@ test("Projects saves the commit message recipe override, and emptied, the profil
   expect(recipe.closest('[data-setting-row]')?.textContent).toContain(
     'Mesa fills {stagedPatch}, {stagedFiles}, {branch}, {recentCommits}.',
   );
+  const prRecipe = document.getElementById('project-pr-recipe') as HTMLTextAreaElement;
+  expect(prRecipe.value).toBe('');
+  expect(prRecipe.placeholder).toBe((await base()).git.pullRequestRecipe);
+  expect(prRecipe.closest('[data-setting-row]')?.textContent).toContain(
+    'Mesa fills {branchPatch}, {commits}, {branch}, {base}.',
+  );
   await type('project-commit-recipe', 'Summarise: {stagedFiles}');
   await type('project-commit-recipe', '  ');
   expect(calls.filter((args) => args[1] === 'projects' && args[2] === 'set')).toEqual([

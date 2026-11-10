@@ -639,3 +639,40 @@ test('git message writes a message for the staged change with an agent, commits 
   expect(log.trim().split('\n')).toHaveLength(1);
   expect((await cli.mesa('help', '--agent')).stdout).toContain('mesa git message');
 });
+
+test('git pr-text drafts a title and body for the branch, and refuses a branch with nothing past its base', async () => {
+  cli.withTmux({
+    onOpen: finishesRun({ output: claudeAnswer('Add the tide table\n\nIt lists the high water.') }),
+  });
+  cli.run = withRealGit(cli.run);
+  const repo = await cli.withProject();
+  gitRepo(repo);
+  const git = (...args: string[]) =>
+    execFileSync(
+      'git',
+      ['-C', repo, '-c', 'user.name=t', '-c', 'user.email=t@example.com', ...args],
+      {
+        env: testEnv,
+      },
+    );
+  const empty = await cli.mesa('git', 'pr-text', 'lantern-cove', '--base', 'main', '--json');
+  expect(empty.code).toBe(2);
+  git('switch', '-q', '-c', 'tides');
+  writeFileSync(join(repo, 'tides.md'), 'High water\n');
+  git('add', 'tides.md');
+  git('commit', '-q', '-m', 'Add the tide table');
+  const { json, code } = await cli.mesa(
+    'git',
+    'pr-text',
+    'lantern-cove',
+    '--base',
+    'main',
+    '--json',
+  );
+  expect(code).toBe(0);
+  expect(json.data).toMatchObject({
+    title: 'Add the tide table',
+    body: 'It lists the high water.',
+  });
+  expect((await cli.mesa('help', '--agent')).stdout).toContain('mesa git pr-text');
+});

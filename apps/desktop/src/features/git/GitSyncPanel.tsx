@@ -1,3 +1,4 @@
+import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Muted } from '@/components/Muted';
@@ -5,10 +6,12 @@ import { said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
+import { PullRequestTextDialog } from './PullRequestTextDialog';
 
-/** Explicit, upstream-bound network actions for one selected checkout. */
+/** Explicit, upstream-bound network actions for one selected checkout, and its pull request text. */
 export function GitSyncPanel(props: { project: string; checkout?: string; onChanged: () => void }) {
   const [pending, setPending] = useState<'push' | 'pull'>();
+  const [writing, setWriting] = useState(false);
   const tracking = useCommand('git.tracking', { project: props.project, checkout: props.checkout });
   const run = useRun();
   const { acting, act } = useAct();
@@ -29,7 +32,12 @@ export function GitSyncPanel(props: { project: string; checkout?: string; onChan
     });
   return (
     <section aria-label="Git sync" className="space-y-3 rounded-lg border p-3">
-      <h3 className="text-sm font-semibold">Remote</h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">Remote</h3>
+        <Button size="sm" variant="ghost" onClick={() => setWriting(true)}>
+          <Sparkles aria-hidden /> Write PR text
+        </Button>
+      </div>
       {target ? (
         <>
           <p className="text-sm">
@@ -83,6 +91,13 @@ export function GitSyncPanel(props: { project: string; checkout?: string; onChan
         >
           <p className="font-mono text-sm break-all">{target.checkout.path}</p>
         </ActionDialog>
+      )}
+      {writing && (
+        <PullRequestTextDialog
+          project={props.project}
+          checkout={props.checkout}
+          onClose={() => setWriting(false)}
+        />
       )}
     </section>
   );

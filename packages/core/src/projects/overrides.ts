@@ -31,4 +31,5 @@ export const WORKTREE_OVERRIDE_FIELDS = {
  */
 export const GIT_OVERRIDE_FIELDS = {
   commitMessageRecipe: z.string().trim().min(1),
+  pullRequestRecipe: z.string().trim().min(1),
 };

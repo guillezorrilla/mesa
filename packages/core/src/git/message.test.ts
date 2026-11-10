@@ -11,6 +11,7 @@ import {
   testGit,
   withRealGit,
 } from '../testing/index.js';
+import { splitTitle } from './message.js';
 import { cutPatch, dataFence, fillRecipe } from './recipes.js';
 
 /** lantern-cove as a git repository on main, and a claude whose git-text run answers `answer`. */
@@ -135,4 +136,41 @@ test('with --agent codex, the run is in Codex read-only sandbox', async () => {
   const launch = world.tmux.opened[0]?.launch ?? '';
   expect(launch).toContain('codex exec');
   expect(launch).toContain('-c sandbox_mode=read-only');
+});
+
+test('the answer splits into a title, without a leading # or Title:, and the body after it', () => {
+  expect(splitTitle('# Add the tide table\n\nIt lists high and low water.\n')).toEqual({
+    title: 'Add the tide table',
+    body: 'It lists high and low water.',
+  });
+  expect(splitTitle('Title: Add soundings')).toEqual({ title: 'Add soundings', body: '' });
+});
+
+test('pull request text comes from the branch since its merge-base, its commits and base filled in', async () => {
+  const { dir, mesa, inputs } = setUp('## Add the harbour tables\n\n- Tide table\n- Soundings');
+  await expect(mesa.git.prText('lantern-cove')).rejects.toMatchObject({
+    code: 'usage',
+    message: 'main has no commits past main and no changes to describe',
+  });
+  testGit(dir, 'switch', '-q', '-c', 'harbour-tables');
+  for (const [file, subject] of [
+    ['tides.md', 'Add the tide table'],
+    ['soundings.md', 'Add the soundings'],
+  ] as const) {
+    writeFileSync(join(dir, file), `${subject}\n`);
+    testGit(dir, 'add', file);
+    testGit(dir, 'commit', '-q', '-m', subject, '-m', `Why: ${file}`);
+  }
+  const written = await mesa.git.prText('lantern-cove', { base: 'main' });
+  expect(written).toEqual({
+    title: 'Add the harbour tables',
+    body: '- Tide table\n- Soundings',
+    run: { session: expect.any(String), durationMs: 19113, costUsd: 0.2621986 },
+  });
+  const [input = ''] = inputs;
+  expect(input).toContain('Branch: ```text\nharbour-tables\n```, into ```text\nmain\n```');
+  expect(input).toContain(
+    'Commits:\n```text\nAdd the tide table\n\nWhy: tides.md\n\nAdd the soundings\n\nWhy: soundings.md\n```',
+  );
+  expect(input).toMatch(/Patch:\n```diff\n[\s\S]*\+Add the soundings\n[\s\S]*```$/);
 });
