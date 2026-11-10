@@ -7,6 +7,7 @@ import { findProject } from '../projects/projects.js';
 import { GIT_TEXT } from '../skills/library.js';
 import { gitCommand, mustGit } from './command.js';
 import { cutPatch, dataFence, fillRecipe } from './recipes.js';
+import { currentBranch } from './ref.js';
 
 // Git text (CONTEXT.md, Skill run): a commit message written by a `git-text` run from the
 // project's recipe, filled with the checkout's staged change; nothing is committed here.
@@ -66,16 +67,10 @@ export async function writeCommitMessage(
   const input = fillRecipe(recipe, {
     stagedPatch: dataFence('diff', cutPatch(patch)),
     stagedFiles: dataFence('text', files.trimEnd()),
-    branch: dataFence('text', await currentBranch(run, checkout.path)),
+    branch: dataFence('text', (await currentBranch(run, checkout.path)) ?? '(detached HEAD)'),
     recentCommits: dataFence('text', await recentSubjects(run, checkout.path)),
   });
   return textOf(runText, entry.name, input, opts.agent);
-}
-
-/** The checkout's branch, or `(detached HEAD)`. */
-async function currentBranch(run: Runner, path: string) {
-  const branch = await gitCommand(run, path, ['branch', '--show-current']);
-  return (branch.ok && branch.stdout.trim()) || '(detached HEAD)';
 }
 
 /** The last 10 commit subjects, newest first, or `(none yet)` before the first commit. */
