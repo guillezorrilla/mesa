@@ -155,7 +155,10 @@ const SessionRecordFields = z.strictObject({
   cwd: z.string().optional(),
   /** The git worktree it runs in (mesa open --branch; CONTEXT.md, Worktree). */
   worktree: WorktreeSchema.optional(),
-  /** Its child Setup session, which runs its worktree's setup beside it (`setupWhile: parallel`). */
+  /**
+   * Its child Setup session, which runs its own worktree's setup beside it (`setupWhile:
+   * parallel`); an additional project's runs in a child named `Setup <project>`.
+   */
   setupSession: z.string().optional(),
   /** Read only: the bare tmux window #901 ran that setup in before the Setup session (#985). */
   setupWindow: z.string().optional(),

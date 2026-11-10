@@ -1343,6 +1343,33 @@ async function acrossProjects(world: ReturnType<typeof agentWorld>, run?: Runner
   return { ...set, tide: gitProject(set.mesa, set.home, 'tide-pool') };
 }
 
+test('an additional project with setupWhile parallel gets its own Setup session in its worktree', async () => {
+  const world = agentWorld();
+  const ran: string[][] = [];
+  const run: Runner = (file, args, ms, options) => {
+    if (file !== '/usr/bin/touch') return withGit(world)(file, args, ms, options);
+    ran.push(args);
+    return Promise.resolve({ ok: true, stdout: '' });
+  };
+  const { home, mesa } = await acrossProjects(world, run);
+  mesa.config.set('worktrees.setup', '["/usr/bin/touch", "keep.txt"]');
+  mesa.config.set('worktrees.setupWhile', 'parallel');
+  const { result } = await mesa.sessions.open('lantern-cove', {
+    with: ['tide-pool'],
+    branch: 'both',
+    goal: 'Tie them',
+  });
+  expect(ran).toEqual([]);
+  const sessions = await mesa.sessions.list();
+  const named = (name: string) => sessions.find((s) => s.name === name);
+  expect(named('Setup')).toMatchObject({ id: result.setupSession, parent: result.id });
+  const tideSetup = named('Setup tide-pool');
+  expect(tideSetup).toMatchObject({ kind: 'terminal', project: 'tide-pool', parent: result.id });
+  expect(world.tmux.opened.find((o) => o.window === `terminal-${tideSetup?.id}`)).toMatchObject({
+    path: worktreeAt(home, 'tide-pool', 'both'),
+  });
+});
+
 test('each agent gets the additional worktrees as extra folders in its own form', async () => {
   const world = agentWorld();
   const { mesa } = await acrossProjects(world);
