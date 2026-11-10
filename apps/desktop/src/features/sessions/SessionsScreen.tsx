@@ -24,6 +24,7 @@ import { useSelectionVersion } from './useSelectionVersion';
 import { useSessionAct } from './useSessionAct';
 import { useSessionCommands } from './useSessionCommands';
 import { useSessions } from './useSessions';
+import { useWakeShown } from './useWakeShown';
 
 /** The session composer, selected session, and terminal grid share persistent terminal clients. */
 export function SessionsScreen(
@@ -86,6 +87,7 @@ export function SessionsScreen(
     onSelectSession: props.onSelectSession,
     onSessions: props.onSessions,
   });
+  useWakeShown(selected, commands.wake);
   const grid = useGrid({ panels, act, onGroupsChanged: props.onGridGroupsChanged });
 
   const emptyStart = !props.selectedSession && !props.gridMode;

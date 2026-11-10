@@ -430,3 +430,21 @@ test('a reply types the answer into the worker and closes the question; others a
     prompt: `[mesa] answer to your question ${second.id}:\nYes`,
   });
 });
+
+test('a sleeping parent gets its reports through the send, which wakes it; an ended one waits', async () => {
+  const { parent, hook, service, typed, setBoard } = family();
+  service.list();
+  hook('Stop', { last_assistant_message: 'Done.' });
+  // Asleep: no window runs its agent, but it is still a session Mesa types into.
+  const sleeping = { ...placedRow(parent, 'idle'), alive: false, sleeping: { at: START } };
+  setBoard([sleeping as SessionRow]);
+  expect((await service.deliver()).deliveries).toMatchObject([
+    { session: parent.id, status: 'delivered' },
+  ]);
+  expect(typed.map((t) => t.id)).toEqual([parent.id]);
+  hook('Stop', { last_assistant_message: 'Again.' });
+  setBoard([{ ...sleeping, endedAt: START } as SessionRow]);
+  expect((await service.deliver()).deliveries).toMatchObject([
+    { session: parent.id, status: 'waiting' },
+  ]);
+});

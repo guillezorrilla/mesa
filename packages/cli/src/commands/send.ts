@@ -3,7 +3,8 @@ import { recordedOutput } from '../output/recorded.js';
 
 export const send = defineCommand({
   name: 'send',
-  summary: "Type a prompt into a session's agent, then Enter, once the guardrail allows it",
+  summary:
+    "Type a prompt into a session's agent, then Enter, once the guardrail allows it; a sleeping session is woken first",
   args: ['session', 'prompt'],
   flags: {
     force: {
@@ -31,9 +32,16 @@ export const send = defineCommand({
       from: flags.from,
       noFrom: flags['no-from'],
     });
-    const { sent, session, from, chars, override } = recorded.result;
-    const text = `sent ${chars} characters to ${session}${from ? ` from ${from}` : ''}`;
-    const data = { sent, session, from, chars, ...(override ? { override } : {}) };
+    const { sent, session, from, chars, override, woke } = recorded.result;
+    const text = `${woke ? `woke ${session}, then ` : ''}sent ${chars} characters to ${session}${from ? ` from ${from}` : ''}`;
+    const data = {
+      sent,
+      session,
+      from,
+      chars,
+      ...(override ? { override } : {}),
+      ...(woke ? { woke } : {}),
+    };
     return recordedOutput(recorded, { data, text });
   },
 });

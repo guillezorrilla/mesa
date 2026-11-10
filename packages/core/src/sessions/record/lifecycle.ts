@@ -16,6 +16,9 @@ export const exited = (s: SessionRow) =>
   !asleep(s) && (!s.alive || FINAL_STATES.has(s.lastState.state));
 /** A Mesa session put to sleep: no agent runs, but it has not exited (CONTEXT.md, Sleeping session). */
 export const asleep = (s: SessionRow) => s.managed && Boolean(s.sleeping) && !s.endedAt;
+/** A session Mesa may type into: a live agent, or a sleeping one, which a send wakes first. */
+export const sendable = (s: SessionRow): s is ManagedRow =>
+  liveAgent(s) || (reviewable(s) && asleep(s));
 /** A Mesa session waiting to start (mesa open --after): a Stop cancels it. */
 export const queued = (s: SessionRow) => s.managed && s.lastState.state === 'queued';
 /** A running or queued Mesa session shown in the Sessions tab. */

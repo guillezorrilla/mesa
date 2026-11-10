@@ -113,7 +113,7 @@ export function SessionCard(props: {
             <Badge
               variant="outline"
               data-testid="session-sleeping"
-              title="Asleep: its agent quit to save memory; Wake reopens it"
+              title="Asleep: its agent quit to save memory; opening it wakes it"
               className="gap-1 px-1.5 py-0 font-mono text-[10px] text-muted-foreground"
             >
               <Moon aria-hidden className="size-3" />

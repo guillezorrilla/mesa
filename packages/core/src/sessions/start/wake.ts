@@ -4,6 +4,7 @@ import { MesaError } from '../../lib/result.js';
 import { findProject } from '../../projects/projects.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import type { SessionRecord } from '../record/record.js';
+import { scanHookEvents } from '../signals/hook-events.js';
 import { killIfThere, type TmuxBackend } from '../tmux/backend.js';
 import { windowOf } from '../window/window-name.js';
 import { folderOf, type LaunchDeps, startSession } from './launch.js';
@@ -63,3 +64,30 @@ export async function wakeSession(
 
 const notAsleep = (id: string) =>
   new MesaError('usage', `session ${id} is not asleep; mesa attach ${id}`);
+
+/** How long a woken agent has to take input before a send types anyway (#898). */
+export const WAKE_WAIT_MS = 30_000;
+const POLL_MS = 250;
+
+/**
+ * Waits until session `id`'s agent logs a SessionStart at or after `since` (it takes input), up to
+ * `timeoutMs`: whether it did.
+ */
+export async function agentStarted(
+  deps: { eventsDir: string; sleep: (ms: number) => Promise<void> },
+  id: string,
+  since: string,
+  timeoutMs = WAKE_WAIT_MS,
+) {
+  let offset = 0;
+  let started = false;
+  for (let waited = 0; ; waited += POLL_MS) {
+    // Only the lines appended since the last look.
+    offset = scanHookEvents(deps.eventsDir, id, offset, (e) => {
+      started ||= e.event === 'SessionStart' && e.at >= since;
+    });
+    if (started) return true;
+    if (waited >= timeoutMs) return false;
+    await deps.sleep(POLL_MS);
+  }
+}

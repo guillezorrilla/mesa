@@ -41,7 +41,8 @@ test('mesa help --agent lists every registered command; --json has one entry eac
   expect(data.find((c: { name: string }) => c.name === 'send')).toEqual({
     name: 'send',
     usage: 'mesa send <session> <prompt> [--force] [--yes] [--from <string>] [--no-from]',
-    description: "Type a prompt into a session's agent, then Enter, once the guardrail allows it",
+    description:
+      "Type a prompt into a session's agent, then Enter, once the guardrail allows it; a sleeping session is woken first",
     args: [
       { name: 'session', required: true },
       { name: 'prompt', required: true },

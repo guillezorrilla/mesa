@@ -32,8 +32,8 @@ export function SessionRecovery({
         className="m-4 flex flex-wrap items-center gap-3 rounded-lg border bg-card p-4 text-sm"
       >
         <p className="flex-1">
-          This session is asleep: its agent quit to save memory. Waking it reopens the same
-          conversation here.
+          This session is asleep: its agent quit to save memory. It is waking, and its conversation
+          reopens here.
         </p>
         <Button disabled={acting} onClick={() => onWake(row.id)}>
           <Moon aria-hidden /> Wake
