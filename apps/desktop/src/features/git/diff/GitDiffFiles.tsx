@@ -4,7 +4,7 @@ import { Stat } from '@/components/Stat';
 import { useKeptWidth } from '@/lib/useKeptWidth';
 import { DiffFileList } from './DiffFileList';
 import { GitDiffHeader } from './GitDiffHeader';
-import { GitDiffRows } from './GitDiffRows';
+import { GitDiffRows, type LineSlots } from './GitDiffRows';
 import type { DiffView } from './useDiffView';
 
 /** The file list's width bounds, default, and arrow-key step, in pixels; `wide` starts wider. */
@@ -26,6 +26,9 @@ export function GitDiffFiles(props: {
   actions?: ReactNode;
   /** A list that starts wider, until a width is kept: an expanded panel's. */
   wide?: boolean;
+  /** What shows above the open file's rows, and on each of its lines (GitDiffRows). */
+  before?: ReactNode;
+  slots?: LineSlots;
 }) {
   const { view } = props;
   const { file } = view;
@@ -69,11 +72,13 @@ export function GitDiffFiles(props: {
           {props.actions}
         </GitDiffHeader>
         <div className="min-h-0 flex-1 overflow-auto p-3">
+          {props.before}
           <GitDiffRows
             key={`${file.path}:${view.layout}`}
             rows={file.rows}
             layout={view.layout}
             fontSize={props.fontSize}
+            slots={props.slots}
           />
         </div>
       </section>

@@ -11,7 +11,7 @@ import type { LockDeps } from '../../lib/lock-file.js';
 import type { Runner } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
 import type { Checkout } from '../../projects/checkout.js';
-import type { ReviewPreview } from './reviews.js';
+import type { ReviewDelivery, ReviewPreview } from './reviews.js';
 
 /** Which diff a note is on: the Session diff against its base, or uncommitted work. */
 export const NOTE_SCOPES = ['branch', 'working', 'staged'] as const;
@@ -37,6 +37,9 @@ export type ReviewNote = z.infer<typeof Note>;
 export type ListedNote = ReviewNote & { stale: boolean };
 
 const Notes = z.strictObject({ notes: z.array(Note).default([]) }).describe('review notes');
+
+/** What a notes send did: the notes it sent, the stale ones it left, and its delivery, if any. */
+export type NotesSent = { sent: string[]; stale: string[]; delivery?: ReviewDelivery };
 
 /** A session's notes, one file under the profile's review-notes/ (CONTEXT.md, Review note). */
 export const reviewNotesFile = (dir: string, session: string) => join(dir, `${session}.json`);

@@ -8,11 +8,13 @@ import {
   envelope,
   failure,
   fakeBridge,
+  fill,
   layoutWidth,
   pointer,
   press,
   renderWithMesa,
   sessionDiff,
+  toastTexts,
 } from '@/lib/testing';
 import { DiffPanel } from './DiffPanel';
 
@@ -250,4 +252,122 @@ test("the header names the branch the diff read, ahead of the board's, as a move
   );
   const panel = document.querySelector<HTMLElement>('[aria-label="Session changes"]');
   expect(panel?.textContent).toContain('feat/kelpsince main');
+});
+
+/** A notes store behind the fake bridge: add, list and send as the CLI answers them. */
+function notesBridge() {
+  const notes: Record<string, unknown>[] = [];
+  const flag = (args: string[], name: string) =>
+    args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
+  return fakeBridge({
+    diff: diff({}),
+    'review notes': () => envelope(notes),
+    'review notes add': (args) => {
+      const line = Number(flag(args, 'line'));
+      const note = {
+        id: `note${notes.length + 1}`,
+        path: flag(args, 'path'),
+        line,
+        end: Number(flag(args, 'end') ?? line),
+        scope: 'branch',
+        text: flag(args, 'text'),
+        quoted: '',
+        blob: 'b',
+        at: '2026-11-10T12:00:00.000Z',
+        stale: false,
+      };
+      notes.push(note);
+      return envelope(note);
+    },
+    'review notes send': () => {
+      const sent = notes.filter((n) => !n.sentAt).map((n) => n.id);
+      for (const n of notes) n.sentAt = '2026-11-10T12:01:00.000Z';
+      return envelope({
+        sent,
+        stale: [],
+        delivery: { id: 'x', target: 'aaaaaaaa', status: 'delivered' },
+      });
+    },
+  });
+}
+
+test('a note goes on a line with its +, on a range with a drag, and both go in one send that marks them Sent', async () => {
+  const { bridge, calls } = notesBridge();
+  const byTestId = await renderWithMesa(
+    <DiffPanel
+      sessionId="aaaaaaaa"
+      project="lantern-cove"
+      checkout="/w/reef"
+      branch="session/reef"
+      state="idle"
+      onClose={() => {}}
+    />,
+    bridge,
+  );
+  const plus = (n: number) =>
+    document.querySelector<HTMLElement>(`[aria-label="Add note on line ${n}"]`);
+  const field = (label: string) =>
+    document.querySelector<HTMLTextAreaElement>(`textarea[aria-label="Note on ${label}"]`);
+  const card = (label: string) =>
+    document.querySelector<HTMLElement>(`article[aria-label="Note on ${label}"]`);
+
+  await click(plus(2) ?? undefined);
+
+  await fill(field('line 2'), 'say high tide');
+  await press(field('line 2'), 'Enter', { metaKey: true });
+  expect(calls).toContainEqual(
+    expect.arrayContaining([
+      'notes',
+      'add',
+      '--path=src/tide.ts',
+      '--line=2',
+      '--end=2',
+      '--text=say high tide',
+    ]),
+  );
+  expect(card('line 2')?.textContent).toContain('say high tide');
+
+  // A drag from line 1's + over line 2 writes on both.
+  await pointer(plus(1) as HTMLElement, 'pointerdown');
+  await pointer(plus(2)?.parentElement as HTMLElement, 'pointerover');
+  await pointer(window, 'pointerup');
+  await fill(field('lines 1-2'), 'one constant');
+  await click(buttons().find((b) => b.textContent?.startsWith('Save')));
+  expect(calls).toContainEqual(
+    expect.arrayContaining(['--line=1', '--end=2', '--text=one constant']),
+  );
+  expect(card('lines 1-2')?.textContent).toContain('one constant');
+
+  const send = buttons().find((b) => b.textContent?.trim() === 'Send notes (2)');
+  await click(send);
+  expect(calls).toContainEqual(expect.arrayContaining(['notes', 'send', '--no-from', 'aaaaaaaa']));
+  expect(toastTexts(byTestId)).toContain('Sent 2 notes to aaaaaaaa');
+  expect(card('line 2')?.textContent).toContain('Sent');
+  expect(card('lines 1-2')?.textContent).toContain('Sent');
+  expect(buttons().find((b) => b.textContent?.trim() === 'Send notes (0)')).toHaveProperty(
+    'disabled',
+    true,
+  );
+});
+
+test('Esc closes a note being written, and Add file note writes one on the whole file', async () => {
+  const { bridge, calls } = notesBridge();
+  await renderWithMesa(
+    <DiffPanel sessionId="aaaaaaaa" project="lantern-cove" state="idle" onClose={() => {}} />,
+    bridge,
+  );
+  await click(
+    document.querySelector<HTMLElement>('[aria-label="Add note on line 1"]') ?? undefined,
+  );
+  const box = () => document.querySelector<HTMLTextAreaElement>('textarea');
+  await press(box(), 'Escape');
+  expect(box()).toBeNull();
+  await click(buttons().find((b) => b.textContent?.trim() === 'Add file note'));
+  await fill(box(), 'split this file');
+  await press(box(), 'Enter', { metaKey: true });
+  expect(calls).toContainEqual(expect.arrayContaining(['--line=0', '--text=split this file']));
+  expect(calls.flat()).not.toContain('--end=0');
+  expect(document.querySelector('article[aria-label="Note on file"]')?.textContent).toContain(
+    'split this file',
+  );
 });

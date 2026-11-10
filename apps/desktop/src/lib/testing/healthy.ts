@@ -19,6 +19,7 @@ import { envelope } from './replies';
 
 /** A healthy, initialised profile with no projects: each test overrides what it varies. */
 export const HEALTHY: Record<string, (args: string[]) => unknown> = {
+  'review notes': () => envelope([]),
   'automations list': () => envelope([]),
   'automations status': () =>
     envelope({

@@ -13,7 +13,12 @@ import {
 } from '../input/browser-annotation.js';
 import { changeReview, previewChangeReview } from '../input/change-review.js';
 import { previewSessionImage, sessionImagePrompt } from '../input/images.js';
-import { notesReview, type ReviewNoteInput, reviewNotes } from '../input/review-notes.js';
+import {
+  type NotesSent,
+  notesReview,
+  type ReviewNoteInput,
+  reviewNotes,
+} from '../input/review-notes.js';
 import { sendReview } from '../input/reviews.js';
 import { sendPrompt } from '../input/send.js';
 import { previewResponseReview, sessionResponses } from '../native/responses.js';
@@ -154,10 +159,14 @@ export function inputActions(ctx: MesaContext, faro: Faro, deps: SessionDeps) {
        * Sends every unsent note, or `path`'s, as one prompt through sendReview, then marks them
        * sent; a stale one stays behind, named in `stale`. Nothing to send sends nothing.
        */
-      send: async (id: string, path?: string, opts: { noFrom?: boolean } & Overrides = {}) => {
+      send: async (
+        id: string,
+        path?: string,
+        opts: { noFrom?: boolean } & Overrides = {},
+      ): Promise<NotesSent> => {
         const notes = notesOf(id);
         const { ready, stale } = await notes.unsent(path);
-        if (!ready.length) return { sent: [] as string[], stale };
+        if (!ready.length) return { sent: [], stale };
         const delivery = await sendReview(
           { store, clock: ctx.clock, send },
           id,
@@ -165,7 +174,7 @@ export function inputActions(ctx: MesaContext, faro: Faro, deps: SessionDeps) {
           () => notesReview(id, ready),
           opts,
         );
-        if (delivery.status !== 'delivered') return { sent: [] as string[], stale, delivery };
+        if (delivery.status !== 'delivered') return { sent: [], stale, delivery };
         const sent = ready.map((n) => n.id);
         try {
           notes.markSent(ready);

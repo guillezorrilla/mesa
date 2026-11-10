@@ -1,5 +1,13 @@
 import { counted, DEFAULT_APPEARANCE } from '@mesa/core/browser';
-import { GitBranch, Maximize2, Minimize2, RefreshCw, SquareArrowOutUpRight, X } from 'lucide-react';
+import {
+  GitBranch,
+  Maximize2,
+  MessageSquarePlus,
+  Minimize2,
+  RefreshCw,
+  SquareArrowOutUpRight,
+  X,
+} from 'lucide-react';
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
@@ -13,7 +21,11 @@ import { useDiffView } from '@/features/git/diff/useDiffView';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { useKeptWidth } from '@/lib/useKeptWidth';
 import { cn } from '@/lib/utils';
+import { GuardrailDialog } from '../dialogs/GuardrailDialog';
 import { DiffBasePicker } from './DiffBasePicker';
+import { SendNotesMenu } from './SendNotesMenu';
+import { useDiffNotes } from './useDiffNotes';
+import { useLineNotes } from './useLineNotes';
 
 /** The panel's width bounds beside the terminal, which always keeps TERMINAL_MIN pixels. */
 const DIFF_WIDTH = { min: 360, max: 1600, initial: 720, step: 32 };
@@ -63,6 +75,8 @@ export function DiffPanel(props: {
   const files = useMemo(() => diffFiles(data?.rows ?? []), [data]);
   const view = useDiffView(files);
   const { file } = view;
+  const notes = useDiffNotes(props.sessionId);
+  const lineNotes = useLineNotes(file?.path, file?.rows ?? [], notes);
   // The branch the diff read, as the board's may lag a move; the main checkout keeps its name.
   const label = props.branch ? (data?.branch ?? props.branch) : 'This checkout';
   const added = files.reduce((sum, each) => sum + each.added, 0);
@@ -115,6 +129,12 @@ export function DiffPanel(props: {
             )}
           </p>
           <span className="ml-auto" />
+          <SendNotesMenu
+            count={notes.unsent()}
+            fileCount={file ? notes.unsent(file.path) : 0}
+            busy={notes.acting}
+            onSend={(onlyFile) => void notes.send(onlyFile ? file?.path : undefined)}
+          />
           <IconButton
             label="Refresh changes"
             icon={RefreshCw}
@@ -162,24 +182,41 @@ export function DiffPanel(props: {
           view={view}
           fontSize={appearance.diffFontSize}
           wide={expanded}
+          before={lineNotes.before}
+          slots={lineNotes.slots}
           actions={
             file.status !== 'D' && (
-              <Button
-                variant="ghost"
-                size="xs"
-                onClick={() =>
-                  void run('files.open', {
-                    project: data.checkout.project,
-                    checkout: data.checkout.path,
-                    path: file.path,
-                    line: file.firstLine,
-                  })
-                }
-              >
-                <SquareArrowOutUpRight aria-hidden /> Open in editor
-              </Button>
+              <>
+                <Button variant="ghost" size="xs" onClick={lineNotes.addFileNote}>
+                  <MessageSquarePlus aria-hidden /> Add file note
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  onClick={() =>
+                    void run('files.open', {
+                      project: data.checkout.project,
+                      checkout: data.checkout.path,
+                      path: file.path,
+                      line: file.firstLine,
+                    })
+                  }
+                >
+                  <SquareArrowOutUpRight aria-hidden /> Open in editor
+                </Button>
+              </>
             )
           }
+        />
+      )}
+      {notes.ask && (
+        <GuardrailDialog
+          action="send"
+          about={`these notes to ${props.sessionId}`}
+          check={notes.ask.check}
+          disabled={notes.acting}
+          onConfirm={() => void notes.send(notes.ask?.path, true)}
+          onCancel={notes.cancelAsk}
         />
       )}
     </aside>

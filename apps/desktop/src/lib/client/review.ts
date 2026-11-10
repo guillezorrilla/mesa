@@ -4,8 +4,11 @@ import type {
   ChangeReview,
   ChangeReviewInput,
   ChangeReviewPreview,
+  ListedNote,
+  NotesSent,
   ResponseReviewPreview,
   ReviewDelivery,
+  ReviewNote,
   SessionResponses,
 } from '@mesa/core';
 import { commandWith } from './spec';
@@ -156,4 +159,42 @@ export const reviewCommands = {
     '--',
     selection.id,
   ]),
+  'review.notes': commandWith<{ id: string }, ListedNote[]>(({ id }) => [
+    'review',
+    'notes',
+    '--',
+    id,
+  ]),
+  'review.notesAdd': commandWith<
+    { id: string; path: string; line: number; end?: number; text: string },
+    ReviewNote
+  >(({ id, path, line, end, text }) => [
+    'review',
+    'notes',
+    'add',
+    `--path=${path}`,
+    `--line=${line}`,
+    ...(end === undefined ? [] : [`--end=${end}`]),
+    `--text=${text}`,
+    '--',
+    id,
+  ]),
+  'review.notesEdit': commandWith<{ id: string; note: string; text: string }, ReviewNote>(
+    ({ id, note, text }) => ['review', 'notes', 'edit', `--text=${text}`, '--', id, note],
+  ),
+  'review.notesRemove': commandWith<{ id: string; note: string }, { id: string }>(
+    ({ id, note }) => ['review', 'notes', 'remove', '--', id, note],
+  ),
+  'review.notesSend': commandWith<{ id: string; path?: string; yes?: boolean }, NotesSent>(
+    ({ id, path, yes }) => [
+      'review',
+      'notes',
+      'send',
+      '--no-from',
+      ...(path ? [`--path=${path}`] : []),
+      ...(yes ? ['--yes'] : []),
+      '--',
+      id,
+    ],
+  ),
 };

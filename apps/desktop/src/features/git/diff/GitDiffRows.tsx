@@ -1,6 +1,6 @@
 import type { DiffRow } from '@mesa/core';
 import { ChevronDown, ChevronsUpDown, ChevronUp } from 'lucide-react';
-import { Fragment, memo, useState } from 'react';
+import { Fragment, memo, type ReactNode, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 /** Unchanged lines kept open on each side of a change; longer runs fold. */
@@ -17,9 +17,11 @@ const keyOf = (line: Line) => `${line.oldLine ?? ''}:${line.newLine ?? ''}`;
  * Lines near a change, with each longer unchanged run as one fold, and a gap where the patch
  * skips lines between its hunks (a diff without `--full` holds only the lines near each change).
  */
-function pieces(lines: Line[]): Piece[] {
-  const near = lines.map((_, i) =>
-    lines.slice(Math.max(0, i - CONTEXT), i + CONTEXT + 1).some((line) => line.kind === 'change'),
+function pieces(lines: Line[], held?: ReadonlySet<number>): Piece[] {
+  const near = lines.map(
+    (line, i) =>
+      (line.newLine !== undefined && held?.has(line.newLine)) ||
+      lines.slice(Math.max(0, i - CONTEXT), i + CONTEXT + 1).some((l) => l.kind === 'change'),
   );
   const out: Piece[] = [];
   let lastOld = 0;
@@ -68,6 +70,16 @@ function unified(lines: Line[]): Line[] {
 export type DiffLayout = 'inline' | 'side-by-side';
 
 /**
+ * What a caller adds to each line on the new side: a control in its number gutter, shown on
+ * hover, and what shows under it. Lines in `held` never fold.
+ */
+export type LineSlots = {
+  gutter: (newLine: number) => ReactNode;
+  below: (newLine: number) => ReactNode;
+  held: ReadonlySet<number>;
+};
+
+/**
  * Side-by-side or inline rows of one file's diff, unchanged runs folded; memoized, so a parent
  * that re-renders on every frame (a resize drag) leaves a large diff alone.
  */
@@ -76,6 +88,7 @@ export const GitDiffRows = memo(function GitDiffRows(props: {
   layout: DiffLayout;
   /** The profile's diff text size in px. */
   fontSize: number;
+  slots?: LineSlots;
 }) {
   const [open, setOpen] = useState<Set<number>>(new Set());
   const lines = props.rows.filter((row): row is Line => row.kind !== 'meta');
@@ -83,7 +96,8 @@ export const GitDiffRows = memo(function GitDiffRows(props: {
     (row) => row.kind === 'meta' && !/^(diff |index |--- |\+\+\+ |@@)/.test(row.left),
   );
   const side = props.layout === 'side-by-side';
-  const shown = pieces(side ? lines : unified(lines));
+  const shown = pieces(side ? lines : unified(lines), props.slots?.held);
+  const { slots } = props;
   return (
     <div
       data-testid={side ? 'git-side-diff' : 'git-inline-diff'}
@@ -102,7 +116,8 @@ export const GitDiffRows = memo(function GitDiffRows(props: {
         </p>
       ))}
       {shown.map((piece, index) => {
-        if ('line' in piece) return <Rows key={keyOf(piece.line)} line={piece.line} side={side} />;
+        if ('line' in piece)
+          return <Rows key={keyOf(piece.line)} line={piece.line} side={side} slots={slots} />;
         if ('gap' in piece)
           return (
             <p
@@ -117,7 +132,7 @@ export const GitDiffRows = memo(function GitDiffRows(props: {
           return (
             <Fragment key={`fold:${piece.at}`}>
               {piece.fold.map((line) => (
-                <Rows key={keyOf(line)} line={line} side={side} />
+                <Rows key={keyOf(line)} line={line} side={side} slots={slots} />
               ))}
             </Fragment>
           );
@@ -143,8 +158,22 @@ export const GitDiffRows = memo(function GitDiffRows(props: {
   );
 });
 
-/** One unchanged line, or one aligned removed/added pair, in the chosen layout. */
-function Rows(props: { line: Line; side: boolean }) {
+/** One unchanged line, or one aligned removed/added pair, in the chosen layout, with its slots. */
+function Rows(props: { line: Line; side: boolean; slots?: LineSlots | undefined }) {
+  const { line, slots } = props;
+  const n = line.newLine;
+  const gutter = slots && n !== undefined ? slots.gutter(n) : null;
+  const below = slots && n !== undefined ? slots.below(n) : null;
+  return (
+    // Contents, so its cells stay in the grid while a hover anywhere on the line shows the gutter.
+    <div className="group/line contents">
+      <Cells line={line} side={props.side} gutter={gutter} />
+      {below && <div className="col-span-full">{below}</div>}
+    </div>
+  );
+}
+
+function Cells(props: { line: Line; side: boolean; gutter: ReactNode }) {
   const { line } = props;
   const removed = line.kind === 'change' && line.oldLine !== undefined;
   const added = line.kind === 'change' && line.newLine !== undefined;
@@ -173,11 +202,12 @@ function Rows(props: { line: Line; side: boolean }) {
         <span
           className={cn(
             number,
-            'border-l',
+            'relative border-l',
             added && 'border-l-2 border-state-idle bg-state-idle/15 text-state-idle',
           )}
         >
           {line.newLine}
+          {props.gutter}
         </span>
         <span
           className={cn(
@@ -191,16 +221,30 @@ function Rows(props: { line: Line; side: boolean }) {
       </>
     );
   if (line.kind === 'context')
-    return <InlineLine old={line.oldLine} next={line.newLine} sign=" " text={line.left} />;
+    return (
+      <InlineLine
+        old={line.oldLine}
+        next={line.newLine}
+        sign=" "
+        text={line.left}
+        gutter={props.gutter}
+      />
+    );
   return (
     <>
       {removed && <InlineLine old={line.oldLine} sign="-" text={line.left} />}
-      {added && <InlineLine next={line.newLine} sign="+" text={line.right} />}
+      {added && <InlineLine next={line.newLine} sign="+" text={line.right} gutter={props.gutter} />}
     </>
   );
 }
 
-function InlineLine(props: { old?: number; next?: number; sign: ' ' | '-' | '+'; text: string }) {
+function InlineLine(props: {
+  old?: number;
+  next?: number;
+  sign: ' ' | '-' | '+';
+  text: string;
+  gutter?: ReactNode;
+}) {
   const tone =
     props.sign === '-'
       ? 'bg-state-failed/10 text-state-failed'
@@ -211,7 +255,10 @@ function InlineLine(props: { old?: number; next?: number; sign: ' ' | '-' | '+';
   return (
     <>
       <span className={cn(number, tone)}>{props.old}</span>
-      <span className={cn(number, tone)}>{props.next}</span>
+      <span className={cn(number, 'relative', tone)}>
+        {props.next}
+        {props.gutter}
+      </span>
       <span className={cn('select-none', tone)}>{props.sign}</span>
       <span
         className={cn(
