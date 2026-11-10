@@ -92,7 +92,7 @@ test('hits carry descriptions, and the keys that trigger them from the profile',
     kind: 'action',
     id: 'switch-session',
     label: 'Switch session',
-    detail: 'Jump to an open session by last activity',
+    detail: 'Jump to an open session, what needs you first',
     shortcut: 'Mod+Shift+J',
   });
   expect(hits.find((hit) => hit.id === 'new-session')).toMatchObject({
@@ -147,6 +147,52 @@ test('the sessions-only mode returns only session hits, in the same order', () =
     'older000',
     'ended000',
   ]);
+});
+
+test('the switcher with no text puts what waits on a person first, then unread, then idle', () => {
+  const sessions = [
+    session('working1', '2026-09-26T00:00:00.000Z'),
+    session('idle0001', '2026-09-25T00:00:00.000Z', 'idle'),
+    { ...session('unread01', '2026-09-24T00:00:00.000Z', 'idle'), unread: true } as TreeRow,
+    session('question', '2026-09-22T00:00:00.000Z', 'waiting-question'),
+    session('permit01', '2026-09-23T00:00:00.000Z', 'waiting-permission'),
+    session('working2', '2026-09-27T00:00:00.000Z'),
+  ];
+  expect(ids(searchWorkspace(projects, sessions, '', { sessionsOnly: true }))).toEqual([
+    'permit01',
+    'question',
+    'unread01',
+    'idle0001',
+    'working2',
+    'working1',
+  ]);
+  // The full palette keeps last activity.
+  expect(
+    ids(searchWorkspace(projects, sessions, '').filter((hit) => hit.kind === 'session')),
+  ).toEqual(['working2', 'working1', 'idle0001', 'unread01', 'permit01', 'question']);
+});
+
+test("typed text finds a session by its branch or its pull request's number, shown in its detail", () => {
+  const sessions = [
+    session('plain000', '2026-09-27T00:00:00.000Z'),
+    {
+      ...session('tides000', '2026-09-25T00:00:00.000Z'),
+      gitBranch: 'fix/tide-flake',
+      pr: { number: 42, state: 'open', url: 'https://github.example/lantern-cove/pull/42' },
+    } as TreeRow,
+    { ...session('label042', '2026-09-26T00:00:00.000Z'), name: 'Rerun 42 tests' } as TreeRow,
+  ];
+  const hit = searchWorkspace(projects, sessions, 'tide-flake', { sessionsOnly: true });
+  expect(ids(hit)).toEqual(['tides000']);
+  expect(hit[0]?.detail).toBe('lantern-cove · claude · working · fix/tide-flake · #42');
+  for (const query of ['#42', '42'])
+    expect(ids(searchWorkspace(projects, sessions, query, { sessionsOnly: true }))[0]).toBe(
+      'tides000',
+    );
+  expect(searchWorkspace(projects, sessions, '#42')[0]).toMatchObject({
+    kind: 'session',
+    id: 'tides000',
+  });
 });
 
 test('typed text offers Search vault last, with the text as its id; no text offers none', () => {

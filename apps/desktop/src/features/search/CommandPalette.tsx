@@ -1,5 +1,11 @@
 import type { ProjectRow, SavedPrompt, Shortcuts, TreeRow } from '@mesa/core';
-import { type CommandId, projectLabel, type SearchHit, searchWorkspace } from '@mesa/core/browser';
+import {
+  type CommandId,
+  projectLabel,
+  type SearchHit,
+  searchWorkspace,
+  sessionBranch,
+} from '@mesa/core/browser';
 import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Kbd } from '@/components/Kbd';
@@ -166,7 +172,10 @@ export function CommandPalette(props: {
   );
 }
 
-/** A hit as an icon over two lines: its label, and its detail and key; a switcher row its state. */
+/**
+ * A hit as an icon over two lines: its label, and its detail and key; a session's detail its
+ * project, agent, branch and pull request, with its state as a badge.
+ */
 function PaletteRow(props: { hit: SearchHit; session?: TreeRow; onChoose: () => void }) {
   const { hit, session } = props;
   const Icon = hitIcon(hit);
@@ -189,7 +198,14 @@ function PaletteRow(props: { hit: SearchHit; session?: TreeRow; onChoose: () => 
         <span className="flex min-w-0 items-center gap-1 text-muted-foreground text-xs">
           <span className="truncate">
             {session
-              ? [projectLabel(session.project ?? null), session.agent].join(' · ')
+              ? [
+                  projectLabel(session.project ?? null),
+                  session.agent,
+                  sessionBranch(session),
+                  session.managed && session.pr && `#${session.pr.number}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
               : hit.detail}
           </span>
           {hit.shortcut && (
