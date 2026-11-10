@@ -107,6 +107,7 @@ import { VAULT_COMMANDS } from './vault/index.js';
 import { view } from './view.js';
 import { whatsNew } from './whats-new.js';
 import { windows } from './windows.js';
+import { worker } from './worker.js';
 import { workflow } from './workflow.js';
 import {
   worktreesApply,
@@ -191,6 +192,7 @@ export const COMMANDS: Command[] = [
   notificationsDelivery,
   notificationsDelivered,
   open,
+  worker,
   prEvents,
   report,
   reports,
