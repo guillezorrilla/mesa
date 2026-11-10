@@ -286,3 +286,76 @@ test("a coordinator's Crew lists its tasks with states, deps and worker; Start s
   expect(first()?.textContent).toContain('cccccccc');
   expect(document.querySelector('[role="alert"]')).toBeNull();
 });
+
+test("a blocked task's Crew row shows its gate's question and options; a click resolves it, a refused one says why", async () => {
+  const gate = {
+    id: 'g-metres00',
+    task: 't-parse000',
+    question: 'Store tide heights in metres or feet?',
+    options: ['metres', 'feet'],
+    at: '2026-09-25T12:00:00.000Z',
+    coordinator: 'aaaaaaaa',
+  };
+  let resolved = false;
+  let refuse = false;
+  const { bridge, calls } = fakeBridge({
+    tasks: () =>
+      envelope({
+        tasks: [
+          {
+            id: 't-parse000',
+            spec: 'Parse the tide tables',
+            graph: 'tides',
+            deps: [],
+            state: resolved ? 'ready' : 'blocked',
+            coordinator: 'aaaaaaaa',
+            createdAt: '2026-09-25T12:00:00.000Z',
+          },
+        ],
+      }),
+    gates: () => envelope({ gates: resolved ? [] : [gate] }),
+    'gates resolve': () => {
+      if (refuse) {
+        resolved = true;
+        return { ok: false, error: { code: 'usage', message: `gate ${gate.id} was resolved` } };
+      }
+      resolved = true;
+      return envelope({ ...gate, option: 'metres', resolvedAt: '2026-09-25T12:01:00.000Z' });
+    },
+  });
+  const panel = () => (
+    <SidePanels
+      rows={[managedRow('aaaaaaaa')]}
+      panels={{ aaaaaaaa: { panel: 'crew' } }}
+      selectedSession="aaaaaaaa"
+      onClose={() => {}}
+      crew={NO_CREW}
+    />
+  );
+  await renderWithMesa(panel(), bridge);
+  const row = () => document.querySelector<HTMLElement>('[data-testid="crew-task"]');
+  expect(row()?.querySelector('[data-testid="task-state"]')?.textContent).toBe('blocked');
+  expect(row()?.querySelector('[data-testid="crew-gate"]')?.textContent).toContain(gate.question);
+  const option = (label: string) =>
+    [...(row()?.querySelectorAll('button') ?? [])].find((b) => b.textContent === label);
+  expect(option('feet')).toBeDefined();
+  await click(option('metres'));
+  expect(calls.find((argv) => argv[1] === 'gates' && argv[2] === 'resolve')).toEqual([
+    '--json',
+    'gates',
+    'resolve',
+    gate.id,
+    '--',
+    'metres',
+  ]);
+  expect(row()?.querySelector('[data-testid="task-state"]')?.textContent).toBe('ready');
+  expect(row()?.querySelector('[data-testid="crew-gate"]')).toBeNull();
+  expect(document.querySelector('[role="alert"]')).toBeNull();
+
+  resolved = false;
+  refuse = true;
+  await renderWithMesa(panel(), bridge);
+  await click(option('feet'));
+  expect(row()?.querySelector('[role="alert"]')?.textContent).toBe(`gate ${gate.id} was resolved`);
+  expect(row()?.querySelector('[data-testid="task-state"]')?.textContent).toBe('ready');
+});

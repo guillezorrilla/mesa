@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
 import { Button } from '@/components/ui/button';
+import { GateOptions } from '@/features/tasks/GateOptions';
 import { useCall, useCommand } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { useRefreshOnStamp } from './useRefreshOnStamp';
@@ -34,7 +35,9 @@ function TaskStateBadge(props: { state: TaskState }) {
  * The tasks a session coordinates, on its Crew panel (CONTEXT.md, Task): oldest first, each with
  * its spec's first line, state, deps and their states, and its worker, which selects that session.
  * A ready task has Start (`mesa worker <project> --task <id>`, this session as parent); a refused
- * start says why on its row, and a failed task its reason. A new `stamp` reads them again.
+ * start says why on its row, and a failed task its reason. A blocked task shows its open gates'
+ * questions with one button per option, which a person clicks to resolve one. A new `stamp`
+ * reads them again.
  */
 export function CrewTasks(props: {
   coordinator: string;
@@ -46,13 +49,22 @@ export function CrewTasks(props: {
   onSelect: (id: string) => void;
 }) {
   const listed = useCommand('tasks.list', { coordinator: props.coordinator });
+  const gates = useCommand('gates.list');
   const call = useCall();
   const [starting, setStarting] = useState<string>();
   const [refused, setRefused] = useState<Record<string, string>>({});
-  useRefreshOnStamp(props.stamp, listed.refresh);
+  const refresh = async () => {
+    await Promise.all([listed.refresh(), gates.refresh()]);
+  };
+  useRefreshOnStamp(props.stamp, refresh);
   const tasks = listed.data?.tasks;
   if (!tasks?.length) return null;
   const stateOf = new Map(tasks.map((t) => [t.id, t.state]));
+  const gatesOf = (task: Task) => (gates.data?.gates ?? []).filter((g) => g.task === task.id);
+  const refusedOn = (task: Task) => (why?: string) => {
+    setRefused(({ [task.id]: _gone, ...rest }) => (why ? { ...rest, [task.id]: why } : rest));
+    return refresh();
+  };
   const start = async (task: Task) => {
     if (!props.project) return;
     setStarting(task.id);
@@ -113,6 +125,13 @@ export function CrewTasks(props: {
                 )}
               </div>
             )}
+            {task.state === 'blocked' &&
+              gatesOf(task).map((gate) => (
+                <div key={gate.id} data-testid="crew-gate" className="grid gap-1">
+                  <p className="text-xs text-state-waiting">{gate.question}</p>
+                  <GateOptions gate={gate} onDone={refusedOn(task)} />
+                </div>
+              ))}
             {task.state === 'failed' && task.reason && (
               <Muted className="text-state-failed">{task.reason}</Muted>
             )}

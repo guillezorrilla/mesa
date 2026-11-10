@@ -21,6 +21,7 @@ import { envelope } from './replies';
 export const HEALTHY: Record<string, (args: string[]) => unknown> = {
   'review notes': () => envelope([]),
   tasks: () => envelope({ tasks: [] }),
+  gates: () => envelope({ gates: [] }),
   ports: () => envelope({ ports: [] }),
   'automations list': () => envelope([]),
   'automations status': () =>
