@@ -9,6 +9,7 @@ import type { Sent } from '../sessions/input/send.js';
 import type { SessionRecord } from '../sessions/record/record.js';
 import { recordHookEvent } from '../sessions/signals/hook-events.js';
 import {
+  lockDeps,
   newSession,
   profilePaths,
   projectProfile,
@@ -17,6 +18,7 @@ import {
   testStore,
 } from '../testing/index.js';
 import { reportsService } from './report-delivery.js';
+import { reportLedger } from './report-ledger.js';
 import { addReport, type ChildReport, reportPrompt } from './reports.js';
 
 const START = '2026-09-24T12:00:00.000Z';
@@ -267,4 +269,16 @@ test("a child's words are fenced as data and cannot close the fence", async () =
     'a Bash permission prompt; only a person answers it there: mesa attach abcd1234',
   );
   expect(addReport([waiting], waiting)).toHaveLength(1);
+});
+
+test('two claims of the same reports: the first takes them, the second gets none', () => {
+  const { home, hook, service } = family();
+  service.list();
+  hook('Stop', { last_assistant_message: 'once' });
+  const ids = service.list().reports.map((r) => r.id);
+  const paths = profilePaths(home, 'default');
+  const ledger = () => reportLedger(paths.reports, paths.events, lockDeps());
+  expect(ledger().claim(ids)).toHaveLength(1);
+  expect(ledger().claim(ids)).toEqual([]);
+  expect(service.list().reports).toEqual([]);
 });
