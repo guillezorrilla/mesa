@@ -66,6 +66,7 @@ async function readNoteFile(
     );
     if (!entry) return undefined;
     const blob = entry[1] as string;
+    // shortcut: the runner decodes stdout, so a non-UTF-8 index copy reaches textOf as U+FFFD; read bytes if notes on such files matter.
     return { text: textOf(Buffer.from(await git(['cat-file', 'blob', blob])), path), blob };
   }
   let text: string;
