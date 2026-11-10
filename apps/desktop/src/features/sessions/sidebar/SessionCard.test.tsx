@@ -10,14 +10,15 @@ const session = {
     pr: { number: 12, state: 'open', url: 'https://github.example/lantern-cove/pull/12' },
     lines: { added: 12, removed: 3 },
     lastReply: { text: 'Added the tide table.\nAll tests pass.', at: '2026-09-25T12:01:00.000Z' },
+    progress: { text: 'Running the tide-table tests', at: '2026-09-25T12:00:00.000Z' },
   }),
   depth: 0,
 } as TreeRow;
 
-const card = (compact: boolean) =>
+const card = (compact: boolean, shown: TreeRow = session) =>
   renderWithMesa(
     <SessionCard
-      session={session}
+      session={shown}
       selected={false}
       chosen={false}
       unread={false}
@@ -48,6 +49,18 @@ test('a compact card shows none of them', async () => {
   expect(byTestId('session-pr')).toEqual([]);
   expect(byTestId('session-lines')).toEqual([]);
   expect(byTestId('session-reply')).toEqual([]);
+  expect(byTestId('session-progress')).toEqual([]);
+});
+
+test('a card shows its progress line under its state line, with when it was set, until it ends', async () => {
+  const line = (await card(false))('session-progress')[0];
+  expect(line?.textContent).toBe('Running the tide-table tests');
+  expect(line?.previousElementSibling?.textContent).toBe(session.lastState.state);
+  expect(line?.getAttribute('title')).toBe(
+    `Set ${new Date('2026-09-25T12:00:00.000Z').toLocaleString()}`,
+  );
+  const ended = { ...session, endedAt: '2026-09-25T12:05:00.000Z' } as TreeRow;
+  expect((await card(false, ended))('session-progress')).toEqual([]);
 });
 
 test("a card on a branch with a pull request shows its number in its state's colour, and a click opens it without selecting the card", async () => {

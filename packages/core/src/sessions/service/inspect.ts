@@ -18,7 +18,7 @@ import { instructionStatus } from '../native/instructions.js';
 import { searchConversations } from '../native/search.js';
 import { vaultStatus } from '../native/vault-status.js';
 import { applyEach } from '../record/each.js';
-import { renameSession, setWorkflowStatus } from '../record/edits.js';
+import { renameSession, setProgress, setWorkflowStatus } from '../record/edits.js';
 import { parentNowOf } from '../record/family.js';
 import { projectScope } from '../record/general.js';
 import { recordAgent, type SessionRecord } from '../record/record.js';
@@ -247,6 +247,15 @@ export function inspectActions(
         },
         () => setWorkflowStatus(store, id, status),
       ),
+    /**
+     * Sets or clears (`text` undefined) the Progress line of `session`, else the Caller's.
+     * Unrecorded: an agent sets it at each step of its work.
+     */
+    progress: (text: string | undefined, session?: string) => {
+      const id = session ?? deps.caller().session?.id;
+      if (!id) throw new MesaError('usage', 'not in a Mesa session: name one with --session <id>');
+      return setProgress(store, id, text, ctx.clock().toISOString());
+    },
     /**
      * Marks sessions read, as a person has them open (CONTEXT.md, Unread); an unknown id refuses
      * them all. Unrecorded: the app marks the session it shows, many times a day.

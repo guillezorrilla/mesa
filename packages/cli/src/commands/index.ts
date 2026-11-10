@@ -66,6 +66,7 @@ import {
   profileRename,
   profileUse,
 } from './profile.js';
+import { progress } from './progress.js';
 import {
   projects,
   projectsClone,
@@ -229,6 +230,7 @@ export const COMMANDS: Command[] = [
   receipts,
   receiptsShow,
   register,
+  progress,
   rename,
   rewind,
   impact,

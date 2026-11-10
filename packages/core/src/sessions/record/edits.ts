@@ -1,6 +1,8 @@
-// The edits a person makes to a session's record: the name it goes by and its workflow label.
+// The edits made to a session's record: the name it goes by, a person's workflow label, and its
+// agent's progress line.
 
 import { MesaError } from '../../lib/result.js';
+import { short } from '../../lib/untrusted-text.js';
 import type { SessionRecord } from './record.js';
 import type { SessionStore } from './store.js';
 import { WORKFLOW_STATUSES, type WorkflowStatus } from './workflow-status.js';
@@ -27,4 +29,18 @@ export function setWorkflowStatus(store: SessionStore, id: string, status: strin
   return store.update(id, {
     workflowStatus: status === 'clear' ? undefined : (status as WorkflowStatus),
   });
+}
+
+/** The longest Progress line kept (CONTEXT.md). */
+const PROGRESS_MAX = 120;
+
+/**
+ * Sets a session's Progress line, one plain line of at most PROGRESS_MAX characters, or clears it
+ * with `text` undefined; a line with nothing left once cleaned is refused.
+ */
+export function setProgress(store: SessionStore, id: string, text: string | undefined, at: string) {
+  if (text === undefined) return store.update(id, { progress: undefined });
+  const line = short(text, PROGRESS_MAX);
+  if (!line) throw new MesaError('usage', 'the progress line is empty');
+  return store.update(id, { progress: { text: line, at } });
 }

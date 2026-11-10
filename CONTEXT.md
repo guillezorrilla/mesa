@@ -138,6 +138,11 @@ Not: task, job, run (`kind: run` qualifies a session, it is not another name for
 A person's optional label for a session's work: `todo`, `in-progress`, `review`, or `done`. `mesa workflow <id> <status>` sets it, and `clear` removes it; `--json` returns the record. It lives in the session record as `workflowStatus` and appears on the Board. Faro's `lastState`, confidence, attention and decision evidence remain separate; setting workflow never changes what the agent is observed doing. An absent label is unassigned.
 Not: agent state, attention, Faro decision.
 
+## Progress line
+
+One line an agent sets on its own session to say what it is on now: `mesa progress "<text>" [--session <id>]`, on `--session`, else the Caller's session (outside a Mesa window without `--session` it is a usage error), and `--clear` removes it. The text is cleaned to one plain line, with control and format characters removed, and cut to 120 characters, then saved in the session record under its lock as `progress: {text, at}`. `mesa show --json` and `mesa sessions --json` carry it, and the session's card shows it under its state line while the session has not ended, with when it was set in its tooltip. It is not a message to anyone, keeps no history, and records no receipt: an agent sets it at each step of long work.
+Not: Workflow status (a person's label), status line (Claude Code's `mesa statusline`), Session state (what Faro observes).
+
 ## Grid group
 
 A profile-local named set of session ids for reopening live terminal tiles in the app's Grid. `mesa grid save <name> <ids...> [--project <slug>]` stores it in `config.yaml`; `mesa grid` lists groups and `mesa grid remove <name>` removes one without stopping or deleting its sessions. The Grid's project tabs filter visible tiles; switching tabs or leaving the Grid keeps terminal clients attached. An ended or missing session stays in the saved group and is reported unavailable when reopened.
