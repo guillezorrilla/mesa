@@ -1,5 +1,6 @@
 mod bridge;
 mod browser;
+mod events;
 mod install_location;
 mod menu;
 mod notifications;
@@ -73,6 +74,7 @@ pub fn run() {
                     updater::Trigger::Link,
                 ));
             }
+            events::start(app.handle(), &launch_profile);
             if let Err(error) = tauri::async_runtime::block_on(notifications::install(
                 app.handle().clone(),
                 launch_profile,

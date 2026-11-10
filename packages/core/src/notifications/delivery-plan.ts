@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { Config } from '../profile/config.js';
+import { FINISHED_HOLD_MS } from './finished-hold.js';
 import type { InboxItem } from './inbox-items.js';
 
 export type DeliveryPlan =
@@ -20,13 +21,6 @@ type Deliverable = InboxItem & {
   target: Exclude<InboxItem['target'], { kind: 'release' }>;
 };
 const deliverable = (item: InboxItem): item is Deliverable => item.kind !== 'release';
-
-/**
- * How long a finished turn's banner waits, so the app can first mark read the session it shows in
- * a focused window (CONTEXT.md, Unread). shortcut: a guess at two looks and a mark; raise it if a
- * watched session still banners.
- */
-export const FINISHED_HOLD_MS = 5_000;
 
 /**
  * What to deliver of `items` (newest first) not yet delivered and, except failed automation runs,

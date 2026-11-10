@@ -43,6 +43,7 @@ export const tauriPlatform: Platform = {
       ),
     takeOpened: () => invoke('notification_take_opened'),
   },
+  sessions: { onChanged: (handler) => listen('sessions://changed', () => handler()) },
   // An undefined count removes the badge.
   dock: { badge: (count) => getCurrentWindow().setBadgeCount(count || undefined) },
   profiles: { switch: (name) => invoke('profile_switch', { profile: name }) },
