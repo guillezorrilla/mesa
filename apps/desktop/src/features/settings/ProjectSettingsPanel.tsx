@@ -195,7 +195,7 @@ export function ProjectSettingsPanel(props: { onChanged: () => void }) {
           <SettingSection
             id="project-git-text"
             title="Git text"
-            description="What an agent is asked to write for this project's commits"
+            description="What an agent is asked to write for this project's commits and pull requests"
           >
             <RecipeRow
               id="project-commit-recipe"
@@ -204,6 +204,14 @@ export function ProjectSettingsPanel(props: { onChanged: () => void }) {
               value={project.overrides.git?.commitMessageRecipe}
               profile={config.git.commitMessageRecipe}
               onSave={(value) => save('git.commitMessageRecipe', value)}
+            />
+            <RecipeRow
+              id="project-pr-recipe"
+              title="Pull request recipe"
+              names={['branchPatch', 'commits', 'branch', 'base']}
+              value={project.overrides.git?.pullRequestRecipe}
+              profile={config.git.pullRequestRecipe}
+              onSave={(value) => save('git.pullRequestRecipe', value)}
             />
           </SettingSection>
           <SettingSection

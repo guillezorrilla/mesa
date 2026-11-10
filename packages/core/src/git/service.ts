@@ -6,7 +6,7 @@ import { changeGitIndex, commitGit } from './changes.js';
 import { readGitDiff } from './diff.js';
 import { compareGitRefs, readGitGraph } from './history.js';
 import { readRepositoryInsight, type WorktreeCount } from './insight.js';
-import { type GitTextRunner, writeCommitMessage } from './message.js';
+import { type GitTextRunner, writeCommitMessage, writePullRequestText } from './message.js';
 import { changeGitStash, createGitStash, listGitStashes, type StashAction } from './stash.js';
 import { readGitStatus } from './status.js';
 import { type GitSync, gitTracking, syncGit } from './sync.js';
@@ -210,6 +210,12 @@ export function gitService(
     /** A commit message for the staged changes, written by an agent; commits nothing. */
     message: (project: string, opts: { checkout?: string; agent?: string } = {}) =>
       writeCommitMessage(ctx.open(), ctx.run, runText, project, {
+        ...opts,
+        ...(opts.checkout ? { checkout: ctx.absolute(opts.checkout) } : {}),
+      }),
+    /** A pull request's title and body for the checkout's branch, written by an agent. */
+    prText: (project: string, opts: { checkout?: string; base?: string; agent?: string } = {}) =>
+      writePullRequestText(ctx.open(), ctx.run, runText, project, {
         ...opts,
         ...(opts.checkout ? { checkout: ctx.absolute(opts.checkout) } : {}),
       }),

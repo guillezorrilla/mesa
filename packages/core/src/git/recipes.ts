@@ -19,6 +19,21 @@ Staged files:
 Staged patch:
 {stagedPatch}`;
 
+/** The pull request recipe Mesa ships; `git.pullRequestRecipe` replaces it. */
+export const DEFAULT_PULL_REQUEST_RECIPE = `Write the title and body of a pull request for the branch below.
+
+- First line: the title alone, under 72 characters, saying what the change does.
+- Then a blank line and the body, for a reviewer who has not seen the branch: what changed and why, in short paragraphs or a list.
+- Name each change the commits make, and nothing the patch does not show.
+
+Branch: {branch}, into {base}
+
+Commits:
+{commits}
+
+Patch:
+{branchPatch}`;
+
 /** Fills each `{name}` in `recipe` that `values` holds; an unknown one stays as written. */
 export const fillRecipe = (recipe: string, values: Readonly<Record<string, string>>) =>
   recipe.replace(/\{(\w+)\}/g, (written, name: string) =>

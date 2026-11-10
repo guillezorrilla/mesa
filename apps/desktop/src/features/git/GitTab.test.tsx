@@ -8,6 +8,7 @@ import {
   envelope,
   failure,
   fakeBridge,
+  fakePlatform,
   fill,
   renderWithMesa,
   toastTexts,
@@ -63,7 +64,7 @@ const commitRow = () =>
   document.querySelector<HTMLButtonElement>('[aria-label="Commits"] button') ?? undefined;
 const button = (label: string) =>
   [...document.querySelectorAll<HTMLButtonElement>('button')].find(
-    (each) => each.textContent === label || each.getAttribute('aria-label') === label,
+    (each) => each.textContent?.trim() === label || each.getAttribute('aria-label') === label,
   );
 
 test('the diff, both layouts, and the change list use the profile diff and tree sizes', async () => {
@@ -174,4 +175,35 @@ test('Generate replaces a typed message only once confirmed, and a failed run sa
 test('Generate is off while nothing is staged', async () => {
   await renderWithMesa(<GitTab project="lantern-cove" />, bridge());
   expect(button('Generate commit message')?.disabled).toBe(true);
+});
+
+test('Write PR text drafts an editable title and body, copies each, and regenerates', async () => {
+  let answer = { title: 'Add the tide table', body: 'It lists high and low water.' };
+  const { bridge, calls } = fakeBridge({
+    config: appearanceConfig({}),
+    'git status': () => envelope({ checkout, branch: 'tides', changes: [] }),
+    'git tracking': () =>
+      envelope({ checkout, branch: 'tides', remote: 'origin', upstream: 'tides' }),
+    'git pr-text': () => envelope({ ...answer, run: { session: 'aaaaaaaa', durationMs: 900 } }),
+    'worktrees list': () => envelope([]),
+  });
+  const platform = fakePlatform();
+  const byTestId = await renderWithMesa(<GitTab project="lantern-cove" />, bridge, platform);
+  await click(button('Remote'));
+  await click(button('Write PR text'));
+  expect(calls).toContainEqual(['--json', 'git', 'pr-text', '--', 'lantern-cove']);
+  const title = document.getElementById('pr-text-title') as HTMLInputElement;
+  const body = document.getElementById('pr-text-body') as HTMLTextAreaElement;
+  expect([title.value, body.value]).toEqual(['Add the tide table', 'It lists high and low water.']);
+  await fill(title, 'Add the harbour tide table');
+  await click(button('Copy title'));
+  await click(button('Copy body'));
+  expect(platform.pasteboard).toEqual([
+    'Add the harbour tide table',
+    'It lists high and low water.',
+  ]);
+  answer = { title: 'Tide table', body: 'Second draft.' };
+  await click(byTestId('pr-text-regenerate')[0]);
+  expect(calls.filter((args) => args[2] === 'pr-text')).toHaveLength(2);
+  expect([title.value, body.value]).toEqual(['Tide table', 'Second draft.']);
 });

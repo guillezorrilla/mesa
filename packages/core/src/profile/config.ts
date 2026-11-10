@@ -8,7 +8,7 @@ import { LaunchDefaultsSchema } from '../agents/launch-flags.js';
 import { CLAUDE_PERMISSION_MODES, DEFAULT_AGENT } from '../agents/names.js';
 import { DecisionsModelSchema } from '../decisions/types.js';
 import { validExternalArgv } from '../files/external.js';
-import { DEFAULT_COMMIT_RECIPE } from '../git/recipes.js';
+import { DEFAULT_COMMIT_RECIPE, DEFAULT_PULL_REQUEST_RECIPE } from '../git/recipes.js';
 import type { LockDeps } from '../lib/lock-file.js';
 import type { Env } from '../lib/process.js';
 import { REDACTED } from '../lib/redact.js';
@@ -300,6 +300,7 @@ const ConfigShape = z.strictObject({
   git: z
     .strictObject({
       commitMessageRecipe: GIT_OVERRIDE_FIELDS.commitMessageRecipe.default(DEFAULT_COMMIT_RECIPE),
+      pullRequestRecipe: GIT_OVERRIDE_FIELDS.pullRequestRecipe.default(DEFAULT_PULL_REQUEST_RECIPE),
     })
     .prefault({}),
   /** Which releases Mesa updates to (ADR-0018); unset follows the running version's channel. */
