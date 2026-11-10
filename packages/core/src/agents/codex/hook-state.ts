@@ -1,3 +1,4 @@
+import { STOP_CONTINUED } from '../hooks.js';
 import type { AgentState } from '../states.js';
 
 /** Embedded Codex hook states, measured in docs/spikes/codex.md. */
@@ -9,7 +10,7 @@ export function codexHookState(event: string): AgentState | undefined {
       return 'idle';
     case 'UserPromptSubmit':
     case 'PostToolUse':
-    case 'StopContinued':
+    case STOP_CONTINUED:
       return 'working';
     case 'PermissionRequest':
       return 'waiting-permission';

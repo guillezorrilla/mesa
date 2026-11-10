@@ -227,10 +227,14 @@ export function endSignals(
       if (turned && continues && !stopHookActive(event.payload)) {
         const reason = await deps.reports(turned.id).catch(() => undefined);
         if (reason) {
-          log(
-            JSON.stringify({ ...(event.payload as object), hook_event_name: STOP_CONTINUED }),
-            clock,
-          );
+          try {
+            log(
+              JSON.stringify({ ...(event.payload as object), hook_event_name: STOP_CONTINUED }),
+              clock,
+            );
+          } catch {
+            // The reports are claimed: the turn still goes on with them.
+          }
           return { ...event, instruction: stopContinuation(reason) };
         }
       }
