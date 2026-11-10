@@ -13,7 +13,7 @@ export type ProfilePaths = {
   events: string;
   /** The last agent listing a look ran, reused while hooks are fresh (#896). */
   listing: string;
-  /** Each checkout's added and removed lines, by its HEAD and index (sessions/board/line-counts.ts). */
+  /** Each session's added and removed lines, by its checkout's HEAD and index (sessions/board/line-counts.ts). */
   lineCounts: string;
   /** Sessions' output logs, one `<session id>.log` each: local only, never in the vault. */
   logs: string;

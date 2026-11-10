@@ -105,11 +105,15 @@ export async function withLineCounts(deps: Deps, rows: SessionRow[]): Promise<Se
       return { ...row, lines };
     };
     const counted = await mapLimit(rows, AT_ONCE, (row) => count(row).catch(() => row));
-    if (Object.keys(fresh).length)
-      changeJson(deps.file, Cache, (current = {}) => ({ ...current, ...fresh }), deps);
+    try {
+      if (Object.keys(fresh).length)
+        changeJson(deps.file, Cache, (current = {}) => ({ ...current, ...fresh }), deps);
+    } catch {
+      // Not kept (a busy lock): this look still shows them, and the next measures again.
+    }
     return counted;
   } catch {
-    // A cache that cannot be read or written: this look has no counts, the next tries again.
+    // A cache that cannot be read: this look has no counts, the next tries again.
     return rows;
   }
 }
