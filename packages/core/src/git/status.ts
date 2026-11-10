@@ -1,3 +1,5 @@
+import { accessSync, constants, statSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
@@ -11,7 +13,29 @@ export type GitChange = {
   index: string;
   workingTree: string;
 };
-export type GitStatus = { checkout: Checkout; branch: string | null; changes: GitChange[] };
+export type GitStatus = {
+  checkout: Checkout;
+  branch: string | null;
+  changes: GitChange[];
+  /** The hooks a commit runs here: `preCommit` while the resolved `hooks/pre-commit` is executable. */
+  hooks: { preCommit: boolean };
+};
+
+/** Whether `path` is a file this user may run. */
+function executable(path: string) {
+  try {
+    accessSync(path, constants.X_OK);
+    return statSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/** Whether a commit in `cwd` runs a pre-commit hook: `--git-path` follows `core.hooksPath`. */
+async function hasPreCommit(run: Runner, cwd: string) {
+  const hook = await gitCommand(run, cwd, ['rev-parse', '--git-path', 'hooks/pre-commit']);
+  return hook.ok && executable(resolve(cwd, hook.stdout.trim()));
+}
 
 /** Porcelain v1 with NUL paths keeps spaces, newlines and rename sources literal. */
 function changesOf(output: string): GitChange[] {
@@ -37,14 +61,16 @@ export async function readGitStatus(
   selected?: string,
 ): Promise<GitStatus> {
   const checkout = await resolveCheckout(profile, run, project, selected);
-  const [branch, status] = await Promise.all([
+  const [branch, status, preCommit] = await Promise.all([
     currentBranch(run, checkout.path),
     gitCommand(run, checkout.path, ['status', '--porcelain=v1', '-z', '--untracked-files=all']),
+    hasPreCommit(run, checkout.path),
   ]);
   if (!status.ok) throw new MesaError('usage', `cannot read Git status: ${status.detail}`);
   return {
     checkout,
     branch,
     changes: changesOf(status.stdout),
+    hooks: { preCommit },
   };
 }

@@ -5,6 +5,7 @@ import type {
   GitCommit,
   GitComparison,
   GitDiff,
+  GitFix,
   GitGraph,
   GitMessage,
   GitPathAction,
@@ -89,6 +90,15 @@ export const gitCommands = {
     ({ project, checkout }) => [
       'git',
       'message',
+      ...(checkout ? ['--checkout', checkout] : []),
+      '--',
+      project,
+    ],
+  ),
+  'git.fix': commandWith<{ project: string; checkout?: string }, GitFix>(
+    ({ project, checkout }) => [
+      'git',
+      'fix',
       ...(checkout ? ['--checkout', checkout] : []),
       '--',
       project,

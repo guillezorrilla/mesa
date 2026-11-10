@@ -16,7 +16,7 @@ import { Muted } from '@/components/Muted';
 import { said, warningOf } from '@/components/Toast';
 import { CheckoutPicker } from '@/features/worktrees/CheckoutPicker';
 import { useAct } from '@/lib/useAct';
-import { useCommand, useRun } from '@/lib/useCommand';
+import { useCall, useCommand, useRun } from '@/lib/useCommand';
 import { GitDiffHeader } from './diff/GitDiffHeader';
 import type { DiffLayout } from './diff/GitDiffRows';
 import { GitDiffView } from './diff/GitDiffView';
@@ -27,6 +27,7 @@ import { GitHistory } from './GitHistory';
 import { GitStashes } from './GitStashes';
 import { GitSyncPanel } from './GitSyncPanel';
 import { type GitSelection, gitSections, isSelected, listOrder } from './gitChanges';
+import { useHookFix } from './useHookFix';
 
 const VIEWS = [
   ['status', 'Status', FileText],
@@ -68,11 +69,17 @@ export function GitTab(props: {
       if (!result) return undefined;
       return warningOf(result);
     });
+  const call = useCall();
+  const commitFailed = useHookFix(target, status.data?.hooks?.preCommit ?? false);
   const commit = async (message: string) => {
     let done = false;
     await act(async () => {
-      const result = await run('git.commit', { ...target, message });
-      if (!result) return undefined;
+      const committed = await call('git.commit', { ...target, message });
+      if (!committed.ok) {
+        commitFailed(committed.error.message);
+        return undefined;
+      }
+      const result = committed.data;
       done = true;
       await changed();
       return said(`Committed ${result.oid.slice(0, 7)}`, result);

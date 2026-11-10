@@ -1,8 +1,9 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { Decision } from '../decisions/types.js';
 import { profilePaths } from '../profile/paths.js';
-import type { SessionRow } from '../sessions/board/rows.js';
-import type { NewSession } from '../sessions/record/record.js';
+import type { ManagedRow, SessionRow } from '../sessions/board/rows.js';
+import type { NewSession, SessionRecord } from '../sessions/record/record.js';
 import { sessionStore } from '../sessions/record/store.js';
 import { prepareOutputLog } from '../sessions/window/output-log.js';
 import { sequentialIds } from './ids.js';
@@ -56,3 +57,39 @@ export function plantOutputLog(home: string, id: string, text: string | Buffer) 
 
 /** A board row holding only the fields a test reads. */
 export const sessionRow = (fields: object) => fields as SessionRow;
+
+const PLACED_AT = '2026-09-24T12:00:00.000Z';
+
+/** Faro's rules placing a session in `state` at `confidence`, as the board keeps it. */
+export const placedState = (state: 'idle' | 'working', confidence: number): Decision => ({
+  questions: [{ kind: 'Choice', id: 'state', options: ['idle', 'working'] }],
+  answers: [
+    {
+      kind: 'Choice',
+      id: 'state',
+      answer: state,
+      probabilities: { idle: state === 'idle' ? confidence : 1 - confidence, working: 0 },
+      confidence,
+    },
+  ],
+  backend: 'rules',
+  at: PLACED_AT,
+  latencyMs: 1,
+});
+
+/** A live board row for `record` in `state` as Faro placed it; `shown` is the state it shows. */
+export const placedRow = (
+  record: SessionRecord,
+  state: 'idle' | 'working',
+  confidence = 0.95,
+  shown: string = state,
+) =>
+  ({
+    ...record,
+    managed: true,
+    alive: true,
+    runningSeconds: 60,
+    children: [],
+    lastState: { state: shown, confidence, at: PLACED_AT, source: 'faro' },
+    decision: placedState(state, confidence),
+  }) as unknown as ManagedRow;

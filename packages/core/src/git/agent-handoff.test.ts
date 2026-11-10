@@ -1,0 +1,145 @@
+import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { expect, test } from 'vitest';
+import { createContext } from '../context.js';
+import { listReceipts } from '../receipts/store.js';
+import type { SessionRow } from '../sessions/board/rows.js';
+import type { Sent } from '../sessions/input/send.js';
+import {
+  gitRepo,
+  newSession,
+  placedRow,
+  projectProfile,
+  scriptedRunner,
+  testDeps,
+  testGit,
+  testStore,
+  withRealGit,
+} from '../testing/index.js';
+import { handToAgent } from './agent-handoff.js';
+import { fixPreCommit, lastBytes } from './hook-fix.js';
+
+/** lantern-cove as a git repository, and hand-off deps that record what they send and open. */
+function setUp() {
+  const run = withRealGit(scriptedRunner().run);
+  const { home, dir } = projectProfile(run, { mesaYaml: 'name: lantern-cove\n' });
+  gitRepo(dir);
+  const store = testStore(home);
+  const ctx = createContext('default', testDeps(home, { run }));
+  let board: SessionRow[] = [];
+  const typed: { id: string; prompt: string }[] = [];
+  const opened: { project: string; goal: string; checkout?: string }[] = [];
+  const deps = {
+    board: async () => board,
+    send: async (id: string, prompt: string) => {
+      typed.push({ id, prompt });
+      const sent: Sent = { sent: true, session: id, project: 'lantern-cove', from: null, chars: 1 };
+      return { result: sent, receipt: null };
+    },
+    open: async (project: string, opts: { goal: string; checkout?: string }) => {
+      opened.push({ project, ...opts });
+      return { id: 'zzzzzzzz' };
+    },
+  };
+  const main = { project: 'lantern-cove', path: dir, registered: true };
+  const setBoard = (rows: SessionRow[]) => {
+    board = rows;
+  };
+  return { ctx, dir, home, store, deps, main, typed, opened, setBoard };
+}
+const ask = { prompt: '[mesa] fix it', summary: 'Handed it over' };
+
+test('one idle session in the checkout gets the prompt, with a decision receipt', async () => {
+  const { ctx, home, store, deps, main, typed, setBoard } = setUp();
+  const idle = store.create(() => newSession());
+  setBoard([placedRow(idle, 'idle')]);
+  expect(await handToAgent(ctx, deps, main, ask)).toEqual({ session: idle.id, how: 'sent' });
+  expect(typed).toEqual([{ id: idle.id, prompt: '[mesa] fix it' }]);
+  const [kept] = listReceipts(join(home, 'vault'));
+  expect(kept?.receipt).toMatchObject({
+    kind: 'decision',
+    outputs: { state: 'idle', confidence: 0.95, probabilities: { idle: 0.95 } },
+  });
+});
+
+test('a busy or waiting session refuses with its state, and several refuse naming them', async () => {
+  const { ctx, store, deps, main, typed, opened, setBoard } = setUp();
+  const busy = store.create(() => newSession());
+  setBoard([placedRow(busy, 'working')]);
+  await expect(handToAgent(ctx, deps, main, ask)).rejects.toMatchObject({
+    code: 'usage',
+    message: expect.stringContaining(`session ${busy.id} is working`),
+  });
+  setBoard([placedRow(busy, 'idle', 0.95, 'waiting-permission')]);
+  await expect(handToAgent(ctx, deps, main, ask)).rejects.toMatchObject({
+    message: expect.stringContaining('is waiting-permission'),
+  });
+  const other = store.create(() => newSession());
+  setBoard([placedRow(busy, 'idle'), placedRow(other, 'idle')]);
+  await expect(handToAgent(ctx, deps, main, ask)).rejects.toMatchObject({
+    code: 'usage',
+    message: expect.stringContaining(`(${busy.id}, ${other.id})`),
+  });
+  expect([typed, opened]).toEqual([[], []]);
+});
+
+test('with no session in the checkout, or --new, one starts there with the prompt as its goal', async () => {
+  const { ctx, dir, store, deps, main, opened, setBoard } = setUp();
+  // A session in a worktree of the project is not in its main checkout.
+  const harbour = join(dir, '../harbour');
+  const elsewhere = store.create(() =>
+    newSession({ worktree: { path: harbour, branch: 'harbour' } }),
+  );
+  setBoard([placedRow(elsewhere, 'idle')]);
+  expect(await handToAgent(ctx, deps, main, ask)).toEqual({ session: 'zzzzzzzz', how: 'started' });
+  const worktree = { project: 'lantern-cove', path: harbour, registered: false };
+  expect(await handToAgent(ctx, deps, worktree, { ...ask, fresh: true })).toMatchObject({
+    how: 'started',
+  });
+  expect(opened).toEqual([
+    { project: 'lantern-cove', goal: '[mesa] fix it' },
+    { project: 'lantern-cove', goal: '[mesa] fix it', checkout: harbour },
+  ]);
+});
+
+test('a failing pre-commit hook hands over the staged files and its output, fenced; a passing one sends nothing', async () => {
+  const { ctx, dir, store, deps, typed, setBoard } = setUp();
+  const idle = store.create(() => newSession());
+  setBoard([placedRow(idle, 'idle')]);
+  const hook = join(dir, '.git/hooks/pre-commit');
+  mkdirSync(join(dir, '.git/hooks'), { recursive: true });
+  writeFileSync(
+    hook,
+    '#!/bin/sh\necho "lint: tide.ts:3 missing semicolon"\necho "husky - pre-commit failed" >&2\nexit 1\n',
+  );
+  chmodSync(hook, 0o755);
+  writeFileSync(join(dir, 'tide.ts'), 'const high = 6\n');
+  testGit(dir, 'add', 'tide.ts');
+
+  expect(await fixPreCommit(ctx, deps, 'lantern-cove')).toEqual({
+    passed: false,
+    session: idle.id,
+    how: 'sent',
+  });
+  const [sent] = typed;
+  expect(sent?.prompt).toMatch(/^\[mesa\] The pre-commit hook failed in /);
+  expect(sent?.prompt).toContain('never use --no-verify');
+  expect(sent?.prompt).toContain('Staged files:\n```untrusted-hook-output\nA\ttide.ts\n```\n');
+  expect(sent?.prompt).toContain(
+    '```untrusted-hook-output\nlint: tide.ts:3 missing semicolon\nhusky - pre-commit failed\n```',
+  );
+
+  writeFileSync(hook, '#!/bin/sh\nexit 0\n');
+  expect(await fixPreCommit(ctx, deps, 'lantern-cove')).toEqual({ passed: true });
+  expect(typed).toHaveLength(1);
+});
+
+test('a long hook output keeps its last whole lines within the cap, after a line saying what was cut', () => {
+  expect(lastBytes('a\nb\nc', 100)).toBe('a\nb\nc');
+  expect(lastBytes('first line\nsecond\nthird', 13)).toBe(
+    '[Mesa left out the first 11 bytes]\nsecond\nthird',
+  );
+  // A quote takes four bytes once shell-quoted, and a line longer than the cap keeps its end.
+  expect(lastBytes("it's\nit's", 8)).toBe("[Mesa left out the first 5 bytes]\nit's");
+  expect(lastBytes('x'.repeat(40), 20)).toBe('[Mesa left out the first 35 bytes]\nxxxxx');
+});

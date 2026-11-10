@@ -1,16 +1,15 @@
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createContext } from '../context.js';
-import type { Decision } from '../decisions/types.js';
 import { MesaError } from '../lib/result.js';
 import { listReceipts } from '../receipts/store.js';
-import type { ManagedRow, SessionRow } from '../sessions/board/rows.js';
+import type { SessionRow } from '../sessions/board/rows.js';
 import type { Sent } from '../sessions/input/send.js';
-import type { SessionRecord } from '../sessions/record/record.js';
 import { recordHookEvent } from '../sessions/signals/hook-events.js';
 import {
   lockDeps,
   newSession,
+  placedRow,
   profilePaths,
   projectProfile,
   scriptedRunner,
@@ -22,39 +21,6 @@ import { reportLedger } from './report-ledger.js';
 import { addReport, type ChildReport, reportPrompt } from './reports.js';
 
 const START = '2026-09-24T12:00:00.000Z';
-
-const placed = (state: 'idle' | 'working', confidence: number): Decision => ({
-  questions: [{ kind: 'Choice', id: 'state', options: ['idle', 'working'] }],
-  answers: [
-    {
-      kind: 'Choice',
-      id: 'state',
-      answer: state,
-      probabilities: { idle: state === 'idle' ? confidence : 1 - confidence, working: 0 },
-      confidence,
-    },
-  ],
-  backend: 'rules',
-  at: START,
-  latencyMs: 1,
-});
-
-/** A board row for `record`, live, in `state` as Faro placed it. */
-const rowOf = (
-  record: SessionRecord,
-  state: 'idle' | 'working',
-  confidence = 0.95,
-  shown: string = state,
-) =>
-  ({
-    ...record,
-    managed: true,
-    alive: true,
-    runningSeconds: 60,
-    children: [],
-    lastState: { state: shown, confidence, at: START, source: 'faro' },
-    decision: placed(state, confidence),
-  }) as unknown as ManagedRow;
 
 /** A parent with one child on lantern-cove, a hook writer for the child, and the service. */
 function family(start = START) {
@@ -79,7 +45,7 @@ function family(start = START) {
         payload: JSON.stringify({ hook_event_name: event, ...extra }),
       },
     );
-  let board: SessionRow[] = [rowOf(parent, 'idle')];
+  let board: SessionRow[] = [placedRow(parent, 'idle')];
   const typed: { id: string; prompt: string }[] = [];
   let refuse: MesaError | undefined;
   const ctx = createContext('default', testDeps(home, { run, clock: () => new Date(start) }));
@@ -178,7 +144,7 @@ test('an ended or waiting parent keeps its reports and says why; a removed one d
   const { store, parent, hook, service, setBoard } = family();
   service.list();
   hook('Stop', { last_assistant_message: 'done here' });
-  setBoard([rowOf(parent, 'idle', 0.95, 'waiting-permission')]);
+  setBoard([placedRow(parent, 'idle', 0.95, 'waiting-permission')]);
   expect((await service.deliver()).deliveries).toMatchObject([
     { session: parent.id, status: 'waiting', state: 'waiting-permission' },
   ]);
@@ -231,13 +197,13 @@ test('a busy or unsure parent keeps its reports; a send refused before typing gi
   const { parent, hook, service, typed, setBoard, refuseWith } = family();
   service.list();
   hook('Stop', { last_assistant_message: 'halfway' });
-  setBoard([rowOf(parent, 'working')]);
+  setBoard([placedRow(parent, 'working')]);
   expect((await service.deliver()).deliveries).toMatchObject([{ status: 'waiting' }]);
-  setBoard([rowOf(parent, 'idle', 0.5)]);
+  setBoard([placedRow(parent, 'idle', 0.5)]);
   expect((await service.deliver()).deliveries).toMatchObject([
     { status: 'waiting', reason: expect.stringContaining('under decisions.threshold') },
   ]);
-  setBoard([rowOf(parent, 'idle')]);
+  setBoard([placedRow(parent, 'idle')]);
   refuseWith(new MesaError('usage', 'the pane runs a shell'));
   expect((await service.deliver()).deliveries).toMatchObject([{ status: 'failed' }]);
   expect(service.list().reports).toHaveLength(1);
