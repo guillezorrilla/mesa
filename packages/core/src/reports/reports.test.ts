@@ -17,7 +17,7 @@ import {
   testDeps,
   testStore,
 } from '../testing/index.js';
-import { reportsService } from './report-delivery.js';
+import { reportsAtTurnEnd, reportsService } from './report-delivery.js';
 import { reportLedger } from './report-ledger.js';
 import { addReport, type ChildReport, reportPrompt } from './reports.js';
 
@@ -82,25 +82,24 @@ function family(start = START) {
   let board: SessionRow[] = [rowOf(parent, 'idle')];
   const typed: { id: string; prompt: string }[] = [];
   let refuse: MesaError | undefined;
-  const service = reportsService(
-    createContext('default', testDeps(home, { run, clock: () => new Date(start) })),
-    {
-      board: async () => board,
-      send: async (id, prompt) => {
-        if (refuse) throw refuse;
-        typed.push({ id, prompt });
-        const sent: Sent = {
-          sent: true,
-          session: id,
-          project: 'lantern-cove',
-          from: null,
-          chars: 1,
-        };
-        return { result: sent, receipt: null };
-      },
+  const ctx = createContext('default', testDeps(home, { run, clock: () => new Date(start) }));
+  const service = reportsService(ctx, {
+    board: async () => board,
+    send: async (id, prompt) => {
+      if (refuse) throw refuse;
+      typed.push({ id, prompt });
+      const sent: Sent = {
+        sent: true,
+        session: id,
+        project: 'lantern-cove',
+        from: null,
+        chars: 1,
+      };
+      return { result: sent, receipt: null };
     },
-  );
+  });
   return {
+    ctx,
     home,
     mesa,
     store,
@@ -281,4 +280,27 @@ test('two claims of the same reports: the first takes them, the second gets none
   expect(ledger().claim(ids)).toHaveLength(1);
   expect(ledger().claim(ids)).toEqual([]);
   expect(service.list().reports).toEqual([]);
+});
+
+test('a busy parent gets its reports as its own turn ends, once, with a receipt and no board look', async () => {
+  const { ctx, home, mesa, parent, child, hook, service, setBoard } = family();
+  // The board is never looked at: a look would throw.
+  setBoard(undefined as unknown as SessionRow[]);
+  service.list();
+  expect(await reportsAtTurnEnd(ctx, parent.id)).toBeUndefined();
+  hook('Stop', { last_assistant_message: 'Tide tables parsed.' });
+  const prompt = await reportsAtTurnEnd(ctx, parent.id);
+  expect(prompt).toContain(`- ${child.id} (tide-charts) finished its turn and said`);
+  expect(prompt).toContain('Tide tables parsed.');
+  expect(service.list().reports).toEqual([]);
+  expect(await reportsAtTurnEnd(ctx, parent.id)).toBeUndefined();
+  const [kept] = listReceipts(join(home, 'vault'), 10, { session: parent.id });
+  expect(kept?.receipt).toMatchObject({ kind: 'decision', project: 'lantern-cove' });
+  expect(kept?.receipt.outputs).toMatchObject({ via: 'Stop hook', confidence: 1 });
+  // Off, nothing is claimed.
+  hook('Stop', { last_assistant_message: 'More tables.' });
+  mesa.config.set('sessions.childReports', 'false');
+  expect(await reportsAtTurnEnd(ctx, parent.id)).toBeUndefined();
+  mesa.config.set('sessions.childReports', 'true');
+  expect(service.list().reports).toHaveLength(1);
 });

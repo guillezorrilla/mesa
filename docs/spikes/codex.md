@@ -376,3 +376,14 @@ Cleanup killed only this test's tmux server and removed its exact socket, auth c
 Installed Codex 0.157.1 ran through public `mesa open --agent codex`, `mesa send`, `mesa show --json`, and `mesa stop` in the invented `lantern-cove` checkout of the disposable `p4-265-visual` profile. Native thread `01a0ea04-b430-7a92-b2ea-e417d9566c76` answered `ONE`, then `TWO`, then `THREE` after `/compact`. Its rollout recorded last-turn context readings of 10.77%, 10.78%, 1.89% immediately after compaction, and 10.82% after the next turn, each against a 258,400-token window. The compaction event carried `last_token_usage.input_tokens: 0` and `total_tokens: 4893`; Mesa now reads that native total rather than reporting a false zero. A later turn can add substantial context again, so the 1.89% reading is a snapshot, not a lasting reduction claim.
 
 After the first answer, Codex's pane clearly showed `› Ask Codex to do anything` and `? for shortcuts`, but Faro's adapter labeled it `waiting-question`; that false wait blocked `mesa send`. Explicit Codex TUI state markers now take precedence over an adapter guess. A new Board look changed the state to `idle` from the tmux screen, and the second send succeeded without forcing a human-wait override. The subsequent turns stayed idle at the prompt. This qualifies this installed TUI's multi-turn and compact path, not every Codex permission or startup gate.
+
+## Stop hook continuation (#888, 2026-11-10)
+
+Question: does Codex continue a turn when its `Stop` hook prints `{"decision":"block","reason":"..."}`, as Claude Code does, so Mesa can hand a busy parent its child reports at its own turn's end?
+
+Installed Codex 0.162.1, a throwaway `CODEX_HOME` with a copy of the auth file (deleted after), an empty invented git folder, and one `Stop` entry in `$CODEX_HOME/hooks.json` whose script logged its payload and, the first time only, printed a block with the reason `[mesa] News from your child sessions: lantern-cove finished. Reply with exactly LANTERN_BLOCK_OK.` Run: `codex exec --json --dangerously-bypass-hook-trust --skip-git-repo-check "Reply with exactly: HI"`.
+
+- One turn, two agent messages: `HI`, then `LANTERN_BLOCK_OK`; one `turn.completed`, exit 0. The reason went in as input and the turn went on.
+- Two `Stop` payloads with the same `turn_id`: the first `stop_hook_active: false`, `last_assistant_message: "HI"`; the second `stop_hook_active: true`, `last_assistant_message: "LANTERN_BLOCK_OK"`. The second printed nothing and the turn ended.
+
+Result: qualified. Codex gets the same `Stop` answer as Claude Code, and Mesa never blocks a `Stop` with `stop_hook_active` true. Limits: an exec run, not the TUI (the hook engine is the same one); the hook ran under the trust bypass flag, so a real install's `Stop` entry must be trusted first, and Mesa's `Stop` command changing to pass its stdout through makes Codex ask for the review again once.

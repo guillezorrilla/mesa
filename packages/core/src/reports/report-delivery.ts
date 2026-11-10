@@ -22,7 +22,8 @@ export type ReportsDelivered = { deliveries: ReportDelivery[] };
 /**
  * Child reports for one profile (CONTEXT.md, Child report): the pending ones, and their delivery
  * into idle parents as one prompt each, through the same idle rule and decision receipt PR events
- * use (idle-delivery). A parent mid-turn or waiting on a person keeps its reports pending.
+ * use (idle-delivery). A parent mid-turn or waiting on a person keeps its reports pending, and
+ * gets them when its turn ends if its agent's Stop hook can go on (reportsAtTurnEnd).
  */
 export function reportsService(
   ctx: MesaContext,
@@ -102,4 +103,42 @@ export function reportsService(
       return { deliveries };
     },
   };
+}
+
+/**
+ * The prompt that carries `parent`'s pending reports as its own turn ends (its Stop hook), with
+ * them claimed and a decision receipt kept; none with reports off or nothing pending. It reads
+ * only the reports file, the records and the children's hook logs: no board look, since a turn
+ * that just ended is the placement, at confidence 1.
+ */
+export async function reportsAtTurnEnd(
+  ctx: MesaContext,
+  parent: string,
+): Promise<string | undefined> {
+  if (!ctx.configIfAny()?.sessions.childReports) return undefined;
+  const ledger = reportLedger(ctx.paths.reports, ctx.paths.events, ctx);
+  const ids = ledger
+    .collect(ctx.store.readable(), ctx.clock().toISOString())
+    .filter((r) => r.parent === parent)
+    .map((r) => r.id);
+  const claimed = ids.length ? ledger.claim(ids) : [];
+  if (!claimed.length) return undefined;
+  const prompt = reportPrompt(claimed);
+  // The reports are claimed: a receipt that cannot be written never keeps them from the parent.
+  await ctx
+    .record(
+      {
+        kind: 'decision',
+        summary: () =>
+          `Gave ${claimed.length} child reports to session ${parent} as its turn ended`,
+        failure: `Could not give child reports to session ${parent}`,
+        project: () => ctx.store.find(parent)?.project,
+        session: () => parent,
+        inputs: { session: parent, reports: claimed.map((r) => r.id) },
+        outputs: () => ({ via: 'Stop hook', chars: prompt.length, confidence: 1 }),
+      },
+      async () => prompt,
+    )
+    .catch(() => undefined);
+  return prompt;
 }

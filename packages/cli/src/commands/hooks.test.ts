@@ -701,3 +701,31 @@ test('with a Decision model a session mounts mesa-decisions, a prompt gets advic
   await mesa('decisions', 'off', '--session', opened.id);
   expect((await show(opened.id)).decisions.advice.state).toBe('disabled');
 });
+
+test("a parent's Stop answers with its pending child reports as a block, once, and never on stop_hook_active", async () => {
+  cli.withTmux();
+  await cli.withProject();
+  const parent = (await mesa('open', 'lantern-cove', '--json')).json.data;
+  const child = (await mesa('open', 'lantern-cove', '--parent', parent.id, '--json')).json.data;
+  expect((await mesa('reports', '--json')).json.data.reports).toEqual([]);
+  const stop = async (id: string, agentSessionId: string, extra: Record<string, unknown> = {}) => {
+    cli.env = { MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
+    cli.stdin = JSON.stringify({ session_id: agentSessionId, hook_event_name: 'Stop', ...extra });
+    const ran = await mesa('hook', 'claude');
+    cli.env = {};
+    return ran.stdout.trim();
+  };
+  // Nothing pending: nothing printed.
+  expect(await stop(parent.id, parent.agentSessionId)).toBe('');
+  expect(
+    await stop(child.id, child.agentSessionId, { last_assistant_message: 'Tide tables parsed.' }),
+  ).toBe('');
+  // A Stop that already continues a blocked turn never blocks again.
+  expect(await stop(parent.id, parent.agentSessionId, { stop_hook_active: true })).toBe('');
+  const answer = JSON.parse(await stop(parent.id, parent.agentSessionId));
+  expect(answer.decision).toBe('block');
+  expect(answer.reason).toContain(`- ${child.id} (`);
+  expect(answer.reason).toContain('Tide tables parsed.');
+  expect((await mesa('reports', '--json')).json.data.reports).toEqual([]);
+  expect(await stop(parent.id, parent.agentSessionId)).toBe('');
+});

@@ -14,10 +14,11 @@ type Settings = { hooks?: Record<string, Group[]> } & Record<string, unknown>;
 
 const GUARD = `[ -z "$${SESSION_ID_VAR}" ] || `;
 /**
- * The events whose stdout reaches the agent's context: SessionStart's pointer (ADR-0010), and
- * UserPromptSubmit's decision advice as `additionalContext` (ADR-0019, #463).
+ * The events whose stdout reaches the agent's context: SessionStart's pointer (ADR-0010),
+ * UserPromptSubmit's decision advice as `additionalContext` (ADR-0019, #463), and Stop's child
+ * reports as a block that continues the turn (#888).
  */
-export const SPEAKING_EVENTS: readonly string[] = ['SessionStart', 'UserPromptSubmit'];
+export const SPEAKING_EVENTS: readonly string[] = ['SessionStart', 'UserPromptSubmit', 'Stop'];
 const tail = (agent: Agent, event?: string) =>
   ` hook ${agent} ${event && SPEAKING_EVENTS.includes(event) ? '2>/dev/null' : '>/dev/null 2>&1'} || true`;
 /** A hook entry Mesa wrote: exactly its guard and its tail, whatever mesa path sits between. */

@@ -44,6 +44,8 @@ export function endSignals(
     assistance: SessionAssistance;
     /** Starts a session's Vault capture at a turn's end, when due (startCapture). */
     capture: (id: string) => Promise<string | undefined>;
+    /** A parent's pending child reports as one prompt, claimed, at its turn's end (reportsAtTurnEnd). */
+    reports: (parent: string) => Promise<string | undefined>;
   },
 ) {
   const { store, tmux, record, paths } = ctx;
@@ -192,7 +194,9 @@ export function endSignals(
     /**
      * One agent hook's payload, from `mesa hook claude` inside a Mesa session. A Stop, a turn's
      * end, reads the session's context use and starts its Vault capture when one is due
-     * (startCapture: with none due, no transcript is read); a SessionEnd (not a /clear or a
+     * (startCapture: with none due, no transcript is read) and, for an agent whose Stop hook can
+     * go on, answers with the session's pending child reports as a block (reportsAtTurnEnd);
+     * a SessionEnd (not a /clear or a
      * /resume, which keep the agent running) starts what was queued after it. A SessionStart answers with the pointer, and a
      * UserPromptSubmit with the prompt's decision advice as `additionalContext`, when there is
      * any within Mesa's deadline (DecisionAssistance.advise).
@@ -211,6 +215,11 @@ export function endSignals(
       // Only the conversation Mesa holds is captured: never a subagent's or a nested one's.
       const turned = event?.event === 'Stop' ? owner(event) : undefined;
       if (turned) await deps.capture(turned.id);
+      // A parent's turn ended with child reports pending: its agent goes on with them as input.
+      if (turned && event && AGENTS[event.agent].stopContinues && !stopHookActive(event?.payload)) {
+        const reason = await deps.reports(turned.id).catch(() => undefined);
+        if (reason) return { ...event, instruction: JSON.stringify({ decision: 'block', reason }) };
+      }
       const state =
         event && parentHook(event) && AGENTS[event.agent].hookState?.(event.event, event.payload);
       if (event?.event === 'SessionEnd' && id && state) await startAfter(id);
@@ -275,6 +284,12 @@ export function endSignals(
     },
   };
 }
+
+/** Whether a Stop already continues a turn a Stop hook blocked, so it must not block again. */
+const stopHookActive = (payload: unknown) =>
+  typeof payload === 'object' && payload !== null && 'stop_hook_active' in payload
+    ? payload.stop_hook_active === true
+    : false;
 
 /** The prompt a UserPromptSubmit payload carries (Claude Code and Codex name it `prompt`). */
 function promptOf(payload: string): string | undefined {
