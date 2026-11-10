@@ -37,3 +37,16 @@ test('tasks create, list --ready and show plan a graph; an unknown dep writes no
   expect((await mesa('tasks', 'show', 't-nope', '--json')).json.error.code).toBe('not_found');
   expect((await mesa('help', '--agent')).stdout).toContain('mesa tasks create');
 });
+
+test('tasks cancel takes a waiting task and retry brings it back', async () => {
+  await mesa('init', '--vault', 'vault');
+  const a = (await mesa('tasks', 'create', 'Parse', '--json')).json.data;
+  const b = (await mesa('tasks', 'create', 'Chart', '--deps', a.id, '--json')).json.data;
+  expect((await mesa('tasks', 'cancel', b.id, '--json')).json.data.state).toBe('cancelled');
+  expect((await mesa('tasks', 'cancel', b.id, '--json')).json.error.message).toBe(
+    `cancel takes a pending or ready task; ${b.id} is cancelled`,
+  );
+  expect((await mesa('tasks', 'retry', b.id, '--json')).json.data.state).toBe('pending');
+  expect((await mesa('tasks', 'show', b.id)).stdout).toContain(`held by ${a.id}`);
+  expect((await mesa('tasks', 'retry', a.id, '--json')).code).toBe(2);
+});
