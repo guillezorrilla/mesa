@@ -40,6 +40,8 @@ export type ProfilePaths = {
   notifications: string;
   /** Each PR's comment verdicts from its review rounds (CONTEXT.md, Comment verdict). */
   prs: string;
+  /** How the person writes review comments (CONTEXT.md, Review voice). */
+  prVoice: string;
   /** The PR events forwarded into sessions, so each is sent once (CONTEXT.md, PR event). */
   prEvents: string;
   /** What the Board wants a decision model to place, and its replies (decisions/supervision). */
@@ -91,6 +93,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     usage: join(root, 'usage.json'),
     notifications: join(root, 'notifications.json'),
     prs: join(root, 'prs'),
+    prVoice: join(root, 'prs', 'voice.md'),
     prEvents: join(root, 'pr-events.json'),
     placements: join(root, 'placements.json'),
     prompts: join(root, 'prompts.json'),

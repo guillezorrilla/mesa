@@ -515,4 +515,7 @@ test('prs voice shows the profile file review sessions write in, or how to set o
   writeFileSync(path, 'Short questions, one or two sentences.\n');
   const set = await cli.mesa('prs', 'voice', '--json');
   expect(set.json.data).toEqual({ path, text: 'Short questions, one or two sentences.' });
+  expect((await cli.mesa('prs', 'voice')).stdout).toContain(
+    `${path}\n\nShort questions, one or two sentences.`,
+  );
 });

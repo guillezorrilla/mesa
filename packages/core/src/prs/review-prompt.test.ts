@@ -1,5 +1,8 @@
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { reviewPrompt } from './review-prompt.js';
+import { tempDir } from '../testing/tmp.js';
+import { reviewGoal, reviewPrompt } from './review-prompt.js';
 
 test('a review asks for /code-review on the PR, the reuse axis too, and its scored findings as drafts', () => {
   const prompt = reviewPrompt({ number: 36, mode: 'drafts', rereview: false });
@@ -42,4 +45,12 @@ test("the person's Review voice goes in after the draft lines, and the guard sta
     expect(reviewPrompt({ number: 36, mode: 'post', rereview: true, voice: none })).not.toContain(
       'voice',
     );
+});
+
+test("a review's goal reads the Review voice from the profile file, and is the plain prompt without one", () => {
+  const file = join(tempDir(), 'voice.md');
+  const input = { number: 36, mode: 'drafts', rereview: false } as const;
+  expect(reviewGoal(file, input)).toBe(reviewPrompt(input));
+  writeFileSync(file, 'Short questions.\n');
+  expect(reviewGoal(file, input)).toBe(reviewPrompt({ ...input, voice: 'Short questions.' }));
 });

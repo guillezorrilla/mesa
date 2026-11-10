@@ -180,7 +180,7 @@ export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open' 
     },
 
     /** The profile's Review voice (mesa prs voice): its file, and its text when set. */
-    voice: () => reviewVoice(ctx.paths.prs),
+    voice: () => reviewVoice(ctx.paths.prVoice),
 
     /** My Pending drafts on the PR (mesa prs drafts). */
     drafts: async (project: string, number: number) => (await show(project, number)).drafts,

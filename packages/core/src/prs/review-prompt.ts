@@ -1,5 +1,6 @@
 import type { SessionReview } from '../sessions/record/record.js';
 import { DRAFT_BAR } from './reader.js';
+import { type ReviewVoice, reviewVoice } from './voice.js';
 
 export type ReviewPromptInput = {
   number: number;
@@ -7,7 +8,7 @@ export type ReviewPromptInput = {
   /** A later round with my earlier threads on the PR, whose verdicts it records. */
   rereview: boolean;
   /** The person's Review voice, their own text, when the profile has one. */
-  voice?: string | null;
+  voice?: ReviewVoice['text'];
 };
 
 /**
@@ -32,4 +33,9 @@ export function reviewPrompt({ number, mode, rereview, voice }: ReviewPromptInpu
     ...(mode === 'post' ? [`Then submit them with \`mesa prs publish ${number}\`.`] : []),
     'Comment only through these commands; never approve or merge.',
   ].join('\n');
+}
+
+/** The goal a review session starts with: the prompt, in the Review voice kept at `voiceFile` when set. */
+export function reviewGoal(voiceFile: string, input: Omit<ReviewPromptInput, 'voice'>): string {
+  return reviewPrompt({ ...input, voice: reviewVoice(voiceFile).text });
 }

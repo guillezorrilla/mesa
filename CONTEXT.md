@@ -344,7 +344,7 @@ Not: a posted comment, a vault draft.
 ## Review voice
 
 How the person writes review comments (tone, length, how a suggestion is phrased, what is never said), kept as their own text in the profile at `prs/voice.md`, never in a repo. When it exists, a review session's goal carries it and the session writes every draft that way; `mesa prs voice` and Settings > Sessions > PR reviews show the file and whether it is set. Mesa ships none.
-Not: Craver's brand voice, the agent's own style.
+Not: a product's brand voice, the agent's own style.
 
 ## Comment verdict
 
