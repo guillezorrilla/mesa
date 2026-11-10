@@ -20,7 +20,7 @@ import { DecisionAssistancePanel } from './DecisionAssistancePanel';
 import { DecisionDeliveryField } from './DecisionDeliveryField';
 import { useDecisionDelivery } from './useDecisionDelivery';
 import { VaultCaptureField } from './VaultCaptureField';
-import { WorkerQuestionsField } from './WorkerQuestionsField';
+import { WorkerQuestionsPanel } from './WorkerQuestionsPanel';
 
 /** A configuration status as `state: reason`, once the details are read. */
 const statusText = (status?: InstructionStatus) =>
@@ -154,7 +154,7 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
               <>
                 <dt className="text-muted-foreground">Questions</dt>
                 <dd>
-                  <WorkerQuestionsField session={row.id} />
+                  <WorkerQuestionsPanel session={row.id} />
                 </dd>
               </>
             )}

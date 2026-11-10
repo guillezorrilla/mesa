@@ -1,32 +1,27 @@
-import type { Question } from '@mesa/core';
 import { Send } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useCall, useRun } from '@/lib/useCommand';
+import { useCommand, useRun } from '@/lib/useCommand';
 
 /**
  * The open questions a session's workers asked it (`mesa report question`), each with a reply
  * box; Send answers through `mesa reports reply`, and the question leaves the list.
  */
-export function WorkerQuestionsField(props: { session: string }) {
-  const call = useCall();
+export function WorkerQuestionsPanel(props: { session: string }) {
   const run = useRun();
-  const [questions, setQuestions] = useState<Question[]>();
+  const read = useCommand('reports.questions', { session: props.session });
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [sending, setSending] = useState<string>();
-  useEffect(() => {
-    void call('reports.questions', { session: props.session }).then((result) =>
-      setQuestions(result.ok ? result.data.questions : []),
-    );
-  }, [call, props.session]);
-  if (!questions) return <>Reading</>;
+  const questions = read.data?.questions;
+  if (!questions) return <>{read.error ? 'Could not read them' : 'Reading'}</>;
   if (!questions.length) return <>None open</>;
   const reply = async (id: string) => {
     setSending(id);
     const done = await run('reports.reply', { question: id, answer: answers[id] ?? '' });
     setSending(undefined);
-    if (done) setQuestions((all) => all?.filter((q) => q.id !== id));
+    if (done)
+      read.mutate((list) => ({ ...list, questions: list.questions.filter((q) => q.id !== id) }));
   };
   return (
     <ul data-testid="session-worker-questions" className="grid gap-2">

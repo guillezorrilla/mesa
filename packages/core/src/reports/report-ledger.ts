@@ -74,14 +74,38 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
         },
         result: undefined,
       })),
-    /** Marks question `id` answered, unless another answer came first: the question after. */
+    /**
+     * Claims question `id` for one answer: marks it answered and takes its report off the pending
+     * ones, so nobody is asked to answer it again. None when it is gone or another answer came
+     * first; the claim, with the report it took, for `reopen`.
+     */
     answer: (id: string, answer: Pick<Question, 'answer' | 'answeredAt' | 'answeredBy'>) =>
       change((state) => {
         const found = state.questions.find((q) => q.id === id);
-        if (!found || found.answeredAt) return { next: state, result: found };
-        const answered = { ...found, ...answer };
-        const questions = state.questions.map((q) => (q.id === id ? answered : q));
-        return { next: { ...state, questions }, result: answered };
+        if (!found || found.answeredAt) return { next: state, result: undefined };
+        const question = { ...found, ...answer };
+        const report = state.pending.find((r) => r.question === id);
+        return {
+          next: {
+            ...state,
+            questions: state.questions.map((q) => (q.id === id ? question : q)),
+            pending: state.pending.filter((r) => r.question !== id),
+          },
+          result: { question, report },
+        };
+      }),
+    /** Opens a claimed question again, with its report, when its answer could not be typed. */
+    reopen: (claim: { question: Question; report?: ChildReport }) =>
+      change((state) => {
+        const { answer: _a, answeredAt: _at, answeredBy: _by, ...open } = claim.question;
+        return {
+          next: {
+            ...state,
+            questions: state.questions.map((q) => (q.id === open.id ? open : q)),
+            pending: claim.report ? addReport(state.pending, claim.report) : state.pending,
+          },
+          result: undefined,
+        };
       }),
     /** `child`'s newest explicit report, delivered or not. */
     explicit: (child: string): ChildReport | undefined => readJson(file, State)?.explicit[child],

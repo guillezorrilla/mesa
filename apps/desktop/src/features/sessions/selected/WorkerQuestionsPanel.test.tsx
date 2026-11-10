@@ -2,7 +2,7 @@
 import type { Question } from '@mesa/core';
 import { expect, test } from 'vitest';
 import { click, envelope, fakeBridge, fill, renderWithMesa } from '@/lib/testing';
-import { WorkerQuestionsField } from './WorkerQuestionsField';
+import { WorkerQuestionsPanel } from './WorkerQuestionsPanel';
 
 const question = (id: string, text: string): Question => ({
   id,
@@ -23,7 +23,7 @@ test("a parent's open worker questions each have a reply box; Send answers it an
       return envelope({ question: { ...question(id ?? '', ''), answer: args.at(-1) } });
     },
   });
-  const byTestId = await renderWithMesa(<WorkerQuestionsField session="aaaaaaaa" />, bridge);
+  const byTestId = await renderWithMesa(<WorkerQuestionsPanel session="aaaaaaaa" />, bridge);
   const list = byTestId('session-worker-questions')[0];
   expect(list?.textContent).toContain('tide-charts');
   expect(list?.textContent).toContain('Metres or feet?');

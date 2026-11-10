@@ -359,7 +359,9 @@ test('an explicit report is refused, writing nothing, outside a window, without 
   expect(() => outside.report('done', 'x')).toThrow(/no Mesa window/);
   expect(() => inside(f, parent.id).report('done', 'x')).toThrow(/has no parent/);
   expect(() => inside(f, child.id).report('done', '  ')).toThrow(MesaError);
-  expect(() => inside(f, child.id).report('maybe', 'x')).toThrow(/done, failed, blocked/);
+  expect(() => inside(f, child.id).report('maybe', 'x')).toThrow(
+    /done, failed, blocked or question/,
+  );
   expect(service.list().reports).toEqual([]);
 });
 
@@ -432,6 +434,7 @@ test('a reply types the answer into the worker and closes the question; others a
   refuseWith(new MesaError('usage', 'the pane runs a shell'));
   await expect(service.reply(asked.id, 'Metres')).rejects.toMatchObject({ code: 'usage' });
   expect(service.list().questions).toHaveLength(1);
+  expect(service.list().reports.filter((r) => r.question === asked.id)).toHaveLength(1);
   refuseWith(undefined);
   // From a window, only the question's parent answers it.
   await expect(inside(f, child.id).reply(asked.id, 'Feet')).rejects.toThrow(/only it, or a person/);
@@ -449,6 +452,8 @@ test('a reply types the answer into the worker and closes the question; others a
   ]);
   expect(question).toMatchObject({ answer: 'Metres', answeredBy: parent.id });
   expect(service.list().questions).toEqual([]);
+  // Answered, its report is no longer pending: nobody is asked to answer it again.
+  expect(service.list().reports.some((r) => r.question === asked.id)).toBe(false);
   await expect(service.reply(asked.id, 'Feet')).rejects.toMatchObject({ code: 'usage' });
   await expect(service.reply('q-zzzz', 'Feet')).rejects.toMatchObject({ code: 'not_found' });
   // A person outside a window may answer.

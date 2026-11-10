@@ -74,7 +74,10 @@ export function reportsService(
      */
     report: (kind: string, text: string, files: readonly string[] = []): ChildReport => {
       if (!isExplicitKind(kind))
-        throw new MesaError('usage', `report ${EXPLICIT_KINDS.join(', ')}, not ${kind}`);
+        throw new MesaError(
+          'usage',
+          `report ${EXPLICIT_KINDS.join(', ')} or question, not ${kind}`,
+        );
       const child = reportingChild();
       if (!text.trim()) throw new MesaError('usage', 'say what you did, found, and left');
       const report = explicitReport(child, kind, text, ctx.clock().toISOString(), files);
@@ -116,17 +119,21 @@ export function reportsService(
           'usage',
           `question ${id} is for session ${asked.parent}; only it, or a person, answers it`,
         );
-      const sent = await deps.send(
-        asked.child,
-        `[mesa] answer to your question ${id}:\n${answer}`,
-        {},
-      );
-      const answered = ledger.answer(id, {
+      // Claimed first, under the lock, so two replies never both reach the worker.
+      const claim = ledger.answer(id, {
         answer,
         answeredAt: ctx.clock().toISOString(),
         answeredBy: caller.session?.id ?? 'person',
       });
-      return { question: answered ?? asked, sent: sent.result, receipt: sent.receipt };
+      if (!claim) throw new MesaError('usage', `question ${id} was answered meanwhile`);
+      try {
+        const prompt = `[mesa] answer to your question ${id}:\n${answer}`;
+        const sent = await deps.send(asked.child, prompt, {});
+        return { question: claim.question, sent: sent.result, receipt: sent.receipt };
+      } catch (error) {
+        ledger.reopen(claim);
+        throw error;
+      }
     },
     /**
      * The pending reports and open questions, every parent's or `parent`'s, oldest first; sends
