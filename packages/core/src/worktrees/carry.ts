@@ -1,4 +1,4 @@
-import { cpSync, lstatSync, readdirSync, realpathSync, rmSync } from 'node:fs';
+import { cpSync, lstatSync, readdirSync, realpathSync, rmSync, statSync } from 'node:fs';
 import { isAbsolute, join, relative } from 'node:path';
 import { createCheckedFilePath } from '../files/path.js';
 import { gitCommand } from '../git/command.js';
@@ -16,6 +16,8 @@ type Budget = typeof CARRY_BUDGET;
 
 // A clone of a large node_modules is quick, but not instant.
 const CLONE_MS = 120_000;
+// A hung mount must not stall the worktree.
+const PROBE_MS = 5_000;
 
 /**
  * Copies each ignored, untracked file or folder in `entries` from `repo` into the new `worktree`,
@@ -33,12 +35,14 @@ export async function carryEntries(
   // Every entry is checked first, so one unsafe after a stop is still refused.
   const sources: string[] = [];
   for (const entry of entries) sources.push(await carrySource(run, repo, worktree, entry));
+  const clone = entries.length > 0 && (await sameApfsVolume(run, repo, worktree));
   const left = { ...budget };
   for (const [index, entry] of entries.entries()) {
     const source = sources[index] as string;
     const over = await carryEntry(run, source, () => createCheckedFilePath(worktree, entry), {
       left,
       budget,
+      clone,
     });
     if (over) {
       const rest = entries.length - index - 1;
@@ -70,6 +74,19 @@ async function carrySource(run: Runner, repo: string, worktree: string, entry: s
   return source;
 }
 
+/**
+ * Whether `repo` and `worktree` are on one APFS volume, where `cp -c` clones. Off it, GNU `cp -c`
+ * can succeed as a plain copy, which must not be charged as a clone. A failed probe says no.
+ */
+async function sameApfsVolume(run: Runner, repo: string, worktree: string) {
+  if (statSync(repo).dev !== statSync(worktree).dev) return false;
+  const df = await run('/bin/df', ['-P', repo], PROBE_MS);
+  const device = df.ok ? df.stdout.trim().split('\n')[1]?.trim().split(/\s+/)[0] : undefined;
+  if (!device) return false;
+  const info = await run('/usr/sbin/diskutil', ['info', '-plist', device], PROBE_MS);
+  return info.ok && /<key>FilesystemType<\/key>\s*<string>apfs<\/string>/.test(info.stdout);
+}
+
 /** `n` of a limit, as the warning names it. */
 const limit = (n: number, unit: 'entries' | 'bytes') =>
   unit === 'entries'
@@ -95,26 +112,30 @@ function measure(source: string, cap: number) {
 
 /**
  * Carries `source` to `target()` within what is `left` of `budget`, taking its share, or says
- * which limit it passes and takes nothing. A clone that times out is removed and named, as a
- * second, slower copy would only take longer.
+ * which limit it passes and takes nothing. With `clone` it tries an APFS clone first; one that
+ * times out is removed and named, as a second, slower copy would only take longer.
  */
 async function carryEntry(
   run: Runner,
   source: string,
   target: () => string,
-  { left, budget }: { left: Budget; budget: Budget },
+  { left, budget, clone }: { left: Budget; budget: Budget; clone: boolean },
 ) {
-  const size = measure(source, left.cloneEntries);
-  if (!size) return `the carry would pass ${limit(budget.cloneEntries, 'entries')}`;
+  const size = measure(source, clone ? left.cloneEntries : left.entries);
+  if (!size)
+    return clone
+      ? `the carry would pass ${limit(budget.cloneEntries, 'entries')}`
+      : `a plain copy would pass ${limit(budget.entries, 'entries')}`;
   const to = target();
-  // shortcut: no APFS probe; cp -c fails off APFS (or off macOS), and the plain copy takes over.
-  const cloned = await run('/bin/cp', ['-c', '-R', '-n', source, to], CLONE_MS);
-  if (cloned.ok) {
-    left.cloneEntries -= size.entries;
-    return undefined;
+  if (clone) {
+    const cloned = await run('/bin/cp', ['-c', '-R', '-n', source, to], CLONE_MS);
+    if (cloned.ok) {
+      left.cloneEntries -= size.entries;
+      return undefined;
+    }
+    rmSync(to, { recursive: true, force: true });
+    if (cloned.reason === 'timeout') return `the copy took over ${CLONE_MS / 1000} s`;
   }
-  rmSync(to, { recursive: true, force: true });
-  if (cloned.reason === 'timeout') return `the copy took over ${CLONE_MS / 1000} s`;
   if (size.entries > left.entries)
     return `a plain copy would pass ${limit(budget.entries, 'entries')}`;
   if (size.bytes > left.bytes) return `a plain copy would pass ${limit(budget.bytes, 'bytes')}`;

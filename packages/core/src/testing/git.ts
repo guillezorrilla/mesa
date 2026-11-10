@@ -5,14 +5,17 @@ import type { Runner } from '../lib/process.js';
 import { profilePaths } from '../profile/paths.js';
 import { testEnv, testRunner } from './env.js';
 
+/** The real binaries a worktree's carry probes the volume and clones with. */
+const CARRY_BINARIES = ['/bin/df', '/usr/sbin/diskutil', '/bin/cp'];
+
 /**
- * `run` with the real git in it, and the real `/bin/cp` a worktree's carry clones with, for the
- * temp repositories; the rest stays as `run` answers.
+ * `run` with the real git in it, and the real binaries a worktree's carry runs, for the temp
+ * repositories; the rest stays as `run` answers.
  */
 export const withRealGit =
   (run: Runner): Runner =>
   (file, args, ms, options) =>
-    file === 'git' || file === '/bin/cp'
+    file === 'git' || CARRY_BINARIES.includes(file)
       ? testRunner(file, args, ms, options)
       : run(file, args, ms, options);
 
