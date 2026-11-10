@@ -1,25 +1,27 @@
+import { z } from 'zod';
 import { AGENT_FENCE as FENCE, short } from '../lib/untrusted-text.js';
 import { hookItem } from '../notifications/inbox-items.js';
 import { sessionTitle } from '../sessions/record/labels.js';
 import type { SessionRecord } from '../sessions/record/record.js';
-import type { SessionState } from '../sessions/record/states.js';
+import { SESSION_STATES } from '../sessions/record/states.js';
 import type { HookEvent } from '../sessions/signals/hook-events.js';
 
 /**
  * A child session's news for its parent (CONTEXT.md, Child report): its turn `finished` (with the
  * last reply), it is `waiting` on a person (the tool only), or it `ended` (its final state).
  */
-export type ChildReport = {
-  id: string;
-  parent: string;
-  child: string;
-  childName: string;
-  kind: 'finished' | 'waiting' | 'ended';
-  at: string;
-  message?: string;
-  tool?: string;
-  state?: SessionState;
-};
+export const ChildReportSchema = z.object({
+  id: z.string(),
+  parent: z.string(),
+  child: z.string(),
+  childName: z.string(),
+  kind: z.enum(['finished', 'waiting', 'ended']),
+  at: z.string(),
+  message: z.string().optional(),
+  tool: z.string().optional(),
+  state: z.enum(SESSION_STATES).optional(),
+});
+export type ChildReport = z.infer<typeof ChildReportSchema>;
 
 /** How much of a child's last reply a report keeps; `mesa review responses` has all of it. */
 const MESSAGE_CHARS = 2_000;
@@ -67,16 +69,20 @@ export const endedReport = (child: SessionRecord & { parent: string; endedAt: st
   }) satisfies ChildReport;
 
 /**
- * `pending` with `report` added: a child's newer report replaces its older one of the same kind,
- * and any older `waiting` one, since the child has moved on.
+ * `pending` with `report` added, keeping each child's newest of a kind: a newer report replaces the
+ * child's older one of the same kind, and any older `waiting` one, since the child has moved on;
+ * a report older than one it would replace (a claimed report given back late) is dropped.
  */
 export function addReport(pending: readonly ChildReport[], report: ChildReport): ChildReport[] {
-  if (pending.some((kept) => kept.id === report.id)) return [...pending];
-  const superseded = (kept: ChildReport) =>
-    kept.child === report.child &&
-    kept.at <= report.at &&
-    (kept.kind === report.kind || kept.kind === 'waiting');
-  return [...pending.filter((kept) => !superseded(kept)), report];
+  const replaces = (newer: ChildReport, older: ChildReport) =>
+    newer.child === older.child &&
+    older.at <= newer.at &&
+    (older.kind === newer.kind || older.kind === 'waiting');
+  if (
+    pending.some((kept) => kept.id === report.id || (kept.at > report.at && replaces(kept, report)))
+  )
+    return [...pending];
+  return [...pending.filter((kept) => !replaces(report, kept)), report];
 }
 
 function reportLines(report: ChildReport): string[] {

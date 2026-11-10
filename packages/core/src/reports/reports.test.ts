@@ -38,14 +38,19 @@ const placed = (state: 'idle' | 'working', confidence: number): Decision => ({
 });
 
 /** A board row for `record`, live, in `state` as Faro placed it. */
-const rowOf = (record: SessionRecord, state: 'idle' | 'working', confidence = 0.95) =>
+const rowOf = (
+  record: SessionRecord,
+  state: 'idle' | 'working',
+  confidence = 0.95,
+  shown: string = state,
+) =>
   ({
     ...record,
     managed: true,
     alive: true,
     runningSeconds: 60,
     children: [],
-    lastState: { state, confidence, at: START, source: 'faro' },
+    lastState: { state: shown, confidence, at: START, source: 'faro' },
     decision: placed(state, confidence),
   }) as unknown as ManagedRow;
 
@@ -135,8 +140,8 @@ test("a child's finished turn, wait, and end become reports for its parent; a su
   ]);
 });
 
-test('turning reports on reports no history, and a report goes when its parent ends', () => {
-  const { store, parent, hook, service } = family();
+test('turning reports on reports no history, and while off nothing is collected', () => {
+  const { mesa, hook, service } = family();
   hook('Stop', { last_assistant_message: 'old news' });
   // The first look starts reports at the clock (12:00:00); the hook above wrote 12:00:01.
   expect(service.list().reports).toHaveLength(1);
@@ -144,7 +149,45 @@ test('turning reports on reports no history, and a report goes when its parent e
   const later = family('2026-09-24T13:00:00.000Z');
   later.hook('Stop', { last_assistant_message: 'history' });
   expect(later.service.list().reports).toEqual([]);
+  // Off, listing reads what was pending and collects nothing new.
+  mesa.config.set('sessions.childReports', 'false');
+  hook('PermissionRequest', { tool_name: 'Bash' });
+  expect(service.list()).toMatchObject({ enabled: false, reports: [{ kind: 'finished' }] });
+  mesa.config.set('sessions.childReports', 'true');
+  expect(service.list().reports.map((r) => r.kind)).toEqual(['finished', 'waiting']);
+});
+
+test("a child's newer turn replaces its older one, even one given back late", async () => {
+  const { hook, service } = family();
+  service.list();
+  hook('Stop', { last_assistant_message: 'first' });
+  hook('Stop', { last_assistant_message: 'second' });
+  const [newest] = service.list().reports;
+  expect(service.list().reports.map((r) => r.message)).toEqual(['second']);
+  const older = {
+    ...newest,
+    id: 'older',
+    at: '2026-09-24T12:00:00.500Z',
+    message: 'zero',
+  } as ChildReport;
+  expect(addReport([newest as ChildReport], older)).toEqual([newest]);
+});
+
+test('an ended or waiting parent keeps its reports and says why; a removed one drops them', async () => {
+  const { store, parent, hook, service, setBoard } = family();
+  service.list();
+  hook('Stop', { last_assistant_message: 'done here' });
+  setBoard([rowOf(parent, 'idle', 0.95, 'waiting-permission')]);
+  expect((await service.deliver()).deliveries).toMatchObject([
+    { session: parent.id, status: 'waiting', state: 'waiting-permission' },
+  ]);
   store.update(parent.id, (r) => ({ ...r, endedAt: '2026-09-24T12:30:00.000Z' }));
+  setBoard([]);
+  expect((await service.deliver()).deliveries).toMatchObject([
+    { session: parent.id, status: 'waiting', reason: expect.stringContaining('is over') },
+  ]);
+  expect(service.list().reports).toHaveLength(1);
+  store.remove(parent.id);
   expect(service.list().reports).toEqual([]);
 });
 

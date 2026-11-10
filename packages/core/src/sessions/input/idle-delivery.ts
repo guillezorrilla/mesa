@@ -5,7 +5,7 @@ import { MesaError, toFail } from '../../lib/result.js';
 import type { Recorded } from '../../receipts/recorder.js';
 import type { ManagedRow } from '../board/rows.js';
 import type { SessionState } from '../record/states.js';
-import type { Sent } from './send.js';
+import { type Sent, typedNothing } from './send.js';
 
 // Typing Mesa's own news (PR events, child reports) into a session only while it is idle, with a
 // decision receipt holding Faro's placement: the one owner of that rule.
@@ -80,16 +80,6 @@ export function idlePlacement(
     },
   };
 }
-
-/** Whether a refused send typed nothing, so what it carried can wait for another pass. */
-const typedNothing = (error: unknown) =>
-  error instanceof MesaError &&
-  (error.code === 'usage' ||
-    (error.code === 'not_found' &&
-      typeof error.details === 'object' &&
-      error.details !== null &&
-      'safeNoSend' in error.details &&
-      error.details.safeNoSend === true));
 
 /**
  * Types `prompt` into an idle session as from Mesa (no sender header), keeping a decision receipt

@@ -178,3 +178,13 @@ export async function sendPrompt(
       : {}),
   };
 }
+
+/** Whether a refused send typed nothing, so what it carried can be sent again. */
+export const typedNothing = (error: unknown) =>
+  error instanceof MesaError &&
+  (error.code === 'usage' ||
+    (error.code === 'not_found' &&
+      typeof error.details === 'object' &&
+      error.details !== null &&
+      'safeNoSend' in error.details &&
+      error.details.safeNoSend === true));

@@ -4,7 +4,7 @@ import { MesaError } from '../../lib/result.js';
 import type { Recorded } from '../../receipts/recorder.js';
 import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
-import type { Sent } from './send.js';
+import { type Sent, typedNothing } from './send.js';
 
 export type SavedReview = Extract<SessionRecord['events'][number], { type: 'review' }>;
 export type ReviewPreview = {
@@ -121,14 +121,7 @@ export async function sendReview(
     delivery = await deps.send(id, checked.prompt, opts);
   } catch (error) {
     const safe =
-      error instanceof MesaError &&
-      (error.code === 'guardrail_blocked' ||
-        error.code === 'usage' ||
-        (error.code === 'not_found' &&
-          typeof error.details === 'object' &&
-          error.details !== null &&
-          'safeNoSend' in error.details &&
-          error.details.safeNoSend === true));
+      (error instanceof MesaError && error.code === 'guardrail_blocked') || typedNothing(error);
     const reason = error instanceof Error ? error.message : String(error);
     try {
       setStatus(safe ? 'failed' : 'uncertain', reason);
