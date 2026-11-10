@@ -108,7 +108,8 @@ export async function startRun(deps: RunDeps, input: RunInput) {
   const model = claudeRunModel(input.skill);
   const textOnly = isTextOnlySkill(input.skill);
   const may = {
-    // A text-only run is allowed nothing the profile allows, and asks for nothing (ADR-0013).
+    // A text-only run reads a recipe and patch anyone could have written: it gets none of the
+    // profile's allowed tools, and nothing that edits a file or runs a command (agents.ts).
     ...(textOnly ? { permissionMode: 'default', allowedTools: [] } : deps.profile.config.run),
     // A pipeline skill's output is landed by core (ADR-0006), so its run gets no vault writes.
     readOnlyVault: isPipelineSkill(input.skill),
