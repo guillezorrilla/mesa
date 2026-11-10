@@ -9,6 +9,7 @@ export function codexHookState(event: string): AgentState | undefined {
       return 'idle';
     case 'UserPromptSubmit':
     case 'PostToolUse':
+    case 'StopContinued':
       return 'working';
     case 'PermissionRequest':
       return 'waiting-permission';

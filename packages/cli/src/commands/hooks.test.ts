@@ -708,10 +708,15 @@ test("a parent's Stop answers with its pending child reports as a block, once, a
   const parent = (await mesa('open', 'lantern-cove', '--json')).json.data;
   const child = (await mesa('open', 'lantern-cove', '--parent', parent.id, '--json')).json.data;
   expect((await mesa('reports', '--json')).json.data.reports).toEqual([]);
-  const stop = async (id: string, agentSessionId: string, extra: Record<string, unknown> = {}) => {
+  const stop = async (
+    id: string,
+    agentSessionId: string,
+    extra: Record<string, unknown> = {},
+    flags = ['--continues'],
+  ) => {
     cli.env = { MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
     cli.stdin = JSON.stringify({ session_id: agentSessionId, hook_event_name: 'Stop', ...extra });
-    const ran = await mesa('hook', 'claude');
+    const ran = await mesa('hook', 'claude', ...flags);
     cli.env = {};
     return ran.stdout.trim();
   };
@@ -722,10 +727,19 @@ test("a parent's Stop answers with its pending child reports as a block, once, a
   ).toBe('');
   // A Stop that already continues a blocked turn never blocks again.
   expect(await stop(parent.id, parent.agentSessionId, { stop_hook_active: true })).toBe('');
+  // A Stop hook an older mesa installed drops stdout: nothing is claimed for nothing.
+  expect(await stop(parent.id, parent.agentSessionId, {}, [])).toBe('');
+  expect((await mesa('reports', '--json')).json.data.reports).toHaveLength(1);
   const answer = JSON.parse(await stop(parent.id, parent.agentSessionId));
   expect(answer.decision).toBe('block');
   expect(answer.reason).toContain(`- ${child.id} (`);
   expect(answer.reason).toContain('Tide tables parsed.');
   expect((await mesa('reports', '--json')).json.data.reports).toEqual([]);
+  // The turn goes on: the parent's log says so after the Stop, so it reads working, not idle.
+  const log = readFileSync(join(cli.paths.events, `${parent.id}.jsonl`), 'utf8')
+    .trim()
+    .split('\n');
+  expect(JSON.parse(log.at(-1) ?? '{}').event).toBe('StopContinued');
+  expect((await mesa('show', parent.id, '--json')).json.data.lastState.state).toBe('working');
   expect(await stop(parent.id, parent.agentSessionId)).toBe('');
 });

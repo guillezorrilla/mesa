@@ -102,7 +102,7 @@ test('the hook is a no-op outside a Mesa session, silent, and never fails its ca
     `[ -z "$MESA_SESSION_ID" ] || '/a b/node' '/it'\\''s/mesa.js' hook claude >/dev/null 2>&1 || true`,
   );
   expect(hookCommand(SELF, 'SessionStart')).toContain('hook claude 2>/dev/null || true');
-  expect(hookCommand(SELF, 'Stop')).toContain('hook claude 2>/dev/null || true');
+  expect(hookCommand(SELF, 'Stop')).toContain('hook claude --continues 2>/dev/null || true');
 });
 
 test('settings that are not JSON are an error and are left untouched', () => {

@@ -1,6 +1,11 @@
 import { AGENTS } from '../../agents/agents.js';
 import { antigravitySessionId } from '../../agents/antigravity/log.js';
-import { promptContext } from '../../agents/hooks.js';
+import {
+  promptContext,
+  STOP_CONTINUED,
+  stopContinuation,
+  stopHookActive,
+} from '../../agents/hooks.js';
 import type { MesaContext } from '../../context.js';
 import { toFail } from '../../lib/result.js';
 import { readRegistry } from '../../projects/registry.js';
@@ -194,20 +199,22 @@ export function endSignals(
     /**
      * One agent hook's payload, from `mesa hook claude` inside a Mesa session. A Stop, a turn's
      * end, reads the session's context use and starts its Vault capture when one is due
-     * (startCapture: with none due, no transcript is read) and, for an agent whose Stop hook can
-     * go on, answers with the session's pending child reports as a block (reportsAtTurnEnd);
-     * a SessionEnd (not a /clear or a
-     * /resume, which keep the agent running) starts what was queued after it. A SessionStart answers with the pointer, and a
-     * UserPromptSubmit with the prompt's decision advice as `additionalContext`, when there is
-     * any within Mesa's deadline (DecisionAssistance.advise).
+     * (startCapture: with none due, no transcript is read) and, from a hook whose stdout reaches
+     * an agent that can go on (`continues`), answers with the session's pending child reports as
+     * a block (reportsAtTurnEnd), logging StopContinued so the session reads working;
+     * a SessionEnd (not a /clear or a /resume, which keep the agent running) starts what was
+     * queued after it. A SessionStart answers with the pointer, and a UserPromptSubmit with the
+     * prompt's decision advice as `additionalContext`, when there is any within Mesa's deadline (DecisionAssistance.advise).
      */
-    hookEvent: async (agent: string, payload: string) => {
+    hookEvent: async (agent: string, payload: string, opts: { continues?: boolean } = {}) => {
       // When the hook fired: an async hook's node may write after a later event's (#894).
       const fired = () => ctx.processStartedAt ?? clock();
-      const event = recordHookEvent(
-        { store, eventsDir: paths.events, clock: fired, home, secrets: ctx.secretsOrRefuse },
-        { agent, mesaSessionId: windowId(env), payload },
-      );
+      const log = (body: string, at = fired) =>
+        recordHookEvent(
+          { store, eventsDir: paths.events, clock: at, home, secrets: ctx.secretsOrRefuse },
+          { agent, mesaSessionId: windowId(env), payload: body },
+        );
+      const event = log(payload);
       const id = event?.mesaSessionId;
       // A turn ended: its reply's usage is in the transcript. A hook still logs without a record.
       const ended = event?.event === 'Stop' && id && parentHook(event) ? store.find(id) : undefined;
@@ -216,9 +223,16 @@ export function endSignals(
       const turned = event?.event === 'Stop' ? owner(event) : undefined;
       if (turned) await deps.capture(turned.id);
       // A parent's turn ended with child reports pending: its agent goes on with them as input.
-      if (turned && event && AGENTS[event.agent].stopContinues && !stopHookActive(event?.payload)) {
+      const continues = opts.continues && event && AGENTS[event.agent].stopContinues;
+      if (turned && continues && !stopHookActive(event.payload)) {
         const reason = await deps.reports(turned.id).catch(() => undefined);
-        if (reason) return { ...event, instruction: JSON.stringify({ decision: 'block', reason }) };
+        if (reason) {
+          log(
+            JSON.stringify({ ...(event.payload as object), hook_event_name: STOP_CONTINUED }),
+            clock,
+          );
+          return { ...event, instruction: stopContinuation(reason) };
+        }
       }
       const state =
         event && parentHook(event) && AGENTS[event.agent].hookState?.(event.event, event.payload);
@@ -284,12 +298,6 @@ export function endSignals(
     },
   };
 }
-
-/** Whether a Stop already continues a turn a Stop hook blocked, so it must not block again. */
-const stopHookActive = (payload: unknown) =>
-  typeof payload === 'object' && payload !== null && 'stop_hook_active' in payload
-    ? payload.stop_hook_active === true
-    : false;
 
 /** The prompt a UserPromptSubmit payload carries (Claude Code and Codex name it `prompt`). */
 function promptOf(payload: string): string | undefined {

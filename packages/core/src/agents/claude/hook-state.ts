@@ -16,6 +16,7 @@ export function claudeHookState(event: string, payload?: unknown): AgentState | 
       return 'idle';
     case 'UserPromptSubmit':
     case 'PostToolUse':
+    case 'StopContinued':
       return 'working';
     case 'PermissionRequest':
       return question ? 'waiting-question' : 'waiting-permission';

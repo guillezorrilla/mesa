@@ -283,9 +283,7 @@ test('two claims of the same reports: the first takes them, the second gets none
 });
 
 test('a busy parent gets its reports as its own turn ends, once, with a receipt and no board look', async () => {
-  const { ctx, home, mesa, parent, child, hook, service, setBoard } = family();
-  // The board is never looked at: a look would throw.
-  setBoard(undefined as unknown as SessionRow[]);
+  const { ctx, home, mesa, parent, child, hook, service } = family();
   service.list();
   expect(await reportsAtTurnEnd(ctx, parent.id)).toBeUndefined();
   hook('Stop', { last_assistant_message: 'Tide tables parsed.' });

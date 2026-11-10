@@ -19,6 +19,11 @@ export type ReportDelivery = IdleDelivery & { reports: string[] };
 
 export type ReportsDelivered = { deliveries: ReportDelivery[] };
 
+const ledgerOf = (ctx: MesaContext) => reportLedger(ctx.paths.reports, ctx.paths.events, ctx);
+/** Every child's new news, collected into the pending reports, which it returns. */
+const collectAll = (ctx: MesaContext, ledger: ReturnType<typeof ledgerOf>) =>
+  ledger.collect(ctx.store.readable(), ctx.clock().toISOString());
+
 /**
  * Child reports for one profile (CONTEXT.md, Child report): the pending ones, and their delivery
  * into idle parents as one prompt each, through the same idle rule and decision receipt PR events
@@ -33,9 +38,9 @@ export function reportsService(
     send: Send;
   },
 ) {
-  const ledger = reportLedger(ctx.paths.reports, ctx.paths.events, ctx);
+  const ledger = ledgerOf(ctx);
   const enabled = () => ctx.open().config.sessions.childReports;
-  const collect = () => ledger.collect(ctx.store.readable(), ctx.clock().toISOString());
+  const collect = () => collectAll(ctx, ledger);
   return {
     /**
      * The pending reports, every parent's or `parent`'s; sends nothing. Off, it reads what was
@@ -115,10 +120,12 @@ export async function reportsAtTurnEnd(
   ctx: MesaContext,
   parent: string,
 ): Promise<string | undefined> {
+  // A config that does not read is reports off, never a failed hook.
   if (!ctx.configIfAny()?.sessions.childReports) return undefined;
-  const ledger = reportLedger(ctx.paths.reports, ctx.paths.events, ctx);
-  const ids = ledger
-    .collect(ctx.store.readable(), ctx.clock().toISOString())
+  // A session no child names has nothing to collect: most Stops end here.
+  if (!ctx.store.readable().some((r) => r.parent === parent)) return undefined;
+  const ledger = ledgerOf(ctx);
+  const ids = collectAll(ctx, ledger)
     .filter((r) => r.parent === parent)
     .map((r) => r.id);
   const claimed = ids.length ? ledger.claim(ids) : [];
