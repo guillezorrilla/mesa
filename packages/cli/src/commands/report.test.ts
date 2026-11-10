@@ -52,3 +52,41 @@ test('report from a worker adds a done report for its parent; outside a window i
   });
   expect((await cli.mesa('help', '--agent')).stdout).toContain('mesa report');
 });
+
+test('report question gives an id; reports lists it; reports reply types the answer once', async () => {
+  const tmux = fakeTmux();
+  cli.run = scriptedRunner({ tmux: tmux.answer, claude: CLAUDE_VERSION }).run;
+  await cli.withProject();
+  const parent = (await cli.mesa('open', 'lantern-cove', '--json')).json.data.id as string;
+  const child = (await cli.mesa('open', 'lantern-cove', '--parent', parent, '--json')).json.data
+    .id as string;
+  await cli.mesa('reports', '--json');
+  cli.env = { MESA_SESSION_ID: child, MESA_PROFILE: 'default' };
+  const asked = await cli.mesa(
+    'report',
+    'question',
+    'Use metres or feet for tide heights?',
+    '--json',
+  );
+  expect(asked.code, asked.stdout).toBe(0);
+  const { question } = asked.json.data;
+  expect(question).toMatchObject({ parent, child, text: 'Use metres or feet for tide heights?' });
+  cli.env = {};
+  const listed = (await cli.mesa('reports', '--json')).json.data;
+  expect(listed.questions).toMatchObject([{ id: question.id }]);
+  expect(listed.reports).toMatchObject([{ kind: 'question', question: question.id }]);
+  // From another session's window it is refused; a person outside one answers.
+  cli.env = { MESA_SESSION_ID: child, MESA_PROFILE: 'default' };
+  expect((await cli.mesa('reports', 'reply', question.id, 'Feet', '--json')).code).toBe(2);
+  cli.env = {};
+  const replied = await cli.mesa('reports', 'reply', question.id, 'Metres', '--json');
+  expect(replied.code, replied.stdout).toBe(0);
+  expect(replied.json.data.question).toMatchObject({ answer: 'Metres', answeredBy: 'person' });
+  const typed = tmux.windows.find((w) => w.window === `claude-${child}`)?.typed ?? [];
+  expect(typed.at(-1)).toBe(`[mesa] answer to your question ${question.id}:\nMetres`);
+  expect((await cli.mesa('reports', '--json')).json.data.questions).toEqual([]);
+  expect((await cli.mesa('reports', 'reply', question.id, 'Feet', '--json')).code).toBe(2);
+  expect((await cli.mesa('reports', 'reply', 'q-zzzz', 'Feet', '--json')).json.error.code).toBe(
+    'not_found',
+  );
+});

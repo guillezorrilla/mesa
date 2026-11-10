@@ -3,6 +3,7 @@ import type {
   InboxItem,
   PrEventList,
   PrEventsDelivered,
+  Question,
   ReportList,
   ReportsDelivered,
 } from '@mesa/core';
@@ -33,4 +34,12 @@ export const notificationsCommands = {
   'prEvents.deliver': command<PrEventsDelivered>('pr-events', '--deliver'),
   'reports.list': command<ReportList>('reports'),
   'reports.deliver': command<ReportsDelivered>('reports', '--deliver'),
+  'reports.questions': commandWith<{ session: string }, ReportList>(({ session }) => [
+    'reports',
+    '--',
+    session,
+  ]),
+  'reports.reply': commandWith<{ question: string; answer: string }, { question: Question }>(
+    ({ question, answer }) => ['reports', 'reply', '--', question, answer],
+  ),
 };

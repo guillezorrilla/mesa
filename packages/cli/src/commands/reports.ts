@@ -35,7 +35,20 @@ export const reports = defineCommand({
       text: [
         `child reports: ${data.enabled ? 'on' : 'off (sessions.childReports)'}`,
         ...data.reports.map(line),
+        ...data.questions.map((q) => `${q.parent} <- ${q.child} (${q.childName}) asks ${q.id}`),
       ].join('\n'),
     };
+  },
+});
+
+export const reportsReply = defineCommand({
+  name: 'reports reply',
+  summary:
+    "Answer a worker's question (mesa report question): types the answer into the worker as mesa send does, and marks it answered",
+  args: ['question', 'answer'],
+  example: 'mesa reports reply q-7k2m "Metres"',
+  run: async ({ mesa, args }) => {
+    const data = await mesa.reports.reply(args.question, args.answer);
+    return { data, text: `answered ${data.question.id} in ${data.question.child}` };
   },
 });

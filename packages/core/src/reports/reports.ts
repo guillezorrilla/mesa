@@ -14,22 +14,43 @@ export type ExplicitKind = (typeof EXPLICIT_KINDS)[number];
  * A child session's news for its parent (CONTEXT.md, Child report): its turn `finished` (with the
  * last reply), it is `waiting` on a person (the tool only), or it `ended` (its final state); or
  * what it said of its work itself (`mesa report`): `done`, `failed` (each with its `outcome`), or
- * `blocked` (none: the parent must act), with the files it names.
+ * `blocked` (none: the parent must act), with the files it names; or a `question` it asks its
+ * parent, with an id the answer names.
  */
 export const ChildReportSchema = z.object({
   id: z.string(),
   parent: z.string(),
   child: z.string(),
   childName: z.string(),
-  kind: z.enum(['finished', 'waiting', 'ended', ...EXPLICIT_KINDS]),
+  kind: z.enum(['finished', 'waiting', 'ended', 'question', ...EXPLICIT_KINDS]),
   at: z.string(),
   message: z.string().optional(),
   outcome: z.enum(['succeeded', 'failed']).optional(),
+  /** A `question` report's question id, which its answer names (`mesa reports reply`). */
+  question: z.string().optional(),
   files: z.array(z.string()).optional(),
   tool: z.string().optional(),
   state: z.enum(SESSION_STATES).optional(),
 });
 export type ChildReport = z.infer<typeof ChildReportSchema>;
+
+/**
+ * A worker's question for its parent (`mesa report question`): open until answered with
+ * `mesa reports reply`, which records the answer, when, and who gave it (a session id, or
+ * `person` from outside a Mesa window).
+ */
+export const QuestionSchema = z.object({
+  id: z.string(),
+  parent: z.string(),
+  child: z.string(),
+  childName: z.string(),
+  text: z.string(),
+  at: z.string(),
+  answer: z.string().optional(),
+  answeredAt: z.string().optional(),
+  answeredBy: z.string().optional(),
+});
+export type Question = z.infer<typeof QuestionSchema>;
 
 /** Whether `kind` is one a worker reports itself (`mesa report`). */
 export const isExplicitKind = (kind: string): kind is ExplicitKind =>
@@ -95,6 +116,28 @@ export const explicitReport = (
     ...(files.length ? { files: files.slice(0, MAX_FILES).map((f) => short(f, PATH_CHARS)) } : {}),
   }) satisfies ChildReport;
 
+/** A worker's question, `id`, at `at`, and the report that carries it to the parent. */
+export function questionOf(
+  child: SessionRecord & { parent: string },
+  id: string,
+  text: string,
+  at: string,
+): { question: Question; report: ChildReport } {
+  const question = {
+    id,
+    parent: child.parent,
+    child: child.id,
+    childName: nameOf(child),
+    text: short(text, MESSAGE_CHARS),
+    at,
+  };
+  const { text: message, ...rest } = question;
+  return {
+    question,
+    report: { ...rest, id: `${child.id}:question:${id}`, kind: 'question', message, question: id },
+  };
+}
+
 /** The report a child that ended makes, once. */
 export const endedReport = (child: SessionRecord & { parent: string; endedAt: string }) =>
   ({
@@ -113,7 +156,10 @@ export const endedReport = (child: SessionRecord & { parent: string; endedAt: st
  * a report older than one it would replace (a claimed report given back late) is dropped.
  */
 export function addReport(pending: readonly ChildReport[], report: ChildReport): ChildReport[] {
+  // A question never replaces, and is never replaced: each waits until delivered.
   const replaces = (newer: ChildReport, older: ChildReport) =>
+    newer.kind !== 'question' &&
+    older.kind !== 'question' &&
     newer.child === older.child &&
     older.at <= newer.at &&
     (older.kind === newer.kind ||
@@ -135,6 +181,14 @@ function reportLines(report: ChildReport): string[] {
       `  ${report.message ?? ''}`,
       ...(report.files?.length ? [`  files: ${report.files.join(', ')}`] : []),
       '  ```',
+    ];
+  if (report.kind === 'question')
+    return [
+      `- ${who} asks you question ${report.question}:`,
+      `  \`\`\`${FENCE}`,
+      `  ${report.message ?? ''}`,
+      '  ```',
+      `  Answer it: mesa reports reply ${report.question} "<answer>"`,
     ];
   if (report.kind === 'ended') return [`- ${who} ended (${report.state ?? 'done'}).`];
   if (report.kind === 'waiting') {

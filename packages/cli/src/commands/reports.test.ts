@@ -24,7 +24,11 @@ test("reports lists a child's finished turn for its parent, and --deliver types 
   const parent = (await cli.mesa('open', 'lantern-cove', '--json')).json.data.id as string;
   const child = (await cli.mesa('open', 'lantern-cove', '--parent', parent, '--json')).json.data
     .id as string;
-  expect((await cli.mesa('reports', '--json')).json.data).toEqual({ enabled: true, reports: [] });
+  expect((await cli.mesa('reports', '--json')).json.data).toEqual({
+    enabled: true,
+    reports: [],
+    questions: [],
+  });
 
   hook(child, 'Stop', '2026-09-24T12:00:20.000Z', {
     last_assistant_message: 'Tide tables parsed.',

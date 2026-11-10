@@ -10,6 +10,8 @@ import {
   endedReport,
   eventReport,
   isExplicit,
+  type Question,
+  QuestionSchema,
   reportsToParent,
 } from './reports.js';
 
@@ -31,6 +33,8 @@ const State = z
      * the child's later turns make no `finished` report.
      */
     explicit: z.record(z.string(), ChildReportSchema).default({}),
+    /** Workers' questions, open and answered, oldest first. */
+    questions: z.array(QuestionSchema).default([]),
   })
   .describe('child reports');
 type State = z.infer<typeof State>;
@@ -58,6 +62,51 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
   return {
     /** The pending reports as last collected, read without collecting. */
     pending: (): ChildReport[] => readJson(file, State)?.pending ?? [],
+    /** The questions, open and answered, as last written. */
+    questions: (): Question[] => readJson(file, State)?.questions ?? [],
+    /** Adds a worker's question, and the report that carries it, pending until delivered. */
+    ask: (question: Question, report: ChildReport) =>
+      change((state) => ({
+        next: {
+          ...state,
+          pending: addReport(state.pending, report),
+          questions: [...state.questions, question],
+        },
+        result: undefined,
+      })),
+    /**
+     * Claims question `id` for one answer: marks it answered and takes its report off the pending
+     * ones, so nobody is asked to answer it again. None when it is gone or another answer came
+     * first; the claim, with the report it took, for `reopen`.
+     */
+    answer: (id: string, answer: Pick<Question, 'answer' | 'answeredAt' | 'answeredBy'>) =>
+      change((state) => {
+        const found = state.questions.find((q) => q.id === id);
+        if (!found || found.answeredAt) return { next: state, result: undefined };
+        const question = { ...found, ...answer };
+        const report = state.pending.find((r) => r.question === id);
+        return {
+          next: {
+            ...state,
+            questions: state.questions.map((q) => (q.id === id ? question : q)),
+            pending: state.pending.filter((r) => r.question !== id),
+          },
+          result: { question, report },
+        };
+      }),
+    /** Opens a claimed question again, with its report, when its answer could not be typed. */
+    reopen: (claim: { question: Question; report?: ChildReport }) =>
+      change((state) => {
+        const { answer: _a, answeredAt: _at, answeredBy: _by, ...open } = claim.question;
+        return {
+          next: {
+            ...state,
+            questions: state.questions.map((q) => (q.id === open.id ? open : q)),
+            pending: claim.report ? addReport(state.pending, claim.report) : state.pending,
+          },
+          result: undefined,
+        };
+      }),
     /** `child`'s newest explicit report, delivered or not. */
     explicit: (child: string): ChildReport | undefined => readJson(file, State)?.explicit[child],
     /**
@@ -112,7 +161,11 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
         const explicit = Object.fromEntries(
           Object.entries(state.explicit).filter(([child]) => known.has(child)),
         );
-        return { next: { since, offsets, ended, pending, explicit }, result: pending };
+        const questions = state.questions.filter((q) => known.has(q.parent) && known.has(q.child));
+        return {
+          next: { since, offsets, ended, pending, explicit, questions },
+          result: pending,
+        };
       }),
     /** Takes `ids` off the pending list for one send: those no other process took first. */
     claim: (ids: readonly string[]): ChildReport[] =>

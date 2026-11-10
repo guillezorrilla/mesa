@@ -20,6 +20,7 @@ import { DecisionAssistancePanel } from './DecisionAssistancePanel';
 import { DecisionDeliveryField } from './DecisionDeliveryField';
 import { useDecisionDelivery } from './useDecisionDelivery';
 import { VaultCaptureField } from './VaultCaptureField';
+import { WorkerQuestionsPanel } from './WorkerQuestionsPanel';
 
 /** A configuration status as `state: reason`, once the details are read. */
 const statusText = (status?: InstructionStatus) =>
@@ -146,6 +147,14 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
                   {[record.report.kind, record.report.outcome].filter(Boolean).join(', ')}
                   <Muted> {date(record.report.at)}</Muted>
                   <p className="line-clamp-2">{record.report.message}</p>
+                </dd>
+              </>
+            )}
+            {opened && row.children.length > 0 && (
+              <>
+                <dt className="text-muted-foreground">Questions</dt>
+                <dd>
+                  <WorkerQuestionsPanel session={row.id} />
                 </dd>
               </>
             )}
