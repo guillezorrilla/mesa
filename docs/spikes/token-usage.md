@@ -51,3 +51,17 @@ Session length is the lever. The `mesa-handoff` skill and the Board's context to
 | 550k tokens (55% of 1M) | 16% | about 530 |
 
 The owner chose 200k tokens for both the handoff and amber, with red at 250k, whatever the window size. That change is a separate pull request; this one only records the measurement.
+
+## Step 3: a large-read guard
+
+[Spotify's approach](https://engineering.atspotify.com/2026/9/portal-by-spotify-cut-my-claude-code-token-usage-by-90) blocks a whole-file read over N lines and points the agent at a targeted read or a cheap subagent. Its stated caveats are 10 to 30 s of latency per summary, and no editing or reasoning from a summary. A guard can only save what large reads put into the context. The method: every interactive Claude Code session in the profile whose transcript is still on disk (85), main chain only. Each tool result's characters are counted, then weighted by the number of assistant turns after it, since every later turn re-reads it. Lines are assumed at about 40 characters.
+
+| Tool result | Share of tool-result characters | Share of re-read weight |
+| --- | --- | --- |
+| Bash, all | 53% | 49% |
+| Bash `cat`, `head`, `tail`, `sed -n` | 11% | 8% |
+| Read of a whole file | 4% | 3% |
+| Read of a whole file over 20,000 characters (about 500 lines) | 3% | 3% |
+| `cat`-style Bash output over 20,000 characters | 1% | 1% |
+
+A guard on reads over about 500 lines could remove at most about 4% of the re-read tool-result weight (the last two rows, 2.8% and 0.8% unrounded), and tool results are only part of a session's context. That is too small a cut for the latency and the summary-only reads, so Mesa does not build the guard. The larger share is Bash output in general: test, build and diff output. Results over 10,000 characters are 21% of Bash's result characters, spread over many commands.
