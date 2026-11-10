@@ -31,6 +31,13 @@ export function gitRepo(dir: string) {
   testGit(dir, 'commit', '-q', '-m', 'init');
 }
 
+/** Writes `file` in the checkout `cwd` and commits it. */
+export function commitFile(cwd: string, file: string, text: string) {
+  writeFileSync(join(cwd, file), text);
+  testGit(cwd, 'add', file);
+  testGit(cwd, 'commit', '-q', '-m', `Write ${file}`);
+}
+
 /**
  * A merge in `dir`, a gitRepo, stopped on a conflict: branches `main` and `swell` each change the
  * `lines` lines of `tide.ts`, and `swell` is merged into `main`.

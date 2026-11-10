@@ -1,5 +1,5 @@
 import type { CrewRow } from '@mesa/core';
-import { sendable, sessionTitle, stoppable, timeAgo } from '@mesa/core/browser';
+import { inTurn, sendable, sessionTitle, stoppable, timeAgo } from '@mesa/core/browser';
 import {
   GitBranch,
   GitMerge,
@@ -178,7 +178,7 @@ function CrewMember(props: {
           label={`Merge ${name} into parent`}
           icon={GitMerge}
           size="icon-xs"
-          disabled={props.merging || !row.branch || row.lastState.state === 'working'}
+          disabled={props.merging || !row.branch || inTurn(row)}
           onClick={props.onMerge}
         />
         <IconButton

@@ -4,6 +4,7 @@ import { currentBranch } from '../../git/ref.js';
 import { MesaError } from '../../lib/result.js';
 import { resolveCheckout } from '../../projects/checkout.js';
 import { parentNowOf } from '../record/family.js';
+import { inTurn } from '../record/lifecycle.js';
 import { recordAgent } from '../record/record.js';
 import { workingFolder } from '../signals/readings.js';
 import type { SessionDeps } from './deps.js';
@@ -24,7 +25,7 @@ export function mergeActions(ctx: MesaContext, deps: SessionDeps) {
     /**
      * Merges `child`'s branch into the checkout of `into`, default the session it reports to now
      * (familyOf), with `git merge --no-ff` (mergeBranch), with a receipt. Refused while the child
-     * is working, when either checkout has uncommitted changes, when the two are one checkout or
+     * is in its turn (inTurn), when either checkout has uncommitted changes, when the two are one checkout or
      * of different projects, or when the child's checkout has no branch. A conflict is aborted
      * and named: `merged: false` with its files.
      */
@@ -59,10 +60,10 @@ export function mergeActions(ctx: MesaContext, deps: SessionDeps) {
             );
           const from = workingFolder(deps.contextDeps, child);
           const to = workingFolder(deps.contextDeps, target);
-          if (from.found.lastState.state === 'working')
+          if (inTurn(from.found))
             throw new MesaError(
               'usage',
-              `session ${child} is still working; merge it once its turn ends`,
+              `session ${child} is still in its turn (${from.found.lastState.state}); merge it once its turn ends`,
             );
           if (from.project !== to.project)
             throw new MesaError(

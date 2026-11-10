@@ -1,8 +1,9 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { listReceipts } from '../../receipts/store.js';
 import {
+  commitFile,
   gitRepo,
   newSession,
   projectProfile,
@@ -41,19 +42,14 @@ function family() {
       lastState: idle,
     }),
   );
-  const commit = (cwd: string, file: string, text: string) => {
-    writeFileSync(join(cwd, file), text);
-    testGit(cwd, 'add', file);
-    testGit(cwd, 'commit', '-q', '-m', `Write ${file}`);
-  };
-  return { home, dir, tree, store, lead, worker, mesa, commit };
+  return { home, dir, tree, store, lead, worker, mesa };
 }
 
 const clean = (cwd: string) => testGit(cwd, 'status', '--porcelain');
 
 test("a worker's branch merges into its parent's checkout with a merge commit and a receipt", async () => {
-  const { home, dir, tree, lead, worker, mesa, commit } = family();
-  commit(tree, 'tides.json', '{"high": 6}\n');
+  const { home, dir, tree, lead, worker, mesa } = family();
+  commitFile(tree, 'tides.json', '{"high": 6}\n');
 
   const done = await mesa.sessions.merge(worker.id);
 
@@ -76,9 +72,9 @@ test("a worker's branch merges into its parent's checkout with a merge commit an
 });
 
 test('a conflict is aborted and named, leaving both checkouts as they were', async () => {
-  const { dir, tree, worker, mesa, commit } = family();
-  commit(tree, 'README.md', 'Lantern Cove, the north shore\n');
-  commit(dir, 'README.md', 'Lantern Cove, the south shore\n');
+  const { dir, tree, worker, mesa } = family();
+  commitFile(tree, 'README.md', 'Lantern Cove, the north shore\n');
+  commitFile(dir, 'README.md', 'Lantern Cove, the south shore\n');
   const before = testGit(dir, 'rev-parse', 'HEAD');
 
   const stopped = await mesa.sessions.merge(worker.id);
@@ -91,8 +87,8 @@ test('a conflict is aborted and named, leaving both checkouts as they were', asy
 });
 
 test('uncommitted changes in either checkout, or a working child, refuse and change nothing', async () => {
-  const { dir, tree, store, worker, mesa, commit } = family();
-  commit(tree, 'tides.json', '{"high": 6}\n');
+  const { dir, tree, store, worker, mesa } = family();
+  commitFile(tree, 'tides.json', '{"high": 6}\n');
   const head = testGit(dir, 'rev-parse', 'HEAD');
 
   writeFileSync(join(tree, 'tides.json'), '{"high": 7}\n');
@@ -107,21 +103,40 @@ test('uncommitted changes in either checkout, or a working child, refuse and cha
   );
   testGit(dir, 'checkout', '--', 'README.md');
 
-  store.update(worker.id, { lastState: { ...idle, state: 'working' } });
+  // An untracked file in the worker's checkout would be left behind.
+  writeFileSync(join(tree, 'notes.md'), 'draft\n');
   await expect(mesa.sessions.merge(worker.id)).rejects.toThrow(
-    `session ${worker.id} is still working; merge it once its turn ends`,
+    "the worker's checkout has uncommitted changes",
   );
+  rmSync(join(tree, 'notes.md'));
+
+  for (const state of ['working', 'waiting-permission'] as const) {
+    store.update(worker.id, { lastState: { ...idle, state } });
+    await expect(mesa.sessions.merge(worker.id)).rejects.toThrow(
+      `session ${worker.id} is still in its turn (${state}); merge it once its turn ends`,
+    );
+  }
   expect(testGit(dir, 'rev-parse', 'HEAD')).toBe(head);
 });
 
+test("a merge already under way in the parent's checkout is refused, never aborted", async () => {
+  const { dir, tree, worker, mesa } = family();
+  commitFile(tree, 'tides.json', '{"high": 6}\n');
+  testGit(dir, 'merge', '--no-ff', '--no-commit', 'session/tides');
+  await expect(mesa.sessions.merge(worker.id)).rejects.toThrow(
+    'a merge is under way in the checkout it merges into',
+  );
+  expect(testGit(dir, 'rev-parse', '-q', '--verify', 'MERGE_HEAD')).not.toBe('');
+});
+
 test('--into merges into another session; one with no parent and no --into is refused', async () => {
-  const { home, dir, store, lead, worker, mesa, commit } = family();
+  const { home, dir, store, lead, worker, mesa } = family();
   const tree = join(home, 'reviewer');
   testGit(dir, 'worktree', 'add', '-q', '-b', 'session/review', tree);
   const reviewer = store.create(() =>
     newSession({ worktree: { path: tree, branch: 'session/review' }, lastState: idle }),
   );
-  commit(join(home, 'worker-tides'), 'tides.json', '{"high": 6}\n');
+  commitFile(join(home, 'worker-tides'), 'tides.json', '{"high": 6}\n');
 
   const done = await mesa.sessions.merge(worker.id, reviewer.id);
   expect(done.result).toMatchObject({ merged: true, into: reviewer.id });
