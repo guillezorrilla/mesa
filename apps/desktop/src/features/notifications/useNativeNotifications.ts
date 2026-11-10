@@ -18,14 +18,19 @@ export function useNativeNotifications(navigate: (view: WorkspaceView) => void) 
   const { notifications } = usePlatform();
   const run = useRun();
   const busy = useRef(false);
+  const mounted = useRef(true);
   const deliver = useCallback(async () => {
     if (busy.current) return;
     busy.current = true;
     try {
       const status = await notifications.status();
-      if (!['authorized', 'provisional', 'ephemeral'].includes(status.authorization)) return;
+      if (
+        !mounted.current ||
+        !['authorized', 'provisional', 'ephemeral'].includes(status.authorization)
+      )
+        return;
       const plan = await run('notifications.claimDelivery');
-      if (!plan || plan.kind === 'none') return;
+      if (!mounted.current || !plan || plan.kind === 'none') return;
       await notifications.send(plan);
     } catch {
       // A failed native send is not retried: the notice stays in the Inbox.
@@ -33,14 +38,21 @@ export function useNativeNotifications(navigate: (view: WorkspaceView) => void) 
       busy.current = false;
     }
   }, [notifications, run]);
-  // A finished turn waits FINISHED_HOLD_MS for its plan, so each event asks again once that is over.
+  // A finished turn waits FINISHED_HOLD_MS for its plan, so each event asks again once that is
+  // over; the 250 ms covers the look and mark the hold waits for.
   const again = useRef<number | undefined>(undefined);
   useSessionEvents(() => {
     void deliver();
     window.clearTimeout(again.current);
     again.current = window.setTimeout(() => void deliver(), FINISHED_HOLD_MS + 250);
   });
-  useEffect(() => () => window.clearTimeout(again.current), []);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      window.clearTimeout(again.current);
+    };
+  }, []);
   useEffect(() => {
     let active = true;
     let stop: (() => void) | undefined;

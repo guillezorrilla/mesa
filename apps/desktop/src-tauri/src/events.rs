@@ -11,21 +11,25 @@ use tauri::Emitter;
 
 /// Hooks come in bursts (a tool call's PostToolUse, then the next PreToolUse): one look for each.
 const DEBOUNCE: Duration = Duration::from_millis(150);
+/// The least time between two changes, so a working agent's PostToolUse per tool call gives about
+/// one look a second, and a change still shows within a second (DEBOUNCE, GAP, DEBOUNCE).
+const GAP: Duration = Duration::from_millis(700);
 
 /// The profile's hook event logs.
 fn events_dir(home: &Path, profile: &str) -> PathBuf {
-    home.join(".mesa")
+    crate::profile::profiles_dir(home)
         .join(profile)
         .join("sessions")
         .join("events")
 }
 
-/// Calls `changed` once, `debounce` after the first change in `dir` of each burst, for as long as
-/// the returned watcher lives. The folder is made first (0700, as core makes it) so a fresh profile
+/// Calls `changed` once, `debounce` after the first change in `dir` of each burst and at least
+/// `gap` after the last call, for as long as the returned watcher lives. The folder is made first (0700, as core makes it) so a fresh profile
 /// is watched before its first hook.
 pub fn watch(
     dir: &Path,
     debounce: Duration,
+    gap: Duration,
     changed: impl Fn() + Send + 'static,
 ) -> notify::Result<notify::RecommendedWatcher> {
     use std::os::unix::fs::DirBuilderExt;
@@ -36,22 +40,25 @@ pub fn watch(
         .map_err(notify::Error::io)?;
     let (tx, rx) = mpsc::channel::<()>();
     let mut watcher = notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
-        if event.is_ok_and(|e| !e.kind.is_access()) {
+        // An error (an FSEvents rescan) may hide a change: look anyway.
+        if event.map_or(true, |e| !e.kind.is_access()) {
             let _ = tx.send(());
         }
     })?;
     watcher.watch(dir, RecursiveMode::NonRecursive)?;
-    std::thread::spawn(move || debounced(&rx, debounce, changed));
+    std::thread::spawn(move || debounced(&rx, debounce, gap, changed));
     Ok(watcher)
 }
 
-/// One `changed` per burst: `debounce` after a burst's first change, whatever came meanwhile.
-/// Ends when every sender is dropped (the watcher with it).
-fn debounced(rx: &mpsc::Receiver<()>, debounce: Duration, changed: impl Fn()) {
+/// One `changed` per burst: `debounce` after a burst's first change, whatever came meanwhile;
+/// then `gap` before the next burst may start, its changes kept for it. Ends when every sender
+/// is dropped (the watcher with it).
+fn debounced(rx: &mpsc::Receiver<()>, debounce: Duration, gap: Duration, changed: impl Fn()) {
     while rx.recv().is_ok() {
         std::thread::sleep(debounce);
         while rx.try_recv().is_ok() {}
         changed();
+        std::thread::sleep(gap);
     }
 }
 
@@ -61,10 +68,14 @@ pub fn start(app: &tauri::AppHandle, profile: &str) {
     let Some(home) = std::env::var_os("HOME") else {
         return;
     };
+    if !crate::profile::valid_name(profile) {
+        return;
+    }
     let handle = app.clone();
     match watch(
         &events_dir(Path::new(&home), profile),
         DEBOUNCE,
+        GAP,
         move || {
             let _ = handle.emit("sessions://changed", ());
         },
@@ -91,7 +102,7 @@ mod tests {
         drop(tx);
         let count = AtomicUsize::new(0);
         let start = Instant::now();
-        debounced(&rx, Duration::from_millis(150), || {
+        debounced(&rx, Duration::from_millis(150), Duration::ZERO, || {
             count.fetch_add(1, Ordering::SeqCst);
         });
         assert_eq!(count.load(Ordering::SeqCst), 1);
@@ -99,11 +110,30 @@ mod tests {
     }
 
     #[test]
+    fn a_steady_stream_is_one_change_per_gap() {
+        let (tx, rx) = mpsc::channel();
+        // A change every 50 ms for a second, as a working agent's hooks can come.
+        let feeder = std::thread::spawn(move || {
+            for _ in 0..20 {
+                tx.send(()).unwrap();
+                std::thread::sleep(Duration::from_millis(50));
+            }
+        });
+        let count = AtomicUsize::new(0);
+        debounced(&rx, DEBOUNCE, GAP, || {
+            count.fetch_add(1, Ordering::SeqCst);
+        });
+        feeder.join().unwrap();
+        // One per DEBOUNCE + GAP (850 ms), and the last burst: not one per change (20).
+        assert!(count.load(Ordering::SeqCst) <= 3, "{count:?}");
+    }
+
+    #[test]
     fn an_appended_hook_line_is_seen_within_a_second() {
         let dir = std::env::temp_dir().join(format!("mesa-events-{}", std::process::id()));
         let count = Arc::new(AtomicUsize::new(0));
         let seen = count.clone();
-        let _watcher = watch(&dir, DEBOUNCE, move || {
+        let _watcher = watch(&dir, DEBOUNCE, GAP, move || {
             seen.fetch_add(1, Ordering::SeqCst);
         })
         .unwrap();

@@ -291,21 +291,22 @@ test('Sessions looks when a hook event lands, polls only as a fallback, and neve
     // A hook event: a look at once, well within a second.
     await act(async () => events.push());
     expect(looks()).toBe(2);
-    // No event: the fallback poll, every 10 s while focused and 30 s while not (happy-dom: not).
-    const every = document.hasFocus() ? FOCUSED_POLL_MS : UNFOCUSED_POLL_MS;
-    await act(async () => vi.advanceTimersByTime(every - 1));
-    expect(looks()).toBe(2);
+    // No event: the fallback poll, here 30 s as the window is not focused.
+    await act(async () => window.dispatchEvent(new Event('blur')));
+    const blurred = looks();
+    await act(async () => vi.advanceTimersByTime(UNFOCUSED_POLL_MS - 1));
+    expect(looks()).toBe(blurred);
     await act(async () => vi.advanceTimersByTime(1));
-    expect(looks()).toBe(3);
+    expect(looks()).toBe(blurred + 1);
     // A slow look: the events meanwhile ask for one more look, run once it lands.
     slow = true;
     await act(async () => events.push());
     await act(async () => events.push());
     await act(async () => events.push());
-    expect(looks()).toBe(4);
+    expect(looks()).toBe(blurred + 2);
     slow = false;
     await act(async () => release());
-    expect(looks()).toBe(5);
+    expect(looks()).toBe(blurred + 3);
   } finally {
     vi.useRealTimers();
   }

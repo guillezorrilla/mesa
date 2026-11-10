@@ -7,10 +7,9 @@ import { useSessionEvents } from '@/lib/useSessionEvents';
 
 /**
  * Refresh session state when a hook event lands, on the fallback poll (useSessionEvents) and after
- * actions, without overlapping requests. A row
- * the Board is unsure of is placed by the chosen model beside the look, never inside it; the next
- * look shows the reply, so a screen that keeps changing costs at most one ask per look. A session
- * no one has named is named (mesa rename --auto) when it wants one (wantsName): once from its
+ * actions, without overlapping requests. A row the Board is unsure of is placed by the chosen
+ * model beside the look, never inside it; the next look shows the reply, so a screen that keeps
+ * changing costs at most one ask per look. A session no one has named is named (mesa rename --auto) when it wants one (wantsName): once from its
  * item's title, else once per turn, between turns, until it has one.
  */
 export function useSessions() {

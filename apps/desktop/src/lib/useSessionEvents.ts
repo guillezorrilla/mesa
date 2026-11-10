@@ -7,9 +7,9 @@ export const FOCUSED_POLL_MS = 10_000;
 export const UNFOCUSED_POLL_MS = 30_000;
 
 /**
- * Runs `run` now, whenever a hook event lands (the Rust watcher on `sessions/events/`, debounced),
- * and on a fallback poll for what no hook writes: every 10 s while the window is focused, 30 s
- * while it is not.
+ * Runs `run` now, whenever a hook event lands (the Rust watcher on `sessions/events/`, at most
+ * about once a second), when the window gains or loses focus, and on a fallback poll for what no
+ * hook writes: every 10 s while the window is focused, 30 s while it is not.
  */
 export function useSessionEvents(run: () => void) {
   const { sessions } = usePlatform();
