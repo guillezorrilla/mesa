@@ -1,6 +1,16 @@
-import { contextPercent, contextTone } from '@mesa/core/browser';
+import { contextPercent } from '@mesa/core/browser';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+
+/** From here a session's context is getting full: amber, then red (CONTEXT.md, Context use). */
+const AMBER = 55;
+const RED = 60;
+
+/** A context reading's tone, by the percent it shows, so one reading 55% is never uncoloured. */
+export const contextTone = (used: number) => {
+  const shown = contextPercent(used);
+  return shown >= RED ? 'red' : shown >= AMBER ? 'amber' : 'normal';
+};
 
 /** The progress indicator's colour for a context tone, so every context bar reads alike. */
 export const toneIndicator = (tone: ReturnType<typeof contextTone>) =>
@@ -9,10 +19,10 @@ export const toneIndicator = (tone: ReturnType<typeof contextTone>) =>
     tone === 'red' && '[&>[data-slot=progress-indicator]]:bg-state-failed',
   );
 
-/** How full a session's context is: a bar with its percent, toned as contextTone says. */
+/** How full a session's context is: a bar with its percent, amber from 55% and red from 60%. */
 export function ContextBar(props: { used: number; window: number }) {
   const shown = contextPercent(props.used);
-  const tone = contextTone(props);
+  const tone = contextTone(props.used);
   return (
     <div
       data-testid="context-bar"

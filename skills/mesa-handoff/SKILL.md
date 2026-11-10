@@ -15,7 +15,7 @@ A successor starts with your goal and your note, in your folder and worktree, so
    mesa show $MESA_SESSION_ID --json
    ```
 
-   `data.context.used` is the percent of your `data.context.window` tokens used. The threshold is 200,000 tokens or `used` 55, whichever comes first (`used` 20 on a 1M window), unless your goal names another in tokens or percent: each turn re-reads the whole context, so a longer one costs more every step. Below it, keep working. With no `context` there is no reading yet: read it again after your next step.
+   `data.context.used` is the percent of your context window used. Below the threshold (55, unless your goal names another), keep working. With no `context` there is no reading yet: read it again after your next step.
 
 2. **Reach a stable point** at or over the threshold: finish the step in hand, so tests pass or the change is committed.
 

@@ -50,7 +50,7 @@ Session length is the lever. The `mesa-handoff` skill and the Board's context to
 | 300k tokens | 33% | about 1,350 |
 | 550k tokens (55% of 1M) | 16% | about 530 |
 
-The owner chose 200k tokens for both the handoff and amber, with red at 250k, whatever the window size. That change is a separate pull request; this one only records the measurement.
+The owner first chose 200k tokens (#911), then went back to 55% and 60% of the window before it shipped, judging 200k too low for a 1M window. The thresholds stay as they were.
 
 ## Step 3: a large-read guard
 
