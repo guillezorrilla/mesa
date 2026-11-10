@@ -49,6 +49,27 @@ test('outputTail reads the raw stream as plain text: escapes, controls, and blan
   expect(outputTail(lockDeps(), logs, 'a1b2c3d4', 50)).toHaveLength(7);
 });
 
+test('a tail of a log past its first read gives what a whole read does, from whole lines', () => {
+  const home = tempDir();
+  const logs = profilePaths(home, 'default').logs;
+  const filler = Array.from(
+    { length: 3000 },
+    (_, i) => `\x1b[1mline ${i} of the tide log\x1b[0m\r\n`,
+  );
+  // A long blank run (more than one read), then lines with multi-byte characters.
+  const blank = '   \r\n'.repeat(40_000);
+  const tail = Array.from({ length: 30 }, (_, i) => `marée ${i} 🌊 ${'é'.repeat(i * 97)}\r\n`);
+  plantOutputLog(home, 'a1b2c3d4', [...filler, blank, ...tail].join(''));
+  const whole = outputTail(lockDeps(), logs, 'a1b2c3d4') ?? [];
+  for (const lines of [1, 30, 31, 500, 5000])
+    expect(outputTail(lockDeps(), logs, 'a1b2c3d4', lines)).toEqual(
+      whole.slice(Math.max(0, whole.length - lines)),
+    );
+  // One line longer than a first read.
+  plantOutputLog(home, 'b2c3d4e5', `first\r\n${'x'.repeat(200_000)}\r\n`);
+  expect(outputTail(lockDeps(), logs, 'b2c3d4e5', 2)).toEqual(['first', 'x'.repeat(200_000)]);
+});
+
 test('a log over 20 MB is cut in place to its last 5 MB, from a whole line, and its writer goes on', () => {
   const home = tempDir();
   const line = (n: number) => `line ${String(n).padStart(9, '0')}\n`;

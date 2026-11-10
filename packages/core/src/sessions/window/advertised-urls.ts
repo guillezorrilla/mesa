@@ -63,9 +63,8 @@ export function advertisedIn(lines: readonly string[]) {
 /**
  * The URLs `records`' dev servers advertised in the last 2000 lines of each one's Output log,
  * each marked by one `lsof` call (listeningPorts) whether its port is listening (null when lsof
- * could not tell), the listening ones first. A session with no Output log adds nothing.
- * shortcut: each call reads every log whole (outputTail, at most 20 MB each); read only their
- * ends if a poll every 10 s grows slow.
+ * could not tell), the listening ones first. A session with no Output log adds nothing. Each log
+ * is read from its end (outputTail), so a poll every 10 s reads tens of KB per session.
  */
 export async function advertisedUrls(
   deps: { lock: LockDeps; run: Runner; logs: string },
