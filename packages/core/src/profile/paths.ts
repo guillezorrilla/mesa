@@ -32,6 +32,8 @@ export type ProfilePaths = {
   bin: string;
   /** Sessions' git worktrees, `<project>/<branch>` each (CONTEXT.md, Worktree). */
   worktrees: string;
+  /** Each worktree's measured size on disk, by path, reused for 10 minutes (worktrees/sizes.ts). */
+  worktreeSizes: string;
   /** Repositories cloned from a URL for this profile. */
   checkouts: string;
   /** Handoff notes, `<successor id>.md` each (CONTEXT.md, Handoff). */
@@ -95,6 +97,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     attachScripts: join(root, 'attach'),
     bin: join(root, 'bin'),
     worktrees: join(root, 'worktrees'),
+    worktreeSizes: join(root, 'worktree-sizes.json'),
     checkouts: join(root, 'checkouts'),
     handoffs: join(root, 'handoffs'),
     usage: join(root, 'usage.json'),

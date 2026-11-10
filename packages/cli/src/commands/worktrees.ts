@@ -1,4 +1,10 @@
-import { branchLabel, MesaError, type WorktreeAction, type WorktreeRow } from '@mesa/core';
+import {
+  branchLabel,
+  formatBytes,
+  MesaError,
+  type WorktreeAction,
+  type WorktreeRow,
+} from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { recordedOutput } from '../output/recorded.js';
 
@@ -94,25 +100,38 @@ export const worktreesList = defineCommand({
     branch: { type: 'string', description: 'Filter branch names' },
     holder: { type: 'string', description: 'Filter by session id' },
     state: { type: 'string', description: 'Filter ready, locked, stale, detached, or recycled' },
+    sizes: {
+      type: 'boolean',
+      description: 'Add each worktree size on disk (du, reused for 10 minutes)',
+    },
+    refresh: { type: 'boolean', description: 'With --sizes, measure again instead of reusing' },
   },
   example: 'mesa worktrees list lantern-cove',
   run: async ({ mesa, args, flags }) => {
     const state = flags.state;
     if (state && !['ready', 'locked', 'stale', 'detached', 'recycled'].includes(state))
       throw new MesaError('usage', 'state must be ready, locked, stale, detached, or recycled');
-    const data = await mesa.worktrees.list(args.project, {
-      branch: flags.branch,
-      holder: flags.holder,
-      state: state as WorktreeRow['state'] | undefined,
-    });
+    if (flags.refresh && !flags.sizes) throw new MesaError('usage', '--refresh needs --sizes');
+    const data = await mesa.worktrees.list(
+      args.project,
+      {
+        branch: flags.branch,
+        holder: flags.holder,
+        state: state as WorktreeRow['state'] | undefined,
+      },
+      { sizes: flags.sizes, refresh: flags.refresh },
+    );
     return {
       data,
       text:
         data
-          .map(
-            (row) =>
-              `${row.main ? 'main' : branchLabel(row)}  ${row.path}  ${row.state}  ${row.holders.map((holder) => holder.id).join(',')}`,
-          )
+          .map((row) => {
+            const size =
+              row.sizeAt === undefined
+                ? ''
+                : `  ${typeof row.sizeBytes === 'number' ? formatBytes(row.sizeBytes) : 'size unknown'}`;
+            return `${row.main ? 'main' : branchLabel(row)}  ${row.path}  ${row.state}${size}  ${row.holders.map((holder) => holder.id).join(',')}`;
+          })
           .join('\n') || 'no worktrees',
     };
   },

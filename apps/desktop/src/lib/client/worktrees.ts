@@ -3,9 +3,11 @@ import { commandWith, type Recorded } from './spec';
 
 /** Worktree commands: a project's linked worktrees and their actions. */
 export const worktreesCommands = {
-  'worktrees.list': commandWith<{ project: string }, (WorktreeRow & WorktreeDetails)[]>(
-    ({ project }) => ['worktrees', 'list', '--', project],
-  ),
+  /** With `sizes`, each row's size on disk too, which takes seconds over a large checkout. */
+  'worktrees.list': commandWith<
+    { project: string; sizes?: boolean },
+    (WorktreeRow & WorktreeDetails)[]
+  >(({ project, sizes }) => ['worktrees', 'list', ...(sizes ? ['--sizes'] : []), '--', project]),
   /** What a remove, recycle, trash, or cleanup would touch, with the token its apply needs. */
   'worktrees.preview': commandWith<
     { project: string; action: WorktreeAction; path?: string },

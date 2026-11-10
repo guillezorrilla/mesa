@@ -45,6 +45,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     attachScripts: '/h/.mesa/work/attach',
     bin: '/h/.mesa/work/bin',
     worktrees: '/h/.mesa/work/worktrees',
+    worktreeSizes: '/h/.mesa/work/worktree-sizes.json',
     checkouts: '/h/.mesa/work/checkouts',
     handoffs: '/h/.mesa/work/handoffs',
     tmuxSocket: 'mesa-work',

@@ -28,3 +28,16 @@ export const odds = (value: number) => value.toFixed(2);
 
 /** A share of 1 as a whole percent: a state's confidence, `95%`. */
 export const percent = (share: number) => `${Math.round(share * 100)}%`;
+
+/** Bytes as they read on disk, in powers of 1,000 as Finder counts: `512 B`, `5.2 MB`, `12.3 GB`. */
+export function formatBytes(bytes: number): string {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let value = bytes;
+  let unit = 0;
+  // 999.95 KB would print as 1000.0 KB: it reads as the next unit.
+  while (value >= 999.95 && unit < units.length - 1) {
+    value /= 1000;
+    unit++;
+  }
+  return unit ? `${value.toFixed(1)} ${units[unit]}` : `${value} B`;
+}

@@ -1,5 +1,5 @@
 import type { WorktreeAction, WorktreeDetails, WorktreeRow } from '@mesa/core';
-import { branchLabel, timeAgo, worktreeName } from '@mesa/core/browser';
+import { branchLabel, formatBytes, timeAgo, worktreeName } from '@mesa/core/browser';
 import { Folder, FolderGit2, GitBranch, LoaderCircle, Play, RefreshCw, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CardAction } from './CardAction';
@@ -11,7 +11,8 @@ export type Card = WorktreeRow & WorktreeDetails;
 /**
  * One checkout's card: with a session in it, a click opens that session and there is no
  * New session; otherwise a click, or the play action, starts one. A linked worktree adds Recycle and
- * Remove, its commits ahead of the default branch, and its age, which the actions cover on hover.
+ * Remove, its commits ahead of the default branch, and its age; its size on disk once measured. The
+ * actions cover those on hover.
  */
 export function WorktreeCard(props: {
   tree: Card;
@@ -76,11 +77,12 @@ export function WorktreeCard(props: {
           {props.applying && <LoaderCircle aria-hidden className="size-3 animate-spin" />}
           {statusOf(tree, props.applying)}
         </span>
-        {tree.createdAt && (
-          <span className="ml-auto pr-1 group-hover:invisible">
-            created {timeAgo(tree.createdAt, Date.now())}
-          </span>
-        )}
+        <span className="ml-auto flex gap-2 pr-1 group-hover:invisible">
+          {typeof tree.sizeBytes === 'number' && (
+            <span data-testid="worktree-size">{formatBytes(tree.sizeBytes)}</span>
+          )}
+          {tree.createdAt && <span>created {timeAgo(tree.createdAt, Date.now())}</span>}
+        </span>
       </span>
       {!props.applying && (
         <div className="absolute right-1.5 bottom-1.5 flex gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">

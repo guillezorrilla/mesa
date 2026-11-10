@@ -10,6 +10,7 @@ import type { WorktreeAction, WorktreeScope } from './facts.js';
 import { listWorktrees, type WorktreeFilter } from './inventory.js';
 import { previewWorktreeAction } from './preview.js';
 import { worktreeScript } from './settings.js';
+import { measureSizes } from './sizes.js';
 
 export function worktreesService(ctx: MesaContext) {
   const scope = (project: string): WorktreeScope => ({
@@ -19,13 +20,28 @@ export function worktreesService(ctx: MesaContext) {
     project,
   });
   return {
-    /** The inventory, each row with what its card shows (withDetails). */
-    list: async (project: string, filter?: WorktreeFilter) => {
+    /**
+     * The inventory, each row with what its card shows (withDetails); with `sizes`, each row's size
+     * on disk too (measureSizes), measured again with `refresh`.
+     */
+    list: async (
+      project: string,
+      filter?: WorktreeFilter,
+      opts: { sizes?: boolean; refresh?: boolean } = {},
+    ) => {
       const profile = ctx.open();
       const rows = await listWorktrees(profile, ctx.run, ctx.store, project, filter);
       const root = rows.find((row) => row.main)?.path;
       const base = root ? await defaultBranchRef(profile, ctx.run, root, project) : undefined;
-      return withDetails(ctx.run, rows, base);
+      const detailed = await withDetails(ctx.run, rows, base);
+      if (!opts.sizes) return detailed;
+      const sizes = await measureSizes(
+        ctx,
+        ctx.paths.worktreeSizes,
+        rows.map((row) => row.path),
+        opts.refresh,
+      );
+      return detailed.map((row) => ({ ...row, ...sizes.get(row.path) }));
     },
     /** How many worktrees the project has, without the details `list` reads. */
     count: async (project: string) =>

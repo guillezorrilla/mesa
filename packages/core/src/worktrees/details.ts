@@ -2,6 +2,7 @@ import { statSync } from 'node:fs';
 import { gitCommand } from '../git/command.js';
 import type { Runner } from '../lib/process.js';
 import type { WorktreeRow } from './inventory.js';
+import type { WorktreeSize } from './sizes.js';
 
 /** What a Worktree card shows beyond Git's inventory. */
 export type WorktreeDetails = {
@@ -11,7 +12,7 @@ export type WorktreeDetails = {
   ahead?: number;
   /** When its folder was made: linked worktrees only. */
   createdAt?: string;
-};
+} & Partial<WorktreeSize>;
 
 /** Counts `git status --porcelain=v1 -z`: a rename or copy carries its old path as one more field. */
 export function countChanges(status: string) {

@@ -73,7 +73,7 @@ export type { InstallStatus, InstallSwitch } from './installs/service.js';
 export type { InstructionRow } from './instructions/inventory.js';
 export type { CliState } from './lib/cli-state.js';
 export { type Clock, systemClock } from './lib/clock.js';
-export { counted, duration, listPrice, odds, percent, usd } from './lib/format.js';
+export { counted, duration, formatBytes, listPrice, odds, percent, usd } from './lib/format.js';
 export type { Http } from './lib/http.js';
 export { type IdSource, ulidSource } from './lib/ids.js';
 export { type Env, envRunner, type Runner } from './lib/process.js';

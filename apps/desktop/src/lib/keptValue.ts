@@ -21,12 +21,18 @@ export const writeKept = (key: string, value: string | undefined) => {
   }
 };
 
-/** The value kept under `key` and its setter, which keeps each new value: state that outlives a visit. */
-export function useKept(key: string) {
-  const [value, setValue] = useState(() => readKept(key));
+/**
+ * The value kept under `key` and its setter, which keeps each new value: state that outlives a
+ * visit. A new `key` reads its own kept value; with none yet (a profile still loading) nothing is
+ * kept.
+ */
+export function useKept(key: string | undefined) {
+  const read = () => (key === undefined ? undefined : readKept(key));
+  const [picked, setPicked] = useState(() => ({ key, value: read() }));
+  const value = picked.key === key ? picked.value : read();
   const keep = (next: string | undefined) => {
-    setValue(next);
-    writeKept(key, next);
+    setPicked({ key, value: next });
+    if (key !== undefined) writeKept(key, next);
   };
   return [value, keep] as const;
 }
