@@ -425,6 +425,8 @@ The Session Board remains the core/CLI presentation of every session across ever
 Selecting a session in the app opens its embedded terminal, xterm.js over a pty running `mesa attach --print`'s argv. A tmux copy reaches the pasteboard, Cmd+V pastes, and Close ends only the tmux client. Session actions include Send, Open terminal, Stop (Cancel for a queued session), Resume, Hand off, and Log, Rename, and Remove in the action menu. Terminal grid keeps several clients visible together and supports saved groups.
 
 The app refreshes sessions every 2 s and after actions, one look at a time. Another screen hides the session workspace instead of closing its terminal clients. Confirmations disappear after a few seconds; warnings and failures remain as alert toasts until dismissed. None of the terminal-client state outlives the app.
+
+A Mesa session's row carries `lastReply` (`{text, at}`), its main agent's newest `Stop` reply as its hook log keeps it (200 characters; a subagent's is not one), and `lines` (`{added, removed}`), what `git diff --shortstat <merge-base>` counts in its checkout against the base `mesa diff` uses: committed and uncommitted, untracked files aside. The count is kept in `sessions/line-counts.json` per checkout with its HEAD, index mtime and the session's last state change, so a look with none of them changed runs no diff; an ended session keeps its last count, and a General or terminal session has none. A card that is not compact shows `+12 -3` after its branch and the reply's first line under its state line.
 Not: dashboard, overview, list.
 
 ## Skill

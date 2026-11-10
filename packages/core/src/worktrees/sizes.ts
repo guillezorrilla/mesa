@@ -1,6 +1,5 @@
-import { rmSync } from 'node:fs';
 import { z } from 'zod';
-import { changeJson, readJson } from '../lib/json-file.js';
+import { changeJson, readCache } from '../lib/json-file.js';
 import type { LockDeps } from '../lib/lock-file.js';
 import { mapLimit } from '../lib/map-limit.js';
 import type { Runner } from '../lib/process.js';
@@ -18,16 +17,6 @@ const FRESH_MS = 10 * 60_000;
 const DU_TIMEOUT_MS = 60_000;
 /** How many `du` run at once, so a project with many worktrees does not flood the disk. */
 const DU_AT_ONCE = 4;
-
-/** The cache, or empty when there is none or it does not read: a cache that does not read is dropped. */
-function readCache(file: string) {
-  try {
-    return readJson(file, Cache) ?? {};
-  } catch {
-    rmSync(file, { force: true });
-    return {};
-  }
-}
 
 /** Bytes from `du -sk`'s first field (kibibytes); undefined when it is not a number. */
 export function duBytes(output: string): number | undefined {
@@ -48,7 +37,7 @@ export async function measureSizes(
 ): Promise<Map<string, WorktreeSize>> {
   const now = deps.clock();
   // Read even on refresh: it drops a cache that does not read, which the write would refuse.
-  const cached = readCache(file);
+  const cached = readCache(file, Cache, {});
   const fresh = (path: string) => {
     const hit = refresh ? undefined : cached[path];
     return hit && now.getTime() - Date.parse(hit.at) < FRESH_MS ? hit : undefined;

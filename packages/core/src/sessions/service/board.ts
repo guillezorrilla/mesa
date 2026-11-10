@@ -7,6 +7,7 @@ import { supervisingModel } from '../../decisions/supervision.js';
 import { projectPriorities } from '../../projects/projects.js';
 import { readRegistry } from '../../projects/registry.js';
 import { listSessions, type SessionScope } from '../board/board.js';
+import { withLineCounts } from '../board/line-counts.js';
 import { readHookEvents } from '../signals/hook-events.js';
 import { placementStore } from '../signals/placements.js';
 import { FRESH_MS } from '../signals/state.js';
@@ -14,7 +15,8 @@ import { outputLog } from '../window/output-log.js';
 
 /**
  * A look at the board for one profile: its sessions merged with live tmux and the agent listing,
- * each managed one saying whether it has an output log, in `scope` (listSessions). `elsewhere`
+ * each managed one saying whether it has an output log and the lines its checkout changed
+ * (withLineCounts), in `scope` (listSessions). `elsewhere`
  * is the agent session ids the home's other profiles hold.
  */
 export function boardLook(ctx: MesaContext, faro: Faro, elsewhere: () => ReadonlySet<string>) {
@@ -45,10 +47,12 @@ export function boardLook(ctx: MesaContext, faro: Faro, elsewhere: () => Readonl
         logs: paths.logs,
       },
       { scope },
-    ).then((rows) =>
-      rows.map((row) =>
-        row.managed ? { ...row, hasOutputLog: existsSync(outputLog(paths.logs, row.id)) } : row,
-      ),
-    );
+    )
+      .then((rows) => withLineCounts({ ...ctx, profile: open, file: paths.lineCounts }, rows))
+      .then((rows) =>
+        rows.map((row) =>
+          row.managed ? { ...row, hasOutputLog: existsSync(outputLog(paths.logs, row.id)) } : row,
+        ),
+      );
   };
 }

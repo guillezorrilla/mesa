@@ -23,6 +23,19 @@ export function readJson<T>(file: string, schema: z.ZodType<T>): T | undefined {
 }
 
 /**
+ * A cache file's value; empty (`fallback`) when there is none, and when it does not read, which
+ * removes it, so the next write starts it again: a cache is never worth failing a read over.
+ */
+export function readCache<T>(file: string, schema: z.ZodType<T>, fallback: T): T {
+  try {
+    return readJson(file, schema) ?? fallback;
+  } catch {
+    rmSync(file, { force: true });
+    return fallback;
+  }
+}
+
+/**
  * Read-change-write of a JSON state file under `<file>.lock`, so concurrent processes keep each
  * other's changes. `change` gets the current value (undefined when there is no file) and returns
  * the next, which is validated and written atomically only when its text differs; undefined

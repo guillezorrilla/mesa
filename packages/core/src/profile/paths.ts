@@ -13,6 +13,8 @@ export type ProfilePaths = {
   events: string;
   /** The last agent listing a look ran, reused while hooks are fresh (#896). */
   listing: string;
+  /** Each checkout's added and removed lines, by its HEAD and index (sessions/board/line-counts.ts). */
+  lineCounts: string;
   /** Sessions' output logs, one `<session id>.log` each: local only, never in the vault. */
   logs: string;
   /** What each headless run's agent printed, `<session id>.json` each (CONTEXT.md, Skill run). */
@@ -89,6 +91,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     sessions: join(root, 'sessions'),
     events: join(root, 'sessions', 'events'),
     listing: join(root, 'sessions', 'listing.json'),
+    lineCounts: join(root, 'sessions', 'line-counts.json'),
     logs: join(root, 'sessions', 'logs'),
     runs: join(root, 'sessions', 'runs'),
     costs: join(root, 'sessions', 'costs'),
