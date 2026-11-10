@@ -110,8 +110,8 @@ export function SessionCard(props: {
         <span
           className={cn(
             'flex w-full min-w-0 items-center gap-2 font-medium group-focus-within:pr-17 group-hover:pr-17',
-            // Clears the pull request link in the corner.
-            pr && 'pr-12',
+            // A compact card's one row clears the pull request link in its corner.
+            pr && compact && 'pr-12',
           )}
         >
           {unread ? (
@@ -182,7 +182,7 @@ export function SessionCard(props: {
               <span
                 data-testid="session-reply"
                 title={reply.text}
-                className="truncate pl-4 text-[11px] text-muted-foreground"
+                className={cn('truncate pl-4 text-[11px] text-muted-foreground', pr && 'pr-12')}
               >
                 {reply.text.trimStart().split('\n', 1)[0]}
               </span>
@@ -200,7 +200,7 @@ export function SessionCard(props: {
           aria-label={`Open pull request #${pr.number} (${pr.state})`}
           title={`Pull request #${pr.number}, ${pr.state}`}
           className={cn(
-            'absolute top-1.5 right-2 flex items-center gap-0.5 rounded px-1 font-mono text-[10px] hover:bg-accent group-focus-within:invisible group-hover:invisible',
+            'absolute right-2 bottom-1.5 flex items-center gap-0.5 rounded px-1 font-mono text-[10px] hover:bg-accent',
             PR_TONE[pr.state],
           )}
           onClick={() => void run('browser.external', { url: pr.url })}
