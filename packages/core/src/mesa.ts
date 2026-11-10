@@ -33,6 +33,7 @@ import { skillsService } from './skills/service.js';
 import { importService } from './sources/import-service.js';
 import { itemSessions } from './sources/item-session.js';
 import { sourcesService } from './sources/service.js';
+import { tasksService } from './tasks/tasks.js';
 import { ticketsService } from './tickets/service.js';
 import { updateService } from './update/service.js';
 import { rewindService } from './usage/rewind.js';
@@ -116,6 +117,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
       board: () => sessions.sessions.list(),
       send: sessions.sessions.send,
     }),
+    /** Planned work and what each part waits on (CONTEXT.md, Task graph). */
+    tasks: tasksService(ctx),
     prs: prsService(ctx, { open: sessions.sessions.open, stop: sessions.sessions.stop }),
     hooks: hooksService(ctx),
     skills,
