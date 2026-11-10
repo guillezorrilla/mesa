@@ -1,7 +1,17 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
 import { expect, test } from 'vitest';
-import { appearanceConfig, click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
+import {
+  appearanceConfig,
+  click,
+  deferred,
+  envelope,
+  failure,
+  fakeBridge,
+  fill,
+  renderWithMesa,
+  toastTexts,
+} from '@/lib/testing';
 import { GitTab } from './GitTab';
 
 const checkout = { project: 'lantern-cove', path: '/h/src/lantern-cove', registered: true };
@@ -96,4 +106,72 @@ test('two refs compare from the graph toolbar', async () => {
   const panel = document.querySelector('[aria-label="Git comparison"]');
   expect(panel?.textContent).toContain('0 behind, 1 ahead');
   expect(panel?.textContent).toContain('feature');
+});
+
+/** A checkout with one staged change, and `message` as what `mesa git message` answers. */
+const staged = (message: () => unknown) =>
+  fakeBridge({
+    config: appearanceConfig({}),
+    'git status': () =>
+      envelope({
+        checkout,
+        branch: 'main',
+        changes: [{ path: 'docs/tides.md', index: 'A', workingTree: ' ' }],
+      }),
+    'git diff': () =>
+      envelope({ checkout, staged: true, path: 'docs/tides.md', patch: '', rows: [] }),
+    'git message': message,
+    'git commit': () => envelope({ result: { checkout, oid: 'c'.repeat(40), summary: 'x' } }),
+    'worktrees list': () => envelope([]),
+  });
+const commitButton = () =>
+  [...document.querySelectorAll<HTMLButtonElement>('button[type="submit"]')].find(
+    (each) => each.textContent?.trim() === 'Commit',
+  );
+const box = () => document.querySelector<HTMLTextAreaElement>('[aria-label="Commit message"]');
+const generated = (message: string) =>
+  envelope({ message, run: { session: 'aaaaaaaa', durationMs: 900 } });
+
+test('Generate fills an empty message from mesa git message, spinning with Commit off while it runs', async () => {
+  const answer = deferred();
+  const { bridge, calls } = staged(() => answer.promise);
+  await renderWithMesa(<GitTab project="lantern-cove" />, bridge);
+  const generate = button('Generate commit message');
+  expect(generate?.disabled).toBe(false);
+  await click(generate);
+  expect(calls).toContainEqual(['--json', 'git', 'message', '--', 'lantern-cove']);
+  expect(generate?.getAttribute('aria-busy')).toBe('true');
+  expect(generate?.className).toContain('animate-spin');
+  await fill(box(), 'typed');
+  expect(commitButton()?.disabled).toBe(true);
+  await fill(box(), '');
+  await act(async () => answer.resolve(generated('Add the tide table')));
+  expect(box()?.value).toBe('Add the tide table');
+  expect(commitButton()?.disabled).toBe(false);
+});
+
+test('Generate replaces a typed message only once confirmed, and a failed run says why', async () => {
+  let reply = () => generated('Add the tide table');
+  const { bridge } = staged(() => reply());
+  const byTestId = await renderWithMesa(<GitTab project="lantern-cove" />, bridge);
+  await fill(box(), 'my words');
+  await click(button('Generate commit message'));
+  expect(box()?.value).toBe('my words');
+  await click(button('Cancel'));
+  expect(box()?.value).toBe('my words');
+  await click(button('Generate commit message'));
+  await click(byTestId('replace-commit-message-submit')[0]);
+  expect(box()?.value).toBe('Add the tide table');
+  reply = () =>
+    failure('the git-text run bbbbbbbb wrote no text: claude exited with status 1', 'internal');
+  await click(button('Generate commit message'));
+  expect(toastTexts(byTestId)).toContain(
+    'the git-text run bbbbbbbb wrote no text: claude exited with status 1',
+  );
+  expect(box()?.value).toBe('Add the tide table');
+});
+
+test('Generate is off while nothing is staged', async () => {
+  await renderWithMesa(<GitTab project="lantern-cove" />, bridge());
+  expect(button('Generate commit message')?.disabled).toBe(true);
 });

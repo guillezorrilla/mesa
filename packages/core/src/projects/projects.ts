@@ -51,7 +51,7 @@ export type ProjectRow = {
 };
 
 /** The profile settings a project's mesa.yaml overrides, as written there. */
-export type ProjectOverrides = Pick<Project, 'worktrees' | 'terminal'>;
+export type ProjectOverrides = Pick<Project, 'worktrees' | 'git' | 'terminal'>;
 
 export type ProjectUpdate = {
   label?: string;
@@ -122,6 +122,7 @@ export function listProjects(profile: Profile): ProjectRow[] {
       skills: p.skills ?? [],
       overrides: {
         ...(p.worktrees ? { worktrees: p.worktrees } : {}),
+        ...(p.git ? { git: p.git } : {}),
         ...(p.terminal ? { terminal: p.terminal } : {}),
       },
       terminalTheme: p.terminal?.theme ?? profile.config.terminal.theme,
@@ -226,7 +227,7 @@ export function overrideProject(
   const next = setProjectOverride(
     dir,
     dotted,
-    value === undefined ? undefined : parse(value),
+    value === undefined ? undefined : overrideValue(dotted, value),
     lock,
   );
   // A person wrote this setup or teardown, so this profile approves exactly it; one a session
@@ -240,6 +241,20 @@ export function overrideProject(
       lock,
     );
   return { project: name, path: dotted, value: valueAt(next, dotted) ?? null };
+}
+
+/**
+ * An override's value from the words given: YAML, except that a git recipe is prose, so one that
+ * does not read as a YAML string (`Summarise: {stagedFiles}` reads as a map) is taken as written.
+ */
+function overrideValue(dotted: string, value: string): unknown {
+  if (!dotted.startsWith('git.')) return parse(value);
+  try {
+    const read: unknown = parse(value);
+    return typeof read === 'string' ? read : value;
+  } catch {
+    return value;
+  }
 }
 
 /** The project's setup and teardown waiting for this profile's approval, as a person reviews them. */

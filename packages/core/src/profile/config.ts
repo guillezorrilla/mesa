@@ -8,13 +8,14 @@ import { LaunchDefaultsSchema } from '../agents/launch-flags.js';
 import { CLAUDE_PERMISSION_MODES, DEFAULT_AGENT } from '../agents/names.js';
 import { DecisionsModelSchema } from '../decisions/types.js';
 import { validExternalArgv } from '../files/external.js';
+import { DEFAULT_COMMIT_RECIPE } from '../git/recipes.js';
 import type { LockDeps } from '../lib/lock-file.js';
 import type { Env } from '../lib/process.js';
 import { REDACTED } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { readYaml, setYamlPath, valueAt } from '../lib/yaml-file.js';
-import { WORKTREE_OVERRIDE_FIELDS } from '../projects/overrides.js';
+import { GIT_OVERRIDE_FIELDS, WORKTREE_OVERRIDE_FIELDS } from '../projects/overrides.js';
 import { UPDATE_CHANNELS } from '../update/feeds.js';
 import {
   COLOR_VISION_MODES,
@@ -290,6 +291,12 @@ const ConfigShape = z.strictObject({
     .prefault({}),
   /** Each agent's native launch flags on new and resumed sessions; unset uses its native config. */
   agents: LaunchDefaultsSchema,
+  /** The recipes `git-text` runs follow; a project's mesa.yaml overrides each (git/recipes.ts). */
+  git: z
+    .strictObject({
+      commitMessageRecipe: GIT_OVERRIDE_FIELDS.commitMessageRecipe.default(DEFAULT_COMMIT_RECIPE),
+    })
+    .prefault({}),
   /** Which releases Mesa updates to (ADR-0018); unset follows the running version's channel. */
   update: z.strictObject({ channel: z.enum(UPDATE_CHANNELS).optional() }).prefault({}),
   /** Name to a literal value or an `env:VAR` reference. Never printed in the clear. */

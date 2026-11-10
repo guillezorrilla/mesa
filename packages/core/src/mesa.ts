@@ -97,7 +97,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     prompts,
     files: filesService(ctx),
     worktrees,
-    git: gitService(ctx, faro, worktrees.count),
+    git: gitService(ctx, faro, worktrees.count, sessions.sessions.run),
     ...vaults,
     ...mapService(ctx),
     ...dailyService(ctx),

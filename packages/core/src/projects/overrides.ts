@@ -24,3 +24,11 @@ export const WORKTREE_OVERRIDE_FIELDS = {
   setup: argv,
   teardown: argv,
 };
+
+/**
+ * The git text recipes a project's mesa.yaml may override (CONTEXT.md, Project override): the
+ * instructions a `git-text` run follows, each `{name}` filled by core (git/message.ts).
+ */
+export const GIT_OVERRIDE_FIELDS = {
+  commitMessageRecipe: z.string().trim().min(1),
+};

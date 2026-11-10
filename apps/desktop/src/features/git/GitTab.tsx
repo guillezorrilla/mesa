@@ -208,6 +208,7 @@ export function GitTab(props: {
                 stashesOpen={panel === 'stashes'}
                 onToggleStashes={() => togglePanel('stashes')}
                 onCommit={commit}
+                onGenerate={async () => (await run('git.message', target))?.message}
               />
             </aside>
             <section className="flex min-w-0 flex-1 flex-col" aria-label="Git diff">

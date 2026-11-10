@@ -6,6 +6,7 @@ import { changeGitIndex, commitGit } from './changes.js';
 import { readGitDiff } from './diff.js';
 import { compareGitRefs, readGitGraph } from './history.js';
 import { readRepositoryInsight, type WorktreeCount } from './insight.js';
+import { type GitTextRunner, writeCommitMessage } from './message.js';
 import { changeGitStash, createGitStash, listGitStashes, type StashAction } from './stash.js';
 import { readGitStatus } from './status.js';
 import { type GitSync, gitTracking, syncGit } from './sync.js';
@@ -15,6 +16,8 @@ export function gitService(
   ctx: Pick<MesaContext, 'absolute' | 'clock' | 'open' | 'record' | 'run' | 'store'>,
   faro: Faro,
   worktreeCount: WorktreeCount,
+  /** The skill run's owner, which git text runs `git-text` through. */
+  runText: GitTextRunner,
 ) {
   const sync = (
     project: string,
@@ -204,6 +207,12 @@ export function gitService(
       changeIndex(project, checkout, path, 'stage'),
     unstage: (project: string, path: string, checkout?: string) =>
       changeIndex(project, checkout, path, 'unstage'),
+    /** A commit message for the staged changes, written by an agent; commits nothing. */
+    message: (project: string, opts: { checkout?: string; agent?: string } = {}) =>
+      writeCommitMessage(ctx.open(), ctx.run, runText, project, {
+        ...opts,
+        ...(opts.checkout ? { checkout: ctx.absolute(opts.checkout) } : {}),
+      }),
     commit: (project: string, message: string, checkout?: string) =>
       ctx.record(
         {

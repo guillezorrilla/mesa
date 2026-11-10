@@ -12,6 +12,7 @@ import { TextField } from './controls/TextField';
 import { commaList } from './controls/textLists';
 import { ApproveScriptsDialog, type PendingScripts } from './project/ApproveScriptsDialog';
 import { profileValue } from './project/profileValue';
+import { RecipeRow } from './project/RecipeRow';
 import { ScriptRow } from './project/ScriptRow';
 import { SettingRow } from './SettingRow';
 import { SettingSection } from './SettingSection';
@@ -27,7 +28,7 @@ const orInherit = (parse: (text: string) => { value: unknown }) => (text: string
 const branch = (text: string) => ({ value: text.trim() || undefined });
 
 /**
- * One project's overrides of the profile's worktree settings and terminal theme, saved in its
+ * One project's overrides of the profile's worktree settings, git text recipes and terminal theme, saved in its
  * mesa.yaml through `mesa projects set`; each row names the profile value it otherwise inherits.
  * Scripts its mesa.yaml names that this profile has not approved are shown, exactly, for approval.
  */
@@ -189,6 +190,20 @@ export function ProjectSettingsPanel(props: { onChanged: () => void }) {
                   onSave={(value) => save('worktrees.sparseDirectories', value)}
                 />
               }
+            />
+          </SettingSection>
+          <SettingSection
+            id="project-git-text"
+            title="Git text"
+            description="What an agent is asked to write for this project's commits"
+          >
+            <RecipeRow
+              id="project-commit-recipe"
+              title="Commit message recipe"
+              names={['stagedPatch', 'stagedFiles', 'branch', 'recentCommits']}
+              value={project.overrides.git?.commitMessageRecipe}
+              profile={config.git.commitMessageRecipe}
+              onSave={(value) => save('git.commitMessageRecipe', value)}
             />
           </SettingSection>
           <SettingSection

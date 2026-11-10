@@ -2,6 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  claudeAnswer,
+  finishesRun,
   gitRepo,
   newSession,
   shortIds,
@@ -612,4 +614,28 @@ test('diff --full numbers every unchanged line as context around the change', as
   expect(full.filter((row) => row.kind === 'context')).toHaveLength(19);
   expect(full.find((row) => row.kind === 'change')).toMatchObject({ oldLine: 10, newLine: 10 });
   expect(full.at(-1)).toMatchObject({ kind: 'context', oldLine: 20, newLine: 20 });
+});
+
+test('git message writes a message for the staged change with an agent, commits nothing, and refuses an empty index', async () => {
+  cli.withTmux({ onOpen: finishesRun({ output: claudeAnswer('Add the tide table') }) });
+  cli.run = withRealGit(cli.run);
+  const repo = await cli.withProject();
+  gitRepo(repo);
+  const empty = await cli.mesa('git', 'message', 'lantern-cove', '--json');
+  expect(empty.code).toBe(2);
+  expect(empty.json.error.message).toContain('nothing is staged');
+  writeFileSync(join(repo, 'tides.md'), 'High water\n');
+  execFileSync('git', ['-C', repo, 'add', 'tides.md'], { env: testEnv });
+  const { json, code } = await cli.mesa('git', 'message', 'lantern-cove', '--json');
+  expect(code).toBe(0);
+  expect(json.data).toEqual({
+    message: 'Add the tide table',
+    run: { session: expect.any(String), durationMs: 19113, costUsd: 0.2621986 },
+  });
+  const log = execFileSync('git', ['-C', repo, 'log', '--format=%s'], {
+    env: testEnv,
+    encoding: 'utf8',
+  });
+  expect(log.trim().split('\n')).toHaveLength(1);
+  expect((await cli.mesa('help', '--agent')).stdout).toContain('mesa git message');
 });

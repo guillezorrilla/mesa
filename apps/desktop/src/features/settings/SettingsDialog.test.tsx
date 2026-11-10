@@ -412,6 +412,39 @@ test('Projects picks a project and edits its overrides, each row naming the prof
   expect(projectSets().at(-1)).toEqual(['--unset', '--', 'reef', 'terminal.theme']);
 });
 
+test("Projects saves the commit message recipe override, and emptied, the profile's applies again", async () => {
+  const [cove] = PROJECTS as [ProjectRow];
+  const projects: ProjectRow[] = [
+    { ...cove, overrides: { git: { commitMessageRecipe: 'One line: {stagedFiles}' } } },
+  ];
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(projects),
+    'projects set': () => envelope({ receipt: null }),
+  });
+  await render(bridge);
+  await click(nav('Projects'));
+  const recipe = document.getElementById('project-commit-recipe') as HTMLTextAreaElement;
+  expect(recipe.value).toBe('One line: {stagedFiles}');
+  expect(recipe.placeholder).toBe((await base()).git.commitMessageRecipe);
+  expect(recipe.closest('[data-setting-row]')?.textContent).toContain(
+    'Mesa fills {stagedPatch}, {stagedFiles}, {branch}, {recentCommits}.',
+  );
+  await type('project-commit-recipe', 'Summarise: {stagedFiles}');
+  await type('project-commit-recipe', '  ');
+  expect(calls.filter((args) => args[1] === 'projects' && args[2] === 'set')).toEqual([
+    [
+      '--json',
+      'projects',
+      'set',
+      '--',
+      'lantern-cove',
+      'git.commitMessageRecipe',
+      '"Summarise: {stagedFiles}"',
+    ],
+    ['--json', 'projects', 'set', '--unset', '--', 'lantern-cove', 'git.commitMessageRecipe'],
+  ]);
+});
+
 test("Projects shows a repository's unapproved scripts exactly and approves them through projects trust", async () => {
   const [cove] = PROJECTS as [ProjectRow];
   const setup = ['/usr/bin/make', 'set up'];

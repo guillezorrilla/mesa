@@ -40,7 +40,7 @@ export type RunInput = {
   project?: string;
   /** The session it is about: its output log is the agent's stdin, unless `input` is given. */
   session?: string;
-  /** The agent's stdin for a run about a session, built by its caller (a Vault capture's). */
+  /** The agent's stdin, built by its caller (a Vault capture's, git text's); a run about a session without it reads that session's output. */
   input?: string;
   agent?: string;
   /** The words after the skill in its prompt, `/<skill> <args>`. */
@@ -68,9 +68,9 @@ type RunDeps = LaunchDeps & {
 /**
  * Starts a skill run: a session of kind run whose window runs the agent's headless command, with
  * `/<skill> <args>` as its prompt (kept as the record's goal), and its stdout in runOutput; its
- * stderr stays on the pane. Its stdin is closed, or, for a run about a session, a file holding
- * the `input` it was given, else that session's output (aboutInput), written once the record
- * is, as its id names it. The window's command execs the agent, so the pane's pid and exit
+ * stderr stays on the pane. Its stdin is a file holding the `input` it was given, else, for a run
+ * about a session, that session's output (aboutInput), written once the record is, as its id
+ * names it, else closed. The window's command execs the agent, so the pane's pid and exit
  * status are the agent's. Every refusal comes before anything is written: a timeout under one
  * second, an unknown session or project, a project that is not the session's, a skill the
  * project does not see or enable, an agent that cannot run, a session with no output log (and no
@@ -102,7 +102,7 @@ export async function startRun(deps: RunDeps, input: RunInput) {
   }
   requireSkill(deps.skills(entry.name), input.skill, entry.name);
   const { agent, spec } = await launchAgent(deps, project, input.agent);
-  const given = about && (input.input ?? aboutInput(deps, about));
+  const given = input.input ?? (about && aboutInput(deps, about));
   const prompt = runPrompt(spec.headless.skillPrefix, input.skill, input.args);
   const agentSessionId = newSessionId(agent, deps.newUuid);
   const model = claudeRunModel(input.skill);
