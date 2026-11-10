@@ -28,8 +28,12 @@ export type PullRequestList =
   | { ok: true; pullRequests: PullRequest[]; limited: boolean }
   | { ok: false; reason: 'failed' | 'timeout' | 'invalid-data' };
 
-/** The repository's latest pull requests, any state, as `gh pr list` in `cwd` reports them. */
-export async function listPullRequests(run: Runner, cwd: string): Promise<PullRequestList> {
+/** `gh pr list --state all` in `cwd` with `args`, read as pull requests. */
+async function ghPrList(
+  run: Runner,
+  cwd: string,
+  args: string[],
+): Promise<{ ok: true; pullRequests: PullRequest[] } | Extract<PullRequestList, { ok: false }>> {
   const listed = await run(
     'gh',
     [
@@ -37,8 +41,7 @@ export async function listPullRequests(run: Runner, cwd: string): Promise<PullRe
       'list',
       '--state',
       'all',
-      '--limit',
-      String(LIMIT),
+      ...args,
       '--json',
       'number,title,url,state,isDraft,headRefName,isCrossRepository,updatedAt,mergedAt,closedAt',
     ],
@@ -55,8 +58,18 @@ export async function listPullRequests(run: Runner, cwd: string): Promise<PullRe
   }
   const parsed = z.array(PullRequestSchema).safeParse(raw);
   if (!parsed.success) return { ok: false, reason: 'invalid-data' };
-  return { ok: true, pullRequests: parsed.data, limited: parsed.data.length === LIMIT };
+  return { ok: true, pullRequests: parsed.data };
 }
+
+/** The repository's latest pull requests, any state, as `gh pr list` in `cwd` reports them. */
+export async function listPullRequests(run: Runner, cwd: string): Promise<PullRequestList> {
+  const listed = await ghPrList(run, cwd, ['--limit', String(LIMIT)]);
+  return listed.ok ? { ...listed, limited: listed.pullRequests.length === LIMIT } : listed;
+}
+
+/** The newest pull requests from `branch`, any state, a fork's of the same name among them. */
+export const branchPullRequests = (run: Runner, cwd: string, branch: string) =>
+  ghPrList(run, cwd, ['--head', branch, '--limit', '5']);
 
 /**
  * Links pull requests to sessions by branch name alone, never by authorship: each pull request

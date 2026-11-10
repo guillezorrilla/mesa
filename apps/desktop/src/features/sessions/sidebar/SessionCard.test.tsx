@@ -44,9 +44,13 @@ test('a card shows the lines its work changed after its branch, and its last rep
   expect(reply?.getAttribute('title')).toBe('Added the tide table.\nAll tests pass.');
 });
 
-test('a compact card shows none of them', async () => {
+test('a compact card shows only its pull request, on its title row, left of the hover actions while they show', async () => {
   const byTestId = await card(true);
-  expect(byTestId('session-pr')).toEqual([]);
+  const pr = byTestId('session-pr')[0];
+  expect(pr?.textContent).toBe('#12');
+  expect(pr?.className).toContain('group-hover:right-19');
+  expect(pr?.className).not.toContain('hidden');
+  expect(pr?.className).toContain('text-issue-open');
   expect(byTestId('session-lines')).toEqual([]);
   expect(byTestId('session-reply')).toEqual([]);
   expect(byTestId('session-progress')).toEqual([]);

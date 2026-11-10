@@ -41,7 +41,8 @@ const PR_TONE = {
  * One session in the sidebar: its state and title with a badge per additional project, and while
  * not compact its branch with the lines its work added and removed, its state line, its agent's
  * progress line until it ends (when it was set in its tooltip), and its agent's last reply in one line (the whole stored reply in its tooltip); its branch's pull request
- * in its corner, a link that opens it and never selects the card; while unread, filled green with a dot and a bold title.
+ * in its corner (on a compact card, on its title row, left of the hover actions while they show), a link that opens
+ * it and never selects the card; while unread, filled green with a dot and a bold title.
  * On hover, a child session, compact, archive, and More actions. Its keys: Arrows step to the
  * next card, Shift+Arrow ranges to it, Option+Arrow moves it within its project, and Shift+Enter or
  * Cmd+Enter act as a Shift- or Cmd-click.
@@ -77,8 +78,7 @@ export function SessionCard(props: {
   const lines = session.managed ? session.lines : undefined;
   const reply = session.managed ? session.lastReply : undefined;
   const progress = session.managed && !session.endedAt ? session.progress : undefined;
-  // Not on a compact card, whose one row the hover actions take, as its lines and reply are not.
-  const pr = session.managed && !compact ? session.pr : undefined;
+  const pr = session.managed ? session.pr : undefined;
   const run = useRun();
   return (
     <div className="group relative mb-1">
@@ -115,6 +115,8 @@ export function SessionCard(props: {
         <span
           className={cn(
             'flex w-full min-w-0 items-center gap-2 font-medium group-focus-within:pr-17 group-hover:pr-17',
+            // Clears a compact card's pull request too, which sits on this row, left of the hover actions while they show.
+            compact && pr && 'pr-14 group-focus-within:pr-30 group-hover:pr-30',
           )}
         >
           {unread ? (
@@ -212,7 +214,11 @@ export function SessionCard(props: {
           aria-label={`Open pull request #${pr.number} (${pr.state})`}
           title={`Pull request #${pr.number}, ${pr.state}`}
           className={cn(
-            'absolute right-2 bottom-1.5 flex items-center gap-0.5 rounded px-1 font-mono text-[10px] hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring',
+            'absolute right-2 flex items-center gap-0.5 rounded px-1 font-mono text-[10px] hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring',
+            // A compact card's one row: it moves left of the hover actions while they show, still a link.
+            compact
+              ? 'top-1/2 -translate-y-1/2 group-focus-within:right-19 group-hover:right-19'
+              : 'bottom-1.5',
             PR_TONE[pr.state],
           )}
           onClick={() => void run('browser.external', { url: pr.url })}
