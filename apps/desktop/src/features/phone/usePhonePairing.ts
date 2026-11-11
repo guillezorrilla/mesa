@@ -11,7 +11,7 @@ export type PairingCode = PairStart & { svg: string };
 
 /**
  * The profile's phone pairing: its status, the code on show while no phone has scanned it (asked
- * about every PAIRING_POLL_MS), and the pair and unpair actions.
+ * about every PAIRING_POLL_MS, and put away once it expires), and the pair and unpair actions.
  */
 export function usePhonePairing() {
   const status = useCommand('phone.status');
@@ -23,7 +23,11 @@ export function usePhonePairing() {
 
   useEffect(() => {
     if (!code) return;
-    const timer = window.setInterval(() => void status.refresh(), PAIRING_POLL_MS);
+    const expiresAt = Date.parse(code.expiresAt);
+    const timer = window.setInterval(() => {
+      if (Date.now() >= expiresAt) setShown(undefined);
+      else void status.refresh();
+    }, PAIRING_POLL_MS);
     return () => window.clearInterval(timer);
   }, [code, status.refresh]);
 

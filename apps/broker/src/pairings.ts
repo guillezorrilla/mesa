@@ -1,17 +1,12 @@
 import { callerKey, type Limit } from './limit.js';
-import { randomToken } from './pairing.js';
+import { json } from './respond.js';
+import { randomToken } from './tokens.js';
 
 /** How the Worker reaches pairings: a Durable Object per id, and a limit on new ones per caller. */
 export type PairingsDeps = {
   stub: (pairingId: string) => { fetch: (request: Request) => Promise<Response> };
   limit: Limit;
 };
-
-const json = (status: number, body: unknown) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
-  });
 
 const OPS = new Set(['', 'join', 'messages', 'ack', 'socket']);
 

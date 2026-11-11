@@ -13,7 +13,6 @@ export function phoneService(ctx: MesaContext) {
     clock: ctx.clock,
   };
   return {
-    deps,
     /** Opens a pairing and returns its QR; the receipt names only the pairing id. */
     pair: () => {
       ctx.open();

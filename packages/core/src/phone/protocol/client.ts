@@ -7,7 +7,8 @@ export type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 /** A box waiting for this side, in the order the broker took them. */
 export type Delivery = { id: number; box: string; at: string };
 
-export type PairingState = {
+/** The broker's answer about a pairing. */
+export type PairingInfo = {
   createdAt: string;
   expiresAt: string;
   joinedAt?: string;
@@ -58,7 +59,7 @@ export function pairingClient(fetch: Fetch, broker: string) {
         method: 'POST',
         body: JSON.stringify({ joinHash, phoneKey }),
       }),
-    state: (pairingId: string, token: string) => call<PairingState>(at(pairingId), { token }),
+    state: (pairingId: string, token: string) => call<PairingInfo>(at(pairingId), { token }),
     send: (pairingId: string, token: string, box: string) =>
       call<{ id: number }>(`${at(pairingId)}/messages`, {
         method: 'POST',

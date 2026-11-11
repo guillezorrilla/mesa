@@ -15,6 +15,15 @@ export type PhonePairing = {
   takenSeq: number;
 };
 
+/** The phone's keys for its pairing. */
+export const phoneKeys = (pairing: PhonePairing) =>
+  sideKeys({
+    side: 'phone',
+    privateKey: pairing.privateKey,
+    peerPublicKey: pairing.macKey,
+    pairingId: pairing.pairingId,
+  });
+
 /**
  * The phone's side of pairing: joins with the link's secret hash and a new key pair, then sends
  * the sealed hello carrying the secret itself, which only a phone that read the QR can seal, so the
@@ -27,18 +36,7 @@ export async function joinPairing(
 ): Promise<PhonePairing> {
   const keys = newKeyPair();
   const { phoneToken } = await client.join(link.pairingId, hashOf(link.secret), keys.publicKey);
-  const sealing = sideKeys({
-    side: 'phone',
-    privateKey: keys.privateKey,
-    peerPublicKey: link.macKey,
-    pairingId: link.pairingId,
-  });
-  const hello = sealMessage(sealing, link.pairingId, 1, now, {
-    kind: 'hello',
-    secret: link.secret,
-  });
-  await client.send(link.pairingId, phoneToken, hello);
-  return {
+  const pairing: PhonePairing = {
     broker: link.broker,
     pairingId: link.pairingId,
     phoneToken,
@@ -47,4 +45,10 @@ export async function joinPairing(
     sentSeq: 1,
     takenSeq: 0,
   };
+  const hello = sealMessage(phoneKeys(pairing), 1, now, {
+    kind: 'hello',
+    secret: link.secret,
+  });
+  await client.send(link.pairingId, phoneToken, hello);
+  return pairing;
 }

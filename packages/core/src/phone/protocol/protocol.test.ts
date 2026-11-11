@@ -63,30 +63,27 @@ test("the vectors agree with Node's own X25519, HKDF and ChaCha20-Poly1305, a se
 });
 
 test('a flipped byte, the wrong direction, another pairing or a replayed seq does not open', () => {
-  const box = sealMessage(macKeys(), vectors.pairingId, 3, new Date(0), {
+  const box = sealMessage(macKeys(), 3, new Date(0), {
     kind: 'text',
     text: 'hi',
   });
   const flipped = bytes(box);
   flipped[20] = (flipped[20] ?? 0) ^ 1;
-  expect(openMessage(phoneKeys(), vectors.pairingId, base64url(flipped), 0)).toBe('unreadable');
-  expect(openMessage(macKeys(), vectors.pairingId, box, 0)).toBe('unreadable');
-  expect(openMessage(phoneKeys(), 'AnotherPairing00000000', box, 0)).toBe('unreadable');
-  expect(openMessage(phoneKeys(), vectors.pairingId, box, 3)).toBe('replayed');
-  expect(openMessage(phoneKeys(), vectors.pairingId, box, 2)).toEqual({
+  expect(openMessage(phoneKeys(), base64url(flipped), 0)).toBe('unreadable');
+  expect(openMessage(macKeys(), box, 0)).toBe('unreadable');
+  expect(openMessage({ ...phoneKeys(), pairingId: 'AnotherPairing00000000' }, box, 0)).toBe(
+    'unreadable',
+  );
+  expect(openMessage(phoneKeys(), box, 3)).toBe('replayed');
+  expect(openMessage(phoneKeys(), box, 2)).toEqual({
     seq: 3,
     at: '1970-01-01T00:00:00.000Z',
     message: { kind: 'text', text: 'hi' },
   });
-  expect(openMessage(phoneKeys(), vectors.pairingId, 'not base64!', 0)).toBe('unreadable');
-  expect(
-    openMessage(
-      phoneKeys(),
-      vectors.pairingId,
-      seal(macKeys().seal, vectors.pairingId, '{"v":1}'),
-      0,
-    ),
-  ).toBe('unreadable');
+  expect(openMessage(phoneKeys(), 'not base64!', 0)).toBe('unreadable');
+  expect(openMessage(phoneKeys(), seal(macKeys().seal, vectors.pairingId, '{"v":1}'), 0)).toBe(
+    'unreadable',
+  );
 });
 
 test('a pairing link round-trips, and a link with a bad broker, key or version is not one', () => {

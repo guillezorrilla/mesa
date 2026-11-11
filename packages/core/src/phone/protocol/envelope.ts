@@ -18,16 +18,10 @@ const envelope = z.object({ v: z.literal(1), seq: z.number().int().positive(), a
 export type Opened = { seq: number; at: string; message: PhoneMessage };
 
 /** Seals one message as the `seq`th this side has sent. */
-export function sealMessage(
-  keys: SideKeys,
-  pairingId: string,
-  seq: number,
-  at: Date,
-  message: PhoneMessage,
-): string {
+export function sealMessage(keys: SideKeys, seq: number, at: Date, message: PhoneMessage): string {
   return seal(
     keys.seal,
-    pairingId,
+    keys.pairingId,
     JSON.stringify({ v: 1, seq, at: at.toISOString(), ...message }),
   );
 }
@@ -38,11 +32,10 @@ export function sealMessage(
  */
 export function openMessage(
   keys: SideKeys,
-  pairingId: string,
   box: string,
   lastSeq: number,
 ): Opened | 'unreadable' | 'replayed' {
-  const text = open(keys.open, pairingId, box);
+  const text = open(keys.open, keys.pairingId, box);
   if (text === undefined) return 'unreadable';
   let raw: unknown;
   try {
@@ -63,14 +56,13 @@ export function openMessage(
  */
 export function openDeliveries(
   keys: SideKeys,
-  pairingId: string,
   deliveries: Delivery[],
   takenSeq: number,
 ): { opened: Opened[]; takenSeq: number; ackUpTo?: number } {
   const opened: Opened[] = [];
   let last = takenSeq;
   for (const delivery of deliveries) {
-    const result = openMessage(keys, pairingId, delivery.box, last);
+    const result = openMessage(keys, delivery.box, last);
     if (typeof result === 'string') continue;
     opened.push(result);
     last = result.seq;

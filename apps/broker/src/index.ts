@@ -2,7 +2,6 @@
 import { type Env, handle } from './broker.js';
 import { type D1, d1Installs } from './installs-d1.js';
 import { unlimited } from './limit.js';
-import { Pairing as PairingLogic, type PairingState } from './pairing.js';
 
 /** Cloudflare's rate-limit binding: FEEDBACK_LIMIT and INSTALLS_LIMIT in wrangler.toml. */
 type RateLimiter = { limit: (options: { key: string }) => Promise<{ success: boolean }> };
@@ -43,9 +42,5 @@ export default {
   },
 };
 
-/** The PAIRINGS Durable Object class: the runtime passes (state, env), and a Pairing needs only the state. */
-export class Pairing extends PairingLogic {
-  constructor(state: PairingState) {
-    super(state);
-  }
-}
+/** The PAIRINGS Durable Object class (wrangler.toml). */
+export { Pairing } from './pairing.js';

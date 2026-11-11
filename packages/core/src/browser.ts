@@ -44,7 +44,7 @@ export {
   type Fetch,
   type PairingClient,
   PairingError,
-  type PairingState,
+  type PairingInfo,
   pairingClient,
 } from './phone/protocol/client.js';
 export {
@@ -55,7 +55,7 @@ export {
   phoneMessage,
   sealMessage,
 } from './phone/protocol/envelope.js';
-export { joinPairing, type PhonePairing } from './phone/protocol/join.js';
+export { joinPairing, type PhonePairing, phoneKeys } from './phone/protocol/join.js';
 export { formatPairingLink, type PairingLink, parsePairingLink } from './phone/protocol/link.js';
 export {
   base64url,

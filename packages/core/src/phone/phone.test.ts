@@ -8,8 +8,9 @@ import {
   projectProfile,
   scriptedRunner,
 } from '../testing/index.js';
-import { macPairingStore } from './mac-pairing.js';
-import { sendToPhone, takeFromPhone } from './mailbox.js';
+import { macKeys, macPairingStore } from './mac-pairing.js';
+import { pairingClient } from './protocol/client.js';
+import { openDeliveries, sealMessage } from './protocol/envelope.js';
 import { newKeyPair } from './protocol/seal.js';
 
 const NOW = new Date('2026-09-24T12:00:00.000Z');
@@ -80,21 +81,31 @@ test('a phone that joins without the secret in its hello is never trusted', asyn
   expect(await mesa.phone.status()).toMatchObject({ paired: false, pending: true });
 });
 
-test('a sealed message crosses both ways, and each side takes it once', async () => {
-  const { mesa, phone } = setup();
+test('a sealed message crosses both ways over the confirmed pairing, and each side takes it once', async () => {
+  const { mesa, phone, broker, secrets } = setup();
   await phone.join((await mesa.phone.pair()).result.qr);
   await mesa.phone.status();
-  const deps = mesa.phone.deps;
+  const item = await macPairingStore(secrets.store, 'default').read();
+  if (!item?.phoneKey) throw new Error('not confirmed');
+  const keys = macKeys({ ...item, phoneKey: item.phoneKey });
+  const mac = pairingClient(broker.http, broker.broker);
 
-  await sendToPhone(deps, { kind: 'text', text: 'Session needs you' });
+  await mac.send(
+    item.pairingId,
+    item.macToken,
+    sealMessage(keys, 1, NOW, { kind: 'text', text: 'Session needs you' }),
+  );
   expect(await phone.take()).toEqual([{ kind: 'text', text: 'Session needs you' }]);
   expect(await phone.take()).toEqual([]);
 
   await phone.send({ kind: 'text', text: 'on my way' });
-  expect((await takeFromPhone(deps)).map((o) => o.message)).toEqual([
-    { kind: 'text', text: 'on my way' },
-  ]);
-  expect(await takeFromPhone(deps)).toEqual([]);
+  const taken = openDeliveries(
+    keys,
+    await mac.receive(item.pairingId, item.macToken),
+    item.takenSeq,
+  );
+  expect(taken.opened.map((o) => o.message)).toEqual([{ kind: 'text', text: 'on my way' }]);
+  expect(taken.takenSeq).toBe(2);
 });
 
 test('a second pair while paired is refused; while pending it replaces the QR', async () => {

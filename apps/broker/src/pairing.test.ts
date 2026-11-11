@@ -7,15 +7,14 @@ import {
   sideKeys,
 } from '@mesa/core/browser';
 import { expect, test } from 'vitest';
+import { BOX_MAX, KEEP_COUNT, KEEP_MS } from './boxes.js';
 import { handle } from './broker.js';
 import {
-  BOX_MAX,
+  AUTH_MS,
   JOIN_MS,
-  KEEP_COUNT,
-  KEEP_MS,
   Pairing,
+  type PairingObjectState,
   type PairingSocket,
-  type PairingState,
 } from './pairing.js';
 
 const BROKER = 'https://broker.example.test';
@@ -24,7 +23,8 @@ const BROKER = 'https://broker.example.test';
 function memoryState() {
   const data = new Map<string, unknown>();
   const sockets: PairingSocket[] = [];
-  const state: PairingState = {
+  let alarm: number | null = null;
+  const state: PairingObjectState = {
     storage: {
       get: async <T>(key: string) => structuredClone(data.get(key)) as T | undefined,
       put: async (key, value) => void data.set(key, structuredClone(value)),
@@ -34,12 +34,15 @@ function memoryState() {
           [...data].filter(([key]) => key.startsWith(prefix)).sort(([a], [b]) => (a < b ? -1 : 1)),
         ) as Map<string, T>,
       deleteAll: async () => data.clear(),
-      setAlarm: async () => {},
+      getAlarm: async () => alarm,
+      setAlarm: async (at) => {
+        alarm = at;
+      },
     },
     acceptWebSocket: (socket) => void sockets.push(socket),
     getWebSockets: () => sockets,
   };
-  return { state, data, sockets };
+  return { state, data, sockets, alarm: () => alarm };
 }
 
 /** A socket that records what it was sent and how it closed. */
@@ -68,7 +71,7 @@ function broker() {
     let object = objects.get(id);
     if (!object) {
       const memory = memoryState();
-      object = { pairing: new Pairing(memory.state, () => clock.now), memory };
+      object = { pairing: new Pairing(memory.state, undefined, () => clock.now), memory };
       objects.set(id, object);
     }
     return object;
@@ -187,7 +190,7 @@ test('an unknown pairing, a bad id, a bad body and a missing token are refused',
 
 test('a box goes to the other side only, waits until taken, and the broker holds only ciphertext and hashes', async () => {
   const p = await paired();
-  const box = sealMessage(p.keys.mac, p.pairingId, 1, p.clock.now, {
+  const box = sealMessage(p.keys.mac, 1, p.clock.now, {
     kind: 'text',
     text: 'deploy the hotfix',
   });
@@ -201,7 +204,7 @@ test('a box goes to the other side only, waits until taken, and the broker holds
   const waiting = (await p.call(`/pairings/${p.pairingId}/messages`, { token: p.phoneToken })).body
     .messages;
   expect(waiting).toEqual([{ id: 1, box, at: '2026-11-11T10:00:00.000Z' }]);
-  expect(openMessage(p.keys.phone, p.pairingId, waiting[0].box, 0)).toMatchObject({
+  expect(openMessage(p.keys.phone, waiting[0].box, 0)).toMatchObject({
     message: { kind: 'text', text: 'deploy the hotfix' },
   });
 
@@ -256,7 +259,7 @@ test('a connected socket gets waiting boxes after auth and new ones at once; a b
   expect(stranger.closed).toBe(4001);
 });
 
-test('unpairing deletes everything, closes the sockets, and an old token then finds nothing', async () => {
+test('unpairing deletes everything and closes the sockets; an old token then hears 401 until the tombstone lapses', async () => {
   const p = await paired();
   const object = p.objectOf(p.pairingId);
   const phone = fakeSocket();
@@ -265,19 +268,74 @@ test('unpairing deletes everything, closes the sockets, and an old token then fi
   expect(
     (await p.call(`/pairings/${p.pairingId}`, { method: 'DELETE', token: p.phoneToken })).status,
   ).toBe(204);
-  expect(object.memory.data.size).toBe(0);
+  expect([...object.memory.data.keys()]).toEqual(['gone']);
   expect(phone.closed).toBe(4000);
+  expect(await p.call(`/pairings/${p.pairingId}`, { token: p.macToken })).toEqual({
+    status: 401,
+    body: { error: 'unpaired' },
+  });
+  expect(object.memory.alarm()).toBe(p.clock.now.getTime() + KEEP_MS);
+  p.clock.now = new Date(p.clock.now.getTime() + KEEP_MS);
+  await object.pairing.alarm();
+  expect(object.memory.data.size).toBe(0);
   expect((await p.call(`/pairings/${p.pairingId}`, { token: p.macToken })).status).toBe(404);
 });
 
-test('the alarm forgets a pairing no phone joined, and keeps a joined one', async () => {
+test('the alarm forgets a pairing no phone joined in ten minutes, and keeps a joined one', async () => {
   const b = broker();
   const { pairingId } = (await b.post('/pairings', { joinHash: hashOf(newSecret()) })).body;
-  await b.objectOf(pairingId).pairing.alarm();
-  expect(b.objectOf(pairingId).memory.data.size).toBe(0);
+  const object = b.objectOf(pairingId);
+  expect(object.memory.alarm()).toBe(b.clock.now.getTime() + JOIN_MS);
+  await object.pairing.alarm();
+  expect(object.memory.data.size).toBeGreaterThan(0);
+  b.clock.now = new Date(b.clock.now.getTime() + JOIN_MS);
+  await object.pairing.alarm();
+  expect(object.memory.data.size).toBe(0);
+
   const p = await paired();
+  p.clock.now = new Date(p.clock.now.getTime() + JOIN_MS);
   await p.objectOf(p.pairingId).pairing.alarm();
   expect(p.objectOf(p.pairingId).memory.data.size).toBeGreaterThan(0);
+});
+
+test('the alarm drops boxes past seven days that no one came for', async () => {
+  const p = await paired();
+  const object = p.objectOf(p.pairingId);
+  await p.post(`/pairings/${p.pairingId}/messages`, { box: 'unread' }, p.macToken);
+  const boxKeys = () => [...object.memory.data.keys()].filter((key) => key.startsWith('box:'));
+  expect(boxKeys()).toHaveLength(1);
+  p.clock.now = new Date(p.clock.now.getTime() + KEEP_MS + 1);
+  await object.pairing.alarm();
+  expect(boxKeys()).toEqual([]);
+});
+
+test('the alarm closes a socket that never authenticated, and holds the next alarm for it', async () => {
+  const p = await paired();
+  const object = p.objectOf(p.pairingId);
+  const idle = fakeSocket();
+  idle.serializeAttachment({ acceptedAt: p.clock.now.getTime() });
+  object.memory.sockets.push(idle);
+  await object.pairing.alarm();
+  expect(idle.closed).toBeUndefined();
+  expect(object.memory.alarm()).toBe(p.clock.now.getTime() + AUTH_MS);
+  p.clock.now = new Date(p.clock.now.getTime() + AUTH_MS);
+  await object.pairing.alarm();
+  expect(idle.closed).toBe(4001);
+});
+
+test('boxes sent at the same moment each get their own id, and none overwrites another', async () => {
+  const p = await paired();
+  const send = (box: string, token: string) =>
+    p.post(`/pairings/${p.pairingId}/messages`, { box }, token);
+  const ids = await Promise.all([
+    send('one', p.macToken),
+    send('two', p.macToken),
+    send('three', p.phoneToken),
+    p.call(`/pairings/${p.pairingId}`, { token: p.phoneToken }),
+  ]);
+  expect(new Set(ids.slice(0, 3).map((answer) => answer.body.id)).size).toBe(3);
+  const toPhone = await p.call(`/pairings/${p.pairingId}/messages`, { token: p.phoneToken });
+  expect(toPhone.body.messages.map((m: { box: string }) => m.box).sort()).toEqual(['one', 'two']);
 });
 
 test('without the Durable Object binding the pairing routes answer not_configured', async () => {

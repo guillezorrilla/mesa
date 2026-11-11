@@ -32,7 +32,7 @@ export function brokerError(error: unknown, broker: string): never {
   if (!(error instanceof PairingError)) throw error;
   if (error.status === 0) throw new MesaError('internal', `couldn't reach the broker at ${broker}`);
   if (error.status === 429)
-    throw new MesaError('internal', 'too many pairings started, wait a minute and try again');
+    throw new MesaError('internal', 'the broker is busy, wait a minute and try again');
   if (error.code === 'not_configured')
     throw new MesaError('internal', `the broker at ${broker} does not take phone pairings`);
   throw new MesaError('internal', `the broker answered ${error.status} ${error.code}`);
@@ -86,7 +86,7 @@ async function confirm(deps: PairingDeps, pairing: MacPairing, phoneKey: string,
   const client = deps.client(pairing.broker);
   const keys = macKeys({ ...pairing, phoneKey });
   for (const delivery of await client.receive(pairing.pairingId, pairing.macToken)) {
-    const opened = openMessage(keys, pairing.pairingId, delivery.box, 0);
+    const opened = openMessage(keys, delivery.box, 0);
     if (typeof opened === 'string' || opened.message.kind !== 'hello') continue;
     if (opened.message.secret !== pairing.secret) continue;
     const { secret: _, ...rest } = pairing;

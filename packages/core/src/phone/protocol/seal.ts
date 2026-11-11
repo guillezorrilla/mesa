@@ -11,8 +11,8 @@ import { concatBytes, randomBytes, utf8ToBytes } from '@noble/hashes/utils.js';
 /** Who sealed a message: the Mac for the phone, or the phone for the Mac. */
 export type Direction = 'mac-to-phone' | 'phone-to-mac';
 
-/** The two keys of one side of a Pairing: one to seal what it sends, one to open what it gets. */
-export type SideKeys = { seal: Uint8Array; open: Uint8Array };
+/** One side's keys for one Pairing: one to seal what it sends, one to open what it gets. */
+export type SideKeys = { pairingId: string; seal: Uint8Array; open: Uint8Array };
 
 const VERSION = 'mesa-phone/v1';
 const NONCE = 12;
@@ -59,6 +59,7 @@ export function sideKeys(input: {
   const outgoing: Direction = input.side === 'mac' ? 'mac-to-phone' : 'phone-to-mac';
   const incoming: Direction = input.side === 'mac' ? 'phone-to-mac' : 'mac-to-phone';
   return {
+    pairingId: input.pairingId,
     seal: directionKey(shared, input.pairingId, outgoing),
     open: directionKey(shared, input.pairingId, incoming),
   };
