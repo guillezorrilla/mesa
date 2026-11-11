@@ -51,11 +51,12 @@ const PARENT = {
   CLAUDE_PID: '42',
   NO_COLOR: '1',
 };
-const underParent: Runner = (file, args, timeoutMs) =>
+const underParent: Runner = (file, args, timeoutMs, options) =>
   testRunner(
     'env',
     [...Object.entries(PARENT).map(([k, v]) => `${k}=${v}`), file, ...args],
     timeoutMs,
+    options,
   );
 
 /** Reads until `want` matches, for output a pane has not drawn yet, for up to `ms`. */
@@ -128,6 +129,47 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     expect(await eventually(() => tmux.capturePane(target, 5), /hello\n-n hello/)).toBe(
       '-n hello\n-n hello',
     );
+  });
+
+  test('sendText pastes text over 1 KB whole, newlines kept, then Enter', async () => {
+    const target = lantern('claude-paste1');
+    const out = join(tempDir(), 'pasted.txt');
+    await open(target, `exec cat > ${out}`);
+    await eventually(
+      () => raw('display-message', '-p', '-t', exact(target), '#{pane_current_command}'),
+      /cat/,
+    );
+    const text = Array.from(
+      { length: 66 },
+      (_, i) => `line ${i} of the tide table, high water`,
+    ).join('\n');
+    expect(Buffer.byteLength(text)).toBeGreaterThan(2048);
+    const calls: string[][] = [];
+    const recorded = tmuxBackend({
+      sleep: async () => {},
+      run: (file, args, ms, options) => {
+        calls.push(args.slice(5));
+        return underParent(file, args, ms, options);
+      },
+      socket,
+      env: PARENT,
+    });
+    await recorded.sendText(target, text);
+    expect(calls.map((args) => args[0])).toEqual([
+      'display-message',
+      'load-buffer',
+      'paste-buffer',
+      'delete-buffer',
+      'send-keys',
+    ]);
+    expect(calls[2]).toEqual(expect.arrayContaining(['-p', '-r']));
+    const written = () => Promise.resolve(existsSync(out) ? readFileSync(out, 'utf8') : '');
+    expect(await eventually(written, /line 65 of the tide table, high water\n$/)).toBe(`${text}\n`);
+    expect(await raw('list-buffers', '-F', '#{buffer_name}')).not.toContain('mesa-send');
+    // Short text is still typed, so a slash command runs.
+    calls.length = 0;
+    await recorded.sendText(target, '/exit');
+    expect(calls[1]).toEqual(expect.arrayContaining(['send-keys', '-l', '/exit']));
   });
 
   test('sendText types a closing ; as it is, and a closing \\; too', async () => {

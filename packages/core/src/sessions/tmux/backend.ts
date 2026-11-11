@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { TMUX_INSTALL } from '../../doctor/probe.js';
 import { type Env, type Runner, shellWord } from '../../lib/process.js';
 import { type ErrorCode, MesaError } from '../../lib/result.js';
@@ -51,6 +52,9 @@ export const nestedAgentVars = (env: Env) =>
 const NOTHING_THERE =
   /no server running|error connecting to .*\(No such file or directory\)|can't find session|no current target/;
 
+/** Text longer than this, in bytes, is pasted rather than typed (sendText). */
+const PASTE_BYTES = 1024;
+
 export function tmuxBackend({
   run,
   socket,
@@ -71,8 +75,13 @@ export function tmuxBackend({
   // shapes Mesa's server (ADR-0001 amendment).
   const server = ['-u', '-L', socket, '-f', '/dev/null'];
   /** One tmux call on Mesa's socket. A missing or hung tmux throws; a failed command returns. */
-  const tmux = async (args: string[]) => {
-    const res = await run('tmux', [...server, ...args], TIMEOUT_MS);
+  const tmux = async (args: string[], input?: string) => {
+    const res = await run(
+      'tmux',
+      [...server, ...args],
+      TIMEOUT_MS,
+      input === undefined ? undefined : { input },
+    );
     if (res.ok || res.reason === 'failed') return res;
     throw new MesaError(
       'tmux_unavailable',
@@ -82,8 +91,8 @@ export function tmuxBackend({
     );
   };
   /** A tmux call that must succeed: its failure throws `code` with tmux's own message. */
-  const must = async (args: string[], code: ErrorCode, what: string) => {
-    const res = await tmux(args);
+  const must = async (args: string[], code: ErrorCode, what: string, input?: string) => {
+    const res = await tmux(args, input);
     if (!res.ok) throw new MesaError(code, `${what}: ${res.detail}`);
     return res.stdout;
   };
@@ -284,8 +293,10 @@ export function tmuxBackend({
     },
     /**
      * Types `text` literally, then Enter, in a second call, `submitDelayMs` later when the agent
-     * needs the pause (its entry's). Refuses a pane whose process exited, and one running a shell
-     * (the agent is gone) unless `force`.
+     * needs the pause (its entry's). Text over PASTE_BYTES is pasted instead (bracketed, for an
+     * agent that asked for it): Claude Code drops the start of a typed prompt of 2 to 3 KB (#995),
+     * and a paste reaches it whole; short text is typed, so a slash command still runs. Refuses a
+     * pane whose process exited, and one running a shell (the agent is gone) unless `force`.
      */
     sendText: async (
       target: WindowTarget,
@@ -304,10 +315,23 @@ export function tmuxBackend({
         const why = dead === '1' ? 'its process exited' : `it runs ${command}; force sends anyway`;
         throw new MesaError('agent_unavailable', `no agent in ${targetLabel(target)}: ${why}`);
       }
-      // `--` so text starting with `-` is typed, not read as a flag. tmux reads any word ending in
-      // `;` as the end of a command and turns a closing `\;` into `;`, so a closing `;` goes as `\;`.
-      const word = text.endsWith(';') ? `${text.slice(0, -1)}\\;` : text;
-      await onWindow(target, 'send-keys', '-l', '--', word);
+      if (Buffer.byteLength(text) > PASTE_BYTES) {
+        // From stdin, past any argument limit, in a buffer of its own so two sends at once never
+        // swap texts; -r keeps newlines as typed, and the buffer goes whether the paste worked.
+        const buffer = `mesa-send-${randomUUID()}`;
+        await must(['load-buffer', '-b', buffer, '-'], 'internal', 'cannot load the text', text);
+        try {
+          await onWindow(target, 'paste-buffer', '-p', '-r', '-b', buffer);
+        } finally {
+          await tmux(['delete-buffer', '-b', buffer]);
+        }
+      } else {
+        // `--` so text starting with `-` is typed, not read as a flag. tmux reads any word ending
+        // in `;` as the end of a command and turns a closing `\;` into `;`, so a closing `;` goes
+        // as `\;`.
+        const word = text.endsWith(';') ? `${text.slice(0, -1)}\\;` : text;
+        await onWindow(target, 'send-keys', '-l', '--', word);
+      }
       if (submitDelayMs > 0) await sleep(submitDelayMs);
       await onWindow(target, 'send-keys', 'Enter');
     },

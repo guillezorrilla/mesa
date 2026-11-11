@@ -2,8 +2,10 @@ import type { Runner, RunResult } from '../lib/process.js';
 
 type RunOptions = Parameters<Runner>[3];
 
-/** Stdout, or a function of the call's arguments returning stdout or a whole result. */
-type Answer = string | ((args: string[]) => string | RunResult | Promise<string | RunResult>);
+/** Stdout, or a function of the call's arguments (and options) returning stdout or a whole result. */
+type Answer =
+  | string
+  | ((args: string[], options?: RunOptions) => string | RunResult | Promise<string | RunResult>);
 
 /**
  * Answers from `outputs` by binary name; names in `missing` are ENOENT, names in `slow` time out,
@@ -20,7 +22,7 @@ export function scriptedRunner(
     if (opts.slow?.includes(file)) return { ok: false, reason: 'timeout', detail: 'killed' };
     if (opts.failing?.includes(file)) return { ok: false, reason: 'failed', detail: 'exit 1' };
     const answer = outputs[file] ?? '';
-    const said = typeof answer === 'function' ? await answer(args) : answer;
+    const said = typeof answer === 'function' ? await answer(args, options) : answer;
     return typeof said === 'string' ? { ok: true, stdout: said } : said;
   };
   return { run, calls };

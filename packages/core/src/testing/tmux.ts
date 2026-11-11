@@ -53,7 +53,8 @@ const TMUX_LAYOUTS = [
 /**
  * A tmux server in memory, as a scripted runner answer: `scriptedRunner({ tmux: world.answer })`.
  * It speaks the commands the tmux backend sends (chained with `;`), over `windows`. `onKeys`
- * sees each text typed with `send-keys -l`, so a test can make an agent react, say quit on /exit.
+ * sees each text typed with `send-keys -l` or pasted (`load-buffer`, then `paste-buffer`), so a
+ * test can make an agent react, say quit on /exit.
  * The world is a TmuxBackend too, the real one over this server on mesa-default, for a test of a
  * module that takes the backend itself. The server answers whatever socket a call names.
  */
@@ -100,7 +101,9 @@ export function fakeTmux(
   };
   const line = (w: FakeWindow, i: number) =>
     tmuxLine({ ...w, index: i, command: w.dead ? '' : w.running });
-  const one = (args: string[]): RunResult => {
+  /** Paste buffers by name, as `load-buffer` filled them. */
+  const buffers = new Map<string, string>();
+  const one = (args: string[], input?: string): RunResult => {
     const [command = '', ...rest] = args;
     if (world.failing.includes(command)) return failed(`${command} failed`);
     if (world.slow.includes(command))
@@ -176,6 +179,20 @@ export function fakeTmux(
         }
         return ok();
       }
+      case 'load-buffer':
+        buffers.set(flag(rest, '-b'), input ?? '');
+        return ok();
+      case 'paste-buffer': {
+        const w = find(target);
+        const text = buffers.get(flag(rest, '-b'));
+        if (!w) return failed("can't find window");
+        if (text === undefined) return failed('no buffer');
+        w.typed.push(text);
+        opts.onKeys?.(w, text);
+        return ok();
+      }
+      case 'delete-buffer':
+        return buffers.delete(flag(rest, '-b')) ? ok() : failed('no buffer');
       case 'pipe-pane': {
         const w = find(target);
         if (!w) return failed("can't find window");
@@ -238,7 +255,7 @@ export function fakeTmux(
    * Every call: `-u -L <socket> -f /dev/null` first, then commands. As tmux reads its arguments,
    * a word ending in `;` ends a command (the `;` dropped), and a closing `\;` is a literal `;`.
    */
-  const answer = async (args: string[]): Promise<RunResult> => {
+  const answer = async (args: string[], options?: { input?: string }): Promise<RunResult> => {
     const commands: string[][] = [[]];
     for (const word of args.slice(5)) {
       if (word.endsWith('\\;')) commands.at(-1)?.push(`${word.slice(0, -2)};`);
@@ -252,7 +269,7 @@ export function fakeTmux(
     // tmux skips an empty command (a leading, trailing, or doubled `;`).
     for (const command of commands.filter((c) => c.length)) {
       opts.before?.(command);
-      result = one(command);
+      result = one(command, options?.input);
       if (!result.ok) break;
       answered.push(command);
     }
@@ -262,7 +279,7 @@ export function fakeTmux(
   };
   const world = {
     ...tmuxBackend({
-      run: (_file, args) => answer(args),
+      run: (_file, args, _ms, options) => answer(args, options),
       socket: 'mesa-default',
       env: {},
       sleep: async () => {},
