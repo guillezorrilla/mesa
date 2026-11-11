@@ -22,6 +22,9 @@ export type Runner = (
   options?: { cwd?: string; env?: Env; input?: string },
 ) => Promise<RunResult>;
 
+/** The most output a run keeps, in MB. */
+const MAX_OUTPUT_MB = 64;
+
 /**
  * The real runner: execFile with a timeout, in `options.env` when a caller passes one, else in
  * `env`. Only an entrypoint builds it, with the environment it runs in (ADR-0008).
@@ -38,7 +41,7 @@ export const envRunner =
           cwd: options?.cwd,
           env: (options?.env ?? env) as NodeJS.ProcessEnv,
           // ponytail: 64 MiB, not the 1 MiB default, for Git diffs and listings; stream if one outgrows it.
-          maxBuffer: 64 * 1024 * 1024,
+          maxBuffer: MAX_OUTPUT_MB * 1024 * 1024,
         },
         (error, stdout, stderr) => {
           if (!error) return resolve({ ok: true, stdout });
@@ -53,7 +56,7 @@ export const envRunner =
             reason: 'failed',
             detail:
               code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'
-                ? 'its output passed 64 MB, the most a run keeps'
+                ? `its output passed ${MAX_OUTPUT_MB} MB, the most a run keeps`
                 : (stderr || stdout || error.message).trim(),
             output,
           });

@@ -17,9 +17,13 @@ export type PendingScripts = Partial<
   Record<TrustedScript, { argv: string[]; fingerprint: string }>
 >;
 
-/** A script as its argv: a worktree script's own, the check's shell line as its one word. */
+/** A script as its argv: a worktree script's own, the check as the shell line it runs in. */
 export const scriptArgv = (project: Project, script: TrustedScript): string[] | undefined =>
-  script === 'check' ? (project.check ? [project.check] : undefined) : project.worktrees?.[script];
+  script === 'check'
+    ? project.check
+      ? ['/bin/sh', '-c', project.check]
+      : undefined
+    : project.worktrees?.[script];
 
 /** What an approval holds: the sha256 of the exact argv, so any change asks again. */
 export const scriptFingerprint = (argv: readonly string[]) =>

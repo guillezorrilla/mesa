@@ -342,7 +342,7 @@ test('projects trust approves the setup a repository names, records a receipt, a
     'approved setup ["/usr/bin/true","changed"] for reef\n',
   );
   expect(cli.asked.at(-1)).toBe(
-    `reef's mesa.yaml runs setup ["/usr/bin/true","changed"] (${sha256(['/usr/bin/true', 'changed'])}) on this machine. Approve?`,
+    `reef's mesa.yaml runs setup ["/usr/bin/true","changed"] (${sha256(['/usr/bin/true', 'changed'])}) on this machine, a setup or teardown without a shell. Approve?`,
   );
   expect((await mesa('worktrees', 'create', 'reef', 'second')).code).toBe(0);
   expect(ran.at(-1)).toEqual(['changed']);

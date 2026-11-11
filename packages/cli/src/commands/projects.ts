@@ -114,7 +114,7 @@ export const projectsTrust = defineCommand({
           'usage',
           `review ${args.project}'s ${describePending(pending)}, then run ${trustCommand(args.project, pending)}, or run mesa projects trust ${args.project} in a terminal to confirm`,
         );
-      const question = `${args.project}'s mesa.yaml runs ${describePending(pending)} on this machine. Approve?`;
+      const question = `${args.project}'s mesa.yaml runs ${describePending(pending)} on this machine, a setup or teardown without a shell. Approve?`;
       if (!(await confirm(question))) throw new MesaError('usage', 'nothing was approved');
       expected = Object.values(pending).map((script) => script.fingerprint);
     }

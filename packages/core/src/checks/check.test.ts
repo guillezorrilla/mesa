@@ -84,7 +84,11 @@ test('a check from the repository runs only once a person approved its exact com
   await expect(refused).rejects.toMatchObject({ code: 'needs_approval' });
   await expect(refused).rejects.toThrow(/mesa projects trust lantern-cove --expect [0-9a-f]{64}/);
   expect(existsSync(profilePaths(home, 'default').checks)).toBe(false);
-  expect(mesa.projects.list()[0]?.unapproved).toHaveProperty('check.argv', ['echo tides']);
+  expect(mesa.projects.list()[0]?.unapproved).toHaveProperty('check.argv', [
+    '/bin/sh',
+    '-c',
+    'echo tides',
+  ]);
 
   const { fingerprint } = mesa.projects.pending('lantern-cove').check ?? { fingerprint: '' };
   mesa.projects.trust('lantern-cove', [fingerprint]);

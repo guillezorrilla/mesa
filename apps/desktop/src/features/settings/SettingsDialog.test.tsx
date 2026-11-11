@@ -536,7 +536,7 @@ test("Projects shows a repository's unapproved scripts exactly and approves them
       overrides: { worktrees: { setup } },
       unapproved: {
         setup: { argv: setup, fingerprint: 'a'.repeat(64) },
-        check: { argv: ['pnpm verify'], fingerprint: 'b'.repeat(64) },
+        check: { argv: ['/bin/sh', '-c', 'pnpm verify'], fingerprint: 'b'.repeat(64) },
       },
     },
   ];
@@ -557,7 +557,7 @@ test("Projects shows a repository's unapproved scripts exactly and approves them
   const shown = [...(byTestId('approve-scripts')[0]?.querySelectorAll('pre') ?? [])];
   expect(shown.map((pre) => [pre.previousElementSibling?.textContent, pre.textContent])).toEqual([
     ['Bootstrap', '"/usr/bin/make" "set up"'],
-    ['Check', '"pnpm verify"'],
+    ['Check', '"/bin/sh" "-c" "pnpm verify"'],
   ]);
   await click(byTestId('approve-scripts-submit')[0]);
   // The fingerprint of the argv the dialog showed, so trust refuses a mesa.yaml changed meanwhile.
