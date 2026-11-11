@@ -834,6 +834,36 @@ test('setupWhile parallel runs setup in a child Setup session beside the agent; 
   expect(world.tmux.opened.at(-1)?.window).toBe(blocked.tmux.window);
 });
 
+test('a Setup session reads working while its setup runs, then failed or done by its outcome', async () => {
+  const world = agentWorld();
+  const { home, dir, mesa } = await setUp(world, { run: withGit(world) });
+  gitRepo(dir);
+  mesa.config.set('worktrees.setup', '["/usr/bin/touch", "keep.txt"]');
+  mesa.config.set('worktrees.setupWhile', 'parallel');
+  const setupOf = async (branch: string) => {
+    const { result } = await mesa.sessions.open('lantern-cove', { branch, terminal: true });
+    return result.setupSession ?? '';
+  };
+  const [failing, passing] = [await setupOf('failing'), await setupOf('passing')];
+  const stateOf = async (id: string) =>
+    (await mesa.sessions.list()).find((s) => s.id === id)?.lastState.state;
+  expect(await stateOf(failing)).toBe('working');
+  // Its first line logs the outcome as claude's (setupLine); the shell stays open either way.
+  const events = profilePaths(home, 'default').events;
+  mkdirSync(events, { recursive: true });
+  const log = (id: string, event: string) =>
+    appendFileSync(
+      join(events, `${id}.jsonl`),
+      `${JSON.stringify({ at: '2026-11-11T10:00:00.000Z', agent: 'claude', event, mesaSessionId: id, payload: {} })}\n`,
+    );
+  log(failing, 'SetupFailed');
+  log(passing, 'SetupDone');
+  expect(await stateOf(failing)).toBe('failed');
+  expect(await stateOf(passing)).toBe('done');
+  const tree = await mesa.sessions.tree('board');
+  expect(tree.find((s) => s.id === failing)?.lastState.state).toBe('failed');
+});
+
 test('a Setup session that cannot open warns, and a launch failing later removes the worktree', async () => {
   // Every window fails: the Setup session's, then the agent's.
   const world = agentWorld({ failing: 'new-session' });

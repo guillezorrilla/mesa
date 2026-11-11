@@ -19,6 +19,7 @@ import {
   type SessionSignals,
   stateEvent,
 } from '../signals/state.js';
+import { setupState } from '../start/setup-session.js';
 import type { TmuxBackend } from '../tmux/backend.js';
 import type { TmuxWindow } from '../tmux/format.js';
 import { windowOf } from '../window/window-name.js';
@@ -97,19 +98,19 @@ export async function managedRow(
 ): Promise<ManagedRow> {
   const { now, window, listedAs } = seen;
   if (found.agent === 'terminal') {
+    // A Setup session's shell stays open after its setup: the logged outcome says how it went.
+    const setup = found.endedAt ? undefined : setupState(deps.events(found.id));
     const state = found.endedAt
       ? found.lastState.state
-      : window && !window.dead
-        ? 'working'
-        : 'done';
+      : (setup?.state ?? (window && !window.dead ? 'working' : 'done'));
     const lastState =
       state === found.lastState.state
         ? found.lastState
         : {
             state,
             confidence: 1,
-            at: now.toISOString(),
-            source: 'tmux' as const,
+            at: setup?.at ?? now.toISOString(),
+            source: setup ? ('hook' as const) : ('tmux' as const),
           };
     const record =
       lastState === found.lastState ? found : saveLook(deps.store, found, { lastState });
