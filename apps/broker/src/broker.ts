@@ -2,18 +2,14 @@ import { feedback } from './feedback.js';
 import { type InstallsDeps, installsRoute } from './installs.js';
 import { callerKey, type Limit, unlimited } from './limit.js';
 import { PRIVACY, TERMS } from './pages.js';
+import { type PairingsDeps, pairingsRoute } from './pairings.js';
 import { PROVIDERS, type Provider } from './providers.js';
+import { json } from './respond.js';
 
 /** The Worker's secrets and variables. */
 export type Env = Record<string, string | undefined>;
 /** How the broker reaches a vendor: the Worker's fetch, or a fake in tests. */
 export type Upstream = (url: string, init: RequestInit) => Promise<Response>;
-
-const json = (status: number, body: unknown) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
-  });
 
 /** The loopback port a callback's `state` (`<nonce>.<port>`) names, or undefined when it names none. */
 function loopbackPort(state: string | null) {
@@ -39,7 +35,7 @@ function grant(body: unknown): Record<string, string> | undefined {
  * Mesa's loopback listener, and exchanges or refreshes tokens with the client secret only it holds.
  * It never logs a request or response body. It also serves the privacy policy and terms, opens
  * an issue from a person's feedback (ADR-0025), `limit` deciding whether a caller may send more,
- * and counts anonymous installs (ADR-0026).
+ * counts anonymous installs (ADR-0026), and routes each Pairing's requests to its Durable Object.
  */
 export async function handle(
   request: Request,
@@ -47,11 +43,14 @@ export async function handle(
   upstream: Upstream,
   limit: Limit = unlimited,
   installs?: InstallsDeps,
+  pairings?: PairingsDeps,
 ): Promise<Response> {
   const url = new URL(request.url);
+  if (url.pathname === '/pairings' || url.pathname.startsWith('/pairings/'))
+    return pairingsRoute(request, url.pathname, pairings);
   if (url.pathname === '/installs' || url.pathname.startsWith('/installs/')) {
     const [status, body] = await installsRoute(request, url.pathname, installs);
-    return body === undefined ? new Response(null, { status }) : json(status, body);
+    return json(status, body);
   }
   if (url.pathname === '/feedback' && request.method === 'POST') {
     if (!(await limit(callerKey(request)))) return json(429, { error: 'rate_limited' });

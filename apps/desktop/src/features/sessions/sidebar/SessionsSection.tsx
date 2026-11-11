@@ -16,12 +16,13 @@ import { SessionCard } from './SessionCard';
 import { SessionsMenu } from './SessionsMenu';
 import { SortableCard, SortableCards } from './SortableCards';
 import type { SidebarGroups } from './sidebarGroups';
+import { WorkerRows } from './WorkerRows';
 
 /**
  * The Sessions tab: active sessions by project, then General, Other, and Recoverable, as one
  * multi-selection that the right-click menu or a chosen card's More menu archives or marks unread
  * or read, and the
- * Archived section at the bottom. A project's cards reorder within it, dragged or with
+ * Archived section at the bottom. A card holds its children's rows (WorkerRows), which open them. A project's cards reorder within it, dragged or with
  * Option+Arrow.
  */
 export function SessionsSection(props: {
@@ -54,7 +55,8 @@ export function SessionsSection(props: {
   onReorder?: (project: string, ids: string[]) => void;
 }) {
   const { groups, view, onView } = props;
-  const { byActivity, active, stranded, general, other, inProject } = groups;
+  const { byActivity, active, stranded, general, other, inProject, crewOf, failedSetupsOf } =
+    groups;
   const { chosen, onSelection, order } = props;
   const unread = useUnreadContext();
   const list = useRef<HTMLDivElement>(null);
@@ -65,8 +67,14 @@ export function SessionsSection(props: {
     list.current?.querySelector<HTMLElement>(`[data-session-id="${next}"]`)?.focus();
     if (shift) onSelection({ kind: 'click', id: next, shift: true, from: id });
   };
-  /** A card; with `onMove`, Option+Arrow moves it within its project. */
+  /** Opens a session from a row inside a card, as a plain click on its own card would. */
+  const open = (id: string) => {
+    onSelection({ kind: 'click', id, shift: false, toggle: false });
+    onView({ kind: 'session', id });
+  };
+  /** A card, with its children's rows; with `onMove`, Option+Arrow moves it within its project. */
   const card = (session: TreeRow, onMove?: (by: 1 | -1) => void) => {
+    const rows = crewOf(session.id);
     const count = chosen.includes(session.id) ? chosen.length : 1;
     const ids = count > 1 ? [...chosen] : [session.id];
     const archive = () => props.onArchiveSessions?.(ids);
@@ -100,6 +108,17 @@ export function SessionsSection(props: {
           onNewSession={props.onNewSession}
           onArchiveSession={props.onArchiveSession}
           onDependencySession={props.onDependencySession}
+          crew={
+            (rows.length > 0 || failedSetupsOf(session.id).length > 0) && (
+              <WorkerRows
+                owner={session.id}
+                rows={rows}
+                failedSetupsOf={failedSetupsOf}
+                selected={view.kind === 'session' ? view.id : undefined}
+                onOpen={open}
+              />
+            )
+          }
         />
       </SessionsMenu>
     );

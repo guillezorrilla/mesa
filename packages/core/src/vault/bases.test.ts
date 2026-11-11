@@ -135,6 +135,7 @@ test('generated meaningful filter matches policy for decisions, changes, materia
     ['decision', 'failed', {}, false],
     ['vault-change', 'blocked', {}, false],
     ['connection', 'ok', { source: 'atlassian' }, true],
+    ['phone', 'ok', { phone: 'pairing-1' }, true],
     ['connection', 'failed', {}, false],
     ['capture', 'ok', { notes: ['wiki/notes/tide.md'], target: 'wiki/notes/tide.md' }, true],
     ['capture', 'failed', { error: { code: 'internal' } }, false],

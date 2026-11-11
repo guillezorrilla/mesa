@@ -12,6 +12,7 @@ import { importsCommands } from './imports';
 import { installsCommands } from './installs';
 import { instructionsCommands } from './instructions';
 import { notificationsCommands } from './notifications';
+import { phoneCommands } from './phone';
 import { projectsCommands } from './projects';
 import { prsCommands } from './prs';
 import { reviewCommands } from './review';
@@ -47,6 +48,7 @@ const COMMANDS = {
   ...worktreesCommands,
   ...skillsCommands,
   ...instructionsCommands,
+  ...phoneCommands,
   ...sourcesCommands,
   ...importsCommands,
   ...ticketsCommands,

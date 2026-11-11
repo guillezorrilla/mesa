@@ -214,6 +214,8 @@ export const STOP_CONTINUED = 'StopContinued';
  * no agent's state, an Inbox notice that opens the Setup session (hookItem).
  */
 export const SETUP_FAILED = 'SetupFailed';
+/** The event a Setup session logs when its setup passes (setupLine): the session reads done. */
+export const SETUP_DONE = 'SetupDone';
 
 /** Whether a Stop payload ends a turn a Stop hook already continued: it must not continue again. */
 export const stopHookActive = (payload: unknown) =>

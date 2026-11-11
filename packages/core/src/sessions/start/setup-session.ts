@@ -1,7 +1,8 @@
-import { SETUP_FAILED } from '../../agents/hooks.js';
+import { SETUP_DONE, SETUP_FAILED } from '../../agents/hooks.js';
 import { shellWord } from '../../lib/process.js';
 import type { RegistryEntry } from '../../projects/registry.js';
 import type { SessionRecord } from '../record/record.js';
+import type { HookEvent } from '../signals/hook-events.js';
 
 /**
  * Opens the Setup session that runs `setup` in `project`'s new worktree, its own or an additional
@@ -15,15 +16,29 @@ export type SetupBeside = (
 
 /**
  * The first command line of a Setup session (`setupWhile: parallel`): the setup argv, shown and
- * run, then a failure logged as a SETUP_FAILED hook event through `self hook claude`
- * (recordHookEvent takes it for a terminal session), which the Inbox raises (hookItem).
+ * run, then its outcome logged as a SETUP_DONE or SETUP_FAILED hook event through `self hook
+ * claude` (recordHookEvent takes both for a terminal session): the Board reads it (setupState),
+ * and the Inbox raises a failure (hookItem).
  */
 export function setupLine(argv: readonly string[], self: readonly string[]) {
-  const failed = JSON.stringify({ hook_event_name: SETUP_FAILED });
+  const log = (event: string) =>
+    `printf '%s' ${shellWord(JSON.stringify({ hook_event_name: event }))} | ${self.map(shellWord).join(' ')} hook claude >/dev/null 2>&1`;
   return [
     `printf '%s\\n' ${shellWord(`$ ${argv.join(' ')}`)}`,
-    `${argv.map(shellWord).join(' ')} || { status=$?; printf '%s' ${shellWord(failed)} | ${self.map(shellWord).join(' ')} hook claude >/dev/null 2>&1; printf '\\nsetup failed (exit %s)\\n' "$status"; }`,
+    `${argv.map(shellWord).join(' ')}`,
+    `status=$?`,
+    `if [ "$status" -eq 0 ]; then ${log(SETUP_DONE)}; else ${log(SETUP_FAILED)}; printf '\\nsetup failed (exit %s)\\n' "$status"; fi`,
   ].join('; ');
+}
+
+/** What a Setup session's logged setup outcome makes its state; none while the setup runs. */
+export function setupState(events: readonly HookEvent[]) {
+  const outcome = events.filter((e) => e.event === SETUP_DONE || e.event === SETUP_FAILED).at(-1);
+  if (!outcome) return undefined;
+  return {
+    state: outcome.event === SETUP_FAILED ? ('failed' as const) : ('done' as const),
+    at: outcome.at,
+  };
 }
 
 /** The note naming a session's Setup session in the goal its agent is given. */

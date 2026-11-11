@@ -4,12 +4,16 @@ import type { SessionRow } from '../board/rows.js';
 import {
   attentionScore,
   contextPercent,
+  crewTitle,
+  doingNow,
+  isSetupSession,
   nameAsk,
   reviewLabel,
   sessionBranch,
   sessionCount,
   sessionLabel,
   sessionTitle,
+  taskTitle,
   waitingOn,
   wantsName,
 } from './labels.js';
@@ -95,4 +99,31 @@ test('a session started from an item is named from its title at once, and asked 
   expect(nameAsk(idle)).toBe('t3');
   expect(wantsName(managed({ ...idle, nameAsked: 't3' }))).toBe(false);
   expect(wantsName(managed({ ...idle, nameAsked: 't1' }))).toBe(true);
+});
+
+test('a child reads as its task title, else its title, and is doing its progress, else its report, else its reply', () => {
+  expect(taskTitle('  Chart the tide\nwith the buoys')).toBe('Chart the tide');
+  expect(crewTitle(managed({ taskTitle: 'Chart the tide', name: 'tides' }))).toBe('Chart the tide');
+  expect(crewTitle(managed({ name: 'tides' }))).toBe('tides');
+  const reply = { text: '\nLit the buoys.\nAll pass.', at: '2026-09-24T12:00:00.000Z' };
+  const report = { kind: 'done', at: '2026-09-24T12:01:00.000Z', message: 'Logged it. Then more' };
+  const progress = { text: 'Editing src/tides.ts', at: '2026-09-24T12:02:00.000Z' };
+  expect(doingNow(managed({ progress, report, lastReply: reply }))).toBe('Editing src/tides.ts');
+  // An ended child's progress line is stale.
+  const ended = { endedAt: '2026-09-24T12:03:00.000Z' };
+  expect(doingNow(managed({ ...ended, progress, report, lastReply: reply }))).toBe('Logged it.');
+  expect(doingNow(managed({ lastReply: reply }))).toBe('Lit the buoys.');
+  expect(doingNow(managed({}))).toBeUndefined();
+  expect(doingNow(foreign)).toBeUndefined();
+});
+
+test('a Setup session is a child terminal Mesa named Setup', () => {
+  const setup = { kind: 'terminal', parent: 'e5f6a7b8' };
+  expect(isSetupSession(managed({ ...setup, name: 'Setup' }))).toBe(true);
+  expect(isSetupSession(managed({ ...setup, name: 'Setup tide-pool' }))).toBe(true);
+  expect(isSetupSession(managed({ ...setup, name: 'Setups' }))).toBe(false);
+  expect(isSetupSession(managed({ kind: 'terminal', name: 'Setup' }))).toBe(false);
+  expect(isSetupSession(managed({ kind: 'interactive', parent: 'e5f6a7b8', name: 'Setup' }))).toBe(
+    false,
+  );
 });

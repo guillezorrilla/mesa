@@ -17,7 +17,13 @@ export default {
       FEEDBACK_LIMIT?: RateLimiter;
       INSTALLS_LIMIT?: RateLimiter;
       DB?: D1;
+      PAIRING_LIMIT?: RateLimiter;
+      PAIRINGS?: {
+        idFromName: (name: string) => unknown;
+        get: (id: unknown) => { fetch: (request: Request) => Promise<Response> };
+      };
     };
+    const pairings = bindings.PAIRINGS;
     return handle(
       request,
       env,
@@ -28,6 +34,13 @@ export default {
         limit: limitOf(bindings.INSTALLS_LIMIT),
         now: () => new Date(),
       },
+      pairings && {
+        stub: (pairingId) => pairings.get(pairings.idFromName(pairingId)),
+        limit: limitOf(bindings.PAIRING_LIMIT),
+      },
     );
   },
 };
+
+/** The PAIRINGS Durable Object class (wrangler.toml). */
+export { Pairing } from './pairing.js';
