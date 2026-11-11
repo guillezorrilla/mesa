@@ -55,26 +55,32 @@ const headLines = (text: string, limit: number) => {
 };
 
 /**
- * Each of `sizes` given a fair part of `budget` (max-min): one within an equal share keeps all of
- * it, and what a short one leaves goes to the longer ones, which each get the same.
+ * Each of `sizes` given a fair part of `budget` (max-min), never under its `floor`: one within an
+ * equal share keeps all of it, what a short one leaves goes to the longer ones, which each get the
+ * same, and one whose fair part would be under its floor gets its floor first. The floors fit.
  */
-function fairShares(sizes: readonly number[], budget: number): number[] {
-  const shares = new Array<number>(sizes.length).fill(0);
-  let left = budget;
-  const order = sizes.map((_, i) => i).sort((a, b) => (sizes[a] ?? 0) - (sizes[b] ?? 0));
-  order.forEach((i, n) => {
-    const share = Math.min(sizes[i] ?? 0, Math.floor(left / (order.length - n)));
-    shares[i] = share;
-    left -= share;
-  });
-  return shares;
+function fairShares(sizes: readonly number[], floors: readonly number[], budget: number): number[] {
+  const shares = [...floors];
+  let open = sizes.map((_, i) => i);
+  for (;;) {
+    let left = budget - shares.reduce((sum, share, i) => sum + (open.includes(i) ? 0 : share), 0);
+    const order = [...open].sort((a, b) => (sizes[a] ?? 0) - (sizes[b] ?? 0));
+    order.forEach((i, n) => {
+      shares[i] = Math.min(sizes[i] ?? 0, Math.floor(left / (order.length - n)));
+      left -= shares[i] ?? 0;
+    });
+    const under = open.filter((i) => (shares[i] ?? 0) < (floors[i] ?? 0));
+    if (!under.length) return shares;
+    for (const i of under) shares[i] = floors[i] ?? 0;
+    open = open.filter((i) => !under.includes(i));
+  }
 }
 
 /**
  * `patch` within `limit` bytes, split fairly by file (each `diff --git` block), so one large or
- * generated file cannot crowd out the rest: each file keeps its header (up to its first hunk) and
- * a fair share of the bytes left for hunks, cut at a line end with a line saying how much is not
- * shown. When the headers alone do not fit, the first files keep their headers and one line says
+ * generated file cannot crowd out the rest: each file gets a fair share of the limit (fairShares),
+ * never less than its header (up to its first hunk), its hunks cut at a line end to fit it with a
+ * line saying how much is not shown. When the headers alone do not fit, the first files keep their headers and one line says
  * how many files were left out. A patch that fits comes back as it is; only the lines Mesa adds
  * go past the limit.
  */
@@ -100,12 +106,17 @@ export function cutPatch(patch: string, limit = PATCH_LIMIT_BYTES) {
     const out = kept.map((file) => file.header + cut(file.body, ''));
     return `${out.join('')}[Mesa left out ${files.length - kept.length} more files: the patch is over its ${limit}-byte limit]\n`;
   }
+  const sizes = files.map((file) => bytes(file.header + file.body));
   const shares = fairShares(
-    files.map((file) => bytes(file.body)),
-    limit - headers,
+    sizes,
+    files.map((file) => bytes(file.header)),
+    limit,
   );
   return files
-    .map((file, i) => file.header + cut(file.body, headLines(file.body, shares[i] ?? 0)))
+    .map(
+      (file, i) =>
+        file.header + cut(file.body, headLines(file.body, (shares[i] ?? 0) - bytes(file.header))),
+    )
     .join('');
 }
 

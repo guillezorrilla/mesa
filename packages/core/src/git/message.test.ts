@@ -89,6 +89,15 @@ test("a short file's unused share goes to the longer ones, which get the same", 
   expect(Buffer.byteLength(cut.replace(MARK, ''))).toBeLessThanOrEqual(limit);
 });
 
+test('a file within an equal share of the limit is kept whole, whatever the other headers', () => {
+  const small = fileDiff('a.md', 30);
+  const long = `diff --git a/b.md b/b.md\nrename from old/${'deep/'.repeat(10)}b.md\nrename to b.md\n--- a/b.md\n+++ b/b.md\n@@ -0,0 +1,300 @@\n${'+z\n'.repeat(300)}`;
+  const limit = 2 * Buffer.byteLength(small) + 2;
+  const cut = cutPatch(small + long, limit);
+  expect(cut.startsWith(small)).toBe(true);
+  expect(Buffer.byteLength(cut.replace(MARK, ''))).toBeLessThanOrEqual(limit);
+});
+
 test('more files than the limit has room for keep the first ones by header and name how many were left out', () => {
   const files = Array.from({ length: 50 }, (_, i) => fileDiff(`tide-${i}.md`, 3));
   const header = Buffer.byteLength(fileDiff('tide-0.md', 0).split('@@')[0] ?? '');
