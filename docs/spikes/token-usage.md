@@ -97,4 +97,4 @@ Under the lean flags the vault-capture run called mesa-vault's `project_context`
 
 A replay of the owner's last 30 days, counting only, over 55 child sessions under 27 parents: 1,241 finished-turn reports under the old rule, 58 under the 120 s hold (#1004), and batching siblings due together merged none of those. A child's implicit report text was already at most 203 characters, the hook log's cut (`redactPayload`), so the 600-character cap (#1005) acts on explicit reports only.
 
-Caveats: one run each, so the turn counts can vary; the replay counts reports, not wakes, as a busy parent took its reports at its own turn end without a wake, so the tokens they cost are not counted here.
+Caveats: one run each, so the turn counts can vary. The replay counts reports, not wakes: priced at each parent's latest context reading, the 1,183 reports it holds back come to about 17M tokens a day, an upper bound, since a busy parent took its reports at its own turn end without a wake and a reading taken late overstates the context at the time.
