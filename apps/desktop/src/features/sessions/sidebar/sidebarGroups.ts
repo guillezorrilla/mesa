@@ -6,6 +6,7 @@ import {
   orderSessions,
   recoverable,
   sessionProjects,
+  setupSessionsOf,
 } from '@mesa/core/browser';
 
 /** A child shown inside its parent's card: its row and how far below the card it sits (1 or more). */
@@ -48,13 +49,7 @@ export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonl
         return [{ session, depth }, ...crewOf(session.id, depth + 1, seen)];
       });
   const failedSetupsOf = (id: string) =>
-    sessions.filter(
-      (session) =>
-        session.managed &&
-        session.setupFailed &&
-        isSetupSession(session) &&
-        parentOf(session) === id,
-    );
+    setupSessionsOf(sessions, id).filter((session) => session.managed && session.setupFailed);
   const unassigned = cards.filter(
     (session) => !session.project || !registered.has(session.project),
   );

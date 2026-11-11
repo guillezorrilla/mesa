@@ -25,7 +25,7 @@ export type CrewActions = {
 
 /**
  * A parent's crew beside its terminal (CONTEXT.md, Crew), at a glance: a header counting its
- * cards by phase over a bar with one segment each; what waits on the person first (CrewChoices:
+ * cards by state over a bar with one segment per task (per worker with no tasks); what waits on the person first (CrewChoices:
  * open decision gates on its tasks, open questions from its workers); then one card per task in
  * plan order with its worker folded in, and one per worker with no task (crewCards,
  * CrewTaskCard); then its branches and setup, folded (CrewSetups). A new `stamp` (a child's state
@@ -49,6 +49,8 @@ export function CrewPanel(props: {
   const [busy, setBusy] = useState<string>();
   /** Each card's last Start or Merge outcome, by its key. */
   const [outcomes, setOutcomes] = useState<Record<string, CardOutcome>>({});
+  /** Why the last gate option did not resolve its gate (resolved elsewhere first). */
+  const [gateRefused, setGateRefused] = useState<string>();
   const refresh = async () => {
     await Promise.all([crew.refresh(), listed.refresh(), gates.refresh(), asked.refresh()]);
   };
@@ -66,6 +68,8 @@ export function CrewPanel(props: {
     new Set(open.map((gate) => gate.task)),
     new Set(questions.map((question) => question.child)),
   );
+  // One segment per task, or per worker when there are no tasks.
+  const bar = tasks.length ? cards.filter((card) => card.task) : cards;
   const merge = async (card: CrewCard) => {
     if (!card.worker) return;
     setBusy(card.key);
@@ -119,14 +123,14 @@ export function CrewPanel(props: {
           />
           <IconButton label="Close crew" icon={X} onClick={props.onClose} />
         </div>
-        {cards.length > 0 && (
+        {bar.length > 0 && (
           <div
             aria-hidden
             data-testid="crew-bar"
             className="grid gap-1"
-            style={{ gridTemplateColumns: `repeat(${cards.length}, minmax(0, 1fr))` }}
+            style={{ gridTemplateColumns: `repeat(${bar.length}, minmax(0, 1fr))` }}
           >
-            {cards.map((card) => (
+            {bar.map((card) => (
               <span
                 key={card.key}
                 data-phase={card.phase}
@@ -142,7 +146,7 @@ export function CrewPanel(props: {
           questions={questions}
           cards={cards}
           onGateDone={async (refused) => {
-            if (refused) said('gate', { text: refused, failed: true });
+            setGateRefused(refused);
             await refresh();
           }}
           onAnswered={(id) =>
@@ -152,9 +156,9 @@ export function CrewPanel(props: {
             }))
           }
         />
-        {outcomes.gate && (
+        {gateRefused && (
           <p role="alert" className="mx-3 text-xs text-state-failed">
-            {outcomes.gate.text}
+            {gateRefused}
           </p>
         )}
         {!rows ? (

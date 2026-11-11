@@ -43,6 +43,8 @@ test('a pending task waits for its unfinished deps by title; a failed one says w
       task('t-second0', { state: 'running', worker: 'gone0000' }),
       task('t-third00', { deps: ['t-first00', 't-second0'] }),
       task('t-fourth0', { state: 'failed', reason: 'The feed is down' }),
+      // Blocked, but its gate was resolved elsewhere: nothing waits above.
+      task('t-fifth00', { state: 'blocked' }),
     ],
     [],
     new Set(),
@@ -53,6 +55,7 @@ test('a pending task waits for its unfinished deps by title; a failed one says w
     'Starting',
     'Waits for t-second0 title',
     'Failed: The feed is down',
+    'Waits for a decision',
   ]);
-  expect(crewSummary(cards)).toBe('1 working, 1 waiting, 1 done, 1 failed');
+  expect(crewSummary(cards)).toBe('1 working, 2 waiting, 1 done, 1 failed');
 });

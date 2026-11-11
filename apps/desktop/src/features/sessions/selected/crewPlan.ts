@@ -35,6 +35,8 @@ export type CrewCard = {
   waitsFor: string[];
   /** Its worker has an open question to its parent, shown in Your choice. */
   asking: boolean;
+  /** Its task has an open decision gate, shown in Your choice. */
+  gated: boolean;
 };
 
 /** The header's order and words for each phase's count: "1 working, 1 done, 1 needs you". */
@@ -64,7 +66,9 @@ const workerPhase = (row: CrewRow, asking: boolean): Phase => {
 
 /** A task's phase: an open gate needs the person; else by its state, a running one by its worker. */
 const taskPhase = (task: Task, worker: CrewRow | undefined, gated: boolean, asking: boolean) => {
-  if (gated || task.state === 'blocked') return 'needs-you';
+  if (gated) return 'needs-you';
+  // Blocked with no open gate left: resolved elsewhere, until the next read.
+  if (task.state === 'blocked') return 'waiting';
   if (task.state === 'succeeded') return 'done';
   if (task.state === 'failed') return 'failed';
   if (task.state === 'cancelled') return 'cancelled';
@@ -96,6 +100,7 @@ export function crewCards(
       title: taskTitle(task.spec),
       phase: taskPhase(task, worker, gated.has(task.id), asks),
       asking: asks,
+      gated: gated.has(task.id),
       task,
       ...(worker ? { worker } : {}),
       waitsFor: task.deps
@@ -114,6 +119,7 @@ export function crewCards(
         worker: row,
         waitsFor: [],
         asking: asking.has(row.id),
+        gated: false,
       }),
     );
   return [...planned, ...free];
@@ -137,7 +143,7 @@ export function phaseWords(card: CrewCard, now: number, merged = false): string 
   const waits = card.waitsFor.join(', ');
   switch (card.phase) {
     case 'needs-you':
-      if (card.task?.state === 'blocked' || !card.worker) return 'Waits for your choice above';
+      if (card.gated || !card.worker) return 'Waits for your choice above';
       if (card.asking) return 'Asks you above';
       return card.worker.lastState.state === 'waiting-permission'
         ? 'Waits for your permission in its terminal'
@@ -149,6 +155,7 @@ export function phaseWords(card: CrewCard, now: number, merged = false): string 
     case 'ready':
       return 'Ready to start';
     case 'waiting':
+      if (card.task?.state === 'blocked') return 'Waits for a decision';
       return waits ? `Waits for ${waits}` : 'Queued';
     case 'done': {
       const when = card.worker?.endedAt ?? at;

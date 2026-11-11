@@ -8,7 +8,12 @@ import { useRun } from '@/lib/useCommand';
  * The reply box to one open question a worker asked its parent (`mesa report question`): Send
  * answers it through `mesa reports reply`, then `onAnswered` drops it from the caller's list.
  */
-export function WorkerQuestionField(props: { question: string; onAnswered: () => void }) {
+export function WorkerQuestionField(props: {
+  question: string;
+  /** The reply box's accessible name. */
+  label: string;
+  onAnswered: () => void;
+}) {
   const run = useRun();
   const [answer, setAnswer] = useState('');
   const [sending, setSending] = useState(false);
@@ -27,7 +32,7 @@ export function WorkerQuestionField(props: { question: string; onAnswered: () =>
       }}
     >
       <Input
-        aria-label={`Answer ${props.question}`}
+        aria-label={props.label}
         value={answer}
         onChange={(event) => setAnswer(event.target.value)}
       />

@@ -1,5 +1,5 @@
 import type { Config, GridGroup, ProjectRow, SavedPrompt, TreeRow } from '@mesa/core';
-import { isSetupSession } from '@mesa/core/browser';
+import { setupSessionsOf } from '@mesa/core/browser';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
@@ -221,10 +221,7 @@ export function SessionsScreen(
             send: (id, text, form) => prompt.send(id, text, form),
             stop: commands.stop,
             select: (id) => props.onSelectSession?.(id),
-            setupsOf: (id) =>
-              data?.filter(
-                (each) => isSetupSession(each) && each.managed && each.parentNow === id,
-              ) ?? [],
+            setupsOf: (id) => setupSessionsOf(data ?? [], id),
           }}
         />
       </div>

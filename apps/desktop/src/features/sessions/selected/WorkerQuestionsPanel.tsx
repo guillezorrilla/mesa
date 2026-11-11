@@ -21,6 +21,7 @@ export function WorkerQuestionsPanel(props: { session: string }) {
           <span className="whitespace-pre-wrap">{q.text}</span>
           <WorkerQuestionField
             question={q.id}
+            label={`Answer ${q.id}`}
             onAnswered={() =>
               read.mutate((list) => ({
                 ...list,

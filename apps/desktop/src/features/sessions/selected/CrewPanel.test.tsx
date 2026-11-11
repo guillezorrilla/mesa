@@ -99,13 +99,13 @@ async function crew(bridge: ReturnType<typeof fakeBridge>['bridge'], actions = A
 const all = (id: string) => [...document.querySelectorAll<HTMLElement>(`[data-testid="${id}"]`)];
 const text = (id: string) => all(id).map((element) => element.textContent);
 
-test('the header counts the crew by state over one bar segment per card', async () => {
+test('the header counts the crew by state over one bar segment per task', async () => {
   await crew(harbor().bridge);
   expect(text('crew-summary')).toEqual(['1 working, 1 idle, 1 done, 1 needs you']);
-  expect(all('crew-bar')[0]?.children).toHaveLength(4);
+  expect(all('crew-bar')[0]?.children).toHaveLength(3);
   expect(
     [...(all('crew-bar')[0]?.children ?? [])].map((s) => s.getAttribute('data-phase')),
-  ).toEqual(['working', 'done', 'needs-you', 'idle']);
+  ).toEqual(['working', 'done', 'needs-you']);
 });
 
 test('the choice comes first, then one card per task in plan order with its worker folded in, titled by task, never by id', async () => {
@@ -263,7 +263,7 @@ test("a worker's open question waits in Your choice with a reply box, and its ca
   });
   expect(all('crew-question')[0]?.textContent).toContain('Task 4, tide-notes, asks.');
   expect(text('crew-card-state')[3]).toBe('Asks you above');
-  const answer = document.querySelector<HTMLInputElement>('[aria-label="Answer q-units000"]');
+  const answer = document.querySelector<HTMLInputElement>('[aria-label="Answer tide-notes"]');
   if (!answer) throw new Error('no reply box');
   expect(answer).not.toBeNull();
   await click(
