@@ -1,6 +1,7 @@
 import type { Command } from '../../command.js';
 import { gitBranchCheckout, gitBranchCreate, gitBranchDelete, gitBranches } from './branches.js';
 import { gitCommit, gitDiff, gitStage, gitStatus, gitUnstage } from './changes.js';
+import { gitDiscard } from './discard.js';
 import { gitFix, gitResolve } from './handoff.js';
 import { gitCompare, gitGraph } from './history.js';
 import { gitInsight } from './insight.js';
@@ -17,6 +18,7 @@ export const GIT_COMMANDS: Command[] = [
   gitCommit,
   gitCompare,
   gitDiff,
+  gitDiscard,
   gitFix,
   gitGraph,
   gitInsight,

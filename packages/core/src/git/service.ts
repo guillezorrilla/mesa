@@ -5,6 +5,7 @@ import type { HandoffDeps, HandoffTarget } from './agent-handoff.js';
 import { changeGitBranch, type GitBranchAction, listGitBranches } from './branches.js';
 import { changeGitIndex, commitGit } from './changes.js';
 import { readGitDiff } from './diff.js';
+import { type DiscardTarget, discardGitChanges } from './discard.js';
 import { compareGitRefs, readGitGraph } from './history.js';
 import { fixPreCommit } from './hook-fix.js';
 import { readRepositoryInsight, type WorktreeCount } from './insight.js';
@@ -243,6 +244,26 @@ export function gitService(
         ...opts,
         ...(opts.checkout ? { checkout: ctx.absolute(opts.checkout) } : {}),
       }),
+    /** Throws away the named changes, or all with `all`; refused without `yes`. */
+    discard: (project: string, target: DiscardTarget, checkout?: string) =>
+      ctx.record(
+        {
+          summary: (result) =>
+            `Discarded changes to ${result.discarded.length === 1 ? result.discarded[0]?.path : `${result.discarded.length} files`} in ${project}`,
+          failure: `Could not discard changes in ${project}`,
+          project: () => project,
+          inputs: { project, checkout, paths: target.paths, all: Boolean(target.all) },
+          outputs: (result) => ({ discarded: result.discarded.map((file) => file.path) }),
+        },
+        () =>
+          discardGitChanges(
+            ctx.open(),
+            ctx.run,
+            project,
+            checkout && ctx.absolute(checkout),
+            target,
+          ),
+      ),
     commit: (project: string, message: string, checkout?: string) =>
       ctx.record(
         {

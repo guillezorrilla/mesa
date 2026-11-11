@@ -6,6 +6,7 @@ import type {
   GitCommit,
   GitComparison,
   GitDiff,
+  GitDiscard,
   GitFix,
   GitGraph,
   GitMessage,
@@ -75,6 +76,20 @@ export const gitCommands = {
     '--',
     project,
     path,
+  ]),
+  /** Always `--yes`: the Git tab asks in its own dialog first. */
+  'git.discard': commandWith<
+    { project: string; checkout?: string; paths: string[]; all?: boolean },
+    Recorded<GitDiscard>
+  >(({ project, checkout, paths, all }) => [
+    'git',
+    'discard',
+    ...(checkout ? ['--checkout', checkout] : []),
+    ...(all ? ['--all'] : []),
+    '--yes',
+    '--',
+    project,
+    ...(all ? [] : paths),
   ]),
   'git.commit': commandWith<
     { project: string; checkout?: string; message: string },
