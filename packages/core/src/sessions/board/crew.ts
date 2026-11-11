@@ -4,7 +4,7 @@ import { diffable } from '../record/lifecycle.js';
 import type { ManagedRow, SessionRow } from './rows.js';
 
 /** A child's newest report that says something, as the Crew panel shows it. */
-export type CrewReport = Pick<ChildReport, 'kind' | 'at' | 'outcome' | 'question'> & {
+export type CrewReport = Pick<ChildReport, 'kind' | 'at' | 'outcome' | 'question' | 'details'> & {
   message: string;
 };
 
@@ -47,6 +47,7 @@ export async function crewOf(
                 message: said.message,
                 ...(said.outcome ? { outcome: said.outcome } : {}),
                 ...(said.question ? { question: said.question } : {}),
+                ...(said.details ? { details: said.details } : {}),
               },
             }
           : {}),

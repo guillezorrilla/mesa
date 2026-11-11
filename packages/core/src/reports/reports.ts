@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AGENT_FENCE as FENCE, short } from '../lib/untrusted-text.js';
+import { clean, AGENT_FENCE as FENCE, short } from '../lib/untrusted-text.js';
 import { hookItem } from '../notifications/inbox-items.js';
 import { sessionTitle } from '../sessions/record/labels.js';
 import type { SessionRecord } from '../sessions/record/record.js';
@@ -35,6 +35,8 @@ export const ChildReportSchema = z.object({
   task: z.string().optional(),
   option: z.string().optional(),
   files: z.array(z.string()).optional(),
+  /** An explicit report's details file (`--details`): its absolute path, never its content. */
+  details: z.string().optional(),
   tool: z.string().optional(),
   state: z.enum(SESSION_STATES).optional(),
 });
@@ -65,8 +67,14 @@ export const isExplicitKind = (kind: string): kind is ExplicitKind =>
 /** Whether `report` is one a worker made itself (`mesa report`). */
 export const isExplicit = (report: Pick<ChildReport, 'kind'>) => isExplicitKind(report.kind);
 
-/** How much of a child's last reply a report keeps; `mesa review responses` has all of it. */
+/** How much of a question or a gate's text a report keeps. */
 const MESSAGE_CHARS = 2_000;
+/**
+ * How much of a child's last reply, or of its explicit report, a report keeps: about three
+ * sentences, since the parent rereads it each turn. `mesa review responses` has all of a reply,
+ * and an explicit report's details file the rest.
+ */
+const REPORT_CHARS = 600;
 
 /** Whether `record` is a child that can report: an agent session started from another. */
 export const reportsToParent = (
@@ -110,7 +118,7 @@ export function eventReport(child: SessionRecord & { parent: string }, event: Ho
     childName: nameOf(child),
     kind,
     at: event.at,
-    ...(said ? { message: short(said, MESSAGE_CHARS) } : {}),
+    ...(said ? { message: short(said, REPORT_CHARS) } : {}),
     ...(kind === 'waiting' && typeof tool === 'string' ? { tool: short(tool, 60) } : {}),
   } satisfies ChildReport;
 }
@@ -139,13 +147,16 @@ export function heldUntil(
 const MAX_FILES = 20;
 const PATH_CHARS = 200;
 
+/** What an explicit report may name besides its text: files, and a details file's absolute path. */
+export type ReportExtras = { files?: readonly string[]; details?: string };
+
 /** The report a worker makes itself with `mesa report`, at `at`. */
 export const explicitReport = (
   child: SessionRecord & { parent: string },
   kind: ExplicitKind,
   text: string,
   at: string,
-  files: readonly string[] = [],
+  { files = [], details }: ReportExtras = {},
 ) =>
   ({
     id: `${child.id}:${kind}:${at}`,
@@ -154,9 +165,10 @@ export const explicitReport = (
     childName: nameOf(child),
     kind,
     at,
-    message: short(text, MESSAGE_CHARS),
+    message: short(text, REPORT_CHARS),
     ...(kind === 'blocked' ? {} : { outcome: kind === 'done' ? 'succeeded' : 'failed' }),
     ...(files.length ? { files: files.slice(0, MAX_FILES).map((f) => short(f, PATH_CHARS)) } : {}),
+    ...(details ? { details } : {}),
   }) satisfies ChildReport;
 
 /** A worker's question, `id`, at `at`, and the report that carries it to the parent. */
@@ -239,6 +251,8 @@ function reportLines(report: ChildReport): string[] {
       `  \`\`\`${FENCE}`,
       `  ${report.message ?? ''}`,
       ...(report.files?.length ? [`  files: ${report.files.join(', ')}`] : []),
+      // The path is the worker's: cleaned here so it cannot close the fence; stored exact to be read.
+      ...(report.details ? [`  details: ${clean(report.details)}`] : []),
       '  ```',
     ];
   if (report.kind === 'question')

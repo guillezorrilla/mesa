@@ -199,6 +199,15 @@ function CrewMember(props: {
       ) : (
         <p className="text-xs text-muted-foreground">No report yet</p>
       )}
+      {report?.details && (
+        <p
+          data-testid="crew-report-details"
+          className="truncate font-mono text-[11px] text-muted-foreground"
+          title={report.details}
+        >
+          details: {report.details}
+        </p>
+      )}
       <div className="flex min-w-0 items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
         <GitBranch aria-hidden className="size-3 shrink-0" />
         <span className="truncate">{row.branch ?? 'no branch'}</span>

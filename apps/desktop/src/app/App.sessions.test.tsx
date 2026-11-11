@@ -395,13 +395,14 @@ test('a child started with no goal, as the app starts one, still shows whom it r
   );
 });
 
-test("session details show a worker's own report: its kind, outcome, time and text", async () => {
+test("session details show a worker's own report: its kind, outcome, time, text and details file", async () => {
   const row = managedRow('aaaaaaaa', { parent: 'bbbbbbbb', brief: true });
   const report = {
     kind: 'done',
     outcome: 'succeeded',
     at: row.startedAt,
     message: 'Counted 12 tide tables; none missing',
+    details: '/Users/rowan/tides/docs/tides-notes.md',
   };
   const { bridge } = fakeBridge({
     projects: () => envelope(PROJECTS),
@@ -423,6 +424,9 @@ test("session details show a worker's own report: its kind, outcome, time and te
   expect(shown).toContain('done, succeeded');
   expect(shown).toContain(new Date(row.startedAt).toLocaleString());
   expect(shown).toContain('Counted 12 tide tables; none missing');
+  expect(byTestId('session-reported-details')[0]?.textContent).toBe(
+    'details: /Users/rowan/tides/docs/tides-notes.md',
+  );
 });
 
 test("session details show the notes the session's vault capture saved, or why it saved none", async () => {

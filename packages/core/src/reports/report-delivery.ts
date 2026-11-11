@@ -1,3 +1,4 @@
+import { statSync } from 'node:fs';
 import type { MesaContext } from '../context.js';
 import { shortId } from '../lib/ids.js';
 import { MesaError } from '../lib/result.js';
@@ -25,6 +26,7 @@ import {
   type PendingReport,
   type Question,
   questionOf,
+  type ReportExtras,
   reportPrompt,
 } from './reports.js';
 
@@ -109,10 +111,11 @@ export function reportsService(
   return {
     /**
      * The caller's own report of its work (`mesa report`), for its parent: added to the pending
-     * reports and kept as its newest explicit one. Refused, writing nothing, outside a Mesa
-     * window, from a session with no parent, or with no text.
+     * reports and kept as its newest explicit one. A `details` file is kept as its absolute path,
+     * never read. Refused, writing nothing, outside a Mesa window, from a session with no parent,
+     * with no text, or with a details file that does not exist.
      */
-    report: (kind: string, text: string, files: readonly string[] = []): ChildReport => {
+    report: (kind: string, text: string, extras: ReportExtras = {}): ChildReport => {
       if (!isExplicitKind(kind))
         throw new MesaError(
           'usage',
@@ -120,7 +123,13 @@ export function reportsService(
         );
       const child = reportingChild();
       if (!text.trim()) throw new MesaError('usage', 'say what you did, found, and left');
-      const report = explicitReport(child, kind, text, ctx.clock().toISOString(), files);
+      const details = extras.details === undefined ? undefined : ctx.absolute(extras.details);
+      if (details !== undefined && !statSync(details, { throwIfNoEntry: false })?.isFile())
+        throw new MesaError('usage', `no details file at ${details}`);
+      const report = explicitReport(child, kind, text, ctx.clock().toISOString(), {
+        ...extras,
+        ...(details ? { details } : {}),
+      });
       ledger.add(report);
       return report;
     },
@@ -310,7 +319,7 @@ export async function reportsAtTurnEnd(
 }
 
 /** A worker's newest explicit report as `mesa show` gives it (`report`). */
-export type KeptReport = Pick<ChildReport, 'kind' | 'outcome' | 'at' | 'files'> & {
+export type KeptReport = Pick<ChildReport, 'kind' | 'outcome' | 'at' | 'files' | 'details'> & {
   message: string;
 };
 
@@ -324,6 +333,7 @@ export function keptReport(ctx: MesaContext, child: string): KeptReport | undefi
       at: said.at,
       message: said.message ?? '',
       ...(said.files ? { files: said.files } : {}),
+      ...(said.details ? { details: said.details } : {}),
     }
   );
 }

@@ -620,6 +620,9 @@ test('a goal opened by another session ends with the worker brief; none without 
   expect(workerBrief(a.id)).toContain(
     'run mesa report question "<question>" and end your turn; its answer comes as your next prompt',
   );
+  expect(workerBrief(a.id)).toContain(
+    'Keep a report to about three sentences; put more in a file and pass it with --details <file>.',
+  );
   expect(Buffer.byteLength(workerBrief(a.id))).toBeLessThan(1_000);
   const explicit = (await mesa.sessions.open('lantern-cove', { goal: 'Check', parent: child.id }))
     .result;

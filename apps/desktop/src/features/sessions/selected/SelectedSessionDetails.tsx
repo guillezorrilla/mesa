@@ -150,6 +150,15 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
                   {[record.report.kind, record.report.outcome].filter(Boolean).join(', ')}
                   <Muted> {date(record.report.at)}</Muted>
                   <p className="line-clamp-2">{record.report.message}</p>
+                  {record.report.details && (
+                    <p
+                      data-testid="session-reported-details"
+                      className="truncate font-mono text-xs text-muted-foreground"
+                      title={record.report.details}
+                    >
+                      details: {record.report.details}
+                    </p>
+                  )}
                 </dd>
               </>
             )}
