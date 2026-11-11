@@ -80,7 +80,7 @@ test('open --terminal starts a plain shell session with no coding agent conversa
   expect(world.windows.at(-1)?.env.PATH).toMatch(
     new RegExp(`^${join(cli.home, '.mesa', 'default', 'bin')}(:|$)`),
   );
-  expect((await mesa('sessions', '--json')).json.data).toEqual([
+  expect((await mesa('sessions', '--full', '--json')).json.data).toEqual([
     expect.objectContaining({
       id: opened.id,
       kind: 'terminal',
@@ -228,7 +228,7 @@ test('open inside a session makes a child; sessions --tree indents it; --json na
   expect(at(child.id)).toBe(at(a) + 1);
   expect(tree[at(loose.id)]).toMatch(new RegExp(`^${loose.id} `));
 
-  const rows = (await mesa('sessions', '--json')).json.data;
+  const rows = (await mesa('sessions', '--full', '--json')).json.data;
   const links = Object.fromEntries(
     rows.map((r: { id: string; parent?: string; children: string[] }) => [
       r.id,
@@ -236,7 +236,7 @@ test('open inside a session makes a child; sessions --tree indents it; --json na
     ]),
   );
   expect(links).toEqual({ [a]: [null, [child.id]], [child.id]: [a, []], [loose.id]: [null, []] });
-  const treeRows = (await mesa('sessions', '--tree', '--json')).json.data;
+  const treeRows = (await mesa('sessions', '--tree', '--full', '--json')).json.data;
   expect(treeRows.map((r: { depth: number }) => r.depth).sort()).toEqual([0, 0, 1]);
 });
 
@@ -249,7 +249,7 @@ describe('open --after queues a session until the one it waits on is over', () =
     const open = async (...flags: string[]) =>
       (await mesa('open', 'lantern-cove', ...flags, '--json')).json.data;
     const state = async (id: string) =>
-      (await mesa('show', id, '--json')).json.data.lastState.state;
+      (await mesa('show', id, '--full', '--json')).json.data.lastState.state;
     /** The agent in `id`'s window exits, its pane dead, as tmux sees it. */
     const exit = (id: string) => {
       const w = window(id);
@@ -280,7 +280,7 @@ describe('open --after queues a session until the one it waits on is over', () =
     expect(listed.stdout).toMatch(
       new RegExp(`${b.id} +lantern-cove \\(second\\) +claude +queued .*waiting on ${a.id}`),
     );
-    const row = (await mesa('sessions', '--json')).json.data.find(
+    const row = (await mesa('sessions', '--full', '--json')).json.data.find(
       (r: { id: string }) => r.id === b.id,
     );
     expect(row).toMatchObject({ attention: 0, runningSeconds: 0, alive: false });
@@ -316,7 +316,7 @@ describe('open --after queues a session until the one it waits on is over', () =
     cli.env = {};
     // Through open's path: mesa-vault and its goal as the first prompt, in a window with its own id.
     expect(window(b.id)?.launch).toContain(
-      `claude --session-id ${(await mesa('show', b.id, '--json')).json.data.agentSessionId} ${CLAUDE_MOUNT} 'Say second'`,
+      `claude --session-id ${(await mesa('show', b.id, '--full', '--json')).json.data.agentSessionId} ${CLAUDE_MOUNT} 'Say second'`,
     );
     expect(await state(b.id)).toBe('idle');
   });
@@ -328,7 +328,7 @@ describe('open --after queues a session until the one it waits on is over', () =
     exit(a.id);
     await mesa('hook', 'tmux', 'pane-died', 'lantern-cove', `claude-${a.id}`);
     expect(window(b.id)).toBeDefined();
-    const shown = (await mesa('show', b.id, '--json')).json.data;
+    const shown = (await mesa('show', b.id, '--full', '--json')).json.data;
     expect(shown).toMatchObject({ alive: true, agentSessionId: expect.any(String) });
     expect(shown.pending).toBeUndefined();
   });
@@ -338,7 +338,7 @@ describe('open --after queues a session until the one it waits on is over', () =
     const a = await open();
     const b = await open('--after', a.id);
     exit(a.id);
-    const rows = (await mesa('sessions', '--json')).json.data;
+    const rows = (await mesa('sessions', '--full', '--json')).json.data;
     expect(window(b.id)).toBeDefined();
     // The look shows it started, not the queue it found.
     expect(rows.find((r: { id: string }) => r.id === b.id).lastState.state).not.toBe('queued');
@@ -350,7 +350,7 @@ describe('open --after queues a session until the one it waits on is over', () =
     const a = await open();
     const b = await open('--after', a.id);
     exit(a.id);
-    const shown = (await mesa('show', b.id, '--json')).json.data;
+    const shown = (await mesa('show', b.id, '--full', '--json')).json.data;
     expect(shown.lastState.state).not.toBe('queued');
     expect(shown.pending).toBeUndefined();
     expect(shown.alive).toBe(true);
@@ -403,7 +403,7 @@ describe('open --after queues a session until the one it waits on is over', () =
       endedAt: expect.any(String),
     });
     expect((await mesa('stop', b.id)).stdout).toContain('had already ended');
-    expect((await mesa('show', c.id, '--json')).json.data).toMatchObject({
+    expect((await mesa('show', c.id, '--full', '--json')).json.data).toMatchObject({
       after: a.id,
       parent: b.id,
       lastState: { state: 'queued' },
@@ -535,7 +535,7 @@ test('open --from starts from an imported item, imports a new link first, and se
   );
   expect(edited.json.data).toMatchObject({ goal: 'Only the alarm.', from: { id: 'LC-12' } });
 
-  const rows = (await mesa('sessions', '--json')).json.data;
+  const rows = (await mesa('sessions', '--full', '--json')).json.data;
   expect(
     rows.filter((r: { from?: unknown }) => r.from).map((r: { from: unknown }) => r.from),
   ).toEqual(
@@ -594,7 +594,7 @@ test('open --with gives each project a worktree on one branch; refusals leave no
     expect(state()).toEqual(before);
     expect(testGit(dir, 'branch', '--list', 'session/*')).toBe('');
   }
-  expect((await cli.mesa('sessions', '--json')).json.data).toEqual([]);
+  expect((await cli.mesa('sessions', '--full', '--json')).json.data).toEqual([]);
 
   const out = await cli.mesa(
     'open',
@@ -620,7 +620,7 @@ test('open --with gives each project a worktree on one branch; refusals leave no
   }
   const launch = tmux.windows.find((w) => w.window === `claude-${data.id}`)?.launch ?? '';
   expect(launch).toContain(`--add-dir=${data.additional[0].worktree.path}`);
-  const shown = (await cli.mesa('show', data.id, '--json')).json.data;
+  const shown = (await cli.mesa('show', data.id, '--full', '--json')).json.data;
   expect(shown.additional).toEqual(data.additional);
 });
 
@@ -644,7 +644,7 @@ test('open --after --with queues with pending.with, and starts with both worktre
   });
   expect(b.additional).toBeUndefined();
   expect((await cli.mesa('stop', a.id, '--force')).code).toBe(0);
-  const started = (await cli.mesa('show', b.id, '--json')).json.data;
+  const started = (await cli.mesa('show', b.id, '--full', '--json')).json.data;
   expect(started.worktree.branch).toBe(b.pending.branch);
   expect(started.additional).toMatchObject([
     { project: 'tide-pool', worktree: { branch: b.pending.branch } },
