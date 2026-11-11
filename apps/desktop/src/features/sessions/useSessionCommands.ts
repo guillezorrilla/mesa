@@ -1,10 +1,9 @@
-import type { Agent, ManagedRow, SessionRow } from '@mesa/core';
+import type { Agent, ManagedRow, SessionModel, SessionRow } from '@mesa/core';
 import { exited, GENERAL_PROJECT, sessionTitle } from '@mesa/core/browser';
 import { Undo2 } from 'lucide-react';
 import type { RefObject } from 'react';
 import { type Message, said, type ToastLink, useToast, warningOf } from '@/components/Toast';
 import { useRun } from '@/lib/useCommand';
-import type { WorkerModel } from './dialogs/WorkerDialog';
 import type { NewSessionInput } from './SessionStart';
 import type { SessionAct } from './useSessionAct';
 
@@ -261,7 +260,7 @@ export function useSessionCommands({
       return warningOf(opened);
     });
   /** Starts a worker of `row` on `task` (mesa worker), and shows it. */
-  const startWorker = (row: ManagedRow, task: string, how: WorkerModel = {}) =>
+  const startWorker = (row: ManagedRow, task: string, how: SessionModel = {}) =>
     once(async () => {
       const opened = await run('sessions.worker', {
         project: row.project,

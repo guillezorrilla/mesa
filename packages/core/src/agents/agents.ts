@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { IdSource } from '../lib/ids.js';
-import { shellWord } from '../lib/process.js';
+import { plainWord, shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { ClaudeRunProfile } from '../skills/library.js';
 import { antigravitySessionId, prepareAntigravityLog } from './antigravity/log.js';
@@ -41,9 +41,6 @@ import { AGENT_NAMES, type Agent } from './names.js';
 
 /** A goal as the agent's first prompt: one shell word, so the shell hands it over byte for byte. */
 const goalWord = (goal?: string) => (goal === undefined ? '' : ` ${shellWord(goal)}`);
-
-/** A word as it reaches the shell: as is when it holds nothing the shell reads, else quoted. */
-const plainWord = (word: string) => (/^[\w@%+=:,./-]+$/.test(word) ? word : shellWord(word));
 
 /**
  * The profile's launch defaults and the session's own model and effort for `agent` as they follow
@@ -245,12 +242,7 @@ export const AGENTS = {
      * The command a Mesa window runs, with mesa-vault mounted; `--` so a goal such as `review` is
      * a prompt, not a subcommand.
      */
-    start: (
-      mounts: Mounts,
-      defaults: SessionLaunch,
-      goal?: string,
-      dirs: readonly string[] = [],
-    ) =>
+    start: (mounts: Mounts, defaults: SessionLaunch, goal?: string, dirs: readonly string[] = []) =>
       `codex ${CODEX_EMBEDDED}${flags('codex', defaults, undefined, dirs)} ${codexMount(mounts)}${addDirs('codex', dirs)}${goal === undefined ? '' : ` --${goalWord(goal)}`}`,
     /**
      * Reopens that thread in `folder`, the recorded one, which -C picks with no prompt. The mount
@@ -399,13 +391,5 @@ export function startCommand(
   if (s.agentSessionId === undefined) {
     throw new MesaError('internal', `${agent} starts under an agent session id Mesa picks`);
   }
-  return AGENTS.claude.start(
-    s.agentSessionId,
-    mounts,
-    own,
-    s.goal,
-    s.mode,
-    dirs,
-    s.disallowed,
-  );
+  return AGENTS.claude.start(s.agentSessionId, mounts, own, s.goal, s.mode, dirs, s.disallowed);
 }

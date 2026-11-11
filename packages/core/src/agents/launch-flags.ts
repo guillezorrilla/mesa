@@ -44,16 +44,22 @@ const EFFORTS = {
   codex: ['minimal', 'low', 'medium', 'high', 'xhigh'],
 } as const;
 
+/** Claude's model names and aliases, which Codex cannot run (the app's New worker offers them). */
+const CLAUDE_MODEL = /^(claude|opus|sonnet|haiku|fable)\b/;
+
 /**
  * Refuses, as usage, a model or effort `agent` cannot start with: Antigravity takes neither, a
- * model is one name, and an effort one of the agent's levels.
+ * model is one name (never a flag), Codex runs no Claude model, and an effort is one of the
+ * agent's levels.
  */
 export function requireSessionModel(agent: Agent | 'terminal', { model, effort }: SessionModel) {
   if (model === undefined && effort === undefined) return;
   if (agent !== 'claude' && agent !== 'codex')
     throw new MesaError('usage', `${agent} takes no --model or --effort`);
-  if (model !== undefined && !/^[\w.:/@[\]-]+$/.test(model))
+  if (model !== undefined && !/^\w[\w.:/@[\]-]*$/.test(model))
     throw new MesaError('usage', `--model is one model name, not ${JSON.stringify(model)}`);
+  if (agent === 'codex' && model !== undefined && CLAUDE_MODEL.test(model))
+    throw new MesaError('usage', `codex runs no Claude model such as ${model}; pick a Codex model`);
   const levels: readonly string[] = EFFORTS[agent];
   if (effort !== undefined && !levels.includes(effort))
     throw new MesaError('usage', `${agent} --effort is one of ${levels.join(', ')}, not ${effort}`);

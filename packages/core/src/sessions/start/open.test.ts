@@ -190,6 +190,8 @@ test('--model and --effort start claude and codex with their own flags, kept for
     { agent: 'antigravity', effort: 'low' },
     { effort: 'turbo' },
     { model: 'sonnet; rm -rf ~' },
+    { model: '--dangerously-skip-permissions' },
+    { agent: 'codex', model: 'sonnet' },
     { terminal: true, model: 'sonnet' },
   ])
     await expect(mesa.sessions.open('lantern-cove', refused)).rejects.toMatchObject({
@@ -1572,7 +1574,8 @@ test('the other flags that do not go together are refused, each by name, and not
   const { home, mesa } = await setUp(agentWorld());
   const checkout = '--checkout cannot use --worktree, --branch, --with, --general, or --after';
   const general = 'General sessions cannot use --branch, --base, or --after';
-  const terminal = '--terminal cannot use --agent, --goal, --after, --mode, --model, --effort, or --background';
+  const terminal =
+    '--terminal cannot use --agent, --goal, --after, --mode, --model, --effort, or --background';
   const cases: [string | undefined, Parameters<typeof mesa.sessions.open>[1], string][] = [
     ['lantern-cove', { worktree: true, branch: 'b' }, 'pass --worktree or --branch, not both'],
     ['lantern-cove', { general: true }, 'pass a project or --general, not both'],

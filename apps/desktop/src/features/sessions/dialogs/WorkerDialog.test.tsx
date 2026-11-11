@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
+import type { SessionModel } from '@mesa/core';
 import { expect, test } from 'vitest';
 import { choose, click, fakeBridge, fill, renderWithMesa } from '@/lib/testing';
-import { type WorkerModel, WorkerDialog } from './WorkerDialog';
+import { WorkerDialog } from './WorkerDialog';
 
-const render = (started: [string, WorkerModel][]) =>
+const render = (started: [string, SessionModel][]) =>
   renderWithMesa(
     <WorkerDialog
       sessionId="lead0001"
@@ -16,7 +17,7 @@ const render = (started: [string, WorkerModel][]) =>
   );
 
 test('New worker passes the chosen model and effort, and neither when left at Default', async () => {
-  const started: [string, WorkerModel][] = [];
+  const started: [string, SessionModel][] = [];
   const byTestId = await render(started);
   const options = (id: string) =>
     [...(byTestId(id)[0]?.querySelectorAll('option') ?? [])].map((o) => o.textContent);

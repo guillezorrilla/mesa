@@ -1,3 +1,4 @@
+import type { SessionModel } from '../../agents/launch-flags.js';
 import type { Agent } from '../../agents/names.js';
 import type { Clock } from '../../lib/clock.js';
 import type { Profile } from '../../profile/profile.js';
@@ -18,8 +19,6 @@ export type NewLaunch = {
   project: RegistryEntry | null;
   agent: Agent | 'terminal';
   mode?: 'plan';
-  model?: string;
-  effort?: string;
   background?: true;
   backgroundId?: string;
   /** None while queued: a session that never ran has no conversation. */
@@ -50,7 +49,7 @@ export type NewLaunch = {
   from?: SessionRecord['from'];
   /** The pull request it reviews (mesa prs start). */
   review?: SessionRecord['review'];
-};
+} & SessionModel;
 
 // ponytail: a guess until Faro (#25) classifies it on the next look: a fresh claude waits at its
 // prompt, or at the trust dialog in a folder it has not seen, or works on its goal.

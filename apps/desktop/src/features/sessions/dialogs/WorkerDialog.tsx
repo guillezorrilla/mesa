@@ -1,11 +1,9 @@
+import type { SessionModel } from '@mesa/core';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import { CHILD_START_HINT } from '../start/useStartSession';
-
-/** A worker's own model and effort (`mesa worker --model --effort`); unset, the agent's default. */
-export type WorkerModel = { model?: string; effort?: string };
 
 const MODELS = [
   ['', 'Default'],
@@ -24,7 +22,7 @@ export function WorkerDialog(props: {
   sessionId: string;
   project: string;
   disabled: boolean;
-  onStart: (task: string, how: WorkerModel) => void;
+  onStart: (task: string, how: SessionModel) => void;
   onCancel: () => void;
 }) {
   const select = (name: string, label: string, options: readonly (readonly [string, string])[]) => (
