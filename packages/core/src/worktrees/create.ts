@@ -21,6 +21,7 @@ import {
 import { sessionBranchName } from './branch-name.js';
 import { carryEntries } from './carry.js';
 import { ignoreNestedWorktrees, worktreeRoot } from './location.js';
+import { oneStringHint } from './script-hint.js';
 import { worktreeScript, worktreeSettings } from './settings.js';
 
 /** Refuses the worktree at `path` while a session holds it (heldWorktrees), naming that session. */
@@ -199,10 +200,13 @@ export async function worktreeCommand(
 ) {
   if (!argv.length) throw new MesaError('usage', `no worktree ${kind} command is configured`);
   const result = await run(argv[0] as string, argv.slice(1), 120_000, { cwd: path });
-  if (!result.ok)
+  if (!result.ok) {
+    // No such program: run without a shell, this is exit 127's case (#1033).
+    const hint = result.reason === 'missing' ? oneStringHint(argv) : undefined;
     throw new MesaError(
       'usage',
-      `${kind} failed in ${path}: ${result.detail}; checkout ${lstatSync(path, { throwIfNoEntry: false }) ? 'remains' : 'is missing'}`,
+      `${kind} failed in ${path}: ${result.detail}${hint ? ` (${hint})` : ''}; checkout ${lstatSync(path, { throwIfNoEntry: false }) ? 'remains' : 'is missing'}`,
     );
+  }
   return { path, ran: true as const };
 }

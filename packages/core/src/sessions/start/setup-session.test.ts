@@ -34,6 +34,15 @@ test('a failed setup logs SetupFailed through mesa hook', () => {
   expect(JSON.parse(hook ?? '{}')).toEqual({ hook_event_name: 'SetupFailed' });
 });
 
+test('a setup written as one string that sh cannot find says why after its exit 127', () => {
+  const { out, hook } = runLine(['node --test test/']);
+  expect(out).toContain('setup failed (exit 127)');
+  expect(out).toContain('write it as [node, --test, test/]');
+  expect(JSON.parse(hook ?? '{}')).toEqual({ hook_event_name: 'SetupFailed' });
+  // Another failure of the same argv names no cause it does not have.
+  expect(runLine(['/bin/sh', '-c', 'exit 3']).out).not.toContain('write it as');
+});
+
 test('a Setup session reads failed or done by its latest setup outcome, none while it runs', () => {
   const event = (name: string, at: string) => ({
     at,

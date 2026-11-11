@@ -1,6 +1,7 @@
 import { SETUP_DONE, SETUP_FAILED } from '../../agents/hooks.js';
 import { shellWord } from '../../lib/process.js';
 import type { RegistryEntry } from '../../projects/registry.js';
+import { oneStringHint } from '../../worktrees/script-hint.js';
 import type { SessionRecord } from '../record/record.js';
 import type { HookEvent } from '../signals/hook-events.js';
 
@@ -23,11 +24,14 @@ export type SetupBeside = (
 export function setupLine(argv: readonly string[], self: readonly string[]) {
   const log = (event: string) =>
     `printf '%s' ${shellWord(JSON.stringify({ hook_event_name: event }))} | ${self.map(shellWord).join(' ')} hook claude >/dev/null 2>&1`;
+  // sh's 127 is a program it did not find: one written as a whole command line says why (#1033).
+  const hint = oneStringHint(argv);
+  const why = hint ? `; [ "$status" -eq 127 ] && printf '%s\\n' ${shellWord(hint)}` : '';
   return [
     `printf '%s\\n' ${shellWord(`$ ${argv.join(' ')}`)}`,
     `${argv.map(shellWord).join(' ')}`,
     `status=$?`,
-    `if [ "$status" -eq 0 ]; then ${log(SETUP_DONE)}; else ${log(SETUP_FAILED)}; printf '\\nsetup failed (exit %s)\\n' "$status"; fi`,
+    `if [ "$status" -eq 0 ]; then ${log(SETUP_DONE)}; else ${log(SETUP_FAILED)}; printf '\\nsetup failed (exit %s)\\n' "$status"${why}; fi`,
   ].join('; ');
 }
 

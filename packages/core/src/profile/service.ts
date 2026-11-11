@@ -4,6 +4,7 @@ import { REDACTED, redactWhole } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { APPROVAL_FROM_SESSION, WORKTREE_SCRIPTS } from '../projects/trust.js';
 import { callerOf } from '../sessions/window/caller.js';
+import { scriptHints } from '../worktrees/script-hint.js';
 import { type Config, loadConfig, redactConfig, setConfigValue } from './config.js';
 import { createProfile, type ProfileInfo } from './profile.js';
 
@@ -63,6 +64,11 @@ export function profileService(ctx: MesaContext) {
             inputs: { path: dotted, ...(previousVault ? { vault: redact(previousVault) } : {}) },
             outputs: (r) => ({ value: dotted === 'vault' ? redact(String(r.value)) : r.value }),
             changed: (r) => r.changed,
+            // A setup or teardown written as one command string (#1033).
+            warning: () =>
+              dotted === 'worktrees' || WORKTREE_SCRIPTS.some((k) => dotted === `worktrees.${k}`)
+                ? scriptHints(currentScripts(paths.config))
+                : undefined,
           },
           () => {
             const guards = [scriptGuard(), modelGuard()];

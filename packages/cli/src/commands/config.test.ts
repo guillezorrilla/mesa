@@ -21,6 +21,24 @@ test('config --json carries the diff and file tree sizes, and set rejects one ou
   });
 });
 
+test('config set warns when a worktree setup is one command string, and shows its split form', async () => {
+  await cli.mesa('init', '--vault', 'vault');
+  const set = await cli.mesa('config', 'set', 'worktrees.setup', '["node --test test/"]', '--json');
+  expect(set.code).toBe(0);
+  expect(set.json.data.value).toEqual(['node --test test/']);
+  expect(set.json.data.warning).toContain(
+    'worktrees.setup: the list is argv, run without a shell, so "node --test test/" is one program name; write it as [node, --test, test/]',
+  );
+  const split = await cli.mesa(
+    'config',
+    'set',
+    'worktrees.setup',
+    '[node, --test, test/]',
+    '--json',
+  );
+  expect(split.json.data.warning ?? '').not.toContain('the list is argv');
+});
+
 test('terminal.messageActions is on by default and config set turns it off', async () => {
   await cli.mesa('init', '--vault', 'vault');
   const messageActions = async () =>
