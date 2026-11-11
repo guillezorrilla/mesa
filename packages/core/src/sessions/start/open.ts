@@ -6,6 +6,7 @@ import { MesaError } from '../../lib/result.js';
 import type { RegistryEntry } from '../../projects/registry.js';
 import { reviewDeny } from '../../prs/review-guard.js';
 import { worktreeSettings } from '../../worktrees/settings.js';
+import { depthOf, MAX_WORKER_DEPTH } from '../record/family.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import { isOver } from '../record/lifecycle.js';
 import type { SessionRecord } from '../record/record.js';
@@ -63,6 +64,18 @@ function parentOf(
     return caller.session.id;
   }
   return input.noParent ? undefined : (deps.caller().session?.id ?? input.after);
+}
+
+/** Refuses a child of `parent` when workers already nest MAX_WORKER_DEPTH deep there. */
+function requireNestingRoom(deps: Pick<OpenDeps, 'store'>, parent: string): void {
+  const records = deps.store.readable();
+  const found = records.find((r) => r.id === parent);
+  const depth = found ? depthOf(records)(found) : 0;
+  if (depth >= MAX_WORKER_DEPTH)
+    throw new MesaError(
+      'usage',
+      `${parent} nests workers ${depth} deep; the limit is ${MAX_WORKER_DEPTH}`,
+    );
 }
 
 /**
@@ -125,6 +138,7 @@ export async function openSession(
   const parent = parentOf(deps, input);
   // Briefed by the session that starts it, not one it only waits on.
   const started = input.parent !== undefined || parent !== input.after;
+  if (parent && started) requireNestingRoom(deps, parent);
   const { goal, brief } = briefedGoal(input.goal, parent, started);
   // Read even when --agent is given.
   const selected = input.project ? launchProject(deps.profile, input.project) : null;

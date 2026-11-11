@@ -66,3 +66,18 @@ test("worker --task starts a ready task, whose worker's done report readies its 
   const ready = (await cli.mesa('tasks', '--ready', '--json')).json.data.tasks;
   expect(ready.map((t: { id: string }) => t.id)).toEqual([b.id]);
 });
+
+test('worker from a session 4 workers deep is a usage error naming the depth, and starts nothing', async () => {
+  await cli.withTwoProjects();
+  let at = (await cli.mesa('open', 'lantern-cove', '--json')).json.data.id as string;
+  for (let i = 0; i < 4; i++)
+    at = (await cli.mesa('open', 'lantern-cove', '--parent', at, '--json')).json.data.id as string;
+  expect((await cli.mesa('show', at, '--json')).json.data.depth).toBe(4);
+  const before = (await cli.mesa('sessions', '--all', '--json')).json.data.length;
+  cli.env = { MESA_SESSION_ID: at, MESA_PROFILE: 'default' };
+  const refused = await cli.mesa('worker', 'lantern-cove', 'deeper', '--json');
+  expect(refused.code).toBe(2);
+  expect(refused.json.error.message).toBe(`${at} nests workers 4 deep; the limit is 4`);
+  cli.env = {};
+  expect((await cli.mesa('sessions', '--all', '--json')).json.data).toHaveLength(before);
+});

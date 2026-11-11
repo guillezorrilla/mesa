@@ -59,3 +59,26 @@ export function withParentsNow<T extends Linked>(
 /** Where `record` reports now among `records` (familyOf), for one record. */
 export const parentNowOf = (records: readonly Linked[], record: Linked) =>
   familyOf(records)(record);
+
+/** How many levels of workers a family nests (CONTEXT.md, Worker brief): one this deep starts none. */
+export const MAX_WORKER_DEPTH = 4;
+
+/**
+ * How many parents are above each session among `records`, followed where each reports now
+ * (familyOf), so a resume or handoff successor adds no level: 0 for a session with no parent.
+ */
+export function depthOf(records: readonly Linked[]) {
+  const byId = new Map(records.map((r) => [r.id, r]));
+  const parentNow = familyOf(records);
+  return (record: Linked): number => {
+    const seen = new Set([record.id]);
+    let depth = 0;
+    for (let up = parentNow(record); up && !seen.has(up); ) {
+      depth++;
+      seen.add(up);
+      const found = byId.get(up);
+      up = found && parentNow(found);
+    }
+    return depth;
+  };
+}

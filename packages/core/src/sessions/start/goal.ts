@@ -73,7 +73,7 @@ const BRIEF_START = '[mesa] You are a worker started by session';
  * the parent as a Child report, how to ask, and not to poll.
  */
 export const workerBrief = (parent: string) =>
-  `${BRIEF_START} ${parent}. When your work is done, run mesa report done "<what you did, found, and left>" exactly once; mesa report failed "<why>" when it is not done, never hiding a failure in prose; mesa report blocked "<what you need>" when ${parent} must act. Keep a report to about three sentences; put more in a file and pass it with --details <file>. Until then your last reply each turn reaches it. To ask it something, run mesa report question "<question>" and end your turn; its answer comes as your next prompt. Do not poll, sleep, or loop waiting for it.`;
+  `${BRIEF_START} ${parent}. When your work is done, run mesa report done "<what you did, found, and left>" exactly once; mesa report failed "<why>" when it is not done, never hiding a failure in prose; mesa report blocked "<what you need>" when ${parent} must act. Keep a report to about three sentences; put more in a file and pass it with --details <file>. Until then your last reply each turn reaches it. To ask it something, run mesa report question "<question>" and end your turn; its answer comes as your next prompt. Do not poll, sleep, or loop waiting for it. Start no workers of your own unless your task asks you to.`;
 
 /**
  * `goal` with the worker brief after it, when the session is `started` by `parent` (the caller, or
