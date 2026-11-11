@@ -570,8 +570,23 @@ Not: account, login, integration.
 
 ## Broker
 
-Mesa's OAuth broker, `apps/broker`: a Cloudflare Worker that holds each Source's client secret, sends the browser to the vendor's sign-in, relays the vendor's answer to Mesa's loopback listener (`/callback/<source>`, its `state` naming the port), and exchanges or refreshes tokens. It never sees Source content or API calls. It keeps nothing but the anonymous install count (ADR-0026) in its D1 database, and forwards feedback to a private repo (ADR-0025). Mesa's hosted one is the default; `MESA_BROKER_URL` points at a self-hosted one. ADR-0014.
+Mesa's OAuth broker, `apps/broker`: a Cloudflare Worker that holds each Source's client secret, sends the browser to the vendor's sign-in, relays the vendor's answer to Mesa's loopback listener (`/callback/<source>`, its `state` naming the port), and exchanges or refreshes tokens. It never sees Source content or API calls. It keeps nothing but the anonymous install count (ADR-0026) in its D1 database, and forwards feedback to a private repo (ADR-0025), and carries a Pairing's Mailbox and pushes as ciphertext it cannot open (ADR-0014's 2026-11-11 amendment). Mesa's hosted one is the default; `MESA_BROKER_URL` points at a self-hosted one. ADR-0014.
 Not: relay, proxy, auth server.
+
+## Phone
+
+Mesa's iPhone app, `apps/mobile` (ADR-0027): it pings the person when a session needs them, shows what it said, and sends a reply or an answer to its prompt, through a Pairing with one Mac. Expo, released to TestFlight by EAS and updated over the air. It is a caller like the CLI and the app: the logic stays in core.
+Not: mobile app, remote, companion.
+
+## Pairing
+
+The link between one Mac's profile and one Phone, made by scanning a QR from Settings > Phone or `mesa phone pair`: a Durable Object on the Broker named by a random id, holding the Mailbox, each side's token hash and the phone's push token. The keys agreed in the QR seal everything that passes; the pairing is the only authentication, with no account. `mesa phone status` and `mesa phone unpair` read and end it.
+Not: device, connection (a Source's), account.
+
+## Mailbox
+
+A Pairing's queue of sealed messages between the Mac and the Phone, relayed at once to a connected side and kept up to 7 days for one that is not. The Mac reads it while the app or the profile scheduler runs.
+Not: inbox (the Mac's notices), queue.
 
 ## Context tab
 

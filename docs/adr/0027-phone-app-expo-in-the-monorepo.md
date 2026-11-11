@@ -1,0 +1,44 @@
+# ADR-0027: The phone app is Expo in the monorepo, released by EAS, updated over the air
+
+Status: accepted
+Date: 2026-11-11
+
+## Context
+
+Epic #902 pairs an iPhone with Mesa so a person is pinged when a session needs them, reads what it said, replies, and answers its prompts away from the desk. The owner chose a native app over a home-screen web app or a Telegram bot (2026-11-10, docs/spikes/orca-comparison.md, Mobile) and left SwiftUI or Expo open. On 2026-11-11 the owner added requirements: updates over the air, CI/CD that releases with no hand steps, an efficient app, and clean code. orca's mobile app was read as a candidate to reuse. The stack, the repo, the release path and the identifiers are hard to change once a build is on the phone, so they are recorded here. What the broker carries for the phone is ADR-0014's amendment.
+
+## Decision
+
+**Expo, not SwiftUI.** Only Expo's `expo-updates` ships a change to an installed app without a new build; Apple allows no native code over the air, so SwiftUI would make every change a TestFlight build. Expo also shares TypeScript, Biome, vitest and the mailbox and crypto types with `packages/core` and `apps/broker`. The app is React Native on the New Architecture with Hermes and `expo-router`, on the newest stable Expo SDK and the React and React Native it pins when the app is created, and on each SDK after. Text is rendered natively; no WebView and no terminal emulator, which are the heavy part of orca's app.
+
+**React 19 as written.** The React Compiler is on, so no hand-written `useMemo`, `useCallback` or `memo`. Data is read with `use()` under `Suspense` and error boundaries, not effects that fetch into state; a reply or an answer is a form action with `useActionState`, shown at once with `useOptimistic`; `ref` is a prop (no `forwardRef`) and a context is its own provider. An effect is only for a subscription to something outside React, such as the mailbox socket, with `useEffectEvent` for its callbacks.
+
+**A design system with one component library.** The app's look is Mesa's: `apps/mobile/src/global.css` holds the same tokens as `apps/desktop/src/style.css` (oklch colors for light and dark, the radius, IBM Plex Sans and Mono), as Tailwind v4 theme variables for Uniwind, which compiles Tailwind classes to React Native styles at build time rather than at render. Uniwind cannot read the desktop's `[data-theme]` selectors, so the file is a copy, and a test fails when a token's value differs from the desktop's. Every screen is built from `apps/mobile/src/components/`: `ui/` holds the domain-free primitives (Text, Button, Card, Badge, Input, Sheet, Dialog and the like) taken as source from `react-native-reusables` (shadcn/ui's port, its Uniwind variant) and owned here like the desktop's shadcn components; the rest are Mesa's own composites (a session row, a state dot, an agent mark, a prompt card), each in one file, built only from `ui/` and the tokens, with `lucide-react-native` icons. orca's components are styled with React Native's `StyleSheet` and tied to its own screens, so none is taken whole; its state dot, agent marks and pairing scanner's reticle are worth reading before Mesa's are drawn.
+
+**orca's app is read, not forked.** It is MIT, Expo 55 and React Native 0.83, about 3,000 source files, released by fastlane, with no `expo-updates`. Most of it serves orca's own RPC protocol, its relay director, its accounts, a WebView terminal, dictation and Android. Ideas taken from it: a QR that carries the endpoint, a token and a public key; the APNs environment (`aps-environment`) set from the release environment rather than left at Expo's development default, without which TestFlight pushes are lost; an iOS release separate from the desktop's. A file copied from it keeps its MIT notice.
+
+**In this repo, as `apps/mobile`.** One PR can change the broker, core, the CLI and the phone together, as AGENTS.md asks, and the mailbox and crypto types have one owner in core. `apps/mobile` is a pnpm workspace package like `apps/desktop`. It keeps its own version: `scripts/release/version.sh` and `pnpm check:version` skip it, because the desktop releases weekly and a phone build follows only native changes.
+
+**Identifiers.** Apple team `EMTB6K854Q`, following the owner's other app. The app is `com.guillezorrilla.mesa`, with Push Notifications and App Groups; the Notification Service Extension is `com.guillezorrilla.mesa.notifications`; the two share a Keychain access group, through which the extension reads the pairing key, and the app group `group.com.guillezorrilla.mesa`, registered for a shared container should one be needed. The App Store Connect record is "Mesa: Agent Sessions" (`ascAppId` 6833602462; the plain name was taken); the name under the icon is `Mesa`.
+
+**The one native part.** The extension decrypts a push before it is shown. It is Swift, kept in `apps/mobile/targets/notifications/` and added to the generated Xcode project by a config plugin in `apps/mobile/plugins/`, so `ios/` is never committed (Continuous Native Generation). An over-the-air update never changes it.
+
+**Crypto that every side has built in.** X25519 to agree a key, HKDF-SHA256 to derive one key per direction, ChaCha20-Poly1305 to seal each message with a random nonce. The pairing protocol (the message schemas, the key derivation, seal and open) is one TypeScript module in core with no Node imports, on `@noble/curves` and `@noble/ciphers` (audited, pure TypeScript), which the Mac, the broker's types and the app all import; the extension's CryptoKit code is the only second implementation, and both check the same fixed test vectors. orca's NaCl boxes would need libsodium in the extension.
+
+**Release.** EAS Build makes the iOS build in Expo's cloud and EAS Submit uploads it to TestFlight with the App Store Connect API key; EAS Update serves updates over the air. `runtimeVersion` uses the `fingerprint` policy, so an update reaches only builds with the same native code. EAS keeps the build number (`cli.appVersionSource: remote`, `autoIncrement`), so CI commits nothing to `main`; the marketing version in `app.json` changes by hand in a PR. Credentials live in EAS (the ASC API key, the distribution certificate, the profiles) and GitHub holds only `EXPO_TOKEN`.
+
+**CI.** `pnpm verify` covers `apps/mobile` like any package: Biome, typecheck and vitest over its logic, plus `expo-doctor`. A pull request that changes the fingerprint says so in a comment. A push to `main` touching `apps/mobile` runs `.github/workflows/mobile.yml`, whose `expo/expo-github-action/continuous-deploy-fingerprint` step publishes an update to the `production` branch when a build with this fingerprint exists, and otherwise starts a build and submits it to TestFlight. Workflows that hold `EXPO_TOKEN` run on `push` and `workflow_dispatch` only, never on pull requests, so a fork's PR cannot reach it; actions are pinned to commit SHAs as ADR-0017 requires. TestFlight's internal group goes to the owner's phone; App Store release is out of scope.
+
+**No account.** The pairing is the authentication (ADR-0014's amendment). The app keeps the pairing key in the Keychain and nothing else of the person's.
+
+## Evidence
+
+- orca's mobile app, read 2026-11-11 at github.com/stablyai/orca: `mobile/package.json` (Expo 55, React Native 0.83, `tweetnacl`, `react-native-libsodium`, `react-native-webview`, `@xterm/xterm`, no `expo-updates`), `mobile/app.config.js` (the `aps-environment` note), `.github/workflows/mobile-ios-release.yml` (fastlane on an Xcode runner, about 30 to 40 minutes per release), 3,053 files under `mobile/src` and `mobile/app`.
+- `expo/expo-github-action`'s `continuous-deploy-fingerprint` README, read 2026-11-11: it checks the fingerprint, looks for an EAS build with it, builds when there is none, and otherwise publishes an EAS Update; `auto-submit-builds` adds `--auto-submit`.
+- The owner set up the app identifiers, the app group, the APNs key, the App Store Connect record and an App Store Connect API key (App Manager) on 2026-11-11. The key files stay with the owner; neither is in this repo.
+
+## Consequences
+
+- A JavaScript change reaches the phone minutes after merge with no TestFlight build; a change to a native module, the extension or the Expo SDK makes a build, which EAS's free plan bounds by monthly build count.
+- Mesa depends on Expo's hosting for builds and updates. Leaving it means fastlane builds on GitHub's macOS runners and a self-hosted `expo-updates` server; the app's code would not change.
+- The extension is the one Swift file to maintain, and changes to it ship only in a build.

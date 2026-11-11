@@ -1,6 +1,6 @@
 # ADR-0014: Sources sign in through a Mesa-hosted OAuth broker; tokens live in the Keychain
 
-Status: accepted
+Status: accepted, amended 2026-11-11 (the phone, #902)
 Date: 2026-10-01
 
 ## Context
@@ -60,3 +60,13 @@ The Atlassian row also asks for the classic `write:jira-work`, so a person can a
 ## Amendment, 2026-10-13: feedback (#812)
 
 The broker also takes a person's feedback and opens it as an issue in a private repo (ADR-0025). That is the one thing it forwards to be kept; it still stores and logs nothing itself.
+
+## Amendment, 2026-11-11: the phone's mailbox and pushes (#902)
+
+The broker also carries what passes between a Mac and the person's paired iPhone (ADR-0027), the first time it holds session text and a push credential. It reads neither.
+
+- **A pairing** is one Durable Object (SQLite-backed, which the Workers free plan includes) named by a random pairing id. The Mac creates it and shows a QR holding the broker's URL, the pairing id, a one-time secret that expires in 10 minutes, and the Mac's X25519 public key. The phone joins with the secret and its own public key; the object then forgets the secret and issues each side a token, which it keeps only as a hash. The pairing is the authentication: no account, no email, no name. Unpairing from either side deletes the object's storage.
+- **The mailbox.** Both sides dial out to the object over a WebSocket (the hibernation API, so an idle socket costs nothing), so no port opens on the Mac. Every message is sealed with ChaCha20-Poly1305 under a key derived from the two X25519 keys with HKDF-SHA256, one per direction. The object relays a message at once to the other side when it is connected and otherwise keeps it until it is, at most 7 days and a bounded number per pairing, then drops the oldest.
+- **Pushes.** The APNs key is a Worker secret (`APNS_KEY`, with `APNS_KEY_ID`, `APNS_TEAM_ID` and `APNS_TOPIC` for the app's bundle id); a key shipped inside Mesa or the app would not be secret. The phone gives the object its APNs device token. The Mac posts a sealed notice to its pairing, and the broker sends APNs a push with `mutable-content: 1`, a fixed alert that names no session ("A session needs you"), and the ciphertext; the phone's Notification Service Extension opens it and replaces the alert with the real text. A phone whose extension cannot open it shows only the fixed alert.
+- **What the broker sees:** pairing ids, token hashes, the device token, ciphertext with its size and timing, and the IP addresses of the two sides. **What it never sees:** a session's text, a project's name, a prompt, a reply, or the keys that open them. It still logs no request or response body.
+- **Limits.** Each pairing is rate-limited, and a notice is a few hundred bytes, far under APNs' 4 KB. A Mac asleep sends and hears nothing; the phone shows what arrived before.
