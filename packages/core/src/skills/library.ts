@@ -30,11 +30,23 @@ export const isPipelineSkill = (skill: string) => PIPELINE_SKILLS.includes(skill
  */
 export const isTextOnlySkill = (skill: string) => skill === GIT_TEXT;
 
+/** The skill whose run summarises a session's output log (skills/session-summary). */
+export const SESSION_SUMMARY = 'session-summary';
+
 /**
- * The Claude model a skill's run uses instead of the person's default: Haiku for a Vault capture,
- * at about a twentieth of Opus's cost per run (ADR-0023, docs/spikes/token-usage.md).
+ * The Claude model each of Mesa's own skill runs uses instead of the person's default: the
+ * cheapest that does the job (ADR-0023, docs/spikes/token-usage.md). Haiku, about a twentieth of
+ * Opus's cost per run, for short text from given input; Sonnet for import notes, which read and
+ * write several vault notes. Any other skill runs on the person's default.
  */
-export const claudeRunModel = (skill: string) => (skill === VAULT_CAPTURE ? 'haiku' : undefined);
+const RUN_MODELS: Readonly<Record<string, 'haiku' | 'sonnet'>> = {
+  [VAULT_CAPTURE]: 'haiku',
+  [GIT_TEXT]: 'haiku',
+  [SESSION_SUMMARY]: 'haiku',
+  [IMPORT_NOTES]: 'sonnet',
+};
+export const claudeRunModel = (skill: string) =>
+  Object.hasOwn(RUN_MODELS, skill) ? RUN_MODELS[skill] : undefined;
 
 /** A skill's own file, read by both agents. */
 const SKILL_FILE = 'SKILL.md';

@@ -59,3 +59,9 @@ Evidence: `packages/core/src/vault/capture/capture.test.ts`: a capture replaces 
 A capture ran on the person's default model, Opus on the owner's profile, and cost about $0.82 a run: $380 over 463 runs in five weeks, mostly session overhead re-read across about 10 turns. Six windows no capture had seen yet were replayed through the stricter skill (#880) with mesa-vault's read tools live. Opus kept about 4 items that pass the bar, at $0.78 a run. Haiku recalled 2 of them and added 6 that Opus dropped, at $0.04 a run. Sonnet recalled 1, at $0.31. The owner chose Haiku: Mesa passes `--model 'haiku'` to a `vault-capture` run (`claudeRunModel`, `packages/core/src/skills/library.ts`), and every other skill run keeps the person's default. Codex and Antigravity runs take no model from Mesa. Decided in the vault on 2026-11-10; the next-step site's CLEF answer abstained (haiku 0.37, more samples 0.23, sonnet 0.18, keep Opus 0.08). Numbers are in `docs/spikes/token-usage.md`.
 
 Evidence: `packages/core/src/vault/capture/capture.test.ts`: a capture's launch carries `--model 'haiku'`; the exact launch string in `packages/core/src/sessions/run/run.test.ts` shows a session-summary run carries no model.
+
+## Amended 2026-11-10: every Mesa skill run on the cheapest model that does the job (#1000)
+
+The owner's rule: use a cheaper model whenever it makes sense. `claudeRunModel` now maps each of Mesa's own skill runs: `git-text` and `session-summary` on Haiku (short text from given input, as a capture is), `import-notes` on Sonnet (it reads and writes several vault notes), `vault-capture` on Haiku as above. Any other skill run keeps the person's default; Codex and Antigravity runs still take no model from Mesa.
+
+Evidence: `packages/core/src/sessions/run/run.test.ts`: the session-summary launch carries `--model 'haiku'`, an import-notes launch `--model 'sonnet'`, and the mapping test covers every skill and the default.

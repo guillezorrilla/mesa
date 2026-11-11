@@ -9,6 +9,7 @@ import { type LockedNotesDeps, readNote, refuseForeign, writeNote } from '../vau
 import { vaultWriteFile } from '../vault/scope.js';
 import { withVaultLock } from '../vault/vault-lock.js';
 import { keepSections } from './keep-sections.js';
+import { SESSION_SUMMARY } from './library.js';
 
 // Where a skill's output lands in the vault: core writes the note a skill run's output becomes
 // (ADR-0006: the agent never writes the vault), and the summary a session saves itself (mesa
@@ -47,8 +48,8 @@ type Landing = {
 const LANDINGS: Record<string, Landing> = {
   // A summary of the session the run was given the output log of (mesa run --session), or of the
   // session saving it.
-  'session-summary': {
-    type: 'session-summary',
+  [SESSION_SUMMARY]: {
+    type: SESSION_SUMMARY,
     path: ({ about }) => about && sessionSummaryPath(about),
     said: ({ about, project }) => `Summarised session ${about}${project ? ` on ${project}` : ''}`,
   },
