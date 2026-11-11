@@ -17,7 +17,7 @@ export const reviewNotes = defineCommand({
         ? data
             .map(
               (n) =>
-                `${n.id} ${where(n)}${n.stale ? ' (stale)' : ''}${n.sentAt ? ' (sent)' : ''} ${n.text.split('\n')[0]}`,
+                `${n.id} ${where(n)}${n.stale ? ' (stale)' : ''}${n.sentAt ? ` (sent${n.sentTo ? ` to ${n.sentTo}` : ''})` : ''} ${n.text.split('\n')[0]}`,
             )
             .join('\n')
         : 'No review notes',
@@ -87,16 +87,22 @@ export const reviewNotesRemove = defineCommand({
 export const reviewNotesSend = defineCommand({
   name: 'review notes send',
   summary:
-    "Send a session's unsent review notes, or one file's, to its agent as one prompt through the guardrail",
+    "Send a session's unsent review notes, or one file's, as one prompt through the guardrail to its agent, another session's, or a new one",
   args: ['session'],
   flags: {
     path: { type: 'string', description: "Send only this file's notes" },
+    to: {
+      type: 'string',
+      description:
+        "The session to send them to (default: the session's own); new starts one in its checkout with them as its goal",
+    },
     yes: { type: 'boolean', description: 'Send past a guardrail ask after confirmation' },
     'no-from': { type: 'boolean', description: 'Send as a person, not another Mesa session' },
   },
-  example: 'mesa review notes send a1b2c3d4 --path src/app.ts',
+  example: 'mesa review notes send a1b2c3d4 --path src/app.ts --to e5f6g7h8',
   run: async ({ mesa, args, flags, confirm }) => {
     const data = await mesa.sessions.notes.send(args.session, flags.path, {
+      ...(flags.to ? { to: flags.to } : {}),
       yes: flags.yes,
       noFrom: flags['no-from'],
       confirm,
@@ -104,12 +110,13 @@ export const reviewNotesSend = defineCommand({
     const left = data.stale.length
       ? `; left ${data.stale.length} stale: ${data.stale.join(' ')}`
       : '';
-    const what = !data.delivery
-      ? 'No unsent notes to send'
-      : data.sent.length
-        ? `${data.delivery.already ? 'Already sent' : 'Sent'} ${data.sent.length} notes to ${args.session}`
-        : `${data.delivery.status}: ${data.delivery.reason ?? 'nothing marked sent'}`;
-    const warning = data.delivery?.warning ? `\n${data.delivery.warning}` : '';
+    const what = !data.sent.length
+      ? data.delivery
+        ? `${data.delivery.status}: ${data.delivery.reason ?? 'nothing marked sent'}`
+        : 'No unsent notes to send'
+      : `${data.delivery?.already ? 'Already sent' : 'Sent'} ${data.sent.length} notes to ${data.to}${data.delivery ? '' : ', a new session'}`;
+    const warned = data.delivery?.warning ?? data.warning;
+    const warning = warned ? `\n${warned}` : '';
     return { data, text: `${what}${left}${warning}` };
   },
 });

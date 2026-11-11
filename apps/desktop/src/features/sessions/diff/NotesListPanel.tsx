@@ -4,7 +4,7 @@ import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
 import { cn } from '@/lib/utils';
 import { noteLabel } from './noteLabel';
-import { NOTE_STATES, noteState } from './noteState';
+import { NOTE_STATES, noteState, stateLabel } from './noteState';
 
 /**
  * A session's notes across its files, beside the diff: grouped by file, each file's unsent first,
@@ -14,6 +14,8 @@ import { NOTE_STATES, noteState } from './noteState';
 export function NotesListPanel(props: {
   notes: ListedNote[];
   busy: boolean;
+  /** A session's name, for the session a sent note went to. */
+  nameOf: (id: string) => string;
   onJump: (note: ListedNote) => void;
   onCopy: () => void;
   onClearSent: () => void;
@@ -73,7 +75,7 @@ export function NotesListPanel(props: {
                       <span className="flex items-center gap-2 text-xs text-muted-foreground">
                         {noteLabel(note)}
                         <span className={cn('ml-auto', NOTE_STATES[state].tone)}>
-                          {NOTE_STATES[state].label}
+                          {stateLabel(note, props.nameOf)}
                         </span>
                       </span>
                       <span className="truncate text-sm">{note.text.split('\n')[0]}</span>

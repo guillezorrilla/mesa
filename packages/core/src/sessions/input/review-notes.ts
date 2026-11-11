@@ -11,7 +11,7 @@ import type { LockDeps } from '../../lib/lock-file.js';
 import type { Runner } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
 import type { Checkout } from '../../projects/checkout.js';
-import { notesPrompt } from './notes-prompt.js';
+import { type NotesSource, notesPrompt } from './notes-prompt.js';
 import type { ReviewDelivery, ReviewPreview } from './reviews.js';
 
 /** Which diff a note is on: the Session diff against its base, or uncommitted work. */
@@ -32,6 +32,8 @@ const Note = z.strictObject({
   blob: z.string().min(1),
   at: z.string(),
   sentAt: z.string().optional(),
+  /** The session it was sent to: its own, or another (mesa review notes send --to). */
+  sentTo: z.string().optional(),
 });
 export type ReviewNote = z.infer<typeof Note>;
 /** A note as it reads now: at the lines its quote is on, and `stale` when that quote is gone. */
@@ -39,8 +41,18 @@ export type ListedNote = ReviewNote & { stale: boolean };
 
 const Notes = z.strictObject({ notes: z.array(Note).default([]) }).describe('review notes');
 
-/** What a notes send did: the notes it sent, the stale ones it left, and its delivery, if any. */
-export type NotesSent = { sent: string[]; stale: string[]; delivery?: ReviewDelivery };
+/**
+ * What a notes send did: the session it sent to (`to`), the notes it sent, the stale ones it left,
+ * and its delivery, if any; a send to a new session has none, as its goal carries them.
+ */
+export type NotesSent = {
+  to: string;
+  sent: string[];
+  stale: string[];
+  delivery?: ReviewDelivery;
+  /** What a send to a new session could not do cleanly; a delivery keeps its own. */
+  warning?: string;
+};
 
 /** A session's notes, one file under the profile's review-notes/ (CONTEXT.md, Review note). */
 export const reviewNotesFile = (dir: string, session: string) => join(dir, `${session}.json`);
@@ -121,16 +133,20 @@ function placed(note: ReviewNote, file: NoteFile | undefined): ListedNote {
 const sha = (text: string) => createHash('sha256').update(text).digest('hex');
 
 /**
- * Notes as the one prompt `sendReview` delivers: a line saying what they are, then each note's
- * file, lines (or `Scope: file`), the lines it quotes, and the note. Its id is the batch, so the
- * same notes are sent once.
+ * Notes on `source`'s diff as the one prompt `sendReview` delivers to session `to`: a line saying
+ * what they are and whose diff, then each note's file, lines (or `Scope: file`), the lines it
+ * quotes, and the note. Its id is the batch, so the same notes are sent once.
  */
-export function notesReview(session: string, notes: ListedNote[]): ReviewPreview {
-  const prompt = notesPrompt(notes);
+export function notesReview(
+  source: NotesSource,
+  notes: ListedNote[],
+  to = source.id,
+): ReviewPreview {
+  const prompt = notesPrompt(notes, source);
   const batch = notes.map((n) => [n.id, n.path, n.line, n.end, n.scope, n.text, n.quoted]);
   return {
-    id: sha(JSON.stringify([session, batch])),
-    target: session,
+    id: sha(JSON.stringify([source.id, batch])),
+    target: to,
     source: sha(prompt),
     revision: sha(JSON.stringify(notes.map((n) => [n.id, n.blob]))),
     passage: notes.map((n) => n.quoted).join('\n'),
@@ -213,7 +229,7 @@ export function reviewNotes(deps: NotesDeps, session: string) {
         mustHave(notes, id);
         return notes.map((n) => {
           if (n.id !== id) return n;
-          const { sentAt: _sent, ...rest } = n;
+          const { sentAt: _sent, sentTo: _to, ...rest } = n;
           return { ...rest, text };
         });
       });
@@ -227,11 +243,13 @@ export function reviewNotes(deps: NotesDeps, session: string) {
         stale: unsent.filter((n) => n.stale).map((n) => n.id),
       };
     },
-    /** Marks `sent` sent now; a note edited since keeps its new, unsent text. */
-    markSent: (sent: readonly ReviewNote[]) => {
+    /** Marks `sent` sent now, to session `to`; a note edited since keeps its new, unsent text. */
+    markSent: (sent: readonly ReviewNote[], to = session) => {
       const at = deps.clock().toISOString();
       const texts = new Map(sent.map((n) => [n.id, n.text]));
-      change((notes) => notes.map((n) => (texts.get(n.id) === n.text ? { ...n, sentAt: at } : n)));
+      change((notes) =>
+        notes.map((n) => (texts.get(n.id) === n.text ? { ...n, sentAt: at, sentTo: to } : n)),
+      );
     },
     /**
      * Deletes the sent notes whose lines are as they were; a changed one stays for the person to

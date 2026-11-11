@@ -195,16 +195,18 @@ export const reviewCommands = {
     '--',
     id,
   ]),
-  'review.notesSend': commandWith<{ id: string; path?: string; yes?: boolean }, NotesSent>(
-    ({ id, path, yes }) => [
-      'review',
-      'notes',
-      'send',
-      '--no-from',
-      ...(path ? [`--path=${path}`] : []),
-      ...(yes ? ['--yes'] : []),
-      '--',
-      id,
-    ],
-  ),
+  'review.notesSend': commandWith<
+    { id: string; path?: string; to?: string; yes?: boolean },
+    NotesSent
+  >(({ id, path, to, yes }) => [
+    'review',
+    'notes',
+    'send',
+    '--no-from',
+    ...(path ? [`--path=${path}`] : []),
+    ...(to ? [`--to=${to}`] : []),
+    ...(yes ? ['--yes'] : []),
+    '--',
+    id,
+  ]),
 };

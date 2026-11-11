@@ -203,7 +203,7 @@ export async function openSession(
     ...(brief ? { brief: true as const } : {}),
     ...(input.automation ? { automation: input.automation } : {}),
     parent,
-    ...(input.general ? { cwd: deps.home } : {}),
+    ...(input.general ? { cwd: deps.home } : input.cwd ? { cwd: input.cwd } : {}),
     ...(input.worktree ? { worktree: input.worktree } : {}),
     ...(input.from ? { from: input.from } : {}),
     ...(input.review ? { review: input.review } : {}),

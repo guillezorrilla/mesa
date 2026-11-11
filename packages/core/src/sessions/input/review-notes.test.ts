@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import {
@@ -118,15 +118,20 @@ test('send sends every unsent note as one prompt, once, and leaves a stale one o
   expect(sent.delivery?.status).toBe('delivered');
   expect(typed()).toEqual([
     [
-      "These are the person's review notes on this session's diff (3).",
+      `These are the person's review notes on session ${id}'s diff on branch tides in ${realpathSync(tree)} (3).`,
       'File: tide.ts\nLines: 2-3\n```\nconst moon = 2;\nconst reef = 3;\n```\nNote: rename',
       'File: tide.ts\nScope: file\nNote: split this file',
       'File: gull.ts\nLines: 1-1\n```\nconst gull = 1;\n```\nNote: why a const?',
     ].join('\n\n'),
   ]);
   const listed = await mesa.sessions.notes.list(id);
-  expect(listed.filter((n) => n.sentAt).map((n) => n.id)).toEqual([moon.id, file.id, gull.id]);
+  expect(listed.filter((n) => n.sentAt).map((n) => [n.id, n.sentTo])).toEqual([
+    [moon.id, id],
+    [file.id, id],
+    [gull.id, id],
+  ]);
   expect(await mesa.sessions.notes.send(id, undefined, { noFrom: true })).toEqual({
+    to: id,
     sent: [],
     stale: [gone.id],
   });
@@ -174,4 +179,33 @@ test('clear removes the sent notes whose lines stayed, keeping a changed one', a
   });
   expect(await mesa.sessions.notes.clearSent(id)).toEqual({ removed: [kept.id] });
   expect((await mesa.sessions.notes.list(id)).map((n) => n.id)).toEqual([changed.id, draft.id]);
+});
+
+test('--to sends the notes to another session, named as theirs, and marks them sent to it', async () => {
+  const { mesa, tree, typed, id } = await setUp();
+  const other = (await mesa.sessions.open('lantern-cove', { cwd: tree })).result;
+  expect(other.cwd).toBe(tree);
+  const note = await mesa.sessions.notes.add(id, { path: 'tide.ts', line: 1, text: 'tide' });
+  const sent = await mesa.sessions.notes.send(id, undefined, { to: other.id, noFrom: true });
+  expect(sent).toMatchObject({ to: other.id, sent: [note.id], delivery: { status: 'delivered' } });
+  expect(typed()).toEqual([]);
+  const theirs = (await mesa.sessions.show(other.id)).events.filter((e) => e.type === 'review');
+  expect(theirs).toMatchObject([{ kind: 'notes', notes: [note.id], status: 'delivered' }]);
+  expect((await mesa.sessions.notes.list(id))[0]?.sentTo).toBe(other.id);
+});
+
+test('--to new starts a session in the same checkout with the notes as its goal', async () => {
+  const { mesa, tree, id } = await setUp();
+  const note = await mesa.sessions.notes.add(id, { path: 'tide.ts', line: 1, text: 'tide' });
+  const sent = await mesa.sessions.notes.send(id, undefined, { to: 'new' });
+  expect(sent).toMatchObject({ sent: [note.id], stale: [] });
+  expect(sent.to).not.toBe(id);
+  const started = await mesa.sessions.show(sent.to);
+  expect(started).toMatchObject({ project: 'lantern-cove', cwd: tree });
+  expect(started.worktree).toBeUndefined();
+  expect(started.goal).toContain(`review notes on session ${id}'s diff on branch tides`);
+  expect(started.goal).toContain('Note: tide');
+  expect((await mesa.sessions.notes.list(id))[0]?.sentTo).toBe(sent.to);
+  // The source keeps its worktree: the new session joins it, never takes it over.
+  expect((await mesa.sessions.show(id)).worktree?.path).toBe(tree);
 });

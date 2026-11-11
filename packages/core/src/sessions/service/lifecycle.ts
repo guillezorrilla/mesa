@@ -182,6 +182,7 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
             ...(terminal ? { terminal: true } : {}),
             ...(opts.run === undefined ? {} : { run: opts.run }),
             ...(opts.checkout === undefined ? {} : { checkout: opts.checkout }),
+            ...(opts.cwd === undefined ? {} : { cwd: opts.cwd }),
             ...(opts.with?.length ? { with: opts.with } : {}),
             ...(opts.review ? { review: opts.review } : {}),
           },
@@ -220,6 +221,7 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
             review: opts.review,
             automation: opts.automation,
             with: opts.with,
+            cwd: opts.cwd,
           };
           return openSession(openDeps(), input);
         },

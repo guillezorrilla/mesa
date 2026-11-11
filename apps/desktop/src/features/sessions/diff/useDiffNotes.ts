@@ -1,5 +1,5 @@
 import type { GuardrailCheck, ListedNote } from '@mesa/core';
-import { counted } from '@mesa/core/browser';
+import { counted, notesRecipients, sessionLabel } from '@mesa/core/browser';
 import { useCallback, useMemo, useState } from 'react';
 import { type Message, said } from '@/components/Toast';
 import { useAct } from '@/lib/useAct';
@@ -7,15 +7,32 @@ import { useCall, useCommand } from '@/lib/useCommand';
 import { guardrailOf } from '../dialogs/GuardrailDialog';
 import { reviewOutcome } from '../review/reviewOutcome';
 
+/** Where Send notes sends: the open file's only (`path`), and to whom (`to`: none is its own). */
+export type NotesSend = { path?: string; to?: string };
+
 /**
  * A session's review notes on its Session diff (the `branch` scope), with what changes them, and
- * the send of its unsent ones as one prompt: a guardrail ask waits in `ask` for a person's yes.
+ * the send of its unsent ones as one prompt to it, another session, or a new one (`recipients`):
+ * a guardrail ask waits in `ask` for a person's yes.
  */
 export function useDiffNotes(sessionId: string) {
   const read = useCommand('review.notes', { id: sessionId });
+  const sessions = useCommand('sessions.list');
   const call = useCall();
   const { act, acting } = useAct();
-  const [ask, setAsk] = useState<{ check: GuardrailCheck; path?: string }>();
+  const [ask, setAsk] = useState<{ check: GuardrailCheck; send: NotesSend }>();
+  const recipients = useMemo(
+    () => notesRecipients(sessions.data ?? [], sessionId),
+    [sessions.data, sessionId],
+  );
+  /** A session's name, as the board shows it, else its id. */
+  const nameOf = useCallback(
+    (id: string) => {
+      const row = sessions.data?.find((r) => r.id === id);
+      return row ? sessionLabel(row) : id;
+    },
+    [sessions.data],
+  );
   const notes = useMemo(
     () => (read.data ?? []).filter((note) => note.scope === 'branch'),
     [read.data],
@@ -56,17 +73,13 @@ export function useDiffNotes(sessionId: string) {
       change(() => call('review.notesRemove', { id: sessionId, note: note.id })),
     [change, call, sessionId],
   );
-  const send = (path?: string, yes = false) =>
+  const send = (to: NotesSend = {}, yes = false) =>
     act(async (): Promise<Message | undefined> => {
-      const result = await call('review.notesSend', {
-        id: sessionId,
-        ...(path ? { path } : {}),
-        yes,
-      });
+      const result = await call('review.notesSend', { id: sessionId, ...to, yes });
       if (!result.ok) {
         const check = guardrailOf(result.error);
         if (check?.verdict === 'ask' && !yes) {
-          setAsk({ check, ...(path ? { path } : {}) });
+          setAsk({ check, send: to });
           return undefined;
         }
         setAsk(undefined);
@@ -76,10 +89,19 @@ export function useDiffNotes(sessionId: string) {
       await refresh();
       const { sent, stale, delivery } = result.data;
       const left = stale.length ? `; ${counted(stale.length, 'note')} stale, left out` : '';
-      if (!delivery) return { text: `No unsent notes to send${left}`, tone: 'confirmation' };
+      if (!sent.length && !delivery)
+        return { text: `No unsent notes to send${left}`, tone: 'confirmation' };
+      if (!delivery) {
+        // A new session has them as its goal: the board lists it on its next look.
+        void sessions.refresh();
+        return said(
+          `Started ${result.data.to} with ${counted(sent.length, 'note')}${left}`,
+          result.data,
+        );
+      }
       if (sent.length)
         return said(
-          `${delivery.already ? 'Already sent' : 'Sent'} ${counted(sent.length, 'note')} to ${sessionId}${left}`,
+          `${delivery.already ? 'Already sent' : 'Sent'} ${counted(sent.length, 'note')} to ${nameOf(result.data.to)}${left}`,
           delivery,
         );
       return reviewOutcome(delivery, 'Notes').message;
@@ -97,7 +119,9 @@ export function useDiffNotes(sessionId: string) {
 
   return {
     notes,
-    refresh,
+    refresh: () => Promise.all([refresh(), sessions.refresh()]),
+    recipients,
+    nameOf,
     unsent,
     acting,
     add,

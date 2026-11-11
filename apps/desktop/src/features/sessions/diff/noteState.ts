@@ -16,3 +16,11 @@ export const NOTE_STATES: Record<NoteState, { order: number; label: string; tone
   changed: { order: 2, label: 'Changed since sent', tone: 'text-state-waiting' },
   stale: { order: 3, label: 'Stale', tone: 'text-state-waiting' },
 };
+
+/** What a note's state reads as; a sent one names the session it went to (`nameOf`). */
+export const stateLabel = (note: ListedNote, nameOf: (id: string) => string) => {
+  const state = noteState(note);
+  return state === 'sent' && note.sentTo
+    ? `Sent to ${nameOf(note.sentTo)}`
+    : NOTE_STATES[state].label;
+};

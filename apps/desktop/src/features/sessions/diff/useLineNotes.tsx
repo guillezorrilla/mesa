@@ -1,6 +1,6 @@
 import type { DiffRow, ListedNote } from '@mesa/core';
 import { Plus } from 'lucide-react';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
 import type { LineSlots } from '@/features/git/diff/GitDiffRows';
 import { cn } from '@/lib/utils';
 import { NoteCard } from './NoteCard';
@@ -17,14 +17,28 @@ const spanOf = (drag: Drag) => ({
   end: Math.max(drag.from, drag.to),
 });
 
+/** The + of the line `step` lines from `from`'s, in the order the diff shows them. */
+function lineBeside(from: HTMLElement, step: number) {
+  const all = [
+    ...(from.closest('[data-testid$="-diff"]')?.querySelectorAll<HTMLElement>('[data-note-line]') ??
+      []),
+  ];
+  return all[all.indexOf(from) + step];
+}
+
 /**
  * One file's notes on the Session diff: a + in the gutter of every line on the new side (a click
- * writes a note on it, a drag over several on all of them), each saved note under its last line,
- * and above the lines its file notes and those whose lines are gone or not in this diff.
+ * writes a note on it, a drag over several on all of them; on a focused +, `c` does, arrows move
+ * and Shift with them marks several), each saved note under its last line, and above the lines
+ * its file notes and those whose lines are gone or not in this diff.
  */
 export function useLineNotes(path: string | undefined, rows: DiffRow[], notes: DiffNotes) {
   const [draft, setDraft] = useState<Draft>();
   const [drag, setDrag] = useState<Drag>();
+  // Lines marked from the keyboard (Shift with an arrow), which `c` writes a note on.
+  const [mark, setMark] = useState<Drag>();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: another file's lines are not this one's.
+  useEffect(() => setMark(undefined), [path]);
   // Write where the drag ended, when it ends anywhere.
   useEffect(() => {
     if (!drag || !path) return;
@@ -40,7 +54,7 @@ export function useLineNotes(path: string | undefined, rows: DiffRow[], notes: D
     () => new Set(rows.flatMap((r) => (r.kind !== 'meta' && r.newLine ? [r.newLine] : []))),
     [rows],
   );
-  const { acting, add, edit, remove, resolve } = notes;
+  const { acting, add, edit, remove, resolve, nameOf } = notes;
   const mine = useMemo(() => notes.notes.filter((n) => n.path === path), [notes.notes, path]);
   const open = draft?.path === path ? draft : undefined;
 
@@ -54,6 +68,7 @@ export function useLineNotes(path: string | undefined, rows: DiffRow[], notes: D
         key={note.id}
         note={note}
         busy={acting}
+        nameOf={nameOf}
         onEdit={(text) => edit(note, text)}
         onDelete={() => void remove(note)}
         onResolve={() => void resolve(note)}
@@ -72,7 +87,26 @@ export function useLineNotes(path: string | undefined, rows: DiffRow[], notes: D
         }
       />
     );
-    const range = drag && spanOf(drag);
+    const marked = drag ?? mark;
+    const range = marked && spanOf(marked);
+    const onKey = (n: number) => (event: KeyboardEvent<HTMLButtonElement>) => {
+      if (!path || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key === 'c') {
+        event.preventDefault();
+        setDraft({ path, ...spanOf(mark ?? { from: n, to: n }) });
+        setMark(undefined);
+      } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        const next = lineBeside(event.currentTarget, event.key === 'ArrowDown' ? 1 : -1);
+        if (!next) return;
+        event.preventDefault();
+        next.focus();
+        const to = Number(next.dataset.noteLine);
+        setMark(event.shiftKey ? { from: mark?.from ?? n, to } : undefined);
+      } else if (event.key === 'Escape' && mark) {
+        event.stopPropagation();
+        setMark(undefined);
+      }
+    };
     const slots: LineSlots | undefined = path
       ? {
           held: new Set([...mine.filter(placed).map((n) => n.end), ...(open ? [open.end] : [])]),
@@ -87,7 +121,9 @@ export function useLineNotes(path: string | undefined, rows: DiffRow[], notes: D
               <button
                 type="button"
                 aria-label={`Add note on line ${n}`}
-                title="Add note (drag for several lines)"
+                title="Add note (c; drag or Shift+arrows for several lines)"
+                data-note-line={n}
+                onKeyDown={onKey(n)}
                 className="ml-0.5 grid size-4 place-items-center rounded-sm bg-state-working text-background opacity-0 group-hover/line:opacity-100 focus-visible:opacity-100"
                 onPointerDown={(event) => {
                   event.preventDefault();
@@ -125,7 +161,7 @@ export function useLineNotes(path: string | undefined, rows: DiffRow[], notes: D
         </div>
       ) : null;
     return { slots, before };
-  }, [path, mine, shown, open, drag, acting, add, edit, remove, resolve]);
+  }, [path, mine, shown, open, drag, mark, acting, add, edit, remove, resolve, nameOf]);
 
   return {
     ...view,

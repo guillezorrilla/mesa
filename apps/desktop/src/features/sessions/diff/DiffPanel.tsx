@@ -169,7 +169,13 @@ export function DiffPanel(props: {
             count={notes.unsent()}
             fileCount={file ? notes.unsent(file.path) : 0}
             busy={notes.acting}
-            onSend={(onlyFile) => void notes.send(onlyFile ? file?.path : undefined)}
+            recipients={notes.recipients}
+            onSend={({ to, onlyFile }) =>
+              void notes.send({
+                ...(to ? { to } : {}),
+                ...(onlyFile && file ? { path: file.path } : {}),
+              })
+            }
           />
           <IconButton
             label={showNotes ? 'Hide notes' : 'Show notes'}
@@ -231,6 +237,7 @@ export function DiffPanel(props: {
               <NotesListPanel
                 notes={notes.notes}
                 busy={notes.acting}
+                nameOf={notes.nameOf}
                 onJump={jumpTo}
                 onCopy={() => void copyAll()}
                 onClearSent={() => void notes.clearSent()}
@@ -268,10 +275,10 @@ export function DiffPanel(props: {
       {notes.ask && (
         <GuardrailDialog
           action="send"
-          about={`these notes to ${props.sessionId}`}
+          about={`these notes to ${notes.nameOf(notes.ask.send.to ?? props.sessionId)}`}
           check={notes.ask.check}
           disabled={notes.acting}
-          onConfirm={() => void notes.send(notes.ask?.path, true)}
+          onConfirm={() => void notes.send(notes.ask?.send, true)}
           onCancel={notes.cancelAsk}
         />
       )}

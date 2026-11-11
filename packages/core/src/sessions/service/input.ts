@@ -2,6 +2,7 @@ import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
 import type { Guarded, Overrides } from '../../decisions/guardrail.js';
 import type { DecisionRecorder } from '../../decisions/types.js';
+import { currentBranch } from '../../git/ref.js';
 import { typeable } from '../../lib/untrusted-text.js';
 import { resolveCheckout } from '../../projects/checkout.js';
 import { receiptText } from '../../receipts/command.js';
@@ -15,6 +16,7 @@ import {
 } from '../input/browser-annotation.js';
 import { changeReview, previewChangeReview } from '../input/change-review.js';
 import { previewSessionImage, sessionImagePrompt } from '../input/images.js';
+import { notesPrompt } from '../input/notes-prompt.js';
 import {
   type NotesSent,
   notesReview,
@@ -25,32 +27,52 @@ import { sendReview } from '../input/reviews.js';
 import { sendPrompt } from '../input/send.js';
 import { previewResponseReview, sessionResponses } from '../native/responses.js';
 import { projectScope } from '../record/general.js';
+import { sessionLabel } from '../record/labels.js';
 import { recordAgent } from '../record/record.js';
 import { workingFolder } from '../signals/readings.js';
 import { agentStarted, WAKE_WAIT_MS, wakeSession } from '../start/wake.js';
 import type { SessionDeps } from './deps.js';
+import type { lifecycleActions } from './lifecycle.js';
+
+/** `mesa review notes send --to new`: the notes go to a new session in the same checkout. */
+export const NEW_SESSION = 'new';
 
 /**
  * What goes into a live session: a prompt, and the image, response, change, and browser reviews
  * that become one.
  */
-export function inputActions(ctx: MesaContext, faro: Faro, deps: SessionDeps) {
+export function inputActions(
+  ctx: MesaContext,
+  faro: Faro,
+  deps: SessionDeps,
+  open: ReturnType<typeof lifecycleActions>['open'],
+) {
   const { profile, store, tmux, record, secrets, absolute } = ctx;
   const { caller, ensureBackgroundView, contextDeps } = deps;
   /** A session's review notes, read against the checkout its agent works in now. */
-  const notesOf = (id: string) => {
-    const { project, folder } = workingFolder(contextDeps, id);
-    return reviewNotes(
+  const notesOf = (id: string) => notesAt(id).notes;
+  /** Where session `id`'s agent works now, with its review notes there. */
+  const notesAt = (id: string) => {
+    const { found, project, folder } = workingFolder(contextDeps, id);
+    const checkout = () => resolveCheckout(ctx.open(), ctx.run, project, folder);
+    const notes = reviewNotes(
       {
         dir: ctx.paths.reviewNotes,
         lock: ctx,
         clock: ctx.clock,
         newId: ctx.newId,
         run: ctx.run,
-        checkout: () => resolveCheckout(ctx.open(), ctx.run, project, folder),
+        checkout,
       },
       id,
     );
+    /** Whose diff the notes are on: its name, branch and checkout, for the prompt. */
+    const source = async () => {
+      const { path } = await checkout();
+      const branch = found.worktree?.branch ?? (await currentBranch(ctx.run, path));
+      return { id, name: sessionLabel(found), branch, path };
+    };
+    return { project, folder, notes, source };
   };
   /**
    * Wakes session `id` when it sleeps (CONTEXT.md, Sleeping session) and waits for its agent to
@@ -194,34 +216,53 @@ export function inputActions(ctx: MesaContext, faro: Faro, deps: SessionDeps) {
       remove: (id: string, note: string) => notesOf(id).remove(note),
       clearSent: (id: string) => notesOf(id).clearSent(),
       /**
-       * Sends every unsent note, or `path`'s, as one prompt through sendReview, then marks them
-       * sent; a stale one stays behind, named in `stale`. Nothing to send sends nothing.
+       * Sends every unsent note, or `path`'s, as one prompt through sendReview to session `to`
+       * (default: its own), then marks them sent to it; a stale one stays behind, named in
+       * `stale`. `to: 'new'` starts a session in the same checkout with the prompt as its goal.
+       * Nothing to send sends nothing.
        */
       send: async (
         id: string,
         path?: string,
-        opts: { noFrom?: boolean } & Overrides = {},
+        opts: { to?: string; noFrom?: boolean } & Overrides = {},
       ): Promise<NotesSent> => {
-        const notes = notesOf(id);
+        const { to: asked = id, ...overrides } = opts;
+        const at = notesAt(id);
+        const { notes } = at;
         const { ready, stale } = await notes.unsent(path);
-        if (!ready.length) return { sent: [], stale };
+        if (!ready.length) return { to: asked, sent: [], stale };
+        const source = await at.source();
+        const sent = ready.map((n) => n.id);
+        if (asked === NEW_SESSION) {
+          const started = await open(at.project, {
+            goal: notesPrompt(ready, source),
+            ...(at.folder ? { cwd: at.folder } : {}),
+          });
+          const to = started.result.id;
+          try {
+            notes.markSent(ready, to);
+          } catch (error) {
+            const warning = `Session ${to} has the notes, but they could not be marked sent: ${String(error)}. Do not send them again.`;
+            return { to, sent, stale, warning };
+          }
+          return { to, sent, stale, ...(started.warning ? { warning: started.warning } : {}) };
+        }
         const delivery = await sendReview(
           { store, clock: ctx.clock, send },
-          id,
+          asked,
           'notes',
-          () => notesReview(id, ready),
-          opts,
+          () => notesReview(source, ready, asked),
+          overrides,
         );
-        if (delivery.status !== 'delivered') return { sent: [], stale, delivery };
-        const sent = ready.map((n) => n.id);
+        if (delivery.status !== 'delivered') return { to: asked, sent: [], stale, delivery };
         try {
-          notes.markSent(ready);
+          notes.markSent(ready, asked);
         } catch (error) {
           // Delivered already: a retry finds the batch delivered and marks them then.
           const warning = `Notes were sent, but could not be marked sent: ${String(error)}. Do not retry.`;
-          return { sent, stale, delivery: { ...delivery, warning } };
+          return { to: asked, sent, stale, delivery: { ...delivery, warning } };
         }
-        return { sent, stale, delivery };
+        return { to: asked, sent, stale, delivery };
       },
     },
     browser: {

@@ -92,6 +92,7 @@ export {
 } from './sessions/awake.js';
 export { descendantOrder } from './sessions/end/descendants.js';
 export { notesPrompt } from './sessions/input/notes-prompt.js';
+export { type NotesRecipient, notesRecipients } from './sessions/input/notes-recipients.js';
 export { sessionFolder } from './sessions/record/folder.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/record/general.js';
 export * from './sessions/record/labels.js';
