@@ -1,0 +1,13 @@
+{
+  "comment": "Fixed inputs and outputs of the pairing crypto (ADR-0027); core and the phone extension both check them.",
+  "pairingId": "TestPairing0000000000a",
+  "macPrivateKey": "AQgPFh0kKzI5QEdOVVxjanF4f4aNlJuiqbC3vsXM09o",
+  "macPublicKey": "yP7Kgb4ZbN8sreq_E8SQPXYy3OSVWqaLbl2a3vVOJhY",
+  "phonePrivateKey": "AgkQFx4lLDM6QUhPVl1ka3J5gIeOlZyjqrG4v8bN1Ns",
+  "phonePublicKey": "c-eZcckRAClyNjKoC3B79PYsEldjNG4ehxjWwNzDqjo",
+  "macToPhoneKey": "LWMMMxFHjwUCifktRQgJZrnfzKITeJyfJ0O12teHfsI",
+  "phoneToMacKey": "0oCuQoL2jyoe4l4RUdb2loB7vRI0h5WUtVPXKygAH4I",
+  "nonce": "AQIDBAUGBwgJCgsM",
+  "plaintext": "{\"v\":1,\"seq\":1,\"at\":\"2026-11-11T10:00:00.000Z\",\"kind\":\"text\",\"text\":\"Session needs you\"}",
+  "macToPhoneBox": "AQIDBAUGBwgJCgsMSb-o3DYT5oREU7zHN9-nHGxlM9QrUObCIKPv2RhVpUisQLAzXqJinsULCxxgRQh8ACFdS1c9wUzKbIjH82kGhpYr-xr3u3VtRIGdfdP8sX_K0b-AWg4cxKZr0nGV90IHsfQgzzm2trA"
+}

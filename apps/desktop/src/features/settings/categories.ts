@@ -9,6 +9,7 @@ import {
   type LucideIcon,
   Settings,
   SlidersHorizontal,
+  Smartphone,
   Sparkles,
   SquareTerminal,
 } from 'lucide-react';
@@ -22,6 +23,7 @@ export type SettingsCategory =
   | 'notifications'
   | 'agents'
   | 'connections'
+  | 'phone'
   | 'decisions'
   | 'advanced';
 
@@ -112,6 +114,12 @@ export const CATEGORIES: {
     label: 'Connections',
     icon: Cable,
     sections: [['sources', 'Sources']],
+  },
+  {
+    id: 'phone',
+    label: 'Phone',
+    icon: Smartphone,
+    sections: [['pairing', 'Pairing']],
   },
   {
     id: 'decisions',

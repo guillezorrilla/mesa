@@ -76,6 +76,7 @@ test('the window lists the setting categories and saves the default coding agent
     'Notifications',
     'Coding Agents',
     'Connections',
+    'Phone',
     'Smarter decisions',
     'Advanced',
   ]);

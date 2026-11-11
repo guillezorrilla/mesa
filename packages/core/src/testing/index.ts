@@ -14,6 +14,8 @@ export * from './http.js';
 export * from './ids.js';
 export * from './lock.js';
 export * from './mcp.js';
+export * from './pairing-broker.js';
+export * from './phone.js';
 export * from './profile.js';
 export * from './projects.js';
 export * from './random.js';
