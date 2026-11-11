@@ -3,10 +3,10 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createContext } from '../../context.js';
 import { listReceipts } from '../../receipts/store.js';
-import { claudeRunModel } from '../../skills/library.js';
 import {
   agentWorld,
   CLAUDE_HEADLESS_MOUNT,
+  CLAUDE_MCP_CONFIG,
   CODEX_MOUNT,
   claudeResult,
   codexResult,
@@ -56,7 +56,7 @@ test('a run execs claude -p on the skill, reads its result, and ends done, its w
   // stdin closed, stdout into the profile's runs/, and exec, so the pane's exit is claude's.
   expect(world.tmux.windows).toEqual([]);
   expect(world.tmux.opened[0]?.launch).toBe(
-    `exec claude -p '/session-summary focus on tests' --session-id ${UUID} --output-format json --model 'haiku' --permission-mode 'acceptEdits' ${CLAUDE_HEADLESS_MOUNT} 'Read' 'Bash(git log:*)' </dev/null >'${output}'`,
+    `exec claude -p '/session-summary focus on tests' --session-id ${UUID} --output-format json --model 'haiku' --effort low --strict-mcp-config --setting-sources project,local '--settings={"disableAllHooks":true}' --permission-mode 'acceptEdits' --allowedTools 'Read' 'Bash(git log:*)' </dev/null >'${output}'`,
   );
   expect(existsSync(output)).toBe(true);
   // Logged as every window is: its pane, claude's errors, goes to its output log.
@@ -313,7 +313,7 @@ test('a skill the project does not see or enable, or a bad timeout starts nothin
   expect(await refused('session-summary', { timeoutSeconds: 0 })).toMatchObject({ code: 'usage' });
   // Counted on the line tmux gets: claude's command fits, with its redirects it does not.
   const bare = (n: number) =>
-    `claude -p '/session-summary ${'x'.repeat(n)}' --session-id ${UUID} --output-format json --model 'haiku' --permission-mode 'acceptEdits' ${CLAUDE_HEADLESS_MOUNT}`;
+    `claude -p '/session-summary ${'x'.repeat(n)}' --session-id ${UUID} --output-format json --model 'haiku' --effort low --strict-mcp-config --setting-sources project,local '--settings={"disableAllHooks":true}' --permission-mode 'acceptEdits'`;
   const long = 'x'.repeat(11_990 - bare(0).length);
   expect(bare(long.length)).toHaveLength(11_990);
   expect(await refused('session-summary', { args: [long] })).toMatchObject({
@@ -770,18 +770,44 @@ test('the Board finishes an orphaned run when its waiter and exit hook are gone'
   expect(listReceipts(join(home, 'vault'))).toEqual([]);
 });
 
-test("each of Mesa's own skill runs starts on its cheapest fitting model; any other on the person's default", async () => {
-  for (const [skill, model] of [
-    ['git-text', 'haiku'],
-    ['import-notes', 'sonnet'],
-    ['vault-capture', 'haiku'],
-    ['session-summary', 'haiku'],
-  ] as const) {
-    expect(claudeRunModel(skill)).toBe(model);
-  }
-  expect(claudeRunModel('tidy-readme')).toBeUndefined();
+test("each of Mesa's own skill runs starts lean: its own model, MCP server and effort, none of the person's setup; any other skill and codex as before", async () => {
+  const lean = (model: string, effort = '') =>
+    `--output-format json --model '${model}' ${effort}--strict-mcp-config --setting-sources project,local '--settings={"disableAllHooks":true}' --permission-mode`;
   const world = agentWorld({ onOpen: finishesRun({ output: claudeResult('success') }) });
-  const { mesa } = setUp(world);
-  await mesa.sessions.run('import-notes', { project: 'lantern-cove' });
-  expect(world.tmux.opened[0]?.launch).toContain("--output-format json --model 'sonnet' ");
+  const { mesa } = projectProfile(world.run, {
+    mesaYaml: 'name: lantern-cove\nskills: [session-summary, project-brief]\n',
+    argv: ['run'],
+  });
+  const launched = async (skill: string) => {
+    await mesa.sessions.run(skill, { project: 'lantern-cove' });
+    return world.tmux.opened.at(-1)?.launch ?? '';
+  };
+  const summary = await launched('session-summary');
+  expect(summary).toContain(lean('haiku', '--effort low '));
+  expect(summary).not.toContain('--mcp-config');
+  for (const skill of ['vault-capture', 'import-notes']) {
+    const line = await launched(skill);
+    expect(line).toContain(lean(skill === 'import-notes' ? 'sonnet' : 'haiku'));
+    expect(line).not.toContain('--effort');
+    // Only mesa-vault, read-only: no mesa-decisions, none of the person's servers.
+    expect(line).toContain(`${CLAUDE_MCP_CONFIG} --disallowedTools`);
+    expect(line).toContain("--allowedTools 'mcp__mesa-vault'");
+  }
+  const text = await launched('git-text');
+  expect(text).toContain(lean('haiku', '--effort low '));
+  expect(text).not.toContain('--mcp-config');
+  expect(text).not.toContain('--allowedTools');
+  // Any other skill keeps today's flags: the person's default model and setup, Mesa's mounts.
+  const other = await launched('project-brief');
+  expect(other).toContain(
+    `--output-format json --permission-mode 'acceptEdits' ${CLAUDE_HEADLESS_MOUNT}`,
+  );
+  for (const flag of [
+    '--model',
+    '--effort',
+    '--strict-mcp-config',
+    '--setting-sources',
+    '--settings',
+  ])
+    expect(other).not.toContain(flag);
 });

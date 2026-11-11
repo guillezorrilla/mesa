@@ -7,7 +7,7 @@ import type { IdSource } from '../../lib/ids.js';
 import type { LockDeps } from '../../lib/lock-file.js';
 import { shellWord } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
-import { claudeRunModel, isPipelineSkill, isTextOnlySkill } from '../../skills/library.js';
+import { claudeRunProfile, isPipelineSkill, isTextOnlySkill } from '../../skills/library.js';
 import type { SkillRow } from '../../skills/sync.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import type { SessionRecord } from '../record/record.js';
@@ -105,7 +105,7 @@ export async function startRun(deps: RunDeps, input: RunInput) {
   const given = input.input ?? (about && aboutInput(deps, about));
   const prompt = runPrompt(spec.headless.skillPrefix, input.skill, input.args);
   const agentSessionId = newSessionId(agent, deps.newUuid);
-  const model = claudeRunModel(input.skill);
+  const lean = claudeRunProfile(input.skill);
   const textOnly = isTextOnlySkill(input.skill);
   const may = {
     // A text-only run reads a recipe and patch anyone could have written: it gets none of the
@@ -114,7 +114,7 @@ export async function startRun(deps: RunDeps, input: RunInput) {
     // A pipeline skill's output is landed by core (ADR-0006), so its run gets no vault writes.
     readOnlyVault: isPipelineSkill(input.skill),
     ...(textOnly ? { textOnly } : {}),
-    ...(model ? { model } : {}),
+    ...(lean ? { lean } : {}),
   };
   const command = (id: string) =>
     agent === 'antigravity'
