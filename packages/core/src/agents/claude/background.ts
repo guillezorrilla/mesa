@@ -1,6 +1,6 @@
 import type { Env, Runner } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
-import { addDirArgs, type LaunchDefaults, launchFlags } from '../launch-flags.js';
+import { addDirArgs, launchFlags, type SessionLaunch } from '../launch-flags.js';
 import { claudeMountArgs, type Mounts } from '../mesa-mount.js';
 
 const TIMEOUT_MS = 20_000;
@@ -21,7 +21,7 @@ export async function startClaudeBackground(
   cwd: string,
   mounts: Mounts,
   binding: Readonly<Record<string, string>>,
-  defaults: LaunchDefaults,
+  defaults: SessionLaunch,
   dirs: readonly string[],
   goal?: string,
   mode?: 'plan',

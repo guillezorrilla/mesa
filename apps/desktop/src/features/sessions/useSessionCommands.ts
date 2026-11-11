@@ -1,4 +1,4 @@
-import type { Agent, ManagedRow, SessionRow } from '@mesa/core';
+import type { Agent, ManagedRow, SessionModel, SessionRow } from '@mesa/core';
 import { exited, GENERAL_PROJECT, sessionTitle } from '@mesa/core/browser';
 import { Undo2 } from 'lucide-react';
 import type { RefObject } from 'react';
@@ -260,9 +260,14 @@ export function useSessionCommands({
       return warningOf(opened);
     });
   /** Starts a worker of `row` on `task` (mesa worker), and shows it. */
-  const startWorker = (row: ManagedRow, task: string) =>
+  const startWorker = (row: ManagedRow, task: string, how: SessionModel = {}) =>
     once(async () => {
-      const opened = await run('sessions.worker', { project: row.project, task, parent: row.id });
+      const opened = await run('sessions.worker', {
+        project: row.project,
+        task,
+        parent: row.id,
+        ...how,
+      });
       await look();
       if (!opened) return undefined;
       closeDialog();

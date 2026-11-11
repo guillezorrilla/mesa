@@ -1,3 +1,4 @@
+import type { SessionModel } from '../../agents/launch-flags.js';
 import { AGENT_NAMES, type Agent, supportsAgentCapability } from '../../agents/names.js';
 import { MesaError } from '../../lib/result.js';
 import { GENERAL_PROJECT } from '../record/general.js';
@@ -43,7 +44,7 @@ export type OpenInput = {
    * `branch`, which the caller names when none is asked for.
    */
   with?: readonly string[];
-};
+} & SessionModel; // its own model and effort over the profile's defaults (Claude Code, Codex)
 
 /** The flags as asked, before Mesa names a branch or checks out a worktree. */
 export type OpenFlags = Omit<OpenInput, 'worktree'> & {
@@ -100,9 +101,17 @@ export function validateOpenInput(input: OpenFlags): void {
   }
   if (
     input.terminal &&
-    (input.agent || input.goal || input.after || input.mode || input.background)
+    (input.agent ||
+      input.goal ||
+      input.after ||
+      input.mode ||
+      input.background ||
+      input.model !== undefined ||
+      input.effort !== undefined)
   ) {
-    refuse('--terminal cannot use --agent, --goal, --after, --mode, or --background');
+    refuse(
+      '--terminal cannot use --agent, --goal, --after, --mode, --model, --effort, or --background',
+    );
   }
   if (input.run !== undefined && !input.terminal) refuse('--run needs --terminal');
   if (input.review && (!input.project || input.terminal || input.after || input.background)) {

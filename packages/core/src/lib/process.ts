@@ -70,3 +70,6 @@ export const envRunner =
 
 /** One POSIX shell word, single-quoted. */
 export const shellWord = (word: string) => `'${word.replaceAll("'", `'\\''`)}'`;
+
+/** One POSIX shell word: as is when it holds nothing the shell reads, else quoted (shellWord). */
+export const plainWord = (word: string) => (/^[\w@%+=:,./-]+$/.test(word) ? word : shellWord(word));

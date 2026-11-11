@@ -1,4 +1,5 @@
 import { newSessionId, startCommand } from '../../agents/agents.js';
+import { requireSessionModel } from '../../agents/launch-flags.js';
 import { supportsAgentCapability, supportsPlanStart } from '../../agents/names.js';
 import type { IdSource } from '../../lib/ids.js';
 import { shellWord } from '../../lib/process.js';
@@ -150,6 +151,7 @@ export async function openSession(
     throw new MesaError('usage', `${agent} has no qualified native background mode`);
   }
   requireGoalCommandRuns(goal, agent);
+  requireSessionModel(agent, input);
   if (extra && !supportsAgentCapability(agent, 'addDir')) {
     throw new MesaError('usage', `${agent} has no qualified way to add a folder, so no --with`);
   }
@@ -178,6 +180,8 @@ export async function openSession(
         agentSessionId,
         goal: more.goal ?? goal,
         mode: input.mode === 'plan' ? 'plan' : undefined,
+        model: input.model,
+        effort: input.effort,
         disallowed,
       },
       additionalDirs(more),
@@ -198,6 +202,8 @@ export async function openSession(
     project: selected?.entry ?? null,
     agent,
     ...(input.mode === 'plan' ? { mode: 'plan' as const } : {}),
+    ...(input.model ? { model: input.model } : {}),
+    ...(input.effort ? { effort: input.effort } : {}),
     ...(input.background ? { background: true as const } : {}),
     goal,
     ...(brief ? { brief: true as const } : {}),

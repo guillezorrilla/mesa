@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MesaError } from '../lib/result.js';
 import {
   type Agent,
   ANTIGRAVITY_MODES,
@@ -32,6 +33,49 @@ export const LaunchDefaultsSchema = z
 
 export type LaunchDefaults = z.infer<typeof LaunchDefaultsSchema>;
 
+/** A session's own model and effort (`mesa open --model --effort`), over the profile's defaults. */
+export type SessionModel = { model?: string; effort?: string };
+/** What a session starts with: the profile's launch defaults and its own model and effort. */
+export type SessionLaunch = LaunchDefaults & SessionModel;
+
+/** The effort levels each agent takes: Claude Code's --effort, Codex's model_reasoning_effort. */
+const EFFORTS = {
+  claude: ['low', 'medium', 'high', 'xhigh', 'max'],
+  codex: ['minimal', 'low', 'medium', 'high', 'xhigh'],
+} as const;
+
+/** Claude's model names and aliases, which Codex cannot run (the app's New worker offers them). */
+const CLAUDE_MODEL = /^(claude|opus|sonnet|haiku|fable)\b/;
+
+/**
+ * Refuses, as usage, a model or effort `agent` cannot start with: Antigravity takes neither, a
+ * model is one name (never a flag), Codex runs no Claude model, and an effort is one of the
+ * agent's levels.
+ */
+export function requireSessionModel(agent: Agent | 'terminal', { model, effort }: SessionModel) {
+  if (model === undefined && effort === undefined) return;
+  if (agent !== 'claude' && agent !== 'codex')
+    throw new MesaError('usage', `${agent} takes no --model or --effort`);
+  if (model !== undefined && !/^\w[\w.:/@[\]-]*$/.test(model))
+    throw new MesaError('usage', `--model is one model name, not ${JSON.stringify(model)}`);
+  if (agent === 'codex' && model !== undefined && CLAUDE_MODEL.test(model))
+    throw new MesaError('usage', `codex runs no Claude model such as ${model}; pick a Codex model`);
+  const levels: readonly string[] = EFFORTS[agent];
+  if (effort !== undefined && !levels.includes(effort))
+    throw new MesaError('usage', `${agent} --effort is one of ${levels.join(', ')}, not ${effort}`);
+}
+
+/** A session's own model and effort as `agent`'s arguments, one word each; none when unset. */
+const modelArgs = (agent: Agent, { model, effort }: SessionModel): string[] =>
+  agent === 'claude'
+    ? [...(model ? ['--model', model] : []), ...(effort ? ['--effort', effort] : [])]
+    : agent === 'codex'
+      ? [
+          ...(model ? ['-m', model] : []),
+          ...(effort ? ['-c', `model_reasoning_effort=${effort}`] : []),
+        ]
+      : [];
+
 /** The flags that turn off an agent's own permission checks or sandbox. */
 const DANGEROUS = new Set([
   '--dangerously-skip-permissions',
@@ -40,8 +84,8 @@ const DANGEROUS = new Set([
 ]);
 
 /**
- * The flags a new or resumed session of `agent` starts with, one shell word each, from the
- * profile's launch defaults. A session in plan keeps plan: a configured mode gives way (Claude's
+ * The flags a new or resumed session of `agent` starts with, one argument each, from the
+ * profile's launch defaults and the session's own model and effort. A session in plan keeps plan: a configured mode gives way (Claude's
  * skip permissions is its bypassPermissions mode). Codex's bypass already means no approvals and
  * no sandbox, so it is the only flag Codex then gets. A Codex session with extra folders, `dirs`,
  * runs workspace-write unless danger-full-access is configured: Codex refuses an extra folder it
@@ -49,9 +93,18 @@ const DANGEROUS = new Set([
  */
 export function launchFlags(
   agent: Agent,
-  defaults: LaunchDefaults,
+  defaults: SessionLaunch,
   mode?: 'plan',
   dirs: readonly string[] = [],
+): string[] {
+  return [...defaultFlags(agent, defaults, mode, dirs), ...modelArgs(agent, defaults)];
+}
+
+function defaultFlags(
+  agent: Agent,
+  defaults: LaunchDefaults,
+  mode: 'plan' | undefined,
+  dirs: readonly string[],
 ): string[] {
   if (agent === 'claude') {
     return defaults.claude.skipPermissions && !mode ? ['--dangerously-skip-permissions'] : [];

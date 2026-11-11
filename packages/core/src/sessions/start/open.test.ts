@@ -164,6 +164,49 @@ test('Plan starts in the provider native mode and survives resume; unsupported a
   expect(world.tmux.windows.at(-1)?.launch).toContain(' --permission-mode plan');
 });
 
+test('--model and --effort start claude and codex with their own flags, kept for a resume and not for a fork', async () => {
+  const world = agentWorld();
+  const { mesa } = await setUp(world);
+  const claude = (
+    await mesa.sessions.open('lantern-cove', { model: 'sonnet', effort: 'low', goal: 'tidy' })
+  ).result;
+  expect(claude).toMatchObject({ model: 'sonnet', effort: 'low' });
+  expect(launched(world)).toMatch(/exec claude --session-id \S+ --model sonnet --effort low /);
+  // A model name the shell would read is one quoted word.
+  await mesa.sessions.open('lantern-cove', { model: 'claude-haiku-5-5[1m]' });
+  expect(launched(world)).toContain(" --model 'claude-haiku-5-5[1m]' ");
+
+  await mesa.sessions.open('lantern-cove', { agent: 'codex', model: 'gpt-5.5', effort: 'high' });
+  expect(launched(world)).toBe(
+    `codex -c mesa.embedded=true -m gpt-5.5 -c model_reasoning_effort=high ${CODEX_MOUNT}`,
+  );
+  // None: today's command line exactly.
+  const plain = (await mesa.sessions.open('lantern-cove', { agent: 'codex' })).result;
+  expect(plain).not.toHaveProperty('model');
+  expect(launched(world)).toBe(`codex -c mesa.embedded=true ${CODEX_MOUNT}`);
+
+  for (const refused of [
+    { agent: 'antigravity', model: 'sonnet' },
+    { agent: 'antigravity', effort: 'low' },
+    { effort: 'turbo' },
+    { model: 'sonnet; rm -rf ~' },
+    { model: '--dangerously-skip-permissions' },
+    { agent: 'codex', model: 'sonnet' },
+    { terminal: true, model: 'sonnet' },
+  ])
+    await expect(mesa.sessions.open('lantern-cove', refused)).rejects.toMatchObject({
+      code: 'usage',
+    });
+
+  exitAll(world);
+  const resumed = (await mesa.sessions.resume(claude.id)).result.record;
+  expect(resumed).toMatchObject({ model: 'sonnet', effort: 'low' });
+  expect(launched(world)).toMatch(/exec claude --resume \S+ --model sonnet --effort low /);
+  const fork = (await mesa.sessions.fork(resumed.id)).result;
+  expect(fork).not.toHaveProperty('model');
+  expect(launched(world)).not.toContain('--model');
+});
+
 test('Claude background keeps its native process when the terminal closes, then stops and resumes it', async () => {
   const world = agentWorld();
   const base = withGit(world);
@@ -1564,7 +1607,8 @@ test('the other flags that do not go together are refused, each by name, and not
   const { home, mesa } = await setUp(agentWorld());
   const checkout = '--checkout cannot use --worktree, --branch, --with, --general, or --after';
   const general = 'General sessions cannot use --branch, --base, or --after';
-  const terminal = '--terminal cannot use --agent, --goal, --after, --mode, or --background';
+  const terminal =
+    '--terminal cannot use --agent, --goal, --after, --mode, --model, --effort, or --background';
   const cases: [string | undefined, Parameters<typeof mesa.sessions.open>[1], string][] = [
     ['lantern-cove', { worktree: true, branch: 'b' }, 'pass --worktree or --branch, not both'],
     ['lantern-cove', { general: true }, 'pass a project or --general, not both'],

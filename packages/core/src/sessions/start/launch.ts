@@ -204,7 +204,7 @@ export async function startSession(
         cwd,
         deps.mounts,
         windowEnv(record.id, deps.profileName),
-        deps.profile.config.agents,
+        { ...deps.profile.config.agents, model: record.model, effort: record.effort },
         additionalDirs(record),
         given.goal,
         record.mode,

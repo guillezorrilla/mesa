@@ -35,6 +35,18 @@ export const AGENT_FLAG = {
     'claude, codex, or antigravity; default: the project mesa.yaml, else the profile default',
 } as const;
 
+/** A session's own model and effort, over the profile's defaults (Claude Code and Codex). */
+export const MODEL_FLAGS = {
+  model: {
+    type: 'string',
+    description: "The agent's model for this session, such as sonnet; default: the agent's own",
+  },
+  effort: {
+    type: 'string',
+    description: "Its effort, such as low, medium or high; default: the agent's own",
+  },
+} as const;
+
 /** What a command about one Mesa session's decision assistance takes to name it. */
 export const SESSION_FLAG = {
   type: 'string',

@@ -178,9 +178,9 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
               </>
             )}
             <dt className="text-muted-foreground">Model</dt>
-            <dd>{context?.model ?? 'Unknown'}</dd>
+            <dd>{context?.model ?? row.model ?? 'Unknown'}</dd>
             <dt className="text-muted-foreground">Effort</dt>
-            <dd>{context?.effort ?? 'Unknown'}</dd>
+            <dd>{context?.effort ?? row.effort ?? 'Unknown'}</dd>
             <dt className="text-muted-foreground">Status</dt>
             <dd>{row.lastState.state}</dd>
             <dt className="text-muted-foreground">Confidence</dt>

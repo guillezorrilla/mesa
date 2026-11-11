@@ -1,3 +1,4 @@
+import type { SessionModel } from '../../agents/launch-flags.js';
 import type { Agent } from '../../agents/names.js';
 import type { Clock } from '../../lib/clock.js';
 import type { Profile } from '../../profile/profile.js';
@@ -48,7 +49,7 @@ export type NewLaunch = {
   from?: SessionRecord['from'];
   /** The pull request it reviews (mesa prs start). */
   review?: SessionRecord['review'];
-};
+} & SessionModel;
 
 // ponytail: a guess until Faro (#25) classifies it on the next look: a fresh claude waits at its
 // prompt, or at the trust dialog in a folder it has not seen, or works on its goal.
@@ -72,6 +73,8 @@ export function createRecord(
     project: s.project?.name ?? GENERAL_PROJECT,
     agent: s.agent,
     ...(s.mode ? { mode: s.mode } : {}),
+    ...(s.model ? { model: s.model } : {}),
+    ...(s.effort ? { effort: s.effort } : {}),
     ...(s.background ? { background: true as const } : {}),
     ...(s.backgroundId ? { backgroundId: s.backgroundId } : {}),
     ...(s.agentSessionId === undefined ? {} : { agentSessionId: s.agentSessionId }),

@@ -78,6 +78,8 @@ export async function resumeSession(
       project,
       agent: old.agent,
       mode: old.mode,
+      model: old.model,
+      effort: old.effort,
       background: old.background,
       backgroundId: old.backgroundId,
       agentSessionId: old.agentSessionId,
@@ -142,11 +144,13 @@ export function resumeCommand(
   if (old.agent === 'terminal' || !agentId)
     throw new MesaError('usage', `session ${old.id} has no conversation to reopen`);
   if (old.backgroundId) return claudeBackgroundAttach(old.backgroundId);
+  // Its own model and effort come again: they are the session's, not the conversation's.
+  const own = { ...deps.profile.config.agents, model: old.model, effort: old.effort };
   if (old.agent === 'antigravity')
     return AGENTS.antigravity.resume(
       agentId,
       prepareAntigravityLog(deps.profile.paths.logs, id),
-      deps.profile.config.agents,
+      own,
       old.mode,
       additionalDirs(old),
     );
@@ -154,7 +158,7 @@ export function resumeCommand(
     agentId,
     folder,
     deps.mounts,
-    deps.profile.config.agents,
+    own,
     old.mode,
     additionalDirs(old),
     // Still a review: the same deny rules as its first start.
