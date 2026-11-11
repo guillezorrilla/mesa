@@ -34,19 +34,23 @@ export const isTextOnlySkill = (skill: string) => skill === GIT_TEXT;
 export const SESSION_SUMMARY = 'session-summary';
 
 /**
- * The Claude model each of Mesa's own skill runs uses instead of the person's default: the
- * cheapest that does the job (ADR-0023, docs/spikes/token-usage.md). Haiku, about a twentieth of
- * Opus's cost per run, for short text from given input; Sonnet for import notes, which read and
- * write several vault notes. Any other skill runs on the person's default.
+ * How each of Mesa's own Claude skill runs starts, instead of with the person's default model and
+ * full setup (ADR-0012 amendment, ADR-0023, docs/spikes/token-usage.md): `model`, the cheapest that
+ * does the job (Haiku, about a twentieth of Opus's cost per run, for short text from given input;
+ * Sonnet for import notes, which read and write several vault notes); `mcp`, the only MCP server
+ * it mounts (`vault`: mesa-vault; `none`), with none of the person's servers, user settings,
+ * plugins or hooks; and `effort`, low where it only writes short text. Any other skill runs as
+ * the person's sessions do.
  */
-const RUN_MODELS: Readonly<Record<string, 'haiku' | 'sonnet'>> = {
-  [VAULT_CAPTURE]: 'haiku',
-  [GIT_TEXT]: 'haiku',
-  [SESSION_SUMMARY]: 'haiku',
-  [IMPORT_NOTES]: 'sonnet',
+export type ClaudeRunProfile = { model: 'haiku' | 'sonnet'; mcp: 'vault' | 'none'; effort?: 'low' };
+const RUN_PROFILES: Readonly<Record<string, ClaudeRunProfile>> = {
+  [VAULT_CAPTURE]: { model: 'haiku', mcp: 'vault' },
+  [GIT_TEXT]: { model: 'haiku', mcp: 'none', effort: 'low' },
+  [SESSION_SUMMARY]: { model: 'haiku', mcp: 'none', effort: 'low' },
+  [IMPORT_NOTES]: { model: 'sonnet', mcp: 'vault' },
 };
-export const claudeRunModel = (skill: string) =>
-  Object.hasOwn(RUN_MODELS, skill) ? RUN_MODELS[skill] : undefined;
+export const claudeRunProfile = (skill: string): ClaudeRunProfile | undefined =>
+  Object.hasOwn(RUN_PROFILES, skill) ? RUN_PROFILES[skill] : undefined;
 
 /** A skill's own file, read by both agents. */
 const SKILL_FILE = 'SKILL.md';

@@ -98,7 +98,8 @@ export const CLAUDE_VERSION = '2.1.282 (Claude Code)';
 
 // The mesa-vault mount a launch under testDeps carries (agents/mesa-mount.ts), as its shell
 // words: `/usr/local/bin/mesa vault mcp`, spelled out here so a test checks the real argv.
-const CLAUDE_MCP_CONFIG = `'--mcp-config={"mcpServers":{"mesa-vault":{"type":"stdio","command":"/usr/local/bin/mesa","args":["vault","mcp"]}}}'`;
+/** Claude Code's --mcp-config with mesa-vault alone, one shell word. */
+export const CLAUDE_MCP_CONFIG = `'--mcp-config={"mcpServers":{"mesa-vault":{"type":"stdio","command":"/usr/local/bin/mesa","args":["vault","mcp"]}}}'`;
 /** Claude Code's, on an interactive start, resume, or fork. */
 export const CLAUDE_MOUNT = `${CLAUDE_MCP_CONFIG} '--allowedTools=mcp__mesa-vault'`;
 /** Claude Code's on a headless run, the profile's allowed tools after it. */

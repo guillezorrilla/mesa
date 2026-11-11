@@ -65,3 +65,18 @@ The owner first chose 200k tokens (#911), then went back to 55% and 60% of the w
 | `cat`-style Bash output over 20,000 characters | 1% | 1% |
 
 A guard on reads over about 500 lines could remove at most about 4% of the re-read tool-result weight (the last two rows, 2.8% and 0.8% unrounded), and tool results are only part of a session's context. That is too small a cut for the latency and the summary-only reads, so Mesa does not build the guard. The larger share is Bash output in general: test, build and diff output. Results over 10,000 characters are 21% of Bash's result characters, spread over many commands.
+
+## Step 4: Mesa's own skill runs without the person's setup (2026-11-10, #1007)
+
+Each of Mesa's own Claude skill runs (vault-capture, git-text, session-summary, import-notes) started with the person's full setup: their MCP servers, user settings, plugins and hooks. A pipeline run's output is landed by core (ADR-0006), so it needs none of them. Probed as Step 2, `claude -p 'Reply with OK.' --no-session-persistence --output-format json` in an empty folder, with the window variables unset so no hook logs into a session; the first turn's input, cache read and cache write tokens:
+
+| Run | Before | After |
+| --- | --- | --- |
+| vault-capture (Haiku, mesa-vault) | 44,337 | 18,985 |
+| git-text (Haiku, no server, low effort) | 44,337 | 18,985 |
+| session-summary (Haiku, no server, low effort) | 44,337 | 18,985 |
+| import-notes (Sonnet, mesa-vault) | 43,514 | 18,162 |
+
+Before, each probe carried the run's flags as they were: `--model haiku` (or `sonnet`), `--permission-mode default`, `--mcp-config` with mesa-vault and mesa-decisions (the profile has a Decision model), and `--allowedTools mcp__mesa-vault mcp__mesa-decisions`. After, the same with `--strict-mcp-config --setting-sources project,local '--settings={"disableAllHooks":true}'`, `--mcp-config` holding mesa-vault alone for vault-capture and import-notes and nothing for git-text and session-summary, and `--effort low` for those two. Effort changes no first-turn context; it cuts the reply's thinking.
+
+A live `mesa run session-summary --session <id>` in a throwaway profile, on an invented project, landed its summary, and `mesa usage --session <run>` read its first turn at 20,253 tokens (2 input, 11,873 cache read, 8,378 cache write), its skill and the session's log included, against the 80k median of capture runs in Step 2. `mesa run vault-capture` on the same session ran, chose nothing to keep from a two-line log, and landed nothing.

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { IdSource } from '../lib/ids.js';
 import { shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
+import type { ClaudeRunProfile } from '../skills/library.js';
 import { antigravitySessionId, prepareAntigravityLog } from './antigravity/log.js';
 import { readAntigravityResult } from './antigravity/result.js';
 import { antigravityLastOutputLine, antigravityScreenState } from './antigravity/screen.js';
@@ -68,16 +69,30 @@ const codexMount = (mounts: Mounts) =>
 /**
  * How a headless run may act, from the profile's config `run` (CONTEXT.md, Profile), and with
  * `readOnlyVault`, without mesa-vault's write tools (a pipeline skill's run, whose output core lands);
- * `model`, a Claude model it runs on instead of the person's default (claudeRunModel), Claude Code's only.
+ * `lean`, one of Mesa's own runs, with its own model, MCP server and effort and none of the
+ * person's setup (claudeRunProfile), Claude Code's only.
  */
 type HeadlessPermissions = {
   permissionMode: string;
   allowedTools: readonly string[];
   readOnlyVault?: boolean;
-  model?: string;
+  lean?: ClaudeRunProfile;
   /** It answers from its stdin alone (git-text): no tool that changes a file or runs a command. */
   textOnly?: boolean;
 };
+
+/**
+ * The flags of one of Mesa's own runs (claudeRunProfile): its model and effort, and none of the
+ * person's MCP servers, user settings, plugins or hooks, while the project's settings and skills
+ * still load (ADR-0012 amendment). Its own server goes in its --mcp-config.
+ */
+const claudeLeanRun = (lean: ClaudeRunProfile) => [
+  `--model ${shellWord(lean.model)}`,
+  ...(lean.effort ? [`--effort ${lean.effort}`] : []),
+  '--strict-mcp-config',
+  '--setting-sources project,local',
+  shellWord(`--settings=${JSON.stringify({ disableAllHooks: true })}`),
+];
 
 /** The Claude Code tools a text-only run is denied: every one that writes a file or runs a command. */
 const CLAUDE_CHANGE_TOOLS = ['Bash', 'Edit', 'MultiEdit', 'Write', 'NotebookEdit'];
@@ -153,7 +168,8 @@ export const AGENTS = {
        * with the profile's permission mode, mesa-vault mounted, and its tools allowed before the
        * profile's own; a read-only run disallows its write tools, which wins over the allow. The
        * prompt and each tool are one shell word, as a rule such as `Bash(git log:*)` holds a
-       * space; --allowedTools takes every word after it, so it comes last.
+       * space; --allowedTools takes every word after it, so it comes last. A `lean` run mounts
+       * only the server its profile names, mesa-vault or none.
        */
       command: (
         sessionId: string | undefined,
@@ -161,14 +177,20 @@ export const AGENTS = {
         may: HeadlessPermissions,
         _folder: string,
         mounts: Mounts,
-      ) =>
-        [
+      ) => {
+        const runMounts = !may.lean
+          ? mounts
+          : may.lean.mcp === 'vault'
+            ? { vault: mounts.vault }
+            : undefined;
+        const allowed = [...(runMounts ? claudeMountTools(runMounts) : []), ...may.allowedTools];
+        return [
           'claude -p',
           shellWord(prompt),
           `--session-id ${sessionId} --output-format json`,
-          ...(may.model ? [`--model ${shellWord(may.model)}`] : []),
+          ...(may.lean ? claudeLeanRun(may.lean) : []),
           `--permission-mode ${shellWord(may.permissionMode)}`,
-          shellWord(claudeMcpConfig(mounts)),
+          ...(runMounts ? [shellWord(claudeMcpConfig(runMounts))] : []),
           ...(may.readOnlyVault || may.textOnly
             ? [
                 '--disallowedTools',
@@ -178,9 +200,10 @@ export const AGENTS = {
                 ].map(shellWord),
               ]
             : []),
-          '--allowedTools',
-          ...[...claudeMountTools(mounts), ...may.allowedTools].map(shellWord),
-        ].join(' '),
+          // Variadic, and refused with no value: left out when nothing is allowed (a lean git-text run).
+          ...(allowed.length ? ['--allowedTools', ...allowed.map(shellWord)] : []),
+        ].join(' ');
+      },
       /** What its stdout says: the result, or why there is none. */
       result: readClaudeResult,
     },

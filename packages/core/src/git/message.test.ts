@@ -63,9 +63,10 @@ test('a commit message comes from a git-text run given the filled recipe on stdi
   expect(launch).toContain("claude -p '/git-text'");
   // Text only: nothing the profile allows, and no tool that writes a file or runs a command.
   expect(launch).toContain("--permission-mode 'default'");
-  expect(launch).toMatch(
-    /--disallowedTools .*'Bash' 'Edit' 'MultiEdit' 'Write' 'NotebookEdit' --allowedTools/,
-  );
+  // Lean, too: no MCP server at all, so nothing is allowed and --allowedTools is left out.
+  expect(launch).toMatch(/--disallowedTools .*'Bash' 'Edit' 'MultiEdit' 'Write' 'NotebookEdit' </);
+  expect(launch).not.toContain('--allowedTools');
+  expect(launch).not.toContain('--mcp-config');
   expect(launch).not.toContain('Bash(git log:*)');
   const [input] = inputs;
   expect(input).toContain(
