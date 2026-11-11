@@ -20,6 +20,8 @@ type Tone = {
   dot: string;
   /** The sidebar card's state line. */
   line: string;
+  /** A filled mark's colour: the Crew panel's bar. */
+  fill: string;
   /** StateIcon's icon, its colour, and the name a screen reader gives it. */
   icon: LucideIcon;
   mark: string;
@@ -31,6 +33,7 @@ const WAITING: Tone = {
   compact: 'text-state-waiting',
   dot: 'border-state-waiting',
   line: 'text-state-waiting',
+  fill: 'bg-state-waiting',
   icon: CircleHelp,
   mark: 'text-state-waiting',
   label: 'Waiting on you',
@@ -45,6 +48,7 @@ const TONES: Record<SessionState, Tone> = {
     badge: 'bg-state-working/15 text-state-working ring-state-working/30',
     dot: 'border-state-working',
     line: 'text-muted-foreground',
+    fill: 'bg-state-working',
     icon: LoaderCircle,
     mark: 'text-state-working motion-safe:animate-spin',
     label: 'Working',
@@ -55,6 +59,7 @@ const TONES: Record<SessionState, Tone> = {
     badge: 'bg-state-idle/15 text-state-idle ring-state-idle/30',
     dot: 'border-state-idle',
     line: 'text-muted-foreground',
+    fill: 'bg-state-idle',
     icon: Clock3,
     mark: 'text-state-idle',
     label: 'Idle',
@@ -63,6 +68,7 @@ const TONES: Record<SessionState, Tone> = {
     badge: 'bg-state-done/15 text-muted-foreground ring-state-done/30',
     dot: 'border-state-idle',
     line: 'text-muted-foreground',
+    fill: 'bg-state-done',
     icon: Check,
     mark: 'text-state-done',
     label: 'Done',
@@ -71,6 +77,7 @@ const TONES: Record<SessionState, Tone> = {
     badge: 'bg-state-failed/15 text-state-failed ring-state-failed/40',
     dot: 'border-state-failed',
     line: 'text-state-failed',
+    fill: 'bg-state-failed',
     icon: CircleX,
     mark: 'text-state-failed',
     label: 'Failed',
@@ -80,6 +87,7 @@ const TONES: Record<SessionState, Tone> = {
     badge: 'text-muted-foreground ring-0 border border-dashed border-muted-foreground/60',
     dot: 'border-state-idle',
     line: 'text-muted-foreground',
+    fill: 'bg-muted-foreground/40',
     icon: CircleDashed,
     mark: 'text-muted-foreground',
     label: 'Queued',
@@ -88,6 +96,7 @@ const TONES: Record<SessionState, Tone> = {
     badge: 'text-muted-foreground ring-border line-through',
     dot: 'border-state-idle',
     line: 'text-muted-foreground',
+    fill: 'bg-muted-foreground/40',
     icon: Square,
     mark: 'text-muted-foreground',
     label: 'Stopped',

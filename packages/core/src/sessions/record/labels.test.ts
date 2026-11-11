@@ -13,6 +13,7 @@ import {
   sessionCount,
   sessionLabel,
   sessionTitle,
+  setupSessionsOf,
   taskTitle,
   waitingOn,
   wantsName,
@@ -123,6 +124,9 @@ test('a Setup session is a child terminal Mesa named Setup', () => {
   expect(isSetupSession(managed({ ...setup, name: 'Setup tide-pool' }))).toBe(true);
   expect(isSetupSession(managed({ ...setup, name: 'Setups' }))).toBe(false);
   expect(isSetupSession(managed({ kind: 'terminal', name: 'Setup' }))).toBe(false);
+  const mine = managed({ ...setup, id: 'f0f0f0f0', name: 'Setup', parentNow: 'e5f6a7b8' });
+  const theirs = managed({ ...setup, id: 'f1f1f1f1', name: 'Setup', parentNow: 'c0c0c0c0' });
+  expect(setupSessionsOf([mine, theirs], 'e5f6a7b8')).toEqual([mine]);
   expect(isSetupSession(managed({ kind: 'interactive', parent: 'e5f6a7b8', name: 'Setup' }))).toBe(
     false,
   );

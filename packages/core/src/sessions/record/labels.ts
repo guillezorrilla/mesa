@@ -56,6 +56,10 @@ export const taskTitle = firstLine;
 export const isSetupSession = (s: SessionRow) =>
   s.managed && s.kind === 'terminal' && Boolean(s.parent) && /^Setup( |$)/.test(s.name ?? '');
 
+/** `owner`'s Setup sessions among `rows` (isSetupSession), those that report to it now. */
+export const setupSessionsOf = <R extends SessionRow>(rows: readonly R[], owner: string) =>
+  rows.filter((s) => isSetupSession(s) && s.managed && s.parentNow === owner);
+
 /** A child as its parent's crew names it: its task's title, else its title (sessionTitle). */
 export const crewTitle = (s: SessionRow) => (s.managed && s.taskTitle) || sessionTitle(s);
 
