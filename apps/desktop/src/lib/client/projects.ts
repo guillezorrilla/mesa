@@ -1,9 +1,18 @@
-import type { DiscoveredProject, Project, ProjectRow, ProjectSort } from '@mesa/core';
+import type { CheckResult, DiscoveredProject, Project, ProjectRow, ProjectSort } from '@mesa/core';
 import { command, commandWith, type Recorded } from './spec';
 
 /** Project commands: the registry, its order, and per-project settings. */
 export const projectsCommands = {
   'projects.list': command<ProjectRow[]>('projects'),
+  /** The project's check in a session's folder (CONTEXT.md, Check). */
+  'projects.check': commandWith<{ project: string; checkout?: string }, CheckResult>(
+    ({ project, checkout }) => [
+      'check',
+      ...(checkout ? ['--checkout', checkout] : []),
+      '--',
+      project,
+    ],
+  ),
   'projects.sorted': commandWith<ProjectSort, ProjectRow[]>((sort) => ['projects', '--sort', sort]),
   'projects.visit': commandWith<
     { name: string },

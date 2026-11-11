@@ -9,7 +9,7 @@ export type RunResult =
       ok: false;
       reason: 'missing' | 'timeout' | 'failed';
       detail: string;
-      /** A failed run's whole output, stdout then stderr, for a caller that needs both. */
+      /** A failed or timed-out run's output so far, stdout then stderr, for a caller that needs both. */
       output?: string;
     };
 
@@ -21,6 +21,9 @@ export type Runner = (
   /** `input` is written to its stdin; without it, stdin ends at once. */
   options?: { cwd?: string; env?: Env; input?: string },
 ) => Promise<RunResult>;
+
+/** The most output a run keeps, in MB. */
+const MAX_OUTPUT_MB = 64;
 
 /**
  * The real runner: execFile with a timeout, in `options.env` when a caller passes one, else in
@@ -38,19 +41,24 @@ export const envRunner =
           cwd: options?.cwd,
           env: (options?.env ?? env) as NodeJS.ProcessEnv,
           // ponytail: 64 MiB, not the 1 MiB default, for Git diffs and listings; stream if one outgrows it.
-          maxBuffer: 64 * 1024 * 1024,
+          maxBuffer: MAX_OUTPUT_MB * 1024 * 1024,
         },
         (error, stdout, stderr) => {
           if (!error) return resolve({ ok: true, stdout });
           const code = (error as NodeJS.ErrnoException).code;
           if (code === 'ENOENT')
             return resolve({ ok: false, reason: 'missing', detail: error.message });
-          if (error.killed) return resolve({ ok: false, reason: 'timeout', detail: error.message });
+          const output = [stdout, stderr].filter((text) => text.trim()).join('\n');
+          if (error.killed)
+            return resolve({ ok: false, reason: 'timeout', detail: error.message, output });
           resolve({
             ok: false,
             reason: 'failed',
-            detail: (stderr || stdout || error.message).trim(),
-            output: [stdout, stderr].filter((text) => text.trim()).join('\n'),
+            detail:
+              code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'
+                ? `its output passed ${MAX_OUTPUT_MB} MB, the most a run keeps`
+                : (stderr || stdout || error.message).trim(),
+            output,
           });
         },
       );

@@ -15,8 +15,8 @@ export type RegistryEntry = {
   sessionOrder?: string[];
   visitedAt?: string;
   visits?: number;
-  /** sha256 of the exact setup and teardown argv from its mesa.yaml this profile approved. */
-  approved?: { setup?: string; teardown?: string };
+  /** sha256 of the exact setup, teardown and check from its mesa.yaml this profile approved. */
+  approved?: { setup?: string; teardown?: string; check?: string };
 };
 
 const RegistrySchema = z.strictObject({
@@ -37,6 +37,10 @@ const RegistrySchema = z.strictObject({
             .regex(/^[0-9a-f]{64}$/)
             .optional(),
           teardown: z
+            .string()
+            .regex(/^[0-9a-f]{64}$/)
+            .optional(),
+          check: z
             .string()
             .regex(/^[0-9a-f]{64}$/)
             .optional(),

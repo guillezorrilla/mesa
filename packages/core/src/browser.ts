@@ -20,6 +20,7 @@ export {
 } from './agents/names.js';
 export { AGENT_STATES } from './agents/states.js';
 export { describeAutomation } from './automations/describe.js';
+export { type CheckResult, checkText } from './checks/check-text.js';
 export { measuredText, type SiteMeasure, siteMeasure } from './decisions/measured.js';
 export { type SiteMode, siteMode } from './decisions/site-mode.js';
 export { DECISION_SITES, type DecisionSite } from './decisions/sites.js';

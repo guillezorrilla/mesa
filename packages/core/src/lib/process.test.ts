@@ -15,3 +15,8 @@ test('the runner runs in its environment unless the caller passes one', async ()
     await run('/bin/sh', ['-c', 'echo $MESA_PLACE'], 1000, { env: { MESA_PLACE: 'own' } }),
   ).toEqual({ ok: true, stdout: 'own\n' });
 });
+
+test('a run past its timeout keeps the output it printed so far', async () => {
+  const ran = await envRunner({})('/bin/sh', ['-c', 'echo first tide; sleep 5'], 300);
+  expect(ran).toMatchObject({ ok: false, reason: 'timeout', output: 'first tide\n' });
+});

@@ -11,6 +11,7 @@ import { label, options } from './controls/options';
 import { TextField } from './controls/TextField';
 import { commaList } from './controls/textLists';
 import { ApproveScriptsDialog, type PendingScripts } from './project/ApproveScriptsDialog';
+import { CheckRow } from './project/CheckRow';
 import { profileValue } from './project/profileValue';
 import { RecipeRow } from './project/RecipeRow';
 import { ScriptRow } from './project/ScriptRow';
@@ -215,6 +216,13 @@ export function ProjectSettingsPanel(props: { onChanged: () => void }) {
             />
           </SettingSection>
           <SettingSection
+            id="project-check"
+            title="Check"
+            description="What mesa check runs for this project's agents"
+          >
+            <CheckRow value={project.overrides.check} onSave={(value) => save('check', value)} />
+          </SettingSection>
+          <SettingSection
             id="project-scripts"
             title="Scripts"
             description="This project's worktree setup and teardown, run only once this profile approves them"
@@ -224,7 +232,7 @@ export function ProjectSettingsPanel(props: { onChanged: () => void }) {
                 icon={ShieldAlert}
                 tone="danger"
                 title="Scripts waiting for approval"
-                description="This project's mesa.yaml names commands this profile has not approved. New worktrees refuse to run them until you approve them."
+                description="This project's mesa.yaml names commands this profile has not approved. Mesa refuses to run them until you approve them."
                 keywords="project approve trust"
                 control={
                   <Button

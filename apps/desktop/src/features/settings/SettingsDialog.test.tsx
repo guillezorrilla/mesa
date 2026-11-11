@@ -467,6 +467,27 @@ test('Projects picks a project and edits its overrides, each row naming the prof
   expect(projectSets().at(-1)).toEqual(['--unset', '--', 'reef', 'terminal.theme']);
 });
 
+test('Projects saves the check command, and emptied, the project has none', async () => {
+  const [cove] = PROJECTS as [ProjectRow];
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope([{ ...cove, overrides: { check: 'pnpm verify' } }]),
+    'projects set': () => envelope({ receipt: null }),
+  });
+  await render(bridge);
+  await click(nav('Projects'));
+  const field = document.getElementById('project-check-command') as HTMLInputElement;
+  expect(field.value).toBe('pnpm verify');
+  expect(field.closest('[data-setting-row]')?.textContent).toContain('Check command');
+  await type('project-check-command', 'make test');
+  await type('project-check-command', '');
+  expect(
+    calls.filter((args) => args[1] === 'projects' && args[2] === 'set').map((a) => a.slice(3)),
+  ).toEqual([
+    ['--', 'lantern-cove', 'check', '"make test"'],
+    ['--unset', '--', 'lantern-cove', 'check'],
+  ]);
+});
+
 test("Projects saves the commit message recipe override, and emptied, the profile's applies again", async () => {
   const [cove] = PROJECTS as [ProjectRow];
   const projects: ProjectRow[] = [
@@ -513,7 +534,10 @@ test("Projects shows a repository's unapproved scripts exactly and approves them
     {
       ...cove,
       overrides: { worktrees: { setup } },
-      unapproved: { setup: { argv: setup, fingerprint: 'a'.repeat(64) } },
+      unapproved: {
+        setup: { argv: setup, fingerprint: 'a'.repeat(64) },
+        check: { argv: ['/bin/sh', '-c', 'pnpm verify'], fingerprint: 'b'.repeat(64) },
+      },
     },
   ];
   const { bridge, calls } = fakeBridge({
@@ -530,9 +554,11 @@ test("Projects shows a repository's unapproved scripts exactly and approves them
     'Scripts waiting for approval',
   );
   await click(review);
-  expect(byTestId('approve-scripts')[0]?.querySelector('pre')?.textContent).toBe(
-    '"/usr/bin/make" "set up"',
-  );
+  const shown = [...(byTestId('approve-scripts')[0]?.querySelectorAll('pre') ?? [])];
+  expect(shown.map((pre) => [pre.previousElementSibling?.textContent, pre.textContent])).toEqual([
+    ['Bootstrap', '"/usr/bin/make" "set up"'],
+    ['Check', '"/bin/sh" "-c" "pnpm verify"'],
+  ]);
   await click(byTestId('approve-scripts-submit')[0]);
   // The fingerprint of the argv the dialog showed, so trust refuses a mesa.yaml changed meanwhile.
   expect(calls).toContainEqual([
@@ -541,6 +567,8 @@ test("Projects shows a repository's unapproved scripts exactly and approves them
     'trust',
     '--expect',
     'a'.repeat(64),
+    '--expect',
+    'b'.repeat(64),
     '--',
     'lantern-cove',
   ]);

@@ -14,6 +14,7 @@ import {
   browserExternal,
   browserSelect,
 } from './browser.js';
+import { check } from './check.js';
 import { config, configSet } from './config.js';
 import { daily } from './daily.js';
 import { decide } from './decide.js';
@@ -208,6 +209,7 @@ export const COMMANDS: Command[] = [
   report,
   reports,
   reportsReply,
+  check,
   tasks,
   tasksCreate,
   tasksShow,

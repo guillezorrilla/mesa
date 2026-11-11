@@ -1,6 +1,7 @@
 import { about } from './about/about.js';
 import { hooksService } from './agents/hooks-service.js';
 import { automationsService } from './automations/service.js';
+import { runCheck } from './checks/check.js';
 import { createContext, type MesaDeps } from './context.js';
 import { dailyService } from './daily/service.js';
 import { createFaro } from './decisions/faro.js';
@@ -104,6 +105,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
     automations,
     prompts,
     files: filesService(ctx),
+    /** A project's checks, run for an agent: one line, or the errors (CONTEXT.md, Check). */
+    check: (project: string, opts?: Parameters<typeof runCheck>[2]) => runCheck(ctx, project, opts),
     worktrees,
     git: gitService(ctx, faro, worktrees.count, sessions.sessions.run, {
       board: () => sessions.sessions.list(),

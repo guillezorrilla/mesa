@@ -87,7 +87,7 @@ export const projectsSet = defineCommand({
 export const projectsTrust = defineCommand({
   name: 'projects trust',
   summary:
-    "Approve the reviewed setup and teardown a project's mesa.yaml names, so worktrees run them",
+    "Approve the reviewed setup, teardown and check a project's mesa.yaml names, so they run",
   args: ['project'],
   flags: {
     expect: {
@@ -107,26 +107,25 @@ export const projectsTrust = defineCommand({
       if (!Object.keys(pending).length)
         return {
           data: { project: args.project },
-          text: `${args.project}'s mesa.yaml has no setup or teardown waiting for approval`,
+          text: `${args.project}'s mesa.yaml has no setup, teardown or check waiting for approval`,
         };
       if (!confirm)
         throw new MesaError(
           'usage',
           `review ${args.project}'s ${describePending(pending)}, then run ${trustCommand(args.project, pending)}, or run mesa projects trust ${args.project} in a terminal to confirm`,
         );
-      const question = `${args.project}'s mesa.yaml runs ${describePending(pending)} without a shell in its worktrees. Approve?`;
+      const question = `${args.project}'s mesa.yaml runs ${describePending(pending)} on this machine, a setup or teardown without a shell. Approve?`;
       if (!(await confirm(question))) throw new MesaError('usage', 'nothing was approved');
       expected = Object.values(pending).map((script) => script.fingerprint);
     }
     const recorded = mesa.projects.trust(args.project, expected);
-    const { setup, teardown } = recorded.result;
-    const approved = [
-      ...(setup ? [`setup ${JSON.stringify(setup)}`] : []),
-      ...(teardown ? [`teardown ${JSON.stringify(teardown)}`] : []),
-    ];
+    const { project: _, ...scripts } = recorded.result;
+    const approved = Object.entries(scripts).map(
+      ([script, argv]) => `${script} ${JSON.stringify(argv)}`,
+    );
     const text = approved.length
       ? `approved ${approved.join(' and ')} for ${args.project}`
-      : `${args.project}'s mesa.yaml names no setup or teardown`;
+      : `${args.project}'s mesa.yaml names no setup, teardown or check`;
     return recordedOutput(recorded, { data: recorded.result, text });
   },
 });

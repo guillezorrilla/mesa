@@ -36,3 +36,7 @@ Issue #373 lets a project override the profile's worktree settings (`base`, `fet
 ## Amendment 2026-11-10: `carryIgnoredDirectories` is `carry`
 
 Issue #899 lets a carry hold files such as `.env` as well as folders, so the field is now `worktrees.carry`. As the last consequence asks, the old name is still accepted in both files and read as `carry` unless `carry` is also set (`withCarryRenamed`, `projects/overrides.ts`); `profile/config.test.ts` and `projects/projects.test.ts` read it.
+
+## Amendment 2026-11-11: a project's `check` is approved like setup and teardown
+
+Issue #1023 adds `check`, a shell command `mesa check` runs on this machine. It is gated the same way: the registry entry's `approved.check` holds the sha256 of `["/bin/sh", "-c", <command>]`, the argv it runs as, so a person reviews the shell line and its fingerprint never equals a setup's or teardown's unless they run the very same thing. Set by a person (app or terminal) it is approved; set from inside a Mesa window, or changed in the file, `mesa check` is `needs_approval` until `mesa projects trust`. `projects/projects.test.ts`, `checks/check.test.ts` and the CLI's `check.test.ts` read it.
