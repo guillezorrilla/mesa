@@ -45,7 +45,8 @@ const RUN_MODELS: Readonly<Record<string, 'haiku' | 'sonnet'>> = {
   [SESSION_SUMMARY]: 'haiku',
   [IMPORT_NOTES]: 'sonnet',
 };
-export const claudeRunModel = (skill: string) => RUN_MODELS[skill];
+export const claudeRunModel = (skill: string) =>
+  Object.hasOwn(RUN_MODELS, skill) ? RUN_MODELS[skill] : undefined;
 
 /** A skill's own file, read by both agents. */
 const SKILL_FILE = 'SKILL.md';

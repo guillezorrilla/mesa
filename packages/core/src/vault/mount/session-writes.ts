@@ -9,6 +9,7 @@ import { recordScope } from '../../receipts/record-scope.js';
 import type { Recorded } from '../../receipts/recorder.js';
 import { recordAgent } from '../../sessions/record/record.js';
 import { landOutput } from '../../skills/landing.js';
+import { SESSION_SUMMARY } from '../../skills/library.js';
 import type { Note } from '../frontmatter.js';
 import { addToIndex } from '../index-note.js';
 import { itemProject } from '../item.js';
@@ -212,7 +213,7 @@ export function sessionWrites(ctx: MesaContext) {
       requireLog(notes.vault);
       const landed = await landOutput(
         notes,
-        'session-summary',
+        SESSION_SUMMARY,
         {
           about: session?.id,
           project,
