@@ -12,18 +12,20 @@ import type { NestedRow } from './sidebarGroups';
  * the card's own first, then each row's below it.
  */
 export function WorkerRows(props: {
+  /** The card's session. */
+  owner: string;
   rows: readonly NestedRow[];
-  /** The card's own failed Setup session, if any. */
-  failedSetup?: TreeRow;
-  failedSetupOf: (id: string) => TreeRow | undefined;
+  /** A session's failed Setup sessions. */
+  failedSetupsOf: (id: string) => readonly TreeRow[];
   /** The shown session's id. */
   selected?: string;
   onOpen: (id: string) => void;
 }) {
   const now = Date.now();
-  const mark = (setup: TreeRow | undefined) =>
-    setup && (
+  const marks = (owner: string) =>
+    props.failedSetupsOf(owner).map((setup) => (
       <button
+        key={setup.id}
         type="button"
         data-testid="setup-failed"
         title="Its worktree setup failed: open the Setup session"
@@ -33,10 +35,10 @@ export function WorkerRows(props: {
         <TriangleAlert aria-hidden className="size-3" />
         setup failed
       </button>
-    );
+    ));
   return (
     <ul aria-label="Workers" className="mx-1 border-t border-border/60 pt-1">
-      {props.failedSetup && <li className="flex">{mark(props.failedSetup)}</li>}
+      {marks(props.owner).length > 0 && <li className="flex flex-col">{marks(props.owner)}</li>}
       {props.rows.map(({ session, depth }) => {
         const title = crewTitle(session);
         const doing = doingNow(session);
@@ -72,7 +74,7 @@ export function WorkerRows(props: {
                 </span>
               )}
             </button>
-            {mark(props.failedSetupOf(session.id))}
+            {marks(session.id)}
           </li>
         );
       })}

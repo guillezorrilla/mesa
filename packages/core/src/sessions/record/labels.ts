@@ -1,4 +1,4 @@
-import { counted, odds } from '../../lib/format.js';
+import { counted, firstLine, odds } from '../../lib/format.js';
 import type { SessionRow } from '../board/rows.js';
 import { projectLabel } from './general.js';
 import type { SessionRecord, SessionReview } from './record.js';
@@ -43,11 +43,11 @@ export const sessionTitle = (
     (s.name ||
       (s.review && reviewLabel(s.review)) ||
       s.agentName ||
-      s.goal?.trim().split(/\r?\n/, 1)[0])) ||
+      (s.goal && firstLine(s.goal)))) ||
   fallback;
 
 /** A task's title: its spec's first line. */
-export const taskTitle = (spec: string) => spec.trim().split(/\r?\n/, 1)[0] ?? '';
+export const taskTitle = firstLine;
 
 /**
  * A Setup session (CONTEXT.md, Worktree): the plain terminal Mesa opens beside a session to run
@@ -68,7 +68,7 @@ export const doingNow = (s: SessionRow) => {
   if (s.progress && !s.endedAt) return s.progress.text;
   const report = s.report?.message.trim();
   if (report) return report.split(/(?<=[.!?])\s|\r?\n/, 1)[0];
-  return s.lastReply?.text.trim().split(/\r?\n/, 1)[0] || undefined;
+  return (s.lastReply && firstLine(s.lastReply.text)) || undefined;
 };
 
 /** A Mesa session that runs a skill headlessly (CONTEXT.md, Skill run). */

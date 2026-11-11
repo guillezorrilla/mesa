@@ -201,6 +201,7 @@ export {
   sessionBranch,
   sessionCount,
   sessionLabel,
+  taskTitle,
   waitingOn,
 } from './sessions/record/labels.js';
 export type { SessionRecord, SessionReview } from './sessions/record/record.js';

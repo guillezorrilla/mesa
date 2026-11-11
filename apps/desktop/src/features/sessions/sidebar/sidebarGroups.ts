@@ -21,7 +21,7 @@ export type NestedRow = { session: TreeRow; depth: number };
  * A card is an active or recoverable session whose parent is not active: an active session's
  * children, ended ones too, sit inside its card (crewOf, its descendants oldest first, each
  * followed by its own), and a Setup session is no card at all, only its owner's mark when it
- * failed (failedSetupOf).
+ * failed (failedSetupsOf).
  */
 export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonly TreeRow[]) {
   const visible = projects
@@ -47,8 +47,8 @@ export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonl
         seen.add(session.id);
         return [{ session, depth }, ...crewOf(session.id, depth + 1, seen)];
       });
-  const failedSetupOf = (id: string) =>
-    sessions.find(
+  const failedSetupsOf = (id: string) =>
+    sessions.filter(
       (session) =>
         session.managed &&
         session.setupFailed &&
@@ -87,7 +87,7 @@ export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonl
     inProject,
     touching,
     crewOf,
-    failedSetupOf,
+    failedSetupsOf,
   };
 }
 

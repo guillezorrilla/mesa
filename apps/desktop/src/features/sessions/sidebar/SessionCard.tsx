@@ -1,5 +1,6 @@
 import type { TreeRow } from '@mesa/core';
 import {
+  firstLine,
   GENERAL_PROJECT,
   projectLabel,
   sessionBranch,
@@ -213,7 +214,7 @@ export function SessionCard(props: {
                   title={reply.text}
                   className={cn('truncate pl-4 text-[11px] text-muted-foreground', pr && 'pr-12')}
                 >
-                  {reply.text.trimStart().split('\n', 1)[0]}
+                  {firstLine(reply.text)}
                 </span>
               )}
             </>

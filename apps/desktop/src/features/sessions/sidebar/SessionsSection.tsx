@@ -55,7 +55,8 @@ export function SessionsSection(props: {
   onReorder?: (project: string, ids: string[]) => void;
 }) {
   const { groups, view, onView } = props;
-  const { byActivity, active, stranded, general, other, inProject, crewOf, failedSetupOf } = groups;
+  const { byActivity, active, stranded, general, other, inProject, crewOf, failedSetupsOf } =
+    groups;
   const { chosen, onSelection, order } = props;
   const unread = useUnreadContext();
   const list = useRef<HTMLDivElement>(null);
@@ -74,7 +75,6 @@ export function SessionsSection(props: {
   /** A card, with its children's rows; with `onMove`, Option+Arrow moves it within its project. */
   const card = (session: TreeRow, onMove?: (by: 1 | -1) => void) => {
     const rows = crewOf(session.id);
-    const failedSetup = failedSetupOf(session.id);
     const count = chosen.includes(session.id) ? chosen.length : 1;
     const ids = count > 1 ? [...chosen] : [session.id];
     const archive = () => props.onArchiveSessions?.(ids);
@@ -109,11 +109,11 @@ export function SessionsSection(props: {
           onArchiveSession={props.onArchiveSession}
           onDependencySession={props.onDependencySession}
           crew={
-            (rows.length > 0 || failedSetup) && (
+            (rows.length > 0 || failedSetupsOf(session.id).length > 0) && (
               <WorkerRows
+                owner={session.id}
                 rows={rows}
-                failedSetup={failedSetup}
-                failedSetupOf={failedSetupOf}
+                failedSetupsOf={failedSetupsOf}
                 selected={view.kind === 'session' ? view.id : undefined}
                 onOpen={open}
               />

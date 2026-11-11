@@ -1,9 +1,8 @@
-import type { Task } from '@mesa/core';
+import { type Task, taskTitle } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { commaList } from '../input/flags.js';
 
-const firstLine = (text: string) => text.split('\n')[0];
-const line = (t: Task) => `${t.id}  ${t.graph}  ${t.state}  ${firstLine(t.spec)}`;
+const line = (t: Task) => `${t.id}  ${t.graph}  ${t.state}  ${taskTitle(t.spec)}`;
 
 export const tasks = defineCommand({
   name: 'tasks',
@@ -63,7 +62,7 @@ export const tasksShow = defineCommand({
         ...(shown.reason ? [`  reason: ${shown.reason}`] : []),
         ...(shown.worker ? [`  worker: ${shown.worker}`] : []),
         ...(shown.heldBy ? [`  held by ${shown.heldBy}`] : []),
-        ...shown.dependencies.map((d) => `  waits on ${d.id} ${d.state}  ${firstLine(d.spec)}`),
+        ...shown.dependencies.map((d) => `  waits on ${d.id} ${d.state}  ${taskTitle(d.spec)}`),
         ...shown.gates.map(
           (g) => `  gate ${g.id} ${g.resolvedAt ? `resolved: ${g.option}` : 'open'}  ${g.question}`,
         ),

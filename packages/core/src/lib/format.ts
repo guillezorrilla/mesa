@@ -41,3 +41,6 @@ export function formatBytes(bytes: number): string {
   }
   return unit ? `${value.toFixed(1)} ${units[unit]}` : `${value} B`;
 }
+
+/** A text's first line, without its leading blank lines and spaces: a title or a one-line summary. */
+export const firstLine = (text: string) => text.trim().split(/\r?\n/, 1)[0] ?? '';
