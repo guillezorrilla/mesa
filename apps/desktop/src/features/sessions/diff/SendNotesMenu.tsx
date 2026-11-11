@@ -1,4 +1,4 @@
-import type { NotesRecipient } from '@mesa/core/browser';
+import { NEW_SESSION, type NotesRecipient } from '@mesa/core/browser';
 import { Bot, Send } from 'lucide-react';
 import { SplitButton } from '@/components/SplitButton';
 import {
@@ -25,7 +25,8 @@ export function SendNotesMenu(props: {
     <SplitButton
       size="xs"
       variant="outline"
-      disabled={props.busy || !props.count}
+      // This session waiting on a person: a send would type into its prompt.
+      disabled={props.busy || !props.count || Boolean(props.recipients[0]?.waiting)}
       onClick={() => props.onSend({})}
       menuLabel="More ways to send notes"
       menu={
@@ -43,7 +44,7 @@ export function SendNotesMenu(props: {
               </span>
             </DropdownMenuItem>
           ))}
-          <DropdownMenuItem onSelect={() => props.onSend({ to: 'new' })}>
+          <DropdownMenuItem onSelect={() => props.onSend({ to: NEW_SESSION })}>
             <Bot aria-hidden /> New agent here
           </DropdownMenuItem>
           <DropdownMenuSeparator />

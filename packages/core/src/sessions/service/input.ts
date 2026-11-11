@@ -17,6 +17,7 @@ import {
 import { changeReview, previewChangeReview } from '../input/change-review.js';
 import { previewSessionImage, sessionImagePrompt } from '../input/images.js';
 import { notesPrompt } from '../input/notes-prompt.js';
+import { NEW_SESSION } from '../input/notes-recipients.js';
 import {
   type NotesSent,
   notesReview,
@@ -33,9 +34,6 @@ import { workingFolder } from '../signals/readings.js';
 import { agentStarted, WAKE_WAIT_MS, wakeSession } from '../start/wake.js';
 import type { SessionDeps } from './deps.js';
 import type { lifecycleActions } from './lifecycle.js';
-
-/** `mesa review notes send --to new`: the notes go to a new session in the same checkout. */
-export const NEW_SESSION = 'new';
 
 /**
  * What goes into a live session: a prompt, and the image, response, change, and browser reviews

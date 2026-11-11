@@ -478,6 +478,8 @@ test("Send notes' menu lists this session, the live ones in its checkout and its
   ]);
   const item = (text: string) => menuItems().find((i) => i.textContent?.startsWith(text));
   expect(item('Asking')?.getAttribute('aria-disabled')).toBe('true');
+  await click(item('Asking'));
+  expect(calls.flat()).not.toContain('--to=eeeeeeee');
   await click(item('Fresh eyes'));
   expect(calls).toContainEqual(
     expect.arrayContaining(['notes', 'send', '--to=bbbbbbbb', 'aaaaaaaa']),
@@ -531,4 +533,11 @@ test('c on a focused line opens the note composer there, Shift+arrows on a range
   expect(document.activeElement).toBe(plus(2));
   await press(plus(2), 'c');
   expect(fields().map((f) => f.getAttribute('aria-label'))).toEqual(['Note on lines 1-2']);
+  await press(fields()[0], 'Escape');
+
+  // A mark left behind when focus moves elsewhere does not carry over.
+  await act(async () => plus(1)?.focus());
+  await press(plus(1), 'ArrowDown', { shiftKey: true });
+  await press(plus(1), 'c');
+  expect(fields().map((f) => f.getAttribute('aria-label'))).toEqual(['Note on line 1']);
 });

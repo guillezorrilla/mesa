@@ -2,14 +2,18 @@ import type { SessionRow } from '../board/rows.js';
 import { sessionFolder } from '../record/folder.js';
 import { sessionLabel } from '../record/labels.js';
 import { liveAgent } from '../record/lifecycle.js';
+import type { SessionState } from '../record/states.js';
 
 // Who a session's review notes can go to (mesa review notes send --to). Pure, so the app bundles
 // it (`@mesa/core/browser`).
 
+/** `mesa review notes send --to new`: the notes go to a new session in the same checkout. */
+export const NEW_SESSION = 'new';
+
 /** A session the notes can go to; `waiting` says why a send must wait for a person first. */
 export type NotesRecipient = { id: string; name: string; waiting?: string };
 
-const WAITING: Record<string, string> = {
+const WAITING: Partial<Record<SessionState, string>> = {
   'waiting-permission': 'Waiting on a permission',
   'waiting-question': 'Waiting on a question',
 };

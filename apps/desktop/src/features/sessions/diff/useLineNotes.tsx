@@ -93,7 +93,8 @@ export function useLineNotes(path: string | undefined, rows: DiffRow[], notes: D
       if (!path || event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key === 'c') {
         event.preventDefault();
-        setDraft({ path, ...spanOf(mark ?? { from: n, to: n }) });
+        // A mark counts only on the line it ends on: focus moved since by Tab or a click drops it.
+        setDraft({ path, ...spanOf(mark?.to === n ? mark : { from: n, to: n }) });
         setMark(undefined);
       } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         const next = lineBeside(event.currentTarget, event.key === 'ArrowDown' ? 1 : -1);
