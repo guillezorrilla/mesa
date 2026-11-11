@@ -40,16 +40,84 @@ export const fillRecipe = (recipe: string, values: Readonly<Record<string, strin
     Object.hasOwn(values, name) ? (values[name] ?? written) : written,
   );
 
-/** How much of a patch a recipe is given: 200 KB. */
-export const PATCH_LIMIT_BYTES = 200_000;
+/**
+ * How much of a patch a recipe is given: 60 KB, the shape of each change for a commit message or
+ * pull request text, not every line of it (docs/spikes/token-usage.md).
+ */
+export const PATCH_LIMIT_BYTES = 60_000;
 
-/** `patch` cut to `limit` bytes, at a line end, with a line saying so; whole when it fits. */
+const bytes = (text: string) => Buffer.byteLength(text);
+
+/** Up to `limit` bytes of `text`, ending at a line end: never a partial line or character. */
+const headLines = (text: string, limit: number) => {
+  const head = Buffer.from(text).subarray(0, limit).toString('utf8');
+  return head.slice(0, head.lastIndexOf('\n') + 1);
+};
+
+/**
+ * Each of `sizes` given a fair part of `budget` (max-min), never under its `floor`: one within an
+ * equal share keeps all of it, what a short one leaves goes to the longer ones, which each get the
+ * same, and one whose fair part would be under its floor gets its floor first. The floors fit.
+ */
+function fairShares(sizes: readonly number[], floors: readonly number[], budget: number): number[] {
+  const shares = [...floors];
+  let open = sizes.map((_, i) => i);
+  for (;;) {
+    let left = budget - shares.reduce((sum, share, i) => sum + (open.includes(i) ? 0 : share), 0);
+    const order = [...open].sort((a, b) => (sizes[a] ?? 0) - (sizes[b] ?? 0));
+    order.forEach((i, n) => {
+      shares[i] = Math.min(sizes[i] ?? 0, Math.floor(left / (order.length - n)));
+      left -= shares[i] ?? 0;
+    });
+    const under = open.filter((i) => (shares[i] ?? 0) < (floors[i] ?? 0));
+    if (!under.length) return shares;
+    for (const i of under) shares[i] = floors[i] ?? 0;
+    open = open.filter((i) => !under.includes(i));
+  }
+}
+
+/**
+ * `patch` within `limit` bytes, split fairly by file (each `diff --git` block), so one large or
+ * generated file cannot crowd out the rest: each file gets a fair share of the limit (fairShares),
+ * never less than its header (up to its first hunk), its hunks cut at a line end to fit it with a
+ * line saying how much is not shown. When the headers alone do not fit, the first files keep their headers and one line says
+ * how many files were left out. A patch that fits comes back as it is; only the lines Mesa adds
+ * go past the limit.
+ */
 export function cutPatch(patch: string, limit = PATCH_LIMIT_BYTES) {
-  const bytes = Buffer.byteLength(patch);
-  if (bytes <= limit) return patch;
-  const head = Buffer.from(patch).subarray(0, limit).toString('utf8');
-  const kept = head.slice(0, Math.max(0, head.lastIndexOf('\n') + 1));
-  return `${kept}[Mesa cut the patch here: ${bytes - Buffer.byteLength(kept)} more bytes of it are not shown]\n`;
+  if (bytes(patch) <= limit) return patch;
+  const files = patch.split(/(?=^diff --git )/m).map((file) => {
+    const hunk = file.search(/^@@/m);
+    return hunk < 0
+      ? { header: file, body: '' }
+      : { header: file.slice(0, hunk), body: file.slice(hunk) };
+  });
+  const cut = (body: string, kept: string) =>
+    kept === body
+      ? kept
+      : `${kept}[Mesa cut this file here: ${bytes(body) - bytes(kept)} more bytes of it are not shown]\n`;
+  const headers = files.reduce((sum, file) => sum + bytes(file.header), 0);
+  if (headers > limit) {
+    let used = 0;
+    const kept = files.filter((file) => {
+      used += bytes(file.header);
+      return used <= limit;
+    });
+    const out = kept.map((file) => file.header + cut(file.body, ''));
+    return `${out.join('')}[Mesa left out ${files.length - kept.length} more files: the patch is over its ${limit}-byte limit]\n`;
+  }
+  const sizes = files.map((file) => bytes(file.header + file.body));
+  const shares = fairShares(
+    sizes,
+    files.map((file) => bytes(file.header)),
+    limit,
+  );
+  return files
+    .map(
+      (file, i) =>
+        file.header + cut(file.body, headLines(file.body, (shares[i] ?? 0) - bytes(file.header))),
+    )
+    .join('');
 }
 
 /**
