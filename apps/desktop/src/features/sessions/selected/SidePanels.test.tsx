@@ -141,6 +141,7 @@ test("a parent's Crew tab lists each child's state, newest report, branch and di
             outcome: 'succeeded',
             at: '2026-09-25T12:05:00.000Z',
             message: 'Charted the north reef\nand the bay\nand more',
+            details: '/Users/rowan/tides/docs/reef-notes.md',
           },
           diff: { added: 12, removed: 3 },
         }),
@@ -176,7 +177,11 @@ test("a parent's Crew tab lists each child's state, newest report, branch and di
   expect(rows[0]?.textContent).not.toContain('and more');
   expect(rows[0]?.textContent).toContain('mesa/tide-charts');
   expect(rows[0]?.textContent).toContain('+12 -3');
+  expect(within(rows[0], '[data-testid="crew-report-details"]')?.textContent).toBe(
+    'details: /Users/rowan/tides/docs/reef-notes.md',
+  );
   expect(rows[1]?.textContent).toContain('No report yet');
+  expect(within(rows[1], '[data-testid="crew-report-details"]')).toBeUndefined();
 
   await click(within(rows[0], '[aria-label="Message tide-charts"]'));
   const field = document.querySelector<HTMLTextAreaElement>(

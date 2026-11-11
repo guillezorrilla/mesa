@@ -9,8 +9,14 @@ export const report = defineCommand({
   args: ['kind', 'text'],
   flags: {
     files: { type: 'string', description: 'The files it touched or made, comma separated' },
+    details: {
+      type: 'string',
+      description:
+        'A file with more than the report says; your parent gets its path, and reads it only if it needs to',
+    },
   },
-  example: 'mesa report done "Counted 12 tide tables; none missing" --files docs/tides.md',
+  example:
+    'mesa report done "Counted 12 tide tables; none missing" --files docs/tides.md --details docs/tides-notes.md',
   run: ({ mesa, args, flags }) => {
     if (args.kind === 'question') {
       const question = mesa.reports.ask(args.text);
@@ -19,8 +25,10 @@ export const report = defineCommand({
         text: `asked ${question.parent} question ${question.id}; end your turn, the answer comes as your next prompt`,
       };
     }
-    const files = flags.files === undefined ? undefined : commaList(flags.files);
-    const made = mesa.reports.report(args.kind, args.text, files);
+    const made = mesa.reports.report(args.kind, args.text, {
+      ...(flags.files === undefined ? {} : { files: commaList(flags.files) }),
+      ...(flags.details === undefined ? {} : { details: flags.details }),
+    });
     return {
       data: { report: made },
       text: `reported ${made.kind}${made.outcome ? ` (${made.outcome})` : ''} to ${made.parent}`,

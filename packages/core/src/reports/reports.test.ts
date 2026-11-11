@@ -20,7 +20,7 @@ import {
 } from '../testing/index.js';
 import { keptReport, latestReports, reportsAtTurnEnd, reportsService } from './report-delivery.js';
 import { reportLedger } from './report-ledger.js';
-import { addReport, type ChildReport, heldUntil, reportPrompt } from './reports.js';
+import { addReport, type ChildReport, eventReport, heldUntil, reportPrompt } from './reports.js';
 
 const START = '2026-09-24T12:00:00.000Z';
 
@@ -297,9 +297,9 @@ test('a worker reports its work itself: done, failed, or blocked, with its files
   const f = family();
   const { parent, child, service } = f;
   service.list();
-  const done = inside(f, child.id).report('done', 'Counted 12 tide tables; none missing', [
-    'docs/tides.md',
-  ]);
+  const done = inside(f, child.id).report('done', 'Counted 12 tide tables; none missing', {
+    files: ['docs/tides.md'],
+  });
   expect(done).toMatchObject({
     parent: parent.id,
     child: child.id,
@@ -317,7 +317,8 @@ test('a worker reports its work itself: done, failed, or blocked, with its files
   // A newer explicit report replaces the older; blocked has no outcome, the parent must act.
   const blocked = inside(f, child.id).report('blocked', 'x'.repeat(3_000));
   expect(blocked.outcome).toBeUndefined();
-  expect(blocked.message).toHaveLength(2_000);
+  expect(blocked.message).toHaveLength(600);
+  expect(blocked.message?.endsWith('...')).toBe(true);
   expect(reportPrompt([blocked])).toContain('reported blocked, and needs you to act:');
   expect(service.list().reports.map((r) => r.kind)).toEqual(['blocked']);
   expect(inside(f, child.id).report('failed', 'The tables are gone').outcome).toBe('failed');
@@ -363,7 +364,7 @@ test("after its explicit report a child's turns make no finished report; waits a
 test('a busy parent gets an explicit report as its own turn ends, in the same prompt', async () => {
   const f = family();
   f.service.list();
-  inside(f, f.child.id).report('failed', 'The tide feed is down', ['feeds/tide.json']);
+  inside(f, f.child.id).report('failed', 'The tide feed is down', { files: ['feeds/tide.json'] });
   const prompt = await reportsAtTurnEnd(f.ctx, f.parent.id);
   expect(prompt).toContain('reported failed, failed:');
   expect(prompt).toContain('files: feeds/tide.json');
@@ -632,4 +633,42 @@ test("a delivery's receipt records the parent's context tokens at that moment", 
       expect.objectContaining({ via: 'Stop hook', contextTokens: 50_000 }),
     ]),
   );
+});
+
+test('a finished reply keeps 600 characters and names mesa review responses; a question keeps 2000', () => {
+  const f = family();
+  const { child } = f;
+  // The hook log keeps 200 characters of a reply (redactPayload); the report's own cap is read here.
+  const finished = eventReport(child as typeof child & { parent: string }, {
+    at: START,
+    agent: 'claude',
+    event: 'Stop',
+    payload: { hook_event_name: 'Stop', last_assistant_message: 'tide '.repeat(400) },
+  });
+  expect(finished?.message).toHaveLength(600);
+  expect(reportPrompt([finished as ChildReport])).toContain(
+    `finished its turn and said (all of it: mesa review responses ${child.id}):`,
+  );
+  const asked = inside(f, child.id).ask('q'.repeat(3_000));
+  expect(asked.text).toHaveLength(2_000);
+});
+
+test('an explicit report keeps its details file as an absolute path, shown under its text; a missing one writes nothing', () => {
+  const f = family();
+  const { parent, child, service } = f;
+  service.list();
+  const missing = join(f.home, 'nope.md');
+  expect(() => inside(f, child.id).report('done', 'x', { details: missing })).toThrow(
+    `no details file at ${missing}`,
+  );
+  expect(service.list().reports).toEqual([]);
+  const notes = join(f.home, 'tides-notes.md');
+  writeFileSync(notes, 'Low water at 06:12.\n');
+  const done = inside(f, child.id).report('done', 'Counted 12 tide tables.', { details: notes });
+  expect(done.details).toBe(notes);
+  expect(service.list(parent.id).reports).toMatchObject([{ details: notes }]);
+  const prompt = reportPrompt([done]);
+  expect(prompt).toContain(`  Counted 12 tide tables.\n  details: ${notes}\n  \`\`\``);
+  expect(prompt).not.toContain('Low water');
+  expect(keptReport(f.ctx, child.id)?.details).toBe(notes);
 });

@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { CLAUDE_VERSION, fakeTmux, scriptedRunner } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
@@ -89,4 +91,36 @@ test('report question gives an id; reports lists it; reports reply types the ans
   expect((await cli.mesa('reports', 'reply', 'q-zzzz', 'Feet', '--json')).json.error.code).toBe(
     'not_found',
   );
+});
+
+test('report --details keeps the file as an absolute path, never its content; a missing file writes nothing', async () => {
+  cli.run = scriptedRunner({ tmux: fakeTmux().answer, claude: CLAUDE_VERSION }).run;
+  await cli.withProject();
+  const parent = (await cli.mesa('open', 'lantern-cove', '--json')).json.data.id as string;
+  const child = (await cli.mesa('open', 'lantern-cove', '--parent', parent, '--json')).json.data
+    .id as string;
+  await cli.mesa('reports', '--json');
+  const checkout = join(cli.home, 'tide-checkout');
+  mkdirSync(join(checkout, 'docs'), { recursive: true });
+  writeFileSync(join(checkout, 'docs/tides-notes.md'), 'Low water at 06:12, the reef shows.\n');
+  cli.env = { MESA_SESSION_ID: child, MESA_PROFILE: 'default' };
+  cli.deps = { cwd: checkout };
+
+  const missing = await cli.mesa('report', 'done', 'x', '--details', 'nope.md', '--json');
+  expect(missing.code).toBe(2);
+  expect(missing.json.error.message).toBe(`no details file at ${join(checkout, 'nope.md')}`);
+  expect((await cli.mesa('reports', '--json')).json.data.reports).toEqual([]);
+
+  const long = `${'Counted 12 tide tables. '.repeat(40)}`;
+  const made = await cli.mesa('report', 'done', long, '--details', 'docs/tides-notes.md', '--json');
+  expect(made.code, made.stdout).toBe(0);
+  expect(made.json.data.report.details).toBe(join(checkout, 'docs/tides-notes.md'));
+  expect(made.json.data.report.message).toHaveLength(600);
+  expect(made.stdout).not.toContain('Low water');
+  expect((await cli.mesa('reports', '--json')).json.data.reports).toMatchObject([
+    { child, kind: 'done', details: join(checkout, 'docs/tides-notes.md') },
+  ]);
+  expect((await cli.mesa('show', child, '--json')).json.data.report).toMatchObject({
+    details: join(checkout, 'docs/tides-notes.md'),
+  });
 });
