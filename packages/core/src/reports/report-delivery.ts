@@ -9,6 +9,7 @@ import {
   type Send,
 } from '../sessions/input/idle-delivery.js';
 import { parentNowOf, withParentsNow } from '../sessions/record/family.js';
+import { contextTokens } from '../sessions/record/labels.js';
 import { sendable } from '../sessions/record/lifecycle.js';
 import type { SessionRecord } from '../sessions/record/record.js';
 import { callerOf } from '../sessions/window/caller.js';
@@ -19,19 +20,22 @@ import {
   EXPLICIT_KINDS,
   explicitReport,
   gateReport,
+  heldUntil,
   isExplicitKind,
+  type PendingReport,
   type Question,
   questionOf,
   reportPrompt,
 } from './reports.js';
 
 /** What `mesa reports` lists: whether delivery is on, the pending reports and open questions. */
-export type ReportList = { enabled: boolean; reports: ChildReport[]; questions: Question[] };
+export type ReportList = { enabled: boolean; reports: PendingReport[]; questions: Question[] };
 
 /** One parent's share of a delivery pass, with the ids of the reports it typed, or held. */
 export type ReportDelivery = IdleDelivery & { reports: string[] };
 
-export type ReportsDelivered = { deliveries: ReportDelivery[] };
+/** A delivery pass: each parent's share, and the reports still held (heldUntil), left pending. */
+export type ReportsDelivered = { deliveries: ReportDelivery[]; held: PendingReport[] };
 
 const ledgerOf = (ctx: MesaContext) => reportLedger(ctx.paths.reports, ctx.paths.events, ctx);
 /**
@@ -44,12 +48,31 @@ const reportingRecords = (ctx: MesaContext): SessionRecord[] =>
     const { parent: _recorded, ...rest } = r;
     return parentNow ? { ...rest, parent: parentNow } : rest;
   });
-/** Every child's new news in `records` (reportingRecords), collected into the pending reports. */
+/**
+ * Every child's new news in `records` (reportingRecords), collected into the pending reports,
+ * each `finished` one marked with `heldUntil` while its child has not stayed idle `hold` seconds.
+ */
 const collectAll = (
   ctx: MesaContext,
   ledger: ReturnType<typeof ledgerOf>,
+  hold: number,
   records = reportingRecords(ctx),
-) => ledger.collect(records, ctx.clock().toISOString());
+): PendingReport[] => {
+  const now = ctx.clock().toISOString();
+  const pending = ledger.collect(records, now);
+  if (hold <= 0) return pending;
+  const active = ledger.activity();
+  return pending.map((report) => {
+    const until = heldUntil(report, active[report.child], hold, now);
+    return until ? { ...report, heldUntil: until } : report;
+  });
+};
+
+/** The parent's context tokens now, for a delivery's receipt; none before its first reading. */
+const parentContext = (ctx: MesaContext, parent: string) => {
+  const context = ctx.store.find(parent)?.context;
+  return context ? { contextTokens: contextTokens(context) } : {};
+};
 
 /**
  * Child reports for one profile (CONTEXT.md, Child report): the pending ones, and their delivery
@@ -67,7 +90,7 @@ export function reportsService(
 ) {
   const ledger = ledgerOf(ctx);
   const enabled = () => ctx.open().config.sessions.childReports;
-  const collect = () => collectAll(ctx, ledger);
+  const collect = () => collectAll(ctx, ledger, ctx.open().config.sessions.reportHoldSeconds);
   /** The caller's session, a worker with a parent to report to, or a usage error naming why. */
   const reportingChild = () => {
     const caller = callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile });
@@ -181,8 +204,9 @@ export function reportsService(
       return { enabled: on, reports, questions };
     },
     /**
-     * With `sessions.childReports` on, types each idle parent's pending reports as one prompt;
-     * the others wait. Off, a usage error that sends nothing.
+     * With `sessions.childReports` on, types each idle parent's due reports as one prompt, so
+     * siblings due in the same pass share one wake; the others wait, and held ones stay pending.
+     * Off, a usage error that sends nothing.
      */
     deliver: async (): Promise<ReportsDelivered> => {
       if (!enabled())
@@ -190,8 +214,10 @@ export function reportsService(
           'usage',
           'child reports are off; turn them on with mesa config set sessions.childReports true',
         );
-      const pending = collect();
-      if (!pending.length) return { deliveries: [] };
+      const collected = collect();
+      const held = collected.filter((r) => r.heldUntil);
+      const pending = collected.filter((r) => !r.heldUntil);
+      if (!pending.length) return { deliveries: [], held };
       const board = await deps.board();
       const rows = new Map(board.filter(sendable).map((row) => [row.id, row]));
       const { threshold } = ctx.open().config.decisions;
@@ -226,11 +252,12 @@ export function reportsService(
           failure: `Could not type child reports into session ${parent}`,
           inputs: { session: parent, reports: claimed.map((r) => r.id) },
           prompt: reportPrompt(claimed),
+          outputs: parentContext(ctx, parent),
         });
         if (delivery.status === 'failed') ledger.release(claimed);
         deliveries.push({ ...delivery, reports: claimed.map((r) => r.id) });
       }
-      return { deliveries };
+      return { deliveries, held };
     },
   };
 }
@@ -246,13 +273,14 @@ export async function reportsAtTurnEnd(
   parent: string,
 ): Promise<string | undefined> {
   // A config that does not read is reports off, never a failed hook.
-  if (!ctx.configIfAny()?.sessions.childReports) return undefined;
+  const sessions = ctx.configIfAny()?.sessions;
+  if (!sessions?.childReports) return undefined;
   // A session no child names has nothing to collect: most Stops end here.
   const records = reportingRecords(ctx);
   if (!records.some((r) => r.parent === parent)) return undefined;
   const ledger = ledgerOf(ctx);
-  const ids = collectAll(ctx, ledger, records)
-    .filter((r) => r.parent === parent)
+  const ids = collectAll(ctx, ledger, sessions.reportHoldSeconds, records)
+    .filter((r) => r.parent === parent && !r.heldUntil)
     .map((r) => r.id);
   const claimed = ids.length ? ledger.claim(ids) : [];
   if (!claimed.length) return undefined;
@@ -268,7 +296,12 @@ export async function reportsAtTurnEnd(
         project: () => ctx.store.find(parent)?.project,
         session: () => parent,
         inputs: { session: parent, reports: claimed.map((r) => r.id) },
-        outputs: () => ({ via: 'Stop hook', chars: prompt.length, confidence: 1 }),
+        outputs: () => ({
+          via: 'Stop hook',
+          chars: prompt.length,
+          confidence: 1,
+          ...parentContext(ctx, parent),
+        }),
       },
       async () => prompt,
     )
@@ -301,6 +334,6 @@ export function keptReport(ctx: MesaContext, child: string): KeptReport | undefi
  */
 export function latestReports(ctx: MesaContext): Record<string, ChildReport> {
   const ledger = ledgerOf(ctx);
-  if (ctx.configIfAny()?.sessions.childReports) collectAll(ctx, ledger);
+  if (ctx.configIfAny()?.sessions.childReports) collectAll(ctx, ledger, 0);
   return ledger.latest();
 }

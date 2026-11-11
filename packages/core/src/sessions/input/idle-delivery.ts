@@ -91,7 +91,14 @@ export async function deliverIdle(
   send: Send,
   row: ManagedRow,
   placement: Placement,
-  what: { summary: string; failure: string; inputs: Record<string, unknown>; prompt: string },
+  what: {
+    summary: string;
+    failure: string;
+    inputs: Record<string, unknown>;
+    prompt: string;
+    /** More for the receipt's outputs, beside the placement. */
+    outputs?: Record<string, unknown>;
+  },
 ): Promise<IdleDelivery> {
   const placed = { session: row.id, state: placement.state, confidence: placement.confidence };
   try {
@@ -108,6 +115,7 @@ export async function deliverIdle(
           state: placement.state,
           confidence: placement.confidence,
           probabilities: placement.probabilities,
+          ...what.outputs,
         }),
         warning: (sent: Sent) => sent.warning,
       },

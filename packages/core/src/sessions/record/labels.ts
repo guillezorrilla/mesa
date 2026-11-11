@@ -133,3 +133,7 @@ export const attentionScore = (attention: number) => odds(attention);
 
 /** How full a session's context is, as the whole percent shown: 0 to 100 whatever the reading. */
 export const contextPercent = (used: number) => Math.round(Math.min(100, Math.max(0, used)));
+
+/** About how many tokens of its window a session's context use holds, as the context panel shows. */
+export const contextTokens = (context: { used: number; window: number }) =>
+  Math.round((Math.min(context.used, 100) / 100) * context.window);

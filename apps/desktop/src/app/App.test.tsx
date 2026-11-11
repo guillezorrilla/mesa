@@ -2929,6 +2929,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
       statusLineCost: false,
       prEvents: false,
       childReports: true,
+      reportHoldSeconds: 120,
       sleepAfterMinutes: 0,
       guidelines: true,
       keepAwake: 'off',

@@ -1,8 +1,8 @@
-import type { ChildReport } from '@mesa/core';
+import type { PendingReport } from '@mesa/core';
 import { defineCommand } from '../command.js';
 
-const line = (r: ChildReport) =>
-  `${r.parent} <- ${r.child} (${r.childName}) ${r.kind}${r.outcome ? ` ${r.outcome}` : ''}${r.tool ? ` ${r.tool}` : ''}${r.state ? ` ${r.state}` : ''} ${r.at}`;
+const line = (r: PendingReport) =>
+  `${r.parent} <- ${r.child} (${r.childName}) ${r.kind}${r.outcome ? ` ${r.outcome}` : ''}${r.tool ? ` ${r.tool}` : ''}${r.state ? ` ${r.state}` : ''} ${r.at}${r.heldUntil ? ` held until ${r.heldUntil}` : ''}`;
 
 export const reports = defineCommand({
   name: 'reports',
@@ -12,7 +12,8 @@ export const reports = defineCommand({
   flags: {
     deliver: {
       type: 'boolean',
-      description: "Type each idle parent's pending reports as one prompt; busy parents wait",
+      description:
+        "Type each idle parent's due reports as one prompt; busy parents wait, and a finished turn is held until its child stays idle (sessions.reportHoldSeconds)",
     },
   },
   example: 'mesa reports --deliver',
@@ -21,12 +22,13 @@ export const reports = defineCommand({
       const data = await mesa.reports.deliver();
       return {
         data,
-        text: data.deliveries
-          .map(
+        text: [
+          ...data.deliveries.map(
             (d) =>
               `${d.session}: ${d.status} ${d.reports.length} reports${d.reason ? ` (${d.reason})` : ''}`,
-          )
-          .join('\n'),
+          ),
+          ...data.held.map(line),
+        ].join('\n'),
       };
     }
     const data = mesa.reports.list(args.session);

@@ -9,6 +9,7 @@ import type { Sent } from '../sessions/input/send.js';
 import { recordHookEvent } from '../sessions/signals/hook-events.js';
 import {
   lockDeps,
+  movableClock,
   newSession,
   placedRow,
   profilePaths,
@@ -19,7 +20,7 @@ import {
 } from '../testing/index.js';
 import { keptReport, latestReports, reportsAtTurnEnd, reportsService } from './report-delivery.js';
 import { reportLedger } from './report-ledger.js';
-import { addReport, type ChildReport, reportPrompt } from './reports.js';
+import { addReport, type ChildReport, heldUntil, reportPrompt } from './reports.js';
 
 const START = '2026-09-24T12:00:00.000Z';
 
@@ -49,7 +50,10 @@ function family(start = START) {
   let board: SessionRow[] = [placedRow(parent, 'idle')];
   const typed: { id: string; prompt: string }[] = [];
   let refuse: MesaError | undefined;
-  const ctx = createContext('default', testDeps(home, { run, clock: () => new Date(start) }));
+  const time = movableClock(start);
+  const ctx = createContext('default', testDeps(home, { run, clock: time.clock }));
+  // The hold is off here; the hold's own tests turn it on.
+  mesa.config.set('sessions.reportHoldSeconds', '0');
   const service = reportsService(ctx, {
     board: async () => board,
     send: async (id, prompt) => {
@@ -81,6 +85,7 @@ function family(start = START) {
     refuseWith: (error?: MesaError) => {
       refuse = error;
     },
+    setNow: time.set,
   };
 }
 
@@ -524,4 +529,107 @@ test('a handoff successor reports to the parent of the session that handed off',
       .reports.map((r) => `${r.child} ${r.kind}`)
       .sort(),
   ).toEqual([`${child.id} ended`, `${successor.id} blocked`]);
+});
+
+test("a child's finished turn is held until it has stayed idle, then goes out; one working again holds its newer turn", async () => {
+  const { ctx, mesa, parent, hook, service, typed, setNow } = family();
+  mesa.config.set('sessions.reportHoldSeconds', '120');
+  service.list();
+  hook('Stop', { last_assistant_message: 'first pass' }); // 12:00:01
+  expect(service.list().reports).toMatchObject([
+    { kind: 'finished', heldUntil: '2026-09-24T12:02:01.000Z' },
+  ]);
+  const before = await service.deliver();
+  expect(before).toMatchObject({ deliveries: [], held: [{ message: 'first pass' }] });
+  expect(await reportsAtTurnEnd(ctx, parent.id)).toBeUndefined();
+  hook('UserPromptSubmit'); // 12:00:02: working again, so the hold restarts
+  expect(service.list().reports[0]?.heldUntil).toBe('2026-09-24T12:02:02.000Z');
+  hook('Stop', { last_assistant_message: 'second pass' }); // 12:00:03 replaces the held one
+  expect(service.list().reports).toMatchObject([
+    { message: 'second pass', heldUntil: '2026-09-24T12:02:03.000Z' },
+  ]);
+  setNow('2026-09-24T12:02:02.999Z');
+  expect((await service.deliver()).held).toHaveLength(1);
+  expect(typed).toEqual([]);
+  setNow('2026-09-24T12:02:03.000Z');
+  expect(service.list().reports[0]?.heldUntil).toBeUndefined();
+  expect(await service.deliver()).toMatchObject({
+    deliveries: [{ session: parent.id, status: 'delivered' }],
+    held: [],
+  });
+  expect(typed.map((t) => t.prompt)).toEqual([expect.stringContaining('second pass')]);
+});
+
+test('with the hold at 0 a finished turn is due at once', () => {
+  const { mesa, hook, service } = family();
+  mesa.config.set('sessions.reportHoldSeconds', '0');
+  service.list();
+  hook('Stop', { last_assistant_message: 'quick' });
+  expect(service.list().reports[0]).not.toHaveProperty('heldUntil');
+});
+
+test('siblings due in the same pass go to their parent in one prompt, one receipt, one wake', async () => {
+  const { home, mesa, store, parent, hook, service, typed, setNow } = family();
+  mesa.config.set('sessions.reportHoldSeconds', '120');
+  const sibling = store.create(() => newSession({ parent: parent.id, agentName: 'reef-maps' }));
+  service.list();
+  hook('Stop', { last_assistant_message: 'Tides counted.' });
+  hook('Stop', { last_assistant_message: 'Reefs mapped.' }, sibling.id);
+  expect((await service.deliver()).held).toHaveLength(2);
+  setNow('2026-09-24T12:05:00.000Z');
+  const { deliveries } = await service.deliver();
+  expect(deliveries).toMatchObject([{ session: parent.id, status: 'delivered' }]);
+  expect(deliveries[0]?.reports).toHaveLength(2);
+  expect(typed).toHaveLength(1);
+  expect(typed[0]?.prompt).toContain('Tides counted.');
+  expect(typed[0]?.prompt).toContain('Reefs mapped.');
+  expect(listReceipts(join(home, 'vault'), 10, { session: parent.id })).toHaveLength(1);
+});
+
+test('only a finished turn is held: waits, endings, explicit reports, questions and gates are not', async () => {
+  const f = family();
+  const { mesa, store, parent, child, hook, service, typed } = f;
+  mesa.config.set('sessions.reportHoldSeconds', '120');
+  const base = { id: 'r', parent: 'p', child: 'c', childName: 'tide', at: START };
+  const now = '2026-09-24T12:00:30.000Z';
+  for (const kind of ['waiting', 'ended', 'question', 'gate', 'done', 'failed', 'blocked'] as const)
+    expect(heldUntil({ ...base, kind }, START, 120, now)).toBeUndefined();
+  expect(heldUntil({ ...base, kind: 'finished' }, START, 120, now)).toBe(
+    '2026-09-24T12:02:00.000Z',
+  );
+  expect(heldUntil({ ...base, kind: 'finished' }, START, 0, now)).toBeUndefined();
+  service.list();
+  hook('PermissionRequest', { tool_name: 'Bash' });
+  const sibling = store.create(() => newSession({ parent: parent.id, agentName: 'reef-maps' }));
+  inside(f, sibling.id).report('done', 'Reefs mapped.');
+  inside(f, child.id).ask('Metres or feet?');
+  const { deliveries, held } = await service.deliver();
+  expect(held).toEqual([]);
+  expect(deliveries[0]?.reports).toHaveLength(3);
+  expect(typed).toHaveLength(1);
+});
+
+test("a delivery's receipt records the parent's context tokens at that moment", async () => {
+  const { ctx, home, store, parent, hook, service } = family();
+  const context = {
+    used: 25,
+    window: 200_000,
+    at: '2026-09-24T11:59:00.000Z',
+    source: 'transcript' as const,
+  };
+  store.update(parent.id, (r) => ({ ...r, context }));
+  service.list();
+  hook('Stop', { last_assistant_message: 'idle delivery' });
+  await service.deliver();
+  hook('Stop', { last_assistant_message: 'turn end delivery' });
+  await reportsAtTurnEnd(ctx, parent.id);
+  const outputs = listReceipts(join(home, 'vault'), 10, { session: parent.id }).map(
+    (r) => r.receipt.outputs,
+  );
+  expect(outputs).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ state: 'idle', chars: 1, contextTokens: 50_000 }),
+      expect.objectContaining({ via: 'Stop hook', contextTokens: 50_000 }),
+    ]),
+  );
 });
