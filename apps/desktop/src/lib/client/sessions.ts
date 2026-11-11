@@ -49,11 +49,12 @@ export const sessionsCommands = {
     name,
   ]),
   // The board as mesa orders it: attention, children under their parent.
-  'sessions.list': command<TreeRow[]>('sessions', '--tree'),
+  // --full: every field, as the app reads them, even from inside a session's window (agent-view.ts).
+  'sessions.list': command<TreeRow[]>('sessions', '--tree', '--full'),
   /** The local URLs sessions' dev servers printed, listening first (Advertised URL). */
   'sessions.ports': command<{ ports: AdvertisedUrl[] }>('ports'),
   // The archived sessions, newest archive first: Mesa's own, so no foreign row.
-  'sessions.archived': command<ManagedRow[]>('sessions', '--archived'),
+  'sessions.archived': command<ManagedRow[]>('sessions', '--archived', '--full'),
   'image.preview': commandWith<{ id: string; path: string }, SessionImage>(({ id, path }) => [
     'image',
     'preview',
@@ -230,6 +231,7 @@ export const sessionsCommands = {
   'sessions.crew': commandWith<{ id: string }, CrewRow[]>(({ id }) => [
     'sessions',
     '--children',
+    '--full',
     '--',
     id,
   ]),
@@ -248,7 +250,7 @@ export const sessionsCommands = {
       vault: InstructionStatus;
       decisions: DecisionDeliveryStatus;
     }
-  >(({ id }) => ['show', '--', id]),
+  >(({ id }) => ['show', '--full', '--', id]),
   // `--goal=` and `--branch=` hand a value starting with `-` to mesa, which refuses it with its
   // own message; a blank one passes none. `--no-parent`: a person opening one here is not a
   // session starting a child, even when the app itself was started inside a Mesa window.
@@ -348,5 +350,5 @@ export const sessionsCommands = {
   'sessions.search': commandWith<{ project: string; query: string }, ConversationSearch>(
     ({ project, query }) => ['history', 'search', '--', project, query],
   ),
-  'sessions.all': command<TreeRow[]>('sessions', '--all', '--tree'),
+  'sessions.all': command<TreeRow[]>('sessions', '--all', '--tree', '--full'),
 };

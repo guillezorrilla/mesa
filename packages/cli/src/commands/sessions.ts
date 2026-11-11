@@ -1,5 +1,7 @@
 import {
   additionalLabel,
+  agentCrewRow,
+  agentRow,
   attentionScore,
   contextPercent,
   duration,
@@ -34,9 +36,16 @@ export const sessions = defineCommand({
       type: 'boolean',
       description: 'Children under their parent, indented; --json adds each row its depth',
     },
+    full: {
+      type: 'boolean',
+      description:
+        "With --json inside a session's window, every field of each row, not the agent view",
+    },
   },
   example: 'mesa sessions --tree',
   run: async ({ mesa, flags, args }) => {
+    // An agent in a session's window reads a few fields a row (agent-view.ts); everyone else all.
+    const agentView = !flags.full && mesa.sessions.agentReads();
     if (args.id !== undefined || flags.children) {
       if (!args.id || !flags.children || flags.all || flags.archived || flags.tree)
         throw new MesaError('usage', 'list a crew with mesa sessions <id> --children');
@@ -54,7 +63,7 @@ export const sessions = defineCommand({
             ]),
           ).join('\n')
         : `session ${args.id} has no children; start one with mesa worker`;
-      return { data: crew, text };
+      return { data: agentView ? crew.map(agentCrewRow) : crew, text };
     }
     if (flags.all && flags.archived)
       throw new MesaError('usage', 'pass --all or --archived, not both');
@@ -93,6 +102,6 @@ export const sessions = defineCommand({
       : flags.archived
         ? 'no archived sessions'
         : 'no sessions; run mesa open <project>';
-    return { data: rows, text };
+    return { data: agentView ? rows.map(agentRow) : rows, text };
   },
 });

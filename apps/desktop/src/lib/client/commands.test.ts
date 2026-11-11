@@ -82,3 +82,21 @@ test("sessions.open names each additional project with --with=, before the sessi
     'lantern-cove',
   ]);
 });
+
+// Inside a session's window the CLI prints a compact agent view; the app always reads every field.
+test('the app reads every field of the sessions it lists and shows, wherever it runs', () => {
+  const id = { id: 'aaaaaaaa' };
+  expect([
+    sessionsCommands['sessions.list'].argv(undefined),
+    sessionsCommands['sessions.all'].argv(undefined),
+    sessionsCommands['sessions.archived'].argv(undefined),
+    sessionsCommands['sessions.crew'].argv(id),
+    sessionsCommands['sessions.show'].argv(id),
+  ]).toEqual([
+    ['sessions', '--tree', '--full'],
+    ['sessions', '--all', '--tree', '--full'],
+    ['sessions', '--archived', '--full'],
+    ['sessions', '--children', '--full', '--', 'aaaaaaaa'],
+    ['show', '--full', '--', 'aaaaaaaa'],
+  ]);
+});

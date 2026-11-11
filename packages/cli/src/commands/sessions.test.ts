@@ -280,6 +280,67 @@ test("sessions <id> --children lists that session's crew; either alone is a usag
   expect((await mesa('sessions', '--children')).code).toBe(2);
 });
 
+test("inside a session's window --json rows are the agent view; --full and outside a window, every field", async () => {
+  await mesa('init', '--vault', 'vault');
+  const store = testStore(cli.home, 'default', shortIds('aaaaaaaa', 'bbbbbbbb'));
+  const lead = store.create(() => newSession({ project: 'lantern-cove' }));
+  store.create(() =>
+    newSession({
+      project: 'lantern-cove',
+      parent: lead.id,
+      worktree: { path: join(cli.paths.worktrees, 'lantern-cove/tide'), branch: 'tide' },
+      progress: { text: 'charting buoys', at: '2026-09-24T11:30:00.000Z' },
+    }),
+  );
+  cli.run = scriptedRunner({ tmux: fakeTmux().answer }).run;
+  const outside = (await mesa('sessions', '--json')).stdout;
+
+  cli.env = { MESA_SESSION_ID: lead.id, MESA_PROFILE: 'default' };
+  const rows = (await mesa('sessions', '--json')).json.data;
+  const child = rows.find((r: { id: string }) => r.id === 'bbbbbbbb');
+  expect(Object.keys(child).sort()).toEqual([
+    'agent',
+    'alive',
+    'branch',
+    'confidence',
+    'id',
+    'kind',
+    'parent',
+    'progress',
+    'project',
+    'startedAt',
+    'state',
+  ]);
+  expect(child).toMatchObject({
+    parent: lead.id,
+    branch: 'tide',
+    progress: { text: 'charting buoys' },
+  });
+  const full = (await mesa('sessions', '--full', '--json')).json.data;
+  expect(full[0]).toHaveProperty('lastState');
+
+  const crew = (await mesa('sessions', lead.id, '--children', '--json')).json.data;
+  expect(crew[0]).not.toHaveProperty('lastState');
+  expect(crew[0]).toMatchObject({ id: 'bbbbbbbb', state: expect.any(String) });
+  const shown = (await mesa('show', lead.id, '--json')).json.data;
+  expect(shown).toMatchObject({
+    instructions: expect.any(String),
+    vault: expect.any(String),
+    decisions: { tool: expect.any(String), advice: expect.any(String) },
+  });
+  expect((await mesa('show', lead.id, '--full', '--json')).json.data.vault).toHaveProperty(
+    'reason',
+  );
+
+  // Outside a window: every field, as before; the same rows again but for the clock's fields.
+  cli.env = {};
+  const again = (await mesa('sessions', '--json')).json.data;
+  expect(again.map((r: object) => Object.keys(r))).toEqual(
+    JSON.parse(outside).data.map((r: object) => Object.keys(r)),
+  );
+  expect(again[0]).toHaveProperty('lastState');
+});
+
 test('a child sits under its resumed parent, which mesa show names as parentNow; a child of no record is a root', async () => {
   await mesa('init', '--vault', 'vault');
   const store = testStore(
