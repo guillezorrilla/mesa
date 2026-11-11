@@ -1,4 +1,4 @@
-import { counted, odds } from '../../lib/format.js';
+import { counted, firstLine, odds } from '../../lib/format.js';
 import type { SessionRow } from '../board/rows.js';
 import { projectLabel } from './general.js';
 import type { SessionRecord, SessionReview } from './record.js';
@@ -43,8 +43,33 @@ export const sessionTitle = (
     (s.name ||
       (s.review && reviewLabel(s.review)) ||
       s.agentName ||
-      s.goal?.trim().split(/\r?\n/, 1)[0])) ||
+      (s.goal && firstLine(s.goal)))) ||
   fallback;
+
+/** A task's title: its spec's first line. */
+export const taskTitle = firstLine;
+
+/**
+ * A Setup session (CONTEXT.md, Worktree): the plain terminal Mesa opens beside a session to run
+ * worktree setup, named `Setup` or `Setup <project>`, its owner's child.
+ */
+export const isSetupSession = (s: SessionRow) =>
+  s.managed && s.kind === 'terminal' && Boolean(s.parent) && /^Setup( |$)/.test(s.name ?? '');
+
+/** A child as its parent's crew names it: its task's title, else its title (sessionTitle). */
+export const crewTitle = (s: SessionRow) => (s.managed && s.taskTitle) || sessionTitle(s);
+
+/**
+ * What a child is doing now, in one line: its agent's progress line until it ends, else its
+ * newest report's first sentence, else its last reply's first line; none without any.
+ */
+export const doingNow = (s: SessionRow) => {
+  if (!s.managed) return undefined;
+  if (s.progress && !s.endedAt) return s.progress.text;
+  const report = s.report?.message.trim();
+  if (report) return report.split(/(?<=[.!?])\s|\r?\n/, 1)[0];
+  return (s.lastReply && firstLine(s.lastReply.text)) || undefined;
+};
 
 /** A Mesa session that runs a skill headlessly (CONTEXT.md, Skill run). */
 export const isRun = (s: SessionRow) => s.managed && s.kind === 'run';

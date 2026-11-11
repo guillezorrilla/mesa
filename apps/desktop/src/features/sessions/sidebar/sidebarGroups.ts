@@ -2,18 +2,26 @@ import type { ProjectRow, TreeRow } from '@mesa/core';
 import {
   activeSession,
   GENERAL_PROJECT,
+  isSetupSession,
   orderSessions,
   recoverable,
   sessionProjects,
 } from '@mesa/core/browser';
 
+/** A child shown inside its parent's card: its row and how far below the card it sits (1 or more). */
+export type NestedRow = { session: TreeRow; depth: number };
+
 /**
  * The sidebar's lists: the visible projects (pinned first), and in the Sessions tab's order
  * (pinned, then those with active sessions, then the rest), the active sessions (oldest first),
- * the recoverable ones, and the active ones in no listed project, split into General and Other;
- * a project's active sessions by primary, in its saved session order (inProject, the Sessions
+ * the recoverable ones, and the active cards in no listed project, split into General and Other;
+ * a project's active cards by primary, in its saved session order (inProject, the Sessions
  * tab's groups); and those it is
  * primary or additional in (touching, the Projects tab's count; CONTEXT.md, Additional project).
+ * A card is an active or recoverable session whose parent is not active: an active session's
+ * children, ended ones too, sit inside its card (crewOf, its descendants oldest first, each
+ * followed by its own), and a Setup session is no card at all, only its owner's mark when it
+ * failed (failedSetupsOf).
  */
 export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonly TreeRow[]) {
   const visible = projects
@@ -24,14 +32,36 @@ export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonl
   const active = sessions
     .filter(activeSession)
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
-  const stranded = sessions.filter(recoverable);
-  const unassigned = active.filter(
+  const listed = sessions.filter((session) => !isSetupSession(session));
+  const activeIds = new Set(active.map((session) => session.id));
+  const parentOf = (session: TreeRow) => (session.managed ? session.parentNow : undefined);
+  /** Not inside an active parent's card. */
+  const onTop = (session: TreeRow) => !activeIds.has(parentOf(session) ?? '');
+  const cards = active.filter((session) => !isSetupSession(session) && onTop(session));
+  const stranded = sessions.filter((session) => recoverable(session) && onTop(session));
+  // `seen` stops at a loop of hand-edited parents (sessionTree places those at the top).
+  const crewOf = (id: string, depth = 1, seen = new Set([id])): NestedRow[] =>
+    listed
+      .filter((session) => parentOf(session) === id && !seen.has(session.id))
+      .flatMap((session) => {
+        seen.add(session.id);
+        return [{ session, depth }, ...crewOf(session.id, depth + 1, seen)];
+      });
+  const failedSetupsOf = (id: string) =>
+    sessions.filter(
+      (session) =>
+        session.managed &&
+        session.setupFailed &&
+        isSetupSession(session) &&
+        parentOf(session) === id,
+    );
+  const unassigned = cards.filter(
     (session) => !session.project || !registered.has(session.project),
   );
   const general = unassigned.filter((session) => session.project === GENERAL_PROJECT);
   const other = unassigned.filter((session) => session.project !== GENERAL_PROJECT);
   const byProject = new Map<string, TreeRow[]>();
-  for (const session of active)
+  for (const session of cards)
     if (session.project)
       byProject.set(session.project, [...(byProject.get(session.project) ?? []), session]);
   const ordered = new Map(
@@ -47,7 +77,18 @@ export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonl
   const byActivity = [...visible].sort(
     (a, b) => Number(b.pinned) - Number(a.pinned) || busy(b.name) - busy(a.name),
   );
-  return { visible, byActivity, active, stranded, general, other, inProject, touching };
+  return {
+    visible,
+    byActivity,
+    active,
+    stranded,
+    general,
+    other,
+    inProject,
+    touching,
+    crewOf,
+    failedSetupsOf,
+  };
 }
 
 export type SidebarGroups = ReturnType<typeof sidebarGroups>;

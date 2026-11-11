@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { AGENTS } from '../../agents/agents.js';
+import { SETUP_FAILED } from '../../agents/hooks.js';
 import type { AgentProcess } from '../../agents/listing.js';
 import type { Agent } from '../../agents/names.js';
 import type { AgentState } from '../../agents/states.js';
@@ -130,6 +131,10 @@ export async function managedRow(
         record.endedAt ? Date.parse(record.endedAt) : now.getTime(),
       ),
       ...(tail ? { lastOutput: tail.trimEnd().split('\n').at(-1) } : {}),
+      // Only a child terminal can be a Setup session, whose failure its hook log keeps.
+      ...(found.parent && deps.events(found.id).some((e) => e.event === SETUP_FAILED)
+        ? { setupFailed: true as const }
+        : {}),
       supervision: { source: 'rules' },
     };
   }

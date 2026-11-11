@@ -144,9 +144,9 @@ export type { ChildReport, PendingReport, Question } from './reports/reports.js'
 export { type SearchHit, searchWorkspace } from './search/search.js';
 export { awakeStatus, isKeepAwakeMode, KEEP_AWAKE_MODES } from './sessions/awake.js';
 export type { SessionScope } from './sessions/board/board.js';
-export type { CrewReport, CrewRow } from './sessions/board/crew.js';
+export type { CrewRow } from './sessions/board/crew.js';
 export type { BranchPullRequest } from './sessions/board/pull-requests.js';
-export type { ForeignRow, ManagedRow, SessionRow } from './sessions/board/rows.js';
+export type { CrewReport, ForeignRow, ManagedRow, SessionRow } from './sessions/board/rows.js';
 export type { TreeRow } from './sessions/board/tree.js';
 export type { DescendantResult } from './sessions/end/descendants.js';
 export type { Removed } from './sessions/end/remove.js';
@@ -203,6 +203,7 @@ export {
   sessionBranch,
   sessionCount,
   sessionLabel,
+  taskTitle,
   waitingOn,
 } from './sessions/record/labels.js';
 export type { SessionRecord, SessionReview } from './sessions/record/record.js';

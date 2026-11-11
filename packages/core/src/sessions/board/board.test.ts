@@ -947,3 +947,27 @@ test("an ended session's card keeps its last reply, read from its hook log once 
   expect(second.get(ended.id)).toMatchObject({ lastReply: reply });
   expect(reads).toHaveLength(before);
 });
+
+test("a Setup session's row says its setup failed once its hook log says so", async () => {
+  const store = storeIn();
+  const owner = store.create(() => newSession());
+  const setup = (name: string) =>
+    store.create(() =>
+      newSession({ kind: 'terminal', agent: 'terminal', parent: owner.id, name, goal: undefined }),
+    );
+  const failed = setup('Setup');
+  const passed = setup('Setup tide-pool');
+  const rows = await listSessions({
+    ...noListing,
+    store,
+    tmux: tmuxWith(),
+    events: (id) =>
+      id === failed.id
+        ? [{ at: '2026-09-24T11:59:50.000Z', agent: 'claude', event: 'SetupFailed', payload: {} }]
+        : [],
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  });
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  expect(byId.get(failed.id)).toMatchObject({ setupFailed: true });
+  expect(byId.get(passed.id)).not.toHaveProperty('setupFailed');
+});
