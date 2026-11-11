@@ -36,7 +36,11 @@ const filesUnder = (dir: string): string[] =>
 
 test('pair shows a QR link and keeps the Mac half in the Keychain only; the phone joins and status confirms it', async () => {
   const { mesa, home, broker, secrets, phone } = setup();
-  const started = (await mesa.phone.pair()).result;
+  const recorded = await mesa.phone.pair();
+  const started = recorded.result;
+  const receipt = readFileSync(join(home, 'vault', recorded.receipt?.path ?? ''), 'utf8');
+  expect(receipt).toMatch(/^kind: phone$/m);
+  expect(receipt).toContain(`phone: ${started.pairingId}`);
   expect(started).toMatchObject({
     pairingId: 'pairing-0000000001',
     qr: expect.stringMatching(

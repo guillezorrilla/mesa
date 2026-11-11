@@ -18,7 +18,7 @@ export function phoneService(ctx: MesaContext) {
       ctx.open();
       return ctx.record(
         {
-          kind: 'connection',
+          kind: 'phone',
           summary: () => 'Started pairing a phone',
           failure: 'Could not start pairing a phone',
           inputs: {},
@@ -38,7 +38,7 @@ export function phoneService(ctx: MesaContext) {
       ctx.open();
       return ctx.record(
         {
-          kind: 'connection',
+          kind: 'phone',
           summary: () => 'Unpaired the phone',
           failure: 'Could not unpair the phone',
           inputs: {},
