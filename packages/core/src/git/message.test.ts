@@ -12,7 +12,7 @@ import {
   withRealGit,
 } from '../testing/index.js';
 import { splitTitle } from './message.js';
-import { cutPatch, dataFence, fillRecipe } from './recipes.js';
+import { cutPatch, dataFence, fillRecipe, PATCH_LIMIT_BYTES } from './recipes.js';
 
 /** lantern-cove as a git repository on main, and a claude whose git-text run answers `answer`. */
 function setUp(answer = 'Add the harbour tide table') {
@@ -40,11 +40,69 @@ test('fillRecipe fills the names it is given and leaves an unknown one as writte
 
 test('the fence outgrows any backticks in the patch, and a long patch is cut at a line with a note', () => {
   expect(dataFence('diff', '+a ```` b')).toBe('`````diff\n+a ```` b\n`````');
-  const patch = `${'+line\n'.repeat(10)}`;
-  expect(cutPatch(patch, 1000)).toBe(patch);
-  expect(cutPatch(patch, 15)).toBe(
-    '+line\n+line\n[Mesa cut the patch here: 48 more bytes of it are not shown]\n',
+});
+
+/** One file's block of a patch: its header, one hunk, and `lines` added lines of `line`. */
+const fileDiff = (name: string, lines: number, line = 'x') =>
+  `diff --git a/${name} b/${name}\n--- a/${name}\n+++ b/${name}\n@@ -0,0 +1,${lines} @@\n${`+${line}\n`.repeat(lines)}`;
+const MARK = /\[Mesa cut this file here: (\d+) more bytes of it are not shown\]\n/g;
+
+test('a patch that fits comes back unchanged; the limit is 60 KB', () => {
+  const patch = fileDiff('tides.md', 10);
+  expect(cutPatch(patch, Buffer.byteLength(patch))).toBe(patch);
+  expect(PATCH_LIMIT_BYTES).toBe(60_000);
+});
+
+test('one 100 KB generated file among three small ones: the three stay whole, it is cut with its marker', () => {
+  const small = ['a.ts', 'b.ts', 'c.ts'].map((n) => fileDiff(n, 20, `const ${n[0]} = 1;`));
+  const lock = fileDiff('package-lock.json', 5_000, '"tide": "1.0.0",');
+  const patch = [small[0], lock, small[1], small[2]].join('');
+  const cut = cutPatch(patch);
+  for (const file of small) expect(cut).toContain(file as string);
+  const marks = [...cut.matchAll(MARK)];
+  expect(marks).toHaveLength(1);
+  expect(cut.indexOf(marks[0]?.[0] ?? '')).toBeLessThan(cut.indexOf('diff --git a/b.ts'));
+  // Within the limit but for the marker, and the lockfile's lines after its share are what is gone.
+  expect(Buffer.byteLength(cut.replace(MARK, ''))).toBeLessThanOrEqual(PATCH_LIMIT_BYTES);
+  expect(Buffer.byteLength(cut.replace(MARK, '')) + Number(marks[0]?.[1])).toBe(
+    Buffer.byteLength(patch),
   );
+  expect(cut.split('\n').every((l) => !l.startsWith('+"ti') || l === '+"tide": "1.0.0",')).toBe(
+    true,
+  );
+});
+
+test("a short file's unused share goes to the longer ones, which get the same", () => {
+  const short = fileDiff('a.md', 1);
+  const longs = ['b.md', 'c.md'].map((n) => fileDiff(n, 400, 'y'.repeat(9)));
+  const limit = 3_000;
+  const cut = cutPatch([short, ...longs].join(''), limit);
+  expect(cut).toContain(short);
+  const kept = ['b.md', 'c.md'].map((name) => {
+    const at = cut.indexOf(`diff --git a/${name}`);
+    const end = cut.indexOf('[Mesa cut this file here', at);
+    return Buffer.byteLength(cut.slice(at, end));
+  });
+  // Equal shares, each well past a third of the limit, as the short file used little of its own.
+  expect(kept[0]).toBe(kept[1]);
+  expect(kept[0]).toBeGreaterThan(limit / 3);
+  expect(Buffer.byteLength(cut.replace(MARK, ''))).toBeLessThanOrEqual(limit);
+});
+
+test('more files than the limit has room for keep the first ones by header and name how many were left out', () => {
+  const files = Array.from({ length: 50 }, (_, i) => fileDiff(`tide-${i}.md`, 3));
+  const header = Buffer.byteLength(fileDiff('tide-0.md', 0).split('@@')[0] ?? '');
+  const cut = cutPatch(files.join(''), header * 10);
+  expect(cut.match(/^diff --git /gm)).toHaveLength(10);
+  expect(cut).toContain('diff --git a/tide-0.md');
+  expect(cut).toMatch(/\[Mesa left out 40 more files: the patch is over its \d+-byte limit\]\n$/);
+});
+
+test('multibyte text is cut at a line end, never inside a character', () => {
+  const patch = fileDiff('marea.md', 2_000, 'pleamar á las seis ☾');
+  const cut = cutPatch(patch, 5_001);
+  expect(cut).not.toContain('\uFFFD');
+  expect(cut.replace(MARK, '').endsWith('+pleamar á las seis ☾\n')).toBe(true);
 });
 
 test('a commit message comes from a git-text run given the filled recipe on stdin, and nothing is committed', async () => {
@@ -105,14 +163,14 @@ test("the project's recipe overrides the profile's, and an empty index is refuse
   expect(sent.result.value).toBe('A: {branch}');
 });
 
-test('a staged patch over 200 KB reaches the run cut, with the line saying so', async () => {
+test('a staged patch over 60 KB reaches the run cut, with the line saying so', async () => {
   const { dir, mesa, inputs } = setUp();
   writeFileSync(join(dir, 'soundings.csv'), 'depth,12.5\n'.repeat(30_000));
   testGit(dir, 'add', 'soundings.csv');
   await mesa.git.message('lantern-cove');
   const [input = ''] = inputs;
-  expect(input).toContain('[Mesa cut the patch here: ');
-  expect(Buffer.byteLength(input)).toBeLessThan(201_000);
+  expect(input).toContain('[Mesa cut this file here: ');
+  expect(Buffer.byteLength(input)).toBeLessThan(61_000);
 });
 
 test('a failed run is an error naming the run and its reason', async () => {
