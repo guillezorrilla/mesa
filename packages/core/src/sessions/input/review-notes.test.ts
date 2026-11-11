@@ -130,14 +130,37 @@ test('send sends every unsent note as one prompt, once, and leaves a stale one o
     [file.id, id],
     [gull.id, id],
   ]);
-  expect(await mesa.sessions.notes.send(id, undefined, { noFrom: true })).toEqual({
-    to: id,
-    sent: [],
-    stale: [gone.id],
-  });
-  expect(typed()).toHaveLength(1);
   const [event] = (await mesa.sessions.show(id)).events.filter((e) => e.type === 'review');
   expect(event).toMatchObject({ kind: 'notes', notes: [moon.id, file.id, gull.id] });
+});
+
+test('a second send repeats the notes still open under their own heading; a resolved one never goes again', async () => {
+  const { mesa, tree, typed, id } = await setUp();
+  const add = (line: number, text: string) =>
+    mesa.sessions.notes.add(id, { path: 'tide.ts', line, text });
+  const tide = await add(1, 'tide');
+  const moon = await add(2, 'moon');
+  await mesa.sessions.notes.send(id, undefined, { noFrom: true });
+  mesa.sessions.notes.remove(id, tide.id);
+  const reef = await add(3, 'reef');
+  // The agent changed moon's line since: the repeat quotes it as it reads now.
+  writeFileSync(join(tree, 'tide.ts'), TIDE.replace('moon = 2', 'moon = 20'));
+  const again = await mesa.sessions.notes.send(id, undefined, { noFrom: true });
+  expect(again).toMatchObject({ sent: [reef.id, moon.id], delivery: { status: 'delivered' } });
+  expect(typed()[1]).toBe(
+    [
+      `These are the person's review notes on session ${id}'s diff on branch tides in ${realpathSync(tree)} (2).`,
+      'File: tide.ts\nLines: 3-3\n```\nconst reef = 3;\n```\nNote: reef',
+      'Still open from the last round:',
+      'File: tide.ts\nLines: 2-2\n```\nconst moon = 20;\n```\nNote: moon',
+    ].join('\n\n'),
+  );
+  expect(typed()[1]).not.toContain('Note: tide');
+  // The same open notes again are a new round, not the last one delivered twice.
+  const third = await mesa.sessions.notes.send(id, undefined, { noFrom: true });
+  expect(third.delivery).toMatchObject({ status: 'delivered' });
+  expect(third.delivery?.already).toBeUndefined();
+  expect(typed()).toHaveLength(3);
 });
 
 test("send --path sends only that file's notes", async () => {

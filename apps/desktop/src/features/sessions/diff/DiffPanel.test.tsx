@@ -21,6 +21,13 @@ import {
 import { DiffPanel } from './DiffPanel';
 
 const diff = (data: object) => () => sessionDiff(data);
+/** The header's count of notes the next send holds; none while it is hidden. */
+const toSend = () =>
+  document.querySelector('[data-testid="notes-to-send"]')?.textContent?.trim() ?? undefined;
+const sendButton = () =>
+  [...document.querySelectorAll<HTMLElement>('button')].find(
+    (b) => b.textContent?.trim() === 'Send notes',
+  );
 const buttons = () => [...document.querySelectorAll<HTMLElement>('button')];
 
 beforeEach(() => localStorage.clear());
@@ -283,6 +290,13 @@ function notesBridge(rows: object[] = []) {
       notes.push(note);
       return envelope(note);
     },
+    'review notes remove': (args) => {
+      notes.splice(
+        notes.findIndex((n) => n.id === args.at(-1)),
+        1,
+      );
+      return envelope({ id: args.at(-1) });
+    },
     'review notes send': (args) => {
       const to = flag(args, 'to') ?? 'aaaaaaaa';
       const sent = notes.filter((n) => !n.sentAt).map((n) => n.id);
@@ -344,16 +358,41 @@ test('a note goes on a line with its +, on a range with a drag, and both go in o
   );
   expect(card('lines 1-2')?.textContent).toContain('one constant');
 
-  const send = buttons().find((b) => b.textContent?.trim() === 'Send notes (2)');
-  await click(send);
+  expect(toSend()).toBe('2 notes to send');
+  await click(sendButton());
   expect(calls).toContainEqual(expect.arrayContaining(['notes', 'send', '--no-from', 'aaaaaaaa']));
   expect(toastTexts(byTestId)).toContain('Sent 2 notes to aaaaaaaa');
   expect(card('line 2')?.textContent).toContain('Sent');
   expect(card('lines 1-2')?.textContent).toContain('Sent');
-  expect(buttons().find((b) => b.textContent?.trim() === 'Send notes (0)')).toHaveProperty(
-    'disabled',
-    true,
+});
+
+test('the header counts what the next send holds: sent notes stay in it until resolved', async () => {
+  const { bridge } = notesBridge();
+  await renderWithMesa(
+    <DiffPanel sessionId="aaaaaaaa" project="lantern-cove" state="idle" onClose={() => {}} />,
+    bridge,
   );
+  expect(toSend()).toBeUndefined();
+  expect(sendButton()).toHaveProperty('disabled', true);
+  const note = async (n: number, text: string) => {
+    await click(
+      document.querySelector<HTMLElement>(`[aria-label="Add note on line ${n}"]`) ?? undefined,
+    );
+    const box = document.querySelector<HTMLTextAreaElement>('textarea');
+    await fill(box, text);
+    await press(box, 'Enter', { metaKey: true });
+  };
+  await note(1, 'tide');
+  await note(2, 'moon');
+  await click(sendButton());
+  // Both were sent and neither resolved: the next send repeats both.
+  expect(toSend()).toBe('2 notes to send');
+  await click(
+    document.querySelector<HTMLElement>('#note-note1 [aria-label="Delete note"]') ?? undefined,
+  );
+  await note(1, 'reef');
+  expect(toSend()).toBe('2 notes to send');
+  expect(sendButton()).toHaveProperty('disabled', false);
 });
 
 test('Esc closes a note being written, and Add file note writes one on the whole file', async () => {

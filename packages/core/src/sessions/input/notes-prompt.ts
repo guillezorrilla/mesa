@@ -17,19 +17,25 @@ const whose = (s: NotesSource) =>
 
 /**
  * Review notes as the agent reads them: a line saying what they are, and whose diff when `source`
- * is given, then each note's file, lines (or `Scope: file`), the lines it quotes, and the note. A
- * send types it; the app copies it.
+ * is given, then each note's file, lines (or `Scope: file`), the lines it quotes, and the note;
+ * then those `open` from the last round, under their own line. A send types it; the app copies it.
  */
-export function notesPrompt(notes: readonly PromptNote[], source?: NotesSource): string {
-  const blocks = notes.map((n) =>
-    [
-      `File: ${n.path}${n.scope === 'branch' ? '' : ` (${n.scope})`}`,
-      ...(n.line === 0 ? ['Scope: file'] : [`Lines: ${n.line}-${n.end}`, fenced(n.quoted)]),
-      `Note: ${n.text}`,
-    ].join('\n'),
-  );
+export function notesPrompt(
+  notes: readonly PromptNote[],
+  source?: NotesSource,
+  open: readonly PromptNote[] = [],
+): string {
+  const blocksOf = (list: readonly PromptNote[]) =>
+    list.map((n) =>
+      [
+        `File: ${n.path}${n.scope === 'branch' ? '' : ` (${n.scope})`}`,
+        ...(n.line === 0 ? ['Scope: file'] : [`Lines: ${n.line}-${n.end}`, fenced(n.quoted)]),
+        `Note: ${n.text}`,
+      ].join('\n'),
+    );
   return [
-    `These are the person's review notes on ${source ? whose(source) : "this session's diff"} (${notes.length}).`,
-    ...blocks,
+    `These are the person's review notes on ${source ? whose(source) : "this session's diff"} (${notes.length + open.length}).`,
+    ...blocksOf(notes),
+    ...(open.length ? ['Still open from the last round:', ...blocksOf(open)] : []),
   ].join('\n\n');
 }

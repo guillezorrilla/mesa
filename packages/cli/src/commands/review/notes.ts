@@ -87,7 +87,7 @@ export const reviewNotesRemove = defineCommand({
 export const reviewNotesSend = defineCommand({
   name: 'review notes send',
   summary:
-    "Send a session's unsent review notes, or one file's, as one prompt through the guardrail to its agent, another session's, or a new one",
+    "Send a session's unsent review notes and those still open (sent, not resolved), or one file's, as one prompt through the guardrail to its agent, another session's, or a new one",
   args: ['session'],
   flags: {
     path: { type: 'string', description: "Send only this file's notes" },
@@ -113,7 +113,7 @@ export const reviewNotesSend = defineCommand({
     const what = !data.sent.length
       ? data.delivery
         ? `${data.delivery.status}: ${data.delivery.reason ?? 'nothing marked sent'}`
-        : 'No unsent notes to send'
+        : 'No notes to send'
       : `${data.delivery?.already ? 'Already sent' : 'Sent'} ${data.sent.length} notes to ${data.to}${data.delivery ? '' : ', a new session'}`;
     const warned = data.delivery?.warning ?? data.warning;
     const warning = warned ? `\n${warned}` : '';

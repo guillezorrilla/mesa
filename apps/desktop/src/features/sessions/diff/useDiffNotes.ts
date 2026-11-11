@@ -37,8 +37,9 @@ export function useDiffNotes(sessionId: string) {
     () => (read.data ?? []).filter((note) => note.scope === 'branch'),
     [read.data],
   );
-  const unsent = (path?: string) =>
-    notes.filter((n) => !n.sentAt && !n.stale && (!path || n.path === path)).length;
+  /** How many notes the next send holds, or `path`'s: unsent ones not stale, and sent ones still open. */
+  const toSend = (path?: string) =>
+    notes.filter((n) => (n.sentAt || !n.stale) && (!path || n.path === path)).length;
 
   /** Runs a change, reads the notes again, and says whether it went through. */
   const { refresh } = read;
@@ -90,7 +91,7 @@ export function useDiffNotes(sessionId: string) {
       const { sent, stale, delivery } = result.data;
       const left = stale.length ? `; ${counted(stale.length, 'note')} stale, left out` : '';
       if (!sent.length && !delivery)
-        return { text: `No unsent notes to send${left}`, tone: 'confirmation' };
+        return { text: `No notes to send${left}`, tone: 'confirmation' };
       if (!delivery) {
         // A new session has them as its goal: the board lists it on its next look.
         void sessions.refresh();
@@ -122,7 +123,7 @@ export function useDiffNotes(sessionId: string) {
     refresh: () => Promise.all([refresh(), sessions.refresh()]),
     recipients,
     nameOf,
-    unsent,
+    toSend,
     acting,
     add,
     edit,

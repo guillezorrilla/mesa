@@ -214,7 +214,8 @@ export function inputActions(
       remove: (id: string, note: string) => notesOf(id).remove(note),
       clearSent: (id: string) => notesOf(id).clearSent(),
       /**
-       * Sends every unsent note, or `path`'s, as one prompt through sendReview to session `to`
+       * Sends every unsent note and every sent one not resolved (still open), or `path`'s, as
+       * one prompt through sendReview to session `to`
        * (default: its own), then marks them sent to it; a stale one stays behind, named in
        * `stale`. `to: 'new'` starts a session in the same checkout with the prompt as its goal.
        * Nothing to send sends nothing.
@@ -227,18 +228,19 @@ export function inputActions(
         const { to: asked = id, ...overrides } = opts;
         const at = notesAt(id);
         const { notes } = at;
-        const { ready, stale } = await notes.unsent(path);
-        if (!ready.length) return { to: asked, sent: [], stale };
+        const { ready, open: repeats, stale } = await notes.next(path);
+        const batch = [...ready, ...repeats];
+        if (!batch.length) return { to: asked, sent: [], stale };
         const source = await at.source();
-        const sent = ready.map((n) => n.id);
+        const sent = batch.map((n) => n.id);
         if (asked === NEW_SESSION) {
           const started = await open(at.project, {
-            goal: notesPrompt(ready, source),
+            goal: notesPrompt(ready, source, repeats),
             ...(at.folder ? { cwd: at.folder } : {}),
           });
           const to = started.result.id;
           try {
-            notes.markSent(ready, to);
+            notes.markSent(batch, to);
           } catch (error) {
             const warning = `Session ${to} has the notes, but they could not be marked sent: ${String(error)}. Do not send them again.`;
             return { to, sent, stale, warning };
@@ -249,12 +251,12 @@ export function inputActions(
           { store, clock: ctx.clock, send },
           asked,
           'notes',
-          () => notesReview(source, ready, asked),
+          () => notesReview(source, { ready, open: repeats }, asked),
           overrides,
         );
         if (delivery.status !== 'delivered') return { to: asked, sent: [], stale, delivery };
         try {
-          notes.markSent(ready, asked);
+          notes.markSent(batch, asked);
         } catch (error) {
           // Delivered already: a retry finds the batch delivered and marks them then.
           const warning = `Notes were sent, but could not be marked sent: ${String(error)}. Do not retry.`;

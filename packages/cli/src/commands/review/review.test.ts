@@ -327,9 +327,11 @@ test('review notes add, list, edit and remove a note on a committed line', async
     stale: [],
   });
   expect(world.windows[0]?.typed).toEqual([expect.stringContaining('Note: tidy\n\nFile: a.ts')]);
+  // Neither was resolved: a second send repeats both as still open.
   expect(
-    (await cli.mesa('review', 'notes', 'send', opened.id, '--no-from', '--json')).json.data,
-  ).toEqual({ to: opened.id, sent: [], stale: [] });
+    (await cli.mesa('review', 'notes', 'send', opened.id, '--no-from', '--json')).json.data.sent,
+  ).toHaveLength(2);
+  expect(world.windows[0]?.typed[1]).toContain('Still open from the last round:');
   expect(
     (await cli.mesa('review', 'notes', 'clear', opened.id, '--json')).json.data.removed,
   ).toHaveLength(2);
@@ -399,7 +401,7 @@ test('review notes send --to delivers to another session or starts one with the 
 
   await note('again');
   const started = await cli.mesa('review', 'notes', 'send', first.id, '--to', 'new');
-  expect(started.stdout).toMatch(/^Sent 1 notes to [a-z0-9]{8}, a new session/);
+  expect(started.stdout).toMatch(/^Sent 2 notes to [a-z0-9]{8}, a new session/);
   const fresh = started.stdout.split(' ')[4]?.replace(',', '') as string;
   const shown = (await cli.mesa('show', fresh, '--json')).json.data;
   expect(shown).toMatchObject({ cwd: first.worktree.path });

@@ -166,8 +166,8 @@ export function DiffPanel(props: {
           </p>
           <span className="ml-auto" />
           <SendNotesMenu
-            count={notes.unsent()}
-            fileCount={file ? notes.unsent(file.path) : 0}
+            count={notes.toSend()}
+            fileCount={file ? notes.toSend(file.path) : 0}
             busy={notes.acting}
             recipients={notes.recipients}
             onSend={({ to, onlyFile }) =>
