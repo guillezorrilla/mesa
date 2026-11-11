@@ -48,6 +48,7 @@ export type { GitBranchDiff } from './git/branch-diff.js';
 export type { GitBranch, GitBranchAction } from './git/branches.js';
 export type { GitCommit, GitPathAction } from './git/changes.js';
 export type { DiffRow, GitDiff } from './git/diff.js';
+export type { DiscardedFile, GitDiscard } from './git/discard.js';
 export type { GhState } from './git/gh.js';
 export type { GitComparison, GitGraph, GitGraphCommit, GitGraphRow } from './git/history.js';
 export type { GitFix } from './git/hook-fix.js';

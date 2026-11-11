@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Rows2,
   Search,
+  Undo2,
 } from 'lucide-react';
 import { useState } from 'react';
 import { CountPill } from '@/components/CountPill';
@@ -24,6 +25,7 @@ import { GitBranches } from './GitBranches';
 import { GitChangeList } from './GitChangeList';
 import { GitCommitBox } from './GitCommitBox';
 import { GitConflictBanner } from './GitConflictBanner';
+import { type DiscardRequest, GitDiscardDialog } from './GitDiscardDialog';
 import { GitHistory } from './GitHistory';
 import { GitStashes } from './GitStashes';
 import { GitSyncPanel } from './GitSyncPanel';
@@ -47,6 +49,7 @@ export function GitTab(props: {
   const [layout, setLayout] = useState<DiffLayout>('side-by-side');
   const [panel, setPanel] = useState<'stashes' | 'remote'>();
   const [filter, setFilter] = useState('');
+  const [discarding, setDiscarding] = useState<DiscardRequest>();
   const [revision, setRevision] = useState(0);
   const run = useRun();
   const { acting, act } = useAct();
@@ -188,8 +191,8 @@ export function GitTab(props: {
           )}
           <div className="flex min-h-0 flex-1">
             <aside className="flex w-72 shrink-0 flex-col border-r bg-card">
-              <div className="border-b p-2">
-                <label className="flex items-center gap-2 rounded-lg bg-background px-2.5 py-1.5">
+              <div className="flex items-center gap-1 border-b p-2">
+                <label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg bg-background px-2.5 py-1.5">
                   <Search aria-hidden className="size-4 text-muted-foreground" />
                   <input
                     aria-label="Filter files"
@@ -199,6 +202,12 @@ export function GitTab(props: {
                     onChange={(event) => setFilter(event.target.value)}
                   />
                 </label>
+                <IconButton
+                  label="Discard all"
+                  icon={Undo2}
+                  disabled={acting || !changes.length}
+                  onClick={() => setDiscarding({ changes, all: true })}
+                />
               </div>
               <section className="min-h-0 flex-1 overflow-y-auto" aria-label="Changed files">
                 {!status.data && status.busy && (
@@ -213,6 +222,7 @@ export function GitTab(props: {
                     setSelected({ path: entry.change.path, staged: entry.staged })
                   }
                   onIndex={(action, paths) => void changeIndex(action, paths)}
+                  onDiscard={(change) => setDiscarding({ changes: [change], all: false })}
                 />
                 {status.data && !changes.length && (
                   <Muted className="p-4">Working tree clean.</Muted>
@@ -281,6 +291,17 @@ export function GitTab(props: {
               )}
             </section>
           </div>
+          {discarding && (
+            <GitDiscardDialog
+              {...target}
+              request={discarding}
+              onDone={async () => {
+                setDiscarding(undefined);
+                await changed();
+              }}
+              onCancel={() => setDiscarding(undefined)}
+            />
+          )}
           <GitBranches key={`branches:${checkout}`} {...target} onChanged={() => void changed()} />
         </>
       )}

@@ -1,6 +1,13 @@
-import { ChevronDown, ChevronRight, Folder, Minus, Plus } from 'lucide-react';
+import type { GitChange } from '@mesa/core';
+import { ChevronDown, ChevronRight, Folder, Minus, Plus, Undo2 } from 'lucide-react';
 import { CountPill } from '@/components/CountPill';
 import { TreeFolderRow } from '@/components/TreeFolderRow';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 import { useToggleSet } from '@/lib/useToggleSet';
 import { cn } from '@/lib/utils';
 import {
@@ -14,8 +21,12 @@ import {
 } from './gitChanges';
 
 type IndexAction = (action: 'stage' | 'unstage', paths: string[]) => void;
+type DiscardAction = (change: GitChange) => void;
 
-/** The Staged and Changes sections, each folded by folder, with per-row and whole-section staging. */
+/**
+ * The Staged and Changes sections, each folded by folder, with per-row and whole-section staging,
+ * and Discard changes on each row (its button and right-click menu).
+ */
 export function GitChangeList(props: {
   sections: GitSection[];
   /** The profile's file tree text size in px. */
@@ -24,6 +35,7 @@ export function GitChangeList(props: {
   acting: boolean;
   onSelect: (entry: GitEntry) => void;
   onIndex: IndexAction;
+  onDiscard: DiscardAction;
 }) {
   const [closed, toggle] = useToggleSet();
   return props.sections.map((section) => (
@@ -73,6 +85,7 @@ export function GitChangeList(props: {
                     acting={props.acting}
                     onSelect={props.onSelect}
                     onIndex={props.onIndex}
+                    onDiscard={props.onDiscard}
                   />
                 ))}
             </div>
@@ -106,7 +119,10 @@ function Disclosure(props: {
   );
 }
 
-/** One changed file: its status glyph and name, and a hover button to stage or unstage it. */
+/**
+ * One changed file: its status glyph and name, hover buttons to discard and to stage or unstage
+ * it, and Discard changes on right-click. A conflicted file has no discard: Resolve with AI owns it.
+ */
 function ChangeRow(props: {
   entry: GitEntry;
   nested: boolean;
@@ -114,53 +130,81 @@ function ChangeRow(props: {
   acting: boolean;
   onSelect: (entry: GitEntry) => void;
   onIndex: IndexAction;
+  onDiscard: DiscardAction;
 }) {
   const { change, staged } = props.entry;
   const [sign, tone] = glyph(props.entry.code);
   const verb = staged ? 'Unstage' : 'Stage';
+  const discardable = !change.conflicted;
   return (
-    <div
-      className={cn(
-        'group flex items-center gap-1 pr-2 hover:bg-accent/50',
-        props.active && 'bg-accent',
-      )}
-    >
-      <button
-        type="button"
-        aria-current={props.active || undefined}
-        className={cn(
-          'flex min-w-0 flex-1 items-center gap-3 py-1.5 text-left',
-          props.nested ? 'pl-9' : 'pl-5',
-        )}
-        title={
-          change.conflicted
-            ? `${change.path} (conflicted)`
-            : change.oldPath
-              ? `${change.oldPath} -> ${change.path}`
-              : change.path
-        }
-        onClick={() => props.onSelect(props.entry)}
-      >
-        <span className={cn('w-3 shrink-0 font-mono', tone)}>{sign}</span>
-        <span className="truncate">{nameOf(change.path)}</span>
-        {change.conflicted && (
-          <span className="ml-auto shrink-0 text-xs text-state-failed">Conflicted</span>
-        )}
-      </button>
-      <button
-        type="button"
-        aria-label={`${verb} ${change.path}`}
-        title={verb}
-        disabled={props.acting}
-        className="rounded p-1 text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
-        onClick={() => props.onIndex(staged ? 'unstage' : 'stage', [change.path])}
-      >
-        {staged ? (
-          <Minus aria-hidden className="size-3.5" />
-        ) : (
-          <Plus aria-hidden className="size-3.5" />
-        )}
-      </button>
-    </div>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div
+          className={cn(
+            'group flex items-center gap-1 pr-2 hover:bg-accent/50',
+            props.active && 'bg-accent',
+          )}
+        >
+          <button
+            type="button"
+            aria-current={props.active || undefined}
+            className={cn(
+              'flex min-w-0 flex-1 items-center gap-3 py-1.5 text-left',
+              props.nested ? 'pl-9' : 'pl-5',
+            )}
+            title={
+              change.conflicted
+                ? `${change.path} (conflicted)`
+                : change.oldPath
+                  ? `${change.oldPath} -> ${change.path}`
+                  : change.path
+            }
+            onClick={() => props.onSelect(props.entry)}
+          >
+            <span className={cn('w-3 shrink-0 font-mono', tone)}>{sign}</span>
+            <span className="truncate">{nameOf(change.path)}</span>
+            {change.conflicted && (
+              <span className="ml-auto shrink-0 text-xs text-state-failed">Conflicted</span>
+            )}
+          </button>
+          {discardable && (
+            <button
+              type="button"
+              aria-label={`Discard changes ${change.path}`}
+              title="Discard changes"
+              disabled={props.acting}
+              className="rounded p-1 text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+              onClick={() => props.onDiscard(change)}
+            >
+              <Undo2 aria-hidden className="size-3.5" />
+            </button>
+          )}
+          <button
+            type="button"
+            aria-label={`${verb} ${change.path}`}
+            title={verb}
+            disabled={props.acting}
+            className="rounded p-1 text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+            onClick={() => props.onIndex(staged ? 'unstage' : 'stage', [change.path])}
+          >
+            {staged ? (
+              <Minus aria-hidden className="size-3.5" />
+            ) : (
+              <Plus aria-hidden className="size-3.5" />
+            )}
+          </button>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem
+          variant="destructive"
+          disabled={props.acting || !discardable}
+          onSelect={() => props.onDiscard(change)}
+        >
+          <Undo2 aria-hidden />
+          Discard changes
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
