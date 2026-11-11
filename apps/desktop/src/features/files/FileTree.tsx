@@ -89,6 +89,7 @@ export function FileTree(props: {
         <CheckoutPicker
           project={props.project}
           label="Files checkout"
+          compact
           value={props.checkout}
           onChange={props.onCheckout}
         />

@@ -1,5 +1,6 @@
 import { statSync } from 'node:fs';
 import { gitCommand } from '../git/command.js';
+import { type GitOperation, operationIn } from '../git/status.js';
 import type { Runner } from '../lib/process.js';
 import type { WorktreeRow } from './inventory.js';
 import type { WorktreeSize } from './sizes.js';
@@ -12,6 +13,8 @@ export type WorktreeDetails = {
   ahead?: number;
   /** When its folder was made: linked worktrees only. */
   createdAt?: string;
+  /** The merge, rebase or cherry-pick it is stopped in, if any. */
+  operation?: GitOperation;
 } & Partial<WorktreeSize>;
 
 /** Counts `git status --porcelain=v1 -z`: a rename or copy carries its old path as one more field. */
@@ -45,11 +48,12 @@ export async function withDetails(
   return Promise.all(
     rows.map(async (row) => {
       if (row.state === 'stale' || row.state === 'locked') return row;
-      const [status, ahead] = await Promise.all([
+      const [status, ahead, operation] = await Promise.all([
         gitCommand(run, row.path, ['status', '--porcelain=v1', '-z', '--untracked-files=all']),
         base && row.head && !row.main
           ? gitCommand(run, row.path, ['rev-list', '--count', `${base}..${row.head}`])
           : undefined,
+        operationIn(run, row.path),
       ]);
       const changes = status.ok ? countChanges(status.stdout) : undefined;
       const count = ahead?.ok ? Number(ahead.stdout.trim()) : undefined;
@@ -64,6 +68,7 @@ export async function withDetails(
         ...(changes ? { changes } : {}),
         ...(count === undefined || Number.isNaN(count) ? {} : { ahead: count }),
         ...(createdAt ? { createdAt } : {}),
+        ...(operation ? { operation } : {}),
       };
     }),
   );

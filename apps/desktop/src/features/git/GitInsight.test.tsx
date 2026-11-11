@@ -87,7 +87,8 @@ test('a manual worktree without a session is selectable for Git', async () => {
       }),
   });
   await renderWithMesa(<GitTab project="lantern-cove" />, bridge);
-  expect(document.querySelector('select[aria-label="Checkout"]')?.textContent).toContain(
-    '/tmp/manual',
-  );
+  const options = document.querySelector<HTMLSelectElement>(
+    'select[aria-label="Checkout"]',
+  )?.options;
+  expect([...(options ?? [])].map((option) => option.value)).toContain('/tmp/manual');
 });

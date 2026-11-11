@@ -121,17 +121,19 @@ export function GitTab(props: {
       ))}
     </div>
   );
+  const picker = (
+    <CheckoutPicker
+      project={props.project}
+      label="Checkout"
+      value={checkout}
+      onChange={(path) => {
+        setCheckout(path);
+        setSelected(undefined);
+      }}
+    />
+  );
   const tools = (
     <>
-      <CheckoutPicker
-        project={props.project}
-        label="Checkout"
-        value={checkout}
-        onChange={(path) => {
-          setCheckout(path);
-          setSelected(undefined);
-        }}
-      />
       <IconButton
         label={layout === 'inline' ? 'Side-by-side diff' : 'Inline diff'}
         icon={layout === 'inline' ? Columns2 : Rows2}
@@ -148,7 +150,12 @@ export function GitTab(props: {
         <GitHistory
           key={`graph:${checkout}:${revision}`}
           {...target}
-          switcher={switcher}
+          switcher={
+            <>
+              {switcher}
+              {picker}
+            </>
+          }
           tools={tools}
           layout={layout}
           diffFontSize={appearance.diffFontSize}
@@ -166,6 +173,7 @@ export function GitTab(props: {
                 {status.data.branch ?? 'Detached HEAD'}
               </span>
             )}
+            {picker}
             <span className="ml-auto flex items-center gap-1">
               {tools}
               <IconButton

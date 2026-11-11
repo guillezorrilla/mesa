@@ -1,15 +1,57 @@
 import { Folder } from 'lucide-react';
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { cn } from '@/lib/utils';
-import { useCheckoutPaths } from './useCheckoutPaths';
+import { useCheckouts } from './useCheckouts';
 
-/** A folder icon over a native select of the project's checkouts; '' is the main checkout. */
+/**
+ * The project's checkouts as a native select, '' being the main checkout, each named by its
+ * folder and marked while it is stopped in a merge, rebase or cherry-pick. It shows the current
+ * one's name beside a folder icon, or the icon alone when `compact`.
+ */
 export function CheckoutPicker(props: {
   project: string;
   value: string;
   label: string;
+  compact?: boolean;
   onChange: (path: string) => void;
 }) {
-  const paths = useCheckoutPaths(props.project);
+  const checkouts = useCheckouts(props.project);
+  const options = checkouts.map((row) => {
+    const value = row.main ? '' : row.path;
+    const name = row.main ? 'Main checkout' : row.path.slice(row.path.lastIndexOf('/') + 1);
+    return (
+      <NativeSelectOption key={row.path} value={value}>
+        {row.operation ? `${name} (${row.operation} in progress)` : name}
+      </NativeSelectOption>
+    );
+  });
+  // Before the list loads, the main checkout is still the one to show.
+  if (!checkouts.some((row) => row.main))
+    options.unshift(
+      <NativeSelectOption key="" value="">
+        Main checkout
+      </NativeSelectOption>,
+    );
+  const select = {
+    'aria-label': props.label,
+    value: props.value,
+    onChange: (event: React.ChangeEvent<HTMLSelectElement>) => props.onChange(event.target.value),
+  };
+  if (!props.compact)
+    return (
+      <div className="relative w-56 shrink-0" title={props.value || 'Main checkout'}>
+        <Folder
+          aria-hidden
+          className={cn(
+            'pointer-events-none absolute top-1/2 left-2.5 z-10 size-4 -translate-y-1/2',
+            props.value ? 'text-state-working' : 'text-muted-foreground',
+          )}
+        />
+        <NativeSelect size="sm" className="bg-background pl-8 dark:bg-background" {...select}>
+          {options}
+        </NativeSelect>
+      </div>
+    );
   return (
     <span
       className={cn(
@@ -20,18 +62,8 @@ export function CheckoutPicker(props: {
     >
       <Folder aria-hidden className="size-4" />
       {/* ponytail: the OS menu of a transparent native select, no custom dropdown. */}
-      <select
-        aria-label={props.label}
-        className="absolute inset-0 cursor-pointer opacity-0"
-        value={props.value}
-        onChange={(event) => props.onChange(event.target.value)}
-      >
-        <option value="">Main checkout</option>
-        {paths.map((path) => (
-          <option key={path} value={path}>
-            {path}
-          </option>
-        ))}
+      <select className="absolute inset-0 cursor-pointer opacity-0" {...select}>
+        {options}
       </select>
     </span>
   );
