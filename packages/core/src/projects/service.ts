@@ -1,5 +1,6 @@
 import type { MesaContext } from '../context.js';
 import { callerOf } from '../sessions/window/caller.js';
+import { scriptHints } from '../worktrees/script-hint.js';
 import { cloneProject } from './clone.js';
 import { discoverProjects } from './discover.js';
 import { repositoryUrl } from './project-url.js';
@@ -16,6 +17,7 @@ import {
 } from './projects.js';
 import { readRegistry } from './registry.js';
 import { sortProjects } from './sort.js';
+import { WORKTREE_SCRIPTS } from './trust.js';
 
 /** The profile's registered projects. */
 export function projectsService(ctx: MesaContext) {
@@ -89,6 +91,11 @@ export function projectsService(ctx: MesaContext) {
           project: () => name,
           inputs: { name, path, ...(value === undefined ? { unset: true } : {}) },
           outputs: (r) => ({ value: r.value }),
+          // A setup or teardown written as one command string (#1033).
+          warning: (r) => {
+            const kind = WORKTREE_SCRIPTS.find((k) => path === `worktrees.${k}`);
+            return kind && Array.isArray(r.value) ? scriptHints({ [kind]: r.value }) : undefined;
+          },
         },
         () => overrideProject(open(), name, path, value, outsideSession(), ctx),
       ),
@@ -103,6 +110,7 @@ export function projectsService(ctx: MesaContext) {
           project: () => name,
           inputs: { name, expected },
           outputs: ({ project: _, ...scripts }) => ({ override: 'trusted', ...scripts }),
+          warning: scriptHints,
         },
         () => trustProject(open(), name, outsideSession(), expected, ctx),
       ),

@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, CircleCheck, Search, Settings, X } from 'luc
 import { useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
+import { type Message, warningOf } from '@/components/Toast';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
@@ -60,11 +61,16 @@ function SettingsBody(props: Parameters<typeof SettingsDialog>[0]) {
   const { acting, act } = useAct();
   const saveAll = (fields: readonly (readonly [string, unknown])[]) =>
     void act(async () => {
-      for (const [path, value] of fields)
-        if (!(await run('config.set', { path, value }))) return undefined;
+      // A save's warning (a setup written as one command string, #1033) stays until dismissed.
+      let warned: Message | undefined;
+      for (const [path, value] of fields) {
+        const saved = await run('config.set', { path, value });
+        if (!saved) return undefined;
+        warned = warningOf(saved) ?? warned;
+      }
       await config.refresh();
       props.onChanged();
-      return undefined;
+      return warned;
     });
   const save = (path: string, value: unknown) => saveAll([[path, value]]);
   const reload = async () => {

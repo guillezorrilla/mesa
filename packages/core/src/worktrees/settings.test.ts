@@ -319,3 +319,27 @@ test('trust approves only the scripts whose fingerprints the person reviewed', (
   });
   expect(mesa.projects.pending('lantern-cove')).toEqual({ teardown });
 });
+
+test('a setup or teardown written as one command string warns with its split form wherever it is set', () => {
+  const split = 'write it as [node, --test, test/]';
+  const { mesa } = projectProfile(recordingRun().run, {
+    mesaYaml: 'name: lantern-cove\nworktrees:\n  setup: ["node --test test/"]\n',
+  });
+  // The profile's, by path or whole as Settings saves it; the warning is not a refusal.
+  const set = mesa.config.set('worktrees.setup', '["node --test test/"]');
+  expect(set.result.value).toEqual(['node --test test/']);
+  expect(set.warning).toContain(`worktrees.setup: the list is argv`);
+  expect(set.warning).toContain(split);
+  expect(mesa.config.set('worktrees.base', 'main').warning ?? '').not.toContain(split);
+  expect(mesa.config.set('worktrees.setup', '[node, --test, test/]').warning ?? '').not.toContain(
+    split,
+  );
+  // A project's mesa.yaml: when a person sets it, and when its reviewed scripts are trusted.
+  expect(trustAll(mesa, 'lantern-cove').warning).toContain(split);
+  expect(
+    mesa.projects.override('lantern-cove', 'worktrees.teardown', '["rm -rf cache"]').warning,
+  ).toContain('worktrees.teardown: the list is argv, run without a shell, so "rm -rf cache"');
+  expect(
+    mesa.projects.override('lantern-cove', 'worktrees.setup', '[node, --test]').warning ?? '',
+  ).not.toContain('the list is argv');
+});

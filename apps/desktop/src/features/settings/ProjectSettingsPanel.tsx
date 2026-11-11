@@ -2,6 +2,7 @@ import type { ProjectRow } from '@mesa/core';
 import { currentTerminalTheme, TERMINAL_PALETTE_CHOICES } from '@mesa/core/browser';
 import { FolderGit2, GitBranch, Palette, Play, RefreshCw, ShieldAlert, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { ProjectField } from '@/features/sessions/fields/ProjectField';
@@ -47,10 +48,12 @@ export function ProjectSettingsPanel(props: { onChanged: () => void }) {
   const save = (path: string, value: unknown) =>
     void act(async () => {
       if (!project) return undefined;
-      if (!(await run('projects.set', { name: project.name, path, value }))) return undefined;
+      const saved = await run('projects.set', { name: project.name, path, value });
+      if (!saved) return undefined;
       await projects.refresh();
       props.onChanged();
-      return undefined;
+      // A setup written as one command string (#1033) stays until dismissed.
+      return warningOf(saved);
     });
   const themes = options(TERMINAL_PALETTE_CHOICES);
   const theme = project?.overrides.terminal?.theme;

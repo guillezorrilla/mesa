@@ -11,6 +11,7 @@ import {
   fakePlatform,
   PROJECTS,
   renderWithMesa,
+  toasts,
 } from '@/lib/testing';
 import { SettingsDialog } from './SettingsDialog';
 
@@ -227,6 +228,18 @@ test('profile scripts say they are one executable and its arguments, run without
   expect((document.getElementById('worktree-setup') as HTMLTextAreaElement).placeholder).toBe(
     'pnpm\ninstall',
   );
+});
+
+test('a profile script written as one command string saves, and its warning stays as an alert', async () => {
+  const warning =
+    'worktrees.setup: the list is argv, run without a shell, so "node --test test/" is one program name; write it as [node, --test, test/]';
+  const { bridge, calls } = fakeBridge({ 'config set': () => envelope({ warning }) });
+  const byTestId = await render(bridge, 'git');
+  await type('worktree-setup', 'node --test test/');
+  expect(sets(calls).map(([path, value]) => [path, JSON.parse(value ?? '{}').setup])).toEqual([
+    ['worktrees', ['node --test test/']],
+  ]);
+  expect(toasts(byTestId)).toEqual([['alert', warning]]);
 });
 
 test('Git & Worktrees has Delete branch by default under Cleanup, off until switched on', async () => {
