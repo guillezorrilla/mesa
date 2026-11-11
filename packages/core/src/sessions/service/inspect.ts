@@ -98,6 +98,11 @@ export function inspectActions(
   };
   return {
     list: board,
+    /**
+     * Whether a session's agent runs this mesa, in its Mesa window: its listings then print the
+     * agent view (board/agent-view.ts) unless asked for every field.
+     */
+    agentReads: () => deps.caller().session !== undefined,
     /** The board as a tree: children under their parent, each row with its depth. */
     tree: async (scope: SessionScope = 'board') => sessionTree(await board(scope)),
     /** A session's goal, or not_found when it was started without one. */

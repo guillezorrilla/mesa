@@ -98,3 +98,17 @@ Under the lean flags the vault-capture run called mesa-vault's `project_context`
 A replay of the owner's last 30 days, counting only, over 55 child sessions under 27 parents: 1,241 finished-turn reports under the old rule, 58 under the 120 s hold (#1004), and batching siblings due together merged none of those. A child's implicit report text was already at most 203 characters, the hook log's cut (`redactPayload`), so the 600-character cap (#1005) acts on explicit reports only.
 
 Caveats: one run each, so the turn counts can vary. The replay counts reports, not wakes: priced at each parent's latest context reading, the 1,183 reports it holds back come to about 17M tokens a day, an upper bound, since a busy parent took its reports at its own turn end without a wake and a reading taken late overstates the context at the time.
+
+## Step 6: the agent view of `mesa sessions` (2026-11-11, #1025)
+
+On the owner's profile `mesa sessions --json` printed 192,561 bytes (79 rows of 28 fields) and `--all` 1,289,583, and a coordinator that checks its workers that way rereads it every later turn. Inside a session's window it now prints the agent view (CONTEXT.md, Agent view); `--full` and every caller outside a window get the whole rows.
+
+Measured on a throwaway profile with 50 invented sessions (10 parents with 4 children each, each in its own worktree with a one-line goal), no foreign rows, the CLI built from this branch:
+
+| `mesa sessions --json` | bytes |
+| --- | --- |
+| outside a window (before, and unchanged) | 83,824 |
+| inside a window, `--full` | 83,824 |
+| inside a window, agent view | 10,511 |
+
+The agent view is 87% smaller: about 2,600 tokens a reread instead of 21,000, at 4 bytes a token. The owner's real rows carry longer goals, replies and placements, so the cut there should be at least as large; not measured on that profile.

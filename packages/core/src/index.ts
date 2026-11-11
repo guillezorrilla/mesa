@@ -145,6 +145,7 @@ export type {
 export type { ChildReport, PendingReport, Question } from './reports/reports.js';
 export { type SearchHit, searchWorkspace } from './search/search.js';
 export { awakeStatus, isKeepAwakeMode, KEEP_AWAKE_MODES } from './sessions/awake.js';
+export { agentCrewRow, agentRow, agentShown } from './sessions/board/agent-view.js';
 export type { SessionScope } from './sessions/board/board.js';
 export type { CrewRow } from './sessions/board/crew.js';
 export type { BranchPullRequest } from './sessions/board/pull-requests.js';

@@ -90,9 +90,13 @@ test('SessionStart gives only the owning native session a bounded Mesa pointer',
   cli.withTmux();
   await cli.withProject();
   const opened = (await mesa('open', 'lantern-cove', '--json')).json.data;
-  expect((await mesa('show', opened.id, '--json')).json.data.instructions.state).toBe('missing');
+  expect((await mesa('show', opened.id, '--full', '--json')).json.data.instructions.state).toBe(
+    'missing',
+  );
   await mesa('hooks', 'install');
-  expect((await mesa('show', opened.id, '--json')).json.data.instructions.state).toBe('configured');
+  expect((await mesa('show', opened.id, '--full', '--json')).json.data.instructions.state).toBe(
+    'configured',
+  );
   // An invented project hub: the pointer names the tools that read it, never its content.
   writeFileSync(join(cli.home, 'vault/projects/lantern-cove.md'), '# Lantern cove\nGREY KELP 19\n');
   cli.env = { MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' };
@@ -126,14 +130,18 @@ test('Antigravity PreInvocation gives only the owning native conversation a tran
   await cli.withProject();
   cli.run = scriptedRunner({ tmux: world.answer, claude: CLAUDE_VERSION, agy: '1.2.13' }).run;
   const opened = (await mesa('open', 'lantern-cove', '--agent', 'antigravity', '--json')).json.data;
-  expect((await mesa('show', opened.id, '--json')).json.data.instructions.state).toBe('missing');
+  expect((await mesa('show', opened.id, '--full', '--json')).json.data.instructions.state).toBe(
+    'missing',
+  );
   expect(
     (await mesa('doctor', '--json')).json.data.checks.find(
       (check: { name: string }) => check.name === 'antigravity hooks',
     ).status,
   ).toBe('warn');
   await mesa('hooks', 'install');
-  expect((await mesa('show', opened.id, '--json')).json.data.instructions.state).toBe('configured');
+  expect((await mesa('show', opened.id, '--full', '--json')).json.data.instructions.state).toBe(
+    'configured',
+  );
   expect(
     (await mesa('doctor', '--json')).json.data.checks.find(
       (check: { name: string }) => check.name === 'antigravity hooks',
@@ -158,7 +166,7 @@ test('Antigravity PreInvocation gives only the owning native conversation a tran
   );
   cli.stdin = JSON.stringify({ conversationId: otherId, invocationNum: 0 });
   expect(JSON.parse((await mesa('hook', 'antigravity')).stdout)).toEqual({});
-  expect((await mesa('show', opened.id, '--json')).json.data.instructions.state).toBe(
+  expect((await mesa('show', opened.id, '--full', '--json')).json.data.instructions.state).toBe(
     'conflicting',
   );
   const fresh = (await mesa('open', 'lantern-cove', '--agent', 'antigravity', '--json')).json.data;
@@ -171,7 +179,7 @@ test('Antigravity PreInvocation gives only the owning native conversation a tran
   cli.env.MESA_SESSION_ID = fresh.id;
   cli.stdin = JSON.stringify({ conversationId: clearedFreshId, invocationNum: 0 });
   expect(JSON.parse((await mesa('hook', 'antigravity')).stdout)).toEqual({});
-  expect((await mesa('show', fresh.id, '--json')).json.data).toMatchObject({
+  expect((await mesa('show', fresh.id, '--full', '--json')).json.data).toMatchObject({
     agentSessionId: firstFreshId,
     instructions: { state: 'conflicting' },
   });
@@ -192,7 +200,7 @@ test('show reports each mount; hooks manage Antigravity mesa-vault beside a user
   }).run;
   const open = async (...args: string[]) =>
     (await mesa('open', 'lantern-cove', ...args, '--json')).json.data;
-  const vault = async (id: string) => (await mesa('show', id, '--json')).json.data.vault;
+  const vault = async (id: string) => (await mesa('show', id, '--full', '--json')).json.data.vault;
   const doctor = async () =>
     (await mesa('doctor', '--json')).json.data.checks.find(
       (check: { name: string }) => check.name === 'antigravity vault',
@@ -350,7 +358,7 @@ test.each([true, false])(
       recorded: true,
       event: 'SessionIdentityChanged',
     });
-    expect((await mesa('show', opened.id, '--json')).json.data).toMatchObject({
+    expect((await mesa('show', opened.id, '--full', '--json')).json.data).toMatchObject({
       agentSessionId: opened.agentSessionId ?? 'native-one',
       instructions: {
         state: 'conflicting',
@@ -422,7 +430,7 @@ test('mesa hook tmux pane-died records its exit; hooks status and doctor show bo
   const died = await mesa('hook', 'tmux', 'pane-died', 'lantern-cove', `claude-${id}`, '--json');
   expect(died).toMatchObject({ code: 0 });
   expect(died.json.data).toEqual({ recorded: true, session: id });
-  const [row] = (await mesa('sessions', '--json')).json.data;
+  const [row] = (await mesa('sessions', '--full', '--json')).json.data;
   // Its exit is known at once, but it is not stopped: stop still cleans its window up.
   expect(row).toMatchObject({ lastState: { state: 'done', source: 'tmux-hook' } });
   expect(row.endedAt).toBeUndefined();
@@ -451,7 +459,7 @@ test('after a /clear, mesa sessions shows the new agent session id, not done, an
     event: null,
   });
   cli.env = {};
-  const [row] = (await mesa('sessions', '--json')).json.data;
+  const [row] = (await mesa('sessions', '--full', '--json')).json.data;
   expect(row).toMatchObject({ id: opened.id, agentSessionId: after, lastState: { state: 'idle' } });
   const events = readFileSync(join(cli.paths.events, `${opened.id}.jsonl`), 'utf8')
     .trim()
@@ -478,7 +486,9 @@ test('Codex hooks flow through CLI JSON, doctor trust rows, and board state', as
     ),
   ).toBe(true);
   const id = (await mesa('open', 'lantern-cove', '--agent', 'codex', '--json')).json.data.id;
-  expect((await mesa('show', id, '--json')).json.data.instructions.state).toBe('conflicting');
+  expect((await mesa('show', id, '--full', '--json')).json.data.instructions.state).toBe(
+    'conflicting',
+  );
   cli.env = { ...cli.env, MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
   for (const [event, state] of [
     ['SessionStart', 'idle'],
@@ -492,7 +502,7 @@ test('Codex hooks flow through CLI JSON, doctor trust rows, and board state', as
       reason: 'clear',
     });
     expect((await mesa('hook', 'codex', '--json')).json.data).toEqual({ recorded: true, event });
-    const row = (await mesa('sessions', '--json')).json.data.find(
+    const row = (await mesa('sessions', '--full', '--json')).json.data.find(
       (s: { id: string }) => s.id === id,
     );
     expect(row).toMatchObject({
@@ -566,7 +576,7 @@ test.each(['startup', undefined])(
       source,
     });
     expect((await mesa('hook', 'codex')).stdout.trim()).toBe('');
-    const shown = (await mesa('show', opened.id, '--json')).json.data;
+    const shown = (await mesa('show', opened.id, '--full', '--json')).json.data;
     expect(shown.agentSessionId).toBe('native-one');
     expect(shown.instructions).toMatchObject({
       state: 'conflicting',
@@ -587,7 +597,7 @@ test('with a Decision model a session mounts mesa-decisions, a prompt gets advic
   const open = async () =>
     (await mesa('open', 'lantern-cove', '--goal', 'Make the feed import retry', '--json')).json
       .data;
-  const show = async (id: string) => (await mesa('show', id, '--json')).json.data;
+  const show = async (id: string) => (await mesa('show', id, '--full', '--json')).json.data;
   const launch = (id: string) => tmux.windows.find((w) => w.window.endsWith(id))?.launch ?? '';
   // No key: nothing of mesa-decisions is mounted, and show says why.
   const before = await open();
@@ -743,6 +753,8 @@ test("a parent's Stop answers with its pending child reports as a block, once, a
     .trim()
     .split('\n');
   expect(JSON.parse(log.at(-1) ?? '{}').event).toBe('StopContinued');
-  expect((await mesa('show', parent.id, '--json')).json.data.lastState.state).toBe('working');
+  expect((await mesa('show', parent.id, '--full', '--json')).json.data.lastState.state).toBe(
+    'working',
+  );
   expect(await stop(parent.id, parent.agentSessionId)).toBe('');
 });

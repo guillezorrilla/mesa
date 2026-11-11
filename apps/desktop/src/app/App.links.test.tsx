@@ -39,7 +39,7 @@ test('a startup encoded session link waits for active profile information then u
   expect(lookups(calls)).toEqual([]);
   expect(byTestId('projects-screen')).toHaveLength(0);
   await act(async () => profile.resolve(envelope({ profile: name, dir: '/h/invented-profile' })));
-  expect(lookups(calls)).toEqual([['--json', 'show', '--', 'aaaaaaaa']]);
+  expect(lookups(calls)).toEqual([['--json', 'show', '--full', '--', 'aaaaaaaa']]);
   expect(selected()).toContain('aaaaaaaa');
   expect(guidance()).toBeUndefined();
   expect(toastTexts(byTestId)).toEqual([]);
@@ -89,7 +89,7 @@ test('live bare links use only the active profile, unknown and malformed links s
   );
   await act(async () => opened(['mesa://session/%61aaaaaaa']));
   expect(selected()).toContain('aaaaaaaa');
-  expect(lookups(calls)).toEqual([['--json', 'show', '--', 'aaaaaaaa']]);
+  expect(lookups(calls)).toEqual([['--json', 'show', '--full', '--', 'aaaaaaaa']]);
   await act(async () => opened(['mesa://session/bbbbbbbb']));
   expect(guidance()).toContain('bbbbbbbb is unavailable');
   expect(selected()).toContain('aaaaaaaa');

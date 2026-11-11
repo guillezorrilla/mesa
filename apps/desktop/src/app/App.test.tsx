@@ -1863,7 +1863,7 @@ test('selected session details read native context by exact id and keep unknown 
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
   const details = byTestId('selected-session-details')[0];
-  expect(calls).toContainEqual(['--json', 'show', '--', 'aaaaaaaa']);
+  expect(calls).toContainEqual(['--json', 'show', '--full', '--', 'aaaaaaaa']);
   expect(details?.textContent).toContain('/src/lantern-cove');
   expect(details?.textContent).toContain('Modelclaude-opus-5-5');
   expect(details?.textContent).toContain('Effortxhigh');
