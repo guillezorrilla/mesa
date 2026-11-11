@@ -57,3 +57,23 @@ test('its label is the selected checkout folder name', async () => {
     '/h/.mesa/default/worktrees/lantern-cove/skiff',
   );
 });
+
+test('the main checkout reads "Main checkout"; a removed checkout still shows by name, not as main', async () => {
+  expect((await picker('')).select?.selectedOptions[0]?.text).toBe(
+    'Main checkout (rebase in progress)',
+  );
+  const { select } = await picker('/h/.mesa/default/worktrees/lantern-cove/gone');
+  expect(select?.value).toBe('/h/.mesa/default/worktrees/lantern-cove/gone');
+  expect(select?.selectedOptions[0]?.text).toBe('gone');
+});
+
+test('two checkouts with the same folder name are listed by path', async () => {
+  rows.push({ path: '/elsewhere/skiff', main: false, state: 'ready', holders: [] });
+  const { select } = await picker('');
+  rows.pop();
+  expect([...(select?.options ?? [])].map((option) => option.text)).toEqual([
+    'Main checkout (rebase in progress)',
+    '/h/.mesa/default/worktrees/lantern-cove/skiff',
+    '/elsewhere/skiff',
+  ]);
+});

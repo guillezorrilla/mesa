@@ -3,10 +3,14 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { cn } from '@/lib/utils';
 import { useCheckouts } from './useCheckouts';
 
+const MAIN = 'Main checkout';
+const folderOf = (path: string) => path.slice(path.lastIndexOf('/') + 1);
+
 /**
  * The project's checkouts as a native select, '' being the main checkout, each named by its
- * folder and marked while it is stopped in a merge, rebase or cherry-pick. It shows the current
- * one's name beside a folder icon, or the icon alone when `compact`.
+ * folder (its path when two share a name) and marked while it is stopped in a merge, rebase or
+ * cherry-pick. It shows the current one's name beside a folder icon, or the icon alone when
+ * `compact`. A selected checkout not listed (not loaded yet, or removed) stays shown by name.
  */
 export function CheckoutPicker(props: {
   project: string;
@@ -15,23 +19,26 @@ export function CheckoutPicker(props: {
   compact?: boolean;
   onChange: (path: string) => void;
 }) {
-  const checkouts = useCheckouts(props.project);
-  const options = checkouts.map((row) => {
-    const value = row.main ? '' : row.path;
-    const name = row.main ? 'Main checkout' : row.path.slice(row.path.lastIndexOf('/') + 1);
-    return (
-      <NativeSelectOption key={row.path} value={value}>
-        {row.operation ? `${name} (${row.operation} in progress)` : name}
-      </NativeSelectOption>
-    );
-  });
-  // Before the list loads, the main checkout is still the one to show.
-  if (!checkouts.some((row) => row.main))
-    options.unshift(
-      <NativeSelectOption key="" value="">
-        Main checkout
-      </NativeSelectOption>,
-    );
+  const rows = useCheckouts(props.project);
+  const linked = rows.filter((row) => !row.main);
+  const main = rows.find((row) => row.main);
+  const paths = linked.map((row) => row.path);
+  if (props.value && !paths.includes(props.value)) paths.push(props.value);
+  const shared = (path: string) =>
+    paths.filter((each) => folderOf(each) === folderOf(path)).length > 1;
+  const choices = [
+    { value: '', name: MAIN, operation: main?.operation },
+    ...paths.map((path) => ({
+      value: path,
+      name: shared(path) ? path : folderOf(path),
+      operation: linked.find((row) => row.path === path)?.operation,
+    })),
+  ];
+  const options = choices.map((choice) => (
+    <NativeSelectOption key={choice.value} value={choice.value}>
+      {choice.operation ? `${choice.name} (${choice.operation} in progress)` : choice.name}
+    </NativeSelectOption>
+  ));
   const select = {
     'aria-label': props.label,
     value: props.value,
@@ -39,7 +46,7 @@ export function CheckoutPicker(props: {
   };
   if (!props.compact)
     return (
-      <div className="relative w-56 shrink-0" title={props.value || 'Main checkout'}>
+      <div className="relative w-56 shrink-0" title={props.value || MAIN}>
         <Folder
           aria-hidden
           className={cn(
@@ -58,7 +65,7 @@ export function CheckoutPicker(props: {
         'relative flex size-8 items-center justify-center rounded-md hover:bg-accent focus-within:outline-2 focus-within:outline-ring',
         props.value ? 'text-state-working' : 'text-muted-foreground hover:text-foreground',
       )}
-      title={props.value || 'Main checkout'}
+      title={props.value || MAIN}
     >
       <Folder aria-hidden className="size-4" />
       {/* ponytail: the OS menu of a transparent native select, no custom dropdown. */}
