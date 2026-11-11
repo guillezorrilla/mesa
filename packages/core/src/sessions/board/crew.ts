@@ -1,12 +1,8 @@
 import type { ChildReport } from '../../reports/reports.js';
-import { sessionBranch } from '../record/labels.js';
+import type { Task } from '../../tasks/task-file.js';
+import { sessionBranch, taskTitle } from '../record/labels.js';
 import { diffable } from '../record/lifecycle.js';
-import type { ManagedRow, SessionRow } from './rows.js';
-
-/** A child's newest report that says something, as the Crew panel shows it. */
-export type CrewReport = Pick<ChildReport, 'kind' | 'at' | 'outcome' | 'question' | 'details'> & {
-  message: string;
-};
+import type { CrewReport, ManagedRow, SessionRow } from './rows.js';
 
 /**
  * One of a parent's children (CONTEXT.md, Crew): its board row, the branch it works on, its newest
@@ -14,9 +10,39 @@ export type CrewReport = Pick<ChildReport, 'kind' | 'at' | 'outcome' | 'question
  */
 export type CrewRow = ManagedRow & {
   branch: string | null;
-  report?: CrewReport;
   diff?: { added: number; removed: number };
 };
+
+/** `said` as a crew row keeps it; none for a report that says nothing. */
+const crewReport = (said: ChildReport | undefined): CrewReport | undefined =>
+  said?.message
+    ? {
+        kind: said.kind,
+        at: said.at,
+        message: said.message,
+        ...(said.outcome ? { outcome: said.outcome } : {}),
+        ...(said.question ? { question: said.question } : {}),
+        ...(said.details ? { details: said.details } : {}),
+      }
+    : undefined;
+
+/**
+ * `rows` with each child's crew news (a row that reports to a session now, `parentNow`): its
+ * task's title from `tasks` (taskTitle) and its newest report that says something from `latest`.
+ */
+export function withCrewNews(
+  rows: readonly SessionRow[],
+  tasks: readonly Pick<Task, 'id' | 'spec'>[],
+  latest: Readonly<Record<string, ChildReport>>,
+): SessionRow[] {
+  const titles = new Map(tasks.map((task) => [task.id, taskTitle(task.spec)]));
+  return rows.map((row) => {
+    if (!row.managed || !row.parentNow) return row;
+    const title = row.task && titles.get(row.task);
+    const report = crewReport(latest[row.id]);
+    return { ...row, ...(title ? { taskTitle: title } : {}), ...(report ? { report } : {}) };
+  });
+}
 
 /**
  * `parent`'s crew: the board rows that report to it now (`parentNow`: they name it, or a session it
@@ -34,23 +60,13 @@ export async function crewOf(
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
   return Promise.all(
     children.map(async (row) => {
-      const said = latest[row.id];
+      const { report: _board, ...rest } = row;
+      const report = crewReport(latest[row.id]);
       const diff = diffable(row) ? await diffOf(row.id) : undefined;
       return {
-        ...row,
+        ...rest,
         branch: sessionBranch(row) ?? null,
-        ...(said?.message
-          ? {
-              report: {
-                kind: said.kind,
-                at: said.at,
-                message: said.message,
-                ...(said.outcome ? { outcome: said.outcome } : {}),
-                ...(said.question ? { question: said.question } : {}),
-                ...(said.details ? { details: said.details } : {}),
-              },
-            }
-          : {}),
+        ...(report ? { report } : {}),
         ...(diff ? { diff } : {}),
       };
     }),

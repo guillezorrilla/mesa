@@ -340,10 +340,11 @@ export function keptReport(ctx: MesaContext, child: string): KeptReport | undefi
 
 /**
  * Each child's newest report that says something, delivered or not (the Crew panel's), with their
- * news collected first when reports are on.
+ * news collected first when reports are on; with `collect` false, as last written (a board look's,
+ * which writes nothing).
  */
-export function latestReports(ctx: MesaContext): Record<string, ChildReport> {
+export function latestReports(ctx: MesaContext, collect = true): Record<string, ChildReport> {
   const ledger = ledgerOf(ctx);
-  if (ctx.configIfAny()?.sessions.childReports) collectAll(ctx, ledger, 0);
+  if (collect && ctx.configIfAny()?.sessions.childReports) collectAll(ctx, ledger, 0);
   return ledger.latest();
 }
