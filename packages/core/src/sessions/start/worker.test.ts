@@ -3,10 +3,12 @@ import { createMesa } from '../../mesa.js';
 import {
   agentWorld,
   gitRepo,
+  newSession,
   projectProfile,
   sequentialIds,
   tempDir,
   testDeps,
+  testStore,
   withRealGit,
 } from '../../testing/index.js';
 import { workerBrief } from './goal.js';
@@ -74,4 +76,35 @@ test('a worker on --branch takes that branch; from outside a window it needs --p
   await expect(
     from().sessions.worker('lantern-cove', 'x', { parent: parent.id }),
   ).rejects.toMatchObject({ code: 'usage', message: expect.stringContaining('has ended') });
+});
+
+test('workers nest at most 4 deep: depth 3 starts one, depth 4 is refused and starts nothing; a resume adds no level', async () => {
+  const { home, mesa, parent, from } = await setUp();
+  // A chain of children under the parent: depths 1, 2 and 3.
+  let at = parent;
+  for (let i = 0; i < 3; i++)
+    at = (await mesa.sessions.open('lantern-cove', { parent: at.id, goal: `level ${i + 1}` }))
+      .result;
+  expect((await mesa.sessions.show(at.id)).depth).toBe(3);
+  const { result: fourth } = await from(at.id).sessions.worker('lantern-cove', 'Count the buoys');
+  expect((await mesa.sessions.show(fourth.id)).depth).toBe(4);
+  expect((await mesa.sessions.show(parent.id)).depth).toBe(0);
+  const before = (await mesa.sessions.list('all')).length;
+  const refused = { code: 'usage', message: `${fourth.id} nests workers 4 deep; the limit is 4` };
+  await expect(from(fourth.id).sessions.worker('lantern-cove', 'deeper')).rejects.toMatchObject(
+    refused,
+  );
+  await expect(
+    from(fourth.id).sessions.open('lantern-cove', { goal: 'deeper' }),
+  ).rejects.toMatchObject(refused);
+  await expect(
+    mesa.sessions.open('lantern-cove', { goal: 'deeper', parent: fourth.id }),
+  ).rejects.toMatchObject(refused);
+  expect(await mesa.sessions.list('all')).toHaveLength(before);
+  // A resume of the depth-3 session continues it: still depth 3, so its worker is depth 4.
+  const store = testStore(home);
+  const resumed = store.create(() => newSession({ parent: at.parent, resumedFrom: at.id }));
+  store.update(at.id, (r) => ({ ...r, resumedBy: resumed.id, endedAt: r.startedAt }));
+  expect((await mesa.sessions.show(resumed.id)).depth).toBe(3);
+  expect((await mesa.sessions.show(fourth.id)).depth).toBe(4);
 });

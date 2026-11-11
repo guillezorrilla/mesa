@@ -59,6 +59,7 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
       vault: InstructionStatus;
       decisions: DecisionDeliveryStatus;
       report?: KeptReport;
+      depth?: number;
     }
   >();
   const [error, setError] = useState<string>();
@@ -141,6 +142,12 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
                     ? ': it reported its work itself'
                     : `: its last reply each turn goes back as its report${row.brief ? ', as its goal tells it' : ''}`}
                 </dd>
+              </>
+            )}
+            {row.parent && record?.depth !== undefined && (
+              <>
+                <dt className="text-muted-foreground">Worker depth</dt>
+                <dd data-testid="session-worker-depth">{record.depth}</dd>
               </>
             )}
             {record?.report && (

@@ -18,7 +18,7 @@ import { searchConversations } from '../native/search.js';
 import { vaultStatus } from '../native/vault-status.js';
 import { applyEach } from '../record/each.js';
 import { renameSession, setProgress, setWorkflowStatus } from '../record/edits.js';
-import { parentNowOf } from '../record/family.js';
+import { depthOf, parentNowOf } from '../record/family.js';
 import { projectScope } from '../record/general.js';
 import { recordAgent, type SessionRecord } from '../record/record.js';
 import { markRead, markUnread } from '../record/unread.js';
@@ -138,7 +138,9 @@ export function inspectActions(
           : undefined;
       const identityEvents = readHookEvents(paths.events, id);
       const report = keptReport(ctx, id);
-      const parentNow = parentNowOf(store.readable(), current) ?? null;
+      const records = store.readable();
+      const parentNow = parentNowOf(records, current) ?? null;
+      const depth = depthOf(records)(current);
       const identityChanged =
         identityEvents.some((event) => event.event === 'SessionIdentityChanged') ||
         Boolean(
@@ -171,6 +173,8 @@ export function inspectActions(
         ...(report ? { report } : {}),
         // Where it reports now: its parent's newest resume or handoff successor (familyOf).
         ...(current.parent ? { parentNow } : {}),
+        // How many parents are above it, a resume or handoff adding none (depthOf).
+        depth,
       };
     },
     diff,

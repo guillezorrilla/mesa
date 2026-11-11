@@ -230,7 +230,10 @@ test("a coordinator's Crew lists its tasks with states, deps and worker; Start s
       }),
     worker: () => {
       if (refuse)
-        return { ok: false, error: { code: 'usage', message: 'the window would not open' } };
+        return {
+          ok: false,
+          error: { code: 'usage', message: 'aaaaaaaa nests workers 4 deep; the limit is 4' },
+        };
       started = true;
       return envelope({
         task: task('t-parse000', { state: 'running' }),
@@ -272,7 +275,9 @@ test("a coordinator's Crew lists its tasks with states, deps and worker; Start s
 
   refuse = true;
   await click(within(rows[0], '[aria-label="Start t-parse000"]'));
-  expect(document.querySelector('[role="alert"]')?.textContent).toBe('the window would not open');
+  expect(document.querySelector('[role="alert"]')?.textContent).toBe(
+    'aaaaaaaa nests workers 4 deep; the limit is 4',
+  );
   refuse = false;
   await click(within(document, '[aria-label="Start t-parse000"]'));
   expect(calls.filter((argv) => argv[1] === 'worker').at(-1)).toEqual([
