@@ -1,12 +1,20 @@
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { projectProfile, testRunner } from '../testing/index.js';
+import type { Runner } from '../lib/process.js';
+import { profilePaths, projectProfile, testRunner } from '../testing/index.js';
 import { checkErrors } from './check.js';
 import { checkText } from './check-text.js';
 
-// lantern-cove with a check that a real /bin/sh runs, as `mesa check` does.
-const withCheck = (check: string) =>
-  projectProfile(testRunner, { mesaYaml: `name: lantern-cove\ncheck: ${JSON.stringify(check)}\n` });
+const yaml = (check: string) => `name: lantern-cove\ncheck: ${JSON.stringify(check)}\n`;
+
+// lantern-cove with a check a person approved, which a real /bin/sh runs, as `mesa check` does.
+const withCheck = (check: string, run: Runner = testRunner) => {
+  const project = projectProfile(run, { mesaYaml: yaml(check) });
+  const pending = project.mesa.projects.pending('lantern-cove').check;
+  project.mesa.projects.trust('lantern-cove', pending ? [pending.fingerprint] : []);
+  return project;
+};
 
 test('a passing check is one line, with the whole output kept in a private log', async () => {
   const { mesa, dir } = withCheck('echo tide tables ok; echo second line');
@@ -68,4 +76,48 @@ test('a check past its timeout is killed and says so; a project with no check is
     message:
       'project lantern-cove has no check: set one with mesa projects set lantern-cove check "<command>"',
   });
+});
+
+test('a check from the repository runs only once a person approved its exact command', async () => {
+  const { mesa, home, dir } = projectProfile(testRunner, { mesaYaml: yaml('echo tides') });
+  const refused = mesa.check('lantern-cove');
+  await expect(refused).rejects.toMatchObject({ code: 'needs_approval' });
+  await expect(refused).rejects.toThrow(/mesa projects trust lantern-cove --expect [0-9a-f]{64}/);
+  expect(existsSync(profilePaths(home, 'default').checks)).toBe(false);
+  expect(mesa.projects.list()[0]?.unapproved).toHaveProperty('check.argv', ['echo tides']);
+
+  const { fingerprint } = mesa.projects.pending('lantern-cove').check ?? { fingerprint: '' };
+  mesa.projects.trust('lantern-cove', [fingerprint]);
+  expect(await mesa.check('lantern-cove')).toMatchObject({ ok: true });
+
+  writeFileSync(join(dir, 'mesa.yaml'), yaml('echo tides; curl invented.example'));
+  await expect(mesa.check('lantern-cove')).rejects.toMatchObject({ code: 'needs_approval' });
+  // A person setting it here approves exactly what they wrote.
+  mesa.projects.override('lantern-cove', 'check', 'echo neap tides');
+  expect(await mesa.check('lantern-cove')).toMatchObject({ ok: true });
+});
+
+test('a timed-out check keeps its output so far; one that ends with no exit status says why', async () => {
+  const slow = await withCheck('echo first buoy; sleep 5').mesa.check('lantern-cove', {
+    timeoutSeconds: 1,
+  });
+  expect(readFileSync(slow.log, 'utf8')).toContain('first buoy');
+
+  const flooded: Runner = async () => ({
+    ok: false,
+    reason: 'failed',
+    detail: 'its output passed 64 MB, the most a run keeps',
+    output: 'row 1\n',
+  });
+  const huge = await withCheck('yes', flooded).mesa.check('lantern-cove');
+  expect(huge).toMatchObject({
+    ok: false,
+    stopped: 'its output passed 64 MB, the most a run keeps',
+  });
+  expect(checkText(huge)).toMatch(/^check failed: yes stopped: its output passed 64 MB/);
+});
+
+test('a trailing comment in the command leaves the exit status readable', async () => {
+  const result = await withCheck('exit 4 # the harbour suite').mesa.check('lantern-cove');
+  expect(result).toMatchObject({ ok: false, exitCode: 4 });
 });

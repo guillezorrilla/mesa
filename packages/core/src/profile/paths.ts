@@ -103,7 +103,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     fetches: join(root, 'sessions', 'fetches.json'),
     logs: join(root, 'sessions', 'logs'),
     runs: join(root, 'sessions', 'runs'),
-    checks: join(root, 'sessions', 'checks'),
+    checks: join(root, 'checks'),
     costs: join(root, 'sessions', 'costs'),
     decisions: join(root, 'sessions', 'decisions'),
     decisionLog: join(root, 'decision-log'),

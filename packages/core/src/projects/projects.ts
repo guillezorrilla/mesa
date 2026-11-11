@@ -22,10 +22,11 @@ import {
   approveScripts,
   describePending,
   type PendingScripts,
+  scriptArgv,
   scriptFingerprint,
+  TRUSTED_SCRIPTS,
+  type TrustedScripts,
   unapprovedScripts,
-  WORKTREE_SCRIPTS,
-  type WorktreeScripts,
 } from './trust.js';
 
 export type ProjectRow = {
@@ -40,7 +41,7 @@ export type ProjectRow = {
   overrides: ProjectOverrides;
   /** Its session terminals' theme: the project's override, else the profile's. */
   terminalTheme: Config['terminal']['theme'] | null;
-  /** Its mesa.yaml's setup and teardown this profile has not approved, which will not run. */
+  /** Its mesa.yaml's setup, teardown and check this profile has not approved, which will not run. */
   unapproved: PendingScripts;
   /** False when the directory or its mesa.yaml is gone; the other fields are then unknown. */
   exists: boolean;
@@ -218,7 +219,7 @@ export function overrideProject(
   name: string,
   dotted: string,
   value: string | undefined,
-  /** False inside a Mesa window: a setup or teardown written there stays unapproved. */
+  /** False inside a Mesa window: a setup, teardown or check written there stays unapproved. */
   approve: boolean,
   lock: LockDeps,
 ): { project: string; path: string; value: unknown } {
@@ -231,14 +232,14 @@ export function overrideProject(
     value === undefined ? undefined : overrideValue(dotted, value),
     lock,
   );
-  // A person wrote this setup or teardown, so this profile approves exactly it; one a session
-  // wrote loses any approval, so the next worktree asks.
-  const script = WORKTREE_SCRIPTS.find((kind) => dotted === `worktrees.${kind}`);
+  // A person wrote this setup, teardown or check, so this profile approves exactly it; one a
+  // session wrote loses any approval, so the next run asks.
+  const script = TRUSTED_SCRIPTS.find((kind) => dotted === kind || dotted === `worktrees.${kind}`);
   if (script)
     approveScripts(
       profile,
       name,
-      { [script]: approve ? next.worktrees?.[script] : undefined },
+      { [script]: approve ? scriptArgv(next, script) : undefined },
       lock,
     );
   return { project: name, path: dotted, value: valueAt(next, dotted) ?? null };
@@ -259,7 +260,7 @@ function overrideValue(dotted: string, value: string): unknown {
   }
 }
 
-/** The project's setup and teardown waiting for this profile's approval, as a person reviews them. */
+/** The project's setup, teardown and check waiting for this profile's approval, as a person reviews them. */
 export function pendingScripts(profile: Profile, name: string): PendingScripts {
   const entry = findProject(profile, name);
   return unapprovedScripts(readProjectFile(entry.path), entry);
@@ -277,15 +278,15 @@ export function trustProject(
   approve: boolean,
   expected: readonly string[],
   lock: LockDeps,
-): { project: string } & WorktreeScripts {
+): { project: string } & TrustedScripts {
   if (!approve) throw new MesaError('usage', APPROVAL_FROM_SESSION);
   if (!expected.length)
     throw new MesaError('usage', 'name the reviewed scripts: --expect <sha256> for each');
   const entry = findProject(profile, name);
   const file = readProjectFile(entry.path);
-  const scripts: WorktreeScripts = {};
-  for (const script of WORKTREE_SCRIPTS) {
-    const argv = file.worktrees?.[script];
+  const scripts: TrustedScripts = {};
+  for (const script of TRUSTED_SCRIPTS) {
+    const argv = scriptArgv(file, script);
     if (argv?.length && expected.includes(scriptFingerprint(argv))) scripts[script] = argv;
   }
   const found = Object.values(scripts).map((argv) => scriptFingerprint(argv));

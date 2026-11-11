@@ -7,6 +7,7 @@ import { MesaError } from '../lib/result.js';
 import { resolveCheckout } from '../projects/checkout.js';
 import { readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
+import { needsApproval, unapprovedScripts } from '../projects/trust.js';
 import { sessionFolder } from '../sessions/record/folder.js';
 import { callerOf } from '../sessions/window/caller.js';
 import type { CheckResult } from './check-text.js';
@@ -63,12 +64,16 @@ export async function runCheck(
   if (!Number.isSafeInteger(timeoutSeconds) || timeoutSeconds < 1)
     throw new MesaError('usage', `the timeout is whole seconds, 1 or more, not ${timeoutSeconds}`);
   const entry = findProject(ctx.open(), project);
-  const command = readProjectFile(entry.path).check?.trim();
+  const file = readProjectFile(entry.path);
+  const command = file.check;
   if (!command)
     throw new MesaError(
       'usage',
       `project ${entry.name} has no check: set one with mesa projects set ${entry.name} check "<command>"`,
     );
+  // A check from the repository runs on this machine, so only once a person approved it (ADR-0013).
+  const pending = unapprovedScripts(file, entry).check;
+  if (pending) throw needsApproval(entry.name, { check: pending });
   const caller = callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile }).session;
   const folder = opts.checkout
     ? (await resolveCheckout(ctx.open(), ctx.run, entry.name, ctx.absolute(opts.checkout))).path
@@ -76,7 +81,8 @@ export async function runCheck(
   const started = ctx.clock().getTime();
   const ran = await ctx.run(
     '/bin/sh',
-    ['-c', `(${command}) 2>&1; echo "${EXIT_MARK}$?"`],
+    // On lines of its own, so a trailing `# comment` in the command cannot swallow the `)`.
+    ['-c', `(\n${command}\n) 2>&1; echo "${EXIT_MARK}$?"`],
     timeoutSeconds * 1000,
     {
       cwd: folder,
@@ -89,6 +95,10 @@ export async function runCheck(
     ran.ok && at >= 0 ? Number(printed.slice(at + EXIT_MARK.length).trim()) : undefined;
   const output = at >= 0 ? printed.slice(0, at) : printed;
   const timedOut = !ran.ok && ran.reason === 'timeout';
+  const stopped =
+    exitCode === undefined && !timedOut && !ran.ok
+      ? ran.detail.split('\n')[0]?.slice(0, 200)
+      : undefined;
   const dir = ctx.paths.checks;
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   const log = join(dir, `${shortId(ctx.newId)}.log`);
@@ -102,6 +112,7 @@ export async function runCheck(
     folder,
     ...(exitCode === undefined ? {} : { exitCode }),
     ...(timedOut ? { timedOut: true as const } : {}),
+    ...(stopped ? { stopped } : {}),
     durationMs,
     log,
     errors: errors.lines,

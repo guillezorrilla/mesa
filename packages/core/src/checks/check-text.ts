@@ -8,6 +8,8 @@ export type CheckResult = {
   /** The command's exit status; none when it timed out. */
   exitCode?: number;
   timedOut?: true;
+  /** Why it ended with no exit status, when it did not time out. */
+  stopped?: string;
   durationMs: number;
   /** The whole output, stdout and stderr together, private to the profile. */
   log: string;
@@ -20,7 +22,11 @@ export type CheckResult = {
 export function checkText(result: CheckResult): string {
   const seconds = Math.round(result.durationMs / 100) / 10;
   if (result.ok) return `check passed: ${result.command} (${seconds} s); log ${result.log}`;
-  const how = result.timedOut ? 'timed out' : `exited ${result.exitCode ?? '?'}`;
+  const how = result.timedOut
+    ? 'timed out'
+    : result.exitCode === undefined
+      ? `stopped: ${result.stopped ?? 'no exit status'}`
+      : `exited ${result.exitCode}`;
   return [
     `check failed: ${result.command} ${how} (${seconds} s); log ${result.log}`,
     ...result.errors,

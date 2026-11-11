@@ -8,24 +8,31 @@ import { type RegistryEntry, updateRegistry } from './registry.js';
 /** The worktree commands a project's mesa.yaml may name, which run on this machine. */
 export const WORKTREE_SCRIPTS = ['setup', 'teardown'] as const;
 export type WorktreeScript = (typeof WORKTREE_SCRIPTS)[number];
-export type WorktreeScripts = Partial<Record<WorktreeScript, string[]>>;
+/** Every command a project's mesa.yaml names that runs here: its worktree scripts and its check. */
+export const TRUSTED_SCRIPTS = [...WORKTREE_SCRIPTS, 'check'] as const;
+export type TrustedScript = (typeof TRUSTED_SCRIPTS)[number];
+export type TrustedScripts = Partial<Record<TrustedScript, string[]>>;
 /** A script waiting for approval: its exact argv and the fingerprint that approves it. */
 export type PendingScripts = Partial<
-  Record<WorktreeScript, { argv: string[]; fingerprint: string }>
+  Record<TrustedScript, { argv: string[]; fingerprint: string }>
 >;
+
+/** A script as its argv: a worktree script's own, the check's shell line as its one word. */
+export const scriptArgv = (project: Project, script: TrustedScript): string[] | undefined =>
+  script === 'check' ? (project.check ? [project.check] : undefined) : project.worktrees?.[script];
 
 /** What an approval holds: the sha256 of the exact argv, so any change asks again. */
 export const scriptFingerprint = (argv: readonly string[]) =>
   createHash('sha256').update(JSON.stringify(argv)).digest('hex');
 
 /**
- * The project's own setup and teardown this profile has not approved, by script. An empty list
- * runs nothing, so it needs no approval.
+ * The project's own setup, teardown and check this profile has not approved, by script. An empty
+ * list runs nothing, so it needs no approval.
  */
 export function unapprovedScripts(project: Project, entry: RegistryEntry): PendingScripts {
   const pending: PendingScripts = {};
-  for (const script of WORKTREE_SCRIPTS) {
-    const argv = project.worktrees?.[script];
+  for (const script of TRUSTED_SCRIPTS) {
+    const argv = scriptArgv(project, script);
     const fingerprint = argv && scriptFingerprint(argv);
     if (argv?.length && fingerprint && entry.approved?.[script] !== fingerprint)
       pending[script] = { argv, fingerprint };
@@ -56,7 +63,7 @@ export function needsApproval(name: string, pending: PendingScripts): MesaError 
 
 /** Approval comes from a person: the app or a terminal, never an agent inside a Mesa window. */
 export const APPROVAL_FROM_SESSION =
-  'worktree scripts can only be approved from the Mesa app or a terminal outside a Mesa session';
+  'worktree scripts and checks can only be approved from the Mesa app or a terminal outside a Mesa session';
 
 /**
  * Records, in the profile's registry, approval of exactly these argvs for the project; a script
@@ -65,14 +72,14 @@ export const APPROVAL_FROM_SESSION =
 export function approveScripts(
   profile: Profile,
   name: string,
-  scripts: WorktreeScripts,
+  scripts: TrustedScripts,
   lock: LockDeps,
 ): void {
   updateRegistry(lock, profile.paths.registry, (entries) =>
     entries.map((entry) => {
       if (entry.name !== name) return entry;
       const approved = { ...entry.approved };
-      for (const script of Object.keys(scripts) as WorktreeScript[]) {
+      for (const script of Object.keys(scripts) as TrustedScript[]) {
         const argv = scripts[script];
         if (argv?.length) approved[script] = scriptFingerprint(argv);
         else delete approved[script];

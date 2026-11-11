@@ -283,7 +283,7 @@ test("a Mesa session cannot change the profile's setup or teardown, by path or t
   const refused = expect.objectContaining({
     code: 'usage',
     message:
-      'worktree scripts can only be approved from the Mesa app or a terminal outside a Mesa session',
+      'worktree scripts and checks can only be approved from the Mesa app or a terminal outside a Mesa session',
   });
   for (const [path, value] of [
     ['worktrees.setup', '[/usr/bin/true, agent-setup]'],

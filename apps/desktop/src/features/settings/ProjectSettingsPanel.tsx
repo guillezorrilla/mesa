@@ -232,7 +232,7 @@ export function ProjectSettingsPanel(props: { onChanged: () => void }) {
                 icon={ShieldAlert}
                 tone="danger"
                 title="Scripts waiting for approval"
-                description="This project's mesa.yaml names commands this profile has not approved. New worktrees refuse to run them until you approve them."
+                description="This project's mesa.yaml names commands this profile has not approved. Mesa refuses to run them until you approve them."
                 keywords="project approve trust"
                 control={
                   <Button

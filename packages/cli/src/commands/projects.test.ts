@@ -303,7 +303,7 @@ test('projects trust approves the setup a repository names, records a receipt, a
   const inside = await mesa('projects', 'trust', 'reef', '--expect', fingerprint, '--json');
   expect(inside.code).toBe(2);
   expect(inside.json.error.message).toBe(
-    'worktree scripts can only be approved from the Mesa app or a terminal outside a Mesa session',
+    'worktree scripts and checks can only be approved from the Mesa app or a terminal outside a Mesa session',
   );
   cli.env = {};
   // With no terminal to confirm in, trust names the scripts and wants their fingerprints.
@@ -320,7 +320,7 @@ test('projects trust approves the setup a repository names, records a receipt, a
   });
   expect(trusted.json.data.receipt).toMatchObject({ id: expect.any(String) });
   expect((await mesa('receipts', '--json')).json.data[0]).toMatchObject({
-    summary: 'Approved worktree scripts in reef',
+    summary: 'Approved scripts in reef',
   });
   expect((await mesa('worktrees', 'create', 'reef', 'feature')).code).toBe(0);
   expect(ran).toEqual([['invented']]);
@@ -342,7 +342,7 @@ test('projects trust approves the setup a repository names, records a receipt, a
     'approved setup ["/usr/bin/true","changed"] for reef\n',
   );
   expect(cli.asked.at(-1)).toBe(
-    `reef's mesa.yaml runs setup ["/usr/bin/true","changed"] (${sha256(['/usr/bin/true', 'changed'])}) without a shell in its worktrees. Approve?`,
+    `reef's mesa.yaml runs setup ["/usr/bin/true","changed"] (${sha256(['/usr/bin/true', 'changed'])}) on this machine. Approve?`,
   );
   expect((await mesa('worktrees', 'create', 'reef', 'second')).code).toBe(0);
   expect(ran.at(-1)).toEqual(['changed']);

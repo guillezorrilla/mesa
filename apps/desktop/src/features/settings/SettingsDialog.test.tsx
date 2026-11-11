@@ -534,7 +534,10 @@ test("Projects shows a repository's unapproved scripts exactly and approves them
     {
       ...cove,
       overrides: { worktrees: { setup } },
-      unapproved: { setup: { argv: setup, fingerprint: 'a'.repeat(64) } },
+      unapproved: {
+        setup: { argv: setup, fingerprint: 'a'.repeat(64) },
+        check: { argv: ['pnpm verify'], fingerprint: 'b'.repeat(64) },
+      },
     },
   ];
   const { bridge, calls } = fakeBridge({
@@ -551,9 +554,11 @@ test("Projects shows a repository's unapproved scripts exactly and approves them
     'Scripts waiting for approval',
   );
   await click(review);
-  expect(byTestId('approve-scripts')[0]?.querySelector('pre')?.textContent).toBe(
-    '"/usr/bin/make" "set up"',
-  );
+  const shown = [...(byTestId('approve-scripts')[0]?.querySelectorAll('pre') ?? [])];
+  expect(shown.map((pre) => [pre.previousElementSibling?.textContent, pre.textContent])).toEqual([
+    ['Bootstrap', '"/usr/bin/make" "set up"'],
+    ['Check', '"pnpm verify"'],
+  ]);
   await click(byTestId('approve-scripts-submit')[0]);
   // The fingerprint of the argv the dialog showed, so trust refuses a mesa.yaml changed meanwhile.
   expect(calls).toContainEqual([
@@ -562,6 +567,8 @@ test("Projects shows a repository's unapproved scripts exactly and approves them
     'trust',
     '--expect',
     'a'.repeat(64),
+    '--expect',
+    'b'.repeat(64),
     '--',
     'lantern-cove',
   ]);

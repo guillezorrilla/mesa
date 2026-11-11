@@ -9,7 +9,7 @@ export type RunResult =
       ok: false;
       reason: 'missing' | 'timeout' | 'failed';
       detail: string;
-      /** A failed run's whole output, stdout then stderr, for a caller that needs both. */
+      /** A failed or timed-out run's output so far, stdout then stderr, for a caller that needs both. */
       output?: string;
     };
 
@@ -45,12 +45,17 @@ export const envRunner =
           const code = (error as NodeJS.ErrnoException).code;
           if (code === 'ENOENT')
             return resolve({ ok: false, reason: 'missing', detail: error.message });
-          if (error.killed) return resolve({ ok: false, reason: 'timeout', detail: error.message });
+          const output = [stdout, stderr].filter((text) => text.trim()).join('\n');
+          if (error.killed)
+            return resolve({ ok: false, reason: 'timeout', detail: error.message, output });
           resolve({
             ok: false,
             reason: 'failed',
-            detail: (stderr || stdout || error.message).trim(),
-            output: [stdout, stderr].filter((text) => text.trim()).join('\n'),
+            detail:
+              code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'
+                ? 'its output passed 64 MB, the most a run keeps'
+                : (stderr || stdout || error.message).trim(),
+            output,
           });
         },
       );
