@@ -90,9 +90,13 @@ test('SessionStart gives only the owning native session a bounded Mesa pointer',
   cli.withTmux();
   await cli.withProject();
   const opened = (await mesa('open', 'lantern-cove', '--json')).json.data;
-  expect((await mesa('show', opened.id, '--full', '--json')).json.data.instructions.state).toBe('missing');
+  expect((await mesa('show', opened.id, '--full', '--json')).json.data.instructions.state).toBe(
+    'missing',
+  );
   await mesa('hooks', 'install');
-  expect((await mesa('show', opened.id, '--full', '--json')).json.data.instructions.state).toBe('configured');
+  expect((await mesa('show', opened.id, '--full', '--json')).json.data.instructions.state).toBe(
+    'configured',
+  );
   // An invented project hub: the pointer names the tools that read it, never its content.
   writeFileSync(join(cli.home, 'vault/projects/lantern-cove.md'), '# Lantern cove\nGREY KELP 19\n');
   cli.env = { MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' };
@@ -126,14 +130,18 @@ test('Antigravity PreInvocation gives only the owning native conversation a tran
   await cli.withProject();
   cli.run = scriptedRunner({ tmux: world.answer, claude: CLAUDE_VERSION, agy: '1.2.13' }).run;
   const opened = (await mesa('open', 'lantern-cove', '--agent', 'antigravity', '--json')).json.data;
-  expect((await mesa('show', opened.id, '--full', '--json')).json.data.instructions.state).toBe('missing');
+  expect((await mesa('show', opened.id, '--full', '--json')).json.data.instructions.state).toBe(
+    'missing',
+  );
   expect(
     (await mesa('doctor', '--json')).json.data.checks.find(
       (check: { name: string }) => check.name === 'antigravity hooks',
     ).status,
   ).toBe('warn');
   await mesa('hooks', 'install');
-  expect((await mesa('show', opened.id, '--full', '--json')).json.data.instructions.state).toBe('configured');
+  expect((await mesa('show', opened.id, '--full', '--json')).json.data.instructions.state).toBe(
+    'configured',
+  );
   expect(
     (await mesa('doctor', '--json')).json.data.checks.find(
       (check: { name: string }) => check.name === 'antigravity hooks',
@@ -478,7 +486,9 @@ test('Codex hooks flow through CLI JSON, doctor trust rows, and board state', as
     ),
   ).toBe(true);
   const id = (await mesa('open', 'lantern-cove', '--agent', 'codex', '--json')).json.data.id;
-  expect((await mesa('show', id, '--full', '--json')).json.data.instructions.state).toBe('conflicting');
+  expect((await mesa('show', id, '--full', '--json')).json.data.instructions.state).toBe(
+    'conflicting',
+  );
   cli.env = { ...cli.env, MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
   for (const [event, state] of [
     ['SessionStart', 'idle'],
@@ -743,6 +753,8 @@ test("a parent's Stop answers with its pending child reports as a block, once, a
     .trim()
     .split('\n');
   expect(JSON.parse(log.at(-1) ?? '{}').event).toBe('StopContinued');
-  expect((await mesa('show', parent.id, '--full', '--json')).json.data.lastState.state).toBe('working');
+  expect((await mesa('show', parent.id, '--full', '--json')).json.data.lastState.state).toBe(
+    'working',
+  );
   expect(await stop(parent.id, parent.agentSessionId)).toBe('');
 });
