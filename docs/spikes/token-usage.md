@@ -82,3 +82,19 @@ Before, each probe carried the run's flags as they were: `--model haiku` (or `so
 A live `mesa run session-summary --session <id>` in a throwaway profile, on an invented project, landed its summary, and `mesa usage --session <run>` read its first turn at 20,253 tokens (2 input, 11,873 cache read, 8,378 cache write), its skill and the session's log included, against the 80k median of capture runs in Step 2. `mesa run vault-capture` on the same session ran, chose nothing to keep from a two-line log, and landed nothing.
 
 Git text (#1008, 2026-11-10): the patch a `git-text` run reads is 60 KB, down from 200 KB, split fairly by file (`cutPatch`, `git/recipes.ts`), so a lockfile or generated file at the top of a patch no longer hides every file after it, and a commit message or pull request text reads the shape of each change.
+
+## Step 5: measured after epic #1003 (2026-11-11)
+
+The same invented workload ran on the build before #1012 (`8eab5ae2`) and on main after #1013 (`0eeb5e88`), each in its own throwaway profile with an invented project: a terminal session printing 200 lines, then `mesa run session-summary --session <id>`, `mesa run vault-capture --session <id>`, and `mesa git message` on a staged 150 KB `package-lock.json` plus two small source edits. Read with `mesa usage --session <run> --json`: the first turn's input, cache read and cache write tokens, and the run's estimated cost. Haiku throughout, one run each.
+
+| Run | First turn before | First turn after | Cost before | Cost after |
+| --- | --- | --- | --- | --- |
+| session-summary | 62,270 | 37,037 | $0.0116 | $0.0058 |
+| vault-capture | 63,301 | 38,177 | $0.0102 | $0.0065 |
+| git message | 240,346 | 92,203 | $0.2307 | $0.0164 |
+
+Under the lean flags the vault-capture run called mesa-vault's `project_context` and `search_vault`, took 3 turns where the earlier build's took 1, and its note landed. The git message run read the 60 KB fair cut (#1008) where the earlier build read 200 KB.
+
+A replay of the owner's last 30 days, counting only, over 55 child sessions under 27 parents: 1,241 finished-turn reports under the old rule, 58 under the 120 s hold (#1004), and batching siblings due together merged none of those. A child's implicit report text was already at most 203 characters, the hook log's cut (`redactPayload`), so the 600-character cap (#1005) acts on explicit reports only.
+
+Caveats: one run each, so the turn counts can vary; the replay counts reports, not wakes, as a busy parent took its reports at its own turn end without a wake, so the tokens they cost are not counted here.
