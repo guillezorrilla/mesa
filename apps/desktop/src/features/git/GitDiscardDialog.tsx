@@ -46,7 +46,7 @@ export function GitDiscardDialog(props: {
     >
       <ul aria-label="Files to discard" className="space-y-1 text-sm">
         {changes.map((change) => (
-          <li key={change.path} className="flex items-center gap-2">
+          <li key={`${change.path}:${change.index}`} className="flex items-center gap-2">
             <span className="min-w-0 flex-1 break-all font-mono">{change.path}</span>
             {change.index === '?' && (
               <span className="shrink-0 text-xs text-state-failed">Untracked, deleted</span>

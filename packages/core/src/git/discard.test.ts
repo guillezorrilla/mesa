@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import {
@@ -90,4 +90,24 @@ test('a path with no change, a path outside the checkout, or paths with --all ar
   await expect(discard(['tide.md'], true)).rejects.toThrow(/not both/);
   await expect(discard([])).rejects.toThrow(/not both/);
   expect(read('tide.md')).toBe('High at seven\n');
+});
+
+test('a path git refuses (a nested repository) stops the whole discard before anything changes', async () => {
+  const { mesa, dir, read } = setUp();
+  writeFileSync(join(dir, 'tide.md'), 'High at seven\n');
+  mkdirSync(join(dir, 'skiff'));
+  testGit(join(dir, 'skiff'), 'init', '-q');
+  const refused = mesa.git.discard('lantern-cove', { paths: [], all: true, yes: true });
+  await expect(refused).rejects.toMatchObject({ code: 'usage' });
+  expect(read('tide.md')).toBe('High at seven\n');
+});
+
+test('a path deleted in the index and back as untracked is discarded once, from HEAD', async () => {
+  const { mesa, dir, changes, read } = setUp();
+  testGit(dir, 'rm', '-q', '--cached', 'tide.md');
+  writeFileSync(join(dir, 'tide.md'), 'Rewritten\n');
+  const done = await mesa.git.discard('lantern-cove', { paths: [], all: true, yes: true });
+  expect(done.result.discarded).toEqual([{ path: 'tide.md', untracked: false }]);
+  expect(await changes()).toEqual([]);
+  expect(read('tide.md')).toBe('High at six\n');
 });

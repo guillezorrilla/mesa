@@ -23,6 +23,10 @@ import {
 type IndexAction = (action: 'stage' | 'unstage', paths: string[]) => void;
 type DiscardAction = (change: GitChange) => void;
 
+/** A row's hover button: shown on hover or keyboard focus. */
+const ROW_ACTION =
+  'rounded p-1 text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100';
+
 /**
  * The Staged and Changes sections, each folded by folder, with per-row and whole-section staging,
  * and Discard changes on each row (its button and right-click menu).
@@ -173,7 +177,7 @@ function ChangeRow(props: {
               aria-label={`Discard changes ${change.path}`}
               title="Discard changes"
               disabled={props.acting}
-              className="rounded p-1 text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+              className={ROW_ACTION}
               onClick={() => props.onDiscard(change)}
             >
               <Undo2 aria-hidden className="size-3.5" />
@@ -184,7 +188,7 @@ function ChangeRow(props: {
             aria-label={`${verb} ${change.path}`}
             title={verb}
             disabled={props.acting}
-            className="rounded p-1 text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+            className={ROW_ACTION}
             onClick={() => props.onIndex(staged ? 'unstage' : 'stage', [change.path])}
           >
             {staged ? (
