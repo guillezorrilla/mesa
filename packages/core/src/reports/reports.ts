@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AGENT_FENCE as FENCE, short } from '../lib/untrusted-text.js';
+import { clean, AGENT_FENCE as FENCE, short } from '../lib/untrusted-text.js';
 import { hookItem } from '../notifications/inbox-items.js';
 import { sessionTitle } from '../sessions/record/labels.js';
 import type { SessionRecord } from '../sessions/record/record.js';
@@ -251,7 +251,8 @@ function reportLines(report: ChildReport): string[] {
       `  \`\`\`${FENCE}`,
       `  ${report.message ?? ''}`,
       ...(report.files?.length ? [`  files: ${report.files.join(', ')}`] : []),
-      ...(report.details ? [`  details: ${report.details}`] : []),
+      // The path is the worker's: cleaned here so it cannot close the fence; stored exact to be read.
+      ...(report.details ? [`  details: ${clean(report.details)}`] : []),
       '  ```',
     ];
   if (report.kind === 'question')

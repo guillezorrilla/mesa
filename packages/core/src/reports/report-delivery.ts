@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import type { MesaContext } from '../context.js';
 import { shortId } from '../lib/ids.js';
 import { MesaError } from '../lib/result.js';
@@ -124,7 +124,7 @@ export function reportsService(
       const child = reportingChild();
       if (!text.trim()) throw new MesaError('usage', 'say what you did, found, and left');
       const details = extras.details === undefined ? undefined : ctx.absolute(extras.details);
-      if (details !== undefined && !existsSync(details))
+      if (details !== undefined && !statSync(details, { throwIfNoEntry: false })?.isFile())
         throw new MesaError('usage', `no details file at ${details}`);
       const report = explicitReport(child, kind, text, ctx.clock().toISOString(), {
         ...extras,
