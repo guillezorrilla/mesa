@@ -11,6 +11,7 @@ import type { LockDeps } from '../../lib/lock-file.js';
 import type { Runner } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
 import type { Checkout } from '../../projects/checkout.js';
+import { inNextSend } from './next-send.js';
 import { type NotesSource, notesPrompt } from './notes-prompt.js';
 import type { ReviewDelivery, ReviewPreview } from './reviews.js';
 
@@ -255,24 +256,21 @@ export function reviewNotes(deps: NotesDeps, session: string) {
      */
     next: async (path?: string): Promise<NotesBatch & { stale: string[] }> => {
       const listed = (await list()).filter((n) => !path || n.path === path);
-      const unsent = listed.filter((n) => !n.sentAt);
-      // A changed note's lines are where it was written; a gone file keeps its old quote.
+      const going = listed.filter(inNextSend);
+      // A changed note's lines are where it was written; a file gone, or now shorter than
+      // them, keeps the old quote.
       const now = async (n: ListedNote) => {
         const found =
           n.stale && n.line ? await readFile(n.scope, n.path).catch(() => undefined) : undefined;
-        return found
-          ? {
-              ...n,
-              quoted: linesOf(found.text)
-                .slice(n.line - 1, n.end)
-                .join('\n'),
-            }
+        const lines = found ? linesOf(found.text) : [];
+        return n.end <= lines.length
+          ? { ...n, quoted: lines.slice(n.line - 1, n.end).join('\n') }
           : n;
       };
       return {
-        ready: unsent.filter((n) => !n.stale),
-        open: await Promise.all(listed.filter((n) => n.sentAt).map(now)),
-        stale: unsent.filter((n) => n.stale).map((n) => n.id),
+        ready: going.filter((n) => !n.sentAt),
+        open: await Promise.all(going.filter((n) => n.sentAt).map(now)),
+        stale: listed.filter((n) => !inNextSend(n)).map((n) => n.id),
       };
     },
     /** Marks `sent` sent now, to session `to`; a note edited since keeps its new, unsent text. */

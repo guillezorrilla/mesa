@@ -232,3 +232,14 @@ test('--to new starts a session in the same checkout with the notes as its goal'
   // The source keeps its worktree: the new session joins it, never takes it over.
   expect((await mesa.sessions.show(id)).worktree?.path).toBe(tree);
 });
+
+test('an open note on lines its file no longer has keeps the quote it was sent with', async () => {
+  const { mesa, tree, typed, id } = await setUp();
+  await mesa.sessions.notes.add(id, { path: 'tide.ts', line: 4, text: 'gull' });
+  await mesa.sessions.notes.send(id, undefined, { noFrom: true });
+  writeFileSync(join(tree, 'tide.ts'), 'const tide = 1;\n');
+  await mesa.sessions.notes.send(id, undefined, { noFrom: true });
+  expect(typed()[1]).toContain(
+    'Still open from the last round:\n\nFile: tide.ts\nLines: 4-4\n```\nconst gull = 4;\n```',
+  );
+});

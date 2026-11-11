@@ -1,5 +1,5 @@
 import type { GuardrailCheck, ListedNote } from '@mesa/core';
-import { counted, notesRecipients, sessionLabel } from '@mesa/core/browser';
+import { counted, inNextSend, notesRecipients, sessionLabel } from '@mesa/core/browser';
 import { useCallback, useMemo, useState } from 'react';
 import { type Message, said } from '@/components/Toast';
 import { useAct } from '@/lib/useAct';
@@ -39,7 +39,7 @@ export function useDiffNotes(sessionId: string) {
   );
   /** How many notes the next send holds, or `path`'s: unsent ones not stale, and sent ones still open. */
   const toSend = (path?: string) =>
-    notes.filter((n) => (n.sentAt || !n.stale) && (!path || n.path === path)).length;
+    notes.filter((n) => inNextSend(n) && (!path || n.path === path)).length;
 
   /** Runs a change, reads the notes again, and says whether it went through. */
   const { refresh } = read;
