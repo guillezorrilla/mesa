@@ -115,6 +115,15 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     expect(await tmux.windowExists(lantern('claude-cccccc'))).toBe(false);
   });
 
+  test("a window's PATH reaches its agent, though tmux gives a pane its client's PATH", async () => {
+    const target = { project: 'pathed', window: 'claude-pathed' };
+    await open(target, `sh -c 'echo "path=$PATH"; exec cat'`, { PATH: '/mesa-shim:/usr/bin:/bin' });
+    expect(await eventually(() => tmux.capturePane(target, 5), /path=/)).toBe(
+      'path=/mesa-shim:/usr/bin:/bin',
+    );
+    await tmux.killWindow(target);
+  });
+
   test('sendText types the text then Enter into a live agent', async () => {
     const target = lantern('claude-send01');
     await open(target, 'unset NO_COLOR; exec cat');
@@ -517,7 +526,7 @@ test('every call goes to the profile socket without the user tmux.conf', async (
   ]);
 });
 
-test('openWindow changes directory before starting sh for both new and existing projects', async () => {
+test('openWindow changes directory and sets PATH before starting sh for both new and existing projects', async () => {
   for (const exists of [false, true]) {
     const { run, calls } = scriptedRunner({
       tmux: (args) =>
@@ -531,13 +540,14 @@ test('openWindow changes directory before starting sh for both new and existing 
       window: 'w',
       cwd: "/src/it's lantern",
       command: 'exec cat',
-      env: {},
+      env: { PATH: '/mesa-shim:/usr/bin' },
     });
     const args = calls.find((c) => c.args.includes(exists ? 'new-window' : 'new-session'))?.args;
-    expect(args?.slice(args.indexOf('/usr/bin/env'))).toEqual([
+    expect(args?.slice(args.indexOf('/usr/bin/env'), args.indexOf('exec cat') + 1)).toEqual([
       '/usr/bin/env',
       '-C',
       "/src/it's lantern",
+      'PATH=/mesa-shim:/usr/bin',
       '/bin/sh',
       '-c',
       'exec cat',

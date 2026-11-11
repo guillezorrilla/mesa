@@ -237,7 +237,9 @@ export function tmuxBackend({
           ]
         : [];
       // env changes directory before sh starts: tmux 3.7 can ignore -c when its server's cwd was
-      // deleted. Both env and sh exec, so the pane's pid remains the agent's.
+      // deleted. It sets PATH too: tmux gives a new pane its client's PATH over -e's (#1032).
+      // Both env and sh exec, so the pane's pid remains the agent's.
+      const path = spec.env.PATH === undefined ? [] : [`PATH=${spec.env.PATH}`];
       const open = (inSession: boolean) =>
         tmux([
           ...(inSession
@@ -251,6 +253,7 @@ export function tmuxBackend({
           '/usr/bin/env',
           '-C',
           spec.cwd,
+          ...path,
           '/bin/sh',
           '-c',
           spec.command,
