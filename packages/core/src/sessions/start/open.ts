@@ -15,7 +15,7 @@ import { briefedGoal, requireCommandFits, requireGoalCommandRuns } from './goal.
 import { folderOf, type LaunchDeps, launchAgent, launchProject, launchSession } from './launch.js';
 import { createRecord } from './new-record.js';
 import { type OpenInput, validateOpenInput } from './open-input.js';
-import { notedGoal, setupLine } from './setup-session.js';
+import { notedGoal, type SetupBeside, setupLine } from './setup-session.js';
 import { goalPreparing, sessionWindowCommand } from './window-command.js';
 
 export type OpenDeps = LaunchDeps & {
@@ -90,12 +90,15 @@ export async function openSession(
     const entry = input.project ? launchProject(deps.profile, input.project).entry : null;
     const parent = parentOf(deps, input);
     const from = parent ? deps.store.get(parent) : undefined;
-    const cwd =
-      !input.branch && !input.worktree && from?.project === (entry?.name ?? GENERAL_PROJECT)
-        ? folderOf(from, entry)
-        : input.general
-          ? deps.home
-          : undefined;
+    const name = entry?.name ?? GENERAL_PROJECT;
+    // In the parent's folder for the project: its own, or its additional worktree there.
+    const inherited =
+      from && !input.branch && !input.worktree
+        ? from.project === name
+          ? folderOf(from, entry)
+          : from.additional?.find((a) => a.project === name)?.worktree.path
+        : undefined;
+    const cwd = inherited ?? (input.general ? deps.home : undefined);
     const shell = `exec ${shellWord(deps.shell)} -l`;
     const command = input.run?.trim() ? `${input.run.trim()}; ${shell}` : shell;
     requireCommandFits(command);
@@ -216,26 +219,29 @@ export async function openSession(
 }
 
 /**
- * How a session on a new `branch` of `entry` opens its Setup session under `setupWhile: parallel`
- * (Start's setupBeside): a plain terminal, its child, in its worktree (the parent's folder), whose
- * first line runs the setup (setupLine). Nothing otherwise, so setup runs first.
+ * How a session on a new `branch` of `entry` opens a Setup session for each new worktree, its own
+ * and each additional project's, under `setupWhile: parallel` (Start's setupBeside): a plain
+ * terminal, its child, in that project's worktree (the parent's folder there), whose first line
+ * runs the setup (setupLine). One for an additional project is named after it. Nothing
+ * otherwise, so setup runs first.
  */
 export function setupBesideFor(
   deps: OpenDeps,
   entry: RegistryEntry | null | undefined,
   branch: string | undefined,
-): { setupBeside?: (owner: SessionRecord, setup: string[]) => Promise<string> } {
+): { setupBeside?: SetupBeside } {
   if (!entry || branch === undefined) return {};
   if (worktreeSettings(deps.profile, entry).setupWhile !== 'parallel') return {};
   return {
-    setupBeside: async (owner, setup) => {
+    setupBeside: async (owner, setup, project) => {
       const { record: child } = await openSession(deps, {
         terminal: true,
-        project: entry.name,
+        project: project.name,
         parent: owner.id,
         run: setupLine(setup, deps.self),
       });
-      deps.store.update(child.id, { name: 'Setup' });
+      const name = project.name === entry.name ? 'Setup' : `Setup ${project.name}`;
+      deps.store.update(child.id, { name });
       return child.id;
     },
   };

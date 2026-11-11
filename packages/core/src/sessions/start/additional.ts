@@ -9,6 +9,7 @@ import { worktreeRoot } from '../../worktrees/location.js';
 import { worktreeScript } from '../../worktrees/settings.js';
 import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
+import type { SetupBeside } from './setup-session.js';
 import { removeWorktree, requireGitTop, type Worktree, worktreePath } from './worktree.js';
 
 // A session's additional projects (CONTEXT.md, Additional project; ADR-0021): the other projects
@@ -120,6 +121,32 @@ export function launchWorktrees(run: Runner) {
   };
 }
 
+/**
+ * Opens a Setup session (`setupWhile: parallel`) for the new worktree that `selected` in
+ * `project` left its setup to, child of `owner`, the worktree kept in `made` once it opens: its
+ * id. One that cannot open is a warning, and the agent still starts; the worktree waits for its
+ * setup to be run by hand, and a launch that fails later removes it, as setup never ran.
+ */
+export async function openSetupBeside(
+  setupBeside: SetupBeside,
+  owner: SessionRecord,
+  project: RegistryEntry,
+  selected: { worktree: Worktree; setup: string[] },
+  made: ReturnType<typeof launchWorktrees>,
+  warnings: (string | undefined)[],
+): Promise<string | undefined> {
+  try {
+    const id = await setupBeside(owner, selected.setup, project);
+    made.keep(selected.worktree.path);
+    return id;
+  } catch (error) {
+    warnings.push(
+      `setup did not start: ${toFail(error).error.message}; run mesa worktrees rerun ${project.name} ${selected.worktree.path}`,
+    );
+    return undefined;
+  }
+}
+
 /** An additional project a launch gives a worktree, and the ref its new branch starts from. */
 export type AdditionalStart = { entry: RegistryEntry; base?: string | undefined };
 
@@ -127,6 +154,8 @@ export type AdditionalStart = { entry: RegistryEntry; base?: string | undefined 
  * Makes each additional project's worktree in order on the session's branch, from its `base` if
  * new (sessionWorktree: an unheld one there is taken as it is), each written to the record and
  * noted in `made` as it is made. One already on the record (a start retried after a kill) stays.
+ * With `setupBeside`, a `setupWhile: parallel` setup runs in a Setup session it opens; one that
+ * cannot open is a warning, and the worktree waits for its setup to be run by hand.
  */
 export async function createAdditional(
   deps: { profile: Profile; run: Runner; lock: AsyncLockDeps; store: SessionStore },
@@ -135,6 +164,7 @@ export async function createAdditional(
   made: ReturnType<typeof launchWorktrees>,
   /** Where each new worktree's warning (createWorktree) goes. */
   warnings: (string | undefined)[] = [],
+  setupBeside?: SetupBeside,
 ): Promise<SessionRecord> {
   const branch = record.worktree?.branch;
   if (branch === undefined)
@@ -150,6 +180,7 @@ export async function createAdditional(
       entry,
       branch,
       base,
+      Boolean(setupBeside),
     );
     made.add(deps.profile, entry, selected);
     warnings.push(selected.warning);
@@ -157,6 +188,16 @@ export async function createAdditional(
     current = deps.store.update(current.id, (r) => ({
       additional: [...(r.additional ?? []), added],
     }));
+    // On the record first, so the Setup session finds this worktree as its folder.
+    if (selected.setup && setupBeside)
+      await openSetupBeside(
+        setupBeside,
+        current,
+        entry,
+        { worktree: selected.worktree, setup: selected.setup },
+        made,
+        warnings,
+      );
   }
   return current;
 }

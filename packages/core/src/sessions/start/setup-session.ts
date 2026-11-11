@@ -1,5 +1,17 @@
 import { SETUP_FAILED } from '../../agents/hooks.js';
 import { shellWord } from '../../lib/process.js';
+import type { RegistryEntry } from '../../projects/registry.js';
+import type { SessionRecord } from '../record/record.js';
+
+/**
+ * Opens the Setup session that runs `setup` in `project`'s new worktree, its own or an additional
+ * one, child of `owner`, and returns its id (open.ts setupBesideFor).
+ */
+export type SetupBeside = (
+  owner: SessionRecord,
+  setup: string[],
+  project: RegistryEntry,
+) => Promise<string>;
 
 /**
  * The first command line of a Setup session (`setupWhile: parallel`): the setup argv, shown and

@@ -36,10 +36,11 @@ import {
   additionalDirs,
   createAdditional,
   launchWorktrees,
+  openSetupBeside,
 } from './additional.js';
 import type { NewLaunch } from './new-record.js';
 import { createRecord } from './new-record.js';
-import { notedGoal } from './setup-session.js';
+import { notedGoal, type SetupBeside } from './setup-session.js';
 import { goalPreparing, sessionWindowCommand } from './window-command.js';
 
 // Launching a session, the one sequence every start goes through (open, resume, adopt, handoff,
@@ -117,10 +118,10 @@ type Start = {
   /** Then a worktree on that branch in each of these (mesa open --with; additional.ts). */
   additional?: readonly AdditionalStart[];
   /**
-   * With it, a new worktree's `setupWhile: parallel` setup is left to it: it opens the Setup
-   * session that runs it, child of `parent`, and returns its id (open.ts).
+   * With it, a new worktree's `setupWhile: parallel` setup, its own or an additional project's,
+   * is left to it (open.ts).
    */
-  setupBeside?: (parent: SessionRecord, setup: string[]) => Promise<string>;
+  setupBeside?: SetupBeside;
 };
 
 /**
@@ -157,21 +158,26 @@ export async function startSession(
       record = deps.store.update(record.id, { worktree: selected.worktree });
       // At once, so a launch that fails later has setup running, as the kept worktree says.
       if (selected.setup && start.setupBeside) {
-        try {
-          setupSession = await start.setupBeside(record, selected.setup);
-          made.keep(selected.worktree.path);
-          record = deps.store.update(record.id, { setupSession });
-        } catch (error) {
-          // The agent still starts; the worktree waits for its setup to be run by hand, and a
-          // launch that fails later removes it, as setup never ran.
-          worktreeWarnings.push(
-            `setup did not start: ${toFail(error).error.message}; run mesa worktrees rerun ${project.name} ${selected.worktree.path}`,
-          );
-        }
+        setupSession = await openSetupBeside(
+          start.setupBeside,
+          record,
+          project,
+          { worktree: selected.worktree, setup: selected.setup },
+          made,
+          worktreeWarnings,
+        );
+        if (setupSession) record = deps.store.update(record.id, { setupSession });
       }
     }
     if (start.additional?.length)
-      record = await createAdditional(deps, record, start.additional, made, worktreeWarnings);
+      record = await createAdditional(
+        deps,
+        record,
+        start.additional,
+        made,
+        worktreeWarnings,
+        start.setupBeside,
+      );
     // The goal the agent is given, background or not, names the Setup session; the record keeps
     // its own.
     const given = { ...record, goal: notedGoal(record.goal, setupSession) };
@@ -274,9 +280,9 @@ export async function launchSession(
     const record = start.prepare ? start.prepare(created) : created;
     return await startSession(deps, record, s.project, start);
   } catch (error) {
-    // Its Setup session goes on in the kept worktree, with no parent left to name.
-    const setup = deps.store.find(created.id)?.setupSession;
-    if (setup) deps.store.update(setup, { parent: undefined });
+    // Its Setup sessions go on in the kept worktrees, with no parent left to name.
+    for (const child of deps.store.list())
+      if (child.parent === created.id) deps.store.update(child.id, { parent: undefined });
     deps.store.remove(created.id);
     throw error;
   }
