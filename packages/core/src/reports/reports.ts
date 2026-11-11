@@ -115,6 +115,26 @@ export function eventReport(child: SessionRecord & { parent: string }, event: Ho
   } satisfies ChildReport;
 }
 
+/** A pending report as `mesa reports` lists it: with `heldUntil` while its hold lasts. */
+export type PendingReport = ChildReport & { heldUntil?: string };
+
+/**
+ * When a held `report` may go out, if it is held at `now`: an implicit `finished` report waits
+ * until its child has stayed idle `holdSeconds` after `lastEventAt`, its latest hook event, so a
+ * worker mid-way through many turns wakes its parent once. Any other kind, or a hold of 0, is due.
+ */
+export function heldUntil(
+  report: ChildReport,
+  lastEventAt: string | undefined,
+  holdSeconds: number,
+  now: string,
+): string | undefined {
+  if (report.kind !== 'finished' || holdSeconds <= 0) return undefined;
+  const idleSince = Math.max(Date.parse(report.at), Date.parse(lastEventAt ?? report.at));
+  const until = idleSince + holdSeconds * 1000;
+  return until > Date.parse(now) ? new Date(until).toISOString() : undefined;
+}
+
 /** How many files an explicit report names, and how long each path may be. */
 const MAX_FILES = 20;
 const PATH_CHARS = 200;

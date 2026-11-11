@@ -26,6 +26,8 @@ const State = z
     since: z.string().optional(),
     /** How far each child's hook log was read. */
     offsets: z.record(z.string(), z.number()).default({}),
+    /** Each child's latest hook event time, which a held report waits on (heldUntil). */
+    active: z.record(z.string(), z.string()).default({}),
     /** Children whose `ended` report was made. */
     ended: z.array(z.string()).default([]),
     pending: z.array(ChildReportSchema).default([]),
@@ -73,6 +75,8 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
   return {
     /** The pending reports as last collected, read without collecting. */
     pending: (): ChildReport[] => readJson(file, State)?.pending ?? [],
+    /** Each child's latest hook event time, as last collected. */
+    activity: (): Record<string, string> => readJson(file, State)?.active ?? {},
     /** The questions, open and answered, as last written. */
     questions: (): Question[] => readJson(file, State)?.questions ?? [],
     /** Adds a worker's question, and the report that carries it, pending until delivered. */
@@ -164,14 +168,19 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
         let pending = state.pending;
         let latest = state.latest;
         const offsets: Record<string, number> = {};
+        const active: Record<string, string> = {};
         const ended = state.ended.filter((id) => known.has(id));
         for (const child of records.filter(reportsToParent)) {
           if (!known.has(child.parent)) continue;
+          const seen = state.active[child.id];
+          if (seen) active[child.id] = seen;
           offsets[child.id] = scanHookEvents(
             eventsDir,
             child.id,
             state.offsets[child.id] ?? 0,
             (event) => {
+              if (!active[child.id] || event.at > (active[child.id] as string))
+                active[child.id] = event.at;
               const report = event.at >= since && eventReport(child, event);
               // A child that reported its work itself makes no `finished` report after it.
               const said = state.explicit[child.id];
@@ -211,7 +220,7 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
           .filter((q) => known.has(q.parent) && known.has(q.child));
         latest = Object.fromEntries(Object.entries(latest).filter(([child]) => known.has(child)));
         return {
-          next: { since, offsets, ended, pending, explicit, questions, latest },
+          next: { since, offsets, active, ended, pending, explicit, questions, latest },
           result: pending,
         };
       }),

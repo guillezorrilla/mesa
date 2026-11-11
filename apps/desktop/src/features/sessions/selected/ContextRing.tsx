@@ -1,5 +1,5 @@
 import type { SessionRecord } from '@mesa/core';
-import { contextPercent, timeAgo } from '@mesa/core/browser';
+import { contextPercent, contextTokens, timeAgo } from '@mesa/core/browser';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -44,8 +44,8 @@ export function ContextRing(props: { context?: SessionRecord['context'] }) {
             <div className="flex items-baseline justify-between">
               <span className="font-medium text-sm">{shown}% used</span>
               <span className="text-muted-foreground tabular-nums">
-                ~{Math.round((Math.min(context.used, 100) / 100) * context.window).toLocaleString()}{' '}
-                of {context.window.toLocaleString()} tokens
+                ~{contextTokens(context).toLocaleString()} of {context.window.toLocaleString()}{' '}
+                tokens
               </span>
             </div>
             <Progress

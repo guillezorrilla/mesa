@@ -730,6 +730,9 @@ test("a parent's Stop answers with its pending child reports as a block, once, a
   // A Stop hook an older mesa installed drops stdout: nothing is claimed for nothing.
   expect(await stop(parent.id, parent.agentSessionId, {}, [])).toBe('');
   expect((await mesa('reports', '--json')).json.data.reports).toHaveLength(1);
+  // Held while the child has not stayed idle sessions.reportHoldSeconds: the Stop gives nothing yet.
+  expect(await stop(parent.id, parent.agentSessionId)).toBe('');
+  await mesa('config', 'set', 'sessions.reportHoldSeconds', '0');
   const answer = JSON.parse(await stop(parent.id, parent.agentSessionId));
   expect(answer.decision).toBe('block');
   expect(answer.reason).toContain(`- ${child.id} (`);

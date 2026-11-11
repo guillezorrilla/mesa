@@ -121,6 +121,22 @@ test('Sessions has the keep awake select, off by default, saved to sessions.keep
   expect(sets(calls)).toEqual([['sessions.keepAwake', '"working"']]);
 });
 
+test('Sessions has the hold child reports select, 2 min by default, saved to sessions.reportHoldSeconds', async () => {
+  const { bridge, calls } = fakeBridge({ 'config set': () => envelope({}) });
+  await render(bridge);
+  await click(nav('Sessions'));
+  const select = document.getElementById('sessions-report-hold') as HTMLSelectElement;
+  expect(select.value).toBe('120');
+  expect([...select.options].map((option) => option.text)).toEqual([
+    'Off',
+    '1 min',
+    '2 min',
+    '5 min',
+  ]);
+  await choose(select, '300');
+  expect(sets(calls)).toEqual([['sessions.reportHoldSeconds', '300']]);
+});
+
 test('General has the vault capture toggle, on by default, saved to vault.capture', async () => {
   const { bridge, calls } = fakeBridge({ 'config set': () => envelope({}) });
   await render(bridge);

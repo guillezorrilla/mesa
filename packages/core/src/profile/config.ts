@@ -112,6 +112,8 @@ const ConfigShape = z.strictObject({
       prEvents: z.boolean().default(false),
       /** Type a child session's reports into its parent (CONTEXT.md, Child report). */
       childReports: z.boolean().default(true),
+      /** Seconds a child must stay idle before its `finished` report goes out; 0 is off (#1004). */
+      reportHoldSeconds: z.number().int().nonnegative().default(120),
       /** A finished, unseen session sleeps after this many idle minutes; 0 is off (#897). */
       sleepAfterMinutes: z.number().int().nonnegative().default(0),
       // The agent-guidelines skill for every project, and the pointer line naming it.

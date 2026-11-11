@@ -4,6 +4,7 @@ import {
   CircleDollarSign,
   Coffee,
   GraduationCap,
+  Hourglass,
   Moon,
   ScrollText,
   SquareTerminal,
@@ -25,10 +26,18 @@ const SLEEP_AFTER = [
   ['480', 'After 8 h'],
 ] as const;
 
+/** How long a child's finished turn waits for it to stay idle before its parent hears (#1004). */
+const REPORT_HOLD = [
+  ['0', 'Off'],
+  ['60', '1 min'],
+  ['120', '2 min'],
+  ['300', '5 min'],
+] as const;
+
 /**
- * What a new session starts with, when a finished one sleeps, whether its output is kept, whether
- * Claude's status line shows its cost, whether its agent gets the agent guidelines, when the Mac
- * stays awake, the review voice, and the saved prompts.
+ * What a new session starts with, how long a child's finished turn is held, when a finished one
+ * sleeps, whether its output is kept, whether Claude's status line shows its cost, whether its
+ * agent gets the agent guidelines, when the Mac stays awake, the review voice, and saved prompts.
  */
 export function SessionSettingsPanel(props: { onSavedPrompts: () => void }) {
   const { config } = useSettings();
@@ -93,6 +102,28 @@ export function SessionSettingsPanel(props: { onSavedPrompts: () => void }) {
               path="sessions.sleepAfterMinutes"
               value={String(config.sessions.sleepAfterMinutes ?? 0)}
               options={SLEEP_AFTER}
+              toValue={Number}
+            />
+          }
+        />
+      </SettingSection>
+      <SettingSection
+        id="child-reports"
+        title="Child reports"
+        description="When a worker's news reaches the session that started it"
+      >
+        <SettingRow
+          icon={Hourglass}
+          title="Hold child reports"
+          description="A worker's finished turn reaches its parent only once the worker has stayed idle this long, so a worker mid-way through many turns wakes its parent once, with its siblings' reports. Questions, waits, explicit reports and endings go out at once."
+          htmlFor="sessions-report-hold"
+          keywords="child report worker parent wake batch hold delay"
+          control={
+            <ChoiceField
+              id="sessions-report-hold"
+              path="sessions.reportHoldSeconds"
+              value={String(config.sessions.reportHoldSeconds ?? 120)}
+              options={REPORT_HOLD}
               toValue={Number}
             />
           }
