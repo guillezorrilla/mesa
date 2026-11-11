@@ -35,9 +35,9 @@ const REPORT_HOLD = [
 ] as const;
 
 /**
- * What a new session starts with, how long a child's finished turn is held, when a finished one sleeps, whether its output is kept, whether
- * Claude's status line shows its cost, whether its agent gets the agent guidelines, when the Mac
- * stays awake, the review voice, and the saved prompts.
+ * What a new session starts with, how long a child's finished turn is held, when a finished one
+ * sleeps, whether its output is kept, whether Claude's status line shows its cost, whether its
+ * agent gets the agent guidelines, when the Mac stays awake, the review voice, and saved prompts.
  */
 export function SessionSettingsPanel(props: { onSavedPrompts: () => void }) {
   const { config } = useSettings();
