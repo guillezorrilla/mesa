@@ -22,12 +22,12 @@ export function fakePairingBroker(broker = 'https://broker.test', now = () => ne
   const answer = (status: number, body?: unknown) =>
     new Response(body === undefined ? null : JSON.stringify(body), { status });
   const http: Http = async (url, init = {}) => {
-    const { pathname } = new URL(url);
+    const { origin, pathname } = new URL(url);
     const method = init.method ?? 'GET';
     const body = init.body ? JSON.parse(String(init.body)) : {};
     const token = new Headers(init.headers).get('authorization')?.replace('Bearer ', '');
     const [, , id = '', op = ''] = pathname.split('/');
-    if (!url.startsWith(broker)) return answer(404, { error: 'not_found' });
+    if (origin !== new URL(broker).origin) return answer(404, { error: 'not_found' });
     if (!id && method === 'POST') {
       const pairingId = `pairing-${String(++next).padStart(10, '0')}`;
       const expiresAt = new Date(now().getTime() + 10 * 60_000).toISOString();
