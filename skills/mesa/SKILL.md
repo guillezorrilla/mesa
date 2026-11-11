@@ -39,7 +39,7 @@ mesa sessions --json            # find it: id, project, state, branch, parent
 mesa send b2c3d4e5 "Which test did you change?"
 ```
 
-Inside a session, `mesa sessions --json`, `mesa sessions <id> --children --json` and `mesa show <id> --json` print the agent view, a few fields a row, so the list stays cheap to reread; add `--full` only when you need a field it leaves out, such as `lastOutput`.
+Inside a session, `mesa sessions --json`, `mesa sessions <id> --children --json` and `mesa show <id> --json` print the agent view, a few fields per row, so the list stays cheap to reread; add `--full` only when you need a field it leaves out, such as `lastOutput`.
 
 Reply to a session that messaged you with the command its header names:
 

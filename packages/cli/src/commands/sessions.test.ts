@@ -339,6 +339,10 @@ test("inside a session's window --json rows are the agent view; --full and outsi
     JSON.parse(outside).data.map((r: object) => Object.keys(r)),
   );
   expect(again[0]).toHaveProperty('lastState');
+  expect((await mesa('sessions', lead.id, '--children', '--json')).json.data[0]).toHaveProperty(
+    'lastState',
+  );
+  expect((await mesa('show', lead.id, '--json')).json.data.vault).toHaveProperty('reason');
 });
 
 test('a child sits under its resumed parent, which mesa show names as parentNow; a child of no record is a root', async () => {
