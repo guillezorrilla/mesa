@@ -2,6 +2,7 @@
 import { type Env, handle } from './broker.js';
 import { type D1, d1Installs } from './installs-d1.js';
 import { unlimited } from './limit.js';
+import { Pairing as PairingLogic, type PairingState } from './pairing.js';
 
 /** Cloudflare's rate-limit binding: FEEDBACK_LIMIT and INSTALLS_LIMIT in wrangler.toml. */
 type RateLimiter = { limit: (options: { key: string }) => Promise<{ success: boolean }> };
@@ -17,7 +18,13 @@ export default {
       FEEDBACK_LIMIT?: RateLimiter;
       INSTALLS_LIMIT?: RateLimiter;
       DB?: D1;
+      PAIRING_LIMIT?: RateLimiter;
+      PAIRINGS?: {
+        idFromName: (name: string) => unknown;
+        get: (id: unknown) => { fetch: (request: Request) => Promise<Response> };
+      };
     };
+    const pairings = bindings.PAIRINGS;
     return handle(
       request,
       env,
@@ -28,6 +35,17 @@ export default {
         limit: limitOf(bindings.INSTALLS_LIMIT),
         now: () => new Date(),
       },
+      pairings && {
+        stub: (pairingId) => pairings.get(pairings.idFromName(pairingId)),
+        limit: limitOf(bindings.PAIRING_LIMIT),
+      },
     );
   },
 };
+
+/** The PAIRINGS Durable Object class: the runtime passes (state, env), and a Pairing needs only the state. */
+export class Pairing extends PairingLogic {
+  constructor(state: PairingState) {
+    super(state);
+  }
+}

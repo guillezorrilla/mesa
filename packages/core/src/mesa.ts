@@ -18,6 +18,7 @@ import { instructionsService } from './instructions/service.js';
 import { mapService } from './map/service.js';
 import { backgroundDelivery } from './notifications/background.js';
 import { inbox } from './notifications/inbox.js';
+import { phoneService } from './phone/service.js';
 import { prEventsService } from './pr-events/pr-event-delivery.js';
 import { backupService } from './profile/backup.js';
 import { profilesService } from './profile/profiles.js';
@@ -93,6 +94,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
     about: () => about(deps.version, deps.release),
     /** A person's feedback, sent through the broker to a private repo (ADR-0025). */
     feedback: feedbackService(ctx),
+    /** The profile's Pairing with a phone, through the broker (ADR-0027). */
+    phone: phoneService(ctx),
     /** The anonymous install count and its switch (ADR-0026). */
     installs: { status: installs.status, set: installs.set },
     /** A version's release notes, the running one's by default. */

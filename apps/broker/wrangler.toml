@@ -1,4 +1,4 @@
-# Mesa's OAuth broker (ADR-0014), feedback relay (ADR-0025) and install count (ADR-0026).
+# Mesa's OAuth broker (ADR-0014), feedback relay (ADR-0025), install count (ADR-0026) and phone pairings.
 # Secrets: wrangler secret put ATLASSIAN_CLIENT_ID, then ATLASSIAN_CLIENT_SECRET, and so on;
 # FEEDBACK_GITHUB_TOKEN for feedback.
 name = "mesa-broker"
@@ -22,6 +22,24 @@ namespace_id = "1002"
   [ratelimits.simple]
   limit = 10
   period = 60
+
+# Ten new pairings a minute from one IP address.
+[[ratelimits]]
+name = "PAIRING_LIMIT"
+namespace_id = "1003"
+
+  [ratelimits.simple]
+  limit = 10
+  period = 60
+
+# One Durable Object per phone pairing (ADR-0014's 2026-11-11 amendment), SQLite-backed.
+[[durable_objects.bindings]]
+name = "PAIRINGS"
+class_name = "Pairing"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Pairing"]
 
 # Anonymous install counts (ADR-0026). Created with `wrangler d1 create mesa-installs`; the
 # tables are migrations/, applied with `wrangler d1 migrations apply mesa-installs --remote`.

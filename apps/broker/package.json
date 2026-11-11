@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@mesa/core": "workspace:*",
     "wrangler": "^4.145.0"
   }
 }
