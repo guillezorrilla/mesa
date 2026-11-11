@@ -40,36 +40,7 @@ export * from './lib/format.js';
 export { localClock, localDay, validLocalDay } from './lib/time.js';
 export { mapSession } from './map/map.js';
 export { FINISHED_HOLD_MS } from './notifications/finished-hold.js';
-export {
-  type Delivery,
-  type Fetch,
-  type PairingClient,
-  PairingError,
-  type PairingInfo,
-  pairingClient,
-} from './phone/protocol/client.js';
-export {
-  type Opened,
-  openDeliveries,
-  openMessage,
-  type PhoneMessage,
-  phoneMessage,
-  sealMessage,
-} from './phone/protocol/envelope.js';
-export { joinPairing, type PhonePairing, phoneKeys } from './phone/protocol/join.js';
-export { formatPairingLink, type PairingLink, parsePairingLink } from './phone/protocol/link.js';
-export {
-  base64url,
-  type Direction,
-  fromBase64url,
-  hashOf,
-  newKeyPair,
-  newSecret,
-  open,
-  type SideKeys,
-  seal,
-  sideKeys,
-} from './phone/protocol/seal.js';
+export * from './phone/protocol/index.js';
 export {
   COLOR_VISION_MODES,
   DEFAULT_APPEARANCE,

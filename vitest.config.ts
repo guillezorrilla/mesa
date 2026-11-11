@@ -10,6 +10,7 @@ export default defineConfig({
     alias: [
       { find: '@mesa/core/testing', replacement: core('testing/index.ts') },
       { find: '@mesa/core/browser', replacement: core('browser.ts') },
+      { find: '@mesa/core/phone', replacement: core('phone/protocol/index.ts') },
       { find: '@mesa/core', replacement: core('index.ts') },
       // The app's `@/` imports (shadcn/ui's components), its src.
       { find: /^@\//, replacement: fileURLToPath(new URL('apps/desktop/src/', import.meta.url)) },
@@ -29,6 +30,7 @@ export default defineConfig({
     include: [
       'packages/*/src/**/*.test.ts',
       'apps/broker/src/**/*.test.ts',
+      'apps/mobile/src/**/*.test.ts',
       'apps/desktop/src/**/*.test.ts',
       'apps/desktop/src/**/*.test.tsx',
       'scripts/**/*.test.ts',

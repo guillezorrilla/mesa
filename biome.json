@@ -57,6 +57,40 @@
           }
         }
       }
+    },
+    {
+      "includes": ["apps/mobile/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "lucide-react-native": {
+                    "allowImportNames": ["LucideIcon", "LucideProps"],
+                    "message": "Import each icon by path, lucide-react-native/icons/<name>: the package root bundles every icon (ADR-0027)."
+                  },
+                  "react": {
+                    "importNames": ["useMemo", "useCallback", "memo", "forwardRef"],
+                    "message": "The React Compiler memoizes and ref is a prop (ADR-0027)."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/mobile/src/global.css"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noDuplicateCustomProperties": "off"
+          }
+        }
+      }
     }
   ]
 }
