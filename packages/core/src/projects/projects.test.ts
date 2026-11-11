@@ -166,6 +166,7 @@ test("mesa.yaml overrides a profile's worktree settings and terminal theme; one 
     '  teardown: [/usr/bin/make, clean]',
     'terminal:',
     '  theme: dark',
+    'check: make verify',
     '',
   ].join('\n');
   registerProject(profile, { dir: folder('tide', yaml) }, lockDeps());
@@ -182,6 +183,7 @@ test("mesa.yaml overrides a profile's worktree settings and terminal theme; one 
         teardown: ['/usr/bin/make', 'clean'],
       },
       terminal: { theme: 'dark' },
+      check: 'make verify',
     },
     terminalTheme: 'dark',
   });

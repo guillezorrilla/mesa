@@ -25,6 +25,7 @@ import type { OpenDialog } from '../dialogs/SessionDialogs';
 import type { SessionCommands } from '../useSessionCommands';
 import { PromptComposer } from './PromptComposer';
 import { RowMenu } from './RowMenu';
+import { RunCheckButton } from './RunCheckButton';
 import type { PromptInsert } from './usePromptInsert';
 import type { SessionPrompt } from './useSessionPrompt';
 
@@ -167,6 +168,9 @@ export function SessionActionsMenu({
             >
               <Forward aria-hidden /> Hand off
             </Button>
+          )}
+          {row.project && row.project !== GENERAL_PROJECT && !isRun(row) && (
+            <RunCheckButton row={{ ...row, project: row.project }} />
           )}
           <RowMenu
             sessionId={row.id}

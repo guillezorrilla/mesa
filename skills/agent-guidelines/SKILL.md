@@ -36,3 +36,4 @@ The person's machine gets the same rule as their code.
 - Before blaming your change for a failing check, run the same check on the main branch. On a busy machine, rerun a timeout once before suspecting the code.
 - Set the bar before measuring, and never lower it afterwards.
 - Show the evidence: print the command and its result, not a claim that it passed.
+- When the project has a check (`mesa check <project>`), run it instead of the raw build or test command: it prints one line, or only the errors and the log's path.

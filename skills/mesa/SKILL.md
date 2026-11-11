@@ -119,6 +119,12 @@ Run a skill headlessly and wait for its result: a session of kind `run`, which e
 mesa run session-summary --project lantern-cove --json -- focus on the tide-table tests
 ```
 
+Run the project's checks (its `mesa.yaml` `check`, set with `mesa projects set lantern-cove check "pnpm verify"`) instead of the raw build or test command, so long output stays out of your context: a pass is one line, a failure only its errors and the path of the full log, exit 1:
+
+```sh
+mesa check lantern-cove
+```
+
 Adopt a Claude Code session started outside Mesa, so it can be messaged and resumed:
 
 ```sh

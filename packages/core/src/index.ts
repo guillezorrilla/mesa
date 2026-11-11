@@ -22,6 +22,7 @@ export { describeAutomation } from './automations/describe.js';
 export type { AutomationRule } from './automations/schema.js';
 export type { AutomationStatus } from './automations/service.js';
 export type { AutomationRun, AutomationTrigger } from './automations/state.js';
+export { type CheckResult, checkText } from './checks/check-text.js';
 export type { CommandReference } from './command-reference.js';
 export type { DailyResult } from './daily/service.js';
 export type { ScopedContext } from './decisions/context.js';

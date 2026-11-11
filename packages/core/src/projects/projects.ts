@@ -51,7 +51,7 @@ export type ProjectRow = {
 };
 
 /** The profile settings a project's mesa.yaml overrides, as written there. */
-export type ProjectOverrides = Pick<Project, 'worktrees' | 'git' | 'terminal'>;
+export type ProjectOverrides = Pick<Project, 'worktrees' | 'git' | 'terminal' | 'check'>;
 
 export type ProjectUpdate = {
   label?: string;
@@ -124,6 +124,7 @@ export function listProjects(profile: Profile): ProjectRow[] {
         ...(p.worktrees ? { worktrees: p.worktrees } : {}),
         ...(p.git ? { git: p.git } : {}),
         ...(p.terminal ? { terminal: p.terminal } : {}),
+        ...(p.check ? { check: p.check } : {}),
       },
       terminalTheme: p.terminal?.theme ?? profile.config.terminal.theme,
       unapproved: unapprovedScripts(p, entry),

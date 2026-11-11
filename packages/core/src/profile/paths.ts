@@ -21,6 +21,8 @@ export type ProfilePaths = {
   logs: string;
   /** What each headless run's agent printed, `<session id>.json` each (CONTEXT.md, Skill run). */
   runs: string;
+  /** `mesa check` output logs, whole, private to the profile (CONTEXT.md, Check). */
+  checks: string;
   /** Each Claude session's running estimated cost for its status line, `<session id>.json` each. */
   costs: string;
   /**
@@ -101,6 +103,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     fetches: join(root, 'sessions', 'fetches.json'),
     logs: join(root, 'sessions', 'logs'),
     runs: join(root, 'sessions', 'runs'),
+    checks: join(root, 'sessions', 'checks'),
     costs: join(root, 'sessions', 'costs'),
     decisions: join(root, 'sessions', 'decisions'),
     decisionLog: join(root, 'decision-log'),

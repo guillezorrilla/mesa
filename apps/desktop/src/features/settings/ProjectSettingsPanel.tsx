@@ -11,6 +11,7 @@ import { label, options } from './controls/options';
 import { TextField } from './controls/TextField';
 import { commaList } from './controls/textLists';
 import { ApproveScriptsDialog, type PendingScripts } from './project/ApproveScriptsDialog';
+import { CheckRow } from './project/CheckRow';
 import { profileValue } from './project/profileValue';
 import { RecipeRow } from './project/RecipeRow';
 import { ScriptRow } from './project/ScriptRow';
@@ -213,6 +214,13 @@ export function ProjectSettingsPanel(props: { onChanged: () => void }) {
               profile={config.git.pullRequestRecipe}
               onSave={(value) => save('git.pullRequestRecipe', value)}
             />
+          </SettingSection>
+          <SettingSection
+            id="project-check"
+            title="Check"
+            description="What mesa check runs for this project's agents"
+          >
+            <CheckRow value={project.overrides.check} onSave={(value) => save('check', value)} />
           </SettingSection>
           <SettingSection
             id="project-scripts"

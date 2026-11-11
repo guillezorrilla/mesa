@@ -35,6 +35,8 @@ const ProjectSchema = z.strictObject({
   git: z.strictObject(GIT_OVERRIDE_FIELDS).partial().optional(),
   // No `custom`: its colors are each user's own, in their profile.
   terminal: z.strictObject({ theme: z.enum(PROJECT_TERMINAL_THEMES).optional() }).optional(),
+  /** The shell command `mesa check` runs (CONTEXT.md, Check). */
+  check: z.string().trim().min(1).optional(),
 });
 
 /** The fields that override a profile setting, the ones `mesa projects set` changes. */
@@ -42,6 +44,7 @@ export const PROJECT_OVERRIDES = [
   ...Object.keys(WORKTREE_OVERRIDE_FIELDS).map((key) => `worktrees.${key}`),
   ...Object.keys(GIT_OVERRIDE_FIELDS).map((key) => `git.${key}`),
   'terminal.theme',
+  'check',
 ];
 
 export type Project = z.infer<typeof ProjectSchema>;

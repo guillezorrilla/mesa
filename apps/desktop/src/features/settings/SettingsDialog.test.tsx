@@ -467,6 +467,27 @@ test('Projects picks a project and edits its overrides, each row naming the prof
   expect(projectSets().at(-1)).toEqual(['--unset', '--', 'reef', 'terminal.theme']);
 });
 
+test('Projects saves the check command, and emptied, the project has none', async () => {
+  const [cove] = PROJECTS as [ProjectRow];
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope([{ ...cove, overrides: { check: 'pnpm verify' } }]),
+    'projects set': () => envelope({ receipt: null }),
+  });
+  await render(bridge);
+  await click(nav('Projects'));
+  const field = document.getElementById('project-check-command') as HTMLInputElement;
+  expect(field.value).toBe('pnpm verify');
+  expect(field.closest('[data-setting-row]')?.textContent).toContain('Check command');
+  await type('project-check-command', 'make test');
+  await type('project-check-command', '');
+  expect(
+    calls.filter((args) => args[1] === 'projects' && args[2] === 'set').map((a) => a.slice(3)),
+  ).toEqual([
+    ['--', 'lantern-cove', 'check', '"make test"'],
+    ['--unset', '--', 'lantern-cove', 'check'],
+  ]);
+});
+
 test("Projects saves the commit message recipe override, and emptied, the profile's applies again", async () => {
   const [cove] = PROJECTS as [ProjectRow];
   const projects: ProjectRow[] = [
