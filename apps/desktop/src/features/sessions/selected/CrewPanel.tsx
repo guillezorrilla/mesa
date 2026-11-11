@@ -1,26 +1,17 @@
-import type { CrewRow } from '@mesa/core';
-import { inTurn, sendable, sessionTitle, stoppable, timeAgo } from '@mesa/core/browser';
-import {
-  GitBranch,
-  GitMerge,
-  MessageSquare,
-  RefreshCw,
-  Send,
-  Square,
-  Users,
-  X,
-} from 'lucide-react';
+import type { TreeRow } from '@mesa/core';
+import { RefreshCw, Users, X } from 'lucide-react';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
-import { Stat } from '@/components/Stat';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { SectionLabel } from '@/components/SectionLabel';
 import { useCall, useCommand } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
-import { StateBadge } from '../StateBadge';
-import { CrewTasks } from './CrewTasks';
+import { stateTone } from '../stateTone';
+import { CrewChoices } from './CrewChoices';
+import { CrewSetups } from './CrewSetups';
+import { type CardOutcome, CrewTaskCard } from './CrewTaskCard';
+import { type CrewCard, crewCards, crewSummary, PHASE_STATE } from './crewPlan';
 import { useRefreshOnStamp } from './useRefreshOnStamp';
 
 /** What the Crew panel does to a child: the Sessions screen's own send, stop and select. */
@@ -28,16 +19,17 @@ export type CrewActions = {
   send: (id: string, prompt: string, form: HTMLFormElement) => void;
   stop: (id: string) => void;
   select: (id: string) => void;
-  /** What a session is called on the Board, by id; its id when it is not listed. */
-  nameOf: (id: string) => string;
+  /** A session's Setup sessions on the Board (CONTEXT.md, Worktree). */
+  setupsOf: (id: string) => readonly TreeRow[];
 };
 
 /**
- * A parent's crew beside its terminal (CONTEXT.md, Crew): each child's state, name, newest report,
- * branch and diff counts, with Send, which opens a composer to it, Stop, after a confirmation, and
- * Merge into parent (`mesa merge`), whose outcome stays on the row; then the tasks it coordinates
- * (CrewTasks). A new `stamp` (a child's state changed on the Board)
- * reads them again.
+ * A parent's crew beside its terminal (CONTEXT.md, Crew), at a glance: a header counting its
+ * cards by phase over a bar with one segment each; what waits on the person first (CrewChoices:
+ * open decision gates on its tasks, open questions from its workers); then one card per task in
+ * plan order with its worker folded in, and one per worker with no task (crewCards,
+ * CrewTaskCard); then its branches and setup, folded (CrewSetups). A new `stamp` (a child's state
+ * changed on the Board) reads it all again.
  */
 export function CrewPanel(props: {
   sessionId: string;
@@ -48,82 +40,161 @@ export function CrewPanel(props: {
   onClose: () => void;
 }) {
   const crew = useCommand('sessions.crew', { id: props.sessionId });
-  const [composing, setComposing] = useState<string>();
-  const [stopping, setStopping] = useState<CrewRow>();
+  const listed = useCommand('tasks.list', { coordinator: props.sessionId });
+  const gates = useCommand('gates.list');
+  const asked = useCommand('reports.questions', { session: props.sessionId });
   const call = useCall();
-  const [merging, setMerging] = useState<string>();
-  /** Each child's last merge outcome, as `mesa merge` says it; `failed` when it did not merge. */
-  const [merges, setMerges] = useState<Record<string, { text: string; failed: boolean }>>({});
-  const merge = async (row: CrewRow) => {
-    setMerging(row.id);
-    const done = await call('sessions.merge', { id: row.id });
-    setMerging(undefined);
-    const outcome = !done.ok
-      ? { text: done.error.message, failed: true }
-      : done.data.merged
-        ? { text: `Merged ${done.data.branch} into this session`, failed: false }
-        : {
-            text: `Not merged: ${done.data.conflicts.join(', ')} conflict; the merge was aborted`,
-            failed: true,
-          };
-    setMerges((all) => ({ ...all, [row.id]: outcome }));
+  const [composing, setComposing] = useState<string>();
+  const [stopping, setStopping] = useState<CrewCard>();
+  const [busy, setBusy] = useState<string>();
+  /** Each card's last Start or Merge outcome, by its key. */
+  const [outcomes, setOutcomes] = useState<Record<string, CardOutcome>>({});
+  const refresh = async () => {
+    await Promise.all([crew.refresh(), listed.refresh(), gates.refresh(), asked.refresh()]);
+  };
+  useRefreshOnStamp(props.stamp, refresh);
+  const said = (key: string, outcome?: CardOutcome) =>
+    setOutcomes(({ [key]: _gone, ...rest }) => (outcome ? { ...rest, [key]: outcome } : rest));
+  const tasks = listed.data?.tasks ?? [];
+  const mine = new Set(tasks.map((task) => task.id));
+  const open = (gates.data?.gates ?? []).filter((gate) => mine.has(gate.task));
+  const questions = (asked.data?.questions ?? []).filter((question) => !question.answer);
+  const rows = crew.data;
+  const cards = crewCards(
+    tasks,
+    rows ?? [],
+    new Set(open.map((gate) => gate.task)),
+    new Set(questions.map((question) => question.child)),
+  );
+  const merge = async (card: CrewCard) => {
+    if (!card.worker) return;
+    setBusy(card.key);
+    const done = await call('sessions.merge', { id: card.worker.id });
+    setBusy(undefined);
+    said(
+      card.key,
+      !done.ok
+        ? { text: done.error.message, failed: true }
+        : done.data.merged
+          ? { text: `Merged ${done.data.branch} into this session`, failed: false }
+          : {
+              text: `Not merged: ${done.data.conflicts.join(', ')} conflict; the merge was aborted`,
+              failed: true,
+            },
+    );
     await crew.refresh();
   };
-  useRefreshOnStamp(props.stamp, crew.refresh);
-  const rows = crew.data;
+  const start = async (card: CrewCard) => {
+    if (!props.project || !card.task) return;
+    setBusy(card.key);
+    const started = await call('tasks.start', {
+      id: card.task.id,
+      project: props.project,
+      parent: props.sessionId,
+    });
+    setBusy(undefined);
+    said(card.key, started.ok ? undefined : { text: started.error.message, failed: true });
+    await Promise.all([listed.refresh(), crew.refresh()]);
+  };
+  const now = Date.now();
   return (
     <aside
       aria-label="Crew"
       className="flex h-full w-96 min-h-0 shrink-0 flex-col border-l bg-card"
     >
-      <header className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
-        <Users aria-hidden className="size-4 text-state-working" />
-        <span className="text-sm font-medium">Crew</span>
-        {rows && <span className="text-xs text-muted-foreground">{rows.length}</span>}
-        <span className="ml-auto" />
-        <IconButton
-          label="Refresh crew"
-          icon={RefreshCw}
-          disabled={crew.busy}
-          className={cn(crew.busy && '[&_svg]:animate-spin')}
-          onClick={() => void crew.refresh()}
-        />
-        <IconButton label="Close crew" icon={X} onClick={props.onClose} />
-      </header>
-      <div className="min-h-0 flex-1 overflow-auto py-1">
-        {!rows ? (
-          <Muted className="px-3 py-2">{crew.error ? 'Could not read the crew' : 'Reading'}</Muted>
-        ) : !rows.length ? (
-          <Muted className="px-3 py-2">No workers yet. Start one with New worker.</Muted>
-        ) : (
-          <ul data-testid="session-crew">
-            {rows.map((row) => (
-              <CrewMember
-                key={row.id}
-                row={row}
-                composing={composing === row.id}
-                onCompose={() => setComposing(composing === row.id ? undefined : row.id)}
-                onSend={(text, form) => props.actions.send(row.id, text, form)}
-                onStop={() => setStopping(row)}
-                merging={merging === row.id}
-                merged={merges[row.id]}
-                onMerge={() => void merge(row)}
+      <header className="grid shrink-0 gap-2 border-b px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <Users aria-hidden className="size-4 shrink-0 text-state-working" />
+          <span className="text-sm font-medium">Crew</span>
+          <span data-testid="crew-summary" className="truncate text-xs text-muted-foreground">
+            {crewSummary(cards)}
+          </span>
+          <span className="ml-auto" />
+          <IconButton
+            label="Refresh crew"
+            icon={RefreshCw}
+            disabled={crew.busy}
+            className={cn(crew.busy && '[&_svg]:animate-spin')}
+            onClick={() => void refresh()}
+          />
+          <IconButton label="Close crew" icon={X} onClick={props.onClose} />
+        </div>
+        {cards.length > 0 && (
+          <div
+            aria-hidden
+            data-testid="crew-bar"
+            className="grid gap-1"
+            style={{ gridTemplateColumns: `repeat(${cards.length}, minmax(0, 1fr))` }}
+          >
+            {cards.map((card) => (
+              <span
+                key={card.key}
+                data-phase={card.phase}
+                className={cn('h-1.5 rounded-full', stateTone(PHASE_STATE[card.phase]).fill)}
               />
             ))}
-          </ul>
+          </div>
         )}
-        <CrewTasks
-          coordinator={props.sessionId}
-          project={props.project}
-          stamp={props.stamp}
-          nameOf={props.actions.nameOf}
-          onSelect={props.actions.select}
+      </header>
+      <div className="grid min-h-0 flex-1 content-start gap-3 overflow-auto pb-3">
+        <CrewChoices
+          gates={open}
+          questions={questions}
+          cards={cards}
+          onGateDone={async (refused) => {
+            if (refused) said('gate', { text: refused, failed: true });
+            await refresh();
+          }}
+          onAnswered={(id) =>
+            asked.mutate((list) => ({
+              ...list,
+              questions: list.questions.filter((question) => question.id !== id),
+            }))
+          }
+        />
+        {outcomes.gate && (
+          <p role="alert" className="mx-3 text-xs text-state-failed">
+            {outcomes.gate.text}
+          </p>
+        )}
+        {!rows ? (
+          <Muted className="px-3 py-2">{crew.error ? 'Could not read the crew' : 'Reading'}</Muted>
+        ) : !cards.length ? (
+          <Muted className="px-3 py-2">No workers yet. Start one with New worker.</Muted>
+        ) : (
+          <section aria-label="Plan" data-testid="session-crew" className="grid gap-1.5">
+            <SectionLabel className="px-3 pt-2">Plan</SectionLabel>
+            {cards.map((card) => (
+              <CrewTaskCard
+                key={card.key}
+                card={card}
+                now={now}
+                composing={composing === card.key}
+                onCompose={() => setComposing(composing === card.key ? undefined : card.key)}
+                onSend={(text, form) =>
+                  card.worker && props.actions.send(card.worker.id, text, form)
+                }
+                onOpen={props.actions.select}
+                onStop={() => setStopping(card)}
+                merging={busy === card.key}
+                outcome={outcomes[card.key]}
+                onMerge={() => void merge(card)}
+                onStart={props.project ? () => void start(card) : undefined}
+                starting={busy === card.key}
+              />
+            ))}
+          </section>
+        )}
+        <CrewSetups
+          workers={(rows ?? []).filter((row) => cards.some((card) => card.worker?.id === row.id))}
+          setupsOf={props.actions.setupsOf}
+          onOpen={props.actions.select}
         />
       </div>
-      {stopping && (
+      {stopping?.worker && (
         <ActionDialog
           testId="crew-stop-dialog"
-          title={`Stop ${sessionTitle(stopping)}?`}
+          title={`Stop ${stopping.title}?`}
           description="Its agent ends now. Its worktree, branch and reports stay."
           submit={{
             label: 'Stop',
@@ -132,117 +203,12 @@ export function CrewPanel(props: {
             variant: 'destructive',
           }}
           onSubmit={() => {
-            props.actions.stop(stopping.id);
+            if (stopping.worker) props.actions.stop(stopping.worker.id);
             setStopping(undefined);
           }}
           onCancel={() => setStopping(undefined)}
         />
       )}
     </aside>
-  );
-}
-
-/** One child: state and name, then its newest report's first two lines, then branch and diff. */
-function CrewMember(props: {
-  row: CrewRow;
-  composing: boolean;
-  onCompose: () => void;
-  onSend: (text: string, form: HTMLFormElement) => void;
-  onStop: () => void;
-  merging: boolean;
-  merged?: { text: string; failed: boolean };
-  onMerge: () => void;
-}) {
-  const { row } = props;
-  const name = sessionTitle(row);
-  const report = row.report;
-  return (
-    <li
-      data-testid="crew-row"
-      className="group mx-1.5 grid gap-1 rounded-md px-2 py-2 hover:bg-accent/40"
-    >
-      <div className="flex min-w-0 items-center gap-2">
-        <StateBadge state={row.lastState.state} compact />
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium" title={name}>
-          {name}
-        </span>
-        <IconButton
-          label={`Message ${name}`}
-          icon={MessageSquare}
-          size="icon-xs"
-          active={props.composing}
-          disabled={!sendable(row)}
-          onClick={props.onCompose}
-        />
-        <IconButton
-          label={`Merge ${name} into parent`}
-          icon={GitMerge}
-          size="icon-xs"
-          disabled={props.merging || !row.branch || inTurn(row)}
-          onClick={props.onMerge}
-        />
-        <IconButton
-          label={`Stop ${name}`}
-          icon={Square}
-          size="icon-xs"
-          disabled={!stoppable(row)}
-          onClick={props.onStop}
-        />
-      </div>
-      {report ? (
-        <p className="line-clamp-2 whitespace-pre-line text-xs text-muted-foreground">
-          <span className="font-mono text-foreground/80">{report.kind}</span>{' '}
-          <span title={report.at}>{timeAgo(report.at, Date.now())}</span>
-          {' · '}
-          {report.message.split('\n').slice(0, 2).join('\n')}
-        </p>
-      ) : (
-        <p className="text-xs text-muted-foreground">No report yet</p>
-      )}
-      {report?.details && (
-        <p
-          data-testid="crew-report-details"
-          className="truncate font-mono text-[11px] text-muted-foreground"
-          title={report.details}
-        >
-          details: {report.details}
-        </p>
-      )}
-      <div className="flex min-w-0 items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-        <GitBranch aria-hidden className="size-3 shrink-0" />
-        <span className="truncate">{row.branch ?? 'no branch'}</span>
-        {row.diff && <Stat className="ml-auto text-[11px]" {...row.diff} />}
-      </div>
-      {props.merged && (
-        <p
-          role={props.merged.failed ? 'alert' : 'status'}
-          className={cn('text-xs', props.merged.failed ? 'text-state-failed' : 'text-state-done')}
-        >
-          {props.merged.text}
-        </p>
-      )}
-      {props.composing && (
-        <form
-          className="flex gap-1.5 pt-1"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const text = String(new FormData(event.currentTarget).get('prompt') ?? '');
-            if (text.trim()) props.onSend(text, event.currentTarget);
-          }}
-        >
-          <Textarea
-            name="prompt"
-            aria-label={`Message for ${name}`}
-            placeholder={`Message ${name}`}
-            rows={2}
-            autoFocus
-            className="min-h-9 flex-1 resize-y text-xs"
-          />
-          <Button type="submit" size="sm" aria-label={`Send to ${name}`}>
-            <Send aria-hidden />
-          </Button>
-        </form>
-      )}
-    </li>
   );
 }
