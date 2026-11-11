@@ -90,9 +90,10 @@ test('a manual worktree without a session is selectable for Files', async () => 
       }),
   });
   await renderWithMesa(<FilesTab project="lantern-cove" onDirtyChange={() => {}} />, bridge);
-  expect(document.querySelector('select[aria-label="Files checkout"]')?.textContent).toContain(
-    '/tmp/manual',
-  );
+  const options = document.querySelector<HTMLSelectElement>(
+    'select[aria-label="Files checkout"]',
+  )?.options;
+  expect([...(options ?? [])].map((option) => option.value)).toContain('/tmp/manual');
 });
 
 test('a save that lands after switching files keeps the newly opened file', async () => {
