@@ -3,6 +3,7 @@ import type { DiffRow } from '@mesa/core';
 import { act } from 'react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import {
+  asking,
   click,
   diffMeta,
   envelope,
@@ -10,6 +11,7 @@ import {
   fakeBridge,
   fill,
   layoutWidth,
+  managedRow,
   pointer,
   press,
   renderWithMesa,
@@ -256,12 +258,13 @@ test("the header names the branch the diff read, ahead of the board's, as a move
 });
 
 /** A notes store behind the fake bridge: add, list and send as the CLI answers them. */
-function notesBridge() {
+function notesBridge(rows: object[] = []) {
   const notes: Record<string, unknown>[] = [];
   const flag = (args: string[], name: string) =>
     args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
   return fakeBridge({
     diff: diff({}),
+    sessions: () => envelope(rows),
     'review notes': () => envelope(structuredClone(notes)),
     'review notes add': (args) => {
       const line = Number(flag(args, 'line'));
@@ -280,13 +283,15 @@ function notesBridge() {
       notes.push(note);
       return envelope(note);
     },
-    'review notes send': () => {
+    'review notes send': (args) => {
+      const to = flag(args, 'to') ?? 'aaaaaaaa';
       const sent = notes.filter((n) => !n.sentAt).map((n) => n.id);
-      for (const n of notes) n.sentAt = '2026-11-10T12:01:00.000Z';
+      for (const n of notes) Object.assign(n, { sentAt: '2026-11-10T12:01:00.000Z', sentTo: to });
       return envelope({
+        to,
         sent,
         stale: [],
-        delivery: { id: 'x', target: 'aaaaaaaa', status: 'delivered' },
+        delivery: { id: 'x', target: to, status: 'delivered' },
       });
     },
   });
@@ -430,4 +435,109 @@ test('the Notes list groups notes by file, unsent before sent; a click jumps to 
   expect(calls).toContainEqual(expect.arrayContaining(['resolve', 'aaaaaaaa', 'moved001']));
   expect(document.getElementById('note-moved001')).toBeNull();
   expect(groups().map((g) => g[0])).toEqual(['src/tide.ts']);
+});
+
+const menuItems = () => [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+const openSendMenu = () =>
+  click(document.querySelector<HTMLElement>('[aria-label="More ways to send notes"]') ?? undefined);
+
+test("Send notes' menu lists this session, the live ones in its checkout and its kin, and sends to the one picked", async () => {
+  const tree = { path: '/w/reef', branch: 'session/reef' };
+  const rows = [
+    managedRow('aaaaaaaa', { name: 'Reef', worktree: tree, children: ['cccccccc'] }),
+    managedRow('bbbbbbbb', { name: 'Fresh eyes', worktree: tree }),
+    managedRow('cccccccc', { name: 'Kelp worker', worktree: { path: '/w/kelp', branch: 'k' } }),
+    managedRow('dddddddd', { name: 'Elsewhere', worktree: { path: '/w/dune', branch: 'd' } }),
+    managedRow('eeeeeeee', {
+      name: 'Asking',
+      worktree: tree,
+      lastState: { ...asking.lastState, state: 'waiting-question' },
+    }),
+    managedRow('ffffffff', { name: 'Gone', worktree: tree, alive: false }),
+  ];
+  const { bridge, calls } = notesBridge(rows);
+  const byTestId = await renderWithMesa(
+    <DiffPanel sessionId="aaaaaaaa" project="lantern-cove" state="idle" onClose={() => {}} />,
+    bridge,
+  );
+  await click(
+    document.querySelector<HTMLElement>('[aria-label="Add note on line 1"]') ?? undefined,
+  );
+  const box = () => document.querySelector<HTMLTextAreaElement>('textarea');
+  await fill(box(), 'check the tide');
+  await press(box(), 'Enter', { metaKey: true });
+
+  await openSendMenu();
+  expect(menuItems().map((item) => item.textContent?.trim())).toEqual([
+    'This session (Reef)',
+    'Fresh eyes',
+    'Kelp worker',
+    'AskingWaiting on a question',
+    'New agent here',
+    "Send this file's notes (1)",
+  ]);
+  const item = (text: string) => menuItems().find((i) => i.textContent?.startsWith(text));
+  expect(item('Asking')?.getAttribute('aria-disabled')).toBe('true');
+  await click(item('Asking'));
+  expect(calls.flat()).not.toContain('--to=eeeeeeee');
+  await click(item('Fresh eyes'));
+  expect(calls).toContainEqual(
+    expect.arrayContaining(['notes', 'send', '--to=bbbbbbbb', 'aaaaaaaa']),
+  );
+  expect(toastTexts(byTestId)).toContain('Sent 1 note to Fresh eyes');
+  expect(document.querySelector('article[aria-label="Note on line 1"]')?.textContent).toContain(
+    'Sent to Fresh eyes',
+  );
+  expect(document.querySelector('aside[aria-label="Notes"]')?.textContent).toContain(
+    'Sent to Fresh eyes',
+  );
+});
+
+test('New agent here starts a session with the notes', async () => {
+  const { bridge, calls } = notesBridge();
+  await renderWithMesa(
+    <DiffPanel sessionId="aaaaaaaa" project="lantern-cove" state="idle" onClose={() => {}} />,
+    bridge,
+  );
+  await click(
+    document.querySelector<HTMLElement>('[aria-label="Add note on line 1"]') ?? undefined,
+  );
+  const box = () => document.querySelector<HTMLTextAreaElement>('textarea');
+  await fill(box(), 'review this');
+  await press(box(), 'Enter', { metaKey: true });
+  await openSendMenu();
+  // Before the board has read the session, it is still the first place its notes go.
+  expect(menuItems()[0]?.textContent).toBe('This session (aaaaaaaa)');
+  await click(menuItems().find((i) => i.textContent?.trim() === 'New agent here'));
+  expect(calls).toContainEqual(expect.arrayContaining(['notes', 'send', '--to=new', 'aaaaaaaa']));
+});
+
+test('c on a focused line opens the note composer there, Shift+arrows on a range, and not in a text field', async () => {
+  const { bridge } = notesBridge();
+  await renderWithMesa(
+    <DiffPanel sessionId="aaaaaaaa" project="lantern-cove" state="idle" onClose={() => {}} />,
+    bridge,
+  );
+  const plus = (n: number) =>
+    document.querySelector<HTMLElement>(`[aria-label="Add note on line ${n}"]`);
+  const fields = () => [...document.querySelectorAll<HTMLTextAreaElement>('textarea')];
+  await press(plus(2), 'c');
+  expect(fields().map((f) => f.getAttribute('aria-label'))).toEqual(['Note on line 2']);
+  // Typing c in the composer types it; no second composer opens.
+  await press(fields()[0], 'c');
+  expect(fields()).toHaveLength(1);
+  await press(fields()[0], 'Escape');
+
+  await act(async () => plus(1)?.focus());
+  await press(plus(1), 'ArrowDown', { shiftKey: true });
+  expect(document.activeElement).toBe(plus(2));
+  await press(plus(2), 'c');
+  expect(fields().map((f) => f.getAttribute('aria-label'))).toEqual(['Note on lines 1-2']);
+  await press(fields()[0], 'Escape');
+
+  // A mark left behind when focus moves elsewhere does not carry over.
+  await act(async () => plus(1)?.focus());
+  await press(plus(1), 'ArrowDown', { shiftKey: true });
+  await press(plus(1), 'c');
+  expect(fields().map((f) => f.getAttribute('aria-label'))).toEqual(['Note on line 1']);
 });

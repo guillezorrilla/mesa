@@ -329,7 +329,7 @@ test('review notes add, list, edit and remove a note on a committed line', async
   expect(world.windows[0]?.typed).toEqual([expect.stringContaining('Note: tidy\n\nFile: a.ts')]);
   expect(
     (await cli.mesa('review', 'notes', 'send', opened.id, '--no-from', '--json')).json.data,
-  ).toEqual({ sent: [], stale: [] });
+  ).toEqual({ to: opened.id, sent: [], stale: [] });
   expect(
     (await cli.mesa('review', 'notes', 'clear', opened.id, '--json')).json.data.removed,
   ).toHaveLength(2);
@@ -365,4 +365,43 @@ test('review notes add, list, edit and remove a note on a committed line', async
   const one = (await cli.mesa('review', 'notes', opened.id, '--json')).json.data[0].id;
   await cli.mesa('review', 'notes', 'remove', opened.id, one, '--json');
   expect((await cli.mesa('review', 'notes', opened.id, '--json')).json.data).toEqual([]);
+});
+
+test('review notes send --to delivers to another session or starts one with the notes', async () => {
+  const dir = await cli.withProject();
+  writeFileSync(join(dir, 'a.ts'), 'one\n');
+  gitRepo(dir);
+  const world = cli.withTmux();
+  cli.run = withRealGit(cli.run);
+  const first = (await cli.mesa('open', 'lantern-cove', '--branch', 'tidy', '--json')).json.data;
+  const second = (await cli.mesa('open', 'lantern-cove', '--json')).json.data;
+  const note = (text: string) =>
+    cli.mesa('review', 'notes', 'add', first.id, '--path', 'a.ts', '--line', '1', '--text', text);
+  await note('rename');
+  const typed = (id: string) => world.windows.find((w) => w.window.endsWith(id))?.typed ?? [];
+  const sent = await cli.mesa(
+    'review',
+    'notes',
+    'send',
+    first.id,
+    '--to',
+    second.id,
+    '--no-from',
+    '--json',
+  );
+  expect(sent.json.data).toMatchObject({ to: second.id, sent: [expect.any(String)] });
+  expect(typed(first.id)).toEqual([]);
+  expect(typed(second.id)).toEqual([
+    expect.stringContaining(`notes on session ${first.id}'s diff on branch tidy in `),
+  ]);
+  const listed = await cli.mesa('review', 'notes', first.id);
+  expect(listed.stdout).toContain(`(sent to ${second.id})`);
+
+  await note('again');
+  const started = await cli.mesa('review', 'notes', 'send', first.id, '--to', 'new');
+  expect(started.stdout).toMatch(/^Sent 1 notes to [a-z0-9]{8}, a new session/);
+  const fresh = started.stdout.split(' ')[4]?.replace(',', '') as string;
+  const shown = (await cli.mesa('show', fresh, '--json')).json.data;
+  expect(shown).toMatchObject({ cwd: first.worktree.path });
+  expect(shown.goal).toContain('Note: again');
 });

@@ -5,7 +5,7 @@ import { IconButton } from '@/components/IconButton';
 import { cn } from '@/lib/utils';
 import { NoteField } from './NoteField';
 import { noteLabel } from './noteLabel';
-import { NOTE_STATES, noteState } from './noteState';
+import { NOTE_STATES, noteState, stateLabel } from './noteState';
 
 /**
  * One saved note under its lines: what it is on, whether it is stale or was sent, its text, and
@@ -14,6 +14,8 @@ import { NOTE_STATES, noteState } from './noteState';
 export function NoteCard(props: {
   note: ListedNote;
   busy: boolean;
+  /** A session's name, for the session a sent note went to. */
+  nameOf: (id: string) => string;
   onEdit: (text: string) => Promise<boolean>;
   onDelete: () => void;
   onResolve: () => void;
@@ -52,7 +54,7 @@ export function NoteCard(props: {
             ) : (
               <TriangleAlert aria-hidden className="size-3" />
             )}
-            {NOTE_STATES[state].label}
+            {stateLabel(note, props.nameOf)}
           </span>
         )}
         <span className="ml-auto flex opacity-0 transition-opacity group-hover/note:opacity-100 group-focus-within/note:opacity-100">

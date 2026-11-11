@@ -31,7 +31,7 @@ export function sessionsService(
     sessions: {
       ...inspect,
       ...waitActions(ctx, inspect.list),
-      ...inputActions(ctx, faro, deps),
+      ...inputActions(ctx, faro, deps, lifecycle.open),
       ...lifecycle,
       ...continued,
       ...windowActions(ctx, deps),
