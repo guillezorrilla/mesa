@@ -12,6 +12,9 @@ export type OpenInput = {
   general?: boolean;
   agent?: string;
   mode?: string;
+  /** Its own model and effort over the profile's defaults: Claude Code's and Codex's only. */
+  model?: string;
+  effort?: string;
   /** Keep a Claude session running when its terminal view closes. */
   background?: boolean;
   goal?: string;
@@ -100,9 +103,17 @@ export function validateOpenInput(input: OpenFlags): void {
   }
   if (
     input.terminal &&
-    (input.agent || input.goal || input.after || input.mode || input.background)
+    (input.agent ||
+      input.goal ||
+      input.after ||
+      input.mode ||
+      input.background ||
+      input.model !== undefined ||
+      input.effort !== undefined)
   ) {
-    refuse('--terminal cannot use --agent, --goal, --after, --mode, or --background');
+    refuse(
+      '--terminal cannot use --agent, --goal, --after, --mode, --model, --effort, or --background',
+    );
   }
   if (input.run !== undefined && !input.terminal) refuse('--run needs --terminal');
   if (input.review && (!input.project || input.terminal || input.after || input.background)) {

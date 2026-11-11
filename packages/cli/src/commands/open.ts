@@ -1,5 +1,5 @@
 import { defineCommand } from '../command.js';
-import { AGENT_FLAG, AS_FLAG, requireTty, ticketStartOf } from '../input/flags.js';
+import { AGENT_FLAG, AS_FLAG, MODEL_FLAGS, requireTty, ticketStartOf } from '../input/flags.js';
 import { recordedOutput } from '../output/recorded.js';
 
 export const open = defineCommand({
@@ -21,6 +21,7 @@ export const open = defineCommand({
       type: 'string',
       description: 'Native startup mode: plan (Claude Code, Antigravity CLI)',
     },
+    ...MODEL_FLAGS,
     goal: {
       type: 'string',
       description: "The agent's first prompt; one starting /goal runs Claude Code's goal command",
@@ -84,6 +85,8 @@ export const open = defineCommand({
     const recorded = await mesa.imports.open(args.project, {
       agent: flags.agent,
       mode: flags.mode,
+      model: flags.model,
+      effort: flags.effort,
       background: flags.background,
       goal: flags.goal,
       goalFile: flags['goal-file'],

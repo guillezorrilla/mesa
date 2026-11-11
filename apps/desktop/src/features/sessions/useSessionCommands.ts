@@ -4,6 +4,7 @@ import { Undo2 } from 'lucide-react';
 import type { RefObject } from 'react';
 import { type Message, said, type ToastLink, useToast, warningOf } from '@/components/Toast';
 import { useRun } from '@/lib/useCommand';
+import type { WorkerModel } from './dialogs/WorkerDialog';
 import type { NewSessionInput } from './SessionStart';
 import type { SessionAct } from './useSessionAct';
 
@@ -260,9 +261,14 @@ export function useSessionCommands({
       return warningOf(opened);
     });
   /** Starts a worker of `row` on `task` (mesa worker), and shows it. */
-  const startWorker = (row: ManagedRow, task: string) =>
+  const startWorker = (row: ManagedRow, task: string, how: WorkerModel = {}) =>
     once(async () => {
-      const opened = await run('sessions.worker', { project: row.project, task, parent: row.id });
+      const opened = await run('sessions.worker', {
+        project: row.project,
+        task,
+        parent: row.id,
+        ...how,
+      });
       await look();
       if (!opened) return undefined;
       closeDialog();

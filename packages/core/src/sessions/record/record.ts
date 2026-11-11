@@ -44,6 +44,9 @@ const SessionRecordFields = z.strictObject({
   agent: z.union([AgentSchema, z.literal('terminal')]),
   /** Native startup mode; absent keeps the provider's own default. */
   mode: z.literal('plan').optional(),
+  /** Its own model and effort (`mesa open --model --effort`), which a resume keeps; absent, the agent's default. */
+  model: z.string().optional(),
+  effort: z.string().optional(),
   /** Claude's native background handle; its terminal is only a view of that process. */
   backgroundId: z
     .string()

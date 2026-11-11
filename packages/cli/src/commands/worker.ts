@@ -1,5 +1,6 @@
 import { MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
+import { MODEL_FLAGS } from '../input/flags.js';
 import { recordedOutput } from '../output/recorded.js';
 
 /** A coordinating agent's one command for a worker: a briefed child in its own worktree. */
@@ -18,6 +19,7 @@ export const worker = defineCommand({
       type: 'string',
       description: 'claude or codex; default: the project, else the profile',
     },
+    ...MODEL_FLAGS,
     branch: {
       type: 'string',
       description: 'Its worktree on this branch; default: a new one Mesa names, session/<words>',
@@ -27,9 +29,15 @@ export const worker = defineCommand({
       description: 'The session it reports to; default: the one whose Mesa window runs this',
     },
   },
-  example: 'mesa worker lantern-cove "Parse the tide tables into JSON; add tests"',
+  example: 'mesa worker lantern-cove "Rename tideTable to tideChart; fix the tests" --model sonnet',
   run: async ({ mesa, args, flags }) => {
-    const how = { agent: flags.agent, branch: flags.branch, parent: flags.parent };
+    const how = {
+      agent: flags.agent,
+      branch: flags.branch,
+      parent: flags.parent,
+      model: flags.model,
+      effort: flags.effort,
+    };
     if (flags.task !== undefined) {
       if (args.task !== undefined)
         throw new MesaError('usage', 'pass a task text or --task <id>, not both');

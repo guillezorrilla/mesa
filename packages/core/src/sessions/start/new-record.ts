@@ -18,6 +18,8 @@ export type NewLaunch = {
   project: RegistryEntry | null;
   agent: Agent | 'terminal';
   mode?: 'plan';
+  model?: string;
+  effort?: string;
   background?: true;
   backgroundId?: string;
   /** None while queued: a session that never ran has no conversation. */
@@ -72,6 +74,8 @@ export function createRecord(
     project: s.project?.name ?? GENERAL_PROJECT,
     agent: s.agent,
     ...(s.mode ? { mode: s.mode } : {}),
+    ...(s.model ? { model: s.model } : {}),
+    ...(s.effort ? { effort: s.effort } : {}),
     ...(s.background ? { background: true as const } : {}),
     ...(s.backgroundId ? { backgroundId: s.backgroundId } : {}),
     ...(s.agentSessionId === undefined ? {} : { agentSessionId: s.agentSessionId }),

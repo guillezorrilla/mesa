@@ -21,7 +21,13 @@ import { codexSessionId } from './codex/rollouts.js';
 import { codexLastOutputLine, codexScreenState } from './codex/screen.js';
 import { codexTranscriptReader } from './codex/transcripts.js';
 import { codexUsage } from './codex/usage.js';
-import { addDirArgs, type LaunchDefaults, launchFlags } from './launch-flags.js';
+import {
+  addDirArgs,
+  type LaunchDefaults,
+  launchFlags,
+  type SessionLaunch,
+  type SessionModel,
+} from './launch-flags.js';
 import {
   CLAUDE_VAULT_WRITES,
   CODEX_VAULT_READ_ONLY,
@@ -36,13 +42,16 @@ import { AGENT_NAMES, type Agent } from './names.js';
 /** A goal as the agent's first prompt: one shell word, so the shell hands it over byte for byte. */
 const goalWord = (goal?: string) => (goal === undefined ? '' : ` ${shellWord(goal)}`);
 
+/** A word as it reaches the shell: as is when it holds nothing the shell reads, else quoted. */
+const plainWord = (word: string) => (/^[\w@%+=:,./-]+$/.test(word) ? word : shellWord(word));
+
 /**
- * The profile's launch defaults for `agent` as they follow its executable, for a session with
- * extra folders `dirs` (launch-flags.ts).
+ * The profile's launch defaults and the session's own model and effort for `agent` as they follow
+ * its executable, for a session with extra folders `dirs` (launch-flags.ts).
  */
-const flags = (agent: Agent, defaults: LaunchDefaults, mode?: 'plan', dirs?: readonly string[]) =>
+const flags = (agent: Agent, defaults: SessionLaunch, mode?: 'plan', dirs?: readonly string[]) =>
   launchFlags(agent, defaults, mode, dirs)
-    .map((flag) => ` ${flag}`)
+    .map((flag) => ` ${plainWord(flag)}`)
     .join('');
 
 /** The extra folders `agent` works in as shell words (launch-flags.ts). */
@@ -124,7 +133,7 @@ export const AGENTS = {
     start: (
       sessionId: string,
       mounts: Mounts,
-      defaults: LaunchDefaults,
+      defaults: SessionLaunch,
       goal?: string,
       mode?: 'plan',
       dirs: readonly string[] = [],
@@ -140,7 +149,7 @@ export const AGENTS = {
       sessionId: string,
       _folder: string,
       mounts: Mounts,
-      defaults: LaunchDefaults,
+      defaults: SessionLaunch,
       mode?: 'plan',
       dirs: readonly string[] = [],
       disallowed: readonly string[] = [],
@@ -238,7 +247,7 @@ export const AGENTS = {
      */
     start: (
       mounts: Mounts,
-      defaults: LaunchDefaults,
+      defaults: SessionLaunch,
       goal?: string,
       dirs: readonly string[] = [],
     ) =>
@@ -251,7 +260,7 @@ export const AGENTS = {
       sessionId: string,
       folder: string,
       mounts: Mounts,
-      defaults: LaunchDefaults,
+      defaults: SessionLaunch,
       _mode?: 'plan',
       dirs: readonly string[] = [],
     ) =>
@@ -361,7 +370,7 @@ export const newSessionId = (agent: Agent, newUuid: IdSource) =>
 /**
  * A session's start command, its goal as the first prompt, under the agent session id Mesa
  * picked for it (newSessionId), which an agent that picks its own does not take, with the
- * profile's launch `defaults`, `mounts` mounted for an agent that takes them per launch
+ * profile's launch `defaults` and its own model and effort (`s`), `mounts` mounted for an agent that takes them per launch
  * (Antigravity's is global), and `dirs`, an additional project's worktree each, as extra folders
  * (sessions/start/additional.ts, additionalDirs).
  */
@@ -377,22 +386,23 @@ export function startCommand(
     mode?: 'plan';
     /** Claude Code's deny rules (reviewDeny); another agent has none. */
     disallowed?: readonly string[];
-  },
+  } & SessionModel,
   dirs: readonly string[],
 ) {
+  const own: SessionLaunch = { ...defaults, model: s.model, effort: s.effort };
   if (agent === 'antigravity') {
     if (!s.id || !s.logs) throw new MesaError('internal', 'agy needs a Mesa session log');
     const log = prepareAntigravityLog(s.logs, s.id);
-    return AGENTS.antigravity.start(s.goal, log, defaults, s.mode, dirs);
+    return AGENTS.antigravity.start(s.goal, log, own, s.mode, dirs);
   }
-  if (agent === 'codex') return AGENTS.codex.start(mounts, defaults, s.goal, dirs);
+  if (agent === 'codex') return AGENTS.codex.start(mounts, own, s.goal, dirs);
   if (s.agentSessionId === undefined) {
     throw new MesaError('internal', `${agent} starts under an agent session id Mesa picks`);
   }
   return AGENTS.claude.start(
     s.agentSessionId,
     mounts,
-    defaults,
+    own,
     s.goal,
     s.mode,
     dirs,

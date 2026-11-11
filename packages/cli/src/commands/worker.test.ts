@@ -38,6 +38,43 @@ test('worker starts a briefed child of the caller in its own worktree; outside a
   expect((await cli.mesa('help', '--agent')).stdout).toContain('mesa worker');
 });
 
+test('worker --model and --effort start the worker on them, kept on its record', async () => {
+  const { tmux } = await cli.withTwoProjects();
+  const parent = (await cli.mesa('open', 'lantern-cove', '--json')).json.data.id as string;
+  const made = await cli.mesa(
+    'worker',
+    'lantern-cove',
+    'Rename tideTable to tideChart',
+    '--model',
+    'sonnet',
+    '--effort',
+    'low',
+    '--parent',
+    parent,
+    '--json',
+  );
+  expect(made.code, made.stdout).toBe(0);
+  expect(tmux.windows.at(-1)?.launch).toContain(' --model sonnet --effort low ');
+  const shown = (await cli.mesa('show', made.json.data.id, '--json')).json.data;
+  expect(shown).toMatchObject({ model: 'sonnet', effort: 'low' });
+  const refused = await cli.mesa(
+    'worker',
+    'lantern-cove',
+    'x',
+    '--agent',
+    'codex',
+    '--effort',
+    'max',
+    '--parent',
+    parent,
+    '--json',
+  );
+  expect(refused.code).toBe(2);
+  expect(refused.json.error.message).toBe(
+    'codex --effort is one of minimal, low, medium, high, xhigh, not max',
+  );
+});
+
 test("worker --task starts a ready task, whose worker's done report readies its dependent", async () => {
   await cli.withTwoProjects();
   const lead = (await cli.mesa('open', 'lantern-cove', '--json')).json.data.id as string;

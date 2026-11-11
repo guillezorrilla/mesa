@@ -68,7 +68,10 @@ Orchestrate: hand parts of a big task to workers and gather what they report. St
 ```sh
 mesa worker lantern-cove "Parse the tide tables into JSON; add tests"
 mesa worker lantern-cove "Draw the tide chart from the JSON shape in docs/tides.md"
+mesa worker lantern-cove "Rename tideTable to tideChart; fix the tests" --model sonnet
 ```
+
+Give a worker whose task is mechanical (renames, test fixes, docs, data shuffles) `--model sonnet`, and keep the person's default for design or hard debugging; `--effort low|medium|high` lowers or raises its effort the same way (Claude Code and Codex only).
 
 Coordinator rules, each to save turns: start every independent worker, then end your turn; never poll or sleep for a worker, since Mesa brings its news; use your own subagents for small or same-agent work, and workers only for parts that need their own worktree; read this skill once per task, not before each command. A worker starts no workers of its own unless its task asks, and workers nest at most 4 deep: a session 4 workers deep cannot start another.
 

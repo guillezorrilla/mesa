@@ -73,7 +73,7 @@ export function SessionDialogs({
           sessionId={dialog.row.id}
           project={dialog.row.project}
           disabled={acting}
-          onStart={(task) => commands.startWorker(dialog.row, task)}
+          onStart={(task, how) => commands.startWorker(dialog.row, task, how)}
           onCancel={onClose}
         />
       )}
