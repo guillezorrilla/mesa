@@ -178,6 +178,27 @@ test('a claude run inside a Codex session or a plain terminal never claims that 
   expect(existsSync(join(dir, 'events'))).toBe(false);
 });
 
+test("a plain terminal takes only a Setup session's outcome, logged as claude's", () => {
+  const { store, deps } = setUp();
+  const setup = store.create(() =>
+    newSession({
+      kind: 'terminal',
+      agent: 'terminal',
+      tmux: { socket: 's', session: 'p', window: 'w' },
+    }),
+  ).id;
+  for (const event of ['SetupFailed', 'SetupDone'])
+    recordHookEvent(deps, {
+      agent: 'claude',
+      mesaSessionId: setup,
+      payload: JSON.stringify({ hook_event_name: event }),
+    });
+  expect(readHookEvents(deps.eventsDir, setup).map((e) => e.event)).toEqual([
+    'SetupFailed',
+    'SetupDone',
+  ]);
+});
+
 test('a resumed background claude keeps its first environment; its hooks reach the live record', () => {
   const { store, id, deps } = setUp();
   const native = SESSION_START.session_id;
