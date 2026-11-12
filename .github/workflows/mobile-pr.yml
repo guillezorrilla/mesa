@@ -33,7 +33,7 @@ jobs:
       - id: base
         run: |
           git checkout --quiet "${{ github.event.pull_request.base.sha }}"
-          if [ -d apps/mobile ]; then
+          if [ -f apps/mobile/package.json ]; then
             pnpm install --frozen-lockfile
             echo "hash=$(pnpm -C apps/mobile exec expo-updates fingerprint:generate --platform ios | jq -r .hash)" >> "$GITHUB_OUTPUT"
           else
