@@ -12,6 +12,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import {
+  breakConfig,
   driveMcp,
   type McpReply,
   mcpInitialize,
@@ -209,7 +210,7 @@ test('vault open: the URI by default, --json, and its errors', async () => {
   // A config that does not read says why, as vault status does, not "no vault".
   const config = cli.paths.config;
   const good = readFileSync(config, 'utf8');
-  writeFileSync(config, good.replace(/^vault: .*$/m, 'vault: relative'));
+  breakConfig(config);
   const broken = await mesa('vault', 'open');
   expect(broken.code).toBe(4);
   expect(broken.stderr).toMatch(/config\.yaml: vault: must be an absolute path/);

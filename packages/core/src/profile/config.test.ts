@@ -133,7 +133,7 @@ test('a config a newer Mesa wrote loads without the keys this one does not know,
   );
   const before = readFileSync(file, 'utf8');
   const { config, unknownKeys } = readConfig(file);
-  expect(unknownKeys.toSorted()).toEqual([
+  expect([...unknownKeys].sort()).toEqual([
     'decisions.futureModel',
     'futureSection',
     'sessions.futureFlag',

@@ -14,7 +14,7 @@ import type { Env } from '../lib/process.js';
 import { REDACTED } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
-import { readYaml, setYamlPath, valueAt } from '../lib/yaml-file.js';
+import { readKnownYaml, setYamlPath, valueAt } from '../lib/yaml-file.js';
 import { PHONE_PUSH_MODES } from '../phone/away.js';
 import {
   GIT_OVERRIDE_FIELDS,
@@ -364,21 +364,8 @@ function requireConfigFile(file: string): void {
  */
 export function readConfig(file: string): { config: Config; unknownKeys: string[] } {
   requireConfigFile(file);
-  const raw = readYaml(file, z.unknown());
-  const parsed = ConfigSchema.safeParse(raw);
-  if (parsed.success) return { config: parsed.data, unknownKeys: [] };
-  const unknown = parsed.error.issues.flatMap((issue) =>
-    issue.code === 'unrecognized_keys' ? issue.keys.map((key) => [...issue.path, key]) : [],
-  );
-  type Node = Record<PropertyKey, unknown> | undefined;
-  for (const path of unknown) {
-    const parent = path.slice(0, -1).reduce<Node>((at, key) => at?.[key] as Node, raw as Node);
-    if (parent && typeof parent === 'object') delete parent[path.at(-1) as PropertyKey];
-  }
-  return {
-    config: parseWith(ConfigSchema, raw, file),
-    unknownKeys: unknown.map((p) => p.join('.')),
-  };
+  const { data, unknownKeys } = readKnownYaml(file, ConfigSchema);
+  return { config: data, unknownKeys };
 }
 
 export const loadConfig = (file: string): Config => readConfig(file).config;

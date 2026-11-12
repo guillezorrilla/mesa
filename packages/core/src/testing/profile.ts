@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Runner } from '../lib/process.js';
@@ -53,6 +53,10 @@ export const testDeps = (home: string, overrides: Partial<MesaDeps> = {}): MesaD
 
 /** Where a profile keeps its files: tests read and plant through it, never a spelled-out path. */
 export { profilePaths };
+
+/** Makes a profile's config.yaml fail to read: its vault becomes `relative`, not an absolute path. */
+export const breakConfig = (file: string) =>
+  writeFileSync(file, readFileSync(file, 'utf8').replace(/^vault: .*$/m, 'vault: relative'));
 
 /**
  * A profile over `home` (a fresh temp dir by default) with its vault laid out and lantern-cove

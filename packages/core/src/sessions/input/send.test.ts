@@ -1,11 +1,12 @@
 import { spawn } from 'node:child_process';
-import { chmodSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../../mesa.js';
 import { profilePaths } from '../../profile/paths.js';
 import { listReceipts } from '../../receipts/store.js';
 import {
+  breakConfig,
   CLAUDE_VERSION,
   fakeTmux,
   lockDeps,
@@ -458,7 +459,7 @@ test('any error writing events after typing is a warning, and any Mesa window co
 test('a config.yaml that does not read still lets a prompt through: only the receipt is lost', async () => {
   const { home, mesa, window, opened } = await setUp();
   const config = profilePaths(home, 'default').config;
-  writeFileSync(config, readFileSync(config, 'utf8').replace(/^vault: .*$/m, 'vault: relative'));
+  breakConfig(config);
   const { result } = await mesa.sessions.send(opened.id, 'still here');
   expect(result.sent).toBe(true);
   expect(window.typed).toEqual(['still here']);
