@@ -129,6 +129,8 @@ export {
   type Since,
   threadProgress,
 } from './prs/buckets.js';
+export { MERGE_METHODS, type MergeMethod } from './prs/github-merge.js';
+export { MERGE_CALLERS, type MergeCaller, type MergeRefusal, type PrTarget } from './prs/merge.js';
 export { PR_CLIS, type PrProvider } from './prs/provider.js';
 export type { PrDraft } from './prs/reader.js';
 export { PROMPT_ONLY } from './prs/review-guard.js';

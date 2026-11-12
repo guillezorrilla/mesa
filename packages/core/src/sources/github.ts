@@ -112,6 +112,7 @@ const REPO = '[A-Za-z0-9._-]+';
 const KEY = new RegExp(`^(${OWNER})/(${REPO})#(\\d+)$`);
 const ITEM = new RegExp(`^(${OWNER})/(${REPO})/(\\d+)$`);
 const ISSUE_PATH = new RegExp(`^/(${OWNER})/(${REPO})/issues/(\\d+)/?$`);
+const PULL_PATH = new RegExp(`^/(${OWNER})/(${REPO})/pull/(\\d+)/?$`);
 const REPO_NAME = new RegExp(`^${OWNER}/${REPO}$`);
 
 const issueOf = (match: RegExpExecArray | null): GithubIssueRef | undefined =>
@@ -133,6 +134,9 @@ export const parseGithubItem = (id: string) => issueOf(ITEM.exec(id));
 
 /** The issue a github.com URL names (/owner/repo/issues/123); undefined when it is none. */
 export const githubIssueLink = (url: URL) => issueOf(ISSUE_PATH.exec(url.pathname));
+
+/** The pull request a github.com URL names (/owner/repo/pull/123); undefined when it is none. */
+export const githubPullLink = (url: URL) => issueOf(PULL_PATH.exec(url.pathname));
 
 /** An issue's page on GitHub. */
 export const githubIssueUrl = (issue: GithubIssueRef) =>

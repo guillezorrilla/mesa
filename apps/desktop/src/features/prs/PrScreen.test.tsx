@@ -31,6 +31,7 @@ const detail = (over: Partial<PrDetail> = {}): PrDetail => ({
   updatedAt: hoursAgo(3),
   author: 'lee-park',
   bucket: 'updated',
+  state: 'open',
   since: { lastWord: hoursAgo(5), commits: 3, replies: 2, resolved: 1, threads: 2 },
   additions: 233,
   deletions: 61,
@@ -235,6 +236,54 @@ test('Discard asks first, then deletes the draft by its id and reads the PR agai
   expect(calls.find((c) => c[2] === 'discard')?.slice(-3)).toEqual(['storefront', '477', 'D1']);
   expect(calls.filter((c) => c[2] === 'show')).toHaveLength(2);
   expect(selectedTab()).toBe('Drafts1');
+});
+
+test('Merge confirms with the checks state, then squash-merges through the app caller', async () => {
+  let state: PrDetail['state'] = 'open';
+  const { bridge, calls } = fakeBridge({
+    'prs show': () => envelope(detail({ state })),
+    'prs merge': () => {
+      state = 'merged';
+      return envelope({ project: 'storefront', number: 477, method: 'squash', receipt: null });
+    },
+  });
+  const byTestId = await renderWithMesa(<PrScreen project="storefront" number={477} />, bridge);
+  const merges = () => calls.filter((c) => c[2] === 'merge').map((c) => c.slice(3));
+  await click(button('Squash and merge'));
+  expect(byTestId('merge-pr-dialog')[0]?.textContent).toContain('Its checks pass.');
+  await click(button('Cancel'));
+  expect(merges()).toEqual([]);
+
+  await click(button('Squash and merge'));
+  await click(
+    document.querySelector<HTMLButtonElement>('[data-testid="confirm-merge-pr"]') ?? undefined,
+  );
+  expect(merges()).toEqual([['--caller', 'app', '--squash', '--', 'storefront', '477']]);
+  // Read again, the merged PR offers no Merge.
+  expect(calls.filter((c) => c[2] === 'show')).toHaveLength(2);
+  expect(byTestId('merge-pr')).toHaveLength(0);
+});
+
+test('with failing checks the confirm is Merge anyway, which passes --yes', async () => {
+  const { bridge, calls } = fakeBridge({
+    'prs show': () => envelope(detail({ checks: 'failing' })),
+    'prs merge': () => envelope({ receipt: null }),
+  });
+  const byTestId = await renderWithMesa(<PrScreen project="storefront" number={477} />, bridge);
+  await click(button('Squash and merge'));
+  expect(byTestId('merge-pr-dialog')[0]?.textContent).toContain('Its checks are failing.');
+  await click(button('Merge anyway'));
+  expect(calls.find((c) => c[2] === 'merge')).toContain('--yes');
+});
+
+test('only an open GitHub PR offers Merge', async () => {
+  const byTestId = await renderWithMesa(
+    <PrScreen project="storefront" number={477} />,
+    fakeBridge({ 'prs show': () => envelope(detail({ provider: 'bitbucket' })) }).bridge,
+  );
+  expect(byTestId('merge-pr')).toHaveLength(0);
+  await show(detail({ state: 'closed' }));
+  expect(button('Squash and merge')).toBeUndefined();
 });
 
 test('a PR row in the sidebar opens its detail', async () => {

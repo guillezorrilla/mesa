@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ghGraphql, repoVars } from './github-graphql.js';
 import {
+  checksOf,
   Nodes,
   PR_FACTS,
   PrNode,
@@ -10,7 +11,7 @@ import {
   ThreadComment,
   toPr,
 } from './github-pr.js';
-import type { PrDraft, PrProviderApi, PrRead, PrThread } from './reader.js';
+import type { PrDraft, PrProviderApi, PrThread } from './reader.js';
 
 // One PR in full: the list's facts, plus its threads, my pending review and its files. Fields named
 // in both PrFacts and here with the same arguments merge; the rest are aliased.
@@ -78,14 +79,6 @@ const Response = z.object({
   }),
 });
 
-const CHECKS: Record<string, PrRead['checks']> = {
-  SUCCESS: 'passing',
-  FAILURE: 'failing',
-  ERROR: 'failing',
-  PENDING: 'pending',
-  EXPECTED: 'pending',
-};
-
 /** One GitHub PR in full through one `gh api graphql` call. */
 export const showGithub: PrProviderApi['show'] = async (run, repo, number) => {
   const read = await ghGraphql(run, QUERY, { strings: repoVars(repo), ints: { number } }, Response);
@@ -137,7 +130,7 @@ export const showGithub: PrProviderApi['show'] = async (run, repo, number) => {
       headRef: `pull/${pr.number}/head`,
       additions: pr.additions,
       deletions: pr.deletions,
-      checks: CHECKS[pr.head.nodes[0]?.commit.statusCheckRollup?.state ?? ''] ?? null,
+      checks: checksOf(pr.head.nodes[0]?.commit.statusCheckRollup?.state),
       threads,
       drafts,
       files: pr.files?.nodes ?? [],
