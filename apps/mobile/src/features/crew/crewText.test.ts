@@ -53,6 +53,7 @@ test("a task's words name what it waits for, and its colour its turn", () => {
   expect(taskWords(task('f', 'later'), crew)).toBe('later');
   expect(taskColor('blocked')).toBe('bg-state-waiting');
   expect(taskColor('ready')).toBe('bg-state-working');
+  expect(taskColor('pending')).toBe('bg-state-working');
   expect(taskColor('succeeded')).toBe('bg-state-done');
 });
 

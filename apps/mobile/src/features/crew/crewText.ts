@@ -34,14 +34,15 @@ export function reportColor(report: Report) {
 }
 
 /**
- * Each task state's place in the list (ready first), its words, and its colour: ready and
- * running as at work, blocked as the person's turn, settled ones as over or failed.
+ * Each task state's place in the list (ready first), its words, and its colour: ready, running
+ * and pending in the queued tone as on the desktop's Crew panel, blocked as the person's turn,
+ * settled ones as over or failed.
  */
 const TASK_LOOK: Record<string, { rank: number; words: string; color: string }> = {
   ready: { rank: 0, words: 'Ready to start', color: 'bg-state-working' },
   running: { rank: 1, words: 'Running', color: 'bg-state-working' },
   blocked: { rank: 2, words: 'Blocked', color: 'bg-state-waiting' },
-  pending: { rank: 3, words: 'Waiting', color: 'bg-state-idle' },
+  pending: { rank: 3, words: 'Waiting', color: 'bg-state-working' },
   succeeded: { rank: 4, words: 'Done', color: 'bg-state-done' },
   failed: { rank: 5, words: 'Failed', color: 'bg-state-failed' },
   cancelled: { rank: 6, words: 'Cancelled', color: 'bg-state-idle' },
@@ -51,7 +52,8 @@ const lookOf = (state: string) =>
 
 /** The task graph in the order the person acts on it, plan order kept within each state. */
 export const taskOrder = (tasks: readonly PhoneTask[]) =>
-  tasks.toSorted((a, b) => lookOf(a.state).rank - lookOf(b.state).rank);
+  // A copy sorted, not toSorted: Hermes here has no toSorted (found on the simulator).
+  [...tasks].sort((a, b) => lookOf(a.state).rank - lookOf(b.state).rank);
 
 /** A task's state's colour, Mesa's state tokens. */
 export const taskColor = (state: string) => lookOf(state).color;
