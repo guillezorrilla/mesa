@@ -3,7 +3,7 @@ import type { SessionRow } from '../board/rows.js';
 import { projectLabel } from './general.js';
 import type { SessionRecord, SessionReview } from './record.js';
 import { sessionProjects } from './session-projects.js';
-import { WAITING_STATES } from './states.js';
+import { type SessionState, WAITING_STATES } from './states.js';
 
 // How Mesa shows a session row and its log to a person, the same in the CLI and on the Board.
 // Pure, importing only pure modules, so the app bundles it (`@mesa/core/browser`).
@@ -64,12 +64,27 @@ export const setupSessionsOf = <R extends SessionRow>(rows: readonly R[], owner:
 export const crewTitle = (s: SessionRow) => (s.managed && s.taskTitle) || sessionTitle(s);
 
 /**
- * What a child is doing now, in one line: its agent's progress line until it ends, else its
- * newest report's first sentence, else its last reply's first line; none without any.
+ * The state a child's row shows: its session's while it works, else what it said it is: an
+ * explicit report of `done` or `failed` as that state, `blocked` or an open question as waiting
+ * on a person; else its session's.
+ */
+export const reportedState = (s: SessionRow): SessionState => {
+  const state = s.lastState.state;
+  if (!s.managed || state === 'working') return state;
+  if (s.asking || s.report?.kind === 'blocked') return 'waiting-question';
+  if (s.report?.kind === 'done' || s.report?.kind === 'failed') return s.report.kind;
+  return state;
+};
+
+/**
+ * What a child is doing now, in one line: its agent's progress line until it ends, unless a newer
+ * report says more; else its newest report's first sentence, else its last reply's first line;
+ * none without any.
  */
 export const doingNow = (s: SessionRow) => {
   if (!s.managed) return undefined;
-  if (s.progress && !s.endedAt) return s.progress.text;
+  if (s.progress && !s.endedAt && !(s.report && s.report.at > s.progress.at))
+    return s.progress.text;
   const report = s.report?.message.trim();
   if (report) return report.split(/(?<=[.!?])\s|\r?\n/, 1)[0];
   return (s.lastReply && firstLine(s.lastReply.text)) || undefined;

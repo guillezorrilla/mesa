@@ -8,6 +8,7 @@ import {
   doingNow,
   isSetupSession,
   nameAsk,
+  reportedState,
   reviewLabel,
   sessionBranch,
   sessionCount,
@@ -129,5 +130,31 @@ test('a Setup session is a child terminal Mesa named Setup', () => {
   expect(setupSessionsOf([mine, theirs], 'e5f6a7b8')).toEqual([mine]);
   expect(isSetupSession(managed({ kind: 'interactive', parent: 'e5f6a7b8', name: 'Setup' }))).toBe(
     false,
+  );
+});
+
+test("a child's row shows what it reported once it stops working, else its session's state", () => {
+  const at = '2026-09-24T12:00:00.000Z';
+  const said = (kind: string) => ({ report: { kind, at, message: 'x' } });
+  const idle = { lastState: { state: 'idle', confidence: 1, at, source: 'hook' } };
+  const working = { lastState: { ...idle.lastState, state: 'working' } };
+  expect(reportedState(managed({ ...idle, ...said('done') }))).toBe('done');
+  expect(reportedState(managed({ ...idle, ...said('failed') }))).toBe('failed');
+  expect(reportedState(managed({ ...idle, ...said('blocked') }))).toBe('waiting-question');
+  expect(reportedState(managed({ ...idle, asking: true }))).toBe('waiting-question');
+  // A turn's reply is no explicit report; a working child shows that it works.
+  expect(reportedState(managed({ ...idle, ...said('finished') }))).toBe('idle');
+  expect(reportedState(managed({ ...working, ...said('done') }))).toBe('working');
+  expect(reportedState(managed(idle))).toBe('idle');
+});
+
+test('a newer report outdates the progress line', () => {
+  const progress = { text: 'Editing src/tides.ts', at: '2026-09-24T12:00:00.000Z' };
+  const report = (at: string) => ({ kind: 'done', at, message: 'Charted it. More.' });
+  expect(doingNow(managed({ progress, report: report('2026-09-24T11:59:00.000Z') }))).toBe(
+    'Editing src/tides.ts',
+  );
+  expect(doingNow(managed({ progress, report: report('2026-09-24T12:01:00.000Z') }))).toBe(
+    'Charted it.',
   );
 });

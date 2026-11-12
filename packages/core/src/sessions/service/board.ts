@@ -6,7 +6,7 @@ import { automaticGate } from '../../decisions/site-mode.js';
 import { supervisingModel } from '../../decisions/supervision.js';
 import { projectPriorities } from '../../projects/projects.js';
 import { readRegistry } from '../../projects/registry.js';
-import { latestReports } from '../../reports/report-delivery.js';
+import { askingChildren, latestReports } from '../../reports/report-delivery.js';
 import { taskStore } from '../../tasks/task-store.js';
 import { listSessions, type SessionScope } from '../board/board.js';
 import { withCrewNews } from '../board/crew.js';
@@ -20,8 +20,8 @@ import { outputLog } from '../window/output-log.js';
 /**
  * A look at the board for one profile: its sessions merged with live tmux and the agent listing,
  * each managed one saying whether it has an output log, the lines its checkout changed
- * (withLineCounts), its branch's pull request (withPullRequests), and a child its task's title and
- * newest report as last written (withCrewNews), in `scope` (listSessions). `elsewhere`
+ * (withLineCounts), its branch's pull request (withPullRequests), and a child its task's title,
+ * newest report and open question as last written (withCrewNews), in `scope` (listSessions). `elsewhere`
  * is the agent session ids the home's other profiles hold.
  */
 export function boardLook(ctx: MesaContext, faro: Faro, elsewhere: () => ReadonlySet<string>) {
@@ -55,7 +55,13 @@ export function boardLook(ctx: MesaContext, faro: Faro, elsewhere: () => Readonl
     )
       .then((rows) => withLineCounts({ ...ctx, profile: open, file: paths.lineCounts }, rows))
       .then((rows) => withPullRequests({ ...ctx, profile: open, file: paths.prBranches }, rows))
-      .then((rows) => withCrewNews(rows, taskStore(ctx).peek().tasks, latestReports(ctx, false)))
+      .then((rows) =>
+        withCrewNews(rows, {
+          tasks: taskStore(ctx).peek().tasks,
+          latest: latestReports(ctx, false),
+          asking: askingChildren(ctx),
+        }),
+      )
       .then((rows) =>
         rows.map((row) =>
           row.managed ? { ...row, hasOutputLog: existsSync(outputLog(paths.logs, row.id)) } : row,

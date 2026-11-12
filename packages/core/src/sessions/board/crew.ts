@@ -1,5 +1,5 @@
 import type { ChildReport } from '../../reports/reports.js';
-import type { Task } from '../../tasks/task-file.js';
+import { isSettled, type Task } from '../../tasks/task-file.js';
 import { sessionBranch, taskTitle } from '../record/labels.js';
 import { diffable } from '../record/lifecycle.js';
 import type { CrewReport, ManagedRow, SessionRow } from './rows.js';
@@ -28,19 +28,48 @@ const crewReport = (said: ChildReport | undefined): CrewReport | undefined =>
 
 /**
  * `rows` with each child's crew news (a row that reports to a session now, `parentNow`): its
- * task's title from `tasks` (taskTitle) and its newest report that says something from `latest`.
+ * task's title from `tasks` (taskTitle), its newest report that says something from `latest`, and
+ * `asking` while it has an open question in `asking`. A coordinator whose tasks have all settled
+ * shows no progress line it set before the last of them settled: it described work that is over
+ * (`mesa progress` stays in its record until it ends); one set after shows. A task settled when
+ * its worker last reported, else when it started or was made.
  */
 export function withCrewNews(
   rows: readonly SessionRow[],
-  tasks: readonly Pick<Task, 'id' | 'spec'>[],
-  latest: Readonly<Record<string, ChildReport>>,
+  news: {
+    tasks: readonly Pick<
+      Task,
+      'id' | 'spec' | 'state' | 'coordinator' | 'worker' | 'startedAt' | 'createdAt'
+    >[];
+    latest: Readonly<Record<string, ChildReport>>;
+    /** The children with an open question to their parent. */
+    asking: ReadonlySet<string>;
+  },
 ): SessionRow[] {
-  const titles = new Map(tasks.map((task) => [task.id, taskTitle(task.spec)]));
+  const titles = new Map(news.tasks.map((task) => [task.id, taskTitle(task.spec)]));
+  // When each coordinator's tasks last settled, for those whose every task has.
+  const settledAt = new Map<string, string>();
+  for (const task of news.tasks) {
+    if (!task.coordinator) continue;
+    const at = (task.worker && news.latest[task.worker]?.at) || task.startedAt || task.createdAt;
+    const last = settledAt.get(task.coordinator) ?? '';
+    settledAt.set(task.coordinator, at > last ? at : last);
+  }
+  for (const task of news.tasks) if (!isSettled(task)) settledAt.delete(task.coordinator ?? '');
   return rows.map((row) => {
-    if (!row.managed || !row.parentNow) return row;
+    if (!row.managed) return row;
+    const { progress: _over, ...rest } = row;
+    const over = settledAt.get(row.id);
+    const shown = row.progress && over && row.progress.at <= over ? rest : row;
+    if (!row.parentNow) return shown;
     const title = row.task && titles.get(row.task);
-    const report = crewReport(latest[row.id]);
-    return { ...row, ...(title ? { taskTitle: title } : {}), ...(report ? { report } : {}) };
+    const report = crewReport(news.latest[row.id]);
+    return {
+      ...shown,
+      ...(title ? { taskTitle: title } : {}),
+      ...(report ? { report } : {}),
+      ...(news.asking.has(row.id) ? { asking: true as const } : {}),
+    };
   });
 }
 

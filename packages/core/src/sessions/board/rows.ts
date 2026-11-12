@@ -57,6 +57,8 @@ export type ManagedRow = { hasOutputLog?: boolean } & SessionRecord &
     taskTitle?: string;
     /** A child's: its newest report that says something (withCrewNews). */
     report?: CrewReport;
+    /** A child's: it has an open question to its parent (withCrewNews). */
+    asking?: true;
     /** A Setup session's: its setup command failed (a SetupFailed hook event). */
     setupFailed?: true;
   };

@@ -207,8 +207,8 @@ export function reportsService(
         parent === undefined || r.parent === parent;
       const reports = (on ? collect() : ledger.pending()).filter(mine);
       const questions = ledger
-        .questions()
-        .filter((q) => !q.answeredAt && mine(q))
+        .open()
+        .filter(mine)
         .sort((a, b) => a.at.localeCompare(b.at));
       return { enabled: on, reports, questions };
     },
@@ -337,6 +337,14 @@ export function keptReport(ctx: MesaContext, child: string): KeptReport | undefi
     }
   );
 }
+
+/** The children with an open question to their parent, as last written. */
+export const askingChildren = (ctx: MesaContext): Set<string> =>
+  new Set(
+    ledgerOf(ctx)
+      .open()
+      .map((question) => question.child),
+  );
 
 /**
  * Each child's newest report that says something, delivered or not (the Crew panel's), with their
