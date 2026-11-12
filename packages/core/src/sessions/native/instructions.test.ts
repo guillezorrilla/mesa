@@ -6,6 +6,7 @@ import { decisionsReach } from './decision-status.js';
 import {
   DECISIONS_CLI_LINE,
   DECISIONS_LINE,
+  EXPLORE_LINE,
   GUIDELINES_LINE,
   mesaPointer,
 } from './instructions.js';
@@ -15,6 +16,9 @@ import {
 const PROFILE = 'work-client-2026';
 const PROJECT = 'lantern-cove-platform-api';
 const CWD = `/Users/alexandra-montgomery/.mesa/${PROFILE}/worktrees/${PROJECT}/issue-1234-long-branch-name-for-feature`;
+// The base pointer the 1,000-byte cap bounds: the lines after it (EXPLORE_LINE, guidelines,
+// decisions) sit outside the cap.
+const base = (pointer: string) => pointer.replace(`\n${EXPLORE_LINE}`, '');
 const record = (over: Partial<SessionRecord>): SessionRecord => ({
   ...newSession({ project: PROJECT }),
   id: 'abcdefgh',
@@ -26,7 +30,7 @@ test.each(['claude', 'codex', 'antigravity'] as const)(
   'the %s pointer stays under 1,000 UTF-8 bytes and says how to use the vault',
   (agent) => {
     const pointer = mesaPointer(record({ agent }), PROFILE, CWD);
-    expect(Buffer.byteLength(pointer)).toBeLessThan(1000);
+    expect(Buffer.byteLength(base(pointer))).toBeLessThan(1000);
     expect(pointer).toContain(`Mesa session abcdefgh; profile ${PROFILE}; project ${PROJECT};`);
     expect(pointer).toContain(
       "Vault: mesa-vault's project_context, read_note, search_vault and session_goals when past work bears on it. After a design decision or a correction: search_vault, then save_decision; save_summary, save_note only for lasting knowledge.",
@@ -38,15 +42,24 @@ test.each(['claude', 'codex', 'antigravity'] as const)(
   },
 );
 
+test('only a Claude pointer sends many-file questions to an Explore agent on Haiku', () => {
+  expect(Buffer.byteLength(EXPLORE_LINE)).toBeLessThan(160);
+  expect(EXPLORE_LINE).toContain('Explore agent with model haiku');
+  expect(EXPLORE_LINE).toContain('keep its answer, not the files');
+  expect(mesaPointer(record({ agent: 'claude' }), PROFILE, CWD)).toContain(EXPLORE_LINE);
+  for (const agent of ['codex', 'antigravity'] as const)
+    expect(mesaPointer(record({ agent }), PROFILE, CWD)).not.toContain('Explore');
+});
+
 test('a session with a Setup session is told of it in its pointer, still under 1,000 bytes', () => {
   const pointer = mesaPointer(record({ setupSession: 'k5m6n7p8' }), PROFILE, CWD);
-  expect(Buffer.byteLength(pointer)).toBeLessThan(1000);
+  expect(Buffer.byteLength(base(pointer))).toBeLessThan(1000);
   expect(pointer).toContain('Mesa session abcdefgh; setup in session k5m6n7p8; profile');
 });
 
 test('a General pointer falls back to the General vault context, with no project to name', () => {
   const pointer = mesaPointer(record({ project: GENERAL_PROJECT }), PROFILE, '/Users/alexandra');
-  expect(Buffer.byteLength(pointer)).toBeLessThan(1000);
+  expect(Buffer.byteLength(base(pointer))).toBeLessThan(1000);
   expect(pointer).toContain('Without the tools: mesa vault context --general --json');
   expect(pointer).not.toContain(`mesa vault context ${GENERAL_PROJECT}`);
 });
@@ -61,7 +74,7 @@ test('a session across projects names them in one line, eliding past the 1,000-b
   const worktree = { path: CWD, branch: 'issue-1234-long-branch-name-for-feature' };
   const two = mesaPointer(record({ worktree, additional: additional.slice(0, 2) }), PROFILE, CWD);
   expect(two.split('\n')[1]).toBe('Also in projects and 2 more.');
-  expect(Buffer.byteLength(two)).toBeLessThan(1000);
+  expect(Buffer.byteLength(base(two))).toBeLessThan(1000);
   // As many as fit, then the rest counted; shorter names all fit.
   const short = mesaPointer(record({ worktree, additional }), PROFILE, '/src/lantern-cove');
   expect(short.split('\n')[1]).toBe(`Also in projects ${name('a')}, and 2 more.`);
@@ -70,7 +83,7 @@ test('a session across projects names them in one line, eliding past the 1,000-b
   expect(fits.split('\n')[1]).toBe('Also in projects tide-pool, harbor.');
   for (const agent of ['claude', 'codex', 'antigravity'] as const) {
     const pointer = mesaPointer(record({ agent, worktree, additional }), PROFILE, CWD);
-    expect(Buffer.byteLength(pointer)).toBeLessThan(1000);
+    expect(Buffer.byteLength(base(pointer))).toBeLessThan(1000);
     expect(pointer).toMatch(/^Also in projects (.+, )?and \d more\.$/m);
     expect(pointer).toContain('session_goals when past work bears on it');
     expect(pointer).not.toContain('first');
@@ -130,7 +143,9 @@ test.each(['claude', 'codex', 'antigravity'] as const)(
     const across = mesaPointer(record({ agent, worktree, additional }), PROFILE, CWD, {
       decisions: 'tool',
     });
-    expect(Buffer.byteLength(across)).toBeLessThan(1000 + 1 + Buffer.byteLength(DECISIONS_LINE));
+    expect(Buffer.byteLength(base(across))).toBeLessThan(
+      1000 + 1 + Buffer.byteLength(DECISIONS_LINE),
+    );
   },
 );
 
