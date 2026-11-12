@@ -1,4 +1,7 @@
 import { startTransition, useActionState, useEffect, useEffectEvent } from 'react';
+import { AccessibilityInfo, View } from 'react-native';
+import { BusyLine } from '@/components/BusyLine';
+import { ErrorNote } from '@/components/ErrorNote';
 import { Screen } from '@/components/Screen';
 import { Text } from '@/components/ui/text';
 import { joinWithLink } from './joinWithLink';
@@ -11,6 +14,8 @@ export function PairScreen({ link }: { link?: string }) {
   const { save } = usePairing();
   const [error, join, pending] = useActionState(async (_last: string | undefined, text: string) => {
     const result = await joinWithLink(fetch, text, new Date());
+    // VoiceOver hears the outcome; the screen changes under the person's finger otherwise.
+    AccessibilityInfo.announceForAccessibility(result.error ?? 'Paired with your Mac.');
     if (result.pairing) await save(result.pairing);
     return result.error;
   }, undefined);
@@ -23,15 +28,20 @@ export function PairScreen({ link }: { link?: string }) {
   }, [link]);
 
   return (
-    <Screen>
-      <Text variant="h3">Pair with your Mac</Text>
-      <Text className="text-muted-foreground">
-        On your Mac, open Mesa's Settings, then Phone, and choose Pair phone. Scan the code it
-        shows.
-      </Text>
+    <Screen className="gap-6">
+      <View className="gap-2">
+        <Text variant="h3">Pair with your Mac</Text>
+        <Text className="text-muted-foreground">
+          On your Mac, open Mesa's Settings, then Phone, and choose Pair phone. Scan the code it
+          shows.
+        </Text>
+      </View>
       <ScannerPanel onScan={submit} paused={pending} />
-      {pending && <Text className="text-muted-foreground">Pairing...</Text>}
-      {error && <Text className="text-destructive">{error}</Text>}
+      {pending ? (
+        <BusyLine label="Pairing with your Mac..." />
+      ) : (
+        error && <ErrorNote text={error} />
+      )}
       <PasteLinkField onSubmit={submit} pending={pending} />
     </Screen>
   );

@@ -90,6 +90,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
       doctor: 'silent',
       automation: 'silent',
     },
+    phone: { push: 'away', awayAfter: 5 },
     application: { warnBeforeQuit: true, backupOnClose: false },
     onboarding: { status: 'active', step: 0, discovery: 'pending', decisionTip: 'pending' },
     appearance: DEFAULT_APPEARANCE,

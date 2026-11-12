@@ -68,3 +68,32 @@ test('phone pair with no broker reachable fails and keeps nothing', async () => 
   expect(out.code).toBe(1);
   expect(out.stderr).toContain("couldn't reach the broker at https://broker.test");
 });
+
+test('phone push-test pushes a sealed notice now and prints the answer; without a device it says why', async () => {
+  const broker = fakePairingBroker(BROKER);
+  cli.deps = {
+    http: broker.http,
+    secretStore: memorySecretStore().store,
+    env: { MESA_BROKER_URL: BROKER },
+  };
+  await cli.withProject();
+  const phone = fakePhone(broker.http);
+  await phone.join((await cli.mesa('phone', 'pair', '--json')).json.data.qr);
+  await cli.mesa('phone', 'status');
+  const early = await cli.mesa('phone', 'push-test', '--json');
+  expect(early.code).not.toBe(0);
+  expect(early.stdout + early.stderr).toContain('the phone has not allowed notifications yet');
+  await phone.allowPushes();
+  const sent = await cli.mesa('phone', 'push-test', '--json');
+  expect(sent.json.data).toEqual({ pairingId: 'pairing-0000000001', sent: true });
+  const [push] = broker.rooms.get('pairing-0000000001')?.pushes ?? [];
+  expect(phone.openPush(push?.notice ?? '')).toEqual({
+    title: 'Mesa',
+    body: 'Pushes from this Mac reach your phone',
+  });
+  expect((await cli.mesa('phone', 'push', '--json')).json.data).toEqual({
+    status: 'none',
+    pushed: [],
+    failed: [],
+  });
+});

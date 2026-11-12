@@ -15,6 +15,7 @@ import { REDACTED } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { readYaml, setYamlPath, valueAt } from '../lib/yaml-file.js';
+import { PHONE_PUSH_MODES } from '../phone/away.js';
 import {
   GIT_OVERRIDE_FIELDS,
   WORKTREE_OVERRIDE_FIELDS,
@@ -139,6 +140,14 @@ const ConfigShape = z.strictObject({
       subagent: z.enum(['off', 'silent', 'sound']).default('silent'),
       doctor: z.enum(['off', 'silent', 'sound']).default('silent'),
       automation: z.enum(['off', 'silent', 'sound']).default('silent'),
+    })
+    .prefault({}),
+  /** When the paired phone gets a push for a session that needs you or finished (#1016). */
+  phone: z
+    .strictObject({
+      push: z.enum(PHONE_PUSH_MODES).default('away'),
+      /** Minutes the Mac must sit idle before `away` pushes. */
+      awayAfter: z.number().int().min(1).max(240).default(5),
     })
     .prefault({}),
   application: z

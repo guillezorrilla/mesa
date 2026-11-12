@@ -35,7 +35,7 @@ export function brokerError(error: unknown, broker: string): never {
     throw new MesaError('internal', 'the broker is busy, wait a minute and try again');
   if (error.code === 'not_configured')
     throw new MesaError('internal', `the broker at ${broker} does not take phone pairings`);
-  throw new MesaError('internal', `the broker answered ${error.status} ${error.code}`);
+  throw new MesaError('internal', error.message);
 }
 
 const isGone = (error: unknown) => error instanceof PairingError && GONE.has(error.status);

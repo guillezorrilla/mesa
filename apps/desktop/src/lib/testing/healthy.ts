@@ -84,6 +84,8 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
   'import status': (args) => envelope({ project: args.at(-1), progress: null }),
   // The header's bell reads the inbox on every screen.
   notifications: () => envelope([]),
+  // The app asks core to push new notices to a paired phone on every session event.
+  'phone push': () => envelope({ status: 'off', pushed: [], failed: [] }),
   prompts: () => envelope([]),
   profile: () => envelope({ profile: 'default', dir: '/h/.mesa/default' } satisfies ProfileInfo),
   'profile list': () => envelope([profileRow('default', { current: true, app: true })]),
@@ -114,6 +116,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
         subagent: 'silent',
         doctor: 'silent',
       },
+      phone: { push: 'away', awayAfter: 5 },
       application: { warnBeforeQuit: true, backupOnClose: false },
       onboarding: { status: 'complete', step: 0, discovery: 'complete', decisionTip: 'dismissed' },
       appearance: {

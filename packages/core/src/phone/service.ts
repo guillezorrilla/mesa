@@ -3,10 +3,14 @@ import { brokerUrl } from '../sources/broker.js';
 import { macPairingStore } from './mac-pairing.js';
 import { type PairingDeps, pairingStatus, startPairing, unpair } from './pair.js';
 import { pairingClient } from './protocol/client.js';
+import { type PushDeps, pushPending, pushTest } from './push.js';
 import { pairingQr } from './qr.js';
 
-/** The profile's Pairing with a phone (CONTEXT.md, Pairing; ADR-0014's 2026-11-11 amendment). */
-export function phoneService(ctx: MesaContext) {
+/**
+ * The profile's Pairing with a phone (CONTEXT.md, Pairing; ADR-0014's 2026-11-11 amendment), and
+ * its pushes of the Inbox's notices (`pushes`, the Inbox's pendingPushes and claimPushes).
+ */
+export function phoneService(ctx: MesaContext, pushes: Pick<PushDeps, 'pending' | 'claim'>) {
   const deps: PairingDeps = {
     store: macPairingStore(ctx.secretStore, ctx.profile),
     client: (broker) => pairingClient(ctx.http, broker),
@@ -33,6 +37,20 @@ export function phoneService(ctx: MesaContext) {
     status: () => {
       ctx.open();
       return pairingStatus(deps);
+    },
+    /** Pushes the new session notices to the phone when `phone.push` allows it now (#1016). */
+    push: () =>
+      pushPending({
+        ...deps,
+        run: ctx.run,
+        settings: ctx.open().config.phone,
+        ...pushes,
+        projectOf: (session) => ctx.store.find(session)?.project ?? null,
+      }),
+    /** Pushes a sealed test notice now, whatever the idle time. */
+    pushTest: () => {
+      ctx.open();
+      return pushTest(deps);
     },
     unpair: () => {
       ctx.open();

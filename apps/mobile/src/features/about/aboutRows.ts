@@ -18,7 +18,8 @@ export function aboutRows(facts: AboutFacts): { label: string; value: string }[]
     { label: 'Version', value: facts.version ?? unknown },
     { label: 'Build', value: facts.build ?? unknown },
     { label: 'Runtime', value: facts.runtimeVersion ? shortId(facts.runtimeVersion) : unknown },
-    { label: 'Channel', value: facts.channel ?? 'None' },
+    // A dev build's channel is an empty string, not null.
+    { label: 'Channel', value: facts.channel || 'None' },
     {
       label: 'Update',
       value:
