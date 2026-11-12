@@ -26,7 +26,7 @@ export function CrewChoices(props: {
     <section
       aria-label="Your choice"
       data-testid="crew-choices"
-      className="mx-2 mt-2 grid gap-3 rounded-lg border border-state-waiting/50 bg-state-waiting/10 p-3"
+      className="mx-2 mt-2 grid gap-3 rounded-lg border border-state-waiting bg-state-waiting/10 p-3"
     >
       <span className="text-xs font-medium text-state-waiting">Your choice</span>
       {props.gates.map((gate) => {
