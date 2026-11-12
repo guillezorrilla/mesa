@@ -18,6 +18,7 @@ export * from './pairing-broker.js';
 export * from './phone.js';
 export * from './profile.js';
 export * from './projects.js';
+export * from './prompts.js';
 export * from './random.js';
 export * from './reads.js';
 export * from './runner.js';

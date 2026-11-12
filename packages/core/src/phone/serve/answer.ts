@@ -1,4 +1,6 @@
 import { MesaError } from '../../lib/result.js';
+import { type AnswerChoice, isStale } from '../../sessions/answer/answer.js';
+import type { PendingPrompt } from '../../sessions/answer/pending.js';
 import type { SessionRow } from '../../sessions/board/rows.js';
 import type { SessionResponses } from '../../sessions/native/responses.js';
 import type { UsageReport } from '../../usage/records.js';
@@ -8,7 +10,7 @@ import { answerCrewCall, type CrewDeps, isCrewCall } from './crew.js';
 import { answerInboxCall, type InboxDeps, isInboxCall } from './inbox.js';
 import { answerPushes, type PushesDeps } from './pushes.js';
 import { replySegments } from './replies.js';
-import { phoneRows, toPhoneRow } from './rows.js';
+import { askedRows, phoneRows, toPhoneRow } from './rows.js';
 import { phoneUsage } from './usage.js';
 
 /** The session functions the CLI uses, which every phone call goes through. */
@@ -18,6 +20,9 @@ export type AnswerDeps = {
   logs: (id: string, tail: number) => { lines: string[] };
   read: (ids: readonly string[]) => unknown;
   unread: (ids: readonly string[]) => unknown;
+  prompt: (id: string) => Promise<PendingPrompt>;
+  /** Answers as the person, from the phone. */
+  answer: (id: string, choice: AnswerChoice) => Promise<unknown>;
   crew: CrewDeps;
   automations: AutomationDeps;
   inbox: InboxDeps;
@@ -33,7 +38,9 @@ const TAIL = 60;
 /** Answers one call from the phone; throws a MesaError (not_found) for an unknown session. */
 export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unknown> {
   if (call.method === 'sessions')
-    return { rows: phoneRows(await deps.board()) } satisfies CallResult<'sessions'>;
+    return {
+      rows: await askedRows(phoneRows(await deps.board()), deps.prompt),
+    } satisfies CallResult<'sessions'>;
   if (isCrewCall(call)) return answerCrewCall(deps.crew, call);
   if (isAutomationCall(call)) return answerAutomationCall(deps.automations, call);
   if (isInboxCall(call)) return answerInboxCall(deps.inbox, call);
@@ -47,6 +54,20 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
   if (call.method === 'mark') {
     (call.unread ? deps.unread : deps.read)([call.id]);
     return {} satisfies CallResult<'mark'>;
+  }
+  if (call.method === 'prompt') {
+    const { session: _, ...prompt } = await deps.prompt(call.id);
+    return prompt satisfies CallResult<'prompt'>;
+  }
+  if (call.method === 'answer') {
+    const { id, prompt, option, text } = call;
+    return deps.answer(id, { option, text, prompt }).then(
+      (): CallResult<'answer'> => ({ status: 'answered' }),
+      (error) => {
+        if (isStale(error)) return { status: 'stale' } satisfies CallResult<'answer'>;
+        throw error;
+      },
+    );
   }
   const row = (await deps.board()).find((r) => r.id === call.id);
   if (!row?.managed) throw new MesaError('not_found', `no session ${call.id}`);

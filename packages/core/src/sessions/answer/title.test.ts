@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { promptTitle } from './promptTitle';
+import { promptTitle } from './title.js';
 
 test('a permission names its tool; a question says the agent asks', () => {
   expect(promptTitle({ kind: 'permission', tool: 'Bash' })).toBe('Allow Bash?');
