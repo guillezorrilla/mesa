@@ -62,3 +62,10 @@ export {
   seal,
   sideKeys,
 } from './seal.js';
+export {
+  IMAGE_MAX,
+  type QueuedMessage,
+  SESSION_ACTIONS,
+  type SendResult,
+  type SessionAction,
+} from './steer.js';

@@ -9,6 +9,8 @@ import { type PushDeps, pushPending, pushTest } from './push.js';
 import { pairingQr } from './qr.js';
 import type { AnswerDeps } from './serve/answer.js';
 import { servePhone } from './serve/listen.js';
+import { phoneQueue } from './serve/queue.js';
+import type { SessionSteer } from './serve/steer.js';
 
 /**
  * The profile's Pairing with a phone (CONTEXT.md, Pairing; ADR-0014's 2026-11-11 amendment), and
@@ -18,7 +20,7 @@ import { servePhone } from './serve/listen.js';
 export function phoneService(
   ctx: MesaContext,
   pushes: Pick<PushDeps, 'pending' | 'claim'>,
-  answers: AnswerDeps,
+  answers: Omit<AnswerDeps, 'steer'> & { steer: SessionSteer },
 ) {
   const agent = launchAgent(ctx, {
     name: 'phone',
@@ -84,7 +86,18 @@ export function phoneService(
           ...deps,
           connect: ctx.connect,
           sleep: ctx.sleep,
-          answers,
+          answers: {
+            ...answers,
+            steer: {
+              ...answers.steer,
+              queue: phoneQueue({
+                file: join(ctx.paths.root, 'phone-queue.json'),
+                lock: ctx,
+                clock: ctx.clock,
+                newId: ctx.newId,
+              }),
+            },
+          },
           lock: ctx,
           lockPath: join(ctx.paths.root, 'phone-listener.lock'),
         },

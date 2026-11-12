@@ -3,6 +3,7 @@
 // update is a change the Mac pushes on its own. Each travels as one sealed message (envelope.ts),
 // cut into parts when it does not fit one box (chunk.ts).
 import { z } from 'zod';
+import { queuedMessage, steerCalls, steerResults } from './steer.js';
 
 /** One session as the phone lists it: the board row cut to what a list shows (about 200 bytes). */
 export const phoneRow = z.object({
@@ -32,14 +33,17 @@ export const phoneDetail = z.object({
     z.object({ id: z.string(), at: z.string().nullable(), segments: z.array(replySegment) }),
   ),
   tail: z.array(z.string()),
+  /** Replies waiting for its turn to end; an older Mac sends none. */
+  queued: z.array(queuedMessage).default([]),
 });
 export type PhoneDetail = z.infer<typeof phoneDetail>;
 
-/** The calls the Mac answers: the board, one session, and marking one read or unread. */
+/** The calls the Mac answers: the board, one session, marking one read or unread, and steering one (steer.ts). */
 export const phoneCall = z.discriminatedUnion('method', [
   z.object({ method: z.literal('sessions') }),
   z.object({ method: z.literal('session'), id: z.string() }),
   z.object({ method: z.literal('mark'), id: z.string(), unread: z.boolean() }),
+  ...steerCalls,
 ]);
 export type PhoneCall = z.infer<typeof phoneCall>;
 
@@ -48,6 +52,7 @@ export const callResults = {
   sessions: z.object({ rows: z.array(phoneRow) }),
   session: phoneDetail,
   mark: z.object({}),
+  ...steerResults,
 };
 export type CallResult<M extends PhoneCall['method']> = z.infer<(typeof callResults)[M]>;
 

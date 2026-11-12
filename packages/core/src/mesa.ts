@@ -19,6 +19,7 @@ import { instructionsService } from './instructions/service.js';
 import { mapService } from './map/service.js';
 import { backgroundDelivery } from './notifications/background.js';
 import { inbox } from './notifications/inbox.js';
+import { sessionSteer } from './phone/serve/session-steer.js';
 import { phoneService } from './phone/service.js';
 import { prEventsService } from './pr-events/pr-event-delivery.js';
 import { backupService } from './profile/backup.js';
@@ -97,6 +98,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
       logs: (id, tail) => sessions.sessions.logs(id, tail),
       read: sessions.sessions.read,
       unread: sessions.sessions.unread,
+      steer: sessionSteer(ctx, faro, sessions.sessions, prompts.list),
     },
   );
   // The scheduler's tick pushes to the phone too, so a session that needs the person reaches
