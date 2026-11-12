@@ -82,7 +82,11 @@ test('away, a question is pushed once, sealed with its title, project and what h
   expect(s.pushes()).toEqual([
     {
       kind: 'input',
-      notice: { title: 'Fix the login bug', body: 'lantern-cove: Session needs permission' },
+      notice: {
+        title: 'Fix the login bug',
+        body: 'lantern-cove: Session needs permission',
+        session: expect.stringMatching(/^\w+$/),
+      },
     },
   ]);
   // The same notice is never pushed twice.

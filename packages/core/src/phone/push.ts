@@ -83,6 +83,7 @@ export async function pushPending(deps: PushDeps): Promise<PushOutcome> {
     const notice = sealNotice(keys, {
       title: item.sessionTitle ?? 'A session',
       body: `${projectLabel(deps.projectOf(item.session))}: ${item.title}`,
+      session: item.session,
     });
     await client.push(pairing.pairingId, pairing.macToken, kind, notice).then(
       () => pushed.push(item.id),

@@ -8,6 +8,8 @@ import Foundation
 public struct Notice: Equatable {
   public let title: String
   public let body: String
+  /// The Mesa session it is about, for a tap to open.
+  public var session: String? = nil
 }
 
 /// Bytes of base64url text, or nil when it is not base64url.
@@ -44,6 +46,7 @@ private struct Sealed: Decodable {
   let kind: String
   let title: String
   let body: String
+  let session: String?
 }
 
 /// The notice in a box, or nil when it does not open or is not a notice.
@@ -52,7 +55,7 @@ public func openNotice(_ box: String, key: SymmetricKey, pairingId: String) -> N
     let sealed = try? JSONDecoder().decode(Sealed.self, from: Data(text.utf8)),
     sealed.v == 1, sealed.kind == "notice"
   else { return nil }
-  return Notice(title: sealed.title, body: sealed.body)
+  return Notice(title: sealed.title, body: sealed.body, session: sealed.session)
 }
 
 /// What the extension reads of the phone's pairing in the Keychain (core's PhonePairing).

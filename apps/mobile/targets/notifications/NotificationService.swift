@@ -1,6 +1,7 @@
 // The Notification Service Extension (#1016, ADR-0027): the broker's push carries a fixed alert and
 // the sealed notice in `n`; this opens it with the pairing the app keeps in the shared Keychain
-// group and shows the session's real title and body. Anything that fails leaves the fixed alert.
+// group and shows the session's real title and body, with its session id in userInfo for a tap.
+// Anything that fails leaves the fixed alert.
 import Foundation
 import Security
 import UserNotifications
@@ -38,6 +39,8 @@ final class NotificationService: UNNotificationServiceExtension {
     else { return finish(request.content) }
     content.title = notice.title
     content.body = notice.body
+    // The app opens this session when the notification is tapped.
+    if let session = notice.session { content.userInfo["session"] = session }
     finish(content)
   }
 

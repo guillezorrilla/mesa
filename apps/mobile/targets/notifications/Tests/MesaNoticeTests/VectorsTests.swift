@@ -36,7 +36,7 @@ final class VectorsTests: XCTestCase {
       vectors.noticePlaintext)
     XCTAssertEqual(
       openNotice(vectors.macToPhoneNotice, key: key(), pairingId: vectors.pairingId),
-      Notice(title: "Fix the login bug", body: "mesa: asks a question"))
+      Notice(title: "Fix the login bug", body: "mesa: asks a question", session: "k3m9q2xz"))
   }
 
   func testOpensWithThePairingAsTheAppKeepsIt() throws {

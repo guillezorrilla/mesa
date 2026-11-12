@@ -94,6 +94,7 @@ test('a notice opens from the vectors, and a long one is clipped under the bound
   expect(openNotice(phoneKeys(), vectors.macToPhoneNotice)).toEqual({
     title: 'Fix the login bug',
     body: 'mesa: asks a question',
+    session: 'k3m9q2xz',
   });
   expect(openNotice(phoneKeys(), vectors.macToPhoneBox)).toBeUndefined();
   const long = sealNotice(macKeys(), {
