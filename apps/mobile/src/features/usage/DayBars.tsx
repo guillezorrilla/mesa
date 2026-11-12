@@ -1,7 +1,8 @@
+import { money } from '@mesa/core/phone';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
-import { barShares, dayInitial, money } from './usageText';
+import { barShares, dayInitial } from './usageText';
 
 /** The last days' estimated cost as bars, oldest first, today in the primary tone. */
 export function DayBars({ days }: { days: { day: string; cost: number | null }[] }) {

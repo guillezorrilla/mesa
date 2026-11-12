@@ -50,7 +50,10 @@ export function RuleForm({ projects }: { projects: string[] }) {
           <Text variant="muted">Your Mac has no project yet.</Text>
         )}
       </FormField>
-      <FormField label="When" hint={cron ? undefined : 'Give a 24-hour time, such as 09:00.'}>
+      <FormField
+        label="When"
+        hint={cron ? "On your Mac's clock." : 'Give a 24-hour time, such as 09:00.'}
+      >
         <ChoiceChips label="Days" choices={SCHEDULES} value={schedule} onChange={setSchedule} />
         <Input
           value={time}

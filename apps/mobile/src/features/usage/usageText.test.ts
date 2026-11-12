@@ -1,12 +1,5 @@
 import { expect, test } from 'vitest';
-import { barShares, dayInitial, money } from './usageText';
-
-test('costs read as dollars, unknown when not priced', () => {
-  expect(money(1.234)).toBe('$1.23');
-  expect(money(0)).toBe('$0.00');
-  expect(money(0.004)).toBe('<$0.01');
-  expect(money(null)).toBe('unknown');
-});
+import { barShares, dayInitial } from './usageText';
 
 test("a day reads as its weekday's initial and its bar as a share of the highest", () => {
   expect(dayInitial('2026-11-12')).toBe('T');

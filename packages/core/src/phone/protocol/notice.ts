@@ -17,7 +17,8 @@ export type NoticeKind = 'input' | 'finished';
 export const NOTICE_MAX = 3072;
 const TITLE_MAX = 120;
 const BODY_MAX = 400;
-const SESSION_MAX = 64;
+/** The longest session or run id a notice carries. */
+const ID_MAX = 64;
 
 // Control characters become spaces: JSON would escape each to six bytes and burst the bound.
 const clip = (text: string, max: number) =>
@@ -43,8 +44,8 @@ export const sealNotice = (keys: SideKeys, notice: Notice) =>
       kind: 'notice',
       title: clip(notice.title, TITLE_MAX),
       body: clip(notice.body, BODY_MAX),
-      ...(notice.session ? { session: clip(notice.session, SESSION_MAX) } : {}),
-      ...(notice.run ? { run: clip(notice.run, SESSION_MAX) } : {}),
+      ...(notice.session ? { session: clip(notice.session, ID_MAX) } : {}),
+      ...(notice.run ? { run: clip(notice.run, ID_MAX) } : {}),
     }),
   );
 

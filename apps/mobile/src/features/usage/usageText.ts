@@ -1,11 +1,4 @@
-// How the phone says usage: estimated dollars, a day's initial, and a bar's height.
-
-/** An estimated cost in dollars; unknown while a reading has no price. */
-export function money(cost: number | null) {
-  if (cost === null) return 'unknown';
-  if (cost > 0 && cost < 0.01) return '<$0.01';
-  return `$${cost.toFixed(2)}`;
-}
+// How the phone says usage by day: a day's initial and a bar's height.
 
 /** A local day `YYYY-MM-DD` as its weekday's initial. */
 export function dayInitial(day: string) {

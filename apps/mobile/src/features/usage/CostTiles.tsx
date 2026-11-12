@@ -1,6 +1,6 @@
+import { money } from '@mesa/core/phone';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { money } from './usageText';
 
 /** Today's estimated cost large, with the last 7 days and this month beside it. */
 export function CostTiles({

@@ -1,6 +1,7 @@
 // The pairing protocol (`@mesa/core/phone`): what the phone app bundles from core, and nothing else
-// but the pure time words and session state sets its screens share with the desktop.
+// but the pure words, session state sets and push modes its screens share with the desktop.
 export { relativeAgo, shortAgo, timeAgo } from '../../lib/ago.js';
+export { money } from '../../lib/format.js';
 export { BUSY_STATES, WAITING_STATES } from '../../sessions/record/states.js';
 export { PHONE_PUSH_LABELS, PHONE_PUSH_MODES, type PhonePushMode } from '../away.js';
 export type { PhoneRule, PhoneRun, ScheduleRule } from './automations.js';

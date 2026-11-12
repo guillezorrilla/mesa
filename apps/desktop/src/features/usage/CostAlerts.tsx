@@ -1,11 +1,11 @@
 import type { Config, UsageReport } from '@mesa/core';
+import { money } from '@mesa/core/browser';
 import { BellRing } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { useRun } from '@/lib/useCommand';
-import { money } from './format';
 
 type Key = keyof Config['usage'];
 const LIMITS = [

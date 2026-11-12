@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import { describeAutomation } from '../../automations/describe.js';
-import type { AutomationRule } from '../../automations/schema.js';
+import type { AutomationRule, AutomationRuleSchema } from '../../automations/schema.js';
 import type { AutomationRun } from '../../automations/state.js';
 import { type automationCalls, automationResults } from '../protocol/automations.js';
 import type { CallResult } from '../protocol/rpc.js';
@@ -12,7 +12,7 @@ export type AutomationDeps = {
   setEnabled: (name: string, enabled: boolean) => unknown;
   approve: (id: string) => unknown;
   cancel: (id: string) => unknown;
-  add: (rule: unknown) => unknown;
+  add: (rule: z.input<typeof AutomationRuleSchema>) => unknown;
   /** The registered projects whose folder still exists. */
   projects: () => string[];
 };

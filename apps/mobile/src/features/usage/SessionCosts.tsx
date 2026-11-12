@@ -1,11 +1,11 @@
 import type { PhoneSessionUsage } from '@mesa/core/phone';
+import { money } from '@mesa/core/phone';
 import { router } from 'expo-router';
 import { Fragment } from 'react';
 import { Pressable, View } from 'react-native';
 import { ContextRing } from '@/components/ContextRing';
 import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
-import { money } from './usageText';
 
 /** Each session's estimated cost and context use, costliest first; a press opens the session. */
 export function SessionCosts({ sessions }: { sessions: PhoneSessionUsage[] }) {

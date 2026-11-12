@@ -7,14 +7,12 @@ export function ChoiceChips<T extends string>({
   label,
   choices,
   value,
-  disabled,
   onChange,
 }: {
   /** What is being chosen, for VoiceOver. */
   label: string;
   choices: readonly (readonly [T, string])[];
   value: T | undefined;
-  disabled?: boolean;
   onChange: (value: T) => void;
 }) {
   return (
@@ -24,8 +22,7 @@ export function ChoiceChips<T extends string>({
           key={choice}
           size="sm"
           variant={choice === value ? 'default' : 'secondary'}
-          disabled={disabled}
-          accessibilityState={{ selected: choice === value, disabled }}
+          accessibilityState={{ selected: choice === value }}
           onPress={() => onChange(choice)}
         >
           <Text>{words}</Text>
