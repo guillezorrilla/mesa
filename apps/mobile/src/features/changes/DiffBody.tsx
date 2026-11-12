@@ -1,6 +1,6 @@
 import { type DiffLine, noteLines } from '@mesa/core/phone';
 import { use } from 'react';
-import { FlatList, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, View } from 'react-native';
 import { BusyLine } from '@/components/BusyLine';
 import { ErrorNote } from '@/components/ErrorNote';
 import { Text } from '@/components/ui/text';
@@ -40,7 +40,7 @@ export function DiffBody({
     : [];
   const lines = noteLines(selected);
   return (
-    <View className="flex-1 bg-background">
+    <KeyboardAvoidingView behavior="padding" className="flex-1 bg-background">
       <FlatList
         contentInsetAdjustmentBehavior="automatic"
         className="flex-1"
@@ -78,6 +78,6 @@ export function DiffBody({
           }
         />
       ) : null}
-    </View>
+    </KeyboardAvoidingView>
   );
 }

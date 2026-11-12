@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import { DIFF_START, type DiffLine, diffLines } from '../protocol/diff-lines.js';
 import { callResults } from '../protocol/rpc.js';
 import { answerChanges, type ChangesDeps } from './changes.js';
+import { DIFF_KEPT_MS, keptDiffs } from './kept-diffs.js';
 
 const PATCH = [
   'diff --git a/src/tide.ts b/src/tide.ts',
@@ -221,4 +222,19 @@ test('files: the tree, a search, a text file, and an image unless it is over 400
   await expect(answer(deps, { method: 'file', id: 's1', path: 'big.png' })).rejects.toThrow(
     'over 400 KB',
   );
+});
+
+test("a diff page reuses the session's last read for a minute; the file list reads anew", async () => {
+  let reads = 0;
+  let now = 0;
+  const diff = keptDiffs(
+    async (id: string) => `${id} read ${++reads}`,
+    () => now,
+  );
+  expect(await diff('s1')).toBe('s1 read 1');
+  expect(await diff('s1', true)).toBe('s1 read 1');
+  expect(await diff('s2', true)).toBe('s2 read 2');
+  now = DIFF_KEPT_MS;
+  expect(await diff('s1', true)).toBe('s1 read 3');
+  expect(await diff('s1')).toBe('s1 read 4');
 });

@@ -5,9 +5,10 @@ import { patchFiles, patchPage } from './patch-files.js';
 
 /** The core functions the change calls go through, the ones `mesa diff`, `review`, `git` and `files` use. */
 export type ChangesDeps = {
-  /** The session's diff against its base (`mesa diff`). */
+  /** The session's diff against its base (`mesa diff`); `reuse` takes a read kept from just before. */
   diff: (
     id: string,
+    reuse?: boolean,
   ) => Promise<{ base: string; branch: string | null; omitted: number; patch: string }>;
   /** The project and checkout the session works in. */
   where: (id: string) => { project: string; checkout?: string };
@@ -97,7 +98,7 @@ export async function answerChanges(deps: ChangesDeps, call: ChangesCall): Promi
     return { base, branch, omitted, files } satisfies CallResult<'changes'>;
   }
   if (call.method === 'diff') {
-    const file = patchFiles((await deps.diff(id)).patch).find((f) => f.path === call.path);
+    const file = patchFiles((await deps.diff(id, true)).patch).find((f) => f.path === call.path);
     if (!file) throw new MesaError('not_found', `${call.path} has no changes now`);
     return patchPage(file.lines, call.from) satisfies CallResult<'diff'>;
   }

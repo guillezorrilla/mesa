@@ -7,10 +7,14 @@ import { useMac } from './useMac';
  * One call's answer as a promise to `use()`, and `again` to ask anew (`refreshing` meanwhile):
  * the last answer stays shown when a later read fails.
  */
-export function useMacRead<M extends PhoneCall['method']>(call: Extract<PhoneCall, { method: M }>) {
+export function useMacRead<M extends PhoneCall['method']>(
+  call: Extract<PhoneCall, { method: M }>,
+  /** For a call that can take longer than most to answer, such as a large diff. */
+  timeoutMs?: number,
+) {
   const link = useMac();
   const read = async (last?: Promise<MacRead<CallResult<M>>>) => {
-    const next = await tryCall(link, () => link.call(call));
+    const next = await tryCall(link, () => link.call(call, timeoutMs));
     return next.error ? { ...(await last), error: next.error } : next;
   };
   const [answer, setAnswer] = useState(() => read());

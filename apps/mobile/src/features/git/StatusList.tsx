@@ -2,6 +2,7 @@ import type { CallResult } from '@mesa/core/phone';
 import { use } from 'react';
 import { View } from 'react-native';
 import { ErrorNote } from '@/components/ErrorNote';
+import { PathText } from '@/components/PathText';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import type { MacRead } from '../mac/tryCall';
@@ -25,9 +26,7 @@ export function StatusList({
       {result?.files.map((file) => (
         <View key={file.path} className="min-h-11 flex-row items-center gap-2">
           <View className="flex-1">
-            <Text numberOfLines={1} ellipsizeMode="head" className="font-mono text-sm">
-              {file.path}
-            </Text>
+            <PathText path={file.path} />
             <Text variant="muted">{statusWords(file)}</Text>
           </View>
           {canStage(file) ? (

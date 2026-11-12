@@ -9,6 +9,7 @@ import type { PhoneMessage } from '../protocol/envelope.js';
 import { type ConnectSocket, mailbox } from '../protocol/mailbox.js';
 import { type PhoneRow, WATCH_MS } from '../protocol/rpc.js';
 import { type AnswerDeps, answerCall } from './answer.js';
+import { keptDiffs } from './kept-diffs.js';
 import { phoneRows, rowChanges } from './rows.js';
 
 export type ServeDeps = {
@@ -87,7 +88,8 @@ async function listen(
     });
     return looking;
   };
-  const answers = { ...deps.answers, board };
+  const diff = keptDiffs(deps.answers.changes.diff, now);
+  const answers = { ...deps.answers, board, changes: { ...deps.answers.changes, diff } };
   const respond = async (request: Extract<PhoneMessage, { kind: 'request' }>) => {
     try {
       const result = await answerCall(answers, request.call);

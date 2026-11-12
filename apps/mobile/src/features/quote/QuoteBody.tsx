@@ -1,6 +1,6 @@
 import type { CallResult } from '@mesa/core/phone';
 import { use } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Pressable, ScrollView, View } from 'react-native';
 import { ErrorNote } from '@/components/ErrorNote';
 import { Text } from '@/components/ui/text';
 import { isSelected, type LineSelection } from '@/lib/lineSelection';
@@ -9,6 +9,7 @@ import { CommentForm } from '../changes/CommentForm';
 import type { MacRead } from '../mac/tryCall';
 import { tryCall } from '../mac/tryCall';
 import { useMac } from '../mac/useMac';
+import { quoteLabel } from './quoteLabel';
 import { passageOf, type ReplyLine, replyLines } from './replyLines';
 
 /** One reply's lines to tap, and a comment on the tapped passage sent to the agent. */
@@ -38,7 +39,7 @@ export function QuoteBody({
   const lines = replyLines(found.segments);
   const passage = selection ? passageOf(lines, selection) : '';
   return (
-    <View className="flex-1 bg-background">
+    <KeyboardAvoidingView behavior="padding" className="flex-1 bg-background">
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerClassName="py-4">
         <Text variant="muted" className="px-4 pb-2">
           Tap a line, then another, to quote them to the agent.
@@ -61,7 +62,7 @@ export function QuoteBody({
       </ScrollView>
       {passage.trim() ? (
         <CommentForm
-          label={`Quoting ${passage.split('\n').length} lines`}
+          label={quoteLabel(passage.split('\n').length)}
           send={(comment) =>
             tryCall(link, () =>
               link.call({ method: 'quote', id, revision: reply, passage, comment }),
@@ -69,6 +70,6 @@ export function QuoteBody({
           }
         />
       ) : null}
-    </View>
+    </KeyboardAvoidingView>
   );
 }

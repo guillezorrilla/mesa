@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { use } from 'react';
 import { Pressable, View } from 'react-native';
 import { ErrorNote } from '@/components/ErrorNote';
+import { PathText } from '@/components/PathText';
 import { Text } from '@/components/ui/text';
 import type { MacRead } from '../mac/tryCall';
 
@@ -26,9 +27,7 @@ export function SearchHits({
           onPress={() => router.push({ pathname: '/agents/file', params: { id, path: hit.path } })}
           className="min-h-11 justify-center py-1 active:bg-accent"
         >
-          <Text numberOfLines={1} ellipsizeMode="head" className="font-mono text-sm">
-            {hit.line ? `${hit.path}:${hit.line}` : hit.path}
-          </Text>
+          <PathText path={hit.line ? `${hit.path}:${hit.line}` : hit.path} />
           {hit.preview ? (
             <Text numberOfLines={1} variant="muted" className="font-mono">
               {hit.preview}

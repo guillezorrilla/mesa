@@ -11,6 +11,14 @@ const BACKGROUND = {
   context: 'bg-background',
   meta: 'bg-background',
 };
+/** A changed line's rule down its left edge; a selected line's is the ring colour. */
+const RULE = {
+  add: 'border-state-done',
+  del: 'border-destructive',
+  hunk: 'border-transparent',
+  context: 'border-transparent',
+  meta: 'border-transparent',
+};
 const SIGN = { add: '+', del: '-', context: ' ', hunk: '', meta: '' };
 const SPAN = {
   keyword: 'text-state-working',
@@ -34,9 +42,14 @@ export function DiffLineRow({
     <Pressable
       accessibilityState={{ selected }}
       onPress={onPress}
-      className={cn('flex-row px-2', BACKGROUND[row.kind], selected && 'bg-ring/25')}
+      className={cn(
+        'flex-row border-l-2 pr-2',
+        BACKGROUND[row.kind],
+        RULE[row.kind],
+        selected && 'border-ring bg-ring/20',
+      )}
     >
-      <View className="w-20 flex-row">
+      <View className="w-20 flex-row border-r border-border">
         <Text className="w-10 text-right font-mono text-xs text-muted-foreground">
           {row.old ?? ''}
         </Text>
@@ -44,7 +57,7 @@ export function DiffLineRow({
           {row.new ?? ''}
         </Text>
       </View>
-      <Text className="flex-1 pl-2 font-mono text-xs">
+      <Text className={cn('flex-1 py-px pl-2 font-mono text-xs', row.kind === 'hunk' && 'py-1')}>
         <Text className="font-mono text-xs text-muted-foreground">{SIGN[row.kind]}</Text>
         {code ? (
           syntaxSpans(row.text).map((span, at) => (
