@@ -40,6 +40,7 @@ export * from './lib/format.js';
 export { localClock, localDay, validLocalDay } from './lib/time.js';
 export { mapSession } from './map/map.js';
 export { FINISHED_HOLD_MS } from './notifications/finished-hold.js';
+export { PHONE_PUSH_LABELS, PHONE_PUSH_MODES, type PhonePushMode } from './phone/away.js';
 export * from './phone/protocol/index.js';
 export {
   COLOR_VISION_MODES,

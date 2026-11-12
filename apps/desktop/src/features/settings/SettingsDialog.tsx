@@ -17,6 +17,7 @@ import { GeneralSettingsPanel } from './GeneralSettingsPanel';
 import { NotificationSettingsPanel } from './NotificationSettingsPanel';
 import { PhoneSettingsPanel } from './PhoneSettingsPanel';
 import { ProjectSettingsPanel } from './ProjectSettingsPanel';
+import { PhonePushSection } from './phone/PhonePushSection';
 import { SessionSettingsPanel } from './SessionSettingsPanel';
 import { TerminalEditorSettingsPanel } from './TerminalEditorSettingsPanel';
 import { SettingsQuery } from './useMatches';
@@ -111,7 +112,12 @@ function SettingsBody(props: Parameters<typeof SettingsDialog>[0]) {
       notifications: <NotificationSettingsPanel />,
       agents: <AgentSettingsPanel doctor={props.doctor} />,
       connections: <ConnectionSettingsPanel />,
-      phone: <PhoneSettingsPanel />,
+      phone: (
+        <>
+          <PhoneSettingsPanel />
+          <PhonePushSection />
+        </>
+      ),
       decisions: <DecisionSettingsPanel />,
       advanced: <AdvancedSettingsPanel onBackup={() => go('backup')} onUsage={() => go('usage')} />,
     })[id];

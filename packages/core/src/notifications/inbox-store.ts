@@ -15,6 +15,8 @@ const InboxStateSchema = z
     read: z.array(z.string()),
     cleared: z.array(z.string()),
     delivered: z.array(z.string()).default([]),
+    /** Notices the phone push has decided on, pushed or not (#1016), so none is pushed twice. */
+    pushed: z.array(z.string()).default([]),
     items: z.array(CandidateSchema).default([]),
     offsets: z.record(z.string(), z.number().int().nonnegative()).default({}),
     doctor: z.array(DoctorFindingSchema).default([]),
@@ -29,6 +31,7 @@ const EMPTY: InboxState = {
   read: [],
   cleared: [],
   delivered: [],
+  pushed: [],
   doctor: [],
   items: [],
   offsets: {},
@@ -58,6 +61,7 @@ function merge(current: InboxState, change: Partial<InboxState>, failures: Candi
     read: [...new Set([...current.read, ...(change.read ?? [])])],
     cleared: [...new Set([...current.cleared, ...(change.cleared ?? [])])],
     delivered: [...new Set([...current.delivered, ...(change.delivered ?? [])])],
+    pushed: [...new Set([...current.pushed, ...(change.pushed ?? [])])],
     items: distinct.filter((entry) => newest.get(entry.session) === entry).slice(-500),
     offsets: Object.fromEntries(
       [...new Set([...Object.keys(current.offsets), ...Object.keys(change.offsets ?? {})])].map(
@@ -82,6 +86,7 @@ function merge(current: InboxState, change: Partial<InboxState>, failures: Candi
   next.cleared = next.cleared.filter((id) => retained.has(id));
   // Keep each acknowledgement as long as its notice, including failed automation runs.
   next.delivered = next.delivered.filter((id) => retained.has(id));
+  next.pushed = next.pushed.filter((id) => retained.has(id));
   return next;
 }
 

@@ -50,3 +50,27 @@ export const phoneUnpair = defineCommand({
     });
   },
 });
+
+export const phonePush = defineCommand({
+  name: 'phone push',
+  summary: 'Push new session notices to the paired phone, when phone.push allows it now',
+  example: 'mesa phone push',
+  run: async ({ mesa }) => {
+    const data = await mesa.phone.push();
+    const text =
+      data.status === 'pushed' || data.status === 'failed'
+        ? `pushed ${data.pushed.length}${data.failed.length ? `, ${data.failed.length} failed` : ''}`
+        : data.status;
+    return { data, text };
+  },
+});
+
+export const phonePushTest = defineCommand({
+  name: 'phone push-test',
+  summary: 'Push a sealed test notice to the paired phone now, whatever the idle time',
+  example: 'mesa phone push-test',
+  run: async ({ mesa }) => {
+    const data = await mesa.phone.pushTest();
+    return { data, text: `pushed a test notice to ${data.pairingId}` };
+  },
+});

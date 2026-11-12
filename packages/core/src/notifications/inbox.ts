@@ -191,6 +191,31 @@ export function inbox(
       );
     },
     markDelivered,
+    /**
+     * Claims the unread question, permission and finished notices since `since` that no phone push
+     * has decided on, newest first, so each is pushed at most once whatever the caller then does.
+     */
+    claimPushes: (since: string): InboxItem[] => {
+      mkdirSync(dirname(store.file), { recursive: true, mode: 0o700 });
+      const lock = `${store.file}.push.lock`;
+      return withLockSync(
+        ctx,
+        lock,
+        () => {
+          const decided = new Set(read().pushed);
+          const fresh = all().filter(
+            (item) =>
+              (item.kind === 'input-required' || item.kind === 'finished') &&
+              !item.read &&
+              item.at >= since &&
+              !decided.has(item.id),
+          );
+          if (fresh.length) store.write({ pushed: fresh.map((item) => item.id) });
+          return fresh;
+        },
+        () => lockedBy('phone push', lock, 'notifications'),
+      );
+    },
     recordDoctor: (report: DoctorReport) => {
       const state = read();
       const now = ctx.clock().toISOString();

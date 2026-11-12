@@ -4,6 +4,7 @@
 //
 // Every read of `meta` is followed by its write with no other await between, so the runtime's
 // input gate keeps another request from writing in the middle; a token is hashed before the read.
+import type { Pusher } from './apns.js';
 import { BOX_MAX, boxStore, KEEP_MS, type PairingStorage, type Side } from './boxes.js';
 import { json } from './respond.js';
 import { randomToken, sha256 } from './tokens.js';
@@ -22,6 +23,8 @@ type Meta = {
   joinedAt?: string;
   macSeenAt?: string;
   phoneSeenAt?: string;
+  /** The phone's APNs device token, once it allowed notifications. */
+  deviceToken?: string;
   nextId: number;
 };
 /** What a socket carries across hibernation: when it opened, and its side once it authed. */
@@ -47,6 +50,13 @@ export const JOIN_MS = 10 * 60_000;
 export const AUTH_MS = 10_000;
 /** How many sockets may wait unauthenticated at once; a newer one closes the oldest. */
 export const UNAUTHED_MAX = 4;
+/** The longest sealed notice a push takes (core's NOTICE_MAX), under APNs' 4 KB payload. */
+export const NOTICE_MAX = 3072;
+/** The fixed alert per notice kind: a phone whose extension cannot open the notice shows it. */
+export const ALERTS: Record<string, string> = {
+  input: 'A session needs you',
+  finished: 'A session finished',
+};
 
 const isText = (value: unknown, max: number): value is string =>
   typeof value === 'string' && value.length > 0 && value.length <= max;
@@ -58,11 +68,12 @@ export class Pairing {
   private readonly storage: PairingStorage;
   private readonly boxes: ReturnType<typeof boxStore>;
 
-  /** The runtime passes (state, env); a test passes its own clock third. */
+  /** The runtime passes (state, env); the entrypoint adds APNs, a test its own clock and APNs. */
   constructor(
     private readonly state: PairingObjectState,
-    _env?: unknown,
+    private readonly env: Record<string, string | undefined> = {},
     private readonly now: () => Date = () => new Date(),
+    private readonly push?: Pusher,
   ) {
     this.storage = state.storage;
     this.boxes = boxStore(state.storage, now);
@@ -217,6 +228,32 @@ export class Pairing {
     if (op === '/messages' && request.method === 'GET') {
       await this.seen(side);
       return json(200, { messages: await this.boxes.waiting(side) });
+    }
+    if (op === '/device' && request.method === 'POST') {
+      if (side !== 'phone') return json(403, { error: 'phone_only' });
+      if (typeof fields.deviceToken !== 'string' || !/^[0-9a-f]{64,200}$/i.test(fields.deviceToken))
+        return json(400, { error: 'bad_request' });
+      await this.update(() => ({ deviceToken: fields.deviceToken as string }));
+      return json(204);
+    }
+    if (op === '/push' && request.method === 'POST') {
+      if (side !== 'mac') return json(403, { error: 'mac_only' });
+      const alert = typeof fields.kind === 'string' ? ALERTS[fields.kind] : undefined;
+      if (!alert || !isText(fields.notice, NOTICE_MAX) || !/^[\w-]+$/.test(fields.notice))
+        return json(400, { error: 'bad_request' });
+      if (!this.push) return json(500, { error: 'not_configured' });
+      const { deviceToken } = meta;
+      if (!deviceToken) return json(409, { error: 'no_device' });
+      const result = await this.push(this.env, deviceToken, alert, fields.notice);
+      if (result.status === 'not_configured') return json(500, { error: 'not_configured' });
+      if (result.status === 'gone') {
+        // Only the token that failed: the phone may have registered a new one meanwhile.
+        await this.update((m) => (m.deviceToken === deviceToken ? { deviceToken: undefined } : {}));
+        return json(410, { error: 'device_gone' });
+      }
+      if (result.status === 'failed')
+        return json(502, { error: 'apns_failed', reason: result.reason });
+      return json(200, { sent: true });
     }
     if (op === '/ack' && request.method === 'POST') {
       if (!Number.isInteger(fields.upTo)) return json(400, { error: 'bad_request' });

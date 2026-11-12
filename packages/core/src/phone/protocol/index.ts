@@ -18,6 +18,13 @@ export {
 export { joinPairing, type PhonePairing, phoneKeys } from './join.js';
 export { formatPairingLink, type PairingLink, parsePairingLink } from './link.js';
 export {
+  NOTICE_MAX,
+  type Notice,
+  type NoticeKind,
+  openNotice,
+  sealNotice,
+} from './notice.js';
+export {
   base64url,
   type Direction,
   fromBase64url,

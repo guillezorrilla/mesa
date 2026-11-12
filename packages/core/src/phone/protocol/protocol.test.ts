@@ -8,6 +8,7 @@ import {
 import { expect, test } from 'vitest';
 import { openMessage, sealMessage } from './envelope.js';
 import { formatPairingLink, parsePairingLink } from './link.js';
+import { NOTICE_MAX, openNotice, sealNotice } from './notice.js';
 import { base64url, fromBase64url, newKeyPair, newSecret, open, seal, sideKeys } from './seal.js';
 import vectors from './vectors.json' with { type: 'json' };
 
@@ -84,6 +85,26 @@ test('a flipped byte, the wrong direction, another pairing or a replayed seq doe
   expect(openMessage(phoneKeys(), seal(macKeys().seal, vectors.pairingId, '{"v":1}'), 0)).toBe(
     'unreadable',
   );
+});
+
+test('a notice opens from the vectors, and a long one is clipped under the bound the broker takes', () => {
+  expect(open(phoneKeys().open, vectors.pairingId, vectors.macToPhoneNotice)).toBe(
+    vectors.noticePlaintext,
+  );
+  expect(openNotice(phoneKeys(), vectors.macToPhoneNotice)).toEqual({
+    title: 'Fix the login bug',
+    body: 'mesa: asks a question',
+  });
+  expect(openNotice(phoneKeys(), vectors.macToPhoneBox)).toBeUndefined();
+  const long = sealNotice(macKeys(), {
+    title: '\u{1F600}'.repeat(500),
+    body: '\u0007'.repeat(900),
+  });
+  expect(long.length).toBeLessThanOrEqual(NOTICE_MAX);
+  expect(openNotice(phoneKeys(), long)).toEqual({
+    title: '\u{1F600}'.repeat(120),
+    body: ' '.repeat(400),
+  });
 });
 
 test('a pairing link round-trips, and a link with a bad broker, key or version is not one', () => {

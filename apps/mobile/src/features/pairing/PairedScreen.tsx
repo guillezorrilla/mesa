@@ -5,6 +5,7 @@ import { Screen } from '@/components/Screen';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
+import { usePushRegistration } from '../push/usePushRegistration';
 import { MacSeenLine } from './MacSeenLine';
 import { UnpairDialog } from './UnpairDialog';
 import { useMacInfo } from './useMacInfo';
@@ -12,6 +13,7 @@ import { usePairing } from './usePairing';
 
 /** Paired: which pairing, when the Mac last checked in, and Unpair. */
 export function PairedScreen({ pairing }: { pairing: PhonePairing }) {
+  usePushRegistration(pairing);
   const { forget } = usePairing();
   const { info, refresh } = useMacInfo(pairing);
   return (

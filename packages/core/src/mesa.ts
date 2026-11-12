@@ -96,7 +96,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     /** A person's feedback, sent through the broker to a private repo (ADR-0025). */
     feedback: feedbackService(ctx),
     /** The profile's Pairing with a phone, through the broker (ADR-0027). */
-    phone: phoneService(ctx),
+    phone: phoneService(ctx, notices.claimPushes),
     /** The anonymous install count and its switch (ADR-0026). */
     installs: { status: installs.status, set: installs.set },
     /** A version's release notes, the running one's by default. */

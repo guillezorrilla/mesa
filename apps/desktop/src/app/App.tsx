@@ -5,6 +5,7 @@ import { warningOf } from '@/components/Toast';
 import { UnsavedFilesDialog } from '@/features/files/UnsavedFilesDialog';
 import { useNativeNotifications } from '@/features/notifications/useNativeNotifications';
 import { useVisualAlert } from '@/features/notifications/useVisualAlert';
+import { usePhonePush } from '@/features/phone/usePhonePush';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { CloneProjectDialog } from '@/features/projects/CloneProjectDialog';
 import { nearestProject } from '@/features/projects/nearestProject';
@@ -156,6 +157,7 @@ function AppShell() {
       setView((current) => (current.kind === 'session' ? { kind: 'sessions' } : current)),
   });
   useNativeNotifications(navigateLatest);
+  usePhonePush();
   const unread = useUnread(view, sessions);
   useAppMenu(navigateLatest);
   useExternalLinks();
