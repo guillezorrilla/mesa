@@ -21,6 +21,7 @@
     "decisions:paired": "pnpm --filter @mesa/core --filter @mesa/cli build && node scripts/decisions/paired/run.mjs",
     "decisions:paired:check": "node scripts/decisions/paired/check.mjs",
     "decisions:concurrency": "pnpm --filter @mesa/core --filter @mesa/cli build && node scripts/decisions/concurrency.mjs",
+    "vault:capture-model": "pnpm --filter @mesa/core --filter @mesa/cli build && node scripts/vault/capture-model.mjs",
     "verify": "sh scripts/verify.sh",
     "dev:cli": "tsc --build --watch --incremental --preserveWatchOutput packages/core packages/cli",
     "dev:desktop": "pnpm -C apps/desktop dev",

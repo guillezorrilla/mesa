@@ -65,3 +65,9 @@ Evidence: `packages/core/src/vault/capture/capture.test.ts`: a capture's launch 
 The owner's rule: use a cheaper model whenever it makes sense. `claudeRunModel` now maps each of Mesa's own skill runs: `git-text` and `session-summary` on Haiku (short text from given input, as a capture is), `import-notes` on Sonnet (it reads and writes several vault notes), `vault-capture` on Haiku as above. Any other skill run keeps the person's default; Codex and Antigravity runs still take no model from Mesa.
 
 Evidence: `packages/core/src/sessions/run/run.test.ts`: the session-summary launch carries `--model 'haiku'`, an import-notes launch `--model 'sonnet'`, and the mapping test covers every skill and the default.
+
+## Amended 2026-11-11: Haiku confirmed against Sonnet (#1057)
+
+Captures stay on Haiku, and Sonnet is no longer the fallback the #908 amendment named for when noise rises. On 10 real windows that no capture had seen, blind-graded against #880's bar, both models found the one decision and neither kept passing status. Haiku also kept the one note and 5 duplicates of vault notes, at $0.07 a run. Sonnet kept 3 duplicates at $0.44 a run, and 4 of its 10 first answers did not read. The skill's restatement rule gained examples (a decision the session saved itself, one another session made and this one relays) and a whole-vault search for another project's items. With those, Haiku returned 1 duplicate where it had returned 5. `captureItems` now reads a null optional field as left out. The owner chose Haiku; the next-step site's CLEF answer agreed (keep Haiku p=0.94, more samples 0.03, Sonnet 0.01). Numbers are in `docs/spikes/capture-model.md`.
+
+Evidence: `packages/core/src/skills/library.test.ts` and `capture.test.ts` pin `--model 'haiku'` on a capture's launch; `capture.test.ts`: a run that writes a left-out field as null reads as if it left it out.
