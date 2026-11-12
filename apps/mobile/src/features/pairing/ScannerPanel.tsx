@@ -1,7 +1,8 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { cameraAskText } from './cameraAskText';
 
 /** The camera, reading QR codes for `onScan` while not `paused`; asks for the camera first. */
 export function ScannerPanel({
@@ -13,24 +14,27 @@ export function ScannerPanel({
 }) {
   const [permission, request] = useCameraPermissions();
   if (!permission) return null;
-  if (!permission.granted)
+  if (!permission.granted) {
+    // iOS asks once; after a no, only Settings can turn the camera on.
+    const ask = cameraAskText(permission.canAskAgain);
     return (
-      <View className="items-center gap-3 rounded-lg border border-border bg-card p-6">
-        <Text className="text-center text-muted-foreground">
-          Mesa needs the camera to scan the pairing code on your Mac.
-        </Text>
-        <Button onPress={request}>
-          <Text>Allow camera</Text>
+      <View className="items-center gap-4 rounded-xl border border-border bg-card p-6">
+        <Text className="text-center text-muted-foreground">{ask.text}</Text>
+        <Button onPress={permission.canAskAgain ? request : () => Linking.openSettings()}>
+          <Text>{ask.action}</Text>
         </Button>
       </View>
     );
+  }
   return (
-    <View className="aspect-square overflow-hidden rounded-lg border border-border">
+    <View className="aspect-square overflow-hidden rounded-xl border border-border bg-black">
       <CameraView
         style={{ flex: 1 }}
         facing="back"
         barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
         onBarcodeScanned={paused ? undefined : ({ data }) => onScan(data)}
+        accessible
+        accessibilityLabel="Camera. Point it at the pairing code on your Mac."
       />
     </View>
   );
