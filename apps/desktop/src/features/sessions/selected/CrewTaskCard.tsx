@@ -6,14 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { StateIcon } from '../StateIcon';
-import { type CrewCard, PHASE_STATE, type Phase, phaseWords } from './crewPlan';
-
-/** The state words' colour by phase; the rest read muted. */
-const WORDS: Partial<Record<Phase, string>> = {
-  'needs-you': 'text-state-waiting',
-  working: 'text-state-working',
-  failed: 'text-state-failed',
-};
+import { stateTone } from '../stateTone';
+import { type CrewCard, PHASE_STATE, phaseWords } from './crewPlan';
 
 /** What happened to the card's last Start or Merge into parent, said on it. */
 export type CardOutcome = { text: string; failed: boolean };
@@ -74,7 +68,7 @@ export function CrewTaskCard(props: {
           )}
           <span
             data-testid="crew-card-state"
-            className={cn('text-xs', WORDS[card.phase] ?? 'text-muted-foreground')}
+            className={cn('text-xs', stateTone(PHASE_STATE[card.phase]).ink)}
           >
             {phaseWords(card, props.now, merged)}
           </span>
