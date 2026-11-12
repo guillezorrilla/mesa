@@ -2040,7 +2040,7 @@ dependencies = [
 
 [[package]]
 name = "mesa-desktop"
-version = "0.3.13"
+version = "0.4.0"
 dependencies = [
  "base64 0.23.1",
  "block2",
