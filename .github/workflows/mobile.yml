@@ -33,12 +33,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # The app bundles @mesa/core/phone from core's build.
       - run: pnpm --filter @mesa/core build
-      - uses: expo/expo-github-action@5273c2136bd09c2a341fe3340d3e767ce5a13015 # 9.0.2
-        with:
-          eas-version: latest
-          packager: pnpm
-          token: ${{ secrets.EXPO_TOKEN }}
+      # The app's own eas-cli, pinned in the lockfile, rather than one the setup action installs.
+      - run: echo "$GITHUB_WORKSPACE/apps/mobile/node_modules/.bin" >> "$GITHUB_PATH"
       - uses: expo/expo-github-action/continuous-deploy-fingerprint@5273c2136bd09c2a341fe3340d3e767ce5a13015 # 9.0.2
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         with:
           working-directory: apps/mobile
           platform: ios
