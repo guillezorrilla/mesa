@@ -73,3 +73,10 @@ export {
   seal,
   sideKeys,
 } from './seal.js';
+export type {
+  PhoneHit,
+  PhoneMemory,
+  PhoneNote,
+  PhoneSaved,
+  PhoneToday,
+} from './vault.js';

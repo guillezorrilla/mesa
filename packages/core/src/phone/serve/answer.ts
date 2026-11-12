@@ -7,6 +7,7 @@ import type { CallResult, PhoneCall } from '../protocol/rpc.js';
 import { answerCrewCall, type CrewDeps, isCrewCall } from './crew.js';
 import { replySegments } from './replies.js';
 import { askedRows, phoneRows, toPhoneRow } from './rows.js';
+import { answerVaultCall, isVaultCall, type VaultDeps } from './vault.js';
 
 /** The session functions the CLI uses, which every phone call goes through. */
 export type AnswerDeps = {
@@ -19,6 +20,7 @@ export type AnswerDeps = {
   /** Answers as the person, from the phone. */
   answer: (id: string, choice: AnswerChoice) => Promise<unknown>;
   crew: CrewDeps;
+  vault: VaultDeps;
 };
 
 /** How many replies and output lines the session screen gets. */
@@ -32,6 +34,7 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
       rows: await askedRows(phoneRows(await deps.board()), deps.prompt),
     } satisfies CallResult<'sessions'>;
   if (isCrewCall(call)) return answerCrewCall(deps.crew, call);
+  if (isVaultCall(call)) return answerVaultCall(deps.vault, call);
   if (call.method === 'mark') {
     (call.unread ? deps.unread : deps.read)([call.id]);
     return {} satisfies CallResult<'mark'>;

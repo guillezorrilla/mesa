@@ -16,6 +16,7 @@ import { gitService } from './git/service.js';
 import { impactService } from './impact/service.js';
 import { installsService } from './installs/service.js';
 import { instructionsService } from './instructions/service.js';
+import { localDay } from './lib/time.js';
 import { mapService } from './map/service.js';
 import { backgroundDelivery } from './notifications/background.js';
 import { inbox } from './notifications/inbox.js';
@@ -93,6 +94,9 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const tasks = tasksService(ctx, { startWorker: sessions.sessions.worker });
   // Failed automation runs and open gates are notices; the inbox reads them from their owners.
   const notices = inbox(ctx, automations.runs, gates.open);
+  const projects = projectsService(ctx);
+  const impact = impactService(ctx);
+  const rewind = rewindService(ctx, usage);
   const phone = phoneService(
     ctx,
     { pending: notices.pendingPushes, claim: notices.claimPushes },
@@ -111,6 +115,16 @@ export function createMesa(profile: string, deps: MesaDeps) {
         advise: gates.advise,
         resolve: gates.resolve,
         merge: (id) => sessions.sessions.merge(id),
+      },
+      vault: {
+        projects: () => projects.list('last-session'),
+        context: (project) => vaults.vault.context(project),
+        read: vaults.vault.read,
+        search: vaults.vault.search,
+        day: () => localDay(ctx.clock()),
+        impact: impact.report,
+        rewind: () => rewind.week({ synced: false }),
+        saveDecision: vaults.vault.saveDecision,
       },
     },
   );
@@ -138,7 +152,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     ...profileApi,
     profiles: profilesService(ctx),
     backup: backupService(ctx, prompts.list),
-    projects: projectsService(ctx),
+    projects,
     automations,
     prompts,
     files: filesService(ctx),
@@ -168,9 +182,9 @@ export function createMesa(profile: string, deps: MesaDeps) {
     hooks: hooksService(ctx),
     skills,
     usage,
-    rewind: rewindService(ctx, usage),
+    rewind,
     /** What Mesa decided and kept, and what happened next (CONTEXT.md, Impact). */
-    impact: impactService(ctx),
+    impact,
     statusLine: statusLineService(ctx),
     notifications,
     diagnostics: diagnosticsService(ctx),
