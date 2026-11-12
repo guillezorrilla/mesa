@@ -4,12 +4,14 @@ import { ErrorNote } from '@/components/ErrorNote';
 import { Screen } from '@/components/Screen';
 import { Section } from '@/components/Section';
 import { Text } from '@/components/ui/text';
+import { PromptCard } from '../prompt/PromptCard';
 import { OutputTail } from './OutputTail';
 import { ReplyList } from './ReplyList';
 import { SessionHeader } from './SessionHeader';
+import { groupOf } from './sessionState';
 import type { DetailRead } from './useSessionDetail';
 
-/** What a session said and is doing: state, goal, latest replies, output tail. */
+/** What a session said and is doing: state, its pending prompt, goal, latest replies, output tail. */
 export function SessionBody({ read }: { read: Promise<DetailRead> }) {
   const { detail, error } = use(read);
   if (!detail) return <Screen>{error ? <ErrorNote text={error} /> : null}</Screen>;
@@ -19,6 +21,10 @@ export function SessionBody({ read }: { read: Promise<DetailRead> }) {
       <Stack.Screen options={{ title: detail.row.title }} />
       {error ? <ErrorNote text={error} /> : null}
       <SessionHeader row={detail.row} now={now} />
+      {/* Read again for each new prompt, whose hook moves the state's time. */}
+      {groupOf(detail.row.state) === 'needs-you' ? (
+        <PromptCard key={detail.row.since} id={detail.row.id} />
+      ) : null}
       {detail.goal ? (
         <Section title="Goal">
           <Text selectable>{detail.goal}</Text>

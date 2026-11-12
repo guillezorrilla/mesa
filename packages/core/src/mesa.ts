@@ -97,6 +97,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
       logs: (id, tail) => sessions.sessions.logs(id, tail),
       read: sessions.sessions.read,
       unread: sessions.sessions.unread,
+      prompt: sessions.sessions.prompt,
+      answer: (id, choice) => sessions.sessions.answer(id, choice, 'phone'),
     },
   );
   // The scheduler's tick pushes to the phone too, so a session that needs the person reaches

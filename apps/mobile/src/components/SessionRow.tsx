@@ -6,7 +6,7 @@ import { StateDot } from './StateDot';
 
 /**
  * One session in a list: its state dot, title (bold while unread), project and state words, how
- * long it has been in that state, and its context use. `stateColor` and `stateWords` come from the
+ * long it has been in that state, its context use, and what it asks while waiting. `stateColor` and `stateWords` come from the
  * caller, so this row knows no domain rules.
  */
 export function SessionRow({
@@ -29,7 +29,9 @@ export function SessionRow({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${row.title}, ${detail}${row.unread ? ', unread' : ''}`}
+      accessibilityLabel={[row.title, detail, row.unread && 'unread', row.ask]
+        .filter(Boolean)
+        .join(', ')}
       accessibilityActions={actions.map(({ name, label }) => ({ name, label }))}
       onAccessibilityAction={(event) =>
         actions.find((a) => a.name === event.nativeEvent.actionName)?.run()
@@ -45,6 +47,11 @@ export function SessionRow({
         <Text numberOfLines={1} variant="muted">
           {detail}
         </Text>
+        {row.ask ? (
+          <Text numberOfLines={1} className="font-mono text-xs text-muted-foreground">
+            {row.ask}
+          </Text>
+        ) : null}
       </View>
       <View className="items-end gap-0.5">
         <Text variant="muted">{shortAgo(row.since, now)}</Text>

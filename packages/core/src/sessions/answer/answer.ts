@@ -32,6 +32,11 @@ export type Answered = {
 
 const usage = (message: string) => new MesaError('usage', message);
 
+/** A refusal because the prompt answered is no longer the one waiting; `isStale` knows it. */
+const stale = (message: string) => new MesaError('usage', `stale answer: ${message}`, STALE);
+const STALE = { stale: true };
+export const isStale = (error: unknown) => error instanceof MesaError && error.details === STALE;
+
 /**
  * Answers session `id`'s pending prompt as a person (ADR-0003): refused for an agent caller, and
  * as stale when the session no longer waits on that prompt (answered in the pane, or replaced).
@@ -59,10 +64,10 @@ export async function answerPrompt(
   const read = await readPrompt(deps, id);
   const { prompt, target } = read;
   if (!prompt || !read.id) {
-    throw usage(`stale answer: session ${id} waits on no prompt Mesa can answer now`);
+    throw stale(`session ${id} waits on no prompt Mesa can answer now`);
   }
   if (choice.prompt !== undefined && choice.prompt !== read.id) {
-    throw usage(`stale answer: session ${id} now waits on another prompt (see mesa prompt ${id})`);
+    throw stale(`session ${id} now waits on another prompt (see mesa prompt ${id})`);
   }
   const done = { answered: true as const, session: id, project: read.project, prompt: read.id };
   const about = { kind: prompt.kind, summary: prompt.summary };
