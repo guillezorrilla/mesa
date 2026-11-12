@@ -53,7 +53,7 @@ test('each state has one colour, its own token, for words, icons and the bar', (
   for (const state of AGENT_STATES) expect(stateTone(state).ink).toMatch(/^text-/);
 });
 
-test('every state colour reads at 4.5:1 on the card, light and dark, in each colour-vision mode', () => {
+test('every state colour reads at 4.5:1 on the card and the background, light and dark, in each colour-vision mode', () => {
   const light = tokens(':root');
   const dark = { ...light, ...tokens(':root[data-theme="dark"]') };
   const modes = {
@@ -74,13 +74,16 @@ test('every state colour reads at 4.5:1 on the card, light and dark, in each col
   };
   const short: string[] = [];
   for (const [mode, set] of Object.entries(modes)) {
-    const card = set.card;
-    if (!card) throw new Error(`no --card in ${mode}`);
-    for (const state of ['working', 'waiting', 'idle', 'done', 'failed']) {
-      const colour = set[`state-${state}`];
-      if (!colour) throw new Error(`no --state-${state} in ${mode}`);
-      const ratio = contrast(colour, card);
-      if (ratio < 4.5) short.push(`${mode} ${state} ${ratio.toFixed(2)}`);
+    // The Crew panel sits on the card, the sidebar's worker rows on the background.
+    for (const surface of ['card', 'background']) {
+      const behind = set[surface];
+      if (!behind) throw new Error(`no --${surface} in ${mode}`);
+      for (const state of ['working', 'waiting', 'idle', 'done', 'failed']) {
+        const colour = set[`state-${state}`];
+        if (!colour) throw new Error(`no --state-${state} in ${mode}`);
+        const ratio = contrast(colour, behind);
+        if (ratio < 4.5) short.push(`${mode} ${surface} ${state} ${ratio.toFixed(2)}`);
+      }
     }
   }
   expect(short).toEqual([]);

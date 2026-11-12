@@ -36,7 +36,7 @@
   --ring: oklch(0.7 0.14 70);
   --archive-foreground: oklch(0.18 0.01 70);
   --state-working: oklch(0.55 0.13 250);
-  /* State colours read as text and icons on the card: each clears 4.5:1 (stateTone.test.ts). */
+  /* State colours read as text and icons on the card and the background: each clears 4.5:1 (stateTone.test.ts). */
   --state-waiting: oklch(0.56 0.14 65);
   --state-idle: oklch(0.535 0.12 165);
   /* An unread session's card: a stronger green than idle (CONTEXT.md, Unread). */
@@ -127,7 +127,6 @@
 /* The light theme's colour-vision colours, dark enough to read on its card. */
 :root:not([data-theme="dark"])[data-color-vision="red-green"] {
   --state-idle: oklch(0.545 0.12 240);
-  --state-unread: oklch(0.535 0.17 240);
   --state-failed: oklch(0.575 0.18 335);
 }
 
