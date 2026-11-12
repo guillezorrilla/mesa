@@ -9,8 +9,11 @@ export const CAPTURE_MAX_ITEMS = 3;
 
 const text = z.string().trim().min(1);
 const unit = z.number().min(0).max(1);
+/** A field a run may leave out, which models often write as null instead (docs/spikes/capture-model.md). */
+const leftOutWhenNull = <T extends z.ZodType>(field: T) =>
+  field.nullish().transform((v) => v ?? undefined);
 /** The path of a note this session saved that the item replaces (coveringNote's ownPath checks it). */
-const updates = text.optional();
+const updates = leftOutWhenNull(text);
 
 const CaptureItemSchema = z.discriminatedUnion('kind', [
   z.object({
@@ -19,8 +22,8 @@ const CaptureItemSchema = z.discriminatedUnion('kind', [
     decision: text,
     rationale: text,
     /** Only where the Decision model scored it, as the transcript shows. */
-    probabilities: z.record(z.string().min(1), unit).optional(),
-    confidence: unit.optional(),
+    probabilities: leftOutWhenNull(z.record(z.string().min(1), unit)),
+    confidence: leftOutWhenNull(unit),
     updates,
   }),
   z.object({ kind: z.literal('note'), title: text, body: text, updates }),
