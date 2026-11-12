@@ -1,19 +1,37 @@
-import { Suspense } from 'react';
-import { BusyLine } from '@/components/BusyLine';
-import { PromptBody } from './PromptBody';
-import { usePrompt } from './usePrompt';
+import { AnswerNote } from './AnswerNote';
+import { PromptRead } from './PromptRead';
+import { noteShown } from './promptText';
+import { useAnswer } from './useAnswer';
 
-/** A waiting session's pending prompt, read from the Mac and answered from the phone. */
-export function PromptCard({ id }: { id: string }) {
-  const { prompt, outcome, answering, sending, answer } = usePrompt(id);
+/**
+ * A session's pending prompt while it waits, answered from the phone, and how the last answer
+ * went; the note outlives the prompt, so a stale answer is still told after the session moved on.
+ */
+export function PromptCard({
+  id,
+  waiting,
+  since,
+}: {
+  id: string;
+  waiting: boolean;
+  since: string;
+}) {
+  const { last, round, busy, answer } = useAnswer(id, since);
   return (
-    <Suspense fallback={<BusyLine label="Reading the prompt..." />}>
-      <PromptBody
-        read={prompt}
-        outcome={outcome}
-        busy={answering ? `Sending ${sending ?? 'your answer'}...` : undefined}
-        onAnswer={answer}
-      />
-    </Suspense>
+    <>
+      {/* Read again for each new prompt, whose hook moves the state's time, and after a stale one. */}
+      {waiting ? (
+        <PromptRead
+          key={`${since}:${round}`}
+          id={id}
+          answered={last?.outcome.kind === 'answered' && last.at === since}
+          busy={busy}
+          onAnswer={answer}
+        />
+      ) : null}
+      {last && !busy && noteShown(last, waiting, since) ? (
+        <AnswerNote outcome={last.outcome} />
+      ) : null}
+    </>
   );
 }

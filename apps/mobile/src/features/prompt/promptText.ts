@@ -6,6 +6,18 @@ export type AnswerOutcome =
   | { kind: 'stale' }
   | { kind: 'failed'; text: string };
 
+/** The last answer, with the state time of the prompt it answered. */
+export type LastAnswer = { outcome: AnswerOutcome; at: string };
+
+/**
+ * Whether the last answer's note shows: beside the prompt it answered; after that, a stale one
+ * (why the card changed) and an answer while no prompt waits, but not a failure, which is old news.
+ */
+export function noteShown(last: LastAnswer, waiting: boolean, since: string) {
+  if (last.at === since || last.outcome.kind === 'stale') return true;
+  return !waiting && last.outcome.kind === 'answered';
+}
+
 /** What the card says for a prompt Mesa does not answer from the phone. */
 export const UNSUPPORTED_TITLE = 'Answer it at the Mac';
 export const UNSUPPORTED_TEXT = "The session waits on a prompt Mesa can't answer from the phone.";
@@ -16,7 +28,7 @@ export function outcomeText(outcome: AnswerOutcome) {
     case 'answered':
       return `Answered: ${outcome.label}`;
     case 'stale':
-      return 'The prompt moved on: it was answered at the Mac or replaced. Nothing was sent.';
+      return 'The prompt moved on: it was answered at the Mac or replaced. Your answer was not used.';
     case 'failed':
       return outcome.text;
   }

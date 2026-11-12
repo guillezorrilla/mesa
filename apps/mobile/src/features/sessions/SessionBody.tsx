@@ -21,10 +21,11 @@ export function SessionBody({ read }: { read: Promise<DetailRead> }) {
       <Stack.Screen options={{ title: detail.row.title }} />
       {error ? <ErrorNote text={error} /> : null}
       <SessionHeader row={detail.row} now={now} />
-      {/* Read again for each new prompt, whose hook moves the state's time. */}
-      {groupOf(detail.row.state) === 'needs-you' ? (
-        <PromptCard key={detail.row.since} id={detail.row.id} />
-      ) : null}
+      <PromptCard
+        id={detail.row.id}
+        waiting={groupOf(detail.row.state) === 'needs-you'}
+        since={detail.row.since}
+      />
       {detail.goal ? (
         <Section title="Goal">
           <Text selectable>{detail.goal}</Text>
