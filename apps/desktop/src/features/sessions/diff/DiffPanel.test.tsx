@@ -265,7 +265,7 @@ test("the header names the branch the diff read, ahead of the board's, as a move
 });
 
 /** A notes store behind the fake bridge: add, list and send as the CLI answers them. */
-function notesBridge(rows: object[] = []) {
+function notesBridge(rows: object[] = [], answers: Parameters<typeof fakeBridge>[0] = {}) {
   const notes: Record<string, unknown>[] = [];
   const flag = (args: string[], name: string) =>
     args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
@@ -308,6 +308,7 @@ function notesBridge(rows: object[] = []) {
         delivery: { id: 'x', target: to, status: 'delivered' },
       });
     },
+    ...answers,
   });
 }
 
@@ -579,4 +580,67 @@ test('c on a focused line opens the note composer there, Shift+arrows on a range
   await press(plus(1), 'ArrowDown', { shiftKey: true });
   await press(plus(1), 'c');
   expect(fields().map((f) => f.getAttribute('aria-label'))).toEqual(['Note on line 1']);
+});
+
+/** Renders the diff, writes one note on line 1 and opens nothing else. */
+async function withOneNote(bridge: Parameters<typeof renderWithMesa>[1]) {
+  const byTestId = await renderWithMesa(
+    <DiffPanel sessionId="aaaaaaaa" project="lantern-cove" state="idle" onClose={() => {}} />,
+    bridge,
+  );
+  await click(
+    document.querySelector<HTMLElement>('[aria-label="Add note on line 1"]') ?? undefined,
+  );
+  const box = document.querySelector<HTMLTextAreaElement>('textarea');
+  await fill(box, 'check the tide');
+  await press(box, 'Enter', { metaKey: true });
+  return byTestId;
+}
+
+test("a plain terminal's Send notes goes to a new agent, and its own entry says it has none", async () => {
+  const terminal = managedRow('aaaaaaaa', {
+    name: 'Terminal',
+    kind: 'terminal',
+    agent: 'terminal',
+  });
+  const { bridge, calls } = notesBridge([terminal]);
+  await withOneNote(bridge);
+  await openSendMenu();
+  const self = menuItems()[0];
+  expect(self?.textContent).toBe('This session (Terminal)a plain terminal has no agent');
+  expect(self?.getAttribute('aria-disabled')).toBe('true');
+  await press(document.activeElement, 'Escape');
+  const main = buttons().find((b) => b.textContent?.trim() === 'Send notes to a new agent');
+  await click(main);
+  expect(calls).toContainEqual(expect.arrayContaining(['notes', 'send', '--to=new', 'aaaaaaaa']));
+});
+
+test('a failed send says why in its toast', async () => {
+  const { bridge } = notesBridge([], {
+    'review notes send': () =>
+      envelope({
+        to: 'aaaaaaaa',
+        sent: [],
+        stale: [],
+        delivery: {
+          id: 'x',
+          target: 'aaaaaaaa',
+          status: 'failed',
+          reason: 'session aaaaaaaa is a plain terminal; type into it directly',
+        },
+      }),
+  });
+  const byTestId = await withOneNote(bridge);
+  await click(sendButton());
+  expect(toastTexts(byTestId)).toContain(
+    'Notes not sent: session aaaaaaaa is a plain terminal; type into it directly',
+  );
+});
+
+test('Send notes waits for the board, which says whether this session is a plain terminal', async () => {
+  const { bridge, calls } = notesBridge([], { sessions: () => new Promise(() => {}) });
+  await withOneNote(bridge);
+  expect(sendButton()).toHaveProperty('disabled', true);
+  await click(sendButton());
+  expect(calls.some((c) => c.includes('send'))).toBe(false);
 });
