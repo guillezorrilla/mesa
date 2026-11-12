@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { gateAdvice, gateRequest } from '../../tasks/gate-advice.js';
 import {
   fakePairingBroker,
   fakePhone,
@@ -13,7 +14,6 @@ import type { PhoneMessage } from '../protocol/envelope.js';
 import { phoneKeys } from '../protocol/join.js';
 import { mailbox } from '../protocol/mailbox.js';
 import { macCalls } from '../protocol/requests.js';
-import { gateAdvice, gateRequest } from './gate-advice.js';
 import { replySegments } from './replies.js';
 
 const NOW = new Date('2026-09-24T12:00:00.000Z');

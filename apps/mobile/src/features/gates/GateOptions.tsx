@@ -1,29 +1,31 @@
+import type { GateAdvice } from '@mesa/core/phone';
 import { startTransition } from 'react';
 import { View } from 'react-native';
-import { Button } from '@/components/ui/button';
-import { Text } from '@/components/ui/text';
+import { OptionButton } from './OptionButton';
 
-/** One button per option of an open gate; a press resolves it, the buttons off while it does. */
+/** One button per option of an open gate, each with its odds; a press resolves the gate. */
 export function GateOptions({
   options,
+  advice,
   busy,
   onPick,
 }: {
   options: readonly string[];
+  advice: GateAdvice;
   busy: boolean;
   onPick: (option: string) => void;
 }) {
   return (
     <View className="gap-2">
       {options.map((option) => (
-        <Button
+        <OptionButton
           key={option}
-          variant="outline"
+          option={option}
+          p={advice.odds.find((odds) => odds.option === option)?.p}
+          advised={advice.status === 'accepted' && advice.pick === option}
           disabled={busy}
           onPress={() => startTransition(() => onPick(option))}
-        >
-          <Text>{option}</Text>
-        </Button>
+        />
       ))}
     </View>
   );

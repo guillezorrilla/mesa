@@ -48,11 +48,7 @@ export const phoneGate = z.object({
 });
 export type PhoneGate = z.infer<typeof phoneGate>;
 
-/**
- * The Decision model's advice on a gate (the next-step site over its options): accepted,
- * abstained or unavailable (with why), the option it picks, and each option's probability in
- * the gate's order, with what it gives to deferring to the person.
- */
+/** The Decision model's advice on a gate (core's GateAdvice, `tasks/gate-advice.ts`). */
 export const gateAdvice = z.object({
   status: z.string(),
   pick: z.string().optional(),

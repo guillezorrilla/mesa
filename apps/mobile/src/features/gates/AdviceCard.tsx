@@ -1,28 +1,24 @@
 import type { GateAdvice } from '@mesa/core/phone';
+import Sparkles from 'lucide-react-native/icons/sparkles';
 import { View } from 'react-native';
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { adviceHeadline } from './adviceText';
-import { OddsRow } from './OddsRow';
+import { adviceHeadline, percent } from './adviceText';
 
-/** The Decision model's advice on a gate: its headline, then each option's odds and defer's. */
+/** The Decision model's word on a gate: what it advises, what it leaves to you, and that you pick. */
 export function AdviceCard({ advice }: { advice: GateAdvice }) {
   return (
-    <View className="gap-3 rounded-xl border border-border bg-card p-4">
-      <Text className="font-medium">{adviceHeadline(advice)}</Text>
-      {advice.odds.map((odds) => (
-        <OddsRow
-          key={odds.option}
-          label={odds.option}
-          p={odds.p}
-          picked={odds.option === advice.pick}
-        />
-      ))}
-      {advice.defer === undefined ? null : (
-        <OddsRow label="Leave it to you" p={advice.defer} picked={!advice.pick} />
-      )}
-      {advice.model ? (
-        <Text variant="muted">Advice only, from {advice.model}. You pick.</Text>
-      ) : null}
+    <View className="flex-row gap-3 rounded-xl bg-muted/60 p-4">
+      <Icon as={Sparkles} className="mt-0.5 size-4 text-muted-foreground" />
+      <View className="flex-1 gap-1">
+        <Text className="font-medium">{adviceHeadline(advice)}</Text>
+        {advice.defer === undefined ? null : (
+          <Text variant="muted">Leave it to you: {percent(advice.defer)}</Text>
+        )}
+        {advice.model ? (
+          <Text variant="muted">Advice only, from {advice.model}. You pick.</Text>
+        ) : null}
+      </View>
     </View>
   );
 }

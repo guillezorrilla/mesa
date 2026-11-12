@@ -19,9 +19,13 @@ export function useCrew(id: string) {
   const link = useMac();
   const [crew, setCrew] = useState(() => read(link, id));
   useRepeatWhileActive(EVERY_MS, () => {
-    // Made here, not in an updater, which React may run again while it suspends.
-    const next = read(link, id, crew);
-    startTransition(() => setCrew(next));
+    // ponytail: a session with no crew when opened is not asked again; reopen it to see one.
+    void crew.then((last) => {
+      if (!last?.workers.length && !last?.tasks.length) return;
+      // Made here, not in an updater, which React may run again while it suspends.
+      const next = read(link, id, crew);
+      startTransition(() => setCrew(next));
+    });
   });
   return crew;
 }

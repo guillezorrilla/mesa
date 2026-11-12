@@ -21,13 +21,14 @@ export function CrewBody({ read }: { read: Promise<PhoneCrew | undefined> }) {
       ) : null}
       {crew.tasks.length ? (
         <Section title="Tasks">
-          <View>
-            {taskOrder(crew.tasks).map((task) => (
+          <View className="rounded-xl border border-border px-3">
+            {taskOrder(crew.tasks).map((task, index) => (
               <TaskRow
                 key={task.id}
                 task={task}
                 color={taskColor(task.state)}
                 words={taskWords(task, crew)}
+                first={index === 0}
               />
             ))}
           </View>

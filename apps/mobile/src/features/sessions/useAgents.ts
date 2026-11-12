@@ -1,19 +1,15 @@
-import type { PhoneGate, PhoneRow, UpdateMessage } from '@mesa/core/phone';
+import type { PhoneRow, UpdateMessage } from '@mesa/core/phone';
 import { startTransition, useEffect, useState, useTransition } from 'react';
 import { useRepeatWhileActive } from '@/lib/useRepeatWhileActive';
+import { useGates } from '../gates/useGates';
 import type { MacLink } from '../mac/macLink';
 import { useMac } from '../mac/useMac';
 
 /**
- * The Mac's rows and open decision gates as last listed and when; when that ask went unanswered,
- * the last rows and gates kept and when the Mac was last heard.
+ * The Mac's rows as last listed and when; when that ask went unanswered, the last rows kept and
+ * when the Mac was last heard.
  */
-export type Listing = {
-  rows: PhoneRow[];
-  gates: PhoneGate[];
-  at: number;
-  offline?: { heardAt?: number };
-};
+export type Listing = { rows: PhoneRow[]; at: number; offline?: { heardAt?: number } };
 type Update = UpdateMessage & { at: number };
 
 /** Asking for the rows also keeps the Mac's updates coming for two minutes (WATCH_MS). */
@@ -23,33 +19,27 @@ const RENEW_MS = 60_000;
 const KEEP_MS = 3 * RENEW_MS;
 const fresh = (update: Update) => Date.now() - update.at < KEEP_MS;
 
-// ponytail: gates come with each listing (every minute and on pull), not with the Mac's updates;
-// push them in updateMessage if a new gate must show sooner.
 const list = (link: MacLink, last?: Promise<Listing>): Promise<Listing> =>
-  Promise.all([
-    link.call({ method: 'sessions' }),
-    // A Mac older than the phone answers no gates.
-    link.call({ method: 'gates' }).catch(async () => ({ gates: (await last)?.gates ?? [] })),
-  ]).then(
-    ([{ rows }, { gates }]) => ({ rows, gates, at: Date.now() }),
+  link.call({ method: 'sessions' }).then(
+    ({ rows }) => ({ rows, at: Date.now() }),
     async () => ({
       rows: (await last)?.rows ?? [],
-      gates: (await last)?.gates ?? [],
       at: Date.now(),
       offline: { heardAt: await link.lastHeard() },
     }),
   );
 
 /**
- * The Agents tab's data: the listing (sessions and open gates) as a promise to `use()`, the updates the Mac pushed since,
- * a refresh (pull, and every minute in front, which keeps the updates coming), and marking a
- * session read or unread, shown at once.
+ * The Agents tab's data: the listing as a promise to `use()`, the updates the Mac pushed since,
+ * the open decision gates (useGates), a refresh (pull, and every minute in front, which keeps the
+ * updates coming), and marking a session read or unread, shown at once.
  */
 export function useAgents() {
   const link = useMac();
   const [listing, setListing] = useState(() => list(link));
   const [updates, setUpdates] = useState<Update[]>([]);
   const [refreshing, startRefresh] = useTransition();
+  const open = useGates();
 
   useEffect(
     () =>
@@ -63,7 +53,10 @@ export function useAgents() {
     const next = list(link, listing);
     start(() => setListing(next));
   };
-  const refresh = () => relist(startRefresh);
+  const refresh = () => {
+    relist(startRefresh);
+    open.refresh();
+  };
   useRepeatWhileActive(RENEW_MS, () => relist(startTransition));
 
   const mark = (row: PhoneRow, unread: boolean) => {
@@ -73,5 +66,5 @@ export function useAgents() {
     ]);
     link.call({ method: 'mark', id: row.id, unread }).catch(refresh);
   };
-  return { listing, updates, refreshing, refresh, mark };
+  return { listing, updates, gates: open.gates, refreshing, refresh, mark };
 }

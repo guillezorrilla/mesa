@@ -1,4 +1,4 @@
-import type { PhoneRow, UpdateMessage } from '@mesa/core/phone';
+import type { PhoneGate, PhoneRow, UpdateMessage } from '@mesa/core/phone';
 import { router } from 'expo-router';
 import { use } from 'react';
 import { RefreshControl, SectionList, View } from 'react-native';
@@ -23,6 +23,7 @@ import type { Listing } from './useAgents';
 export function AgentList({
   listing,
   updates,
+  gates,
   filter,
   onFilter,
   refreshing,
@@ -31,6 +32,7 @@ export function AgentList({
 }: {
   listing: Promise<Listing>;
   updates: (UpdateMessage & { at: number })[];
+  gates: PhoneGate[];
   filter: RowFilter;
   onFilter: (filter: RowFilter) => void;
   refreshing: boolean;
@@ -48,7 +50,7 @@ export function AgentList({
     <SectionList
       contentInsetAdjustmentBehavior="automatic"
       className="flex-1 bg-background"
-      sections={groupRows(filterRows(rows, filter), listed.gates)}
+      sections={groupRows(filterRows(rows, filter), gates)}
       keyExtractor={(row) => row.id}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ListHeaderComponent={

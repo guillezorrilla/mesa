@@ -19,7 +19,6 @@ import { instructionsService } from './instructions/service.js';
 import { mapService } from './map/service.js';
 import { backgroundDelivery } from './notifications/background.js';
 import { inbox } from './notifications/inbox.js';
-import { GATE_ADVICE_MS } from './phone/serve/crew.js';
 import { phoneService } from './phone/service.js';
 import { prEventsService } from './pr-events/pr-event-delivery.js';
 import { backupService } from './profile/backup.js';
@@ -86,7 +85,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
     board: () => sessions.sessions.list(),
     send: sessions.sessions.send,
   });
-  const gates = gatesService(ctx, { report: reports.gate });
+  const gates = gatesService(ctx, {
+    report: reports.gate,
+    evaluate: async (request, session, until) =>
+      (await assistance.evaluate(request, { session, until })).evaluation,
+  });
   const tasks = tasksService(ctx, { startWorker: sessions.sessions.worker });
   // Failed automation runs and open gates are notices; the inbox reads them from their owners.
   const notices = inbox(ctx, automations.runs, gates.open);
@@ -103,13 +106,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
         crew: sessions.sessions.crew,
         tasks: (coordinator) => tasks.list(coordinator ? { coordinator } : {}).tasks,
         gates: gates.open,
-        advise: async (request, session) =>
-          (
-            await assistance.evaluate(request, {
-              session,
-              until: ctx.clock().getTime() + GATE_ADVICE_MS,
-            })
-          ).evaluation,
+        advise: gates.advise,
         resolve: gates.resolve,
         merge: (id) => sessions.sessions.merge(id),
       },

@@ -5,15 +5,10 @@ import { useGate } from './useGate';
 
 /** One open decision gate, resolved from the phone with the Decision model's advice beside it. */
 export function GateScreen({ id }: { id: string }) {
-  const gate = useGate(id);
+  const read = useGate(id);
   return (
     <Suspense fallback={<BusyScreen label="Asking your Mac for advice..." />}>
-      <GateBody
-        read={gate.read}
-        resolved={gate.resolved}
-        resolving={gate.resolving}
-        onPick={gate.resolve}
-      />
+      <GateBody read={read} />
     </Suspense>
   );
 }

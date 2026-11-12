@@ -35,8 +35,8 @@ export function filterRows(rows: readonly PhoneRow[], filter: RowFilter) {
 }
 
 /**
- * Needs you (open decision gates first), Working, Done, each in the Mac's attention order, empty
- * groups left out.
+ * Needs you (open decision gates first, whatever the filter: each waits on the person), Working,
+ * Done, each in the Mac's attention order, empty groups left out.
  */
 export function groupRows(rows: readonly PhoneRow[], gates: readonly PhoneGate[] = []) {
   const groups: Group[] = ['needs-you', 'working', 'done'];
