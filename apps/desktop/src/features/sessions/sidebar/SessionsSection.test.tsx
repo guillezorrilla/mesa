@@ -40,7 +40,9 @@ const SESSIONS = [
   }),
   // The coordinator's own Setup session, which passed, and one worker's, which failed.
   setup('setup001', 'coord001'),
-  setup('setup002', 'buoys001', { setupFailed: true }),
+  setup('setup002', 'tides001', { setupFailed: true }),
+  // A worker that reported done shows no setup failure.
+  setup('setup003', 'buoys001', { setupFailed: true }),
 ];
 
 function idle() {
@@ -97,11 +99,12 @@ test('a worker row opens its session, and a failed setup mark opens the Setup se
   const { byTestId, views } = await sidebar();
   await click(byTestId('sidebar-worker')[2]);
   const marks = byTestId('setup-failed');
-  // Only the worker whose setup failed has the mark; the coordinator's passed.
+  // Only the unsettled worker whose setup failed has the mark: the coordinator's passed, and the
+  // done worker's failure no longer matters.
   expect(marks).toHaveLength(1);
   expect(
     marks[0]?.closest('li')?.querySelector('[data-session-id]')?.getAttribute('data-session-id'),
-  ).toBe('buoys001');
+  ).toBe('tides001');
   await click(marks[0]);
   expect(views).toEqual([
     { kind: 'session', id: 'tides001' },
@@ -126,13 +129,17 @@ test("a worker row's icon follows what it reported once it stops working", async
   expect(icons).toEqual(['Done', 'Failed', 'Waiting on you', 'Waiting on you', 'Working', 'Idle']);
 });
 
-test("a worker's setup failed mark sits on its title line, beside its time", async () => {
+test("a worker's setup failed mark is an icon on its title line, beside its time", async () => {
   const { byTestId } = await sidebar();
   const mark = byTestId('setup-failed')[0];
   const line = mark?.parentElement;
   // One overlay holds the mark and the time; the row's title clears room for both.
-  expect(line?.textContent).toMatch(/^setup failed.+$/);
+  // The icon alone, named for screen readers and in its tooltip; the time follows it.
+  expect(mark?.textContent).toBe('');
+  expect(mark?.getAttribute('aria-label')).toBe('Setup failed, click to open its Setup session');
+  expect(mark?.title).toBe('Setup failed, click to open its Setup session');
+  expect(line?.textContent).not.toBe('');
   expect(line?.className).toContain('absolute');
   const row = line?.closest('li')?.querySelector('[data-testid="sidebar-worker"]');
-  expect(row?.querySelector('.pr-32')?.textContent).toBe('buoy-lights');
+  expect(row?.querySelector('.pr-15')?.textContent).toBe('tides');
 });
