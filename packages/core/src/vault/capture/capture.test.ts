@@ -663,6 +663,24 @@ test('a run that returns more than 3 items keeps its first 3', () => {
   );
 });
 
+test('a run that writes a field it leaves out as null reads as if it left it out', () => {
+  const decision = {
+    kind: 'decision',
+    title: 'Tide alerts retry three times',
+    decision: 'Retry three times.',
+    rationale: 'The push service drops some requests.',
+    probabilities: null,
+    confidence: null,
+    updates: null,
+  };
+  const [item] = captureItems(JSON.stringify([decision]));
+  if (item?.kind !== 'decision') throw new Error(`read as ${item?.kind}`);
+  expect(item.title).toBe(decision.title);
+  expect(item.confidence).toBeUndefined();
+  expect(item.probabilities).toBeUndefined();
+  expect(item.updates).toBeUndefined();
+});
+
 test("a capture marks the newest message it was given; a resumed session's turn reads only newer ones, and starts nothing when none are", async () => {
   const w = captureWorld({ output: claudeAnswer(JSON.stringify([NOTE])) });
   const store = testStore(w.home);

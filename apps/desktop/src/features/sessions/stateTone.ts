@@ -22,10 +22,11 @@ type Tone = {
   line: string;
   /** A filled mark's colour: the Crew panel's bar. */
   fill: string;
-  /** StateIcon's icon, its colour, and the name a screen reader gives it. */
+  /** StateIcon's icon and the name a screen reader gives it. */
   icon: LucideIcon;
-  mark: string;
   label: string;
+  /** The state's own colour for words and icons: StateIcon, a Crew card's status line. */
+  ink: string;
 };
 
 const WAITING: Tone = {
@@ -35,13 +36,13 @@ const WAITING: Tone = {
   line: 'text-state-waiting',
   fill: 'bg-state-waiting',
   icon: CircleHelp,
-  mark: 'text-state-waiting',
+  ink: 'text-state-waiting',
   label: 'Waiting on you',
 };
 
 /**
- * One colour per Session state (the theme's `--state-*` tokens); waits are the warm one, and the
- * states Mesa holds (queued, stopped) are uncoloured.
+ * One colour per Session state (the theme's `--state-*` tokens): working blue, waits the warm one,
+ * idle teal, done green, failed red; the states Mesa holds (queued, stopped) are uncoloured.
  */
 const TONES: Record<SessionState, Tone> = {
   working: {
@@ -50,7 +51,7 @@ const TONES: Record<SessionState, Tone> = {
     line: 'text-muted-foreground',
     fill: 'bg-state-working',
     icon: LoaderCircle,
-    mark: 'text-state-working motion-safe:animate-spin',
+    ink: 'text-state-working',
     label: 'Working',
   },
   'waiting-permission': WAITING,
@@ -61,7 +62,7 @@ const TONES: Record<SessionState, Tone> = {
     line: 'text-muted-foreground',
     fill: 'bg-state-idle',
     icon: Clock3,
-    mark: 'text-state-idle',
+    ink: 'text-state-idle',
     label: 'Idle',
   },
   done: {
@@ -70,7 +71,7 @@ const TONES: Record<SessionState, Tone> = {
     line: 'text-muted-foreground',
     fill: 'bg-state-done',
     icon: Check,
-    mark: 'text-state-done',
+    ink: 'text-state-done',
     label: 'Done',
   },
   failed: {
@@ -79,7 +80,7 @@ const TONES: Record<SessionState, Tone> = {
     line: 'text-state-failed',
     fill: 'bg-state-failed',
     icon: CircleX,
-    mark: 'text-state-failed',
+    ink: 'text-state-failed',
     label: 'Failed',
   },
   // Mesa's own: no agent has run yet, or ever will.
@@ -89,7 +90,7 @@ const TONES: Record<SessionState, Tone> = {
     line: 'text-muted-foreground',
     fill: 'bg-muted-foreground/40',
     icon: CircleDashed,
-    mark: 'text-muted-foreground',
+    ink: 'text-muted-foreground',
     label: 'Queued',
   },
   stopped: {
@@ -98,7 +99,7 @@ const TONES: Record<SessionState, Tone> = {
     line: 'text-muted-foreground',
     fill: 'bg-muted-foreground/40',
     icon: Square,
-    mark: 'text-muted-foreground',
+    ink: 'text-muted-foreground',
     label: 'Stopped',
   },
 };

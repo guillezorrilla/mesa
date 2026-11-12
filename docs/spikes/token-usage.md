@@ -26,7 +26,7 @@ Six real windows that no capture had seen yet were replayed through the stricter
 | Sonnet 5.5 | 2 | 1 | $0.31 | 5.0 |
 | Haiku 5.5 | 8 | 2 | $0.04 | 7.3 |
 
-Haiku also kept 6 items Opus dropped, and Sonnet kept 1. The owner chose Haiku: it recalls more of what Opus keeps than Sonnet does, at a twentieth of Opus's cost, and #880's cap of 3 items per run bounds its extra items. On the 463 baseline runs Haiku would have cost about $20 instead of $380. Recheck capture receipts a week after release, and move to Sonnet if noise rises. Since #1000, git text and session summaries run on Haiku too, and import notes on Sonnet.
+Haiku also kept 6 items Opus dropped, and Sonnet kept 1. The owner chose Haiku: it recalls more of what Opus keeps than Sonnet does, at a twentieth of Opus's cost, and #880's cap of 3 items per run bounds its extra items. On the 463 baseline runs Haiku would have cost about $20 instead of $380. A 10-input comparison with Sonnet kept Haiku (`docs/spikes/capture-model.md`, #1057). Since #1000, git text and session summaries run on Haiku too, and import notes on Sonnet.
 
 ## Step 2: what makes context grow
 
