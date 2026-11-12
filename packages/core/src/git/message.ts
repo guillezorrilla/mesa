@@ -36,9 +36,9 @@ export type GitTextRunner = (
 
 /**
  * The commit message for the checkout's staged changes, from the project's
- * `git.commitMessageRecipe` (else the profile's) with `{stagedPatch}` (cut at 200 KB),
- * `{stagedFiles}`, `{branch}` and `{recentCommits}` (the last 10 subjects) filled in, each fenced
- * as data. Refuses with usage, before any run starts, when nothing is staged.
+ * `git.commitMessageRecipe` (else the profile's) with `{stagedPatch}` (cut to PATCH_LIMIT_BYTES,
+ * fairly by file), `{stagedFiles}`, `{branch}` and `{recentCommits}` (the last 10 subjects) filled
+ * in, each fenced as data. Refuses with usage, before any run starts, when nothing is staged.
  */
 export async function writeCommitMessage(
   profile: Profile,
@@ -78,10 +78,10 @@ export async function writeCommitMessage(
 /**
  * A pull request's title and body for the checkout's branch, from the project's
  * `git.pullRequestRecipe` (else the profile's) with `{branchPatch}` (everything since the
- * merge-base with `base`, the project's default branch unless given, cut at 200 KB), `{commits}`
- * (their subjects and bodies, oldest first), `{branch}` and `{base}` filled in, each fenced as
- * data. Refuses with usage, before any run starts, when the branch has no commits past its base
- * and no changes.
+ * merge-base with `base`, the project's default branch unless given, cut like the staged patch),
+ * `{commits}` (their subjects and bodies, oldest first), `{branch}` and `{base}` filled in, each
+ * fenced as data. Refuses with usage, before any run starts, when the branch has no commits past
+ * its base and no changes.
  */
 export async function writePullRequestText(
   profile: Profile,
