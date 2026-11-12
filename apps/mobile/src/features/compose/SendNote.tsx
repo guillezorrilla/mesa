@@ -32,12 +32,9 @@ export function SendNote({
       </View>
     );
   return (
-    <View
-      accessible
-      accessibilityRole="alert"
-      className="gap-3 rounded-xl border border-state-waiting/40 bg-state-waiting/10 p-3"
-    >
-      <View className="flex-row gap-2">
+    // The alert is the text alone, so Send anyway stays its own button for VoiceOver.
+    <View className="gap-3 rounded-xl border border-state-waiting/40 bg-state-waiting/10 p-3">
+      <View accessible accessibilityRole="alert" className="flex-row gap-2">
         <Icon as={ShieldQuestion} className="mt-0.5 size-5 text-state-waiting" />
         <Text className="shrink">{text}</Text>
       </View>
