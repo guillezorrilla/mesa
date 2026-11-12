@@ -3,21 +3,24 @@ import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 import type { Outgoing } from './useSend';
 
-/** The replies sent from this screen, as the person's own bubbles; one still travelling is faint. */
+/** How many of this screen's replies the bar keeps showing, so it never crowds the keyboard. */
+const SHOWN = 2;
+
+/** The latest replies sent from this screen, as the person's own bubbles; one still travelling is faint. */
 export function SentList({ items }: { items: Outgoing[] }) {
   if (!items.length) return null;
   return (
     <View className="gap-1.5">
-      {items.map((item) => (
+      {items.slice(-SHOWN).map((item) => (
         <View
           key={item.key}
           className={cn(
-            'max-w-[85%] self-end rounded-2xl rounded-br-sm bg-secondary px-3 py-2',
+            'max-w-[85%] flex-row items-end gap-2 self-end rounded-2xl rounded-br-sm bg-secondary px-3 py-1.5',
             item.sending && 'opacity-50',
           )}
           accessibilityLabel={`${item.sending ? 'Sending' : 'Sent'}: ${item.text}`}
         >
-          <Text className="text-secondary-foreground" numberOfLines={3}>
+          <Text className="shrink text-sm text-secondary-foreground" numberOfLines={2}>
             {item.photo ? 'Photo. ' : ''}
             {item.text}
           </Text>

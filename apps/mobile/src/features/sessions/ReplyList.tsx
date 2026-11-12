@@ -9,7 +9,8 @@ export function ReplyList({ replies, now }: { replies: PhoneDetail['replies']; n
   return (
     <View className="gap-6">
       {replies.map((reply) => (
-        <View key={reply.id} className="gap-3">
+        // Two replies with the same text share a revision, so the time tells them apart.
+        <View key={`${reply.id}:${reply.at}`} className="gap-3">
           {reply.at ? <Text variant="muted">{relativeAgo(reply.at, now)}</Text> : null}
           {reply.segments.map((segment, part) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: a reply's segments are a fixed cut of its text.

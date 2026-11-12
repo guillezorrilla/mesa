@@ -1,19 +1,18 @@
 import { Suspense } from 'react';
-import { KeyboardAvoidingView } from 'react-native';
 import { BusyScreen } from '@/components/BusyScreen';
+import { KeyboardScreen } from '@/components/KeyboardScreen';
 import { Composer } from '../compose/Composer';
 import { SessionBody } from './SessionBody';
 import { useSessionDetail } from './useSessionDetail';
 
-/** One session, read from the Mac and kept current while open, with the reply box under it. */
+/** One session, read from the Mac and kept current while open, with the reply bar under it. */
 export function SessionScreen({ id }: { id: string }) {
   const { read, again } = useSessionDetail(id);
   return (
-    <KeyboardAvoidingView behavior="padding" className="flex-1 bg-background">
+    <KeyboardScreen bar={<Composer id={id} onSent={again} />}>
       <Suspense fallback={<BusyScreen label="Asking your Mac..." />}>
         <SessionBody read={read} onChange={again} />
       </Suspense>
-      <Composer id={id} onSent={again} />
-    </KeyboardAvoidingView>
+    </KeyboardScreen>
   );
 }

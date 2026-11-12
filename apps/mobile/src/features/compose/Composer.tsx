@@ -21,7 +21,7 @@ export function Composer({ id, onSent }: { id: string; onSent: () => void }) {
   const prompts = usePrompts();
   const empty = !send.draft.trim() && !send.photo;
   return (
-    <View className="gap-2.5 border-t border-border bg-background px-3 pt-2.5 pb-3">
+    <View className="gap-2.5 border-t border-border bg-background px-3 py-2.5">
       <SentList items={send.shown} />
       <SendNote outcome={send.outcome} onSendAnyway={() => send.submit(true)} />
       <Suspense fallback={null}>
