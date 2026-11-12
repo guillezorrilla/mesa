@@ -5,16 +5,19 @@ import { Screen } from '@/components/Screen';
 import { Section } from '@/components/Section';
 import { Text } from '@/components/ui/text';
 import { CrewSection } from '../crew/CrewSection';
+import { PromptCard } from '../prompt/PromptCard';
 import { OutputTail } from './OutputTail';
 import { QueuedList } from './QueuedList';
 import { ReplyList } from './ReplyList';
 import { SessionHeader } from './SessionHeader';
 import { SessionMenu } from './SessionMenu';
+import { groupOf } from './sessionState';
 import type { DetailRead } from './useSessionDetail';
 
 /**
- * What a session said and is doing: state, goal, replies waiting for its turn, latest replies,
- * output tail, and its crew if any; its menu in the header. `onChange` reads it again after the phone changed it.
+ * What a session said and is doing: state, its pending prompt, goal, its crew if any, replies
+ * waiting for its turn, latest replies, output tail; its menu in the header. `onChange` reads it
+ * again after the phone changed it.
  */
 export function SessionBody({
   read,
@@ -41,6 +44,11 @@ export function SessionBody({
       {detail.archived ? (
         <Text variant="muted">Archived on your Mac. Unarchive it from the menu.</Text>
       ) : null}
+      <PromptCard
+        id={detail.row.id}
+        waiting={groupOf(detail.row.state) === 'needs-you'}
+        since={detail.row.since}
+      />
       {detail.goal ? (
         <Section title="Goal">
           <Text selectable>{detail.goal}</Text>

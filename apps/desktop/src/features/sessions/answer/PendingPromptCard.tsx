@@ -1,7 +1,7 @@
+import { promptTitle } from '@mesa/core/browser';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import { PromptTextField } from './PromptTextField';
-import { promptTitle } from './promptTitle';
 import { usePendingPrompt } from './usePendingPrompt';
 
 /**
