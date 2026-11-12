@@ -1,5 +1,7 @@
 // The pairing protocol (`@mesa/core/phone`): what the phone app bundles from core, and nothing else
-// but the pure time words, session state sets and prompt title its screens share with the desktop.
+// but the pure time words, session state sets, prompt title and agent names its screens share with
+// the desktop.
+export { AGENT_LABELS } from '../../agents/names.js';
 export { relativeAgo, shortAgo, timeAgo } from '../../lib/ago.js';
 export { promptTitle } from '../../sessions/answer/title.js';
 export { BUSY_STATES, FINAL_STATES, WAITING_STATES } from '../../sessions/record/states.js';
@@ -73,6 +75,15 @@ export {
   seal,
   sideKeys,
 } from './seal.js';
+export {
+  type PhoneConversation,
+  type PhoneTicket,
+  type PhoneTicketDetail,
+  PLACES,
+  type Place,
+  type StartCall,
+  type StartResult,
+} from './start.js';
 export {
   IMAGE_MAX,
   type QueuedMessage,

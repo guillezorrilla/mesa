@@ -94,6 +94,9 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const tasks = tasksService(ctx, { startWorker: sessions.sessions.worker });
   // Failed automation runs and open gates are notices; the inbox reads them from their owners.
   const notices = inbox(ctx, automations.runs, gates.open);
+  const projects = projectsService(ctx);
+  const worktrees = worktreesService(ctx);
+  const itemStarts = itemSessions(imports.item, sessions.sessions.open, tickets.promptFor);
   const phone = phoneService(
     ctx,
     { pending: notices.pendingPushes, claim: notices.claimPushes },
@@ -115,6 +118,17 @@ export function createMesa(profile: string, deps: MesaDeps) {
       },
       archived: () => sessions.sessions.list('archived'),
       steer: sessionSteer(ctx, faro, sessions.sessions, prompts.list),
+      start: {
+        projects: () => projects.list('last-session'),
+        worktrees: (project) => worktrees.list(project),
+        open: itemStarts.open,
+        tickets: tickets.list,
+        ticket: tickets.show,
+        assign: tickets.assign,
+        history: sessions.sessions.history,
+        search: sessions.sessions.search,
+        adopt: sessions.sessions.adopt,
+      },
     },
   );
   // The scheduler's tick pushes to the phone too, so a session that needs the person reaches
@@ -126,7 +140,6 @@ export function createMesa(profile: string, deps: MesaDeps) {
       return backgroundDelivery(ctx, notices);
     },
   };
-  const worktrees = worktreesService(ctx);
   const installs = installsService(ctx);
   return {
     about: () => about(deps.version, deps.release),
@@ -141,7 +154,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     ...profileApi,
     profiles: profilesService(ctx),
     backup: backupService(ctx, prompts.list),
-    projects: projectsService(ctx),
+    projects,
     automations,
     prompts,
     files: filesService(ctx),
@@ -182,7 +195,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     sources,
     imports: {
       ...imports,
-      ...itemSessions(imports.item, sessions.sessions.open, tickets.promptFor),
+      ...itemStarts,
     },
     tickets,
     decide: faro.decide,

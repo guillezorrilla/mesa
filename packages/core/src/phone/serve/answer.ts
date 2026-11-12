@@ -8,6 +8,7 @@ import { answerSteer, isSteerCall, type SteerDeps } from './answer-steer.js';
 import { answerCrewCall, type CrewDeps, isCrewCall } from './crew.js';
 import { replySegments } from './replies.js';
 import { askedRows, phoneRows, toPhoneRow } from './rows.js';
+import { answerStartCall, isStartCall, type StartDeps } from './start.js';
 
 /** The session functions the CLI uses, which every phone call goes through. */
 export type AnswerDeps = {
@@ -23,6 +24,7 @@ export type AnswerDeps = {
   /** The archived sessions, which the board leaves out. */
   archived: () => Promise<SessionRow[]>;
   steer: SteerDeps;
+  start: StartDeps;
 };
 
 /** How many replies and output lines the session screen gets. */
@@ -36,6 +38,7 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
       rows: await askedRows(phoneRows(await deps.board()), deps.prompt),
     } satisfies CallResult<'sessions'>;
   if (isCrewCall(call)) return answerCrewCall(deps.crew, call);
+  if (isStartCall(call)) return answerStartCall(deps.start, call);
   if (call.method === 'mark') {
     (call.unread ? deps.unread : deps.read)([call.id]);
     return {} satisfies CallResult<'mark'>;

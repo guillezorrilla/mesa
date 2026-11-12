@@ -4,6 +4,7 @@
 // cut into parts when it does not fit one box (chunk.ts).
 import { z } from 'zod';
 import { crewCalls, crewResults } from './crew.js';
+import { startCalls, startResults } from './start.js';
 import { queuedMessage, steerCalls, steerResults } from './steer.js';
 
 /** One session as the phone lists it: the board row cut to what a list shows (about 200 bytes). */
@@ -62,8 +63,8 @@ export type PhonePrompt = z.infer<typeof phonePrompt>;
 
 /**
  * The calls the Mac answers: the board, one session, marking one read or unread, its pending
- * prompt, answering that prompt (`prompt` is its id, so an answer to an older one is stale), a crew's, and steering one
- * (steer.ts).
+ * prompt, answering that prompt (`prompt` is its id, so an answer to an older one is stale), a crew's, steering one
+ * (steer.ts) and starting work (start.ts).
  */
 export const phoneCall = z.discriminatedUnion('method', [
   z.object({ method: z.literal('sessions') }),
@@ -79,6 +80,7 @@ export const phoneCall = z.discriminatedUnion('method', [
   }),
   ...crewCalls,
   ...steerCalls,
+  ...startCalls,
 ]);
 export type PhoneCall = z.infer<typeof phoneCall>;
 
@@ -92,6 +94,7 @@ export const callResults = {
   answer: z.object({ status: z.enum(['answered', 'stale']) }),
   ...crewResults,
   ...steerResults,
+  ...startResults,
 };
 export type CallResult<M extends PhoneCall['method']> = z.infer<(typeof callResults)[M]>;
 

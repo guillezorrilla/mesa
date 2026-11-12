@@ -1,6 +1,7 @@
 import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
 import type { Overrides } from '../../decisions/guardrail.js';
+import type { DecisionRecorder } from '../../decisions/types.js';
 import { findProject } from '../../projects/projects.js';
 import { receiptText } from '../../receipts/command.js';
 import { joinWarnings } from '../../receipts/recorder.js';
@@ -123,11 +124,12 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
      * Starts `agent` (else the project's, else the profile's) in a new window, with the goal
      * as its first prompt, and with `branch`, in its own git worktree. The goal is read first,
      * so the receipt keeps it (receiptText); one Mesa cannot take fails inside the recorded
-     * action, as every refusal does.
+     * action, as every refusal does. With `guardrail` (a person starting it from the phone), the
+     * goal passes the guardrail first with those overrides, its decision in the receipt.
      */
     open: (
       project: string | undefined,
-      opts: Omit<OpenFlags, 'project'> & { goalFile?: string } = {},
+      opts: Omit<OpenFlags, 'project'> & { goalFile?: string; guardrail?: Overrides } = {},
     ) => {
       const { agent, mode, background, parent, noParent, after, base, terminal, general, from } =
         opts;
@@ -188,10 +190,20 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
             ...(opts.with?.length ? { with: opts.with } : {}),
             ...(opts.review ? { review: opts.review } : {}),
           },
-          outputs: ({ record: r }) => startedOutputs(r, open().config.agents),
+          outputs: ({ record: r, override }) => ({
+            ...startedOutputs(r, open().config.agents),
+            ...(override ? { override } : {}),
+          }),
         },
-        async () => {
+        async (decisions: DecisionRecorder) => {
           if (refused) throw refused;
+          const override =
+            opts.guardrail &&
+            (await faro.guardrail.gate(
+              { action: 'open', target: '', text: goal ?? '', ...(project ? { project } : {}) },
+              opts.guardrail,
+              decisions,
+            ));
           const worktree =
             opts.checkout === undefined || project === undefined
               ? undefined
@@ -227,7 +239,7 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
             with: opts.with,
             cwd: opts.cwd,
           };
-          return openSession(openDeps(), input);
+          return { ...(await openSession(openDeps(), input)), override };
         },
       ).then((recorded) => ({ ...recorded, result: recorded.result.record }));
     },
