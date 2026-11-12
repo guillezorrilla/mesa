@@ -3,11 +3,12 @@
 # Vendored third-party skills under .agents/skills and .claude/skills are excluded:
 # they are managed by the skills CLI and would be overwritten on update.
 # So are the four library skills copied unchanged from kepano/obsidian-skills (each
-# folder's NOTICE names the commit): they keep upstream punctuation.
+# folder's NOTICE names the commit): they keep upstream punctuation. So does pnpm-lock.yaml,
+# generated, where packages' own deprecation notices land.
 set -eu
 cd "$(dirname "$0")/.."
 hits=$(git ls-files -z ':!.agents/skills' ':!.claude/skills' ':!skills/obsidian-markdown' \
-  ':!skills/obsidian-bases' ':!skills/json-canvas' ':!skills/obsidian-cli' | xargs -0 grep -Il "$(printf '\342\200\224')" 2>/dev/null || true)
+  ':!skills/obsidian-bases' ':!skills/json-canvas' ':!skills/obsidian-cli' ':!pnpm-lock.yaml' | xargs -0 grep -Il "$(printf '\342\200\224')" 2>/dev/null || true)
 if [ -n "$hits" ]; then
   echo "em dash (U+2014) found in:"
   echo "$hits"
