@@ -80,7 +80,7 @@ export const GUIDELINES_LINE = `Guidelines: before live tests, config writes out
  * Claude Code only: many-file questions go to a cheap Explore agent, whose answer the session
  * keeps instead of the files it read (docs/spikes/token-usage.md, Step 7).
  */
-export const READER_LINE =
+export const EXPLORE_LINE =
   'Many-file questions: ask an Explore agent with model haiku; keep its answer, not the files.';
 
 /** How a session's agent reaches the Decision model: its tool, or the CLI without it. */
@@ -88,11 +88,10 @@ export type DecisionsReach = 'tool' | 'cli';
 
 /**
  * A bounded native hook supplement, under 1,000 bytes and with no vault content: the session, how
- * to reach Mesa and the vault tools (ADR-0012), and the CLI when they are not there; after it,
- * outside the cap, READER_LINE for Claude, GUIDELINES_LINE with `guidelines` (sessions.guidelines
- * is on), and with `decisions`,
- * DECISIONS_LINE (`tool`: the agent has the decision tool) or DECISIONS_CLI_LINE (`cli`: the
- * profile has a Decision model the agent lacks the tool for) last. Provider and repository
+ * to reach Mesa and the vault tools (ADR-0012), and the CLI when they are not there. After it,
+ * outside the cap: EXPLORE_LINE for Claude, GUIDELINES_LINE with `guidelines` (sessions.guidelines
+ * is on), and with `decisions`, DECISIONS_LINE (`tool`: the agent has the decision tool) or
+ * DECISIONS_CLI_LINE (`cli`: the profile has a Decision model the agent lacks the tool for) last. Provider and repository
  * instructions stay intact.
  */
 export function mesaPointer(
@@ -123,7 +122,7 @@ export function mesaPointer(
   if (record.additional) lines.splice(1, 0, alsoIn(record, Buffer.byteLength(lines.join('\n'))));
   return [
     ...lines,
-    ...(record.agent === 'claude' ? [READER_LINE] : []),
+    ...(record.agent === 'claude' ? [EXPLORE_LINE] : []),
     ...(guidelines ? [GUIDELINES_LINE] : []),
     ...(decisions ? [decisions === 'tool' ? DECISIONS_LINE : DECISIONS_CLI_LINE] : []),
   ].join('\n');

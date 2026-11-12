@@ -6,9 +6,9 @@ import { decisionsReach } from './decision-status.js';
 import {
   DECISIONS_CLI_LINE,
   DECISIONS_LINE,
+  EXPLORE_LINE,
   GUIDELINES_LINE,
   mesaPointer,
-  READER_LINE,
 } from './instructions.js';
 
 // The longest ids and paths a pointer realistically names: a long profile and project, and a
@@ -16,9 +16,9 @@ import {
 const PROFILE = 'work-client-2026';
 const PROJECT = 'lantern-cove-platform-api';
 const CWD = `/Users/alexandra-montgomery/.mesa/${PROFILE}/worktrees/${PROJECT}/issue-1234-long-branch-name-for-feature`;
-// The base pointer the 1,000-byte cap bounds: the lines after it (READER_LINE, guidelines,
+// The base pointer the 1,000-byte cap bounds: the lines after it (EXPLORE_LINE, guidelines,
 // decisions) sit outside the cap.
-const base = (pointer: string) => pointer.replace(`\n${READER_LINE}`, '');
+const base = (pointer: string) => pointer.replace(`\n${EXPLORE_LINE}`, '');
 const record = (over: Partial<SessionRecord>): SessionRecord => ({
   ...newSession({ project: PROJECT }),
   id: 'abcdefgh',
@@ -43,9 +43,10 @@ test.each(['claude', 'codex', 'antigravity'] as const)(
 );
 
 test('only a Claude pointer sends many-file questions to an Explore agent on Haiku', () => {
-  expect(Buffer.byteLength(READER_LINE)).toBeLessThan(160);
-  expect(READER_LINE).toContain('Explore agent with model haiku');
-  expect(mesaPointer(record({ agent: 'claude' }), PROFILE, CWD)).toContain(READER_LINE);
+  expect(Buffer.byteLength(EXPLORE_LINE)).toBeLessThan(160);
+  expect(EXPLORE_LINE).toContain('Explore agent with model haiku');
+  expect(EXPLORE_LINE).toContain('keep its answer, not the files');
+  expect(mesaPointer(record({ agent: 'claude' }), PROFILE, CWD)).toContain(EXPLORE_LINE);
   for (const agent of ['codex', 'antigravity'] as const)
     expect(mesaPointer(record({ agent }), PROFILE, CWD)).not.toContain('Explore');
 });
