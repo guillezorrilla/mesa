@@ -4,6 +4,7 @@ import { ChoiceField } from '../controls/ChoiceField';
 import { SettingRow } from '../SettingRow';
 import { SettingSection } from '../SettingSection';
 import { useSettings } from '../useSettings';
+import { TestPushRow } from './TestPushRow';
 
 /** The idle minutes after which the person counts as away. */
 const AWAY_AFTER = [
@@ -13,6 +14,12 @@ const AWAY_AFTER = [
   ['15', '15 min'],
   ['30', '30 min'],
 ] as const;
+
+/** The choices, with a value set from the CLI that is not one of them. */
+const withCurrent = (minutes: string) =>
+  AWAY_AFTER.some(([value]) => value === minutes)
+    ? AWAY_AFTER
+    : [...AWAY_AFTER, [minutes, `${minutes} min`] as const];
 
 /** When the paired phone gets a push, and how long the Mac sits idle before that counts as away (#1016). */
 export function PhonePushSection() {
@@ -49,11 +56,12 @@ export function PhonePushSection() {
             id="phone-away-after"
             path="phone.awayAfter"
             value={String(config.phone.awayAfter)}
-            options={AWAY_AFTER}
+            options={withCurrent(String(config.phone.awayAfter))}
             toValue={Number}
           />
         }
       />
+      <TestPushRow />
     </SettingSection>
   );
 }

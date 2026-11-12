@@ -90,23 +90,42 @@ test('away, a question is pushed once, sealed with its title, project and what h
   expect(s.pushes()).toHaveLength(1);
 });
 
-test('at the desk nothing is pushed, nor later once away; a locked screen counts as away', async () => {
+test('at the desk nothing is pushed; the notice goes once the person is away, unless read or stale', async () => {
   const s = await setup();
   s.mac.idleSeconds = 4 * 60;
   s.ask();
   expect(await s.mesa.phone.push()).toMatchObject({ status: 'at-desk', pushed: [] });
-  s.mac.idleSeconds = 10 * 60;
-  expect(await s.mesa.phone.push()).toMatchObject({ status: 'none' });
   expect(s.pushes()).toEqual([]);
+  // The person walks away before answering: the question goes once they count as away.
+  s.time.pass(60_000);
+  s.mac.idleSeconds = 5 * 60;
+  expect(await s.mesa.phone.push()).toMatchObject({ status: 'pushed' });
+  expect(s.pushes()).toHaveLength(1);
 
+  // One read at the desk never goes, nor one older than the window.
   s.mac.idleSeconds = 0;
+  s.ask();
+  const [read] = s.mesa.notifications.list();
+  s.mesa.notifications.markRead(read?.id ?? '');
+  s.mac.idleSeconds = 600;
+  expect(await s.mesa.phone.push()).toMatchObject({ status: 'none' });
+  s.mac.idleSeconds = 0;
+  s.ask();
+  s.time.pass(16 * 60_000);
+  s.mac.idleSeconds = 600;
+  expect(await s.mesa.phone.push()).toMatchObject({ status: 'none' });
+  expect(s.pushes()).toHaveLength(1);
+});
+
+test('a locked screen counts as away', async () => {
+  const s = await setup();
   s.mac.locked = true;
   s.ask();
   expect(await s.mesa.phone.push()).toMatchObject({ status: 'pushed' });
   expect(s.pushes()).toHaveLength(1);
 });
 
-test('`always` pushes at the desk without asking ioreg; `never` pushes and claims nothing', async () => {
+test('`always` pushes at the desk without asking ioreg; `never` pushes nothing', async () => {
   const s = await setup();
   setConfigValue(s.config, 'phone.push', 'never', lockDeps());
   s.ask();
@@ -153,4 +172,13 @@ test('push-test sends a sealed notice now, whatever the idle time', async () => 
     { kind: 'input', notice: { title: 'Mesa', body: 'Pushes from this Mac reach your phone' } },
   ]);
   expect(s.ioreg()).toBe(0);
+});
+
+test("the scheduler's delivery pushes too, so the phone hears with the app closed", async () => {
+  const s = await setup();
+  s.mac.idleSeconds = 600;
+  s.ask();
+  await s.mesa.notifications.deliver();
+  expect(s.pushes()).toHaveLength(1);
+  expect(await s.mesa.phone.push()).toMatchObject({ status: 'none' });
 });

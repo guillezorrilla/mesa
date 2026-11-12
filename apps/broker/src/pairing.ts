@@ -4,6 +4,7 @@
 //
 // Every read of `meta` is followed by its write with no other await between, so the runtime's
 // input gate keeps another request from writing in the middle; a token is hashed before the read.
+import type { NoticeKind } from '@mesa/core/phone';
 import type { Pusher } from './apns.js';
 import { BOX_MAX, boxStore, KEEP_MS, type PairingStorage, type Side } from './boxes.js';
 import { json } from './respond.js';
@@ -53,7 +54,7 @@ export const UNAUTHED_MAX = 4;
 /** The longest sealed notice a push takes (core's NOTICE_MAX), under APNs' 4 KB payload. */
 export const NOTICE_MAX = 3072;
 /** The fixed alert per notice kind: a phone whose extension cannot open the notice shows it. */
-export const ALERTS: Record<string, string> = {
+export const ALERTS: Record<NoticeKind, string> = {
   input: 'A session needs you',
   finished: 'A session finished',
 };
@@ -238,7 +239,10 @@ export class Pairing {
     }
     if (op === '/push' && request.method === 'POST') {
       if (side !== 'mac') return json(403, { error: 'mac_only' });
-      const alert = typeof fields.kind === 'string' ? ALERTS[fields.kind] : undefined;
+      const alert =
+        typeof fields.kind === 'string' && Object.hasOwn(ALERTS, fields.kind)
+          ? ALERTS[fields.kind as NoticeKind]
+          : undefined;
       if (!alert || !isText(fields.notice, NOTICE_MAX) || !/^[\w-]+$/.test(fields.notice))
         return json(400, { error: 'bad_request' });
       if (!this.push) return json(500, { error: 'not_configured' });

@@ -5,6 +5,7 @@ import { command, type Recorded } from './spec';
 export const phoneCommands = {
   'phone.status': command<PhoneStatus>('phone', 'status'),
   'phone.push': command<PushOutcome>('phone', 'push'),
+  'phone.pushTest': command<{ pairingId: string; sent: true }>('phone', 'push-test'),
   'phone.pair': command<Recorded<PairStart & { svg: string }>>('phone', 'pair'),
   'phone.unpair': command<
     Recorded<{ unpaired: boolean; pairingId?: string; brokerRemoved?: boolean }>

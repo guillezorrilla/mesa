@@ -128,6 +128,23 @@ test('Phone has the push setting, when away by default, and the away minutes, 5 
   ]);
 });
 
+test('Phone sends a test push, and keeps an away time set from the CLI', async () => {
+  const config = { ...(await base()), phone: { push: 'away' as const, awayAfter: 7 } };
+  const { bridge, calls } = fakeBridge({
+    config: () => envelope(config),
+    'phone status': () => envelope({ paired: true, pairingId: 'pairing-0000000001' }),
+    'phone push-test': () => envelope({ pairingId: 'pairing-0000000001', sent: true }),
+  });
+  const byTestId = await render(bridge);
+  await click(nav('Phone'));
+  expect((document.getElementById('phone-away-after') as HTMLSelectElement).value).toBe('7');
+  await click(
+    [...document.querySelectorAll('button')].find((b) => b.textContent === 'Send test push'),
+  );
+  expect(calls.some((args) => args[1] === 'phone' && args[2] === 'push-test')).toBe(true);
+  expect(toasts(byTestId)).toEqual([['confirmation', 'Sent a test push to your phone']]);
+});
+
 test('Sessions has the keep awake select, off by default, saved to sessions.keepAwake', async () => {
   const { bridge, calls } = fakeBridge({ 'config set': () => envelope({}) });
   await render(bridge);

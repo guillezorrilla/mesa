@@ -15,7 +15,7 @@ const InboxStateSchema = z
     read: z.array(z.string()),
     cleared: z.array(z.string()),
     delivered: z.array(z.string()).default([]),
-    /** Notices the phone push has decided on, pushed or not (#1016), so none is pushed twice. */
+    /** Notices a phone push took (#1016), whether it went through or not, so none goes twice. */
     pushed: z.array(z.string()).default([]),
     items: z.array(CandidateSchema).default([]),
     offsets: z.record(z.string(), z.number().int().nonnegative()).default({}),

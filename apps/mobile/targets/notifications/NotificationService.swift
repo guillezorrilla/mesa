@@ -6,7 +6,8 @@ import Security
 import UserNotifications
 
 /// Where the app keeps its pairing: expo-secure-store's item (service `app:no-auth`, account the
-/// key's bytes) in the access group the app and this extension share.
+/// key's bytes) in the access group the app and this extension share. The app's
+/// src/features/pairing/pairingStore.ts owns the key and group; app.config.ts the entitlement.
 private let pairingQuery: [String: Any] = [
   kSecClass as String: kSecClassGenericPassword,
   kSecAttrService as String: "app:no-auth",

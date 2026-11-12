@@ -600,11 +600,11 @@ Not: device, connection (a Source's), account.
 A Pairing's queue of sealed messages between the Mac and the Phone, relayed at once to a connected side and kept up to 7 days for one that is not. The Mac reads it while the app or the profile scheduler runs.
 Not: inbox (the Mac's notices), queue.
 
-
 ## Phone push
 
-A push to the paired Phone when a session's Inbox notice is a question, a permission request or a finished turn, by `phone.push`: `away` (the default) while the Mac has had no keyboard or pointer input for `phone.awayAfter` minutes (5) or its screen is locked, `always`, or `never`. The Mac seals the notice (the session's title, its project and what happened) for the phone and the Broker sends APNs a fixed alert with the ciphertext, which the phone's Notification Service Extension opens. Each notice is decided once, beside its delivery state (`pushed` in `notifications.json`): one claimed while at the desk is never pushed later, and a failed push is not tried again; the notice stays in the Inbox either way. The app asks on every hook event; `mesa phone push` does the same and `mesa phone push-test` sends a test push now.
+A push to the paired Phone when a session's Inbox notice is a question, a permission request or a finished turn, by `phone.push`: `away` (the default) while the Mac has had no keyboard or pointer input for `phone.awayAfter` minutes (5) or its screen is locked, `always`, or `never`. The Mac seals the notice (the session's title, its project and what happened) for the phone and the Broker sends APNs a fixed alert with the ciphertext, which the phone's Notification Service Extension opens. Each notice is pushed at most once, tracked beside its delivery state (`pushed` in `notifications.json`): one that comes while the person is at the desk waits and goes once they are away, if still unread and under `phone.awayAfter` plus 10 minutes old; a failed push is not tried again, and the notice stays in the Inbox either way. The app asks on every hook event and the profile scheduler on each tick, so pushes go with the app closed while the scheduler is installed; `mesa phone push` does the same, and `mesa phone push-test` (or Send test push in Settings > Phone) sends a test push now.
 Not: Native delivery (macOS banners), the Mailbox.
+
 ## Context tab
 
 The project screen's tab for bringing source material into the project: connected Sources, the Picker, a pasted link, and the project's imported items. Import remains the action and CLI command; Context names the section. This is distinct from Project context, the bounded vault overview a session reads.

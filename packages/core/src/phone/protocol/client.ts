@@ -24,8 +24,10 @@ export class PairingError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
+    /** Why, when the broker says: APNs' own reason for a failed push. */
+    readonly reason?: string,
   ) {
-    super(`the broker answered ${status} ${code}`);
+    super(`the broker answered ${status} ${code}${reason ? ` (${reason})` : ''}`);
   }
 }
 
@@ -43,7 +45,12 @@ export function pairingClient(fetch: Fetch, broker: string) {
     }).catch(() => undefined);
     if (!response) throw new PairingError(NETWORK, 'unreachable');
     const body = response.status === 204 ? {} : await response.json().catch(() => ({}));
-    if (!response.ok) throw new PairingError(response.status, String(body.error ?? 'failed'));
+    if (!response.ok)
+      throw new PairingError(
+        response.status,
+        String(body.error ?? 'failed'),
+        typeof body.reason === 'string' ? body.reason : undefined,
+      );
     return body as T;
   };
   const at = (pairingId: string) => `/pairings/${encodeURIComponent(pairingId)}`;

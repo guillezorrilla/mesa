@@ -2,6 +2,7 @@
 // token from the APNS_KEY secret. The push carries a fixed alert and the sealed notice; the
 // broker never opens the notice.
 import type { Env, Upstream } from './broker.js';
+import { base64url } from './tokens.js';
 
 /** What APNs did with a push: sent, the device token is dead, or another failure. */
 export type PushResult =
@@ -22,12 +23,6 @@ const APNS = 'https://api.push.apple.com/3/device/';
 const TOKEN_MS = 50 * 60_000;
 /** The reasons that mean the device token will never work again. */
 const DEAD = new Set(['BadDeviceToken', 'Unregistered']);
-
-const base64url = (bytes: Uint8Array | string) =>
-  btoa(typeof bytes === 'string' ? bytes : String.fromCharCode(...bytes))
-    .replaceAll('+', '-')
-    .replaceAll('/', '_')
-    .replace(/=+$/, '');
 
 /** The PKCS#8 bytes of a .p8 file's PEM text. */
 const pkcs8 = (pem: string) =>
