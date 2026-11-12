@@ -1,18 +1,25 @@
 import { MacCallError } from '@mesa/core/phone';
 
 /** How an answer from the phone went: the answer given, stale, or why it failed. */
-export type AnswerOutcome = { answered: string } | { stale: true } | { error: string };
+export type AnswerOutcome =
+  | { kind: 'answered'; label: string }
+  | { kind: 'stale' }
+  | { kind: 'failed'; text: string };
 
 /** What the card says for a prompt Mesa does not answer from the phone. */
-export const UNSUPPORTED_TEXT =
-  "Mesa can't answer this prompt from the phone. Answer it at the Mac.";
+export const UNSUPPORTED_TITLE = 'Answer it at the Mac';
+export const UNSUPPORTED_TEXT = "The session waits on a prompt Mesa can't answer from the phone.";
 
 /** The line under the card after an answer. */
 export function outcomeText(outcome: AnswerOutcome) {
-  if ('answered' in outcome) return `Answered: ${outcome.answered}`;
-  if ('stale' in outcome)
-    return 'The prompt moved on: it was answered at the Mac or replaced. Nothing was sent.';
-  return outcome.error;
+  switch (outcome.kind) {
+    case 'answered':
+      return `Answered: ${outcome.label}`;
+    case 'stale':
+      return 'The prompt moved on: it was answered at the Mac or replaced. Nothing was sent.';
+    case 'failed':
+      return outcome.text;
+  }
 }
 
 /**

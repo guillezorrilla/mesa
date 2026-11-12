@@ -3,9 +3,9 @@ import { expect, test } from 'vitest';
 import { answerErrorText, outcomeText } from './promptText';
 
 test('an answer says what was given, a stale one that the prompt moved on', () => {
-  expect(outcomeText({ answered: 'Allow' })).toBe('Answered: Allow');
-  expect(outcomeText({ stale: true })).toMatch(/^The prompt moved on/);
-  expect(outcomeText({ error: 'no session x' })).toBe('no session x');
+  expect(outcomeText({ kind: 'answered', label: 'Allow' })).toBe('Answered: Allow');
+  expect(outcomeText({ kind: 'stale' })).toMatch(/^The prompt moved on/);
+  expect(outcomeText({ kind: 'failed', text: 'no session x' })).toBe('no session x');
 });
 
 test('an answer the Mac did not take in time may still go through; its own error is its words', () => {

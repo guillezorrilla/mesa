@@ -1,3 +1,5 @@
+import { clip } from '../../lib/clip.js';
+import { firstLine } from '../../lib/format.js';
 import type { PendingPrompt } from '../../sessions/answer/pending.js';
 import type { ManagedRow, SessionRow } from '../../sessions/board/rows.js';
 import { sessionTitle } from '../../sessions/record/labels.js';
@@ -27,9 +29,9 @@ const ASK_MAX = 120;
 /** A pending prompt in one line: the tool it asks for, then the first line of what it asks. */
 export function askLine(prompt: PendingPrompt): string | undefined {
   if (prompt.status !== 'pending') return undefined;
-  const first = prompt.summary.trim().split('\n')[0] ?? '';
+  const first = firstLine(prompt.summary);
   const line = prompt.tool && prompt.kind === 'permission' ? `${prompt.tool}: ${first}` : first;
-  return line.length > ASK_MAX ? `${line.slice(0, ASK_MAX - 3)}...` : line || undefined;
+  return clip(line, ASK_MAX) || undefined;
 }
 
 /**

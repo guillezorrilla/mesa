@@ -39,7 +39,7 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
   }
   if (call.method === 'answer') {
     const { id, prompt, option, text } = call;
-    return deps.answer(id, option === undefined ? { text, prompt } : { option, prompt }).then(
+    return deps.answer(id, { option, text, prompt }).then(
       (): CallResult<'answer'> => ({ status: 'answered' }),
       (error) => {
         if (isStale(error)) return { status: 'stale' } satisfies CallResult<'answer'>;

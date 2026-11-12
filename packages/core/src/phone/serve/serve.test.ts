@@ -1,15 +1,15 @@
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { profilePaths } from '../../profile/paths.js';
 import { listReceipts } from '../../receipts/store.js';
 import {
   CLAUDE_VERSION,
+  claudePromptPane,
   fakePairingBroker,
   fakePhone,
   fakeTmux,
   memorySecretStore,
   newSession,
+  plantHookEvent,
   plantOutputLog,
   projectProfile,
   scriptedRunner,
@@ -125,18 +125,11 @@ test('the phone reads a waiting prompt, sees it on its row, answers it as the pe
   const { id } = opened;
   const window = world.windows[0];
   if (!window) throw new Error('no window opened');
-  const events = profilePaths(home, 'default').events;
-  const hook = (at: string) => {
-    mkdirSync(events, { recursive: true });
-    const payload = { tool_name: 'Bash', tool_input: { command: 'touch beacon.txt' } };
-    const line = { at, agent: 'claude', event: 'PermissionRequest', mesaSessionId: id, payload };
-    appendFileSync(join(events, `${id}.jsonl`), `${JSON.stringify(line)}\n`);
-  };
+  const payload = { tool_name: 'Bash', tool_input: { command: 'touch beacon.txt' } };
+  const hook = (at: string) =>
+    plantHookEvent(home, { session: id, agent: 'claude', at, event: 'PermissionRequest', payload });
   hook('2026-09-24T11:59:00.000Z');
-  window.screen = readFileSync(
-    new URL('../../agents/claude/fixtures/prompts/bash.txt', import.meta.url),
-    'utf8',
-  );
+  window.screen = claudePromptPane('bash');
 
   const prompt = await calls.call({ method: 'prompt', id });
   expect(prompt).toMatchObject({

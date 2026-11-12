@@ -1,64 +1,59 @@
 import { type PhonePrompt, promptTitle } from '@mesa/core/phone';
 import { use } from 'react';
 import { BusyLine } from '@/components/BusyLine';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CodeBlock } from '@/components/CodeBlock';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
-import { cn } from '@/lib/utils';
 import { AnswerNote } from './AnswerNote';
+import { PromptHeading } from './PromptHeading';
 import { PromptOptions } from './PromptOptions';
 import { PromptTextField } from './PromptTextField';
-import { type AnswerOutcome, UNSUPPORTED_TEXT } from './promptText';
+import type { AnswerOutcome } from './promptText';
+import { UnsupportedPromptCard } from './UnsupportedPromptCard';
 import type { Choice } from './usePrompt';
 
 /**
- * The prompt card: what the agent asks and its input, its options and a typed answer where it
- * takes one; for a prompt Mesa cannot answer here, that it waits at the Mac.
+ * The prompt card: what the agent asks (a command as code), then its options and a typed answer
+ * where it takes one, closed once answered; `busy` names the answer on its way.
  */
 export function PromptBody({
   read,
   outcome,
-  answering,
+  busy,
   onAnswer,
 }: {
   read: Promise<PhonePrompt | undefined>;
   outcome?: AnswerOutcome;
-  answering: boolean;
+  busy?: string;
   onAnswer: (choice: Choice) => void;
 }) {
   const prompt = use(read);
   const note = outcome ? <AnswerNote outcome={outcome} /> : null;
-  if (prompt?.status !== 'pending') {
-    if (!prompt) return note;
-    return (
-      <Card className="gap-2 py-4">
-        <CardContent className="px-4">
-          <Text>{UNSUPPORTED_TEXT}</Text>
-        </CardContent>
-      </Card>
-    );
-  }
-  const answered = Boolean(outcome && 'answered' in outcome);
-  const disabled = answering || answered;
+  if (!prompt) return note;
+  if (prompt.status === 'unsupported') return <UnsupportedPromptCard />;
+  const open = outcome?.kind !== 'answered';
   return (
-    <Card className="gap-4 py-4">
-      <CardHeader className="gap-2 px-4">
-        <CardTitle>{promptTitle(prompt)}</CardTitle>
-        <Text selectable className={cn(prompt.kind === 'permission' && 'font-mono text-sm')}>
-          {prompt.summary}
-        </Text>
+    <Card className="gap-4 border-state-waiting/50 py-4">
+      <CardHeader className="gap-3 px-4">
+        <PromptHeading title={promptTitle(prompt)} />
+        {prompt.kind === 'permission' ? (
+          <CodeBlock code={prompt.summary} />
+        ) : (
+          <Text selectable>{prompt.summary}</Text>
+        )}
       </CardHeader>
       <CardContent className="gap-3 px-4">
-        {answered ? null : (
+        {open ? (
           <PromptOptions
             options={prompt.options}
-            disabled={disabled}
+            disabled={Boolean(busy)}
             onChoose={(option) => onAnswer({ option })}
           />
-        )}
-        {prompt.freeText && !answered ? (
-          <PromptTextField disabled={disabled} onSubmit={(text) => onAnswer({ text })} />
         ) : null}
-        {answering ? <BusyLine label="Answering..." /> : note}
+        {open && prompt.freeText ? (
+          <PromptTextField disabled={Boolean(busy)} onSubmit={(text) => onAnswer({ text })} />
+        ) : null}
+        {busy ? <BusyLine label={busy} /> : note}
       </CardContent>
     </Card>
   );
