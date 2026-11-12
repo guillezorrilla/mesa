@@ -4,7 +4,7 @@ import type { ExpoConfig } from 'expo/config';
 const BUNDLE_ID = 'com.guillezorrilla.mesa';
 const TEAM_ID = 'EMTB6K854Q';
 /** The Expo project on expo.dev, made once by `eas init` under the Expo account `guillecoto`. */
-const EAS_PROJECT_ID = '';
+const EAS_PROJECT_ID = '91db22b0-7dc0-4d75-80b1-f253572225a9';
 
 const config: ExpoConfig = {
   name: 'Mesa',
