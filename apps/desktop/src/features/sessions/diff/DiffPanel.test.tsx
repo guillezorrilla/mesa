@@ -636,3 +636,11 @@ test('a failed send says why in its toast', async () => {
     'Notes not sent: session aaaaaaaa is a plain terminal; type into it directly',
   );
 });
+
+test('Send notes waits for the board, which says whether this session is a plain terminal', async () => {
+  const { bridge, calls } = notesBridge([], { sessions: () => new Promise(() => {}) });
+  await withOneNote(bridge);
+  expect(sendButton()).toHaveProperty('disabled', true);
+  await click(sendButton());
+  expect(calls.some((c) => c.includes('send'))).toBe(false);
+});

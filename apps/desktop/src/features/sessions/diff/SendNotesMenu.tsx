@@ -39,8 +39,11 @@ export function SendNotesMenu(props: {
       <SplitButton
         size="xs"
         variant="outline"
-        // This session waiting on a person: a send would type into its prompt.
-        disabled={props.busy || !props.count || Boolean(self?.unavailable && !self.terminal)}
+        // None yet (the board is still read), or this session waiting on a person: a send would
+        // go to the wrong place or type into its prompt.
+        disabled={
+          props.busy || !props.count || !self || Boolean(self.unavailable && !self.terminal)
+        }
         onClick={() => props.onSend(fallback)}
         menuLabel="More ways to send notes"
         menu={

@@ -1,7 +1,7 @@
 import type { SessionRow } from '../board/rows.js';
 import { sessionFolder } from '../record/folder.js';
 import { sessionLabel } from '../record/labels.js';
-import { liveAgent, reviewable } from '../record/lifecycle.js';
+import { liveAgent } from '../record/lifecycle.js';
 import type { SessionState } from '../record/states.js';
 
 // Who a session's review notes can go to (mesa review notes send --to). Pure, so the app bundles
@@ -34,14 +34,14 @@ export function notesRecipients(rows: readonly SessionRow[], id: string): NotesR
     r.managed && r.project === self.project && sessionFolder(r) === sessionFolder(self);
   const kin = (r: SessionRow) => r.id === self.parentNow || self.children.includes(r.id);
   const others = rows.filter((r) => r.id !== id && liveAgent(r) && (here(r) || kin(r)));
-  return [self, ...others].map((r) => {
-    const terminal = !reviewable(r);
-    const unavailable = terminal ? 'a plain terminal has no agent' : WAITING[r.lastState.state];
-    return {
-      id: r.id,
-      name: sessionLabel(r),
-      ...(unavailable ? { unavailable } : {}),
-      ...(terminal ? { terminal: true as const } : {}),
-    };
-  });
+  const listed = (r: SessionRow): NotesRecipient => {
+    const waiting = WAITING[r.lastState.state];
+    return { id: r.id, name: sessionLabel(r), ...(waiting ? { unavailable: waiting } : {}) };
+  };
+  // Every other one is a live agent (liveAgent); only itself can be a plain terminal.
+  const first =
+    self.agent === 'terminal'
+      ? { ...listed(self), unavailable: 'a plain terminal has no agent', terminal: true as const }
+      : listed(self);
+  return [first, ...others.map(listed)];
 }
