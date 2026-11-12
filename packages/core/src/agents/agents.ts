@@ -9,6 +9,7 @@ import { antigravityLastOutputLine, antigravityScreenState } from './antigravity
 import { claudeContext } from './claude/context-use.js';
 import { claudeBackgroundWork, claudeHookState } from './claude/hook-state.js';
 import { claudeListedState, listClaudeProcesses } from './claude/listing.js';
+import { claudePrompt } from './claude/prompt.js';
 import { readClaudeResult } from './claude/result.js';
 import { claudeLastOutputLine, claudeScreenState } from './claude/screen.js';
 import { claudeTranscriptReader } from './claude/transcripts.js';
@@ -16,6 +17,7 @@ import { claudeReading, claudeUsage, claudeUsageFiles } from './claude/usage.js'
 import { codexContext } from './codex/context-use.js';
 import { codexHookState } from './codex/hook-state.js';
 import { listCodexSessions } from './codex/listing.js';
+import { codexPrompt } from './codex/prompt.js';
 import { readCodexResult } from './codex/result.js';
 import { codexSessionId } from './codex/rollouts.js';
 import { codexLastOutputLine, codexScreenState } from './codex/screen.js';
@@ -221,6 +223,8 @@ export const AGENTS = {
     stopContinues: true,
     /** Its pane's screen: the state it shows, and the board's last output line. */
     screen: { state: claudeScreenState, lastLine: claudeLastOutputLine },
+    /** The permission or question its pane waits on, and the keys that answer it (agents/prompt.ts). */
+    prompt: claudePrompt,
     /**
      * Its live sessions on the machine, and the state each listed status means. `costly`: a
      * process spawn (0.14 to 0.22 s), so a look skips it while hooks settle every session (#896).
@@ -291,6 +295,7 @@ export const AGENTS = {
     /** Qualified live in Codex 0.162.1 (docs/spikes/codex.md, Stop hook continuation). */
     stopContinues: true,
     screen: { state: codexScreenState, lastLine: codexLastOutputLine },
+    prompt: codexPrompt,
     /** Its sessions written in the last 10 minutes, whose rows say no state. */
     listing: { list: listCodexSessions, state: () => undefined, costly: false },
     /** Last native per-turn token usage and context window from the exact rollout. */
@@ -340,6 +345,8 @@ export const AGENTS = {
     backgroundWork: undefined,
     stopContinues: false,
     screen: { state: antigravityScreenState, lastLine: antigravityLastOutputLine },
+    /** Not qualified (docs/spikes/prompt-answers.md): its prompts are answered in the pane. */
+    prompt: undefined,
     listing: { list: async () => [], state: () => undefined, costly: false },
     context: undefined,
     transcripts: undefined,

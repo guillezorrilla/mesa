@@ -1,12 +1,13 @@
 import { STOP_CONTINUED } from '../hooks.js';
+import { payloadField } from '../prompt.js';
 import type { AgentState } from '../states.js';
 
 // What Claude Code's hook events mean as a session state (docs/spikes/state-signals.md).
 
-const field = (payload: unknown, key: string) =>
-  payload && typeof payload === 'object' && key in payload
-    ? String((payload as Record<string, unknown>)[key])
-    : undefined;
+const field = (payload: unknown, key: string) => {
+  const value = payloadField(payload, key);
+  return value === undefined ? undefined : String(value);
+};
 
 /** The state a Claude Code hook event means, or none for one that says nothing. */
 export function claudeHookState(event: string, payload?: unknown): AgentState | undefined {

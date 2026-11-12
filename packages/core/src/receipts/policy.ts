@@ -14,6 +14,8 @@ export const RECORD_KINDS = [
   'merge',
   // A phone paired with the profile or unpaired from it (`mesa phone pair|unpair`, CONTEXT.md, Pairing).
   'phone',
+  // A person's answer to a session's permission or question prompt (`mesa answer`, CONTEXT.md, Pending prompt).
+  'answer',
 ] as const;
 export type RecordKind = (typeof RECORD_KINDS)[number];
 
@@ -27,6 +29,7 @@ export const keepSuccess = (kind: RecordKind | undefined, outputs: Record<string
   kind === 'vault-change' ||
   kind === 'connection' ||
   kind === 'phone' ||
+  kind === 'answer' ||
   kind === 'refresh' ||
   kind === 'automation' ||
   kind === 'capture' ||
@@ -45,7 +48,7 @@ export const keepFailure = (kind: RecordKind | undefined, code: string) =>
 export const BASES_MEANINGFUL_FILTER = [
   '!(outputs && outputs.target.isType("string") && (outputs.target == "daily" || outputs.target.startsWith("daily/")))',
   '&& ((status == "ok" && (kind == "decision" || kind == "vault-change" || kind == "connection"',
-  '|| kind == "phone"',
+  '|| kind == "phone" || kind == "answer"',
   '|| kind == "capture"',
   '|| (kind == "refresh" && outputs && ((outputs.refreshed.isType("list") && outputs.refreshed.length > 0)',
   '|| (outputs.notesWritten.isType("number") && outputs.notesWritten > 0)))',

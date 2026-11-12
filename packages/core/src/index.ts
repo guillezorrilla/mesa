@@ -147,6 +147,13 @@ export type {
 } from './reports/report-delivery.js';
 export type { ChildReport, PendingReport, Question } from './reports/reports.js';
 export { type SearchHit, searchWorkspace } from './search/search.js';
+export {
+  ANSWER_VIAS,
+  type AnswerChoice,
+  type Answered,
+  type AnswerVia,
+} from './sessions/answer/answer.js';
+export type { PendingPrompt, PromptOption } from './sessions/answer/pending.js';
 export { awakeStatus, isKeepAwakeMode, KEEP_AWAKE_MODES } from './sessions/awake.js';
 export { agentCrewRow, agentRow, agentShown } from './sessions/board/agent-view.js';
 export type { SessionScope } from './sessions/board/board.js';

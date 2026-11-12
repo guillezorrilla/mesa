@@ -2,6 +2,7 @@ import type { Command } from '../command.js';
 import { about, aboutLicenses } from './about.js';
 import { adopt } from './adopt.js';
 import { agents } from './agents.js';
+import { answer } from './answer.js';
 import { archive } from './archive.js';
 import { attach } from './attach.js';
 import { AUTOMATIONS_COMMANDS } from './automations/index.js';
@@ -87,6 +88,7 @@ import {
   projectsUpdate,
   projectsVisit,
 } from './projects.js';
+import { prompt } from './prompt.js';
 import { prompts, promptsRemove, promptsSave } from './prompts.js';
 import { PRS_COMMANDS } from './prs/index.js';
 import { read } from './read.js';
@@ -255,6 +257,8 @@ export const COMMANDS: Command[] = [
   receiptsShow,
   register,
   progress,
+  prompt,
+  answer,
   rename,
   rewind,
   impact,
