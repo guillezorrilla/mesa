@@ -33,6 +33,7 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
     row: phoneRow(row),
     goal: row.goal ?? null,
     replies: replies.map((reply) => ({
+      id: reply.revision,
       at: reply.at ?? null,
       segments: replySegments(reply.text),
     })),

@@ -18,6 +18,13 @@ test('a paired phone says when it paired and when it was last seen', () => {
   expect(describePairing({ paired: true }, false, NOW)).toBe('Paired');
 });
 
+test('a paired phone whose listener is not loaded says the Mac is not answering it', () => {
+  expect(describePairing({ paired: true, listening: false }, false, NOW)).toBe(
+    'Paired; the Mac is not answering it (mesa phone serve)',
+  );
+  expect(describePairing({ paired: true, listening: true }, false, NOW)).toBe('Paired');
+});
+
 test('a code on show asks for the scan; otherwise it says what pairing gives', () => {
   expect(describePairing({ paired: false, pending: true }, true, NOW)).toBe(
     'Scan the code with the Mesa app on your phone',

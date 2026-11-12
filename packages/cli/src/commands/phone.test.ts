@@ -68,3 +68,12 @@ test('phone pair with no broker reachable fails and keeps nothing', async () => 
   expect(out.code).toBe(1);
   expect(out.stderr).toContain("couldn't reach the broker at https://broker.test");
 });
+
+test('phone serve says so and stops when the profile is not paired', async () => {
+  cli.deps = { secretStore: memorySecretStore().store };
+  await cli.withProject();
+  const served = await cli.mesa('phone', 'serve', '--json');
+  expect(served.code).toBe(0);
+  expect(served.json.data).toEqual({ ended: 'not-paired' });
+  expect((await cli.mesa('phone', 'serve')).stdout).toMatch(/^not paired; mesa phone pair first/);
+});

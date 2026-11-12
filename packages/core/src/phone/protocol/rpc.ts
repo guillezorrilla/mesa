@@ -27,7 +27,10 @@ export type ReplySegment = z.infer<typeof replySegment>;
 export const phoneDetail = z.object({
   row: phoneRow,
   goal: z.string().nullable(),
-  replies: z.array(z.object({ at: z.string().nullable(), segments: z.array(replySegment) })),
+  /** Each reply's id is its text's revision, so a list keeps it across reads. */
+  replies: z.array(
+    z.object({ id: z.string(), at: z.string().nullable(), segments: z.array(replySegment) }),
+  ),
   tail: z.array(z.string()),
 });
 export type PhoneDetail = z.infer<typeof phoneDetail>;
@@ -72,6 +75,8 @@ export const updateMessage = z.object({
   rows: z.array(phoneRow),
   gone: z.array(z.string()),
 });
+
+export type UpdateMessage = z.infer<typeof updateMessage>;
 
 /** How long one `sessions` request keeps updates coming. */
 export const WATCH_MS = 120_000;

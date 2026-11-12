@@ -1,0 +1,22 @@
+import { router, Stack } from 'expo-router';
+import { headerTitleStyle } from '@/lib/headerStyle';
+
+/** The Mac tab: the pairing, pairing from a link, and About. */
+export default function HomeLayout() {
+  return (
+    <Stack screenOptions={{ headerTitleStyle }}>
+      <Stack.Screen name="index" options={{ title: 'Mesa' }}>
+        {/* A native bar button, so iOS 26 centers the symbol in its glass circle. */}
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Button
+            icon="info.circle"
+            accessibilityLabel="About Mesa"
+            onPress={() => router.push('/about')}
+          />
+        </Stack.Toolbar>
+      </Stack.Screen>
+      <Stack.Screen name="pair" options={{ title: 'Pair' }} />
+      <Stack.Screen name="about" options={{ title: 'About' }} />
+    </Stack>
+  );
+}

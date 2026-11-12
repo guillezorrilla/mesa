@@ -597,8 +597,13 @@ Not: device, connection (a Source's), account.
 
 ## Mailbox
 
-A Pairing's queue of sealed messages between the Mac and the Phone, relayed at once to a connected side and kept up to 7 days for one that is not. The Mac reads it while the app or the profile scheduler runs.
+A Pairing's queue of sealed messages between the Mac and the Phone, relayed at once to a connected side and kept up to 7 days for one that is not. The Mac reads it through its Phone listener; a message over one box travels as numbered parts.
 Not: inbox (the Mac's notices), queue.
+
+## Phone listener
+
+The Mac's process that answers the paired Phone (`mesa phone serve`): it holds the Pairing's socket, answers each request through the same core functions the CLI uses, and pushes a session's changed row while the phone watches. Pairing installs it as a LaunchAgent that runs with the app open or closed, one per profile; unpairing removes it.
+Not: scheduler, Inbox delivery.
 
 ## Context tab
 
