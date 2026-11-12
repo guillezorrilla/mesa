@@ -238,6 +238,23 @@ function sessionRecordsCheck(reasons: string[]): Finding {
   return { name, ok: false, hint };
 }
 
+/**
+ * Keys in the profile's config.yaml this Mesa does not know: a newer Mesa's, or a typo. Mesa
+ * ignores them (readConfig), so a warning naming each. A config that does not read is one too.
+ */
+function configKeysCheck(file: string, unknownKeys: () => string[]): Finding {
+  const name = 'config keys';
+  try {
+    const keys = unknownKeys();
+    const hint = keys.length
+      ? `Mesa ignores ${keys.join(', ')}: written by a newer Mesa, or a typo`
+      : '';
+    return { name, ok: !keys.length, path: file, hint };
+  } catch (error) {
+    return { name, ok: false, path: file, hint: toFail(error).error.message };
+  }
+}
+
 function profileDirCheck(dir: string): Finding {
   const ok = existsSync(dir);
   return {
@@ -279,6 +296,8 @@ export async function runDoctor(deps: {
   vault?: () => VaultStatus;
   /** Why each session record file that does not read fails. */
   unreadableRecords?: () => string[];
+  /** The profile's config file and the keys in it Mesa does not know; none before init. */
+  config?: { file: string; unknownKeys: () => string[] };
 }): Promise<DoctorReport> {
   const [binaries, obsidian, hooks] = await Promise.all([
     Promise.all(
@@ -304,6 +323,7 @@ export async function runDoctor(deps: {
     ...[
       obsidian,
       profileDirCheck(deps.profileDir),
+      ...(deps.config ? [configKeysCheck(deps.config.file, deps.config.unknownKeys)] : []),
       ...decisionsCheck(deps.decisions),
       ...(deps.vault ? [vaultCheck(deps.vault)] : []),
       ...(deps.unreadableRecords ? [sessionRecordsCheck(deps.unreadableRecords())] : []),
