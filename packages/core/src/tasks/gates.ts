@@ -1,7 +1,12 @@
 import type { MesaContext } from '../context.js';
+import type { Evaluation } from '../decisions/evaluate.js';
+import { ON_DEMAND_MS } from '../decisions/models.js';
+import type { DecisionRequest } from '../decisions/request.js';
 import { shortId } from '../lib/ids.js';
 import { MesaError } from '../lib/result.js';
+import { taskTitle } from '../sessions/record/labels.js';
 import { callerOf } from '../sessions/window/caller.js';
+import { type GateAdvice, gateAdvice, gateRequest } from './gate-advice.js';
 import { type Gate, isLive, type ResolvedGate } from './task-file.js';
 import { taskStore } from './task-store.js';
 
@@ -13,6 +18,8 @@ const MAX_OPTIONS = 8;
 export type GatesDeps = {
   /** Tells `coordinator` how a person resolved `gate` on its task: a `gate` child report. */
   report: (gate: ResolvedGate, coordinator: string) => void;
+  /** Decision assistance's on-demand evaluate for `session`, ending by the clock time `until`. */
+  evaluate: (request: DecisionRequest, session: string, until: number) => Promise<Evaluation>;
 };
 
 /** A gate the Inbox shows: open, with its task's coordinator. */
@@ -72,6 +79,37 @@ export function gatesService(ctx: MesaContext, deps: GatesDeps) {
         };
         return { next: { ...file, gates: [...file.gates, gate] }, result: gate };
       });
+    },
+    /**
+     * Open gate `id` with its task's title and the Decision model's advice on its options, asked
+     * at the next-step site for the task's coordinator within `withinMs` (advice only, kept
+     * nowhere; CONTEXT.md, Decision gate). With no model, no coordinator, or one no longer live,
+     * the advice is unavailable and says why. An unknown or resolved gate is not_found.
+     */
+    advise: async (
+      id: string,
+      withinMs = ON_DEMAND_MS,
+    ): Promise<OpenGate & { title: string; advice: GateAdvice }> => {
+      const gate = open().find((g) => g.id === id);
+      if (!gate) throw new MesaError('not_found', `no open gate ${id}; see mesa gates`);
+      const task = store.peek().tasks.find((t) => t.id === gate.task);
+      const title = task ? taskTitle(task.spec) : gate.task;
+      const unavailable = (reason: string) => ({
+        status: 'unavailable' as const,
+        odds: [],
+        reason,
+      });
+      if (!gate.coordinator)
+        return { ...gate, title, advice: unavailable('the task has no coordinator') };
+      try {
+        const asked = { question: gate.question, options: gate.options, task: title };
+        const until = ctx.clock().getTime() + withinMs;
+        const evaluation = await deps.evaluate(gateRequest(asked), gate.coordinator, until);
+        return { ...gate, title, advice: gateAdvice(gate, evaluation) };
+      } catch (error) {
+        if (!(error instanceof MesaError)) throw error;
+        return { ...gate, title, advice: unavailable(error.message) };
+      }
     },
     /** The open gates, oldest first, `task`'s only when given. */
     list: (task?: string) => ({

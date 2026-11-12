@@ -12,6 +12,14 @@ export {
   type PairingInfo,
   pairingClient,
 } from './client.js';
+export type {
+  GateAdvice,
+  PhoneCrew,
+  PhoneGate,
+  PhoneMerge,
+  PhoneTask,
+  PhoneWorker,
+} from './crew.js';
 export {
   type Opened,
   openDeliveries,

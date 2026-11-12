@@ -3,6 +3,7 @@
 // update is a change the Mac pushes on its own. Each travels as one sealed message (envelope.ts),
 // cut into parts when it does not fit one box (chunk.ts).
 import { z } from 'zod';
+import { crewCalls, crewResults } from './crew.js';
 
 /** One session as the phone lists it: the board row cut to what a list shows (about 200 bytes). */
 export const phoneRow = z.object({
@@ -56,7 +57,7 @@ export type PhonePrompt = z.infer<typeof phonePrompt>;
 
 /**
  * The calls the Mac answers: the board, one session, marking one read or unread, its pending
- * prompt, and answering that prompt (`prompt` is its id, so an answer to an older one is stale).
+ * prompt, answering that prompt (`prompt` is its id, so an answer to an older one is stale), and a crew's.
  */
 export const phoneCall = z.discriminatedUnion('method', [
   z.object({ method: z.literal('sessions') }),
@@ -70,6 +71,7 @@ export const phoneCall = z.discriminatedUnion('method', [
     option: z.string().optional(),
     text: z.string().max(4000).optional(),
   }),
+  ...crewCalls,
 ]);
 export type PhoneCall = z.infer<typeof phoneCall>;
 
@@ -81,6 +83,7 @@ export const callResults = {
   prompt: phonePrompt,
   /** Answered, or stale: the session no longer waits on that prompt. */
   answer: z.object({ status: z.enum(['answered', 'stale']) }),
+  ...crewResults,
 };
 export type CallResult<M extends PhoneCall['method']> = z.infer<(typeof callResults)[M]>;
 

@@ -25,6 +25,14 @@ test('gates create blocks a task, gates lists it, and resolve unblocks it', asyn
   expect((await mesa('tasks', 'show', task.id)).stdout).toContain(`gate ${gate.id} open`);
   expect((await mesa('gates', '--task', task.id, '--json')).json.data.gates).toEqual([gate]);
   expect((await mesa('gates')).stdout).toContain(`${gate.id}  ${task.id}`);
+  // No Decision model in this profile: advice says why, and the gate is unchanged.
+  const advised = (await mesa('gates', 'advise', gate.id, '--json')).json.data;
+  expect(advised).toMatchObject({ id: gate.id, title: 'Parse the tide tables' });
+  expect(advised.advice).toEqual({
+    status: 'unavailable',
+    odds: [],
+    reason: 'the task has no coordinator',
+  });
 
   const one = await mesa(
     'gates',

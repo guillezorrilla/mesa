@@ -4,6 +4,7 @@ import type { PendingPrompt } from '../../sessions/answer/pending.js';
 import type { SessionRow } from '../../sessions/board/rows.js';
 import type { SessionResponses } from '../../sessions/native/responses.js';
 import type { CallResult, PhoneCall } from '../protocol/rpc.js';
+import { answerCrewCall, type CrewDeps, isCrewCall } from './crew.js';
 import { replySegments } from './replies.js';
 import { askedRows, phoneRows, toPhoneRow } from './rows.js';
 
@@ -17,6 +18,7 @@ export type AnswerDeps = {
   prompt: (id: string) => Promise<PendingPrompt>;
   /** Answers as the person, from the phone. */
   answer: (id: string, choice: AnswerChoice) => Promise<unknown>;
+  crew: CrewDeps;
 };
 
 /** How many replies and output lines the session screen gets. */
@@ -29,6 +31,7 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
     return {
       rows: await askedRows(phoneRows(await deps.board()), deps.prompt),
     } satisfies CallResult<'sessions'>;
+  if (isCrewCall(call)) return answerCrewCall(deps.crew, call);
   if (call.method === 'mark') {
     (call.unread ? deps.unread : deps.read)([call.id]);
     return {} satisfies CallResult<'mark'>;
