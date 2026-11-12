@@ -1,15 +1,22 @@
 import { z } from 'zod';
+import { partMessage } from './chunk.js';
 import type { Delivery } from './client.js';
+import { requestMessage, responseMessage, updateMessage } from './rpc.js';
 import { open, type SideKeys, seal } from './seal.js';
 
 /**
  * What a sealed box holds. `seq` counts up from 1 on each side, so a box the broker replays or
  * reorders is refused. `hello` is the phone's first message, proving it read the Mac's QR;
- * `text` is a plain note, for checking a pairing end to end. Later kinds join this union.
+ * `text` is a plain note, for checking a pairing end to end; `request`, `response` and `update` are
+ * the request layer (rpc.ts), and `part` one slice of a message over one box (chunk.ts).
  */
 export const phoneMessage = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('hello'), secret: z.string() }),
   z.object({ kind: z.literal('text'), text: z.string().max(4000) }),
+  requestMessage,
+  responseMessage,
+  updateMessage,
+  partMessage,
 ]);
 export type PhoneMessage = z.infer<typeof phoneMessage>;
 

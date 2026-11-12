@@ -32,6 +32,7 @@ const {
   profilesDir,
   systemClock,
   ulidSource,
+  webSocketConnect,
 } = await import('@mesa/core');
 const { runCli, VERSION } = await import('./cli.js');
 const { unpackSkills } = await import('./bundled-skills.js');
@@ -78,6 +79,7 @@ const { code, stdout, stderr, exec, serve } = await runCli(argv, {
     env: process.env,
     run,
     http: (url, init) => fetch(url, init),
+    connect: webSocketConnect,
     // A person gets five minutes to sign in to a source.
     listen: loopbackListener(5 * 60_000),
     secretStore: keychainStore(run),

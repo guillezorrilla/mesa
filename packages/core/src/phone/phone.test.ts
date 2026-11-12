@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import {
@@ -19,12 +19,13 @@ const NOW = new Date('2026-09-24T12:00:00.000Z');
 function setup() {
   const broker = fakePairingBroker('https://broker.test', () => NOW);
   const secrets = memorySecretStore();
-  const { mesa, home } = projectProfile(scriptedRunner().run, {
+  const runner = scriptedRunner({ '/usr/bin/id': '501\n' });
+  const { mesa, home } = projectProfile(runner.run, {
     http: broker.http,
     secretStore: secrets.store,
     env: { MESA_BROKER_URL: 'https://broker.test/' },
   });
-  return { mesa, home, broker, secrets, phone: fakePhone(broker.http, () => NOW) };
+  return { mesa, home, broker, secrets, runner, phone: fakePhone(broker.http, () => NOW) };
 }
 
 /** Every file under `dir`, as text. */
@@ -35,7 +36,7 @@ const filesUnder = (dir: string): string[] =>
   });
 
 test('pair shows a QR link and keeps the Mac half in the Keychain only; the phone joins and status confirms it', async () => {
-  const { mesa, home, broker, secrets, phone } = setup();
+  const { mesa, home, broker, secrets, phone, runner } = setup();
   const recorded = await mesa.phone.pair();
   const started = recorded.result;
   const receipt = readFileSync(join(home, 'vault', recorded.receipt?.path ?? ''), 'utf8');
@@ -63,7 +64,20 @@ test('pair shows a QR link and keeps the Mac half in the Keychain only; the phon
     pairingId: 'pairing-0000000001',
     since: NOW.toISOString(),
     phoneLastSeen: NOW.toISOString(),
+    listening: true,
   });
+  // Pairing installs the listener's LaunchAgent, kept alive so the phone hears back with the app closed.
+  const plist = readFileSync(
+    join(home, 'Library/LaunchAgents/com.mesa.phone.default.plist'),
+    'utf8',
+  );
+  expect(plist).toContain('<string>--json</string><string>phone</string><string>serve</string>');
+  expect(plist).toContain('<key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>');
+  expect(runner.calls.filter((c) => c.args[0] === 'bootstrap')).toHaveLength(1);
+  // Later looks start it again (one that ended when a pairing did), never install a second.
+  expect(await mesa.phone.status()).toMatchObject({ listening: true });
+  expect(runner.calls.filter((c) => c.args[0] === 'bootstrap')).toHaveLength(1);
+  expect(runner.calls.filter((c) => c.args[0] === 'kickstart')).toHaveLength(1);
 
   const item = JSON.parse(secrets.items.get(`mesa.${'default'}.phone pairing`) ?? '{}');
   expect(item).toMatchObject({ pairingId: 'pairing-0000000001', phoneKey: expect.any(String) });
@@ -124,7 +138,7 @@ test('a second pair while paired is refused; while pending it replaces the QR', 
 });
 
 test('unpair ends it on the broker and here, and a pairing the broker forgot reads as unpaired', async () => {
-  const { mesa, phone, broker, secrets } = setup();
+  const { mesa, phone, broker, secrets, home } = setup();
   await phone.join((await mesa.phone.pair()).result.qr);
   await mesa.phone.status();
   expect((await mesa.phone.unpair()).result).toEqual({
@@ -134,6 +148,7 @@ test('unpair ends it on the broker and here, and a pairing the broker forgot rea
   });
   expect(broker.rooms.size).toBe(0);
   expect(secrets.items.size).toBe(0);
+  expect(existsSync(join(home, 'Library/LaunchAgents/com.mesa.phone.default.plist'))).toBe(false);
   expect((await mesa.phone.unpair()).result).toEqual({ unpaired: false });
 
   (await mesa.phone.pair()).result;

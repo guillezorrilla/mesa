@@ -59,7 +59,14 @@ import {
 } from './notifications.js';
 import { obsidianManager, obsidianVaults } from './obsidian.js';
 import { open } from './open.js';
-import { phonePair, phonePush, phonePushTest, phoneStatus, phoneUnpair } from './phone.js';
+import {
+  phonePair,
+  phonePush,
+  phonePushTest,
+  phoneServe,
+  phoneStatus,
+  phoneUnpair,
+} from './phone.js';
 import { ports } from './ports.js';
 import { prEvents } from './pr-events.js';
 import {
@@ -167,6 +174,7 @@ export const COMMANDS: Command[] = [
   phonePair,
   phonePush,
   phonePushTest,
+  phoneServe,
   phoneStatus,
   phoneUnpair,
   installs,

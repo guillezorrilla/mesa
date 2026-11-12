@@ -97,3 +97,12 @@ test('phone push-test pushes a sealed notice now and prints the answer; without 
     failed: [],
   });
 });
+
+test('phone serve says so and stops when the profile is not paired', async () => {
+  cli.deps = { secretStore: memorySecretStore().store };
+  await cli.withProject();
+  const served = await cli.mesa('phone', 'serve', '--json');
+  expect(served.code).toBe(0);
+  expect(served.json.data).toEqual({ ended: 'not-paired' });
+  expect((await cli.mesa('phone', 'serve')).stdout).toMatch(/^not paired; mesa phone pair first/);
+});

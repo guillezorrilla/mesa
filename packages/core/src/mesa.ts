@@ -88,7 +88,17 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const gates = gatesService(ctx, { report: reports.gate });
   // Failed automation runs and open gates are notices; the inbox reads them from their owners.
   const notices = inbox(ctx, automations.runs, gates.open);
-  const phone = phoneService(ctx, { pending: notices.pendingPushes, claim: notices.claimPushes });
+  const phone = phoneService(
+    ctx,
+    { pending: notices.pendingPushes, claim: notices.claimPushes },
+    {
+      board: () => sessions.sessions.list(),
+      responses: (id) => sessions.sessions.responses.list(id),
+      logs: (id, tail) => sessions.sessions.logs(id, tail),
+      read: sessions.sessions.read,
+      unread: sessions.sessions.unread,
+    },
+  );
   // The scheduler's tick pushes to the phone too, so a session that needs the person reaches
   // them with the app closed; a push that fails stays in the Inbox, as a banner that fails does.
   const notifications = {
