@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { AGENTS } from '../../agents/agents.js';
-import type { AgentPrompt, PromptEvent } from '../../agents/prompt.js';
+import type { AgentPrompt, PromptChoice, PromptEvent } from '../../agents/prompt.js';
 import { MesaError } from '../../lib/result.js';
 import { refuseRun, sessionEnded } from '../record/record.js';
 import { WAITING_STATES } from '../record/states.js';
@@ -13,7 +13,7 @@ import { windowOf } from '../window/window-name.js';
 // its last hook event and its pane's tail by its agent's reader (AGENTS[agent].prompt).
 
 /** One answer a pending prompt offers. */
-export type PromptOption = { id: string; label: string; description?: string };
+export type PromptOption = Omit<PromptChoice, 'keys'>;
 
 /** What `mesa prompt` prints: the prompt with its answers, or why Mesa cannot answer it. */
 export type PendingPrompt =

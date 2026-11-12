@@ -109,8 +109,8 @@ export async function sendPrompt(
       `session ${id} runs ${pane.command}, not its agent; --force sends anyway`,
     );
   }
-  // The Enter after the text would answer a permission prompt, which Mesa never relays. Another
-  // session may not force it, with --no-from or without: only a person answers one (ADR-0003).
+  // The Enter after the text would answer a permission prompt, which only `mesa answer` does, for a
+  // person. Another session may not force it, with --no-from or without: only a person answers one (ADR-0003).
   // Any Mesa window counts, this profile's or another's.
   const agent = Boolean(sender ?? window) || deps.caller().inMesaWindow;
   if (WAITING_STATES.has(record.lastState.state) && (agent || !force)) {

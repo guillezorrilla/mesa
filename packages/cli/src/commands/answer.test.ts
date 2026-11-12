@@ -52,7 +52,7 @@ test('mesa prompt --json prints the pending prompt; mesa answer allow presses it
     ],
   });
   expect((await mesa('prompt', id)).stdout).toBe(
-    `permission ${shown.json.data.id}: touch beacon.txt\n  allow: Allow\n  deny: Deny\n`,
+    `permission ${shown.json.data.id}: touch beacon.txt\n  allow: Allow\n  deny: Deny\nanswer: mesa answer ${id} <option> --prompt ${shown.json.data.id}\n`,
   );
   const answered = await mesa('answer', id, 'allow', '--prompt', shown.json.data.id, '--json');
   expect(answered.json.data).toMatchObject({ answered: true, option: 'allow', answer: 'Allow' });

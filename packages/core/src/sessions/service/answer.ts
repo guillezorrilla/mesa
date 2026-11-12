@@ -1,15 +1,11 @@
 import type { MesaContext } from '../../context.js';
 import { redactText } from '../../lib/redact.js';
 import { receiptText } from '../../receipts/command.js';
-import { type AnswerChoice, answerPrompt } from '../answer/answer.js';
+import { type AnswerChoice, type AnswerVia, answerPrompt } from '../answer/answer.js';
 import { pendingPrompt } from '../answer/pending.js';
 import { projectScope } from '../record/general.js';
 import { recordAgent } from '../record/record.js';
 import type { SessionDeps } from './deps.js';
-
-/** Where a person answered from, as the receipt names it. */
-export const ANSWER_VIAS = ['cli', 'app', 'phone'] as const;
-export type AnswerVia = (typeof ANSWER_VIAS)[number];
 
 /** A session's pending prompt, and a person's answer to it with its receipt (CONTEXT.md, Pending prompt). */
 export function answerActions(ctx: MesaContext, deps: SessionDeps) {
@@ -47,7 +43,7 @@ export function answerActions(ctx: MesaContext, deps: SessionDeps) {
             prompt: r.prompt,
             kind: r.kind,
             summary: redactText(r.summary, secrets()),
-            answer: kept && !r.option ? kept.short : r.answer,
+            answer: kept && !r.option ? kept.short : redactText(r.answer, secrets()),
           }),
         },
         () => answerPrompt({ ...promptDeps, caller: deps.caller }, id, choice),

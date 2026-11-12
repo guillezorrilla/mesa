@@ -143,6 +143,7 @@ test('a question is answered by its option, or typed where it takes a typed answ
   const typed = await mesa.sessions.answer(id, { text: 'teal, honestly' });
   expect(typed.result.answer).toBe('teal, honestly');
   expect(window.keys).toEqual(['3', 'teal, honestly', 'Enter']);
+  await expect(mesa.sessions.answer(id, {})).rejects.toThrow('pass an option or --text');
   await expect(mesa.sessions.answer(id, { option: '9' })).rejects.toThrow(
     'no option 9 on this prompt; choose one of: 1, 2',
   );

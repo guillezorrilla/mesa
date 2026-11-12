@@ -5,6 +5,10 @@ import type { TmuxBackend } from '../tmux/backend.js';
 import type { Caller } from '../window/caller.js';
 import { type PendingPrompt, type PromptDeps, readPrompt } from './pending.js';
 
+/** Where a person answered from, as the receipt names it. */
+export const ANSWER_VIAS = ['cli', 'app', 'phone'] as const;
+export type AnswerVia = (typeof ANSWER_VIAS)[number];
+
 /** An answer: one of the prompt's options, or typed text where it takes one. */
 export type AnswerChoice = {
   option?: string;
@@ -41,12 +45,14 @@ export async function answerPrompt(
   id: string,
   choice: AnswerChoice,
 ): Promise<Answered> {
-  const caller = deps.caller();
-  if (caller.session || caller.inMesaWindow) {
+  // Any Mesa window, this profile's or another's, is an agent's (ADR-0003, 2026-11-12).
+  if (deps.caller().inMesaWindow) {
     throw usage(`only a person answers a prompt; answer it there (mesa attach ${id})`);
   }
   if ((choice.option === undefined) === (choice.text === undefined)) {
-    throw usage('pass an option or --text, not both');
+    throw usage(
+      choice.text === undefined ? 'pass an option or --text' : 'pass an option or --text, not both',
+    );
   }
   const text = choice.text === undefined ? undefined : typeable(choice.text);
   if (text !== undefined && !text.trim()) throw usage('nothing to answer: the text is empty');

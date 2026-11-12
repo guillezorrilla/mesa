@@ -75,7 +75,7 @@ The options and the question come from the hook payload; the reader checks the p
 
 ## Codex
 
-**Reading it.** Codex's `PermissionRequest` hook carries `tool_name` and `tool_input` (payload in docs/spikes/codex.md) when Mesa's hooks are installed and trusted; this run had none, so the reader also works from the pane alone: the dialog's title, its `$ command` or `Destination:` line, and the footer `Press enter to confirm or esc to cancel` as the last line. Mesa's state came from the screen (`waiting-permission`, 0.6).
+**Reading it.** Codex's `PermissionRequest` hook carries `tool_name` and `tool_input` (payload in docs/spikes/codex.md) when Mesa's hooks are installed and trusted; this run had none, so only the pane path was run live (the hook path is the unit test over the spike's payload), and the reader works from the pane alone: the dialog's title, its `$ command` or `Destination:` line, and the footer `Press enter to confirm or esc to cancel` as the last line. Mesa's state came from the screen (`waiting-permission`, 0.6).
 
 Command (`fixtures/panes/waiting-approval.txt`) and edit (`edit-approval.txt`):
 
