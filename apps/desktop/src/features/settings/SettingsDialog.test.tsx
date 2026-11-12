@@ -108,6 +108,43 @@ test('Sessions has the agent guidelines toggle, on by default, saved to sessions
   expect(sets(calls)).toEqual([['sessions.guidelines', 'false']]);
 });
 
+test('Phone has the push setting, when away by default, and the away minutes, 5 by default', async () => {
+  const { bridge, calls } = fakeBridge({
+    'config set': () => envelope({}),
+    'phone status': () => envelope({ paired: false }),
+  });
+  await render(bridge);
+  await click(nav('Phone'));
+  const push = document.getElementById('phone-push') as HTMLSelectElement;
+  expect(push.value).toBe('away');
+  expect([...push.options].map((option) => option.text)).toEqual(['When away', 'Always', 'Never']);
+  const away = document.getElementById('phone-away-after') as HTMLSelectElement;
+  expect(away.value).toBe('5');
+  await choose(push, 'always');
+  await choose(away, '15');
+  expect(sets(calls)).toEqual([
+    ['phone.push', '"always"'],
+    ['phone.awayAfter', '15'],
+  ]);
+});
+
+test('Phone sends a test push, and keeps an away time set from the CLI', async () => {
+  const config = { ...(await base()), phone: { push: 'away' as const, awayAfter: 7 } };
+  const { bridge, calls } = fakeBridge({
+    config: () => envelope(config),
+    'phone status': () => envelope({ paired: true, pairingId: 'pairing-0000000001' }),
+    'phone push-test': () => envelope({ pairingId: 'pairing-0000000001', sent: true }),
+  });
+  const byTestId = await render(bridge);
+  await click(nav('Phone'));
+  expect((document.getElementById('phone-away-after') as HTMLSelectElement).value).toBe('7');
+  await click(
+    [...document.querySelectorAll('button')].find((b) => b.textContent === 'Send test push'),
+  );
+  expect(calls.some((args) => args[1] === 'phone' && args[2] === 'push-test')).toBe(true);
+  expect(toasts(byTestId)).toEqual([['confirmation', 'Sent a test push to your phone']]);
+});
+
 test('Sessions has the keep awake select, off by default, saved to sessions.keepAwake', async () => {
   const { bridge, calls } = fakeBridge({ 'config set': () => envelope({}) });
   await render(bridge);

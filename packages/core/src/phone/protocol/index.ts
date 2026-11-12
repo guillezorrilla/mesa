@@ -28,6 +28,13 @@ export {
   type SocketEvents,
   webSocketConnect,
 } from './mailbox.js';
+export {
+  NOTICE_MAX,
+  type Notice,
+  type NoticeKind,
+  openNotice,
+  sealNotice,
+} from './notice.js';
 export { MacCallError, macCalls } from './requests.js';
 export {
   type CallResult,

@@ -88,7 +88,26 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const gates = gatesService(ctx, { report: reports.gate });
   // Failed automation runs and open gates are notices; the inbox reads them from their owners.
   const notices = inbox(ctx, automations.runs, gates.open);
-  const notifications = { ...notices, deliver: () => backgroundDelivery(ctx, notices) };
+  const phone = phoneService(
+    ctx,
+    { pending: notices.pendingPushes, claim: notices.claimPushes },
+    {
+      board: () => sessions.sessions.list(),
+      responses: (id) => sessions.sessions.responses.list(id),
+      logs: (id, tail) => sessions.sessions.logs(id, tail),
+      read: sessions.sessions.read,
+      unread: sessions.sessions.unread,
+    },
+  );
+  // The scheduler's tick pushes to the phone too, so a session that needs the person reaches
+  // them with the app closed; a push that fails stays in the Inbox, as a banner that fails does.
+  const notifications = {
+    ...notices,
+    deliver: async () => {
+      await phone.push().catch(() => undefined);
+      return backgroundDelivery(ctx, notices);
+    },
+  };
   const worktrees = worktreesService(ctx);
   const installs = installsService(ctx);
   return {
@@ -96,13 +115,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     /** A person's feedback, sent through the broker to a private repo (ADR-0025). */
     feedback: feedbackService(ctx),
     /** The profile's Pairing with a phone, through the broker (ADR-0027). */
-    phone: phoneService(ctx, {
-      board: () => sessions.sessions.list(),
-      responses: (id) => sessions.sessions.responses.list(id),
-      logs: (id, tail) => sessions.sessions.logs(id, tail),
-      read: sessions.sessions.read,
-      unread: sessions.sessions.unread,
-    }),
+    phone,
     /** The anonymous install count and its switch (ADR-0026). */
     installs: { status: installs.status, set: installs.set },
     /** A version's release notes, the running one's by default. */

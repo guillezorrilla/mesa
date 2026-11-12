@@ -191,6 +191,33 @@ export function inbox(
       );
     },
     markDelivered,
+    /** The unread question, permission and finished notices since `since` no push took yet. */
+    pendingPushes: (since: string): InboxItem[] => {
+      const taken = new Set(read().pushed);
+      return all().filter(
+        (item) =>
+          (item.kind === 'input-required' || item.kind === 'finished') &&
+          !item.read &&
+          item.at >= since &&
+          !taken.has(item.id),
+      );
+    },
+    /** Takes `ids` for a push and returns the ones no other process took first, so none goes twice. */
+    claimPushes: (ids: string[]): string[] => {
+      mkdirSync(dirname(store.file), { recursive: true, mode: 0o700 });
+      const lock = `${store.file}.push.lock`;
+      return withLockSync(
+        ctx,
+        lock,
+        () => {
+          const taken = new Set(read().pushed);
+          const fresh = ids.filter((id) => !taken.has(id));
+          if (fresh.length) store.write({ pushed: fresh });
+          return fresh;
+        },
+        () => lockedBy('phone push', lock, 'notifications'),
+      );
+    },
     recordDoctor: (report: DoctorReport) => {
       const state = read();
       const now = ctx.clock().toISOString();

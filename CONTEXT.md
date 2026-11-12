@@ -600,6 +600,11 @@ Not: device, connection (a Source's), account.
 A Pairing's queue of sealed messages between the Mac and the Phone, relayed at once to a connected side and kept up to 7 days for one that is not. The Mac reads it through its Phone listener; a message over one box travels as numbered parts.
 Not: inbox (the Mac's notices), queue.
 
+## Phone push
+
+A push to the paired Phone when a session's Inbox notice is a question, a permission request or a finished turn, by `phone.push`: `away` (the default) while the Mac has had no keyboard or pointer input for `phone.awayAfter` minutes (5) or its screen is locked, `always`, or `never`. The Mac seals the notice (the session's title, its project and what happened) for the phone and the Broker sends APNs a fixed alert with the ciphertext, which the phone's Notification Service Extension opens. Each notice is pushed at most once, tracked beside its delivery state (`pushed` in `notifications.json`): one that comes while the person is at the desk waits and goes once they are away, if still unread and under `phone.awayAfter` plus 10 minutes old; a failed push is not tried again, and the notice stays in the Inbox either way. The app asks on every hook event and the profile scheduler on each tick, so pushes go with the app closed while the scheduler is installed; `mesa phone push` does the same, and `mesa phone push-test` (or Send test push in Settings > Phone) sends a test push now.
+Not: Native delivery (macOS banners), the Mailbox.
+
 ## Phone listener
 
 The Mac's process that answers the paired Phone (`mesa phone serve`): it holds the Pairing's socket, answers each request through the same core functions the CLI uses, and pushes a session's changed row while the phone watches. Pairing installs it as a LaunchAgent that runs with the app open or closed, one per profile; unpairing removes it.

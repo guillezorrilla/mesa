@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MacProvider } from '@/features/mac/MacProvider';
 import { PairingProvider } from '@/features/pairing/PairingProvider';
 import { usePairing } from '@/features/pairing/usePairing';
+import { useOpenTappedSession } from '@/features/push/useOpenTappedSession';
 
 /** The window: the pairing read from the Keychain before any screen, then the tabs. */
 export default function RootLayout() {
@@ -26,9 +27,10 @@ export default function RootLayout() {
   );
 }
 
-/** Agents, once paired, and the Mac: the pairing and About. */
+/** Agents, once paired, and the Mac: the pairing and About. A tapped push opens its session. */
 function Tabs() {
   const { pairing } = usePairing();
+  useOpenTappedSession();
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="agents" hidden={!pairing}>

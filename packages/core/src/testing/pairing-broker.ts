@@ -12,6 +12,9 @@ type Room = {
   joinedAt?: string;
   expiresAt: string;
   boxes: Box[];
+  deviceToken?: string;
+  /** What the broker pushed to the phone: the fixed alert's kind and the sealed notice. */
+  pushes: { kind: string; notice: string }[];
 };
 
 /**
@@ -94,6 +97,7 @@ export function fakePairingBroker(broker = 'https://broker.test', now = () => ne
         macToken: `mac-token-${next}`,
         expiresAt,
         boxes: [],
+        pushes: [],
       });
       return answer(201, { pairingId, macToken: `mac-token-${next}`, expiresAt });
     }
@@ -136,6 +140,15 @@ export function fakePairingBroker(broker = 'https://broker.test', now = () => ne
       return answer(200, {
         messages: room.boxes.filter((box) => box.to === side).map(({ to: _, ...box }) => box),
       });
+    if (op === 'device' && side === 'phone') {
+      room.deviceToken = body.deviceToken;
+      return answer(204);
+    }
+    if (op === 'push' && side === 'mac') {
+      if (!room.deviceToken) return answer(409, { error: 'no_device' });
+      room.pushes.push({ kind: body.kind, notice: body.notice });
+      return answer(200, { sent: true });
+    }
     if (op === 'ack') {
       room.boxes = room.boxes.filter((box) => box.to !== side || box.id > body.upTo);
       return answer(204);
