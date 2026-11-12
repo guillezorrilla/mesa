@@ -25,9 +25,9 @@ To pair with a Mac, run a local broker (`pnpm -C apps/broker exec wrangler dev`)
 
 ## Release
 
-Every push to `main` that touches the app runs `.github/workflows/mobile.yml`:
+Releases run on EAS Workflows, Expo's own CI (`.eas/workflows/`), so the native fingerprint is computed where the build is. Every push to `main` that touches the app runs `deploy-to-production.yml`, Expo's documented production workflow for iOS:
 
-- **Same native fingerprint as an existing build** (only JavaScript, styles or assets changed): `eas update` publishes to the `production` branch, and the app picks it up on its next launch or the one after. About shows the running update's id.
-- **A new fingerprint** (a native dependency, a config plugin, `app.config.ts`, the Expo SDK): EAS Build makes a production build, with the build number counted on EAS, and EAS Submit sends it to TestFlight.
+- **Same native fingerprint as an existing build** (only JavaScript, styles or assets changed): an EAS Update goes to the `production` branch, and the app picks it up on its next launch or the one after. About shows the running update's id.
+- **A new fingerprint** (a native dependency, a config plugin, `app.config.ts`, the Expo SDK): EAS Build makes a production build (the build number counted on EAS), and EAS Submit sends it to TestFlight.
 
-A pull request whose merge would need a build gets a comment saying so (`mobile-pr.yml`). The marketing version in `app.config.ts` changes by hand, in a pull request. Credentials (the App Store Connect key, the distribution certificate, the profiles) live in EAS; GitHub holds only `EXPO_TOKEN`.
+On a pull request, `pull-request.yml` adds a check named "Merging makes a new TestFlight build" when no production build has the pull request's fingerprint. GitHub Actions' `verify` still lints, typechecks and tests the app and runs `expo-doctor`. The marketing version in `app.config.ts` changes by hand, in a pull request. Credentials (the App Store Connect key, the distribution certificate, the profiles) live in EAS. `pnpm -C apps/mobile exec eas workflow:run .eas/workflows/deploy-to-production.yml` runs a deploy by hand from the local tree.
