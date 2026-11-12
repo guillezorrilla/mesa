@@ -8,6 +8,7 @@ import type { IdSource } from './lib/ids.js';
 import type { Env, Runner } from './lib/process.js';
 import { redactWhole } from './lib/redact.js';
 import type { SecretStore } from './lib/secret-store.js';
+import type { ConnectSocket } from './phone/protocol/mailbox.js';
 import { type Config, resolveKey } from './profile/config.js';
 import { profilePaths } from './profile/paths.js';
 import { openProfile, type Profile } from './profile/profile.js';
@@ -37,6 +38,8 @@ export type MesaDeps = {
   run: Runner;
   /** HTTP to the broker and the sources' APIs (ADR-0014). */
   http: Http;
+  /** The broker's WebSocket, which the phone listener holds (ADR-0027). */
+  connect: ConnectSocket;
   /** Where a source's browser sign-in comes back: a loopback listener. */
   listen: CallbackListen;
   /** The sources' tokens: the macOS Keychain. */

@@ -29,6 +29,9 @@ export const testDeps = (home: string, overrides: Partial<MesaDeps> = {}): MesaD
   listen: async () => {
     throw new Error('testDeps: no sign-in listener; pass fakeSignIn().listen');
   },
+  connect: () => {
+    throw new Error('testDeps: no broker socket; pass fakePairingBroker().connect');
+  },
   secretStore: memorySecretStore().store,
   processAlive: () => true,
   processId: 4242,

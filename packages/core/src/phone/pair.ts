@@ -11,6 +11,11 @@ export type PairingDeps = {
   /** The pairing routes of the broker at that origin. */
   client: (broker: string) => PairingClient;
   clock: Clock;
+  /**
+   * The LaunchAgent that runs the Mac's listener (`mesa phone serve`, ADR-0027): installed once a
+   * phone is paired, removed on unpair. `ensure` says whether it is loaded.
+   */
+  listener: { ensure: () => Promise<boolean>; remove: () => Promise<unknown> };
 };
 
 export type PairStart = { pairingId: string; qr: string; expiresAt: string };
@@ -22,6 +27,8 @@ export type PhoneStatus = {
   /** A QR is out and no phone has proved it yet; it lapses at `expiresAt`. */
   pending?: boolean;
   expiresAt?: string;
+  /** Paired: whether the listener that answers the phone is loaded (ADR-0027). */
+  listening?: boolean;
 };
 
 /** Statuses that mean the broker holds no such pairing any more. */
@@ -37,6 +44,9 @@ export function brokerError(error: unknown, broker: string): never {
     throw new MesaError('internal', `the broker at ${broker} does not take phone pairings`);
   throw new MesaError('internal', `the broker answered ${error.status} ${error.code}`);
 }
+
+/** Installs the listener when it is not yet; false when it is not loaded and cannot be. */
+const listening = (deps: PairingDeps) => deps.listener.ensure().catch(() => false);
 
 const isGone = (error: unknown) => error instanceof PairingError && GONE.has(error.status);
 
@@ -123,6 +133,7 @@ export async function pairingStatus(deps: PairingDeps): Promise<PhoneStatus> {
       pairingId,
       ...(pairing.pairedAt ? { since: pairing.pairedAt } : {}),
       ...(state !== 'unreachable' && state.phoneSeenAt ? { phoneLastSeen: state.phoneSeenAt } : {}),
+      listening: await listening(deps),
     };
   if (state === 'unreachable') return { paired: false };
   if (
@@ -130,7 +141,13 @@ export async function pairingStatus(deps: PairingDeps): Promise<PhoneStatus> {
     state.joinedAt &&
     (await confirm(deps, pairing, state.phoneKey, state.joinedAt))
   )
-    return { paired: true, pairingId, since: state.joinedAt, phoneLastSeen: state.phoneSeenAt };
+    return {
+      paired: true,
+      pairingId,
+      since: state.joinedAt,
+      phoneLastSeen: state.phoneSeenAt,
+      listening: await listening(deps),
+    };
   return { paired: false, pending: true, pairingId, expiresAt: pairing.expiresAt };
 }
 
@@ -151,5 +168,6 @@ export async function unpair(
       (error) => isGone(error),
     );
   await deps.store.remove();
+  await deps.listener.remove().catch(() => undefined);
   return { unpaired: true, pairingId: pairing.pairingId, brokerRemoved };
 }

@@ -1,6 +1,9 @@
 import type { Http } from '../lib/http.js';
+import type { ConnectSocket, SocketEvents } from '../phone/protocol/mailbox.js';
 
-type Box = { id: number; box: string; at: string; to: 'mac' | 'phone' };
+type Side = 'mac' | 'phone';
+type Box = { id: number; box: string; at: string; to: Side };
+type Socket = { pairingId: string; side?: Side; on: SocketEvents };
 type Room = {
   joinHash?: string;
   macToken: string;
@@ -13,12 +16,67 @@ type Room = {
 
 /**
  * The broker's pairing routes in memory (apps/broker's Pairing has the real ones), as fetch-shaped
- * `http` at `broker`: enough for core's pairing and the fake phone to talk through. `now` is the
- * clock it stamps with; `rooms` is what it holds, for a test to inspect.
+ * `http` at `broker`, and its WebSocket as `connect`: enough for core's pairing, the Mac's listener
+ * and the fake phone to talk through. `now` is the clock it stamps with; `rooms` is what it holds,
+ * for a test to inspect, and `drop` closes a side's sockets as a lost connection would.
  */
 export function fakePairingBroker(broker = 'https://broker.test', now = () => new Date()) {
   const rooms = new Map<string, Room>();
+  const sockets = new Set<Socket>();
   let next = 0;
+  const hand = (socket: Socket, box: Omit<Box, 'to'>) =>
+    queueMicrotask(() => socket.on.message(JSON.stringify({ t: 'msg', ...box })));
+  /** Keeps a box for the other side and hands it at once to that side's sockets. */
+  const store = (pairingId: string, room: Room, from: Side, box: string) => {
+    const kept = {
+      id: ++next,
+      box,
+      at: now().toISOString(),
+      to: from === 'mac' ? 'phone' : 'mac',
+    } as const;
+    room.boxes.push(kept);
+    for (const socket of sockets)
+      if (socket.pairingId === pairingId && socket.side === kept.to)
+        hand(socket, { id: kept.id, box, at: kept.at });
+    return kept.id;
+  };
+  const connect: ConnectSocket = (url, on) => {
+    const pairingId = decodeURIComponent(new URL(url).pathname.split('/')[2] ?? '');
+    const socket: Socket = { pairingId, on };
+    sockets.add(socket);
+    queueMicrotask(on.open);
+    const close = () => {
+      if (sockets.delete(socket)) queueMicrotask(on.close);
+    };
+    return {
+      close,
+      send: (data) => {
+        const frame = JSON.parse(data);
+        const room = rooms.get(pairingId);
+        if (!room) return close();
+        if (!socket.side) {
+          const side =
+            frame.t === 'auth' && frame.token === room.macToken
+              ? 'mac'
+              : frame.t === 'auth' && frame.token === room.phoneToken
+                ? 'phone'
+                : undefined;
+          if (!side) return close();
+          socket.side = side;
+          queueMicrotask(() => on.message(JSON.stringify({ t: 'ready' })));
+          for (const { to, ...box } of room.boxes) if (to === side) hand(socket, box);
+          return;
+        }
+        if (frame.t === 'send') return void store(pairingId, room, socket.side, frame.box);
+        if (frame.t === 'ack')
+          room.boxes = room.boxes.filter((box) => box.to !== socket.side || box.id > frame.upTo);
+      },
+    };
+  };
+  const drop = (side: Side) => {
+    for (const socket of [...sockets])
+      if (socket.side === side && sockets.delete(socket)) queueMicrotask(socket.on.close);
+  };
   const answer = (status: number, body?: unknown) =>
     new Response(body === undefined ? null : JSON.stringify(body), { status });
   const http: Http = async (url, init = {}) => {
@@ -72,16 +130,8 @@ export function fakePairingBroker(broker = 'https://broker.test', now = () => ne
       rooms.delete(id);
       return answer(204);
     }
-    if (op === 'messages' && method === 'POST') {
-      const box = {
-        id: ++next,
-        box: body.box,
-        at: now().toISOString(),
-        to: side === 'mac' ? 'phone' : 'mac',
-      } as const;
-      room.boxes.push(box);
-      return answer(201, { id: box.id });
-    }
+    if (op === 'messages' && method === 'POST')
+      return answer(201, { id: store(id, room, side, body.box) });
     if (op === 'messages')
       return answer(200, {
         messages: room.boxes.filter((box) => box.to === side).map(({ to: _, ...box }) => box),
@@ -92,5 +142,5 @@ export function fakePairingBroker(broker = 'https://broker.test', now = () => ne
     }
     return answer(404, { error: 'not_found' });
   };
-  return { http, rooms, broker };
+  return { http, connect, drop, rooms, broker };
 }

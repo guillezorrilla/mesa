@@ -33,6 +33,22 @@ export const phoneStatus = defineCommand({
   },
 });
 
+export const phoneServe = defineCommand({
+  name: 'phone serve',
+  summary:
+    'Answer the paired phone in the foreground: sessions, replies, output and live changes (the LaunchAgent runs this)',
+  example: 'mesa phone serve',
+  // Runs until the pairing ends or the process is stopped; a stopped one's lock is taken over.
+  run: async ({ mesa }) => {
+    const data = await mesa.phone.serve();
+    const text =
+      data.ended === 'not-paired'
+        ? 'not paired; mesa phone pair first'
+        : `the pairing ${data.pairingId} ended; stopped`;
+    return { data, text };
+  },
+});
+
 export const phoneUnpair = defineCommand({
   name: 'phone unpair',
   summary: 'End the pairing with the phone, on the broker and in the Keychain',

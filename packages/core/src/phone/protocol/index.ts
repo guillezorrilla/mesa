@@ -1,4 +1,5 @@
 // The pairing protocol (`@mesa/core/phone`): what the phone app bundles from core, and nothing else.
+export { BOX_BYTES, fitsOneBox, type PartMessage, partJoiner, splitParts } from './chunk.js';
 export {
   type Delivery,
   type Fetch,
@@ -17,6 +18,27 @@ export {
 } from './envelope.js';
 export { joinPairing, type PhonePairing, phoneKeys } from './join.js';
 export { formatPairingLink, type PairingLink, parsePairingLink } from './link.js';
+export {
+  type ConnectSocket,
+  type MailboxEnd,
+  type MailboxEvents,
+  mailbox,
+  type SocketEvents,
+  webSocketConnect,
+} from './mailbox.js';
+export { MacCallError, macCalls } from './requests.js';
+export {
+  type CallResult,
+  callResults,
+  type PhoneCall,
+  type PhoneDetail,
+  type PhoneRow,
+  phoneCall,
+  phoneDetail,
+  phoneRow,
+  type ReplySegment,
+  WATCH_MS,
+} from './rpc.js';
 export {
   base64url,
   type Direction,
