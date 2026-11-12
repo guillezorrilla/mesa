@@ -79,6 +79,8 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
     activity: (): Record<string, string> => readJson(file, State)?.active ?? {},
     /** The questions, open and answered, as last written. */
     questions: (): Question[] => readJson(file, State)?.questions ?? [],
+    /** The questions no one has answered yet, as last written. */
+    open: (): Question[] => (readJson(file, State)?.questions ?? []).filter((q) => !q.answeredAt),
     /** Adds a worker's question, and the report that carries it, pending until delivered. */
     ask: (question: Question, report: ChildReport) =>
       change((state) => ({

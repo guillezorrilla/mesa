@@ -1,5 +1,5 @@
 import type { ChildReport } from '../../reports/reports.js';
-import type { Task } from '../../tasks/task-file.js';
+import { isSettled, type Task } from '../../tasks/task-file.js';
 import { sessionBranch, taskTitle } from '../record/labels.js';
 import { diffable } from '../record/lifecycle.js';
 import type { CrewReport, ManagedRow, SessionRow } from './rows.js';
@@ -26,35 +26,41 @@ const crewReport = (said: ChildReport | undefined): CrewReport | undefined =>
       }
     : undefined;
 
-/** A task no worker will change any more. */
-const settled = (task: Pick<Task, 'state'>) =>
-  task.state === 'succeeded' || task.state === 'failed' || task.state === 'cancelled';
-
 /**
  * `rows` with each child's crew news (a row that reports to a session now, `parentNow`): its
  * task's title from `tasks` (taskTitle), its newest report that says something from `latest`, and
  * `asking` while it has an open question in `asking`. A coordinator whose tasks have all settled
- * shows no progress line: the one it set described work that is over (`mesa progress` stays in
- * its record until it ends).
+ * shows no progress line it set before the last of them settled: it described work that is over
+ * (`mesa progress` stays in its record until it ends); one set after shows. A task settled when
+ * its worker last reported, else when it started or was made.
  */
 export function withCrewNews(
   rows: readonly SessionRow[],
   news: {
-    tasks: readonly Pick<Task, 'id' | 'spec' | 'state' | 'coordinator'>[];
+    tasks: readonly Pick<
+      Task,
+      'id' | 'spec' | 'state' | 'coordinator' | 'worker' | 'startedAt' | 'createdAt'
+    >[];
     latest: Readonly<Record<string, ChildReport>>;
     /** The children with an open question to their parent. */
     asking: ReadonlySet<string>;
   },
 ): SessionRow[] {
   const titles = new Map(news.tasks.map((task) => [task.id, taskTitle(task.spec)]));
-  const done = (id: string) => {
-    const planned = news.tasks.filter((task) => task.coordinator === id);
-    return planned.length > 0 && planned.every(settled);
-  };
+  // When each coordinator's tasks last settled, for those whose every task has.
+  const settledAt = new Map<string, string>();
+  for (const task of news.tasks) {
+    if (!task.coordinator) continue;
+    const at = (task.worker && news.latest[task.worker]?.at) || task.startedAt || task.createdAt;
+    const last = settledAt.get(task.coordinator) ?? '';
+    settledAt.set(task.coordinator, at > last ? at : last);
+  }
+  for (const task of news.tasks) if (!isSettled(task)) settledAt.delete(task.coordinator ?? '');
   return rows.map((row) => {
     if (!row.managed) return row;
     const { progress: _over, ...rest } = row;
-    const shown = row.progress && done(row.id) ? rest : row;
+    const over = settledAt.get(row.id);
+    const shown = row.progress && over && row.progress.at <= over ? rest : row;
     if (!row.parentNow) return shown;
     const title = row.task && titles.get(row.task);
     const report = crewReport(news.latest[row.id]);

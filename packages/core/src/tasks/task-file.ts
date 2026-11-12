@@ -71,6 +71,10 @@ export const TaskFile = z
   .describe('task graphs');
 export type TaskFile = z.infer<typeof TaskFile>;
 
+/** Whether `task` is over: no worker will change it any more (`succeeded`, `failed`, `cancelled`). */
+export const isSettled = (task: Pick<Task, 'state'>) =>
+  task.state === 'succeeded' || task.state === 'failed' || task.state === 'cancelled';
+
 /** Whether `task` waits to start: `pending` or `ready`, which its deps decide. */
 export const isOpen = (task: Pick<Task, 'state'>) =>
   task.state === 'pending' || task.state === 'ready';

@@ -110,6 +110,7 @@ test("a coordinator's progress line goes once every task it coordinates has sett
     spec: id,
     state,
     coordinator: planner.id,
+    createdAt: '2026-09-24T12:01:00.000Z',
   });
   const news = (tasks: ReturnType<typeof task>[]) =>
     withCrewNews(rows, { tasks, latest: {}, asking: new Set() });
@@ -118,4 +119,12 @@ test("a coordinator's progress line goes once every task it coordinates has sett
   const [over, own] = news([task('t-a', 'succeeded'), task('t-b', 'failed')]);
   expect(over).not.toHaveProperty('progress');
   expect(own).toMatchObject({ progress });
+  // A line set after the last task settled is news again.
+  const fresh = { text: 'Writing the release summary', at: '2026-09-24T12:02:00.000Z' };
+  const later = withCrewNews([{ ...over, progress: fresh } as (typeof rows)[number]], {
+    tasks: [task('t-a', 'succeeded')],
+    latest: {},
+    asking: new Set(),
+  });
+  expect(later[0]).toMatchObject({ progress: fresh });
 });

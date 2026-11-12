@@ -207,8 +207,8 @@ export function reportsService(
         parent === undefined || r.parent === parent;
       const reports = (on ? collect() : ledger.pending()).filter(mine);
       const questions = ledger
-        .questions()
-        .filter((q) => !q.answeredAt && mine(q))
+        .open()
+        .filter(mine)
         .sort((a, b) => a.at.localeCompare(b.at));
       return { enabled: on, reports, questions };
     },
@@ -342,8 +342,7 @@ export function keptReport(ctx: MesaContext, child: string): KeptReport | undefi
 export const askingChildren = (ctx: MesaContext): Set<string> =>
   new Set(
     ledgerOf(ctx)
-      .questions()
-      .filter((question) => !question.answer)
+      .open()
       .map((question) => question.child),
   );
 
