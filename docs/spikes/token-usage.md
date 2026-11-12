@@ -112,3 +112,62 @@ Measured on a throwaway profile with 50 invented sessions (10 parents with 4 chi
 | inside a window, agent view | 10,511 |
 
 The agent view is 87% smaller: about 2,600 tokens a reread instead of 21,000, at 4 bytes a token. The owner's real rows carry longer goals, replies and placements, so the cut there should be at least as large; not measured on that profile.
+
+## Step 7: round two, after epics #1003 and #1020 (2026-11-12)
+
+The owner asked two things: should Mesa ship the ponytail plugin, and should Mesa have its own cheap way to read many files, like Spotify's. Measured on the default profile: `usage.json` from 2026-10-05 to 2026-11-12 (53,148 replies), and the 153 interactive Claude Code transcripts active since 2026-10-22, main chain only. Only aggregate numbers are written here.
+
+### The token work has not reached the owner yet
+
+As of 2026-11-12 the installed app is 0.3.12, tagged 2026-11-02. Every token change since then (#909, #912, #931, #1002, #1007, #1011, #1012, #1027, #1028, #1039, #1042, #1061) is merged but unreleased, so the owner's usage cannot show their effect yet. The Haiku capture of Step 1 is #909: until a release carries it, vault captures still run on Opus, 9.3% of spend from 2026-11-10 to 2026-11-12. On Haiku that share would drop to about a twentieth. Spend by session kind (the kinds do not overlap; import-notes runs make up the rest):
+
+| Period | Spend a day | Interactive (top level) | Child sessions | No record left | Vault capture |
+| --- | --- | --- | --- | --- | --- |
+| 10-05 to 10-31 | $109 | 11.1% | 33.9% | 46.3% | 8.5% |
+| 11-01 to 11-09 | $128 | 13.9% | 15.7% | 59.6% | 10.8% |
+| 11-10 to 11-12 | $286 | 11.2% | 41.5% | 38.0% | 9.3% |
+
+The rise is more and longer work, not a change in what fills context. Output is still under 0.4% of tokens in every kind.
+
+### What fills context now
+
+Each transcript item's characters are weighted by the assistant turns after it in the same stretch (a compaction starts a new one), as in Step 3. The items cover about 49% of the tokens `usage.json` records for these sessions; the rest is the system prompt, tool definitions and tool inputs. So a share of the weight below is about half that share of all context tokens.
+
+| What | Share of weight |
+| --- | --- |
+| Tool results | 58.0% |
+| Text injected at session start or per prompt: skill listing 9.0%, deferred tool names 7.7%, instruction files 4.9%, MCP server instructions 2.5%, agent listing 2.1%, environment 1.9%, hook text 1.3%, the rest 0.9% | 30.1% |
+| User prompts and skill bodies | 8.5% |
+| Assistant text | 3.4% |
+
+Within tool-result weight, on the same basis as Step 3's table: file reads through Bash (`cat`, `head`, `tail`, `sed -n`, `wc`) 38.3%, searches (`grep`, `rg`, `find`, `ls`) 12.0%, diffs 4.0%, the Read tool 4.3%, tests 2.5%, builds and lint 1.9%. Step 3 put Bash file reads at 8%: it classed a command by its first word, and agents start most commands with `cd <dir> &&`, so those reads fell under "Bash, other". This replaces Step 3's figure; its large-read numbers are re-measured below.
+
+Injected text per session, re-measured: ponytail's SessionStart rules 4,790 characters; two other plugins' hooks about 4,600 together; Mesa's start pointer 1,379 (the capped base plus the guidelines and decisions lines, which Step 2 counted apart); Mesa's per-prompt decision advice 678 on average over 610 injections, up from Step 2's 250. Mesa's own text is about 0.5% of the weight, about 0.25% of context.
+
+### Candidates
+
+| Candidate | Upper bound, share of context | Cost |
+| --- | --- | --- |
+| Release the merged work | Captures alone: about 9% of spend | None; a release under verification |
+| Many-file reads through a cheap subagent | Runs of 5 or more read-only calls before the next other action, less a 1,500-character answer: 12.2% of weight, about 6% of context (213 runs in 84 sessions); 3 or more: 17.2% of weight, about 8% of context | 10 to 30 s a question; the agent re-reads what it then edits |
+| Plugins, agents and connectors loaded but never used | About 32k characters a turn, about 4% | The owner's own setup |
+| A guard on whole-file reads over about 500 lines (`cat` or Read over 20,000 characters) | 3.7% of weight, about 1.8% | Blocked reads, retries |
+| Trimming diffs, tests and builds beyond `mesa check` | About 1% | A wrapper per command |
+| Trimming Mesa's own injected text | About 0.25% | Lost guidance |
+| orca | Nothing: its token-relevant ideas (one report per worker, no polling) shipped as #1004, #1005 and #1027 | - |
+
+Claude Code already has a many-file reader, the Explore subagent. Agents called it 246 times since 2026-10-22: 219 calls inherited the parent's model, 27 asked for Opus and none for Haiku. All 301 Explore transcripts still on disk, from any date, ran on Opus. A Mesa reader command would duplicate Explore; what is missing is asking it for a cheap model.
+
+### Ponytail
+
+Version 5.3.2 (MIT, Dietrich Gebert). In Claude Code it injects its rules once at session start and when a subagent starts (4,790 characters, about 0.5% of context at the median turn); its per-prompt hook only tracks the mode and injects nothing, since per-prompt injection is for Qoder. Its ledger holds 772 rows across 23 projects, all at level `full`, so the owner's data has no runs without it to compare against. Its own benchmark (39 tasks, Opus 5.5, Bash disabled, 5 runs each) reports 22% fewer turns and 26% lower cost; in a long session fewer turns is what cuts cache reads.
+
+### Decision
+
+The owner chose (Decision model next-step: release-first 0.95, unused-setup report 0.01, Mesa reader 0.01, nothing 0.01):
+
+- Release the merged work first; as of 2026-11-12 a session is verifying it.
+- One line in the Claude start pointer: a question spread over many files goes to an Explore agent with model haiku, and the agent keeps the answer, not the files. Baseline (2026-10-22 to 2026-11-12): none of 246 Explore calls asked for Haiku; runs of 5 or more read-only calls are 12.2% of weight. Measured again once a release carries it (#1083).
+- Mesa recommends the ponytail plugin in its README and does not copy it: nothing to keep in sync, no attribution to carry, and a person who has the plugin never gets its rules twice.
+- The owner trims the unused plugins, agents and connectors in their own setup; Mesa writes no config for it.
+- Not built: a Mesa reader command, a large-read guard, more Bash trimming, trimming Mesa's injected text.
