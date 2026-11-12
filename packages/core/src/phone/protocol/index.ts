@@ -6,7 +6,6 @@ export { money } from '../../lib/format.js';
 export { promptTitle } from '../../sessions/answer/title.js';
 export { BUSY_STATES, WAITING_STATES } from '../../sessions/record/states.js';
 export { PHONE_PUSH_LABELS, PHONE_PUSH_MODES, type PhonePushMode } from '../away.js';
-export type { PhoneRule, PhoneRun, ScheduleRule } from './automations.js';
 export { BOX_BYTES, fitsOneBox, type PartMessage, partJoiner, splitParts } from './chunk.js';
 export {
   type Delivery,

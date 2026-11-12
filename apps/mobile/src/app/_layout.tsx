@@ -8,7 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MacProvider } from '@/features/mac/MacProvider';
 import { PairingProvider } from '@/features/pairing/PairingProvider';
 import { usePairing } from '@/features/pairing/usePairing';
-import { useOpenTappedPush } from '@/features/push/useOpenTappedPush';
+import { useOpenTappedSession } from '@/features/push/useOpenTappedSession';
 
 /** The window: the pairing read from the Keychain before any screen, then the tabs. */
 export default function RootLayout() {
@@ -28,12 +28,12 @@ export default function RootLayout() {
 }
 
 /**
- * Once paired, Agents, the Inbox and Automations; and the Mac: the pairing, usage, the push
- * settings and About. A tapped push opens what it names.
+ * Agents and the Inbox, once paired, and the Mac: the pairing, usage, the push settings and
+ * About. A tapped push opens its session.
  */
 function Tabs() {
   const { pairing } = usePairing();
-  useOpenTappedPush();
+  useOpenTappedSession();
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="agents" hidden={!pairing}>
@@ -43,10 +43,6 @@ function Tabs() {
       <NativeTabs.Trigger name="inbox" hidden={!pairing}>
         <NativeTabs.Trigger.Label>Inbox</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'tray', selected: 'tray.fill' }} />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="automations" hidden={!pairing}>
-        <NativeTabs.Trigger.Label>Automations</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="clock.arrow.circlepath" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="(home)">
         <NativeTabs.Trigger.Label>Mac</NativeTabs.Trigger.Label>

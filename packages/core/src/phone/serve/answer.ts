@@ -5,7 +5,6 @@ import type { SessionRow } from '../../sessions/board/rows.js';
 import type { SessionResponses } from '../../sessions/native/responses.js';
 import type { UsageReport } from '../../usage/records.js';
 import type { CallResult, PhoneCall } from '../protocol/rpc.js';
-import { type AutomationDeps, answerAutomationCall, isAutomationCall } from './automations.js';
 import { answerCrewCall, type CrewDeps, isCrewCall } from './crew.js';
 import { answerInboxCall, type InboxDeps, isInboxCall } from './inbox.js';
 import { answerPushes, type PushesDeps } from './pushes.js';
@@ -24,7 +23,6 @@ export type AnswerDeps = {
   /** Answers as the person, from the phone. */
   answer: (id: string, choice: AnswerChoice) => Promise<unknown>;
   crew: CrewDeps;
-  automations: AutomationDeps;
   inbox: InboxDeps;
   /** `mesa usage`'s report. */
   usage: () => Promise<UsageReport>;
@@ -42,7 +40,6 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
       rows: await askedRows(phoneRows(await deps.board()), deps.prompt),
     } satisfies CallResult<'sessions'>;
   if (isCrewCall(call)) return answerCrewCall(deps.crew, call);
-  if (isAutomationCall(call)) return answerAutomationCall(deps.automations, call);
   if (isInboxCall(call)) return answerInboxCall(deps.inbox, call);
   if (call.method === 'usage')
     return phoneUsage(

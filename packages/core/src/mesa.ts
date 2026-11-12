@@ -93,7 +93,6 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const tasks = tasksService(ctx, { startWorker: sessions.sessions.worker });
   // Failed automation runs and open gates are notices; the inbox reads them from their owners.
   const notices = inbox(ctx, automations.runs, gates.open);
-  const projects = projectsService(ctx);
   const phone = phoneService(
     ctx,
     { pending: notices.pendingPushes, claim: notices.claimPushes },
@@ -112,14 +111,6 @@ export function createMesa(profile: string, deps: MesaDeps) {
         advise: gates.advise,
         resolve: gates.resolve,
         merge: (id) => sessions.sessions.merge(id),
-      },
-      automations: {
-        ...automations,
-        projects: () =>
-          projects
-            .list()
-            .filter((p) => p.exists)
-            .map((p) => p.name),
       },
       inbox: notices,
       usage: () => usage.list(),
@@ -150,7 +141,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     ...profileApi,
     profiles: profilesService(ctx),
     backup: backupService(ctx, prompts.list),
-    projects,
+    projects: projectsService(ctx),
     automations,
     prompts,
     files: filesService(ctx),

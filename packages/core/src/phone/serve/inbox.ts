@@ -25,8 +25,6 @@ export const toPhoneNotice = (item: InboxItem): PhoneNotice => ({
     ? { session: { id: item.target.id, title: item.sessionTitle ?? item.target.id } }
     : {}),
   ...(item.gate ? { gate: item.gate.id } : {}),
-  ...(item.run ? { run: item.run } : {}),
-  automations: item.target.kind === 'automations',
 });
 
 /** Answers one Inbox call (#1067); throws core's MesaError for an unknown notice. */

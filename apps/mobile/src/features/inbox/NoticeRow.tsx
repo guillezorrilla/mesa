@@ -26,7 +26,7 @@ export function NoticeRow({
       onPress={onOpen}
       className="min-h-16 flex-row items-start gap-3 bg-background px-4 py-3 active:bg-accent"
     >
-      <NoticeIcon kind={notice.kind} approval={Boolean(notice.run)} />
+      <NoticeIcon kind={notice.kind} />
       <View className="flex-1 gap-0.5">
         <Text numberOfLines={2} className={cn(!notice.read && 'font-semibold')}>
           {notice.title}

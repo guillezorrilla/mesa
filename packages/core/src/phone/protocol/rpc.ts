@@ -3,7 +3,6 @@
 // update is a change the Mac pushes on its own. Each travels as one sealed message (envelope.ts),
 // cut into parts when it does not fit one box (chunk.ts).
 import { z } from 'zod';
-import { automationCalls, automationResults } from './automations.js';
 import { crewCalls, crewResults } from './crew.js';
 import { inboxCalls, inboxResults } from './inbox.js';
 import { pushesCalls, pushesResults } from './pushes.js';
@@ -62,7 +61,7 @@ export type PhonePrompt = z.infer<typeof phonePrompt>;
 /**
  * The calls the Mac answers: the board, one session, marking one read or unread, its pending
  * prompt, answering that prompt (`prompt` is its id, so an answer to an older one is stale), a
- * crew's, and the automations, Inbox, usage and push settings.
+ * crew's, and the Inbox, usage and push settings.
  */
 export const phoneCall = z.discriminatedUnion('method', [
   z.object({ method: z.literal('sessions') }),
@@ -77,7 +76,6 @@ export const phoneCall = z.discriminatedUnion('method', [
     text: z.string().max(4000).optional(),
   }),
   ...crewCalls,
-  ...automationCalls,
   ...inboxCalls,
   ...usageCalls,
   ...pushesCalls,
@@ -93,7 +91,6 @@ export const callResults = {
   /** Answered, or stale: the session no longer waits on that prompt. */
   answer: z.object({ status: z.enum(['answered', 'stale']) }),
   ...crewResults,
-  ...automationResults,
   ...inboxResults,
   ...usageResults,
   ...pushesResults,

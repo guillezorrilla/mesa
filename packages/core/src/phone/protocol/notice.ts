@@ -2,13 +2,12 @@
 // the mailbox, so it has no seq. The broker sends it as the push's `n` without opening it; the
 // phone's Notification Service Extension (apps/mobile/targets/notifications) opens it and shows
 // `title` and `body` in place of the fixed alert, with `session` in the notification's userInfo so
-// a tap can open it. A `run` (an automation run waiting for approval) the extension ignores: the
-// app opens the push's `n` itself on a tap. vectors.json holds one for the extension's tests.
+// a tap can open it. vectors.json holds one for the extension's tests.
 import { z } from 'zod';
 import { open, type SideKeys, seal } from './seal.js';
 
-/** What the phone shows, and the Mesa session or automation run it is about. */
-export type Notice = { title: string; body: string; session?: string; run?: string };
+/** What the phone shows, and the Mesa session it is about. */
+export type Notice = { title: string; body: string; session?: string };
 
 /** What a push says when the notice does not open, and which kind the broker is told. */
 export type NoticeKind = 'input' | 'finished';
@@ -17,8 +16,7 @@ export type NoticeKind = 'input' | 'finished';
 export const NOTICE_MAX = 3072;
 const TITLE_MAX = 120;
 const BODY_MAX = 400;
-/** The longest session or run id a notice carries. */
-const ID_MAX = 64;
+const SESSION_MAX = 64;
 
 // Control characters become spaces: JSON would escape each to six bytes and burst the bound.
 const clip = (text: string, max: number) =>
@@ -31,7 +29,6 @@ const sealed = z.object({
   title: z.string(),
   body: z.string(),
   session: z.string().optional(),
-  run: z.string().optional(),
 });
 
 /** Seals a notice for the phone, its title and body clipped so the box stays under NOTICE_MAX. */
@@ -44,8 +41,7 @@ export const sealNotice = (keys: SideKeys, notice: Notice) =>
       kind: 'notice',
       title: clip(notice.title, TITLE_MAX),
       body: clip(notice.body, BODY_MAX),
-      ...(notice.session ? { session: clip(notice.session, ID_MAX) } : {}),
-      ...(notice.run ? { run: clip(notice.run, ID_MAX) } : {}),
+      ...(notice.session ? { session: clip(notice.session, SESSION_MAX) } : {}),
     }),
   );
 
@@ -54,8 +50,8 @@ export function openNotice(keys: SideKeys, box: string): Notice | undefined {
   const text = open(keys.open, keys.pairingId, box);
   if (text === undefined) return undefined;
   try {
-    const { title, body, session, run } = sealed.parse(JSON.parse(text));
-    return { title, body, ...(session ? { session } : {}), ...(run ? { run } : {}) };
+    const { title, body, session } = sealed.parse(JSON.parse(text));
+    return { title, body, ...(session ? { session } : {}) };
   } catch {
     return undefined;
   }

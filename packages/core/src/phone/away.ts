@@ -23,7 +23,7 @@ export const PHONE_PUSH_FIELDS = {
   push: z.enum(PHONE_PUSH_MODES),
   /** Minutes the Mac must sit idle before `away` pushes. */
   awayAfter: z.number().int().min(1).max(240),
-  /** Whether a finished turn pushes too; questions, permissions and approvals always do. */
+  /** Whether a finished turn pushes too; questions and permissions always do. */
   finished: z.boolean(),
 };
 

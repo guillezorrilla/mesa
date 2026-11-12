@@ -22,7 +22,7 @@ export function PushesForm({ initial }: { initial: PhonePushes }) {
     <View className="gap-5 rounded-xl border border-border bg-card p-4">
       <FormField
         label="Push to this phone"
-        hint="Questions, permissions and automations that ask first. Sealed on your Mac."
+        hint="When a session asks a question or needs permission. Sealed on your Mac."
       >
         <ChoiceChips
           label="Push to this phone"

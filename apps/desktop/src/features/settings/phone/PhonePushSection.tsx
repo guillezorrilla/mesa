@@ -34,7 +34,7 @@ export function PhonePushSection() {
       <SettingRow
         icon={BellRing}
         title="Push to the phone"
-        description="A push when a session asks a question, needs permission or finishes a turn, or an automation asks to run. Its text is sealed on this Mac; the broker sees only the ciphertext."
+        description="A push when a session asks a question, needs permission or finishes a turn. Its text is sealed on this Mac; the broker sees only the ciphertext."
         htmlFor="phone-push"
         keywords="phone iphone push notification away"
         control={

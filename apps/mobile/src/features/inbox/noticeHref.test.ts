@@ -7,15 +7,12 @@ const notice = {
   at: '',
   title: 't',
   read: false,
-  automations: false,
 };
 
-test('a notice opens its gate, its session, or Automations; Doctor has no phone screen', () => {
+test('a notice opens its gate or its session; Doctor and automations stay on the Mac', () => {
   const session = { id: 'k3m9q2xz', title: 'Login fix' };
   expect(noticeHref({ ...notice, session })).toBe('/agents/k3m9q2xz');
   expect(noticeHref({ ...notice, kind: 'gate', session, gate: 'g1' })).toBe('/agents/gates/g1');
-  expect(noticeHref({ ...notice, kind: 'automation', run: 'r1', automations: true })).toBe(
-    '/automations',
-  );
+  expect(noticeHref({ ...notice, kind: 'automation' })).toBeUndefined();
   expect(noticeHref({ ...notice, kind: 'doctor' })).toBeUndefined();
 });

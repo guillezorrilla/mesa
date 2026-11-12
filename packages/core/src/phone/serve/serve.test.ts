@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { automationState } from '../../automations/state.js';
 import { listReceipts } from '../../receipts/store.js';
+import { recordHookEvent } from '../../sessions/signals/hook-events.js';
 import { gateAdvice, gateRequest } from '../../tasks/gate-advice.js';
 import {
   CLAUDE_VERSION,
@@ -265,81 +265,44 @@ test("a gate's options go to the Decision model as next-step slugs and its odds 
   });
 });
 
-test('automations, the Inbox, usage and push settings answer the phone through core', async () => {
-  const { mesa, home, session, calls, end } = await serving();
+test('the Inbox, usage and push settings answer the phone through core', async () => {
+  const { mesa, home, store, session, calls, end } = await serving();
   expect(await calls.call({ method: 'pushes' })).toEqual({
     push: 'away',
     awayAfter: 5,
     finished: true,
   });
-  await calls.call({
-    method: 'addRule',
-    rule: {
-      name: 'Morning triage',
-      project: 'lantern-cove',
-      cron: '0 9 * * 1-5',
-      goal: 'Triage the tide reports',
-      ask: true,
-    },
-  });
-  await calls.call({ method: 'rule', name: 'Morning triage', enabled: false });
-  const listed = await calls.call({ method: 'automations' });
-  expect(listed).toMatchObject({
-    installed: false,
-    rules: [
-      {
-        name: 'Morning triage',
-        project: 'lantern-cove',
-        enabled: false,
-        sentence: 'Weekdays at 09:00: open a session, asks first',
-      },
-    ],
-    runs: [],
-    projects: ['lantern-cove'],
-  });
-  await expect(
-    calls.call({
-      method: 'addRule',
-      rule: { name: 'Bad', project: 'lantern-cove', cron: 'soon', goal: 'x', ask: false },
-    }),
-  ).rejects.toThrow('cron');
 
-  // A rule that asks first left a run waiting: the Inbox names it, and the phone approves it.
-  const rule = mesa.automations.list()[0];
-  if (!rule) throw new Error('no rule');
-  automationState(profilePaths(home, 'default').automationState, lockDeps()).update((state) => {
-    state.installed = true;
-    state.runs.push({
-      id: '01JD0000000000000000000000',
-      rule: { ...rule, enabled: true },
-      trigger: { kind: 'cron', at: '2026-09-24T09:00:00.000Z', value: '0 9 * * 1-5' },
-      status: 'pending',
-      approved: false,
-    });
-  });
+  // A question raises an Inbox notice that names its session; the phone marks it read.
+  recordHookEvent(
+    {
+      store,
+      eventsDir: profilePaths(home, 'default').events,
+      clock: () => NOW,
+      home,
+      secrets: () => [],
+    },
+    {
+      agent: 'claude',
+      mesaSessionId: session.id,
+      payload: JSON.stringify({ hook_event_name: 'PermissionRequest', tool_name: 'Bash' }),
+    },
+  );
   const { notices } = await calls.call({ method: 'inbox' });
   expect(notices).toEqual([
     {
       id: expect.any(String),
-      kind: 'automation',
-      at: '2026-09-24T09:00:00.000Z',
-      title: 'Automation asks to run: Morning triage',
-      detail: 'Approve or cancel it in Automations.',
+      kind: 'input-required',
+      at: NOW.toISOString(),
+      title: 'Session needs permission',
       read: false,
-      run: '01JD0000000000000000000000',
-      automations: true,
+      session: { id: session.id, title: 'Login fix' },
     },
   ]);
   await calls.call({ method: 'noticeRead', id: notices[0]?.id ?? '' });
   expect((await calls.call({ method: 'inbox' })).notices[0]?.read).toBe(true);
-  await calls.call({ method: 'run', id: '01JD0000000000000000000000', act: 'approve' });
-  expect((await calls.call({ method: 'automations' })).runs).toMatchObject([
-    { id: '01JD0000000000000000000000', rule: 'Morning triage', status: 'queued' },
-  ]);
-  expect((await calls.call({ method: 'inbox' })).notices).toEqual([]);
-  await expect(
-    calls.call({ method: 'run', id: '01JD0000000000000000000000', act: 'approve' }),
-  ).rejects.toThrow('only pending runs');
+  expect(mesa.notifications.list()[0]?.read).toBe(true);
+  await expect(calls.call({ method: 'noticeRead', id: 'nope' })).rejects.toThrow('no inbox item');
 
   // No readings yet: nothing spent, the session listed with its context.
   const usage = await calls.call({ method: 'usage' });

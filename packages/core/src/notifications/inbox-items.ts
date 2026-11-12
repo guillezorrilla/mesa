@@ -32,8 +32,6 @@ export type InboxItem = {
   notes?: ReleaseNotes;
   /** A gate notice's gate: its question and the options a person picks from (`mesa gates resolve`). */
   gate?: Pick<Gate, 'id' | 'options' | 'question'>;
-  /** An approval notice's automation run, waiting for a person (`mesa automations approve`). */
-  run?: string;
   read: boolean;
   target:
     | { kind: 'session'; id: string }
@@ -61,7 +59,6 @@ export const CandidateSchema = z.strictObject({
   gate: z
     .strictObject({ id: z.string(), options: z.array(z.string()), question: z.string() })
     .optional(),
-  run: z.string().optional(),
   fingerprint: z.string(),
   target: z.discriminatedUnion('kind', [
     // `window`: read only, a #901 setup window's notice from before the Setup session (#985).
@@ -231,24 +228,6 @@ export const failureItems = (runs: readonly AutomationRunNotice[]): Candidate[] 
       title: `Automation failed: ${run.rule.name}`,
       detail: run.reason ?? 'Review the failed run in Automations.',
       fingerprint: `automation:${run.id}`,
-      target: { kind: 'automations' },
-    }));
-
-/**
- * One notice per run waiting for approval (a rule that asks first): it opens Automations, where
- * the run is approved or cancelled, which drops it and so clears the notice.
- */
-export const approvalItems = (runs: readonly AutomationRunNotice[]): Candidate[] =>
-  runs
-    .filter((run) => run.status === 'pending')
-    .map((run) => ({
-      session: '',
-      at: run.trigger.at,
-      kind: 'automation',
-      title: `Automation asks to run: ${run.rule.name}`,
-      detail: run.reason ?? 'Approve or cancel it in Automations.',
-      run: run.id,
-      fingerprint: `approval:${run.id}`,
       target: { kind: 'automations' },
     }));
 

@@ -2,7 +2,7 @@
 // marking one read. rpc.ts adds these calls to phoneCall and their results.
 import { z } from 'zod';
 
-/** A notice as the phone lists it, with what it opens: a session, a gate or an automation run. */
+/** A notice as the phone lists it, with what it opens: a session or a gate. */
 export const phoneNotice = z.object({
   id: z.string(),
   /** An Inbox kind (core's InboxItem); a string, so a newer Mac's kind still reaches. */
@@ -15,10 +15,6 @@ export const phoneNotice = z.object({
   session: z.object({ id: z.string(), title: z.string() }).optional(),
   /** The open decision gate it asks about. */
   gate: z.string().optional(),
-  /** The automation run waiting for approval it asks about. */
-  run: z.string().optional(),
-  /** Whether it is about automations, which open on the Automations tab. */
-  automations: z.boolean(),
 });
 export type PhoneNotice = z.infer<typeof phoneNotice>;
 

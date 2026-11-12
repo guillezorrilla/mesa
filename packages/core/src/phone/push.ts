@@ -15,7 +15,7 @@ import { type NoticeKind, sealNotice } from './protocol/notice.js';
 export type PushDeps = PairingDeps & {
   run: Runner;
   settings: Config['phone'];
-  /** The question, permission, approval and finished notices since then that no push took yet. */
+  /** The question, permission and finished notices since then that no push took yet. */
   pending: (since: string) => InboxItem[];
   /** Takes these notices for a push, returning the ones no other process took first. */
   claim: (ids: string[]) => string[];
@@ -82,17 +82,11 @@ export async function pushPending(deps: PushDeps): Promise<PushOutcome> {
   // Oldest first, so the newest lands on top of the phone's list.
   for (const item of [...fresh].reverse().filter((each) => claimed.has(each.id))) {
     const kind: NoticeKind = item.kind === 'finished' ? 'finished' : 'input';
-    // An approval names its run, which a tap opens; any other notice its session.
-    const notice = sealNotice(
-      keys,
-      item.run
-        ? { title: item.title, body: item.detail ?? '', run: item.run }
-        : {
-            title: item.sessionTitle ?? 'A session',
-            body: `${projectLabel(deps.projectOf(item.session))}: ${item.title}`,
-            session: item.session,
-          },
-    );
+    const notice = sealNotice(keys, {
+      title: item.sessionTitle ?? 'A session',
+      body: `${projectLabel(deps.projectOf(item.session))}: ${item.title}`,
+      session: item.session,
+    });
     await client.push(pairing.pairingId, pairing.macToken, kind, notice).then(
       () => pushed.push(item.id),
       (error) => failed.push({ id: item.id, error: failure(error) }),
