@@ -80,7 +80,12 @@ test("the board gives each child its task's title, newest report and open questi
   const helper = store.create(() => newSession({ parent: parent.id }));
   const rows = withParentsNow([parent, worker, helper]).map((r) => placedRow(r, 'idle'));
   const tasks = [
-    { id: 't-tides', spec: 'Chart the tide\nwith the buoys', state: 'running' as const },
+    {
+      id: 't-tides',
+      spec: 'Chart the tide\nwith the buoys',
+      state: 'running' as const,
+      createdAt: '2026-09-24T12:00:00.000Z',
+    },
   ];
   const latest = {
     [worker.id]: report(worker.id, { message: 'Charted it' }),
