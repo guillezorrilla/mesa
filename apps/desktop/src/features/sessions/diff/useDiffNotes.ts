@@ -22,7 +22,8 @@ export function useDiffNotes(sessionId: string) {
   const { act, acting } = useAct();
   const [ask, setAsk] = useState<{ check: GuardrailCheck; send: NotesSend }>();
   const recipients = useMemo(
-    () => notesRecipients(sessions.data ?? [], sessionId),
+    // None until the board is read: whether this session is a plain terminal decides the default.
+    () => (sessions.data ? notesRecipients(sessions.data, sessionId) : []),
     [sessions.data, sessionId],
   );
   /** A session's name, as the board shows it, else its id. */

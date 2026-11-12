@@ -2,13 +2,9 @@ packages:
   - packages/*
   - apps/*
 
-# dtrace-provider and protobufjs come with eas-cli (apps/mobile): an optional DTrace probe for
-# its logs and a postinstall version check, neither needed to build or submit, so neither runs.
 allowBuilds:
-  dtrace-provider: false
   electron: true
   esbuild: true
-  protobufjs: false
   workerd: true
 
 minimumReleaseAgeExclude:
