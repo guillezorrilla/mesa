@@ -119,7 +119,10 @@ export const CATEGORIES: {
     id: 'phone',
     label: 'Phone',
     icon: Smartphone,
-    sections: [['pairing', 'Pairing']],
+    sections: [
+      ['pairing', 'Pairing'],
+      ['pushes', 'Pushes'],
+    ],
   },
   {
     id: 'decisions',

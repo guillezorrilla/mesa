@@ -90,6 +90,7 @@ export type { NotificationDelivery } from './notifications/background.js';
 export type { DeliveryPlan } from './notifications/delivery-plan.js';
 export type { InboxFix, InboxItem } from './notifications/inbox-items.js';
 export type { PairStart, PhoneStatus } from './phone/pair.js';
+export type { PushOutcome } from './phone/push.js';
 export type {
   PrEventDelivery,
   PrEventList,

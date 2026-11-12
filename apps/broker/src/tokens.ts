@@ -8,11 +8,12 @@ export async function sha256(text: string) {
   return Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-/** `bytes` random bytes, base64url: a pairing id (16) or a token (32). */
-export function randomToken(bytes = 32) {
-  const random = crypto.getRandomValues(new Uint8Array(bytes));
-  return btoa(String.fromCharCode(...random))
+/** Bytes, or a text's characters as bytes, in unpadded base64url. */
+export const base64url = (bytes: Uint8Array | string) =>
+  btoa(typeof bytes === 'string' ? bytes : String.fromCharCode(...bytes))
     .replaceAll('+', '-')
     .replaceAll('/', '_')
     .replace(/=+$/, '');
-}
+
+/** `bytes` random bytes, base64url: a pairing id (16) or a token (32). */
+export const randomToken = (bytes = 32) => base64url(crypto.getRandomValues(new Uint8Array(bytes)));

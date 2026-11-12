@@ -9,5 +9,7 @@
   "phoneToMacKey": "0oCuQoL2jyoe4l4RUdb2loB7vRI0h5WUtVPXKygAH4I",
   "nonce": "AQIDBAUGBwgJCgsM",
   "plaintext": "{\"v\":1,\"seq\":1,\"at\":\"2026-11-11T10:00:00.000Z\",\"kind\":\"text\",\"text\":\"Session needs you\"}",
-  "macToPhoneBox": "AQIDBAUGBwgJCgsMSb-o3DYT5oREU7zHN9-nHGxlM9QrUObCIKPv2RhVpUisQLAzXqJinsULCxxgRQh8ACFdS1c9wUzKbIjH82kGhpYr-xr3u3VtRIGdfdP8sX_K0b-AWg4cxKZr0nGV90IHsfQgzzm2trA"
+  "macToPhoneBox": "AQIDBAUGBwgJCgsMSb-o3DYT5oREU7zHN9-nHGxlM9QrUObCIKPv2RhVpUisQLAzXqJinsULCxxgRQh8ACFdS1c9wUzKbIjH82kGhpYr-xr3u3VtRIGdfdP8sX_K0b-AWg4cxKZr0nGV90IHsfQgzzm2trA",
+  "noticePlaintext": "{\"v\":1,\"kind\":\"notice\",\"title\":\"Fix the login bug\",\"body\":\"mesa: asks a question\",\"session\":\"k3m9q2xz\"}",
+  "macToPhoneNotice": "AQIDBAUGBwgJCgsMSb-o3DYT5oRcX6OBL9SpUGJleI1sQPrSYueqhFBGrj7bGfIjGvA3jodUXEVUR0YrDGofDRdoh0GNLt6IujgT2c4-qkumyHE-Rp2XYIf7u3SMjr2KUAhN0AdVvI1lViM4qjcHjWGl5vjC20lfHJ67D_DEiyxVfwc"
 }

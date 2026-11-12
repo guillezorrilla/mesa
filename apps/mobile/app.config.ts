@@ -1,4 +1,5 @@
 import type { ExpoConfig } from 'expo/config';
+import { withNotificationService } from './plugins/withNotificationService.ts';
 
 // Mesa's phone app (ADR-0027). Identifiers are Apple's and fixed once a build exists.
 const BUNDLE_ID = 'com.guillezorrilla.mesa';
@@ -75,4 +76,9 @@ const config: ExpoConfig = {
   ],
 };
 
-export default config;
+// The Notification Service Extension that opens sealed pushes (#1016); ExpoConfig's `plugins`
+// takes only named plugins, so this local one wraps the config.
+export default withNotificationService(config, {
+  bundleIdentifier: `${BUNDLE_ID}.notifications`,
+  teamId: TEAM_ID,
+});

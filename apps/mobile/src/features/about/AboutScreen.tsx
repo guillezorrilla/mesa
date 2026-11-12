@@ -19,8 +19,8 @@ export function AboutScreen() {
   });
   return (
     <Screen>
-      <Card>
-        <CardContent className="py-2">
+      <Card className="py-1">
+        <CardContent className="px-5">
           {rows.map((row, index) => (
             <View key={row.label}>
               {index > 0 && <Separator />}

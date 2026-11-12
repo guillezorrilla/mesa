@@ -3,10 +3,12 @@ import { pairingClient } from '../phone/protocol/client.js';
 import { openDeliveries, type PhoneMessage, sealMessage } from '../phone/protocol/envelope.js';
 import { joinPairing, type PhonePairing, phoneKeys } from '../phone/protocol/join.js';
 import { parsePairingLink } from '../phone/protocol/link.js';
+import { openNotice } from '../phone/protocol/notice.js';
 
 /**
  * A phone, as the app pairs and talks (the same protocol module): `join` scans a pairing link,
- * `send` seals for the Mac, `take` opens what the Mac left.
+ * `send` seals for the Mac, `take` opens what the Mac left, `allowPushes` registers a device token
+ * and `openPush` opens a pushed notice as the Notification Service Extension does.
  */
 export function fakePhone(http: Http, now = () => new Date()) {
   let pairing: PhonePairing | undefined;
@@ -39,6 +41,11 @@ export function fakePhone(http: Http, now = () => new Date()) {
       if (ackUpTo !== undefined) await client.ack(p.pairingId, p.phoneToken, ackUpTo);
       return opened.map((o) => o.message);
     },
+    allowPushes: async (deviceToken = 'ab'.repeat(32)) => {
+      const p = paired();
+      await pairingClient(http, p.broker).registerDevice(p.pairingId, p.phoneToken, deviceToken);
+    },
+    openPush: (notice: string) => openNotice(phoneKeys(paired()), notice),
     get pairing() {
       return pairing;
     },

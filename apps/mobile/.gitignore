@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# The extension package's SwiftPM build (targets/notifications)
+.build/
+.swiftpm/

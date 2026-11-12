@@ -8,7 +8,7 @@ export type PairingsDeps = {
   limit: Limit;
 };
 
-const OPS = new Set(['', 'join', 'messages', 'ack', 'socket']);
+const OPS = new Set(['', 'join', 'messages', 'ack', 'socket', 'device', 'push']);
 
 /**
  * `/pairings` routes: `POST /pairings` opens one under a new random id; `/pairings/<id>[/<op>]`
