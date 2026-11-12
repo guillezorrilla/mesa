@@ -24,7 +24,10 @@ const read = (link: MacLink, id: string, last?: Promise<DetailRead>): Promise<De
     }),
   );
 
-/** One session's detail as a promise to `use()`, read again every 5 s and on its row's update. */
+/**
+ * One session's detail as a promise to `use()`, read again every 5 s and on its row's update;
+ * `again` reads it now, after the phone changed it.
+ */
 export function useSessionDetail(id: string) {
   const link = useMac();
   const [detail, setDetail] = useState(() => read(link, id));
@@ -39,5 +42,5 @@ export function useSessionDetail(id: string) {
     if (update.rows.some((row) => row.id === id)) again();
   });
   useEffect(() => link.onUpdate(onUpdate), [link]);
-  return detail;
+  return { read: detail, again };
 }

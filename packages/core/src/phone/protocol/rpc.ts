@@ -4,6 +4,7 @@
 // cut into parts when it does not fit one box (chunk.ts).
 import { z } from 'zod';
 import { crewCalls, crewResults } from './crew.js';
+import { queuedMessage, steerCalls, steerResults } from './steer.js';
 
 /** One session as the phone lists it: the board row cut to what a list shows (about 200 bytes). */
 export const phoneRow = z.object({
@@ -35,6 +36,10 @@ export const phoneDetail = z.object({
     z.object({ id: z.string(), at: z.string().nullable(), segments: z.array(replySegment) }),
   ),
   tail: z.array(z.string()),
+  /** Replies waiting for its turn to end; an older Mac sends none. */
+  queued: z.array(queuedMessage).default([]),
+  /** Archived: off the board, and its menu offers Unarchive. */
+  archived: z.boolean().default(false),
 });
 export type PhoneDetail = z.infer<typeof phoneDetail>;
 
@@ -57,7 +62,8 @@ export type PhonePrompt = z.infer<typeof phonePrompt>;
 
 /**
  * The calls the Mac answers: the board, one session, marking one read or unread, its pending
- * prompt, answering that prompt (`prompt` is its id, so an answer to an older one is stale), and a crew's.
+ * prompt, answering that prompt (`prompt` is its id, so an answer to an older one is stale), a crew's, and steering one
+ * (steer.ts).
  */
 export const phoneCall = z.discriminatedUnion('method', [
   z.object({ method: z.literal('sessions') }),
@@ -72,6 +78,7 @@ export const phoneCall = z.discriminatedUnion('method', [
     text: z.string().max(4000).optional(),
   }),
   ...crewCalls,
+  ...steerCalls,
 ]);
 export type PhoneCall = z.infer<typeof phoneCall>;
 
@@ -84,6 +91,7 @@ export const callResults = {
   /** Answered, or stale: the session no longer waits on that prompt. */
   answer: z.object({ status: z.enum(['answered', 'stale']) }),
   ...crewResults,
+  ...steerResults,
 };
 export type CallResult<M extends PhoneCall['method']> = z.infer<(typeof callResults)[M]>;
 
