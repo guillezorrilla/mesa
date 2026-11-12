@@ -10,7 +10,8 @@ export function useQueuedMessages(session: string) {
   const run = useRun();
   useSessionEvents(() => void read.refresh());
   const remove = async (id: string) => {
-    await run('queue.remove', { id });
+    // Gone at once once the Mac removed it; a failure (typed already) toasts, and the read shows why.
+    if (await run('queue.remove', { id })) read.mutate((list) => list.filter((m) => m.id !== id));
     await read.refresh();
   };
   return { queued: read.data ?? [], remove };
