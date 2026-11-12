@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
+import { writeFileAtomic } from '../../lib/atomic-file.js';
 import type { promptsService } from '../../prompts/prompts.js';
 import { projectScope } from '../../sessions/record/general.js';
 import type { sessionsService } from '../../sessions/service/index.js';
@@ -31,7 +32,7 @@ export function sessionSteer(
       mkdirSync(dir, { recursive: true, mode: 0o700 });
       const revision = createHash('sha256').update(jpeg).digest('hex');
       const path = join(dir, `${revision.slice(0, 16)}.jpg`);
-      writeFileSync(path, jpeg, { mode: 0o600 });
+      writeFileAtomic(path, jpeg, 0o600);
       return sessions.images.prompt(id, path, revision, ctx.profile, note);
     },
     act: async (id, action, text = '') => {
@@ -46,7 +47,7 @@ export function sessionSteer(
         case 'handoff': {
           const note = join(ctx.paths.handoffs, `phone-${ctx.newId()}.md`);
           mkdirSync(ctx.paths.handoffs, { recursive: true });
-          writeFileSync(note, text);
+          writeFileAtomic(note, text);
           try {
             return (await sessions.handoff(id, { note })).result.to.id;
           } finally {
