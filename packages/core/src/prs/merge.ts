@@ -1,6 +1,7 @@
 import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
 import { callerOf } from '../sessions/window/caller.js';
+import { githubPullLink } from '../sources/github.js';
 import { failure, unwrap } from './cli-read.js';
 import { type MergeMethod, mergeGithub, mergeStateGithub } from './github-merge.js';
 import type { Reached } from './review.js';
@@ -15,13 +16,12 @@ export type MergeCaller = (typeof MERGE_CALLERS)[number];
 /** Why a merge is refused until the caller confirms it. */
 export type MergeRefusal = 'conflicting' | 'checks-failing';
 
-const PR_URL = /^https:\/\/github\.com\/([^/\s]+)\/([^/\s]+)\/pull\/(\d+)\/?(?:[?#]\S*)?$/i;
-
 /**
  * Merges a pull request through `gh pr merge` (mesa prs merge, #1071): GitHub only, never
- * `--admin`. A closed or merged PR is refused; one that conflicts with its base or has a failing
- * check is refused unless the caller confirms. The receipt names the PR, the method and the
- * caller: the Caller's session, else the surface that asked.
+ * `--admin`. A review session may never merge (ADR-0024): it reads untrusted PR text. A closed or
+ * merged PR is refused; one that conflicts with its base or has a failing check, required or not,
+ * is refused unless the caller confirms. The receipt names the PR, the method and the caller: the
+ * Caller's session, else the surface that asked.
  */
 export function mergeAction(
   ctx: MesaContext,
@@ -33,11 +33,13 @@ export function mergeAction(
 ) {
   async function targetOf(pr: PrTarget) {
     if ('project' in pr) return pr;
-    const [, owner, name, number] = PR_URL.exec(pr.url.trim()) ?? [];
-    if (!number) throw new MesaError('usage', `${pr.url} is not a GitHub pull request URL`);
-    const project = await prs.projectOf(`${owner}/${name}`);
-    if (!project) throw new MesaError('not_found', `no registered project is ${owner}/${name}`);
-    return { project, number: Number(number) };
+    const url = URL.parse(pr.url.trim());
+    const link = url?.hostname === 'github.com' ? githubPullLink(url) : undefined;
+    if (!link) throw new MesaError('usage', `${pr.url} is not a GitHub pull request URL`);
+    const repo = `${link.owner}/${link.repo}`;
+    const project = await prs.projectOf(repo);
+    if (!project) throw new MesaError('not_found', `no registered project is ${repo}`);
+    return { project, number: link.number };
   }
 
   return async (
@@ -45,6 +47,9 @@ export function mergeAction(
     opts: { method?: MergeMethod; confirm?: boolean; caller?: MergeCaller } = {},
   ) => {
     const method = opts.method ?? 'squash';
+    const session = callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile }).session;
+    if (session?.review)
+      throw new MesaError('usage', `review session ${session.id} cannot merge; a person merges`);
     const { project, number } = await targetOf(pr);
     const at = await prs.reach(project);
     if (at.provider !== 'github')
@@ -64,7 +69,6 @@ export function mergeAction(
         `${name} ${refused === 'conflicting' ? 'conflicts with its base' : 'has failing checks'}; confirm to merge anyway (--yes)`,
         { refused, checks: state.checks, mergeable: state.mergeable },
       );
-    const session = callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile }).session;
     const caller = session?.id ?? opts.caller ?? 'cli';
     return ctx.record(
       {

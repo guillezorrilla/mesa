@@ -2,11 +2,17 @@ import { expect, test } from 'vitest';
 import type { RunResult } from '../lib/process.js';
 import { projectProfile } from '../testing/profile.js';
 import { scriptedRunner } from '../testing/runner.js';
+import { newSession, testStore } from '../testing/sessions.js';
+import { tempDir } from '../testing/tmp.js';
 
 // lantern-cove's origin is the invented acme/lantern-cove; gh answers PR 7's merge state.
 type Pr = { state?: string; mergeable?: string; checks?: string | null; mergeFails?: string };
 
-function world(pr: Pr = {}, origin = 'git@github.com:acme/lantern-cove.git') {
+function world(
+  pr: Pr = {},
+  origin = 'git@github.com:acme/lantern-cove.git',
+  over: Parameters<typeof projectProfile>[1] = {},
+) {
   const { state = 'OPEN', mergeable = 'MERGEABLE', checks = 'SUCCESS', mergeFails } = pr;
   const { run, calls } = scriptedRunner({
     git: (args) => (args.includes('get-url') ? `${origin}\n` : ''),
@@ -31,7 +37,7 @@ function world(pr: Pr = {}, origin = 'git@github.com:acme/lantern-cove.git') {
       return 'gh version 2.62.0 (2026-01-01)\n';
     },
   });
-  const { mesa } = projectProfile(run);
+  const { mesa } = projectProfile(run, over);
   const merges = () => calls.filter((c) => c.file === 'gh' && c.args[1] === 'merge');
   const receipt = () => mesa.receipts.list({})[0]?.receipt;
   return { mesa, calls, merges, receipt };
@@ -132,4 +138,19 @@ test("a merge gh refuses is reported with gh's reason", async () => {
     code: 'internal',
     message: 'gh failed: base branch policy prohibits the merge',
   });
+});
+
+test('a review session may never merge: it reads untrusted PR text', async () => {
+  const home = tempDir();
+  const review = { pr: 7, round: 1, mode: 'post' as const, head: 'c'.repeat(40) };
+  const id = testStore(home).create(() => newSession({ review })).id;
+  const { mesa, calls } = world({}, undefined, {
+    home,
+    env: { MESA_SESSION_ID: id, MESA_PROFILE: 'default' },
+  });
+  await expect(mesa.prs.merge(PR, { confirm: true })).rejects.toMatchObject({
+    code: 'usage',
+    message: `review session ${id} cannot merge; a person merges`,
+  });
+  expect(calls.filter((c) => c.file === 'gh')).toEqual([]);
 });

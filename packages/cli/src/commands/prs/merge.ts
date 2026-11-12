@@ -1,7 +1,7 @@
 import { MERGE_CALLERS, MERGE_METHODS, type MergeCaller, MesaError } from '@mesa/core';
 import { defineCommand } from '../../command.js';
 import { recordedOutput } from '../../output/recorded.js';
-import { prTarget } from './target.js';
+import { prOrUrl } from './target.js';
 
 export const prsMerge = defineCommand({
   name: 'prs merge',
@@ -25,10 +25,7 @@ export const prsMerge = defineCommand({
       throw new MesaError('usage', 'pass one of --squash, --merge and --rebase');
     if (flags.caller && !MERGE_CALLERS.includes(flags.caller as MergeCaller))
       throw new MesaError('usage', `--caller must be one of ${MERGE_CALLERS.join(', ')}`);
-    const pr =
-      /^https?:\/\//i.test(args.pr) && args.number === undefined
-        ? { url: args.pr }
-        : prTarget(mesa, { project: args.pr, number: args.number });
+    const pr = prOrUrl(mesa, { project: args.pr, number: args.number });
     const recorded = await mesa.prs.merge(pr, {
       ...(methods[0] ? { method: methods[0] } : {}),
       ...(flags.yes ? { confirm: true } : {}),

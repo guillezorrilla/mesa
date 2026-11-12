@@ -10,3 +10,9 @@ export function prTarget(mesa: Mesa, args: { project: string; number?: string | 
     return { project: mesa.prs.callerProject(), number: wholeNumber(args.project, 'number') };
   return { project: args.project, number: wholeNumber(args.number, 'number') };
 }
+
+/** The PR a `prs merge` names: a pull request URL alone, else as prTarget names it. */
+export const prOrUrl = (mesa: Mesa, args: { project: string; number?: string | undefined }) =>
+  args.number === undefined && URL.canParse(args.project)
+    ? { url: args.project }
+    : prTarget(mesa, args);
