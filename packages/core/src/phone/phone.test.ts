@@ -74,8 +74,10 @@ test('pair shows a QR link and keeps the Mac half in the Keychain only; the phon
   expect(plist).toContain('<string>--json</string><string>phone</string><string>serve</string>');
   expect(plist).toContain('<key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>');
   expect(runner.calls.filter((c) => c.args[0] === 'bootstrap')).toHaveLength(1);
+  // Later looks start it again (one that ended when a pairing did), never install a second.
   expect(await mesa.phone.status()).toMatchObject({ listening: true });
   expect(runner.calls.filter((c) => c.args[0] === 'bootstrap')).toHaveLength(1);
+  expect(runner.calls.filter((c) => c.args[0] === 'kickstart')).toHaveLength(1);
 
   const item = JSON.parse(secrets.items.get(`mesa.${'default'}.phone pairing`) ?? '{}');
   expect(item).toMatchObject({ pairingId: 'pairing-0000000001', phoneKey: expect.any(String) });

@@ -17,7 +17,7 @@ export function SessionBody({ read }: { read: Promise<DetailRead> }) {
   return (
     <Screen className="gap-6">
       <Stack.Screen options={{ title: detail.row.title }} />
-      {error ? <ErrorNote text={`${error}; showing what it said last.`} /> : null}
+      {error ? <ErrorNote text={error} /> : null}
       <SessionHeader row={detail.row} now={now} />
       {detail.goal ? <Section title="Goal" body={<Text selectable>{detail.goal}</Text>} /> : null}
       <Section title="Replies" body={<ReplyList replies={detail.replies} now={now} />} />

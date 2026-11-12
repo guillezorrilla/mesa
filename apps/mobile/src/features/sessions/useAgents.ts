@@ -32,10 +32,15 @@ export function useAgents() {
     () => link.onUpdate((update) => setUpdates((all) => [...all, { ...update, at: Date.now() }])),
     [link],
   );
-  const refresh = () => startRefresh(() => setListing((last) => list(link, last)));
-  useRepeatWhileActive(RENEW_MS, () =>
-    startTransition(() => setListing((last) => list(link, last))),
-  );
+  // Each promise is made here, not in an updater, which React may run again while it suspends.
+  const refresh = () => {
+    const next = list(link, listing);
+    startRefresh(() => setListing(next));
+  };
+  useRepeatWhileActive(RENEW_MS, () => {
+    const next = list(link, listing);
+    startTransition(() => setListing(next));
+  });
 
   const mark = (row: PhoneRow, unread: boolean) => {
     setUpdates((all) => [

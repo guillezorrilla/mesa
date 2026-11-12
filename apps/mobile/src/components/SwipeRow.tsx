@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { Pressable } from 'react-native';
+import { View } from 'react-native';
+import { Pressable } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Text } from '@/components/ui/text';
 
@@ -21,15 +22,17 @@ export function SwipeRow({
       friction={2}
       rightThreshold={40}
       renderRightActions={(_progress, _drag, row) => (
+        // Gesture handler's own Pressable: React Native's misses taps inside the swipeable.
         <Pressable
           accessibilityRole="button"
           onPress={() => {
             row.close();
             onAction();
           }}
-          className="w-28 items-center justify-center bg-primary"
         >
-          <Text className="font-medium text-primary-foreground">{action}</Text>
+          <View className="h-full w-28 items-center justify-center bg-primary">
+            <Text className="font-medium text-primary-foreground">{action}</Text>
+          </View>
         </Pressable>
       )}
     >

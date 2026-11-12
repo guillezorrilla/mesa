@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { Suspense, useState } from 'react';
-import { View } from 'react-native';
 import { BusyLine } from '@/components/BusyLine';
+import { Screen } from '@/components/Screen';
 import { AgentList } from './AgentList';
 import type { RowFilter } from './agentRows';
 import { useAgents } from './useAgents';
@@ -18,9 +18,9 @@ export function AgentsScreen() {
       />
       <Suspense
         fallback={
-          <View className="flex-1 bg-background p-4">
+          <Screen>
             <BusyLine label="Asking your Mac..." />
-          </View>
+          </Screen>
         }
       >
         <AgentList

@@ -1,6 +1,7 @@
 import type { Clock } from '../../lib/clock.js';
 import { type AsyncLockDeps, withLock } from '../../lib/lock-file.js';
 import { MesaError } from '../../lib/result.js';
+import type { SessionRow } from '../../sessions/board/rows.js';
 import { type MacPairing, type MacPairingStore, macKeys } from '../mac-pairing.js';
 import { type PairingClient, PairingError } from '../protocol/client.js';
 import type { PhoneMessage } from '../protocol/envelope.js';
@@ -76,9 +77,19 @@ async function listen(
         await deps.store.write({ ...kept, takenSeq: seq });
     });
   };
+  // A board look in flight is shared by every call and the tick that come while it runs: a look
+  // takes a second or two, and each running its own made answers take three times that.
+  let looking: Promise<SessionRow[]> | undefined;
+  const board = () => {
+    looking ??= deps.answers.board().finally(() => {
+      looking = undefined;
+    });
+    return looking;
+  };
+  const answers = { ...deps.answers, board };
   const respond = async (request: Extract<PhoneMessage, { kind: 'request' }>) => {
     try {
-      const result = await answerCall(deps.answers, request.call);
+      const result = await answerCall(answers, request.call);
       box.send({ kind: 'response', id: request.id, result });
       if (request.call.method === 'sessions') {
         watchUntil = now() + WATCH_MS;
@@ -130,9 +141,9 @@ async function listen(
           return false;
         },
       );
-  const look = async () => {
+  const watch = async () => {
     if (!listed || now() > watchUntil) return;
-    const rows = phoneRows(await deps.answers.board());
+    const rows = phoneRows(await board());
     const changes = rowChanges(listed, rows);
     listed = rows;
     if (changes.rows.length || changes.gone.length) box.send({ kind: 'update', ...changes });
@@ -141,12 +152,15 @@ async function listen(
   try {
     while (!stop?.aborted) {
       if (misses && !(await stillPaired())) return { pairingId, ended: 'unpaired' };
-      if (open && now() - dialedAt > REDIAL_MS) box.close();
-      else if (!open) {
+      if (open && now() - dialedAt > REDIAL_MS) {
+        box.close();
+        open = false;
+      }
+      if (!open) {
         dialedAt = now();
         box.connect();
       }
-      await look().catch(() => undefined);
+      await watch().catch(() => undefined);
       await deps.sleep(misses ? Math.min(TICK_MS * 2 ** misses, BACKOFF_MS) : TICK_MS);
     }
     return { pairingId, ended: 'stopped' };

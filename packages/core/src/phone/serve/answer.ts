@@ -28,7 +28,8 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
   }
   const row = (await deps.board()).find((r) => r.id === call.id);
   if (!row?.managed) throw new MesaError('not_found', `no session ${call.id}`);
-  const replies = deps.responses(call.id).rows.slice(-REPLIES);
+  // Newest first, as `review responses` lists them.
+  const replies = deps.responses(call.id).rows.slice(0, REPLIES);
   return {
     row: phoneRow(row),
     goal: row.goal ?? null,

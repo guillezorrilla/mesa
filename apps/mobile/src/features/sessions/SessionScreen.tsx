@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
-import { View } from 'react-native';
 import { BusyLine } from '@/components/BusyLine';
+import { Screen } from '@/components/Screen';
 import { SessionBody } from './SessionBody';
 import { useSessionDetail } from './useSessionDetail';
 
@@ -10,9 +10,9 @@ export function SessionScreen({ id }: { id: string }) {
   return (
     <Suspense
       fallback={
-        <View className="flex-1 bg-background p-4">
+        <Screen>
           <BusyLine label="Asking your Mac..." />
-        </View>
+        </Screen>
       }
     >
       <SessionBody read={read} />

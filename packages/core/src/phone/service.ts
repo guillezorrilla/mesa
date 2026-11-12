@@ -33,7 +33,7 @@ export function phoneService(
     clock: ctx.clock,
     listener: {
       ensure: async () =>
-        agent.exists() ? (await agent.status()).loaded : (await agent.install()).loaded,
+        agent.exists() ? (await agent.start()).loaded : (await agent.install()).loaded,
       remove: () => agent.uninstall(),
     },
   };

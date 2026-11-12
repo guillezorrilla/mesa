@@ -106,3 +106,16 @@ test('a call nobody answers fails as a timeout', async () => {
     new MacCallError('timeout', 'the Mac did not answer in time'),
   );
 });
+
+test('a connect right after a close gets a socket of its own, and the old one stays quiet', async () => {
+  const { macBox, phoneBox, got } = await pairedMailboxes();
+  macBox.connect();
+  phoneBox.connect();
+  await settle();
+  phoneBox.close();
+  phoneBox.connect();
+  phoneBox.send({ kind: 'text', text: 'back' });
+  for (let i = 0; i < 50 && !got.mac.length; i++) await settle();
+  expect(got.mac).toEqual([{ kind: 'text', text: 'back' }]);
+  expect(phoneBox.ready).toBe(true);
+});

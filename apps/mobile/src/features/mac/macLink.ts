@@ -9,6 +9,8 @@ import {
 import { randomUUID } from 'expo-crypto';
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+/** How long after a dropped socket the app dials again, while it is in front. */
+const REDIAL_MS = 3000;
 
 /**
  * The phone's line to the Mac (ADR-0027): the Pairing's mailbox over the broker's socket, calls
@@ -19,6 +21,7 @@ export function macLink(pairing: PhonePairing, keepTaken: (takenSeq: number) => 
   const updates = new Set<(update: UpdateMessage) => void>();
   const heard = new Set<() => void>();
   let heardAt: number | undefined;
+  let wanted = false;
   const box = mailbox(
     { connect: webSocketConnect, now: () => new Date() },
     { ...pairing, token: pairing.phoneToken, keys: phoneKeys(pairing) },
@@ -30,6 +33,9 @@ export function macLink(pairing: PhonePairing, keepTaken: (takenSeq: number) => 
         for (const listener of updates) listener(message);
       },
       lost: (id) => calls.lost(id),
+      closed: () => {
+        if (wanted) setTimeout(() => wanted && box.connect(), REDIAL_MS);
+      },
       taken: keepTaken,
     },
   );
@@ -40,8 +46,15 @@ export function macLink(pairing: PhonePairing, keepTaken: (takenSeq: number) => 
   };
   return {
     call: calls.call,
-    connect: () => box.connect(),
-    close: () => box.close(),
+    /** Holds the socket open, dialing again after a drop, until `close`. */
+    connect: () => {
+      wanted = true;
+      box.connect();
+    },
+    close: () => {
+      wanted = false;
+      box.close();
+    },
     /** Each update the Mac pushes; returns the unsubscribe. */
     onUpdate: (listener: (update: UpdateMessage) => void) => listen(updates, listener),
     /** Each time anything arrives from the Mac; returns the unsubscribe. */

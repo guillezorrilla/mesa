@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { CodeBlock } from '@/components/CodeBlock';
 import { Text } from '@/components/ui/text';
 
-/** The session's latest replies, newest last, prose as text and each code block copyable. */
+/** The session's latest replies, newest first, prose as text and each code block copyable. */
 export function ReplyList({ replies, now }: { replies: PhoneDetail['replies']; now: number }) {
   if (!replies.length) return <Text variant="muted">No replies yet.</Text>;
   return (

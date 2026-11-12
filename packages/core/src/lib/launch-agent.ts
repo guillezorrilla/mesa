@@ -52,6 +52,17 @@ export function launchAgent(
   return {
     status,
     exists: () => existsSync(plist),
+    /**
+     * Starts an installed agent that is not running (one that exited cleanly, or was unloaded);
+     * a running one is left as it is.
+     */
+    start: async () => {
+      const user = await domain();
+      if (!(await status()).loaded)
+        await ctx.run('/bin/launchctl', ['bootstrap', user, plist], 5000);
+      await ctx.run('/bin/launchctl', ['kickstart', `${user}/${label}`], 5000);
+      return status();
+    },
     install: async () => {
       if (existsSync(plist))
         throw new MesaError(

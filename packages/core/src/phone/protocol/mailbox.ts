@@ -43,7 +43,7 @@ export type MailboxEvents = {
   message: (message: PhoneMessage) => void;
   /** The broker took this side's token; boxes sent before now go out. */
   ready?: () => void;
-  /** The socket closed; the mailbox connects again only when told. */
+  /** The socket closed without this side asking; the mailbox connects again only when told. */
   closed?: () => void;
   /** The last seq taken moved on: the side keeps it, so a replayed box is refused after a restart. */
   taken?: (seq: number) => void;
@@ -121,18 +121,26 @@ export function mailbox(
     /** Opens the socket and authenticates, unless one is open already. */
     connect() {
       if (socket) return;
-      socket = deps.connect(socketUrl(end.broker, end.pairingId), {
-        open: () => socket?.send(JSON.stringify({ t: 'auth', token: end.token })),
-        message: frameIn,
+      // Events of a socket this side already let go of (close) are ignored, so a connect right
+      // after a close gets a socket of its own rather than waiting on the old one's close.
+      const mine = deps.connect(socketUrl(end.broker, end.pairingId), {
+        open: () => socket === mine && mine.send(JSON.stringify({ t: 'auth', token: end.token })),
+        message: (data) => socket === mine && frameIn(data),
         close: () => {
+          if (socket !== mine) return;
           socket = undefined;
           ready = false;
           on.closed?.();
         },
       });
+      socket = mine;
     },
+    /** Lets the socket go at once; `closed` is for a close this side did not ask for. */
     close() {
-      socket?.close();
+      const old = socket;
+      socket = undefined;
+      ready = false;
+      old?.close();
     },
     get ready() {
       return ready;
