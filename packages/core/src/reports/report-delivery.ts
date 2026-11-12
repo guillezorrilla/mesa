@@ -338,6 +338,15 @@ export function keptReport(ctx: MesaContext, child: string): KeptReport | undefi
   );
 }
 
+/** The children with an open question to their parent, as last written. */
+export const askingChildren = (ctx: MesaContext): Set<string> =>
+  new Set(
+    ledgerOf(ctx)
+      .questions()
+      .filter((question) => !question.answer)
+      .map((question) => question.child),
+  );
+
 /**
  * Each child's newest report that says something, delivered or not (the Crew panel's), with their
  * news collected first when reports are on; with `collect` false, as last written (a board look's,

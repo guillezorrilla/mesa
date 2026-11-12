@@ -26,21 +26,44 @@ const crewReport = (said: ChildReport | undefined): CrewReport | undefined =>
       }
     : undefined;
 
+/** A task no worker will change any more. */
+const settled = (task: Pick<Task, 'state'>) =>
+  task.state === 'succeeded' || task.state === 'failed' || task.state === 'cancelled';
+
 /**
  * `rows` with each child's crew news (a row that reports to a session now, `parentNow`): its
- * task's title from `tasks` (taskTitle) and its newest report that says something from `latest`.
+ * task's title from `tasks` (taskTitle), its newest report that says something from `latest`, and
+ * `asking` while it has an open question in `asking`. A coordinator whose tasks have all settled
+ * shows no progress line: the one it set described work that is over (`mesa progress` stays in
+ * its record until it ends).
  */
 export function withCrewNews(
   rows: readonly SessionRow[],
-  tasks: readonly Pick<Task, 'id' | 'spec'>[],
-  latest: Readonly<Record<string, ChildReport>>,
+  news: {
+    tasks: readonly Pick<Task, 'id' | 'spec' | 'state' | 'coordinator'>[];
+    latest: Readonly<Record<string, ChildReport>>;
+    /** The children with an open question to their parent. */
+    asking: ReadonlySet<string>;
+  },
 ): SessionRow[] {
-  const titles = new Map(tasks.map((task) => [task.id, taskTitle(task.spec)]));
+  const titles = new Map(news.tasks.map((task) => [task.id, taskTitle(task.spec)]));
+  const done = (id: string) => {
+    const planned = news.tasks.filter((task) => task.coordinator === id);
+    return planned.length > 0 && planned.every(settled);
+  };
   return rows.map((row) => {
-    if (!row.managed || !row.parentNow) return row;
+    if (!row.managed) return row;
+    const { progress: _over, ...rest } = row;
+    const shown = row.progress && done(row.id) ? rest : row;
+    if (!row.parentNow) return shown;
     const title = row.task && titles.get(row.task);
-    const report = crewReport(latest[row.id]);
-    return { ...row, ...(title ? { taskTitle: title } : {}), ...(report ? { report } : {}) };
+    const report = crewReport(news.latest[row.id]);
+    return {
+      ...shown,
+      ...(title ? { taskTitle: title } : {}),
+      ...(report ? { report } : {}),
+      ...(news.asking.has(row.id) ? { asking: true as const } : {}),
+    };
   });
 }
 
