@@ -79,6 +79,7 @@ Each version's changes, newest first, in the [Keep a Changelog](https://keepacha
 - Coordinator rules and a nesting cap for workers: the mesa skill tells a coordinator to start every worker and end its turn, and to use its own subagents for small work; a worker starts no workers unless its task asks; and workers nest at most 4 deep, with each worker's depth shown in its session details.
 - Faster worktrees that carry ignored files: a new worktree now copies the files and folders you list, such as `.env` or `node_modules`, as APFS clones that take almost no disk, and stops with a warning instead of copying more than 2 GiB or 50,000 entries. The setting is now `worktrees.carry`, in Settings > Git & Worktrees; the old `carryIgnoredDirectories` still works.
 - Faster session starts on a new branch with fetch on: Mesa now fetches only the branch's base, such as `origin/main`, instead of every remote, and reuses a fetch from the last 30 seconds. When the fetch fails, the session starts from the local copy with a warning instead of not starting.
+- Cheaper reads across many files: Claude sessions are told to ask an Explore agent on Haiku for a question spread over many files and keep only its answer, so the files are not carried through the rest of the session. (#1085)
 
 ### Fixed
 
