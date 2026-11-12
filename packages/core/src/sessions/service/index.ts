@@ -1,5 +1,6 @@
 import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
+import { answerActions } from './answer.js';
 import { continueActions } from './continue.js';
 import { type SessionAssistance, type SessionSkills, sessionDeps } from './deps.js';
 import { gridActions, type SetConfig } from './grid.js';
@@ -32,6 +33,7 @@ export function sessionsService(
       ...inspect,
       ...waitActions(ctx, inspect.list),
       ...inputActions(ctx, faro, deps, lifecycle.open),
+      ...answerActions(ctx, deps),
       ...lifecycle,
       ...continued,
       ...windowActions(ctx, deps),

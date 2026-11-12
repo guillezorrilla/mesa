@@ -1,6 +1,7 @@
 import type {
   AdvertisedUrl,
   Agent,
+  Answered,
   Attached,
   ConversationSearch,
   CrewRow,
@@ -14,6 +15,7 @@ import type {
   ManagedRow,
   NativeDiscovery,
   NativeHistory,
+  PendingPrompt,
   Removed,
   Sent,
   SessionImage,
@@ -89,6 +91,23 @@ export const sessionsCommands = {
     // `--force`, so a block is final here.
     ({ id, prompt, yes }) => ['send', '--no-from', ...(yes ? ['--yes'] : []), '--', id, prompt],
   ),
+  /** The permission or question a waiting session asks (CONTEXT.md, Pending prompt). */
+  'sessions.prompt': commandWith<{ id: string }, PendingPrompt>(({ id }) => ['prompt', '--', id]),
+  // `--via app` names the app in the receipt; `--prompt` refuses the answer once another waits.
+  'sessions.answer': commandWith<
+    { id: string; prompt: string; option?: string; text?: string },
+    Recorded<Pick<Answered, 'answered' | 'session' | 'prompt' | 'kind' | 'option' | 'answer'>>
+  >(({ id, prompt, option, text }) => [
+    'answer',
+    '--via',
+    'app',
+    '--prompt',
+    prompt,
+    ...(text === undefined ? [] : ['--text', text]),
+    '--',
+    id,
+    ...(option === undefined ? [] : [option]),
+  ]),
   'sessions.rename': commandWith<{ id: string; name: string }, Recorded<SessionRecord>>(
     ({ id, name }) => ['rename', '--', id, name],
   ),
