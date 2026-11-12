@@ -1,85 +1,21 @@
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { listReceipts } from '../../receipts/store.js';
-import { recordHookEvent } from '../../sessions/signals/hook-events.js';
 import { gateAdvice, gateRequest } from '../../tasks/gate-advice.js';
 import {
-  CLAUDE_VERSION,
   claudePromptPane,
-  fakePairingBroker,
-  fakePhone,
-  fakeTmux,
-  lockDeps,
-  memorySecretStore,
   newSession,
   plantHookEvent,
-  plantOutputLog,
-  profilePaths,
-  projectProfile,
-  scriptedRunner,
-  testStore,
+  servingPhone,
+  untilTrue,
 } from '../../testing/index.js';
 import type { UsageReport } from '../../usage/records.js';
-import type { PhoneMessage } from '../protocol/envelope.js';
-import { phoneKeys } from '../protocol/join.js';
-import { mailbox } from '../protocol/mailbox.js';
-import { macCalls } from '../protocol/requests.js';
 import { replySegments } from './replies.js';
 import { askLine } from './rows.js';
 import { phoneUsage } from './usage.js';
 
-const NOW = new Date('2026-09-24T12:00:00.000Z');
-
-/** A paired profile with one session, its listener running, and the phone's end of the mailbox. */
-async function serving(run = scriptedRunner({ '/usr/bin/id': '501\n' }).run) {
-  const broker = fakePairingBroker('https://broker.test', () => NOW);
-  const { mesa, home } = projectProfile(run, {
-    http: broker.http,
-    connect: broker.connect,
-    secretStore: memorySecretStore().store,
-    env: { MESA_BROKER_URL: 'https://broker.test' },
-  });
-  const phone = fakePhone(broker.http, () => NOW);
-  await phone.join((await mesa.phone.pair()).result.qr);
-  await mesa.phone.status();
-  const store = testStore(home);
-  const session = store.create(() =>
-    newSession({ goal: 'Fix the login page\nwith tests', name: 'Login fix' }),
-  );
-  plantOutputLog(home, session.id, 'npm test\n12 passing\n');
-
-  const stop = new AbortController();
-  const listener = mesa.phone.serve(stop.signal);
-  const p = phone.pairing;
-  if (!p) throw new Error('not joined');
-  const pushed: PhoneMessage[] = [];
-  let ids = 0;
-  const calls = macCalls({
-    send: (message) => box.send(message),
-    newId: () => `q${++ids}`,
-    wait: () => new Promise(() => {}),
-  });
-  const box = mailbox(
-    { connect: broker.connect, now: () => NOW },
-    { ...p, token: p.phoneToken, keys: phoneKeys(p) },
-    { message: (message) => calls.settle(message) || pushed.push(message) },
-  );
-  box.connect();
-  const end = async () => {
-    stop.abort();
-    box.close();
-    return listener;
-  };
-  return { mesa, home, store, session, calls, pushed, end };
-}
-
-const until = async (done: () => boolean) => {
-  for (let i = 0; i < 500 && !done(); i++) await new Promise((r) => setImmediate(r));
-  expect(done()).toBe(true);
-};
-
 test('the listener answers the board, a session and a mark through core, one per profile', async () => {
-  const { mesa, session, calls, end } = await serving();
+  const { mesa, session, calls, end } = await servingPhone();
   const { rows } = await calls.call({ method: 'sessions' });
   expect(rows).toEqual([
     {
@@ -109,10 +45,10 @@ test('the listener answers the board, a session and a mark through core, one per
 });
 
 test('while the phone watches, a changed row is pushed as an update', async () => {
-  const { mesa, session, calls, pushed, end } = await serving();
+  const { mesa, session, calls, pushed, end } = await servingPhone();
   await calls.call({ method: 'sessions' });
   mesa.sessions.rename(session.id, 'Login fix, round 2');
-  await until(() => pushed.some((m) => m.kind === 'update'));
+  expect(await untilTrue(() => pushed.some((m) => m.kind === 'update'))).toBe(true);
   expect(pushed.find((m) => m.kind === 'update')).toMatchObject({
     rows: [{ id: session.id, title: 'Login fix, round 2' }],
     gone: [],
@@ -121,13 +57,7 @@ test('while the phone watches, a changed row is pushed as an update', async () =
 });
 
 test('the phone reads a waiting prompt, sees it on its row, answers it as the person, and is told when it went stale', async () => {
-  const world = fakeTmux();
-  const run = scriptedRunner({
-    '/usr/bin/id': '501\n',
-    tmux: world.answer,
-    claude: CLAUDE_VERSION,
-  }).run;
-  const { mesa, home, calls, end } = await serving(run);
+  const { mesa, home, world, calls, end } = await servingPhone();
   const { result: opened } = await mesa.sessions.open('lantern-cove', { agent: 'claude' });
   const { id } = opened;
   const window = world.windows[0];
@@ -200,7 +130,7 @@ test('a reply is cut into prose and its fenced code blocks', () => {
 });
 
 test("a coordinator's crew, its task graph and its gates answer the phone, and a gate resolves", async () => {
-  const { mesa, store, session, calls, end } = await serving();
+  const { mesa, store, session, calls, end } = await servingPhone();
   const worker = store.create(() => newSession({ parent: session.id, name: 'Tide parser' }));
   const parse = mesa.tasks.create('Parse the tide tables', { coordinator: session.id });
   const chart = mesa.tasks.create('Chart the tides', { coordinator: session.id, deps: [parse.id] });
@@ -266,7 +196,7 @@ test("a gate's options go to the Decision model as next-step slugs and its odds 
 });
 
 test('the Inbox, usage and push settings answer the phone through core', async () => {
-  const { mesa, home, store, session, calls, end } = await serving();
+  const { mesa, home, session, calls, end } = await servingPhone();
   expect(await calls.call({ method: 'pushes' })).toEqual({
     push: 'away',
     awayAfter: 5,
@@ -274,26 +204,20 @@ test('the Inbox, usage and push settings answer the phone through core', async (
   });
 
   // A question raises an Inbox notice that names its session; the phone marks it read.
-  recordHookEvent(
-    {
-      store,
-      eventsDir: profilePaths(home, 'default').events,
-      clock: () => NOW,
-      home,
-      secrets: () => [],
-    },
-    {
-      agent: 'claude',
-      mesaSessionId: session.id,
-      payload: JSON.stringify({ hook_event_name: 'PermissionRequest', tool_name: 'Bash' }),
-    },
-  );
+  const at = '2026-09-24T11:59:00.000Z';
+  plantHookEvent(home, {
+    session: session.id,
+    agent: 'claude',
+    at,
+    event: 'PermissionRequest',
+    payload: { tool_name: 'Bash' },
+  });
   const { notices } = await calls.call({ method: 'inbox' });
   expect(notices).toEqual([
     {
       id: expect.any(String),
       kind: 'input-required',
-      at: NOW.toISOString(),
+      at,
       title: 'Session needs permission',
       read: false,
       session: { id: session.id, title: 'Login fix' },

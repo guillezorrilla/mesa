@@ -5,6 +5,7 @@ import type { SessionRow } from '../../sessions/board/rows.js';
 import type { SessionResponses } from '../../sessions/native/responses.js';
 import type { UsageReport } from '../../usage/records.js';
 import type { CallResult, PhoneCall } from '../protocol/rpc.js';
+import { answerSteer, isSteerCall, type SteerDeps } from './answer-steer.js';
 import { answerCrewCall, type CrewDeps, isCrewCall } from './crew.js';
 import { answerInboxCall, type InboxDeps, isInboxCall } from './inbox.js';
 import { answerPushes, type PushesDeps } from './pushes.js';
@@ -23,6 +24,9 @@ export type AnswerDeps = {
   /** Answers as the person, from the phone. */
   answer: (id: string, choice: AnswerChoice) => Promise<unknown>;
   crew: CrewDeps;
+  /** The archived sessions, which the board leaves out. */
+  archived: () => Promise<SessionRow[]>;
+  steer: SteerDeps;
   inbox: InboxDeps;
   /** `mesa usage`'s report. */
   usage: () => Promise<UsageReport>;
@@ -66,8 +70,16 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
       },
     );
   }
-  const row = (await deps.board()).find((r) => r.id === call.id);
-  if (!row?.managed) throw new MesaError('not_found', `no session ${call.id}`);
+  /** The session the call names, as the board has it now, or archived. */
+  const managed = async (id: string) => {
+    const find = (rows: SessionRow[]) => rows.find((r) => r.id === id);
+    const row = find(await deps.board()) ?? find(await deps.archived());
+    if (!row?.managed) throw new MesaError('not_found', `no session ${id}`);
+    return row;
+  };
+  if (isSteerCall(call))
+    return answerSteer(deps.steer, call, async (id) => toPhoneRow(await managed(id)));
+  const row = await managed(call.id);
   // Newest first, as `review responses` lists them.
   const replies = deps.responses(call.id).rows.slice(0, REPLIES);
   return {
@@ -79,5 +91,7 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
       segments: replySegments(reply.text),
     })),
     tail: deps.logs(call.id, TAIL).lines,
+    queued: deps.steer.queue.of(call.id),
+    archived: Boolean(row.archivedAt),
   } satisfies CallResult<'session'>;
 }

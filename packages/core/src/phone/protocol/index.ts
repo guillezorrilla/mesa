@@ -4,7 +4,7 @@
 export { relativeAgo, shortAgo, timeAgo } from '../../lib/ago.js';
 export { money } from '../../lib/format.js';
 export { promptTitle } from '../../sessions/answer/title.js';
-export { BUSY_STATES, WAITING_STATES } from '../../sessions/record/states.js';
+export { BUSY_STATES, FINAL_STATES, WAITING_STATES } from '../../sessions/record/states.js';
 export { PHONE_PUSH_LABELS, PHONE_PUSH_MODES, type PhonePushMode } from '../away.js';
 export { BOX_BYTES, fitsOneBox, type PartMessage, partJoiner, splitParts } from './chunk.js';
 export {
@@ -78,4 +78,11 @@ export {
   seal,
   sideKeys,
 } from './seal.js';
+export {
+  IMAGE_MAX,
+  type QueuedMessage,
+  SESSION_ACTIONS,
+  type SendResult,
+  type SessionAction,
+} from './steer.js';
 export type { PhoneSessionUsage, PhoneUsage } from './usage.js';
