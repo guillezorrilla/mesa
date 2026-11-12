@@ -73,6 +73,16 @@ const config: ExpoConfig = {
         recordAudioAndroid: false,
       },
     ],
+    [
+      'expo-image-picker',
+      {
+        photosPermission:
+          'Mesa attaches the photo or screenshot you pick to your reply to a session.',
+        // The camera is the pairing scanner's (expo-camera); the picker only reads the library.
+        cameraPermission: false,
+        microphonePermission: false,
+      },
+    ],
   ],
 };
 

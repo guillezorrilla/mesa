@@ -1,13 +1,13 @@
-import { expect, test } from 'vitest';
 import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { expect, test } from 'vitest';
 import { profilePaths } from '../../profile/paths.js';
 import { listReceipts } from '../../receipts/store.js';
 import {
   CLAUDE_VERSION,
   fakePairingBroker,
-  fakeTmux,
   fakePhone,
+  fakeTmux,
   memorySecretStore,
   newSession,
   plantOutputLog,
