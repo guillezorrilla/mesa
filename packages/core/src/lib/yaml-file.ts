@@ -23,6 +23,27 @@ export function readYaml<T>(file: string, schema: z.ZodType<T>): T {
 }
 
 /**
+ * As readYaml, but keys the schema does not know, at any depth, are left out instead of failing,
+ * and their dotted paths returned; any other failure still throws. The file is not changed.
+ */
+export function readKnownYaml<T>(
+  file: string,
+  schema: z.ZodType<T>,
+): { data: T; unknownKeys: string[] } {
+  const doc = readDocument(file);
+  const parsed = schema.safeParse(doc.toJS());
+  if (parsed.success) return { data: parsed.data, unknownKeys: [] };
+  const unknown = parsed.error.issues.flatMap((issue) =>
+    issue.code === 'unrecognized_keys' ? issue.keys.map((key) => [...issue.path, key]) : [],
+  );
+  for (const path of unknown) doc.deleteIn(path);
+  return {
+    data: parseWith(schema, doc.toJS(), file),
+    unknownKeys: unknown.map((p) => p.join('.')),
+  };
+}
+
+/**
  * Writes `data` as YAML under an optional header comment. With `exclusive` an existing file is
  * never replaced, and the result is false instead.
  */

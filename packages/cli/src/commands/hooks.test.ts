@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import {
+  breakConfig,
   CLAUDE_VERSION,
   CODEX_VERSION,
   scriptedRunner,
@@ -378,7 +379,7 @@ test('a hook in a session refuses to log while config.yaml does not read, so no 
   expect(readFileSync(events, 'utf8')).not.toContain('sk-live-1234');
 
   const config = cli.paths.config;
-  writeFileSync(config, `${readFileSync(config, 'utf8')}surprise: 1\n`);
+  breakConfig(config);
   const before = readFileSync(events, 'utf8');
   expect(await mesa('hook', 'claude')).toMatchObject({ code: 4 });
   expect(readFileSync(events, 'utf8')).toBe(before);

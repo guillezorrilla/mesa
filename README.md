@@ -76,6 +76,8 @@ Running agents side by side is solved: every agent manager gives you a board of 
 
 **Needs:** macOS 14 or later, [tmux](https://github.com/tmux/tmux), and at least one agent signed in: [Claude Code](https://docs.claude.com/en/docs/claude-code), [Codex](https://github.com/openai/codex) or Antigravity CLI. [Obsidian](https://obsidian.md) and a decision model are optional.
 
+**Goes well with:** the [ponytail](https://github.com/DietrichGebert/ponytail) plugin for Claude Code and Codex, which steers agents to the smallest change that works; fewer turns means each session re-reads less context.
+
 The `mesa` CLI ships inside the app:
 
 ```sh

@@ -14,7 +14,7 @@ import type { Env } from '../lib/process.js';
 import { REDACTED } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
-import { readYaml, setYamlPath, valueAt } from '../lib/yaml-file.js';
+import { readKnownYaml, setYamlPath, valueAt } from '../lib/yaml-file.js';
 import { PHONE_PUSH_MODES } from '../phone/away.js';
 import {
   GIT_OVERRIDE_FIELDS,
@@ -77,7 +77,8 @@ const WithoutRemovedKeys = z
       : config,
   );
 
-// Strict objects, so a typo in the file or in `mesa config set` is an error, not a silent no-op.
+// Strict objects, so a typo in `mesa config set` is an error, not a silent no-op; one in the file
+// is dropped on load and named by `mesa doctor` (readConfig).
 const ConfigShape = z.strictObject({
   vault: z.string().refine(isAbsolute, 'must be an absolute path'),
   // Vault capture (CONTEXT.md): on by default; `mesa config set vault.capture off` (CONFIG_ALIASES).
@@ -356,10 +357,18 @@ function requireConfigFile(file: string): void {
   }
 }
 
-export function loadConfig(file: string): Config {
+/**
+ * The config, and the dotted paths of the keys its file holds that this Mesa does not know, as a
+ * newer Mesa writes them: dropped, not refused, so a rollback still runs (#1079), and `mesa doctor`
+ * names them. A known key with a bad value still fails; `mesa config set` still refuses a new one.
+ */
+export function readConfig(file: string): { config: Config; unknownKeys: string[] } {
   requireConfigFile(file);
-  return readYaml(file, ConfigSchema);
+  const { data, unknownKeys } = readKnownYaml(file, ConfigSchema);
+  return { config: data, unknownKeys };
 }
+
+export const loadConfig = (file: string): Config => readConfig(file).config;
 
 /** Every key value becomes `***`: the only form in which a config leaves Mesa. */
 export function redactConfig(config: Config): Config {

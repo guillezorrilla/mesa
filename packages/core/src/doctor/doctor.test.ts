@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { expect, test } from 'vitest';
+import { MesaError } from '../lib/result.js';
 import { scriptedRunner, tempDir, testDeps } from '../testing/index.js';
 import type { ObsidianPaths } from '../vault/obsidian.js';
 import { type Check, runDoctor } from './doctor.js';
@@ -157,6 +158,32 @@ test('hooks Mesa installed once say they need an update; never-installed ones sa
   const none = await doctor(false);
   for (const name of ['claude hooks', 'codex hooks Stop', 'antigravity hooks'])
     expect(none[name]).toMatchObject({ hint: 'not installed: run `mesa hooks install`' });
+});
+
+test('config keys Mesa does not know are one warning naming them; a config that fails says why', async () => {
+  const { home, obsidian } = setup();
+  const { run } = scriptedRunner(VERSIONS);
+  const file = `${home}/config.yaml`;
+  const doctor = (unknownKeys: () => string[]) =>
+    runDoctor({ run, obsidian, profileDir: home, config: { file, unknownKeys } }).then(
+      (report) => byName(report.checks)['config keys'],
+    );
+  expect(await doctor(() => [])).toMatchObject({ ok: true, status: 'ok', path: file });
+  expect(await doctor(() => ['sessions.futureFlag', 'futureSection'])).toMatchObject({
+    status: 'warn',
+    path: file,
+    hint: 'Mesa ignores sessions.futureFlag, futureSection: written by a newer Mesa, or a typo',
+  });
+  const failing = () => {
+    throw new MesaError('invalid_config', `${file}: update.channel: bad`);
+  };
+  expect(await doctor(failing)).toMatchObject({
+    status: 'warn',
+    hint: `${file}: update.channel: bad`,
+  });
+  // None before init: no row.
+  const report = await runDoctor({ run, obsidian, profileDir: home });
+  expect(byName(report.checks)['config keys']).toBeUndefined();
 });
 
 test('session records that do not read are one warning naming them; none is ok', async () => {
