@@ -1,8 +1,21 @@
-import type { Mesa, PrDetail, PrList, PrPatch, PrSetupRow, ReviewVoice } from '@mesa/core';
+import type {
+  MergeMethod,
+  Mesa,
+  PrDetail,
+  PrList,
+  PrPatch,
+  PrSetupRow,
+  Recorded,
+  ReviewVoice,
+} from '@mesa/core';
 import { command, commandWith } from './spec';
 
 /** What `mesa prs start` answers: the session it opened, or the review of that PR already running. */
 export type ReviewStarted = Awaited<ReturnType<Mesa['prs']['start']>>;
+
+/** What `mesa prs merge` answers: the PR, its method and the head it merged, with the receipt. */
+export type PrMerged = Awaited<ReturnType<Mesa['prs']['merge']>>['result'] &
+  Pick<Recorded<unknown>, 'receipt'>;
 
 /** One pull request: its project and number. */
 export type PrRef = { project: string; number: number };
@@ -60,6 +73,23 @@ export const prsCommands = {
     String(number),
     id,
   ]),
+  /**
+   * Merges the PR through gh with `method` (squash by default), never with --admin; `yes` is the
+   * person's confirm to merge when a check fails or it conflicts, which core refuses otherwise.
+   */
+  'prs.merge': commandWith<PrRef & { method?: MergeMethod; yes?: boolean }, PrMerged>(
+    ({ project, number, method, yes }) => [
+      'prs',
+      'merge',
+      '--caller',
+      'app',
+      ...(method ? [`--${method}`] : []),
+      ...(yes ? ['--yes'] : []),
+      '--',
+      project,
+      String(number),
+    ],
+  ),
   /** The profile's Review voice: the file review sessions write comments in, and its text when set. */
   'prs.voice': command<ReviewVoice>('prs', 'voice'),
 };

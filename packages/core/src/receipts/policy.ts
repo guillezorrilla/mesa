@@ -10,7 +10,8 @@ export const RECORD_KINDS = [
   'automation',
   // A Vault capture: the notes one session's capture saved, or why it saved none.
   'capture',
-  // A worker's branch merged into its parent's checkout (`mesa merge`), or stopped on conflicts.
+  // A worker's branch merged into its parent's checkout (`mesa merge`), or stopped on conflicts;
+  // or a pull request merged through gh (`mesa prs merge`).
   'merge',
   // A phone paired with the profile or unpaired from it (`mesa phone pair|unpair`, CONTEXT.md, Pairing).
   'phone',

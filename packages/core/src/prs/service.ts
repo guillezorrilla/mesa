@@ -18,6 +18,7 @@ import {
 } from './buckets.js';
 import { failure, unwrap } from './cli-read.js';
 import { githubApi } from './github.js';
+import { mergeAction } from './merge.js';
 import { PR_CLIS, type PrProvider, prCli, resolveRemote } from './provider.js';
 import {
   DRAFT_BAR,
@@ -67,6 +68,7 @@ export type PrList = {
 export type PrDetail = Omit<PrRow, 'bucket'> &
   Omit<PrRead, 'me' | 'pr' | 'threads'> & {
     bucket: Bucket;
+    state: PrFacts['state'];
     /** My threads, each with the latest verdict a review round gave it (CONTEXT.md, Comment verdict). */
     threads: (PrThread & { verdict?: ThreadVerdict })[];
   };
@@ -147,6 +149,7 @@ export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open' 
     const verdicts = prVerdicts(ctx.paths.prs, ctx).latest(at.entry.name, number);
     return {
       ...rowOf(at.entry.name, provider, pr, me),
+      state: pr.state,
       ...detail,
       threads: withVerdicts(
         threads.filter((t) => t.author === me),
@@ -157,9 +160,15 @@ export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open' 
 
   const show = async (project: string, number: number) => read(await reach(project), number);
 
+  /** The registered project whose origin is `repo` (`owner/name`), for a PR named by its URL. */
+  const projectOf = async (repo: string) =>
+    (await projects()).find((p) => 'repo' in p && p.repo?.toLowerCase() === repo.toLowerCase())
+      ?.name;
+
   return {
     show,
     ...reviewActions(ctx, deps, { reach, read }),
+    merge: mergeAction(ctx, { reach, projectOf }),
 
     /** The PR's changes as one patch and its rows, read apart from `show` so the detail stays light. */
     async diff(project: string, number: number): Promise<PrPatch> {
