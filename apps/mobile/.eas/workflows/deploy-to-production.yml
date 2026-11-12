@@ -1,0 +1,52 @@
+# Expo's "Deploy to production" workflow (docs.expo.dev/eas/workflows/examples/deploy-to-production),
+# iOS only (ADR-0027). It runs on EAS, so the fingerprint is computed where the build is: a push
+# to main that keeps the native fingerprint of an existing build sends an over-the-air update;
+# one that changes it builds and submits to TestFlight.
+name: Deploy to production
+
+on:
+  push:
+    branches: ['main']
+    paths:
+      - apps/mobile/**
+      - packages/core/src/phone/protocol/**
+      - pnpm-lock.yaml
+
+jobs:
+  fingerprint:
+    name: Fingerprint
+    type: fingerprint
+    environment: production
+  get_ios_build:
+    name: Check for an existing iOS build
+    needs: [fingerprint]
+    type: get-build
+    params:
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      profile: production
+  build_ios:
+    name: Build iOS
+    needs: [get_ios_build]
+    if: ${{ !needs.get_ios_build.outputs.build_id }}
+    type: build
+    params:
+      platform: ios
+      profile: production
+  submit_ios_build:
+    name: Submit to TestFlight
+    needs: [build_ios]
+    type: submit
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+  publish_ios_update:
+    name: Publish iOS update
+    needs: [get_ios_build]
+    if: ${{ needs.get_ios_build.outputs.build_id }}
+    type: update
+    params:
+      branch: production
+      platform: ios
+    hooks:
+      # Metro bundles @mesa/core/phone from core's build (eas-build-post-install does this for builds).
+      after_install_node_modules:
+        - run: pnpm --filter @mesa/core build
