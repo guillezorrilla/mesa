@@ -26,11 +26,14 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { AGENTS } from '../../packages/core/dist/agents/agents.js';
+import { readClaudeResult } from '../../packages/core/dist/agents/claude/result.js';
 import { launchMounts } from '../../packages/core/dist/agents/mesa-mount.js';
 import { createContext } from '../../packages/core/dist/context.js';
+import { shellWord } from '../../packages/core/dist/lib/process.js';
 import { WINDOW_VARS } from '../../packages/core/dist/lib/window-vars.js';
 import { readRegistry } from '../../packages/core/dist/projects/registry.js';
-import { VAULT_CAPTURE } from '../../packages/core/dist/skills/library.js';
+import { nestedAgentVars } from '../../packages/core/dist/sessions/tmux/backend.js';
+import { claudeRunProfile, VAULT_CAPTURE } from '../../packages/core/dist/skills/library.js';
 import { captureInput } from '../../packages/core/dist/vault/capture/input.js';
 import { captureItems } from '../../packages/core/dist/vault/capture/items.js';
 import { CLI, needCli, usage } from '../decisions/lib.mjs';
@@ -93,17 +96,27 @@ for (const id of values.sessions.split(',')) {
     (r) => r.project === about.project && r.kind === 'interactive' && !r.endedAt,
   );
   if (!live) usage(`no live session on ${about.project} for mesa-vault to bind to`);
-  const env = { ...process.env, CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD: '1' };
-  for (const name of WINDOW_VARS) delete env[name];
-  Object.assign(env, { MESA_SESSION_ID: live.id, MESA_PROFILE: values.profile });
+  const env = { ...process.env };
+  for (const name of [...nestedAgentVars(env), ...WINDOW_VARS]) delete env[name];
+  Object.assign(env, {
+    CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD: '1',
+    MESA_SESSION_ID: live.id,
+    MESA_PROFILE: values.profile,
+  });
   for (const model of models) {
-    const may = { ...config.run, readOnlyVault: true, lean: { model, mcp: 'vault' } };
-    const launch = AGENTS.claude.headless
-      .command(randomUUID(), `/${VAULT_CAPTURE}`, may, cwd, mounts)
-      .replace(
-        /^claude -p /,
-        `claude --add-dir '${projects.get(about.project)}' --no-session-persistence -p `,
-      );
+    const lean = { ...claudeRunProfile(VAULT_CAPTURE), model };
+    const may = { ...config.run, readOnlyVault: true, lean };
+    const real = AGENTS.claude.headless.command(
+      randomUUID(),
+      `/${VAULT_CAPTURE}`,
+      may,
+      cwd,
+      mounts,
+    );
+    if (!real.startsWith('claude -p '))
+      throw new Error(`a capture launch starts otherwise: ${real}`);
+    const extra = `--add-dir ${shellWord(projects.get(about.project))} --no-session-persistence`;
+    const launch = real.replace(/^claude -p /, `claude ${extra} -p `);
     const started = Date.now();
     const done = spawnSync('/bin/sh', ['-c', launch], {
       cwd,
@@ -114,14 +127,12 @@ for (const id of values.sessions.split(',')) {
       maxBuffer: 64 << 20,
     });
     const row = { session: id, model, messages: input.count, ms: Date.now() - started };
+    const result = readClaudeResult(done.stdout ?? '');
     try {
-      const result = JSON.parse(done.stdout);
-      Object.assign(row, {
-        cost: result.total_cost_usd,
-        turns: result.num_turns,
-        result: result.result,
-      });
-      row.items = captureItems(result.result ?? '');
+      if (!result.read) throw new Error(result.reason);
+      Object.assign(row, { cost: result.costUsd, result: result.output });
+      if (!result.ok) throw new Error(result.reason);
+      row.items = captureItems(result.output);
     } catch (error) {
       row.error = String(error instanceof Error ? error.message : error).slice(0, 300);
     }

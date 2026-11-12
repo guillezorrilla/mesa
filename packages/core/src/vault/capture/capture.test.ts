@@ -674,12 +674,11 @@ test('a run that writes a field it leaves out as null reads as if it left it out
     updates: null,
   };
   const [item] = captureItems(JSON.stringify([decision]));
-  expect(item).toMatchObject({ title: decision.title });
-  expect(item?.kind === 'decision' && [item.confidence, item.probabilities, item.updates]).toEqual([
-    undefined,
-    undefined,
-    undefined,
-  ]);
+  if (item?.kind !== 'decision') throw new Error(`read as ${item?.kind}`);
+  expect(item.title).toBe(decision.title);
+  expect(item.confidence).toBeUndefined();
+  expect(item.probabilities).toBeUndefined();
+  expect(item.updates).toBeUndefined();
 });
 
 test("a capture marks the newest message it was given; a resumed session's turn reads only newer ones, and starts nothing when none are", async () => {
