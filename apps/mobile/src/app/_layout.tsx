@@ -33,8 +33,8 @@ export default function RootLayout() {
 }
 
 /**
- * Agents, once paired, and the Mac: the pairing and About; hidden on a session's screen, under its
- * reply bar. A tapped push opens its session.
+ * Agents and Tickets, once paired, and the Mac: the pairing and About; hidden on a session's
+ * screen and the new session form, under their bars. A tapped push opens its session.
  */
 function Tabs() {
   const { pairing } = usePairing();
@@ -45,6 +45,10 @@ function Tabs() {
       <NativeTabs.Trigger name="agents" hidden={!pairing}>
         <NativeTabs.Trigger.Label>Agents</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'square.stack', selected: 'square.stack.fill' }} />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="tickets" hidden={!pairing}>
+        <NativeTabs.Trigger.Label>Tickets</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'ticket', selected: 'ticket.fill' }} />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="(home)">
         <NativeTabs.Trigger.Label>Mac</NativeTabs.Trigger.Label>
