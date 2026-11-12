@@ -35,4 +35,5 @@ test('a build running its own bundle, or a dev run with nothing known, says so',
       embedded: true,
     }).map((row) => row.value),
   ).toEqual(['Unknown', 'Unknown', 'Unknown', 'None', 'Shipped with this build']);
+  expect(aboutRows({ ...FACTS, channel: '' })[3]).toEqual({ label: 'Channel', value: 'None' });
 });
