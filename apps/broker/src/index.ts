@@ -1,7 +1,9 @@
 // The Worker entrypoint: the only place that picks the real fetch and rate limiter (ADR-0008).
+import { apnsPusher } from './apns.js';
 import { type Env, handle } from './broker.js';
 import { type D1, d1Installs } from './installs-d1.js';
 import { unlimited } from './limit.js';
+import { Pairing as PairingObject, type PairingObjectState } from './pairing.js';
 
 /** Cloudflare's rate-limit binding: FEEDBACK_LIMIT and INSTALLS_LIMIT in wrangler.toml. */
 type RateLimiter = { limit: (options: { key: string }) => Promise<{ success: boolean }> };
@@ -42,5 +44,15 @@ export default {
   },
 };
 
-/** The PAIRINGS Durable Object class (wrangler.toml). */
-export { Pairing } from './pairing.js';
+/** One APNs sender per isolate, so every pairing's pushes share its provider token. */
+const apns = apnsPusher(
+  (url, init) => fetch(url, init),
+  () => new Date(),
+);
+
+/** The PAIRINGS Durable Object class (wrangler.toml), sending pushes through APNs. */
+export class Pairing extends PairingObject {
+  constructor(state: PairingObjectState, env: Env) {
+    super(state, env, () => new Date(), apns);
+  }
+}

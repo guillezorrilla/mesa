@@ -1,8 +1,10 @@
 import { afterEach, expect, test, vi } from 'vitest';
+import { apnsPusher } from './apns.js';
 import { type Env, handle, type Upstream } from './broker.js';
 import type { InstallsDeps } from './installs.js';
 import { type D1, d1Installs } from './installs-d1.js';
 import type { Limit } from './limit.js';
+import { paired } from './pairing-harness.js';
 
 const ENV: Env = {
   ATLASSIAN_CLIENT_ID: 'client-1',
@@ -598,4 +600,142 @@ test('an uppercase install ID is kept lowercase, and a store failure is 500, not
     },
   );
   expect([failing.status, await failing.json()]).toEqual([500, { error: 'store_failed' }]);
+});
+
+// Pushes (#1016): the Mac posts a sealed notice to its pairing, and the broker sends APNs a push
+// with the fixed alert and the ciphertext, signed with a token from APNS_KEY.
+
+/** A P-256 key as a .p8 file holds it, and its public half to check a token's signature. */
+async function apnsKey() {
+  const pair = (await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, [
+    'sign',
+    'verify',
+  ])) as CryptoKeyPair;
+  const der = new Uint8Array(await crypto.subtle.exportKey('pkcs8', pair.privateKey));
+  const pem = `-----BEGIN PRIVATE KEY-----\n${btoa(String.fromCharCode(...der))}\n-----END PRIVATE KEY-----\n`;
+  return { pem, publicKey: pair.publicKey };
+}
+
+/** APNs, answering each push `answers` in turn (then 200) and recording what it was sent. */
+function fakeApns(answers: { status: number; reason?: string }[] = []) {
+  const pushes: { url: string; headers: Headers; body: Record<string, unknown> }[] = [];
+  const upstream: Upstream = async (url, init) => {
+    pushes.push({
+      url,
+      headers: new Headers(init.headers),
+      body: JSON.parse(String(init.body)),
+    });
+    const answer = answers.shift() ?? { status: 200 };
+    return new Response(answer.reason ? JSON.stringify({ reason: answer.reason }) : null, {
+      status: answer.status,
+    });
+  };
+  return { upstream, pushes };
+}
+
+const DEVICE = 'ab'.repeat(32);
+const NOTICE = 'AQIDBAUGBwgJCgsM-sealed_notice';
+
+async function pushing(answers: { status: number; reason?: string }[] = [], env: Env = {}) {
+  const key = await apnsKey();
+  const apns = fakeApns(answers);
+  const clock = { now: new Date('2026-11-11T10:00:00Z') };
+  const p = await paired({
+    env: {
+      APNS_KEY: key.pem,
+      APNS_KEY_ID: 'KEY1234567',
+      APNS_TEAM_ID: 'TEAM123456',
+      APNS_TOPIC: 'com.example.mesa',
+      ...env,
+    },
+    push: apnsPusher(apns.upstream, () => clock.now),
+  });
+  const register = (token = p.phoneToken, deviceToken = DEVICE) =>
+    p.post(`/pairings/${p.pairingId}/device`, { deviceToken }, token);
+  const push = (kind = 'input', notice = NOTICE, token = p.macToken) =>
+    p.post(`/pairings/${p.pairingId}/push`, { kind, notice }, token);
+  return { ...p, key, apns, clock, register, push };
+}
+
+/** A provider token's header and claims, after checking its ES256 signature. */
+async function verified(authorization: string | null, publicKey: CryptoKey) {
+  const bytes = (part = '') =>
+    Uint8Array.from(atob(part.replaceAll('-', '+').replaceAll('_', '/')), (c) => c.charCodeAt(0));
+  const [head, claims, signature] = (authorization ?? '').replace(/^bearer /, '').split('.');
+  const ok = await crypto.subtle.verify(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    publicKey,
+    bytes(signature),
+    new TextEncoder().encode(`${head}.${claims}`),
+  );
+  const decode = (part = '') => JSON.parse(new TextDecoder().decode(bytes(part)));
+  return { ok, head: decode(head), claims: decode(claims) };
+}
+
+test('a push goes to the registered phone with the fixed alert, the ciphertext and a signed token', async () => {
+  const p = await pushing();
+  expect((await p.register()).status).toBe(204);
+  expect(await p.push()).toEqual({ status: 200, body: { sent: true } });
+  expect(await p.push('finished')).toEqual({ status: 200, body: { sent: true } });
+  const [first, second] = p.apns.pushes;
+  expect(first?.url).toBe(`https://api.push.apple.com/3/device/${DEVICE}`);
+  expect(first?.headers.get('apns-push-type')).toBe('alert');
+  expect(first?.headers.get('apns-topic')).toBe('com.example.mesa');
+  expect(first?.body).toEqual({
+    aps: { alert: 'A session needs you', 'mutable-content': 1, sound: 'default' },
+    n: NOTICE,
+  });
+  expect(second?.body.aps).toMatchObject({ alert: 'A session finished' });
+  const token = await verified(first?.headers.get('authorization') ?? null, p.key.publicKey);
+  expect(token).toEqual({
+    ok: true,
+    head: { alg: 'ES256', kid: 'KEY1234567' },
+    claims: { iss: 'TEAM123456', iat: Date.parse('2026-11-11T10:00:00Z') / 1000 },
+  });
+  // The same token for the hour, a new one after.
+  expect(second?.headers.get('authorization')).toBe(first?.headers.get('authorization'));
+  p.clock.now = new Date('2026-11-11T10:55:00Z');
+  await p.push();
+  const third = await verified(
+    p.apns.pushes[2]?.headers.get('authorization') ?? null,
+    p.key.publicKey,
+  );
+  expect(third.claims.iat).toBe(Date.parse('2026-11-11T10:55:00Z') / 1000);
+});
+
+test('a push is refused without a secret, a device, the Mac token, a known kind or a bounded notice', async () => {
+  const unset = await pushing([], { APNS_TOPIC: undefined });
+  await unset.register();
+  expect(await unset.push()).toEqual({ status: 500, body: { error: 'not_configured' } });
+  const p = await pushing();
+  expect(await p.push()).toEqual({ status: 409, body: { error: 'no_device' } });
+  expect((await p.register(p.macToken)).status).toBe(403);
+  expect((await p.register(p.phoneToken, 'not-hex')).status).toBe(400);
+  await p.register();
+  expect((await p.push('input', NOTICE, p.phoneToken)).status).toBe(403);
+  expect((await p.push('input', NOTICE, 'stranger')).status).toBe(401);
+  expect((await p.push('chat')).status).toBe(400);
+  expect((await p.push('input', 'x'.repeat(3073))).status).toBe(400);
+  expect((await p.push('input', 'not base64!')).status).toBe(400);
+  expect(p.apns.pushes).toEqual([]);
+  expect(unset.apns.pushes).toEqual([]);
+});
+
+test("APNs' BadDeviceToken or Unregistered forgets the device token; another failure keeps it", async () => {
+  const p = await pushing([
+    { status: 500, reason: 'InternalServerError' },
+    { status: 400, reason: 'BadDeviceToken' },
+    { status: 410, reason: 'Unregistered' },
+  ]);
+  await p.register();
+  expect(await p.push()).toEqual({
+    status: 502,
+    body: { error: 'apns_failed', reason: 'InternalServerError' },
+  });
+  expect(await p.push()).toEqual({ status: 410, body: { error: 'device_gone' } });
+  expect(await p.push()).toEqual({ status: 409, body: { error: 'no_device' } });
+  await p.register();
+  expect(await p.push()).toEqual({ status: 410, body: { error: 'device_gone' } });
+  expect(await p.push()).toEqual({ status: 409, body: { error: 'no_device' } });
+  expect(p.apns.pushes).toHaveLength(3);
 });

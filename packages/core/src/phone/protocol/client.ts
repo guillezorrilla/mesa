@@ -1,5 +1,6 @@
 // The broker's pairing routes (ADR-0014's 2026-11-11 amendment), as both sides call them. Each
 // takes a fetch-shaped function, so the Mac passes MesaDeps.http and the phone its own fetch.
+import type { NoticeKind } from './notice.js';
 
 /** Fetch-shaped, as MesaDeps.http is. */
 export type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
@@ -23,8 +24,10 @@ export class PairingError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
+    /** Why, when the broker says: APNs' own reason for a failed push. */
+    readonly reason?: string,
   ) {
-    super(`the broker answered ${status} ${code}`);
+    super(`the broker answered ${status} ${code}${reason ? ` (${reason})` : ''}`);
   }
 }
 
@@ -42,7 +45,12 @@ export function pairingClient(fetch: Fetch, broker: string) {
     }).catch(() => undefined);
     if (!response) throw new PairingError(NETWORK, 'unreachable');
     const body = response.status === 204 ? {} : await response.json().catch(() => ({}));
-    if (!response.ok) throw new PairingError(response.status, String(body.error ?? 'failed'));
+    if (!response.ok)
+      throw new PairingError(
+        response.status,
+        String(body.error ?? 'failed'),
+        typeof body.reason === 'string' ? body.reason : undefined,
+      );
     return body as T;
   };
   const at = (pairingId: string) => `/pairings/${encodeURIComponent(pairingId)}`;
@@ -74,6 +82,20 @@ export function pairingClient(fetch: Fetch, broker: string) {
         method: 'POST',
         token,
         body: JSON.stringify({ upTo }),
+      }),
+    /** The phone gives the broker its APNs device token, so the Mac's pushes reach it. */
+    registerDevice: (pairingId: string, token: string, deviceToken: string) =>
+      call<object>(`${at(pairingId)}/device`, {
+        method: 'POST',
+        token,
+        body: JSON.stringify({ deviceToken }),
+      }),
+    /** The Mac asks the broker to push a sealed notice to the phone; `kind` picks the fixed alert. */
+    push: (pairingId: string, token: string, kind: NoticeKind, notice: string) =>
+      call<{ sent: true }>(`${at(pairingId)}/push`, {
+        method: 'POST',
+        token,
+        body: JSON.stringify({ kind, notice }),
       }),
     remove: (pairingId: string, token: string) =>
       call<object>(at(pairingId), { method: 'DELETE', token }),
