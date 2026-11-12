@@ -5,12 +5,14 @@ import { Screen } from '@/components/Screen';
 import { Section } from '@/components/Section';
 import { Text } from '@/components/ui/text';
 import { CrewSection } from '../crew/CrewSection';
+import { PromptCard } from '../prompt/PromptCard';
 import { OutputTail } from './OutputTail';
 import { ReplyList } from './ReplyList';
 import { SessionHeader } from './SessionHeader';
+import { groupOf } from './sessionState';
 import type { DetailRead } from './useSessionDetail';
 
-/** What a session said and is doing: state, goal, its crew if any, latest replies, output tail. */
+/** What a session said and is doing: state, its pending prompt, goal, its crew if any, latest replies, output tail. */
 export function SessionBody({ read }: { read: Promise<DetailRead> }) {
   const { detail, error } = use(read);
   if (!detail) return <Screen>{error ? <ErrorNote text={error} /> : null}</Screen>;
@@ -20,6 +22,11 @@ export function SessionBody({ read }: { read: Promise<DetailRead> }) {
       <Stack.Screen options={{ title: detail.row.title }} />
       {error ? <ErrorNote text={error} /> : null}
       <SessionHeader row={detail.row} now={now} />
+      <PromptCard
+        id={detail.row.id}
+        waiting={groupOf(detail.row.state) === 'needs-you'}
+        since={detail.row.since}
+      />
       {detail.goal ? (
         <Section title="Goal">
           <Text selectable>{detail.goal}</Text>

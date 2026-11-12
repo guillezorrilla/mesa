@@ -17,6 +17,8 @@ export const phoneRow = z.object({
   /** How much of its context window it has used, in percent, once read. */
   context: z.number().nullable(),
   unread: z.boolean(),
+  /** A waiting session's pending prompt in one line; none while it waits on none Mesa reads. */
+  ask: z.string().optional(),
 });
 export type PhoneRow = z.infer<typeof phoneRow>;
 
@@ -36,11 +38,39 @@ export const phoneDetail = z.object({
 });
 export type PhoneDetail = z.infer<typeof phoneDetail>;
 
-/** The calls the Mac answers: the board, one session, marking one read or unread, a crew's. */
+/** A session's pending prompt (core's PendingPrompt, CONTEXT.md), as the prompt card shows it. */
+export const phonePrompt = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('pending'),
+    id: z.string(),
+    kind: z.enum(['permission', 'question']),
+    tool: z.string().optional(),
+    summary: z.string(),
+    options: z.array(
+      z.object({ id: z.string(), label: z.string(), description: z.string().optional() }),
+    ),
+    freeText: z.boolean(),
+  }),
+  z.object({ status: z.literal('unsupported'), reason: z.string() }),
+]);
+export type PhonePrompt = z.infer<typeof phonePrompt>;
+
+/**
+ * The calls the Mac answers: the board, one session, marking one read or unread, its pending
+ * prompt, answering that prompt (`prompt` is its id, so an answer to an older one is stale), and a crew's.
+ */
 export const phoneCall = z.discriminatedUnion('method', [
   z.object({ method: z.literal('sessions') }),
   z.object({ method: z.literal('session'), id: z.string() }),
   z.object({ method: z.literal('mark'), id: z.string(), unread: z.boolean() }),
+  z.object({ method: z.literal('prompt'), id: z.string() }),
+  z.object({
+    method: z.literal('answer'),
+    id: z.string(),
+    prompt: z.string(),
+    option: z.string().optional(),
+    text: z.string().max(4000).optional(),
+  }),
   ...crewCalls,
 ]);
 export type PhoneCall = z.infer<typeof phoneCall>;
@@ -50,6 +80,9 @@ export const callResults = {
   sessions: z.object({ rows: z.array(phoneRow) }),
   session: phoneDetail,
   mark: z.object({}),
+  prompt: phonePrompt,
+  /** Answered, or stale: the session no longer waits on that prompt. */
+  answer: z.object({ status: z.enum(['answered', 'stale']) }),
   ...crewResults,
 };
 export type CallResult<M extends PhoneCall['method']> = z.infer<(typeof callResults)[M]>;
