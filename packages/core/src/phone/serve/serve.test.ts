@@ -1,20 +1,25 @@
 import { expect, test } from 'vitest';
+import { automationState } from '../../automations/state.js';
 import { gateAdvice, gateRequest } from '../../tasks/gate-advice.js';
 import {
   fakePairingBroker,
   fakePhone,
+  lockDeps,
   memorySecretStore,
   newSession,
   plantOutputLog,
+  profilePaths,
   projectProfile,
   scriptedRunner,
   testStore,
 } from '../../testing/index.js';
+import type { UsageReport } from '../../usage/records.js';
 import type { PhoneMessage } from '../protocol/envelope.js';
 import { phoneKeys } from '../protocol/join.js';
 import { mailbox } from '../protocol/mailbox.js';
 import { macCalls } from '../protocol/requests.js';
 import { replySegments } from './replies.js';
+import { phoneUsage } from './usage.js';
 
 const NOW = new Date('2026-09-24T12:00:00.000Z');
 
@@ -58,7 +63,7 @@ async function serving() {
     box.close();
     return listener;
   };
-  return { mesa, store, session, calls, pushed, end };
+  return { mesa, home, store, session, calls, pushed, end };
 }
 
 const until = async (done: () => boolean) => {
@@ -181,4 +186,147 @@ test("a gate's options go to the Decision model as next-step slugs and its odds 
     defer: 0.1,
     model: 'clef-test',
   });
+});
+
+test('automations, the Inbox, usage and push settings answer the phone through core', async () => {
+  const { mesa, home, session, calls, end } = await serving();
+  expect(await calls.call({ method: 'pushes' })).toEqual({
+    push: 'away',
+    awayAfter: 5,
+    finished: true,
+  });
+  await calls.call({
+    method: 'addRule',
+    rule: {
+      name: 'Morning triage',
+      project: 'lantern-cove',
+      cron: '0 9 * * 1-5',
+      goal: 'Triage the tide reports',
+      ask: true,
+    },
+  });
+  await calls.call({ method: 'rule', name: 'Morning triage', enabled: false });
+  const listed = await calls.call({ method: 'automations' });
+  expect(listed).toMatchObject({
+    installed: false,
+    rules: [
+      {
+        name: 'Morning triage',
+        project: 'lantern-cove',
+        enabled: false,
+        sentence: 'Weekdays at 09:00: open a session, asks first',
+      },
+    ],
+    runs: [],
+    projects: ['lantern-cove'],
+  });
+  await expect(
+    calls.call({
+      method: 'addRule',
+      rule: { name: 'Bad', project: 'lantern-cove', cron: 'soon', goal: 'x', ask: false },
+    }),
+  ).rejects.toThrow('cron');
+
+  // A rule that asks first left a run waiting: the Inbox names it, and the phone approves it.
+  const rule = mesa.automations.list()[0];
+  if (!rule) throw new Error('no rule');
+  automationState(profilePaths(home, 'default').automationState, lockDeps()).update((state) => {
+    state.installed = true;
+    state.runs.push({
+      id: '01JD0000000000000000000000',
+      rule: { ...rule, enabled: true },
+      trigger: { kind: 'cron', at: '2026-09-24T09:00:00.000Z', value: '0 9 * * 1-5' },
+      status: 'pending',
+      approved: false,
+    });
+  });
+  const { notices } = await calls.call({ method: 'inbox' });
+  expect(notices).toEqual([
+    {
+      id: expect.any(String),
+      kind: 'automation',
+      at: '2026-09-24T09:00:00.000Z',
+      title: 'Automation asks to run: Morning triage',
+      detail: 'Approve or cancel it in Automations.',
+      read: false,
+      run: '01JD0000000000000000000000',
+      automations: true,
+    },
+  ]);
+  await calls.call({ method: 'noticeRead', id: notices[0]?.id ?? '' });
+  expect((await calls.call({ method: 'inbox' })).notices[0]?.read).toBe(true);
+  await calls.call({ method: 'run', id: '01JD0000000000000000000000', act: 'approve' });
+  expect((await calls.call({ method: 'automations' })).runs).toMatchObject([
+    { id: '01JD0000000000000000000000', rule: 'Morning triage', status: 'queued' },
+  ]);
+  expect((await calls.call({ method: 'inbox' })).notices).toEqual([]);
+  await expect(
+    calls.call({ method: 'run', id: '01JD0000000000000000000000', act: 'approve' }),
+  ).rejects.toThrow('only pending runs');
+
+  // No readings yet: nothing spent, the session listed with its context.
+  const usage = await calls.call({ method: 'usage' });
+  expect(usage).toMatchObject({ today: 0, week: 0, month: 0, alerts: [] });
+  expect(usage.days).toHaveLength(14);
+  expect(usage.sessions).toEqual([
+    { id: session.id, title: 'Login fix', project: 'lantern-cove', cost: null, context: null },
+  ]);
+
+  expect(await calls.call({ method: 'pushes', set: { push: 'always', finished: false } })).toEqual({
+    push: 'always',
+    awayAfter: 5,
+    finished: false,
+  });
+  expect(mesa.config.get().phone).toMatchObject({ push: 'always', finished: false });
+  await end();
+});
+
+test("the phone's usage sums each session's cost, unknown when one reading has no price", () => {
+  const totals = (estimatedCostUsd: number | null) => ({
+    events: 1,
+    input: 1,
+    output: 1,
+    cacheRead: 0,
+    cacheWrite: 0,
+    estimatedCostUsd,
+  });
+  const reading = (session: string, cost: number | null) =>
+    ({ session, estimatedCostUsd: cost }) as UsageReport['rows'][number];
+  const row = (id: string, context: number | null) => ({
+    id,
+    title: id,
+    project: null,
+    state: 'idle',
+    since: '',
+    context,
+    unread: false,
+  });
+  const report = {
+    rows: [reading('a', 1.5), reading('a', 0.25), reading('b', 0.5), reading('b', null)],
+    unknown: [{ session: 'c', reason: 'native session id is not available' }],
+    periods: {
+      today: totals(2),
+      '7d': totals(3),
+      '30d': totals(4),
+      '90d': totals(4),
+      month: totals(4),
+    },
+    alerts: [{ period: 'today' as const, thresholdUsd: 1, knownCostUsd: 2 }],
+    daily: Array.from({ length: 90 }, (_, i) => ({ day: `d${i}`, totals: totals(i), models: [] })),
+    breakdown: [],
+    agents: [],
+  } satisfies UsageReport;
+  const usage = phoneUsage(report, [row('b', 10), row('c', null), row('a', 42), row('d', 3)]);
+  expect(usage).toMatchObject({ today: 2, week: 3, month: 4 });
+  expect(usage.days[0]).toEqual({ day: 'd76', cost: 76 });
+  expect(usage.days).toHaveLength(14);
+  expect(usage.sessions.map((s) => [s.id, s.cost, s.context])).toEqual([
+    ['a', 1.75, 42],
+    ['d', 0, 3],
+    ['b', null, 10],
+    ['c', null, null],
+  ]);
+  expect(usage.alerts).toEqual([
+    'Known estimated today cost reached your $1.00 alert. Agents keep running.',
+  ]);
 });

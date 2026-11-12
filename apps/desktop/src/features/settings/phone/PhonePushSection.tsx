@@ -1,6 +1,7 @@
 import { PHONE_PUSH_LABELS, PHONE_PUSH_MODES } from '@mesa/core/browser';
-import { BellRing, Hourglass } from 'lucide-react';
+import { BellRing, CircleCheck, Hourglass } from 'lucide-react';
 import { ChoiceField } from '../controls/ChoiceField';
+import { ToggleField } from '../controls/ToggleField';
 import { SettingRow } from '../SettingRow';
 import { SettingSection } from '../SettingSection';
 import { useSettings } from '../useSettings';
@@ -33,7 +34,7 @@ export function PhonePushSection() {
       <SettingRow
         icon={BellRing}
         title="Push to the phone"
-        description="A push when a session asks a question, needs permission or finishes a turn. Its text is sealed on this Mac; the broker sees only the ciphertext."
+        description="A push when a session asks a question, needs permission or finishes a turn, or an automation asks to run. Its text is sealed on this Mac; the broker sees only the ciphertext."
         htmlFor="phone-push"
         keywords="phone iphone push notification away"
         control={
@@ -59,6 +60,16 @@ export function PhonePushSection() {
             options={withCurrent(String(config.phone.awayAfter))}
             toValue={Number}
           />
+        }
+      />
+      <SettingRow
+        icon={CircleCheck}
+        title="Finished turns"
+        description="Push when a session finishes a turn, too. The phone can change this as well."
+        htmlFor="phone-finished"
+        keywords="phone push finished done turn"
+        control={
+          <ToggleField id="phone-finished" path="phone.finished" checked={config.phone.finished} />
         }
       />
       <TestPushRow />

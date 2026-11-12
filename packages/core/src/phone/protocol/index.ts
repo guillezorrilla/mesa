@@ -2,6 +2,8 @@
 // but the pure time words and session state sets its screens share with the desktop.
 export { relativeAgo, shortAgo, timeAgo } from '../../lib/ago.js';
 export { BUSY_STATES, WAITING_STATES } from '../../sessions/record/states.js';
+export { PHONE_PUSH_LABELS, PHONE_PUSH_MODES, type PhonePushMode } from '../away.js';
+export type { PhoneRule, PhoneRun, ScheduleRule } from './automations.js';
 export { BOX_BYTES, fitsOneBox, type PartMessage, partJoiner, splitParts } from './chunk.js';
 export {
   type Delivery,
@@ -27,6 +29,7 @@ export {
   phoneMessage,
   sealMessage,
 } from './envelope.js';
+export type { PhoneNotice } from './inbox.js';
 export { joinPairing, type PhonePairing, phoneKeys } from './join.js';
 export { formatPairingLink, type PairingLink, parsePairingLink } from './link.js';
 export {
@@ -44,6 +47,7 @@ export {
   openNotice,
   sealNotice,
 } from './notice.js';
+export type { PhonePushes } from './pushes.js';
 export { MacCallError, macCalls } from './requests.js';
 export {
   type CallResult,
@@ -70,3 +74,4 @@ export {
   seal,
   sideKeys,
 } from './seal.js';
+export type { PhoneSessionUsage, PhoneUsage } from './usage.js';

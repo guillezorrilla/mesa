@@ -11,6 +11,7 @@ import { scanHookEvents } from '../sessions/signals/hook-events.js';
 import { type DeliveryPlan, planDelivery } from './delivery-plan.js';
 import {
   type AutomationRunNotice,
+  approvalItems,
   type Candidate,
   doctorFindings,
   doctorItem,
@@ -25,7 +26,7 @@ import {
 import { type InboxState, inboxStore } from './inbox-store.js';
 
 /**
- * The notices `state` keeps and `projected` adds (failed runs, open gates), newest first, without the cleared ones; a release
+ * The notices `state` keeps and `projected` adds (failed and waiting runs, open gates), newest first, without the cleared ones; a release
  * notice gets its notes from `notes`.
  */
 function inboxItems(
@@ -72,7 +73,10 @@ export function inbox(
   openGates: () => readonly GateNotice[],
 ) {
   // Each owner is the event's: a crash between the event and its notice loses no notice.
-  const projected = () => [...failureItems(automationRuns()), ...gateItems(openGates())];
+  const projected = () => {
+    const runs = automationRuns();
+    return [...failureItems(runs), ...approvalItems(runs), ...gateItems(openGates())];
+  };
   const store = inboxStore(ctx.paths.notifications, ctx, projected);
   let changelog: ReleaseNotes[] | undefined;
   const notes = () => {
@@ -191,12 +195,15 @@ export function inbox(
       );
     },
     markDelivered,
-    /** The unread question, permission and finished notices since `since` no push took yet. */
+    /**
+     * The unread question, permission, approval and finished notices since `since` no push took
+     * yet.
+     */
     pendingPushes: (since: string): InboxItem[] => {
       const taken = new Set(read().pushed);
       return all().filter(
         (item) =>
-          (item.kind === 'input-required' || item.kind === 'finished') &&
+          (item.kind === 'input-required' || item.kind === 'finished' || item.run) &&
           !item.read &&
           item.at >= since &&
           !taken.has(item.id),

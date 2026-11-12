@@ -93,6 +93,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const tasks = tasksService(ctx, { startWorker: sessions.sessions.worker });
   // Failed automation runs and open gates are notices; the inbox reads them from their owners.
   const notices = inbox(ctx, automations.runs, gates.open);
+  const projects = projectsService(ctx);
   const phone = phoneService(
     ctx,
     { pending: notices.pendingPushes, claim: notices.claimPushes },
@@ -110,6 +111,17 @@ export function createMesa(profile: string, deps: MesaDeps) {
         resolve: gates.resolve,
         merge: (id) => sessions.sessions.merge(id),
       },
+      automations: {
+        ...automations,
+        projects: () =>
+          projects
+            .list()
+            .filter((p) => p.exists)
+            .map((p) => p.name),
+      },
+      inbox: notices,
+      usage: () => usage.list(),
+      pushes: { settings: () => ctx.open().config.phone, set: profileApi.config.set },
     },
   );
   // The scheduler's tick pushes to the phone too, so a session that needs the person reaches
@@ -136,7 +148,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     ...profileApi,
     profiles: profilesService(ctx),
     backup: backupService(ctx, prompts.list),
-    projects: projectsService(ctx),
+    projects,
     automations,
     prompts,
     files: filesService(ctx),

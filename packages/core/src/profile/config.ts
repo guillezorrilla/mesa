@@ -149,6 +149,8 @@ const ConfigShape = z.strictObject({
       push: z.enum(PHONE_PUSH_MODES).default('away'),
       /** Minutes the Mac must sit idle before `away` pushes. */
       awayAfter: z.number().int().min(1).max(240).default(5),
+      /** Whether a finished turn pushes too; questions, permissions and approvals always do. */
+      finished: z.boolean().default(true),
     })
     .prefault({}),
   application: z

@@ -3,7 +3,11 @@
 // update is a change the Mac pushes on its own. Each travels as one sealed message (envelope.ts),
 // cut into parts when it does not fit one box (chunk.ts).
 import { z } from 'zod';
+import { automationCalls, automationResults } from './automations.js';
 import { crewCalls, crewResults } from './crew.js';
+import { inboxCalls, inboxResults } from './inbox.js';
+import { pushesCalls, pushesResults } from './pushes.js';
+import { usageCalls, usageResults } from './usage.js';
 
 /** One session as the phone lists it: the board row cut to what a list shows (about 200 bytes). */
 export const phoneRow = z.object({
@@ -36,12 +40,19 @@ export const phoneDetail = z.object({
 });
 export type PhoneDetail = z.infer<typeof phoneDetail>;
 
-/** The calls the Mac answers: the board, one session, marking one read or unread, a crew's. */
+/**
+ * The calls the Mac answers: the board, one session, marking one read or unread, a crew's, and
+ * the automations, Inbox, usage and push settings.
+ */
 export const phoneCall = z.discriminatedUnion('method', [
   z.object({ method: z.literal('sessions') }),
   z.object({ method: z.literal('session'), id: z.string() }),
   z.object({ method: z.literal('mark'), id: z.string(), unread: z.boolean() }),
   ...crewCalls,
+  ...automationCalls,
+  ...inboxCalls,
+  ...usageCalls,
+  ...pushesCalls,
 ]);
 export type PhoneCall = z.infer<typeof phoneCall>;
 
@@ -51,6 +62,10 @@ export const callResults = {
   session: phoneDetail,
   mark: z.object({}),
   ...crewResults,
+  ...automationResults,
+  ...inboxResults,
+  ...usageResults,
+  ...pushesResults,
 };
 export type CallResult<M extends PhoneCall['method']> = z.infer<(typeof callResults)[M]>;
 

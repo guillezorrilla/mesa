@@ -2944,7 +2944,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
       doctor: 'silent',
       automation: 'silent',
     },
-    phone: { push: 'away', awayAfter: 5 },
+    phone: { push: 'away', awayAfter: 5, finished: true },
     application: { warnBeforeQuit: true, backupOnClose: false },
     onboarding: { status: 'complete', step: 0, discovery: 'complete', decisionTip: 'dismissed' },
     appearance: {

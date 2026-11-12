@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { automationState } from '../automations/state.js';
 import type { Http } from '../lib/http.js';
 import { setConfigValue } from '../profile/config.js';
 import { recordHookEvent } from '../sessions/signals/hook-events.js';
@@ -41,7 +42,7 @@ async function setup(options: { http?: (broker: Http) => Http } = {}) {
     newSession({ project: 'lantern-cove', name: 'Fix the login bug' }),
   );
   let asked = 0;
-  const ask = () => {
+  const ask = (event = 'PermissionRequest') => {
     time.pass(5_000);
     asked += 1;
     recordHookEvent(
@@ -56,7 +57,7 @@ async function setup(options: { http?: (broker: Http) => Http } = {}) {
         agent: 'claude',
         mesaSessionId: session.id,
         payload: JSON.stringify({
-          hook_event_name: 'PermissionRequest',
+          hook_event_name: event,
           tool_name: `Bash${asked}`,
         }),
       },
@@ -68,7 +69,8 @@ async function setup(options: { http?: (broker: Http) => Http } = {}) {
       notice: phone.openPush(push.notice),
     }));
   const ioreg = () => calls.filter((call) => call.file === '/usr/sbin/ioreg').length;
-  return { mesa, config: profilePaths(home, 'default').config, mac, time, ask, pushes, ioreg };
+  const paths = profilePaths(home, 'default');
+  return { mesa, config: paths.config, runs: paths.automationState, mac, time, ask, pushes, ioreg };
 }
 
 test('away, a question is pushed once, sealed with its title, project and what happened', async () => {
@@ -146,6 +148,49 @@ test('`phone.awayAfter` sets the idle minutes', async () => {
   s.mac.idleSeconds = 90;
   s.ask();
   expect(await s.mesa.phone.push()).toMatchObject({ status: 'pushed' });
+});
+
+test('an automation run waiting for approval pushes with its run; a finished turn as set', async () => {
+  const s = await setup();
+  setConfigValue(s.config, 'phone.push', 'always', lockDeps());
+  automationState(s.runs, lockDeps()).update((state) => {
+    state.installed = true;
+    state.runs.push({
+      id: '01JD0000000000000000000000',
+      rule: {
+        name: 'Morning triage',
+        project: 'lantern-cove',
+        enabled: true,
+        when: 'cron',
+        cron: '0 9 * * 1-5',
+        run: 'open',
+        goal: 'Triage the tide reports',
+        guardrail: 'ask',
+      },
+      trigger: { kind: 'cron', at: '2026-11-11T10:00:01.000Z', value: '0 9 * * 1-5' },
+      status: 'pending',
+      approved: false,
+    });
+  });
+  setConfigValue(s.config, 'phone.finished', 'false', lockDeps());
+  s.ask('Stop');
+  expect(await s.mesa.phone.push()).toMatchObject({
+    status: 'pushed',
+    pushed: [expect.any(String)],
+  });
+  expect(s.pushes()).toEqual([
+    {
+      kind: 'input',
+      notice: {
+        title: 'Automation asks to run: Morning triage',
+        body: 'Approve or cancel it in Automations.',
+        run: '01JD0000000000000000000000',
+      },
+    },
+  ]);
+  setConfigValue(s.config, 'phone.finished', 'true', lockDeps());
+  expect(await s.mesa.phone.push()).toMatchObject({ status: 'pushed' });
+  expect(s.pushes()[1]?.notice).toMatchObject({ body: 'lantern-cove: Session turn finished' });
 });
 
 test('a failed push leaves the notice in the Inbox and is not tried again', async () => {
