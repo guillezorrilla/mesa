@@ -1,0 +1,24 @@
+import type { CallResult, PhoneCall } from '@mesa/core/phone';
+import { useState, useTransition } from 'react';
+import { type MacRead, tryCall } from './tryCall';
+import { useMac } from './useMac';
+
+/**
+ * One call's answer as a promise to `use()`, and `again` to ask anew (`refreshing` meanwhile):
+ * the last answer stays shown when a later read fails.
+ */
+export function useMacRead<M extends PhoneCall['method']>(call: Extract<PhoneCall, { method: M }>) {
+  const link = useMac();
+  const read = async (last?: Promise<MacRead<CallResult<M>>>) => {
+    const next = await tryCall(link, () => link.call(call));
+    return next.error ? { ...(await last), error: next.error } : next;
+  };
+  const [answer, setAnswer] = useState(() => read());
+  const [refreshing, startTransition] = useTransition();
+  // The promise is made here, not in an updater, which React may run again while it suspends.
+  const again = () => {
+    const next = read(answer);
+    startTransition(() => setAnswer(next));
+  };
+  return { answer, again, refreshing };
+}

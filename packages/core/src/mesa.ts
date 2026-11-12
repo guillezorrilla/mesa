@@ -31,6 +31,7 @@ import { receiptsService } from './receipts/service.js';
 import { whatsNew } from './release/notes.js';
 import { reportsService } from './reports/report-delivery.js';
 import { sessionsService } from './sessions/service/index.js';
+import { workingFolder } from './sessions/signals/readings.js';
 import { skillsService } from './skills/service.js';
 import { importService } from './sources/import-service.js';
 import { itemSessions } from './sources/item-session.js';
@@ -88,6 +89,14 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const gates = gatesService(ctx, { report: reports.gate });
   // Failed automation runs and open gates are notices; the inbox reads them from their owners.
   const notices = inbox(ctx, automations.runs, gates.open);
+  const worktrees = worktreesService(ctx);
+  const files = filesService(ctx);
+  const git = gitService(ctx, faro, worktrees.count, sessions.sessions.run, {
+    board: () => sessions.sessions.list(),
+    send: sessions.sessions.send,
+    open: async (project, opts) => (await sessions.sessions.open(project, opts)).result,
+  });
+  const { notes, responses } = sessions.sessions;
   const phone = phoneService(
     ctx,
     { pending: notices.pendingPushes, claim: notices.claimPushes },
@@ -97,6 +106,21 @@ export function createMesa(profile: string, deps: MesaDeps) {
       logs: (id, tail) => sessions.sessions.logs(id, tail),
       read: sessions.sessions.read,
       unread: sessions.sessions.unread,
+      changes: {
+        diff: (id) => sessions.sessions.diff(id),
+        where: (id) => {
+          const { project, folder } = workingFolder(ctx, id);
+          return { project, checkout: folder };
+        },
+        note: async (id, input) => {
+          await notes.add(id, input);
+          return notes.send(id, input.path, { noFrom: true });
+        },
+        replies: (id) => responses.list(id),
+        quote: (id, input) => responses.send(id, input, { noFrom: true }),
+        git,
+        files,
+      },
     },
   );
   // The scheduler's tick pushes to the phone too, so a session that needs the person reaches
@@ -108,7 +132,6 @@ export function createMesa(profile: string, deps: MesaDeps) {
       return backgroundDelivery(ctx, notices);
     },
   };
-  const worktrees = worktreesService(ctx);
   const installs = installsService(ctx);
   return {
     about: () => about(deps.version, deps.release),
@@ -126,15 +149,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
     projects: projectsService(ctx),
     automations,
     prompts,
-    files: filesService(ctx),
+    files,
     /** A project's checks, run for an agent: one line, or the errors (CONTEXT.md, Check). */
     check: (project: string, opts?: Parameters<typeof runCheck>[2]) => runCheck(ctx, project, opts),
     worktrees,
-    git: gitService(ctx, faro, worktrees.count, sessions.sessions.run, {
-      board: () => sessions.sessions.list(),
-      send: sessions.sessions.send,
-      open: async (project, opts) => (await sessions.sessions.open(project, opts)).result,
-    }),
+    git,
     ...vaults,
     ...mapService(ctx),
     ...dailyService(ctx),

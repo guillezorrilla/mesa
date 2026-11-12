@@ -2,6 +2,7 @@
 // but the pure time words and session state sets its screens share with the desktop.
 export { relativeAgo, shortAgo, timeAgo } from '../../lib/ago.js';
 export { BUSY_STATES, WAITING_STATES } from '../../sessions/record/states.js';
+export type { ChangedFile, StatusFile } from './changes.js';
 export { BOX_BYTES, fitsOneBox, type PartMessage, partJoiner, splitParts } from './chunk.js';
 export {
   type Delivery,
@@ -11,6 +12,7 @@ export {
   type PairingInfo,
   pairingClient,
 } from './client.js';
+export { DIFF_START, type DiffAt, type DiffLine, diffLines, noteLines } from './diff-lines.js';
 export {
   type Opened,
   openDeliveries,

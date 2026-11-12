@@ -7,6 +7,7 @@ import { Text } from '@/components/ui/text';
 import { OutputTail } from './OutputTail';
 import { ReplyList } from './ReplyList';
 import { SessionHeader } from './SessionHeader';
+import { SessionLinks } from './SessionLinks';
 import type { DetailRead } from './useSessionDetail';
 
 /** What a session said and is doing: state, goal, latest replies, output tail. */
@@ -19,13 +20,14 @@ export function SessionBody({ read }: { read: Promise<DetailRead> }) {
       <Stack.Screen options={{ title: detail.row.title }} />
       {error ? <ErrorNote text={error} /> : null}
       <SessionHeader row={detail.row} now={now} />
+      <SessionLinks id={detail.row.id} />
       {detail.goal ? (
         <Section title="Goal">
           <Text selectable>{detail.goal}</Text>
         </Section>
       ) : null}
       <Section title="Replies">
-        <ReplyList replies={detail.replies} now={now} />
+        <ReplyList id={detail.row.id} replies={detail.replies} now={now} />
       </Section>
       <Section title="Output">
         <OutputTail lines={detail.tail} />
