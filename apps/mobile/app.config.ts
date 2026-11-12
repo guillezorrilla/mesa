@@ -27,6 +27,11 @@ const config: ExpoConfig = {
     bundleIdentifier: BUNDLE_ID,
     appleTeamId: TEAM_ID,
     supportsTablet: false,
+    infoPlist: {
+      // Standard encryption protecting the person's own data only (owner, 2026-11-11), so App
+      // Store Connect asks no export-compliance question per build.
+      ITSAppUsesNonExemptEncryption: false,
+    },
     entitlements: {
       // Production always: TestFlight is the only device build, and Expo's default (development)
       // sends its pushes to APNs' sandbox, where they are lost (orca's app.config.js). One value
