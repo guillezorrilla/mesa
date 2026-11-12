@@ -6,6 +6,7 @@ import { lockDeps, tempDir, thrown } from '../testing/index.js';
 import {
   buildBackupSettings,
   loadConfig,
+  readConfig,
   redactConfig,
   resolveKey,
   setConfigValue,
@@ -103,9 +104,60 @@ test('a config that still names a backend or the removed adapter loads, with the
   expect(loadConfig(file).decisions).toEqual({ model: 'none', threshold: 0.5 });
   writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  adapter: claude\n  model: clef\n');
   expect(loadConfig(file).decisions).toEqual({ model: 'clef', threshold: 0.7 });
-  // Any other unknown field is still an error.
+  // Any other unknown field is dropped and named, as one a newer Mesa wrote (#1079).
   writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  temperature: 0\n');
+  expect(readConfig(file)).toMatchObject({
+    config: { decisions: { model: 'none', threshold: 0.7 } },
+    unknownKeys: ['decisions.temperature'],
+  });
+});
+
+test('a config a newer Mesa wrote loads without the keys this one does not know, naming each', () => {
+  writeFileSync(
+    file,
+    [
+      'vault: /tmp/v',
+      'futureSection:',
+      '  on: true',
+      'sessions:',
+      '  futureFlag: true',
+      '  keepAwake: working',
+      'worktrees:',
+      '  futureMode: fast',
+      '  carry: [.env]',
+      'decisions:',
+      '  futureModel: x',
+      '  threshold: 0.5',
+      '',
+    ].join('\n'),
+  );
+  const before = readFileSync(file, 'utf8');
+  const { config, unknownKeys } = readConfig(file);
+  expect(unknownKeys.toSorted()).toEqual([
+    'decisions.futureModel',
+    'futureSection',
+    'sessions.futureFlag',
+    'worktrees.futureMode',
+  ]);
+  expect(config).not.toHaveProperty('futureSection');
+  expect(config.sessions.keepAwake).toBe('working');
+  expect(config.worktrees.carry).toEqual(['.env']);
+  expect(config.decisions.threshold).toBe(0.5);
+  expect(loadConfig(file)).toEqual(config);
+  // Loading changes nothing in the file; a known key with a bad value still fails.
+  expect(readFileSync(file, 'utf8')).toBe(before);
+  writeFileSync(file, `${before}update:\n  channel: nightly\n`);
   expect(thrown(() => loadConfig(file)).code).toBe('invalid_config');
+});
+
+test('config set still refuses a key Mesa does not know, naming it and writing nothing', () => {
+  const before = readFileSync(file, 'utf8');
+  expect(thrown(() => setConfigValue(file, 'sessions.futureFlag', 'true', lockDeps()))).toEqual({
+    code: 'invalid_config',
+    message: expect.stringContaining('sessions.futureFlag'),
+  });
+  expect(readFileSync(file, 'utf8')).toBe(before);
+  expect(readConfig(file).unknownKeys).toEqual([]);
 });
 
 test('a config that still holds the removed board settings loads, and ignores them', () => {

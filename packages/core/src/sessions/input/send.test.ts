@@ -458,7 +458,7 @@ test('any error writing events after typing is a warning, and any Mesa window co
 test('a config.yaml that does not read still lets a prompt through: only the receipt is lost', async () => {
   const { home, mesa, window, opened } = await setUp();
   const config = profilePaths(home, 'default').config;
-  writeFileSync(config, `${readFileSync(config, 'utf8')}surprise: 1\n`);
+  writeFileSync(config, readFileSync(config, 'utf8').replace(/^vault: .*$/m, 'vault: relative'));
   const { result } = await mesa.sessions.send(opened.id, 'still here');
   expect(result.sent).toBe(true);
   expect(window.typed).toEqual(['still here']);
