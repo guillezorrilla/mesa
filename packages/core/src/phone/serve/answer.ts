@@ -2,9 +2,9 @@ import { MesaError } from '../../lib/result.js';
 import type { SessionRow } from '../../sessions/board/rows.js';
 import type { SessionResponses } from '../../sessions/native/responses.js';
 import type { CallResult, PhoneCall } from '../protocol/rpc.js';
+import { answerSteer, isSteerCall, type SteerDeps } from './answer-steer.js';
 import { replySegments } from './replies.js';
 import { phoneRows, toPhoneRow } from './rows.js';
-import { answerSteer, isSteerCall, type SteerDeps } from './steer.js';
 
 /** The session functions the CLI uses, which every phone call goes through. */
 export type AnswerDeps = {
@@ -13,6 +13,8 @@ export type AnswerDeps = {
   logs: (id: string, tail: number) => { lines: string[] };
   read: (ids: readonly string[]) => unknown;
   unread: (ids: readonly string[]) => unknown;
+  /** The archived sessions, which the board leaves out. */
+  archived: () => Promise<SessionRow[]>;
   steer: SteerDeps;
 };
 
@@ -28,9 +30,10 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
     (call.unread ? deps.unread : deps.read)([call.id]);
     return {} satisfies CallResult<'mark'>;
   }
-  /** The session the call names, as the board has it now. */
+  /** The session the call names, as the board has it now, or archived. */
   const managed = async (id: string) => {
-    const row = (await deps.board()).find((r) => r.id === id);
+    const find = (rows: SessionRow[]) => rows.find((r) => r.id === id);
+    const row = find(await deps.board()) ?? find(await deps.archived());
     if (!row?.managed) throw new MesaError('not_found', `no session ${id}`);
     return row;
   };
@@ -49,5 +52,6 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
     })),
     tail: deps.logs(call.id, TAIL).lines,
     queued: deps.steer.queue.of(call.id),
+    archived: Boolean(row.archivedAt),
   } satisfies CallResult<'session'>;
 }

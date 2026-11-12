@@ -35,6 +35,8 @@ export const phoneDetail = z.object({
   tail: z.array(z.string()),
   /** Replies waiting for its turn to end; an older Mac sends none. */
   queued: z.array(queuedMessage).default([]),
+  /** Archived: off the board, and its menu offers Unarchive. */
+  archived: z.boolean().default(false),
 });
 export type PhoneDetail = z.infer<typeof phoneDetail>;
 

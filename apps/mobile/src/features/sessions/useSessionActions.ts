@@ -1,6 +1,5 @@
 import type { PhoneRow, SessionAction } from '@mesa/core/phone';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
 import { ActionSheetIOS, Alert } from 'react-native';
 import { useMac } from '../mac/useMac';
 import { ACTION_WORDS, CONFIRMED, confirmText, menuActions } from './menuActions';
@@ -15,18 +14,17 @@ const ASKS: Partial<Record<SessionAction, { title: string; message: string }>> =
 };
 
 /**
- * The session menu for `row`: iOS's action sheet of what fits its state, a confirmation before
- * stop and archive, a prompt for a name or a handoff note, then the action through the Mac. A
- * resume, fork or handoff opens the session it started; `onDone` reads this one again.
+ * The session menu for `row` (`archived` as the Mac says): iOS's action sheet of what fits its
+ * state, a confirmation before stop and archive, a prompt for a name or a handoff note, then the
+ * action through the Mac. A resume, fork or handoff opens the session it started; `onDone` reads
+ * this one again.
  */
-export function useSessionActions(row: PhoneRow, onDone: () => void) {
+export function useSessionActions(row: PhoneRow, archived: boolean, onDone: () => void) {
   const link = useMac();
   const router = useRouter();
-  const [archived, setArchived] = useState(false);
   const run = (action: SessionAction, text?: string) =>
     link.call({ method: 'act', id: row.id, action, ...(text ? { text } : {}) }).then(
       ({ session }) => {
-        if (action === 'archive' || action === 'unarchive') setArchived(action === 'archive');
         if (session) router.push(`/agents/${session}`);
         onDone();
       },

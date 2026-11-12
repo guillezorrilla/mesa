@@ -1,5 +1,7 @@
+import type { CallResult } from '@mesa/core/phone';
 import { use } from 'react';
-import { Pressable, ScrollView } from 'react-native';
+import { ScrollView } from 'react-native';
+import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 
 /** The saved prompts as a row of chips; a tap inserts one into the draft. */
@@ -7,7 +9,7 @@ export function PromptChips({
   prompts,
   onPick,
 }: {
-  prompts: Promise<{ name: string; text: string }[]>;
+  prompts: Promise<CallResult<'prompts'>['prompts']>;
   onPick: (text: string) => void;
 }) {
   const saved = use(prompts);
@@ -20,15 +22,16 @@ export function PromptChips({
       contentContainerClassName="gap-2"
     >
       {saved.map((prompt) => (
-        <Pressable
+        <Button
           key={prompt.name}
+          size="sm"
+          variant="outline"
+          className="rounded-full bg-card shadow-none"
           onPress={() => onPick(prompt.text)}
-          accessibilityRole="button"
           accessibilityHint="Inserts this saved prompt into your reply"
-          className="min-h-9 justify-center rounded-full border border-border bg-card px-3.5 active:bg-accent"
         >
-          <Text className="text-sm">{prompt.name}</Text>
-        </Pressable>
+          <Text className="text-sm font-normal">{prompt.name}</Text>
+        </Button>
       ))}
     </ScrollView>
   );

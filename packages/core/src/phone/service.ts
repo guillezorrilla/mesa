@@ -8,9 +8,9 @@ import { pairingClient } from './protocol/client.js';
 import { type PushDeps, pushPending, pushTest } from './push.js';
 import { pairingQr } from './qr.js';
 import type { AnswerDeps } from './serve/answer.js';
+import type { SessionSteer } from './serve/answer-steer.js';
 import { servePhone } from './serve/listen.js';
 import { phoneQueue } from './serve/queue.js';
-import type { SessionSteer } from './serve/steer.js';
 
 /**
  * The profile's Pairing with a phone (CONTEXT.md, Pairing; ADR-0014's 2026-11-11 amendment), and

@@ -1,14 +1,17 @@
 import ArrowUp from 'lucide-react-native/icons/arrow-up';
 import ImagePlus from 'lucide-react-native/icons/image-plus';
 import { Suspense } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { View } from 'react-native';
+import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { appended } from './draftMap';
 import { PhotoChip } from './PhotoChip';
 import { PromptChips } from './PromptChips';
 import { SendNote } from './SendNote';
 import { SentList } from './SentList';
+import { usePhoto } from './usePhoto';
 import { usePrompts } from './usePrompts';
 import { useSend } from './useSend';
 
@@ -17,54 +20,57 @@ import { useSend } from './useSend';
  * an attached photo, then attach, the draft and send. iOS's own keyboard dictation types into it.
  */
 export function Composer({ id, onSent }: { id: string; onSent: () => void }) {
-  const send = useSend(id, onSent);
+  const { photo, setPhoto, attach } = usePhoto();
+  const send = useSend(id, { onSent, restorePhoto: setPhoto });
   const prompts = usePrompts();
-  const empty = !send.draft.trim() && !send.photo;
+  const empty = !send.draft.trim() && !photo;
+  const submit = (yes = false) => {
+    send.submit(photo, yes);
+    setPhoto(undefined);
+  };
   return (
     <View className="gap-2.5 border-t border-border bg-background px-3 py-2.5">
       <SentList items={send.shown} />
-      <SendNote outcome={send.outcome} onSendAnyway={() => send.submit(true)} />
+      <SendNote outcome={send.outcome} onSendAnyway={() => submit(true)} />
       <Suspense fallback={null}>
         <PromptChips
           prompts={prompts}
           onPick={(text) => send.setDraft(appended(send.draft, text))}
         />
       </Suspense>
-      {send.photo ? <PhotoChip uri={send.photo.uri} onRemove={send.clearPhoto} /> : null}
+      {photo ? <PhotoChip uri={photo.uri} onRemove={() => setPhoto(undefined)} /> : null}
       <View className="flex-row items-end gap-2">
-        <Pressable
-          onPress={send.attach}
-          accessibilityRole="button"
+        <Button
+          size="icon"
+          variant="ghost"
+          className="rounded-full"
+          onPress={attach}
           accessibilityLabel="Attach a photo"
-          className="size-11 items-center justify-center rounded-full active:bg-accent"
         >
           <Icon as={ImagePlus} className="size-6 text-muted-foreground" />
-        </Pressable>
-        <TextInput
+        </Button>
+        <Input
           multiline
           value={send.draft}
           onChangeText={send.setDraft}
           placeholder="Reply to this session"
           accessibilityLabel="Reply"
-          className="max-h-36 min-h-11 flex-1 rounded-3xl border border-input bg-card px-4 pt-3 pb-3 font-sans text-base text-foreground"
-          placeholderTextColorClassName="accent-muted-foreground"
+          className="max-h-36 min-h-11 flex-1 rounded-3xl bg-card px-4 py-3 shadow-none"
         />
-        <Pressable
-          onPress={() => send.submit()}
+        <Button
+          size="icon"
+          // Empty, it shows as secondary, not faded.
+          className={cn('rounded-full', empty && 'opacity-100')}
+          variant={empty ? 'secondary' : 'default'}
+          onPress={() => submit()}
           disabled={empty}
-          accessibilityRole="button"
           accessibilityLabel="Send"
-          accessibilityState={{ disabled: empty }}
-          className={cn(
-            'size-11 items-center justify-center rounded-full',
-            empty ? 'bg-muted' : 'bg-primary active:bg-primary/90',
-          )}
         >
           <Icon
             as={ArrowUp}
-            className={cn('size-5', empty ? 'text-muted-foreground' : 'text-primary-foreground')}
+            className={empty ? 'size-5 text-muted-foreground' : 'size-5 text-primary-foreground'}
           />
-        </Pressable>
+        </Button>
       </View>
     </View>
   );

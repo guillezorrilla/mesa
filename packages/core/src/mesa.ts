@@ -98,6 +98,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
       logs: (id, tail) => sessions.sessions.logs(id, tail),
       read: sessions.sessions.read,
       unread: sessions.sessions.unread,
+      archived: () => sessions.sessions.list('archived'),
       steer: sessionSteer(ctx, faro, sessions.sessions, prompts.list),
     },
   );

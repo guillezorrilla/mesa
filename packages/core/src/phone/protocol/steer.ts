@@ -56,6 +56,9 @@ export const steerCalls = [
   z.object({ method: z.literal('prompts') }),
 ] as const;
 
+/** The steering calls' methods, from their schemas. */
+export const STEER_METHODS = steerCalls.map((call) => call.shape.method.value);
+
 /**
  * `sent` typed now, `queued` held until the turn ends; `ask` and `blocked` are the guardrail's,
  * with its reason, and typed nothing.

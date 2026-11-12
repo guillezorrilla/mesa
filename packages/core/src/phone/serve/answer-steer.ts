@@ -2,14 +2,15 @@ import type { GuardrailCheck } from '../../decisions/guardrail.js';
 import { MesaError } from '../../lib/result.js';
 import type { SavedPrompt } from '../../prompts/prompts.js';
 import type { PhoneCall, PhoneRow } from '../protocol/rpc.js';
-import type { SendResult, SessionAction } from '../protocol/steer.js';
-import { type PhoneQueue, waitsForTurn } from './queue.js';
+import { type SendResult, type SessionAction, STEER_METHODS } from '../protocol/steer.js';
+import { waitsForTurn } from './deliver.js';
+import type { PhoneQueue } from './queue.js';
 
 /** Core's session functions a steering call goes through, as the phone (a person) calls them. */
 export type SessionSteer = {
   /** `mesa send` as a person, the receipt naming the phone; `yes` past a guardrail ask. */
   send: (id: string, text: string, yes: boolean) => Promise<unknown>;
-  /** The guardrail's verdict on a reply to session `id`, recorded nowhere. */
+  /** The guardrail's verdict on a reply to session `id`, recorded nowhere: it only routes it. */
   check: (id: string, text: string) => Promise<Pick<GuardrailCheck, 'verdict' | 'reason'>>;
   /** Keeps the photo (JPEG bytes) on the Mac and returns the prompt that sends it, with `note`. */
   image: (id: string, jpeg: Buffer, note: string) => string;
@@ -19,7 +20,6 @@ export type SessionSteer = {
 };
 export type SteerDeps = SessionSteer & { queue: PhoneQueue };
 
-const STEER_METHODS = ['send', 'unqueue', 'act', 'prompts'] as const;
 type SteerCall = Extract<PhoneCall, { method: (typeof STEER_METHODS)[number] }>;
 
 export const isSteerCall = (call: PhoneCall): call is SteerCall =>
@@ -33,7 +33,9 @@ const stopped = ({ verdict, reason }: Pick<GuardrailCheck, 'verdict' | 'reason'>
 
 /**
  * A reply: typed now through `mesa send`'s path (the guardrail has the last word), or, to a
- * session at work, checked by the guardrail and queued for when its turn ends.
+ * session at work that the guardrail lets through (or the person said Send anyway), queued for
+ * when its turn ends. A reply the guardrail stops goes on to `mesa send`, which refuses it with
+ * its receipt and types nothing.
  */
 async function reply(
   deps: SteerDeps,
@@ -44,13 +46,12 @@ async function reply(
     ? deps.image(row.id, Buffer.from(call.image, 'base64'), call.text)
     : call.text;
   const yes = call.yes ?? false;
-  // A queued message passed the guardrail here (an allow, or an ask the person said yes to), so
-  // its delivery sends past an ask; a block still stops it then.
   if (waitsForTurn(row.state)) {
-    const check = await deps.check(row.id, text);
-    if (check.verdict === 'block' || (check.verdict === 'ask' && !yes)) return stopped(check);
-    deps.queue.add(row.id, text);
-    return { status: 'queued' };
+    const { verdict } = await deps.check(row.id, text);
+    if (verdict === 'allow' || (verdict === 'ask' && yes)) {
+      deps.queue.add(row.id, text, yes);
+      return { status: 'queued' };
+    }
   }
   try {
     await deps.send(row.id, text, yes);

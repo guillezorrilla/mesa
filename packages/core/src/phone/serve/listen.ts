@@ -9,7 +9,7 @@ import type { PhoneMessage } from '../protocol/envelope.js';
 import { type ConnectSocket, mailbox } from '../protocol/mailbox.js';
 import { type PhoneRow, WATCH_MS } from '../protocol/rpc.js';
 import { type AnswerDeps, answerCall } from './answer.js';
-import { deliverQueued } from './queue.js';
+import { deliverQueued } from './deliver.js';
 import { phoneRows, rowChanges } from './rows.js';
 
 export type ServeDeps = {
@@ -154,7 +154,7 @@ async function listen(
   const deliver = async () => {
     const { queue, send } = deps.answers.steer;
     if (!queue.all().length) return;
-    await deliverQueued(queue, phoneRows(await board()), (id, text) => send(id, text, true));
+    await deliverQueued(queue, phoneRows(await board()), send);
   };
 
   let tickAt = now();

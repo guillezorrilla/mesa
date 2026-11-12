@@ -1,10 +1,9 @@
 import { MacCallError, type SendResult } from '@mesa/core/phone';
 import { randomUUID } from 'expo-crypto';
 import { startTransition, useActionState, useOptimistic, useState } from 'react';
-import { Alert } from 'react-native';
 import { useMac } from '../mac/useMac';
 import { draftOf } from './drafts';
-import { type Photo, pickPhoto } from './pickPhoto';
+import type { Photo } from './pickPhoto';
 import { useDraft } from './useDraft';
 
 /** A reply this screen sent: shown at once while it travels, kept once the Mac typed it. */
@@ -16,15 +15,16 @@ type Outcome = { result?: SendResult; error?: string };
 type Sending = { text: string; photo?: Photo; yes: boolean };
 
 /**
- * The composer's state for session `id`: its draft (kept per session), an attached photo, and
- * the replies sent from here. A send shows at once (useOptimistic) and settles with the Mac's
- * answer; one the guardrail stopped or that failed rolls back into the draft. `onSent` reads the
- * session again, for a reply now queued.
+ * Sending session `id`'s draft: a send shows at once (useOptimistic) and settles with the Mac's
+ * answer; one the guardrail stopped or that failed rolls back into the draft, its photo back
+ * through `restorePhoto`. `onSent` reads the session again, for a reply now queued.
  */
-export function useSend(id: string, onSent: () => void) {
+export function useSend(
+  id: string,
+  { onSent, restorePhoto }: { onSent: () => void; restorePhoto: (photo: Photo) => void },
+) {
   const link = useMac();
   const [draft, setDraft] = useDraft(id);
-  const [photo, setPhoto] = useState<Photo>();
   const [sent, setSent] = useState<Outgoing[]>([]);
   const [shown, addShown] = useOptimistic(sent, (list, item: Outgoing) => [...list, item]);
   const [outcome, dispatch] = useActionState(
@@ -33,7 +33,7 @@ export function useSend(id: string, onSent: () => void) {
       addShown({ ...item, sending: true });
       const rollBack = () => {
         if (!draftOf(id)) setDraft(input.text);
-        if (input.photo) setPhoto(input.photo);
+        if (input.photo) restorePhoto(input.photo);
       };
       try {
         const result = await link.call({
@@ -62,27 +62,12 @@ export function useSend(id: string, onSent: () => void) {
     },
     {},
   );
-  /** Sends the draft and the photo; `yes` past a guardrail ask (Send anyway). */
-  const submit = (yes = false) => {
+  /** Sends the draft with `photo`; `yes` past a guardrail ask (Send anyway). */
+  const submit = (photo: Photo | undefined, yes = false) => {
     const text = draft.trim();
     if (!text && !photo) return;
     setDraft('');
-    setPhoto(undefined);
     startTransition(() => dispatch({ text, photo, yes }));
   };
-  const attach = () =>
-    pickPhoto().then(
-      (picked) => picked && setPhoto(picked),
-      (error: Error) => Alert.alert('Could not attach the photo', error.message),
-    );
-  return {
-    draft,
-    setDraft,
-    photo,
-    attach,
-    clearPhoto: () => setPhoto(undefined),
-    shown,
-    outcome,
-    submit,
-  };
+  return { draft, setDraft, shown, outcome, submit };
 }

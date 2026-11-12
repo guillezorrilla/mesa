@@ -4,10 +4,11 @@ import { join } from 'node:path';
 import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
 import { writeFileAtomic } from '../../lib/atomic-file.js';
+import { typeable } from '../../lib/untrusted-text.js';
 import type { promptsService } from '../../prompts/prompts.js';
 import { projectScope } from '../../sessions/record/general.js';
 import type { sessionsService } from '../../sessions/service/index.js';
-import type { SessionSteer } from './steer.js';
+import type { SessionSteer } from './answer-steer.js';
 
 type Sessions = ReturnType<typeof sessionsService>['sessions'];
 
@@ -26,7 +27,10 @@ export function sessionSteer(
     sessions.send(id, text, { noFrom: true, yes, via: 'phone' });
   return {
     send,
-    check: (id, text) => faro.guardrail.check(text, projectScope(ctx.store.get(id).project)),
+    check: (id, text) =>
+      faro.guardrail.check(typeable(text), projectScope(ctx.store.get(id).project)),
+    // ponytail: photos stay in phone-images/ for the agent to read later, a refused one too;
+    // prune them by age if the folder grows.
     image: (id, jpeg, note) => {
       const dir = join(ctx.paths.root, 'phone-images');
       mkdirSync(dir, { recursive: true, mode: 0o700 });

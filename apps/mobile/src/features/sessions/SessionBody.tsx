@@ -30,11 +30,16 @@ export function SessionBody({
       <Stack.Screen
         options={{
           title: detail.row.title,
-          headerRight: () => <SessionMenu row={detail.row} onDone={onChange} />,
+          headerRight: () => (
+            <SessionMenu row={detail.row} archived={detail.archived} onDone={onChange} />
+          ),
         }}
       />
       {error ? <ErrorNote text={error} /> : null}
       <SessionHeader row={detail.row} now={now} />
+      {detail.archived ? (
+        <Text variant="muted">Archived on your Mac. Unarchive it from the menu.</Text>
+      ) : null}
       {detail.goal ? (
         <Section title="Goal">
           <Text selectable>{detail.goal}</Text>

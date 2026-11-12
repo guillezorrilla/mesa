@@ -1,9 +1,9 @@
-import type { SessionAction } from '@mesa/core/phone';
+import { FINAL_STATES, type SessionAction } from '@mesa/core/phone';
 
 /** The session menu's choices for a session in `state`: a live one stops, an ended one resumes. */
 export function menuActions(state: string, archived: boolean): SessionAction[] {
   if (archived) return ['unarchive'];
-  const ended = state === 'done' || state === 'failed' || state === 'stopped';
+  const ended = (FINAL_STATES as ReadonlySet<string>).has(state);
   return [ended ? 'resume' : 'stop', 'fork', 'handoff', 'rename', 'archive'];
 }
 
