@@ -46,8 +46,9 @@
     "uniwind": "^1.13.2"
   },
   "devDependencies": {
+    "@types/node": "^26.6.2",
     "@types/react": "~19.3.0",
-    "expo-doctor": "^1.21.6",
-    "@types/node": "^26.6.2"
+    "eas-cli": "27.7.2",
+    "expo-doctor": "^1.21.6"
   }
 }
