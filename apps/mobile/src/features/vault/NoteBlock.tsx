@@ -12,12 +12,8 @@ export function NoteBlock({ block }: { block: Block }) {
   if (block.kind === 'code') return <CodeBlock code={block.text} />;
   if (block.kind === 'heading')
     return (
-      <Text
-        selectable
-        accessibilityRole="header"
-        className={`${HEADINGS[block.level - 1]} mt-2 font-semibold tracking-tight`}
-      >
-        <NoteSpans spans={block.spans} />
+      <Text selectable accessibilityRole="header" className="mt-2 font-semibold tracking-tight">
+        <NoteSpans spans={block.spans} className={HEADINGS[block.level - 1]} />
       </Text>
     );
   if (block.kind === 'quote')

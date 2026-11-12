@@ -24,6 +24,7 @@ export function VaultRow({
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : 'text'}
+      accessibilityLabel={[title, stamp, detail].filter(Boolean).join(', ')}
       disabled={!onPress}
       onPress={onPress}
       className={cn(

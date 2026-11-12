@@ -1,11 +1,13 @@
-import { Linking } from 'react-native';
-import { Text } from '@/components/ui/text';
+import { Linking, Text } from 'react-native';
 import { cn } from '@/lib/utils';
 import type { Span } from './noteBlocks';
 import { openNote } from './openNote';
 
-/** A line's spans inside one Text: a vault link opens its note, a URL opens outside the app. */
-export function NoteSpans({ spans }: { spans: Span[] }) {
+/**
+ * A line's spans inside one Text: a vault link opens its note, a URL opens outside the app.
+ * `className` is each span's own, such as a heading's size, which Uniwind does not pass down.
+ */
+export function NoteSpans({ spans, className }: { spans: Span[]; className?: string }) {
   return spans.map((span, i) => {
     const open = span.path
       ? () => openNote(span.path ?? '')
@@ -19,6 +21,7 @@ export function NoteSpans({ spans }: { spans: Span[] }) {
         onPress={open}
         accessibilityRole={open ? 'link' : undefined}
         className={cn(
+          className,
           span.bold && 'font-semibold',
           span.italic && 'italic',
           span.code && 'bg-muted font-mono text-sm',
