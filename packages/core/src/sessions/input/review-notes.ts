@@ -11,6 +11,7 @@ import type { LockDeps } from '../../lib/lock-file.js';
 import type { Runner } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
 import type { Checkout } from '../../projects/checkout.js';
+import { inNextSend } from './next-send.js';
 import { type NotesSource, notesPrompt } from './notes-prompt.js';
 import type { ReviewDelivery, ReviewPreview } from './reviews.js';
 
@@ -132,18 +133,32 @@ function placed(note: ReviewNote, file: NoteFile | undefined): ListedNote {
 
 const sha = (text: string) => createHash('sha256').update(text).digest('hex');
 
+/** A send's notes: the new ones, and the sent ones still open from the last round (resend). */
+export type NotesBatch = { ready: ListedNote[]; open: ListedNote[] };
+
 /**
- * Notes on `source`'s diff as the one prompt `sendReview` delivers to session `to`: a line saying
- * what they are and whose diff, then each note's file, lines (or `Scope: file`), the lines it
- * quotes, and the note. Its id is the batch, so the same notes are sent once.
+ * A batch on `source`'s diff as the one prompt `sendReview` delivers to session `to`: a line
+ * saying what they are and whose diff, then each note's file, lines (or `Scope: file`), the lines
+ * it quotes, and the note, the open ones last. Its id is the batch and each note's last send, so
+ * the same round is sent once and the next round again.
  */
 export function notesReview(
   source: NotesSource,
-  notes: ListedNote[],
+  { ready, open }: NotesBatch,
   to = source.id,
 ): ReviewPreview {
-  const prompt = notesPrompt(notes, source);
-  const batch = notes.map((n) => [n.id, n.path, n.line, n.end, n.scope, n.text, n.quoted]);
+  const prompt = notesPrompt(ready, source, open);
+  const notes = [...ready, ...open];
+  const batch = notes.map((n) => [
+    n.id,
+    n.path,
+    n.line,
+    n.end,
+    n.scope,
+    n.text,
+    n.quoted,
+    n.sentAt,
+  ]);
   return {
     id: sha(JSON.stringify([source.id, batch])),
     target: to,
@@ -235,12 +250,27 @@ export function reviewNotes(deps: NotesDeps, session: string) {
       });
       return notes.find((n) => n.id === id) as ReviewNote;
     },
-    /** The unsent notes, or `path`'s: those ready to send, and the stale ones' ids. */
-    unsent: async (path?: string) => {
-      const unsent = (await list()).filter((n) => !n.sentAt && (!path || n.path === path));
+    /**
+     * What the next send holds, or `path`'s: the unsent notes ready to send, the sent ones not
+     * resolved (`open`), each quoting its lines as they read now, and the stale unsent ones' ids.
+     */
+    next: async (path?: string): Promise<NotesBatch & { stale: string[] }> => {
+      const listed = (await list()).filter((n) => !path || n.path === path);
+      const going = listed.filter(inNextSend);
+      // A changed note's lines are where it was written; a file gone, or now shorter than
+      // them, keeps the old quote.
+      const now = async (n: ListedNote) => {
+        const found =
+          n.stale && n.line ? await readFile(n.scope, n.path).catch(() => undefined) : undefined;
+        const lines = found ? linesOf(found.text) : [];
+        return n.end <= lines.length
+          ? { ...n, quoted: lines.slice(n.line - 1, n.end).join('\n') }
+          : n;
+      };
       return {
-        ready: unsent.filter((n) => !n.stale),
-        stale: unsent.filter((n) => n.stale).map((n) => n.id),
+        ready: going.filter((n) => !n.sentAt),
+        open: await Promise.all(going.filter((n) => n.sentAt).map(now)),
+        stale: listed.filter((n) => !inNextSend(n)).map((n) => n.id),
       };
     },
     /** Marks `sent` sent now, to session `to`; a note edited since keeps its new, unsent text. */
