@@ -91,6 +91,7 @@ import {
 import { prompt } from './prompt.js';
 import { prompts, promptsRemove, promptsSave } from './prompts.js';
 import { PRS_COMMANDS } from './prs/index.js';
+import { queueList, queueRemove } from './queue.js';
 import { read } from './read.js';
 import { receipts, receiptsShow } from './receipts.js';
 import { register } from './register.js';
@@ -246,6 +247,8 @@ export const COMMANDS: Command[] = [
   prompts,
   promptsSave,
   promptsRemove,
+  queueList,
+  queueRemove,
   projects,
   projectsClone,
   projectsDiscover,

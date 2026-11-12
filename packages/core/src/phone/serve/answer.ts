@@ -7,7 +7,7 @@ import type { CallResult, PhoneCall } from '../protocol/rpc.js';
 import { answerSteer, isSteerCall, type SteerDeps } from './answer-steer.js';
 import { answerCrewCall, type CrewDeps, isCrewCall } from './crew.js';
 import { replySegments } from './replies.js';
-import { askedRows, phoneRows, toPhoneRow } from './rows.js';
+import { askedRows, phoneRows, queuedRows, toPhoneRow } from './rows.js';
 
 /** The session functions the CLI uses, which every phone call goes through. */
 export type AnswerDeps = {
@@ -33,7 +33,10 @@ const TAIL = 60;
 export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unknown> {
   if (call.method === 'sessions')
     return {
-      rows: await askedRows(phoneRows(await deps.board()), deps.prompt),
+      rows: queuedRows(
+        await askedRows(phoneRows(await deps.board()), deps.prompt),
+        deps.steer.queue.all(),
+      ),
     } satisfies CallResult<'sessions'>;
   if (isCrewCall(call)) return answerCrewCall(deps.crew, call);
   if (call.method === 'mark') {

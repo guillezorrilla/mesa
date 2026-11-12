@@ -17,6 +17,9 @@ const QueueSchema = z
   .describe('phone queue');
 type Held = z.infer<typeof QueueSchema>[number];
 
+/** A queued message as `mesa queue list` prints it: its session, and who queued it. */
+export type QueuedEntry = QueuedMessage & { session: string; from: 'phone' };
+
 /** The queue file (`phone-queue.json` in the profile), changed under its lock. */
 export function phoneQueue(deps: {
   file: string;
@@ -39,6 +42,11 @@ export function phoneQueue(deps: {
   const strip = ({ session: _, yes: __, ...message }: Held): QueuedMessage => message;
   return {
     all,
+    /** Every queued message, or session `id`'s, oldest first, as the Mac lists them. */
+    list: (id?: string): QueuedEntry[] =>
+      all()
+        .filter((held) => id === undefined || held.session === id)
+        .map(({ yes: _, ...held }) => ({ ...held, from: 'phone' as const })),
     /** Session `id`'s messages, oldest first. */
     of: (id: string) =>
       all()
@@ -49,7 +57,15 @@ export function phoneQueue(deps: {
         ...held,
         { id: deps.newId(), session, text, yes, at: deps.clock().toISOString() },
       ]),
-    remove: (id: string) => void change((held) => held.filter((m) => m.id !== id)),
+    /** Removes message `id`; false when it was no longer queued (typed, or removed already). */
+    remove: (id: string) => {
+      let found = false;
+      change((held) => {
+        found = held.some((m) => m.id === id);
+        return held.filter((m) => m.id !== id);
+      });
+      return found;
+    },
     /** Keeps the message with why it could not be typed. */
     fail: (id: string, error: string) =>
       void change((held) => held.map((m) => (m.id === id ? { ...m, error } : m))),
