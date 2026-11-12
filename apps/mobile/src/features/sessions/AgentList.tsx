@@ -1,20 +1,29 @@
-import type { PhoneRow, UpdateMessage } from '@mesa/core/phone';
+import type { PhoneGate, PhoneRow, UpdateMessage } from '@mesa/core/phone';
 import { router } from 'expo-router';
 import { use } from 'react';
 import { RefreshControl, SectionList, View } from 'react-native';
 import { SessionRow } from '@/components/SessionRow';
 import { SwipeRow } from '@/components/SwipeRow';
 import { Text } from '@/components/ui/text';
+import { GateRow } from '../gates/GateRow';
 import { AgentFilters } from './AgentFilters';
-import { applyUpdates, filterRows, groupRows, projectsOf, type RowFilter } from './agentRows';
+import {
+  applyUpdates,
+  filterRows,
+  groupRows,
+  isGate,
+  projectsOf,
+  type RowFilter,
+} from './agentRows';
 import { OfflineNote } from './OfflineNote';
 import { stateColor, stateWords } from './sessionState';
 import type { Listing } from './useAgents';
 
-/** The sessions grouped Needs you, Working, Done, live, filtered, swiped to mark read or unread. */
+/** The sessions grouped Needs you (with open decision gates), Working, Done, live, filtered, swiped to mark read or unread. */
 export function AgentList({
   listing,
   updates,
+  gates,
   filter,
   onFilter,
   refreshing,
@@ -23,6 +32,7 @@ export function AgentList({
 }: {
   listing: Promise<Listing>;
   updates: (UpdateMessage & { at: number })[];
+  gates: PhoneGate[];
   filter: RowFilter;
   onFilter: (filter: RowFilter) => void;
   refreshing: boolean;
@@ -40,7 +50,7 @@ export function AgentList({
     <SectionList
       contentInsetAdjustmentBehavior="automatic"
       className="flex-1 bg-background"
-      sections={groupRows(filterRows(rows, filter))}
+      sections={groupRows(filterRows(rows, filter), gates)}
       keyExtractor={(row) => row.id}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ListHeaderComponent={
@@ -67,6 +77,7 @@ export function AgentList({
         </Text>
       )}
       renderItem={({ item }) => {
+        if (isGate(item)) return <GateRow gate={item} />;
         const toggle = item.unread ? 'Mark read' : 'Mark unread';
         return (
           <SwipeRow action={toggle} onAction={() => onMark(item, !item.unread)}>

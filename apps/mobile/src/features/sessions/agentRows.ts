@@ -1,4 +1,4 @@
-import type { PhoneRow, UpdateMessage } from '@mesa/core/phone';
+import type { PhoneGate, PhoneRow, UpdateMessage } from '@mesa/core/phone';
 import { GROUP_TITLES, type Group, groupOf } from './sessionState';
 
 export type RowFilter = { query: string; project?: string; unreadOnly: boolean };
@@ -34,17 +34,26 @@ export function filterRows(rows: readonly PhoneRow[], filter: RowFilter) {
   );
 }
 
-/** Needs you, Working, Done, each in the Mac's attention order, empty groups left out. */
-export function groupRows(rows: readonly PhoneRow[]) {
+/**
+ * Needs you (open decision gates first, whatever the filter: each waits on the person), Working,
+ * Done, each in the Mac's attention order, empty groups left out.
+ */
+export function groupRows(rows: readonly PhoneRow[], gates: readonly PhoneGate[] = []) {
   const groups: Group[] = ['needs-you', 'working', 'done'];
   return groups
     .map((group) => ({
       key: group,
       title: GROUP_TITLES[group],
-      data: rows.filter((row) => groupOf(row.state) === group),
+      data: [
+        ...(group === 'needs-you' ? gates : []),
+        ...rows.filter((row) => groupOf(row.state) === group),
+      ],
     }))
     .filter((section) => section.data.length);
 }
+
+/** Whether a Needs you item is a decision gate rather than a session. */
+export const isGate = (item: PhoneRow | PhoneGate): item is PhoneGate => 'question' in item;
 
 /** The projects the rows name, sorted, for the project filter. */
 export const projectsOf = (rows: readonly PhoneRow[]) =>

@@ -17,7 +17,7 @@ import { fakeTmux } from './tmux.js';
 const NOW = fixedClock()();
 
 /**
- * A paired profile with one record-only session (`session`), its phone listener running, and the
+ * A paired profile (its session `store`) with one record-only session (`session`), its phone listener running, and the
  * phone's end of the mailbox (`calls`, and what the Mac `pushed`); `world` is the tmux a live
  * session opens in, and `mesaYaml` the project's. `end` stops the listener and returns its end.
  */
@@ -39,7 +39,8 @@ export async function servingPhone(mesaYaml?: string) {
   const phone = fakePhone(broker.http, () => NOW);
   await phone.join((await mesa.phone.pair()).result.qr);
   await mesa.phone.status();
-  const session = testStore(home).create(() =>
+  const store = testStore(home);
+  const session = store.create(() =>
     newSession({ goal: 'Fix the login page\nwith tests', name: 'Login fix' }),
   );
   plantOutputLog(home, session.id, 'npm test\n12 passing\n');
@@ -66,7 +67,7 @@ export async function servingPhone(mesaYaml?: string) {
     box.close();
     return listener;
   };
-  return { mesa, home, world, session, calls, pushed, end };
+  return { mesa, home, store, world, session, calls, pushed, end };
 }
 
 export type ServingPhone = Awaited<ReturnType<typeof servingPhone>>;

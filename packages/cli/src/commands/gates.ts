@@ -47,3 +47,21 @@ export const gatesResolve = defineCommand({
     return { data: gate, text: `${gate.id} resolved: ${gate.option}` };
   },
 });
+
+export const gatesAdvise = defineCommand({
+  name: 'gates advise',
+  summary:
+    "The Decision model's advice on an open gate's options, asked for its task's coordinator: advice only, a person still resolves it",
+  args: ['id'],
+  example: 'mesa gates advise g-1a2b3c4d',
+  run: async ({ mesa, args }) => {
+    const gate = await mesa.gates.advise(args.id);
+    const { advice } = gate;
+    const odds = advice.odds.map((o) => `${o.option} ${Math.round(o.p * 100)}%`).join(', ');
+    const text =
+      advice.status === 'unavailable'
+        ? `no advice: ${advice.reason ?? 'none came'}`
+        : `${advice.status}${advice.pick ? `: ${advice.pick}` : ''} (${odds})`;
+    return { data: gate, text: `${gate.id}  ${gate.question}\n${text}` };
+  },
+});

@@ -4,6 +4,7 @@ import { ErrorNote } from '@/components/ErrorNote';
 import { Screen } from '@/components/Screen';
 import { Section } from '@/components/Section';
 import { Text } from '@/components/ui/text';
+import { CrewSection } from '../crew/CrewSection';
 import { OutputTail } from './OutputTail';
 import { QueuedList } from './QueuedList';
 import { ReplyList } from './ReplyList';
@@ -13,7 +14,7 @@ import type { DetailRead } from './useSessionDetail';
 
 /**
  * What a session said and is doing: state, goal, replies waiting for its turn, latest replies,
- * output tail; its menu in the header. `onChange` reads it again after the phone changed it.
+ * output tail, and its crew if any; its menu in the header. `onChange` reads it again after the phone changed it.
  */
 export function SessionBody({
   read,
@@ -45,6 +46,7 @@ export function SessionBody({
           <Text selectable>{detail.goal}</Text>
         </Section>
       ) : null}
+      <CrewSection id={detail.row.id} />
       {detail.queued.length ? (
         <Section title="Queued">
           <QueuedList id={detail.row.id} queued={detail.queued} onChange={onChange} />

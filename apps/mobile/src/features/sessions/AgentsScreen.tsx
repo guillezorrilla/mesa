@@ -19,6 +19,7 @@ export function AgentsScreen() {
         <AgentList
           listing={agents.listing}
           updates={agents.updates}
+          gates={agents.gates}
           filter={filter}
           onFilter={setFilter}
           refreshing={agents.refreshing}

@@ -86,7 +86,12 @@ export function createMesa(profile: string, deps: MesaDeps) {
     board: () => sessions.sessions.list(),
     send: sessions.sessions.send,
   });
-  const gates = gatesService(ctx, { report: reports.gate });
+  const gates = gatesService(ctx, {
+    report: reports.gate,
+    evaluate: async (request, session, until) =>
+      (await assistance.evaluate(request, { session, until })).evaluation,
+  });
+  const tasks = tasksService(ctx, { startWorker: sessions.sessions.worker });
   // Failed automation runs and open gates are notices; the inbox reads them from their owners.
   const notices = inbox(ctx, automations.runs, gates.open);
   const phone = phoneService(
@@ -98,6 +103,14 @@ export function createMesa(profile: string, deps: MesaDeps) {
       logs: (id, tail) => sessions.sessions.logs(id, tail),
       read: sessions.sessions.read,
       unread: sessions.sessions.unread,
+      crew: {
+        crew: sessions.sessions.crew,
+        tasks: (coordinator) => tasks.list(coordinator ? { coordinator } : {}).tasks,
+        gates: gates.open,
+        advise: gates.advise,
+        resolve: gates.resolve,
+        merge: (id) => sessions.sessions.merge(id),
+      },
       archived: () => sessions.sessions.list('archived'),
       steer: sessionSteer(ctx, faro, sessions.sessions, prompts.list),
     },
@@ -149,7 +162,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     }),
     reports,
     /** Planned work and what each part waits on (CONTEXT.md, Task graph). */
-    tasks: tasksService(ctx, { startWorker: sessions.sessions.worker }),
+    tasks,
     /** Decisions only a person makes, which block a task until resolved (CONTEXT.md, Decision gate). */
     gates,
     prs: prsService(ctx, { open: sessions.sessions.open, stop: sessions.sessions.stop }),
