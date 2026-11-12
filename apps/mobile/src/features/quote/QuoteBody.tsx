@@ -1,4 +1,4 @@
-import type { CallResult } from '@mesa/core/phone';
+import type { CallResult, NoteDelivery } from '@mesa/core/phone';
 import { use } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, View } from 'react-native';
 import { ErrorNote } from '@/components/ErrorNote';
@@ -7,27 +7,24 @@ import { isSelected, type LineSelection } from '@/lib/lineSelection';
 import { cn } from '@/lib/utils';
 import { CommentForm } from '../changes/CommentForm';
 import type { MacRead } from '../mac/tryCall';
-import { tryCall } from '../mac/tryCall';
-import { useMac } from '../mac/useMac';
 import { quoteLabel } from './quoteLabel';
 import { passageOf, type ReplyLine, replyLines } from './replyLines';
 
 /** One reply's lines to tap, and a comment on the tapped passage sent to the agent. */
 export function QuoteBody({
-  id,
   reply,
   answer,
   selection,
   onTap,
+  onQuote,
 }: {
-  id: string;
   /** The reply's revision. */
   reply: string;
   answer: Promise<MacRead<CallResult<'session'>>>;
   selection?: LineSelection;
   onTap: (lines: readonly ReplyLine[], at: number) => void;
+  onQuote: (passage: string, comment: string) => Promise<MacRead<NoteDelivery>>;
 }) {
-  const link = useMac();
   const { result, error } = use(answer);
   const found = result?.replies.find((r) => r.id === reply);
   if (!found)
@@ -63,11 +60,7 @@ export function QuoteBody({
       {passage.trim() ? (
         <CommentForm
           label={quoteLabel(passage.split('\n').length)}
-          send={(comment) =>
-            tryCall(link, () =>
-              link.call({ method: 'quote', id, revision: reply, passage, comment }),
-            )
-          }
+          send={(comment) => onQuote(passage, comment)}
         />
       ) : null}
     </KeyboardAvoidingView>

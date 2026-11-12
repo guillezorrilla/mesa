@@ -1,44 +1,39 @@
-import { type DiffLine, noteLines } from '@mesa/core/phone';
+import { type NoteDelivery, noteLines } from '@mesa/core/phone';
 import { use } from 'react';
 import { FlatList, KeyboardAvoidingView, View } from 'react-native';
 import { BusyLine } from '@/components/BusyLine';
 import { ErrorNote } from '@/components/ErrorNote';
 import { Text } from '@/components/ui/text';
 import { isSelected, type LineSelection } from '@/lib/lineSelection';
-import { tryCall } from '../mac/tryCall';
-import { useMac } from '../mac/useMac';
+import type { MacRead } from '../mac/tryCall';
 import { CommentForm } from './CommentForm';
 import { DiffLineRow } from './DiffLineRow';
 import { noteLabel } from './noteLabel';
-import type { DiffRead } from './useDiff';
+import type { DiffRead } from './useDiffPages';
 
 /**
  * One file's diff, read on as it scrolls; tapping lines selects them, and a note on them goes to
  * the session's agent.
  */
 export function DiffBody({
-  id,
   path,
   first,
   more,
   onEnd,
   selection,
   onTap,
+  onNote,
 }: {
-  id: string;
   path: string;
   first: Promise<DiffRead>;
   more?: DiffRead;
   onEnd: (shown: DiffRead) => void;
   selection?: LineSelection;
   onTap: (at: number) => void;
+  onNote: (lines: { line: number; end: number }, text: string) => Promise<MacRead<NoteDelivery>>;
 }) {
-  const link = useMac();
   const shown = more ?? use(first);
-  const selected: DiffLine[] = selection
-    ? shown.rows.slice(selection.start, selection.end + 1)
-    : [];
-  const lines = noteLines(selected);
+  const lines = selection ? noteLines(shown.rows, selection.start, selection.end) : undefined;
   return (
     <KeyboardAvoidingView behavior="padding" className="flex-1 bg-background">
       <FlatList
@@ -70,13 +65,8 @@ export function DiffBody({
           />
         )}
       />
-      {selection ? (
-        <CommentForm
-          label={noteLabel(path, lines)}
-          send={(text) =>
-            tryCall(link, () => link.call({ method: 'note', id, path, ...lines, text }))
-          }
-        />
+      {lines ? (
+        <CommentForm label={noteLabel(path, lines)} send={(text) => onNote(lines, text)} />
       ) : null}
     </KeyboardAvoidingView>
   );

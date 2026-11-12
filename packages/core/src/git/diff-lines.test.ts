@@ -35,8 +35,11 @@ test('pages read one after another number their lines as the whole read does', (
   expect(first.next).toEqual({ old: 8, new: 8, inHunk: true });
 });
 
-test("a note covers the selection's new lines, or the whole file when it has none", () => {
+test("a note covers the selection's new lines, or the one beside removed lines", () => {
   const rows = diffLines(patch, DIFF_START).rows;
-  expect(noteLines(rows.slice(4, 8))).toEqual({ line: 7, end: 8 });
-  expect(noteLines(rows.slice(5, 7))).toEqual({ line: 0, end: 0 });
+  expect(noteLines(rows, 4, 7)).toEqual({ line: 7, end: 8 });
+  // Removed lines alone: the new line before them, else the one after, else the whole file.
+  expect(noteLines(rows, 5, 6)).toEqual({ line: 7, end: 7 });
+  expect(noteLines(rows.slice(5), 0, 1)).toEqual({ line: 8, end: 8 });
+  expect(noteLines(rows.slice(0, 4), 0, 3)).toEqual({ line: 0, end: 0 });
 });

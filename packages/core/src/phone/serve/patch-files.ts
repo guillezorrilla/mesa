@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { DIFF_START, type DiffAt, diffLines } from '../protocol/diff-lines.js';
+import { DIFF_START, type DiffAt, diffLines } from '../../git/diff-lines.js';
 
 /** One file's part of a patch: its lines from its `diff --git` header on. */
 export type PatchFile = {

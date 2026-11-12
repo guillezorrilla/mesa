@@ -1,3 +1,4 @@
+import type { NoteDelivery } from '@mesa/core/phone';
 import { startTransition, useActionState, useState } from 'react';
 import { AccessibilityInfo, View } from 'react-native';
 import { Button } from '@/components/ui/button';
@@ -6,8 +7,6 @@ import { Text } from '@/components/ui/text';
 import type { MacRead } from '../mac/tryCall';
 import { deliveryText } from './deliveryText';
 
-type Delivery = { status: string; reason?: string };
-
 /** A note to the session's agent on what is selected: typed, sent, and what became of it said. */
 export function CommentForm({
   label,
@@ -15,7 +14,7 @@ export function CommentForm({
 }: {
   /** What the note is on, said over the field. */
   label: string;
-  send: (comment: string) => Promise<MacRead<Delivery>>;
+  send: (comment: string) => Promise<MacRead<NoteDelivery>>;
 }) {
   const [text, setText] = useState('');
   const [said, submit, pending] = useActionState(

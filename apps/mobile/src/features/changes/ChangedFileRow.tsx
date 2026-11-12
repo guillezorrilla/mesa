@@ -8,6 +8,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 import { ChangeMeter } from './ChangeMeter';
+import { changedFileLabel, viewedToggleLabel } from './changedFileLabel';
 
 /** One changed file: its path, lines added and removed, and a check to mark it viewed. */
 export function ChangedFileRow({
@@ -21,12 +22,11 @@ export function ChangedFileRow({
   onPress: () => void;
   onToggleViewed: () => void;
 }) {
-  const counts = `+${file.added} -${file.removed}`;
   return (
     <View className="flex-row items-center bg-background">
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${file.path}, ${file.added} added, ${file.removed} removed${viewed ? ', viewed' : ''}`}
+        accessibilityLabel={changedFileLabel(file, viewed)}
         onPress={onPress}
         className="min-h-14 flex-1 justify-center gap-1 py-2.5 pl-4 active:bg-accent"
       >
@@ -40,8 +40,7 @@ export function ChangedFileRow({
       <Button
         variant="ghost"
         size="icon"
-        accessibilityLabel={viewed ? `Mark ${file.path} not viewed` : `Mark ${file.path} viewed`}
-        accessibilityHint={counts}
+        accessibilityLabel={viewedToggleLabel(file.path, viewed)}
         onPress={onToggleViewed}
       >
         <Icon

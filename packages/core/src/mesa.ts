@@ -108,14 +108,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
       unread: sessions.sessions.unread,
       changes: {
         diff: (id) => sessions.sessions.diff(id),
-        where: (id) => {
-          const { project, folder } = workingFolder(ctx, id);
-          return { project, checkout: folder };
-        },
-        note: async (id, input) => {
-          await notes.add(id, input);
-          return notes.send(id, input.path, { noFrom: true });
-        },
+        where: (id) => workingFolder(ctx, id),
+        notes,
         replies: (id) => responses.list(id),
         quote: (id, input) => responses.send(id, input, { noFrom: true }),
         git,

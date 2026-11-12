@@ -2,7 +2,7 @@ import type { PhoneDetail, UpdateMessage } from '@mesa/core/phone';
 import { startTransition, useEffect, useEffectEvent, useState } from 'react';
 import { useRepeatWhileActive } from '@/lib/useRepeatWhileActive';
 import type { MacLink } from '../mac/macLink';
-import { tryCall } from '../mac/tryCall';
+import { keepLast, tryCall } from '../mac/tryCall';
 import { useMac } from '../mac/useMac';
 
 /** A session's screen data as last read, and why the latest read failed: the last detail stays shown. */
@@ -13,7 +13,7 @@ const EVERY_MS = 5000;
 
 const read = async (link: MacLink, id: string, last?: Promise<DetailRead>): Promise<DetailRead> => {
   const next = await tryCall(link, () => link.call({ method: 'session', id }));
-  return next.error ? { ...(await last), error: next.error } : { detail: next.result };
+  return keepLast(next.error ? { error: next.error } : { detail: next.result }, last);
 };
 
 /** One session's detail as a promise to `use()`, read again every 5 s and on its row's update. */

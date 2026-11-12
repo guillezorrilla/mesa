@@ -1,5 +1,5 @@
 import { MesaError } from '../../lib/result.js';
-import type { ChangesCall } from '../protocol/changes.js';
+import type { ChangesCall, NoteDelivery } from '../protocol/changes.js';
 import type { CallResult } from '../protocol/rpc.js';
 import { patchFiles, patchPage } from './patch-files.js';
 
@@ -10,13 +10,21 @@ export type ChangesDeps = {
     id: string,
     reuse?: boolean,
   ) => Promise<{ base: string; branch: string | null; omitted: number; patch: string }>;
-  /** The project and checkout the session works in. */
-  where: (id: string) => { project: string; checkout?: string };
-  /** Keeps a note on a file's lines, then sends that file's notes (`review notes add`, `send`). */
-  note: (
-    id: string,
-    input: { path: string; line: number; end: number; text: string },
-  ) => Promise<{ delivery?: Delivery }>;
+  /** The project the session works in, and the folder (its checkout) where. */
+  where: (id: string) => { project: string; folder?: string };
+  /** A session's review notes (`review notes add`, `send --note`, `remove`). */
+  notes: {
+    add: (
+      id: string,
+      input: { path: string; line: number; end: number; text: string },
+    ) => { id: string } | Promise<{ id: string }>;
+    send: (
+      id: string,
+      path: string,
+      opts: { noFrom: boolean; only: string },
+    ) => Promise<{ sent: string[]; delivery?: NoteDelivery }>;
+    remove: (id: string, note: string) => unknown;
+  };
   /** The session's replies, to find a quoted one's source (`review responses`). */
   replies: (id: string) => {
     rows: { profile: string; source: string; revision: string; text: string }[];
@@ -32,7 +40,7 @@ export type ChangesDeps = {
       end: number;
       comment: string;
     },
-  ) => Promise<Delivery>;
+  ) => Promise<NoteDelivery>;
   git: {
     status: (
       project: string,
@@ -73,21 +81,61 @@ export type ChangesDeps = {
       project: string,
       path: string,
       checkout?: string,
-    ) => Promise<{ mime: string; bytes: Buffer }>;
+    ) => Promise<{ mime: string; bytes: Uint8Array }>;
   };
 };
 
-type Delivery = { status: string; reason?: string };
 type Synced = { result: { remote: string; upstream: string } };
 
 /** The largest image the phone is sent: its base64 stays well inside one call's 600 KB. */
 const IMAGE_BYTES = 400 * 1024;
-const IMAGE = /\.(png|jpe?g|webp)$/i;
 
-const delivered = (delivery: Delivery | undefined): Delivery =>
-  delivery
-    ? { status: delivery.status, ...(delivery.reason ? { reason: delivery.reason } : {}) }
-    : { status: 'delivered' };
+const delivered = ({ status, reason }: NoteDelivery): NoteDelivery => ({
+  status,
+  ...(reason ? { reason } : {}),
+});
+
+/**
+ * Keeps a note on a file's lines and sends it alone; a note the guardrail stops, or that fails to
+ * reach the agent, is not kept, so trying again makes no second copy.
+ */
+async function sendNote(notes: ChangesDeps['notes'], id: string, input: NoteInput) {
+  const note = await notes.add(id, input);
+  let sent: Awaited<ReturnType<ChangesDeps['notes']['send']>>;
+  try {
+    sent = await notes.send(id, input.path, { noFrom: true, only: note.id });
+  } catch (error) {
+    notes.remove(id, note.id);
+    throw error;
+  }
+  const delivery =
+    sent.delivery ??
+    (sent.sent.length ? { status: 'delivered' } : { status: 'failed', reason: 'nothing was sent' });
+  if (delivery.status === 'failed') notes.remove(id, note.id);
+  return delivered(delivery);
+}
+
+/** A file as the phone previews it: its text, or else its image, under IMAGE_BYTES. */
+async function previewFile(
+  files: ChangesDeps['files'],
+  project: string,
+  path: string,
+  checkout?: string,
+): Promise<CallResult<'file'>> {
+  try {
+    return { kind: 'text', text: (await files.read(project, path, checkout)).text };
+  } catch (notText) {
+    // Not text: an image when readImage takes it, else why it is not text.
+    if (!(notText instanceof MesaError)) throw notText;
+    const { mime, bytes } = await files.image(project, path, checkout).catch(() => {
+      throw notText;
+    });
+    if (bytes.length > IMAGE_BYTES)
+      throw new MesaError('usage', `${path} is over 400 KB, too large for the phone`);
+    return { kind: 'image', mime, data: Buffer.from(bytes).toString('base64') };
+  }
+}
+type NoteInput = Parameters<ChangesDeps['notes']['add']>[1];
 
 /** Answers a call about a session's changes, its source control or its files. */
 export async function answerChanges(deps: ChangesDeps, call: ChangesCall): Promise<unknown> {
@@ -99,12 +147,14 @@ export async function answerChanges(deps: ChangesDeps, call: ChangesCall): Promi
   }
   if (call.method === 'diff') {
     const file = patchFiles((await deps.diff(id, true)).patch).find((f) => f.path === call.path);
-    if (!file) throw new MesaError('not_found', `${call.path} has no changes now`);
+    // A page of a patch other than the one paged so far would skip or repeat lines.
+    if (!file || file.rev !== call.rev)
+      throw new MesaError('not_found', `${call.path} changed since it was opened; open it again`);
     return patchPage(file.lines, call.from) satisfies CallResult<'diff'>;
   }
   if (call.method === 'note') {
     const { path, line, end, text } = call;
-    return delivered((await deps.note(id, { path, line, end, text })).delivery);
+    return sendNote(deps.notes, id, { path, line, end, text });
   }
   if (call.method === 'quote') {
     const reply = deps.replies(id).rows.find((row) => row.revision === call.revision);
@@ -116,7 +166,7 @@ export async function answerChanges(deps: ChangesDeps, call: ChangesCall): Promi
       await deps.quote(id, { profile, source, revision, start, end, comment: call.comment }),
     );
   }
-  const { project, checkout } = deps.where(id);
+  const { project, folder: checkout } = deps.where(id);
   const { git, files } = deps;
   switch (call.method) {
     case 'status': {
@@ -159,13 +209,7 @@ export async function answerChanges(deps: ChangesDeps, call: ChangesCall): Promi
       const { hits } = await files.search(project, call.query, call.mode, checkout);
       return { hits: hits.map(({ path, line, preview }) => ({ path, line, preview })) };
     }
-    case 'file': {
-      if (!IMAGE.test(call.path))
-        return { kind: 'text', text: (await files.read(project, call.path, checkout)).text };
-      const { mime, bytes } = await files.image(project, call.path, checkout);
-      if (bytes.length > IMAGE_BYTES)
-        throw new MesaError('usage', `${call.path} is over 400 KB, too large for the phone`);
-      return { kind: 'image', mime, data: bytes.toString('base64') } satisfies CallResult<'file'>;
-    }
+    case 'file':
+      return previewFile(files, project, call.path, checkout);
   }
 }

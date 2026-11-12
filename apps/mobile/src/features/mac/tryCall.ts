@@ -19,3 +19,7 @@ export async function tryCall<T>(link: MacLink, run: () => Promise<T>): Promise<
     };
   }
 }
+
+/** `next`, or when it failed, the last answer with `next`'s error: a screen keeps what it showed. */
+export const keepLast = async <T extends { error?: string }>(next: T, last?: Promise<T>) =>
+  next.error ? { ...(await last), error: next.error } : next;

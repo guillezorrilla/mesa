@@ -30,12 +30,8 @@ export function filesService(ctx: MesaContext) {
     read: async (project: string, path: string, selected?: string, line?: number) =>
       readWorkspaceFile(await checkout(project, selected), path, line),
     /** A PNG, JPEG or WebP image in the checkout, with its type (readImage). */
-    image: async (project: string, path: string, selected?: string) => {
-      const { bytes, mime } = readImage(
-        checkedFilePath((await checkout(project, selected)).path, path),
-      );
-      return { mime, bytes };
-    },
+    image: async (project: string, path: string, selected?: string) =>
+      readImage(checkedFilePath((await checkout(project, selected)).path, path)),
     open: async (project: string, path: string, selected?: string, line?: number) =>
       ctx.record(
         {

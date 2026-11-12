@@ -23,16 +23,18 @@ export const statusFile = z.object({
 export type StatusFile = z.infer<typeof statusFile>;
 
 /** What a note or a quote became: delivered, or why not (the guardrail's word, or a failure). */
-const delivery = z.object({ status: z.string(), reason: z.string().optional() });
+const noteDelivery = z.object({ status: z.string(), reason: z.string().optional() });
+export type NoteDelivery = z.infer<typeof noteDelivery>;
 
 export const changesCalls = [
   /** The session's changed files against its base. */
   z.object({ method: z.literal('changes'), ...session }),
-  /** One page of one file's patch lines, from line `from`. */
+  /** One page of one file's patch lines, from line `from`, of the patch with revision `rev`. */
   z.object({
     method: z.literal('diff'),
     ...session,
     path: z.string(),
+    rev: z.string(),
     from: z.number().int().nonnegative(),
   }),
   /** A note on new-side lines `line` to `end` of `path` (0 for the whole file), sent at once. */
@@ -93,8 +95,8 @@ export const changesResults = {
     /** How many patch lines the file has. */
     total: z.number(),
   }),
-  note: delivery,
-  quote: delivery,
+  note: noteDelivery,
+  quote: noteDelivery,
   status: z.object({ branch: z.string().nullable(), files: z.array(statusFile) }),
   stage: z.object({}),
   message: z.object({ message: z.string() }),

@@ -7,8 +7,10 @@ import { Pressable, View } from 'react-native';
 import { ErrorNote } from '@/components/ErrorNote';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { pathParts } from '@/lib/pathParts';
 import type { MacRead } from '../mac/tryCall';
-import { folderEntries, nameOf, parentOf } from './folderEntries';
+import { entryLabel } from './fileWords';
+import { folderEntries } from './folderEntries';
 
 /** What a folder of the worktree holds: a folder opens in place, a file in its preview. */
 export function FileList({
@@ -24,8 +26,11 @@ export function FileList({
 }) {
   const { result, error } = use(tree);
   const rows = [
-    ...(folder ? [{ path: parentOf(folder), dir: true, name: '..' }] : []),
-    ...folderEntries(result?.entries ?? [], folder).map((e) => ({ ...e, name: nameOf(e.path) })),
+    ...(folder ? [{ path: pathParts(folder).folder, dir: true, name: '..' }] : []),
+    ...folderEntries(result?.entries ?? [], folder).map((e) => ({
+      ...e,
+      name: pathParts(e.path).name,
+    })),
   ];
   return (
     <View>
@@ -35,9 +40,7 @@ export function FileList({
         <Pressable
           key={`${row.name}:${row.path}`}
           accessibilityRole="button"
-          accessibilityLabel={
-            row.name === '..' ? 'Up one folder' : `${row.name}${row.dir ? ', folder' : ''}`
-          }
+          accessibilityLabel={entryLabel(row)}
           onPress={() =>
             row.dir
               ? onOpen(row.path)

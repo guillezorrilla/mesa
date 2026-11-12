@@ -7,7 +7,7 @@ import { Text } from '@/components/ui/text';
 import type { MacRead } from '../mac/tryCall';
 import { ChangedFileRow } from './ChangedFileRow';
 import { changesSummary } from './changesSummary';
-import { viewedKey } from './useChanges';
+import { viewedKey } from './viewedKey';
 
 /** A session's changed files against its base, each opening its diff, pulled to read again. */
 export function ChangesList({
@@ -50,7 +50,12 @@ export function ChangesList({
         <ChangedFileRow
           file={item}
           viewed={seen.has(viewedKey(item))}
-          onPress={() => router.push({ pathname: '/agents/diff', params: { id, path: item.path } })}
+          onPress={() =>
+            router.push({
+              pathname: '/agents/diff',
+              params: { id, path: item.path, rev: item.rev },
+            })
+          }
           onToggleViewed={() => onToggleViewed(viewedKey(item))}
         />
       )}

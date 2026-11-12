@@ -1,13 +1,26 @@
-import { useState } from 'react';
-import type { LineSelection } from '@/lib/lineSelection';
+import { useLineSelection } from '@/lib/useLineSelection';
+import { SLOW_MS } from '../mac/slowCall';
+import { tryCall } from '../mac/tryCall';
+import { useMac } from '../mac/useMac';
 import { useMacRead } from '../mac/useMacRead';
 import { type ReplyLine, tapReplyLine } from './replyLines';
 
-/** A session read once for one of its replies, and the lines of it tapped to quote. */
-export function useQuote(id: string) {
+/**
+ * The quote screen: the session read once for the reply, the lines of it tapped (kept inside one
+ * segment), and a comment on the passage sent to its agent.
+ */
+export function useQuote(id: string, reply: string) {
+  const link = useMac();
   const { answer } = useMacRead({ method: 'session', id });
-  const [selection, setSelection] = useState<LineSelection>();
-  const tap = (lines: readonly ReplyLine[], at: number) =>
-    setSelection((last) => tapReplyLine(lines, last, at));
-  return { answer, selection, tap };
+  const { selection, tap } = useLineSelection();
+  return {
+    answer,
+    selection,
+    tap: (lines: readonly ReplyLine[], at: number) =>
+      tap(at, (last) => tapReplyLine(lines, last, at)),
+    sendQuote: (passage: string, comment: string) =>
+      tryCall(link, () =>
+        link.call({ method: 'quote', id, revision: reply, passage, comment }, SLOW_MS),
+      ),
+  };
 }

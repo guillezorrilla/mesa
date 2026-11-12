@@ -1,11 +1,9 @@
 import { startTransition, useActionState } from 'react';
+import { SLOW_MS } from '../mac/slowCall';
 import { tryCall } from '../mac/tryCall';
 import { useMac } from '../mac/useMac';
 import { useMacRead } from '../mac/useMacRead';
 import { type GitAction, gitDone } from './gitDone';
-
-/** A push, a pull or an agent writing a message can take a minute; the rest answer in seconds. */
-export const SLOW_MS = 90_000;
 
 /**
  * A session's checkout as source control: its status and branches as promises to `use()`, and
@@ -17,11 +15,10 @@ export function useGit(id: string) {
   const branches = useMacRead({ method: 'branches', id });
   const [said, act, pending] = useActionState(
     async (_last: string | undefined, action: GitAction) => {
-      const slow = action.method === 'sync' ? SLOW_MS : undefined;
-      const done = await tryCall(link, () => link.call(action, slow));
+      const done = await tryCall(link, () => link.call(action, SLOW_MS));
       status.again();
       branches.again();
-      return done.error ?? gitDone(action, done.result);
+      return done.result ? gitDone(action, done.result) : done.error;
     },
     undefined,
   );

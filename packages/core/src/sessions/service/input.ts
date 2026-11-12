@@ -214,21 +214,25 @@ export function inputActions(
       remove: (id: string, note: string) => notesOf(id).remove(note),
       clearSent: (id: string) => notesOf(id).clearSent(),
       /**
-       * Sends every unsent note and every sent one not resolved (still open), or `path`'s, as
-       * one prompt through sendReview to session `to`
-       * (default: its own), then marks them sent to it; a stale one stays behind, named in
+       * Sends every unsent note and every sent one not resolved (still open), or `path`'s, or only
+       * the unsent note `only`, as one prompt through sendReview to session `to` (default: its
+       * own), then marks them sent to it; a stale one stays behind, named in
        * `stale`. `to: 'new'` starts a session in the same checkout with the prompt as its goal.
        * Nothing to send sends nothing.
        */
       send: async (
         id: string,
         path?: string,
-        opts: { to?: string; noFrom?: boolean } & Overrides = {},
+        opts: { to?: string; noFrom?: boolean; only?: string } & Overrides = {},
       ): Promise<NotesSent> => {
-        const { to: asked = id, ...overrides } = opts;
+        const { to: asked = id, only, ...overrides } = opts;
         const at = notesAt(id);
         const { notes } = at;
-        const { ready, open: repeats, stale } = await notes.next(path);
+        const next = await notes.next(path);
+        const { stale } = next;
+        // `only`: that one note alone, not the others still open.
+        const ready = only ? next.ready.filter((n) => n.id === only) : next.ready;
+        const repeats = only ? [] : next.open;
         const batch = [...ready, ...repeats];
         if (!batch.length) return { to: asked, sent: [], stale };
         const source = await at.source();

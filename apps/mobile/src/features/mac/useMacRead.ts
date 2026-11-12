@@ -1,6 +1,6 @@
 import type { CallResult, PhoneCall } from '@mesa/core/phone';
 import { useState, useTransition } from 'react';
-import { type MacRead, tryCall } from './tryCall';
+import { keepLast, type MacRead, tryCall } from './tryCall';
 import { useMac } from './useMac';
 
 /**
@@ -13,10 +13,8 @@ export function useMacRead<M extends PhoneCall['method']>(
   timeoutMs?: number,
 ) {
   const link = useMac();
-  const read = async (last?: Promise<MacRead<CallResult<M>>>) => {
-    const next = await tryCall(link, () => link.call(call, timeoutMs));
-    return next.error ? { ...(await last), error: next.error } : next;
-  };
+  const read = async (last?: Promise<MacRead<CallResult<M>>>) =>
+    keepLast(await tryCall(link, () => link.call(call, timeoutMs)), last);
   const [answer, setAnswer] = useState(() => read());
   const [refreshing, startTransition] = useTransition();
   // The promise is made here, not in an updater, which React may run again while it suspends.

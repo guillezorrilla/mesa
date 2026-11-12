@@ -6,12 +6,18 @@ import { useQuote } from './useQuote';
 
 /** A passage of one of a session's replies, quoted with a comment to its agent. */
 export function QuoteScreen({ id, reply }: { id: string; reply: string }) {
-  const { answer, selection, tap } = useQuote(id);
+  const { answer, selection, tap, sendQuote } = useQuote(id, reply);
   return (
     <>
       <Stack.Screen options={{ title: 'Quote a reply' }} />
       <Suspense fallback={<BusyScreen label="Asking your Mac..." />}>
-        <QuoteBody id={id} reply={reply} answer={answer} selection={selection} onTap={tap} />
+        <QuoteBody
+          reply={reply}
+          answer={answer}
+          selection={selection}
+          onTap={tap}
+          onQuote={sendQuote}
+        />
       </Suspense>
     </>
   );

@@ -1,6 +1,6 @@
-// One file's unified diff, read a page at a time (ADR-0027, the request layer): the Mac sends a
-// file's patch lines in pages with the line numbers where each page starts, and the phone numbers
-// and colours them. Both sides read lines here, so a page starts where the last one ended.
+// A patch's lines read in order, numbered on each side, from any point in it: the one reader of a
+// patch's lines. diffRows aligns them side by side; the phone reads a file's diff a page at a time
+// with them (ADR-0027), each page starting with the line numbers where the last one ended.
 
 /** One line of a file's patch: `text` without its +, - or space sign, numbered on each side it is on. */
 export type DiffLine = {
@@ -45,11 +45,17 @@ export function diffLines(
 }
 
 /**
- * The new-side lines a note on `rows` covers, as `review notes add` takes them: from the first to
- * the last new line among them, or 0 (the whole file) when they hold only removed lines or headers.
+ * The new-side lines a note on rows `start` to `end` covers, as `review notes add` takes them: from
+ * the first to the last new line among them; for removed lines alone, the new line beside where
+ * they were; 0 (the whole file) when there is none.
  */
-export function noteLines(rows: readonly DiffLine[]): { line: number; end: number } {
-  const numbers = rows.flatMap((row) => (row.new === undefined ? [] : [row.new]));
-  if (!numbers.length) return { line: 0, end: 0 };
-  return { line: Math.min(...numbers), end: Math.max(...numbers) };
+export function noteLines(rows: readonly DiffLine[], start: number, end: number) {
+  const numbers = rows
+    .slice(start, end + 1)
+    .flatMap((row) => (row.new === undefined ? [] : [row.new]));
+  if (numbers.length) return { line: Math.min(...numbers), end: Math.max(...numbers) };
+  const numbered = (row: DiffLine) => Boolean(row.new);
+  const near =
+    [...rows.slice(0, start)].reverse().find(numbered) ?? rows.slice(end + 1).find(numbered);
+  return { line: near?.new ?? 0, end: near?.new ?? 0 };
 }

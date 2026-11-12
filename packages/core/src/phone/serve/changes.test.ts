@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest';
-import { DIFF_START, type DiffLine, diffLines } from '../protocol/diff-lines.js';
-import { callResults } from '../protocol/rpc.js';
+import { DIFF_START, type DiffLine, diffLines } from '../../git/diff-lines.js';
+import { MesaError } from '../../lib/result.js';
+import type { ChangesCall } from '../protocol/changes.js';
+import { type CallResult, callResults } from '../protocol/rpc.js';
 import { answerChanges, type ChangesDeps } from './changes.js';
 import { DIFF_KEPT_MS, keptDiffs } from './kept-diffs.js';
 
@@ -29,7 +31,13 @@ const PATCH = [
 const REPLY = 'Done.\n\n```ts\nexport const ebb = 3;\n```\nShall I push?';
 
 /** Fake core functions over invented content, keeping what each was asked. */
-function fakeDeps(patch = PATCH) {
+function fakeDeps(
+  patch = PATCH,
+  noteSent: { sent: string[]; delivery?: { status: string; reason?: string } } = {
+    sent: ['n1'],
+    delivery: { status: 'delivered' },
+  },
+) {
   const asked: unknown[][] = [];
   const keep =
     <T>(name: string, value: T) =>
@@ -39,8 +47,12 @@ function fakeDeps(patch = PATCH) {
     };
   const deps: ChangesDeps = {
     diff: async () => ({ base: 'main', branch: 'tide', omitted: 0, patch }),
-    where: () => ({ project: 'lantern-cove', checkout: '/work/lantern-cove' }),
-    note: keep('note', { delivery: { status: 'delivered' } }),
+    where: () => ({ project: 'lantern-cove', folder: '/work/lantern-cove' }),
+    notes: {
+      add: keep('add', { id: 'n1' }),
+      send: keep('send', noteSent),
+      remove: (...args: unknown[]) => asked.push(['remove', ...args]),
+    },
     replies: () => ({
       rows: [{ profile: 'default', source: 'src1', revision: 'rev1', text: REPLY }],
     }),
@@ -74,18 +86,27 @@ function fakeDeps(patch = PATCH) {
         truncated: false,
       }),
       search: keep('search', { hits: [{ path: 'src/tide.ts', line: 1, preview: 'tide' }] }),
-      read: async () => ({ text: 'export const tide = 1;\n' }),
-      image: async (_project, path) => ({
-        mime: 'image/png',
-        bytes: Buffer.alloc(path === 'big.png' ? 500 * 1024 : 4, 1),
-      }),
+      read: async (_project, path) => {
+        if (/\.(png|bin)$/i.test(path)) throw new MesaError('usage', `${path} is binary`);
+        return { text: 'export const tide = 1;\n' };
+      },
+      image: async (_project, path) => {
+        if (path.endsWith('.bin'))
+          throw new MesaError('usage', 'choose a PNG, JPEG, or WebP image');
+        return { mime: 'image/png', bytes: Buffer.alloc(path === 'big.png' ? 500 * 1024 : 4, 1) };
+      },
     },
   };
   return { deps, asked };
 }
 
-const answer = (deps: ChangesDeps, call: Parameters<typeof answerChanges>[1]) =>
-  answerChanges(deps, call).then((result) => callResults[call.method].parse(result));
+const answer = <M extends ChangesCall['method']>(
+  deps: ChangesDeps,
+  call: Extract<ChangesCall, { method: M }>,
+) =>
+  answerChanges(deps, call).then(
+    (result) => callResults[call.method].parse(result) as CallResult<M>,
+  );
 
 test('changes lists each file with its counts: an edit, a deletion and a binary file', async () => {
   const { deps } = fakeDeps();
@@ -113,11 +134,13 @@ test('a 1 MB file diff comes in pages that each fit one call and number on as th
   ].join('\n');
   expect(patch.length).toBeGreaterThan(1_000_000);
   const { deps } = fakeDeps(patch);
+  const listed = await answer(deps, { method: 'changes', id: 's1' });
+  const rev = listed.files[0]?.rev ?? '';
   const rows: DiffLine[] = [];
   let from = 0;
   let total = 1;
   while (from < total) {
-    const page = await answer(deps, { method: 'diff', id: 's1', path: 'big.ts', from });
+    const page = await answer(deps, { method: 'diff', id: 's1', path: 'big.ts', rev, from });
     expect(JSON.stringify(page).length).toBeLessThan(64 * 1024);
     rows.push(...diffLines(page.lines, page.at).rows);
     from += page.lines.length;
@@ -127,11 +150,31 @@ test('a 1 MB file diff comes in pages that each fit one call and number on as th
   expect(rows.at(-1)).toMatchObject({ kind: 'add', new: 20_000 });
 });
 
-test('a diff page for a file with no changes now is not found', async () => {
+test('a page of a file whose patch changed since it was opened, or that is gone, is refused', async () => {
   const { deps } = fakeDeps();
-  await expect(
-    answer(deps, { method: 'diff', id: 's1', path: 'gone.ts', from: 0 }),
-  ).rejects.toThrow('gone.ts has no changes now');
+  const page = (path: string, rev: string) =>
+    answer(deps, { method: 'diff', id: 's1', path, rev, from: 0 });
+  const { files } = await answer(deps, { method: 'changes', id: 's1' });
+  const rev = files[0]?.rev ?? '';
+  expect((await page('src/tide.ts', rev)).lines[0]).toBe('diff --git a/src/tide.ts b/src/tide.ts');
+  await expect(page('src/tide.ts', 'older')).rejects.toThrow('changed since it was opened');
+  await expect(page('gone.ts', rev)).rejects.toThrow('changed since it was opened');
+});
+
+test('a note the guardrail stops, or that sends nothing, is not kept', async () => {
+  const note = { path: 'src/tide.ts', line: 2, end: 3, text: 'why 3?' };
+  const blocked = fakeDeps(PATCH, { sent: [], delivery: { status: 'failed', reason: 'blocked' } });
+  expect(await answer(blocked.deps, { method: 'note', id: 's1', ...note })).toEqual({
+    status: 'failed',
+    reason: 'blocked',
+  });
+  expect(blocked.asked.at(-1)).toEqual(['remove', 's1', 'n1']);
+  const empty = fakeDeps(PATCH, { sent: [] });
+  expect(await answer(empty.deps, { method: 'note', id: 's1', ...note })).toEqual({
+    status: 'failed',
+    reason: 'nothing was sent',
+  });
+  expect(empty.asked.at(-1)).toEqual(['remove', 's1', 'n1']);
 });
 
 test('a note keeps its lines and goes to the agent; a quote finds its passage in the reply', async () => {
@@ -146,7 +189,8 @@ test('a note keeps its lines and goes to the agent; a quote finds its passage in
   ).toEqual({ status: 'failed', reason: 'the guardrail asks first' });
   const start = REPLY.indexOf(passage);
   expect(asked).toEqual([
-    ['note', 's1', note],
+    ['add', 's1', note],
+    ['send', 's1', 'src/tide.ts', { noFrom: true, only: 'n1' }],
     [
       'quote',
       's1',
@@ -198,7 +242,7 @@ test('source control goes to the session checkout: stage, unstage, commit, push 
   ]);
 });
 
-test('files: the tree, a search, a text file, and an image unless it is over 400 KB', async () => {
+test('files: the tree, a search, a text file, and else an image unless it is over 400 KB', async () => {
   const { deps } = fakeDeps();
   expect(await answer(deps, { method: 'files', id: 's1' })).toEqual({
     entries: [
@@ -221,6 +265,10 @@ test('files: the tree, a search, a text file, and an image unless it is over 400
   });
   await expect(answer(deps, { method: 'file', id: 's1', path: 'big.png' })).rejects.toThrow(
     'over 400 KB',
+  );
+  // Neither text nor an image: why it is not text.
+  await expect(answer(deps, { method: 'file', id: 's1', path: 'blob.bin' })).rejects.toThrow(
+    'blob.bin is binary',
   );
 });
 
