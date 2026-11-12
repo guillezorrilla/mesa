@@ -332,9 +332,36 @@ test('review notes add, list, edit and remove a note on a committed line', async
     (await cli.mesa('review', 'notes', 'send', opened.id, '--no-from', '--json')).json.data.sent,
   ).toHaveLength(2);
   expect(world.windows[0]?.typed[1]).toContain('Still open from the last round:');
+  // --note sends that new note alone, without repeating the two still open.
+  const third = await cli.mesa(
+    'review',
+    'notes',
+    'add',
+    opened.id,
+    '--path',
+    'a.ts',
+    '--line',
+    '2',
+    '--text',
+    'and this',
+    '--json',
+  );
+  const only = await cli.mesa(
+    'review',
+    'notes',
+    'send',
+    opened.id,
+    '--note',
+    third.json.data.id,
+    '--no-from',
+    '--json',
+  );
+  expect(only.json.data.sent).toEqual([third.json.data.id]);
+  expect(world.windows[0]?.typed[2]).toContain('Note: and this');
+  expect(world.windows[0]?.typed[2]).not.toContain('Still open');
   expect(
     (await cli.mesa('review', 'notes', 'clear', opened.id, '--json')).json.data.removed,
-  ).toHaveLength(2);
+  ).toHaveLength(3);
   expect((await cli.mesa('review', 'notes', opened.id, '--json')).json.data).toEqual([]);
   await cli.mesa(
     'review',

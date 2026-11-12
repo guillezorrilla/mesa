@@ -1,5 +1,6 @@
 import type { MesaContext } from '../context.js';
 import { resolveCheckout } from '../projects/checkout.js';
+import { readImage } from '../sessions/input/images.js';
 import { fileTree, ignoredFolders, searchFiles } from './browse.js';
 import {
   createWorkspaceFile,
@@ -10,6 +11,7 @@ import {
 } from './editor.js';
 import { openExternalFile } from './external.js';
 import { resolveSessionFileLink } from './link.js';
+import { checkedFilePath } from './path.js';
 
 /** Repository file operations share the selected-checkout and checked-path owners. */
 export function filesService(ctx: MesaContext) {
@@ -27,6 +29,9 @@ export function filesService(ctx: MesaContext) {
     },
     read: async (project: string, path: string, selected?: string, line?: number) =>
       readWorkspaceFile(await checkout(project, selected), path, line),
+    /** A PNG, JPEG or WebP image in the checkout, with its type (readImage). */
+    image: async (project: string, path: string, selected?: string) =>
+      readImage(checkedFilePath((await checkout(project, selected)).path, path)),
     open: async (project: string, path: string, selected?: string, line?: number) =>
       ctx.record(
         {
