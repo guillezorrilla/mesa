@@ -6,6 +6,7 @@ import { hooksStatus as codexHooksStatus } from '../agents/codex/hooks.js';
 import { codexDaemonSocket, codexHome } from '../agents/codex/paths.js';
 import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
+import { readConfig } from '../profile/config.js';
 import type { VaultStatus } from '../vault/vault.js';
 import { type DoctorReport, inboxCheck, runDoctor } from './doctor.js';
 import { installRequirement } from './install.js';
@@ -40,7 +41,15 @@ export function doctorService(
         },
         codexDaemon: codexDaemonSocket(codexHome(ctx.home, ctx.env)),
         unreadableRecords: ctx.store.unreadable,
-        ...(existsSync(ctx.paths.config) ? { vault: deps.vaultStatus } : {}),
+        ...(existsSync(ctx.paths.config)
+          ? {
+              vault: deps.vaultStatus,
+              config: {
+                file: ctx.paths.config,
+                unknownKeys: () => readConfig(ctx.paths.config).unknownKeys,
+              },
+            }
+          : {}),
       });
       // A profile that was never initialised has no inbox: doctor must not create its folder.
       if (!existsSync(ctx.paths.config)) return report;

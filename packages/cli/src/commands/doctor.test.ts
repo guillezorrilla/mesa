@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { scriptedRunner } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
@@ -189,4 +189,18 @@ test('doctor install runs Homebrew and prints { name, installed }; a missing one
   const noBrew = await mesa('doctor', 'install', 'claude', '--json');
   expect(noBrew.code).toBe(3);
   expect(noBrew.json.error.message).toContain('https://brew.sh');
+});
+
+test('doctor names a config key Mesa does not know, which every command then ignores', async () => {
+  await mesa('init', '--vault', 'vault');
+  writeFileSync(cli.paths.config, `${readFileSync(cli.paths.config, 'utf8')}futureSection: on\n`);
+  expect((await mesa('config', '--json')).json.ok).toBe(true);
+  const doctor = await mesa('doctor', '--json');
+  expect(
+    doctor.json.data.checks.find((c: { name: string }) => c.name === 'config keys'),
+  ).toMatchObject({
+    status: 'warn',
+    path: cli.paths.config,
+    hint: 'Mesa ignores futureSection: written by a newer Mesa, or a typo',
+  });
 });
