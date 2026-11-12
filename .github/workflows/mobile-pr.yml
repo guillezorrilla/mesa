@@ -26,15 +26,22 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - id: fingerprint
-        uses: expo/expo-github-action/fingerprint@5273c2136bd09c2a341fe3340d3e767ce5a13015 # 9.0.2
-        with:
-          working-directory: apps/mobile
-          packager: pnpm
-      - if: steps.fingerprint.outputs.fingerprint-diff != '[]'
+      # The iOS native fingerprint at this pull request's head and at its base. expo-updates
+      # computes it from what is installed, so nothing else is fetched.
+      - id: head
+        run: echo "hash=$(pnpm -C apps/mobile exec expo-updates fingerprint:generate --platform ios | jq -r .hash)" >> "$GITHUB_OUTPUT"
+      - id: base
+        run: |
+          git checkout --quiet "${{ github.event.pull_request.base.sha }}"
+          if [ -d apps/mobile ]; then
+            pnpm install --frozen-lockfile
+            echo "hash=$(pnpm -C apps/mobile exec expo-updates fingerprint:generate --platform ios | jq -r .hash)" >> "$GITHUB_OUTPUT"
+          else
+            echo "hash=none" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.head.outputs.hash != steps.base.outputs.hash
         env:
           GH_TOKEN: ${{ github.token }}
-          DIFF: ${{ steps.fingerprint.outputs.fingerprint-diff }}
         run: |
-          gh pr comment "${{ github.event.pull_request.number }}" --edit-last --create-if-none --body \
-            "This pull request changes the phone app's native fingerprint ($(echo "$DIFF" | jq length) sources): merging it makes a new TestFlight build, not an over-the-air update."
+          gh pr comment "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --edit-last --create-if-none --body \
+            "This pull request changes the phone app's native fingerprint (${{ steps.base.outputs.hash }} to ${{ steps.head.outputs.hash }}): merging it makes a new TestFlight build, not an over-the-air update."
