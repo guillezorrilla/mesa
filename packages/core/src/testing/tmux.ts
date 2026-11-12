@@ -18,6 +18,8 @@ export type FakeWindow = {
   status?: number;
   signal?: string;
   typed: string[];
+  /** What capture-pane shows when a test sets it (an agent's dialog), else what was typed. */
+  screen?: string;
   /** Every key and text sent to it, in order (`Escape`, `/exit`, `Enter`); `typed` is the text alone, its screen. */
   keys: string[];
   /** The variables it was opened with (`-e`), such as MESA_SESSION_ID. */
@@ -201,7 +203,7 @@ export function fakeTmux(
       }
       case 'capture-pane': {
         const w = find(target);
-        return w ? ok(w.typed.join('\n')) : failed("can't find window");
+        return w ? ok(w.screen ?? w.typed.join('\n')) : failed("can't find window");
       }
       case 'start-server':
         server = true;

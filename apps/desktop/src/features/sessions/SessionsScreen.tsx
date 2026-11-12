@@ -6,6 +6,7 @@ import { Muted } from '@/components/Muted';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
+import { PromptCard } from './answer/PromptCard';
 import { type OpenDialog, SessionDialogs } from './dialogs/SessionDialogs';
 import { useDialogRequest } from './dialogs/useDialogRequest';
 import { GridToolbar } from './grid/GridToolbar';
@@ -179,6 +180,7 @@ export function SessionsScreen(
           onDialog={setDialog}
         />
       ) : null}
+      <PromptCard row={selected} />
       {props.gridMode && panels.panels.length === 0 && (
         <Muted>No tiles open. Choose a live session or reopen a saved group.</Muted>
       )}

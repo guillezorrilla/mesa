@@ -1,0 +1,14 @@
+────────────────────────────────────────────────────────────────────────────────
+ ☐ Pets
+
+Do you prefer cats or dogs?
+
+  1. Cats
+     Choose cats
+  2. Dogs
+     Choose dogs
+❯ 3. Type something.
+────────────────────────────────────────────────────────────────────────────────
+  4. Chat about this
+
+Enter to select · ↑/↓ to navigate · ctrl+g to edit in VS Code · Esc to cancel

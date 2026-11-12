@@ -144,6 +144,8 @@ export type {
 } from './reports/report-delivery.js';
 export type { ChildReport, PendingReport, Question } from './reports/reports.js';
 export { type SearchHit, searchWorkspace } from './search/search.js';
+export type { AnswerChoice, Answered } from './sessions/answer/answer.js';
+export type { PendingPrompt, PromptOption } from './sessions/answer/pending.js';
 export { awakeStatus, isKeepAwakeMode, KEEP_AWAKE_MODES } from './sessions/awake.js';
 export { agentCrewRow, agentRow, agentShown } from './sessions/board/agent-view.js';
 export type { SessionScope } from './sessions/board/board.js';
@@ -213,6 +215,7 @@ export type { SessionRecord, SessionReview } from './sessions/record/record.js';
 export type { SessionState } from './sessions/record/states.js';
 export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/record/workflow-status.js';
 export type { HeadlessResult } from './sessions/run/files.js';
+export { ANSWER_VIAS, type AnswerVia } from './sessions/service/answer.js';
 export type { SessionMerge } from './sessions/service/merge.js';
 export type { Supervision } from './sessions/signals/placements.js';
 export type { DiscoveredAdoption, DiscoveryAdoption } from './sessions/start/discovery-adopt.js';
