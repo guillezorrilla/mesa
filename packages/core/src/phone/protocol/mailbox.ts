@@ -98,6 +98,11 @@ export function mailbox(
     }
     if (whole.success && whole.data.kind !== 'part') on.message(whole.data);
   };
+  // No timer: a payload missing a part is dropped on the next frame in or message out, which an
+  // open screen's polling makes come within seconds.
+  const expire = () => {
+    for (const id of joiner.expire(deps.now().getTime())) on.lost?.(id);
+  };
   const frameIn = (data: string) => {
     let frame: { t?: string; id?: number; box?: string };
     try {
@@ -114,7 +119,7 @@ export function mailbox(
       take(frame.box);
       socket?.send(JSON.stringify({ t: 'ack', upTo: frame.id }));
     }
-    for (const id of joiner.expire(deps.now().getTime())) on.lost?.(id);
+    expire();
   };
 
   return {
@@ -142,11 +147,9 @@ export function mailbox(
       ready = false;
       old?.close();
     },
-    get ready() {
-      return ready;
-    },
     /** Seals a message for the other side, in parts when it does not fit one box. */
     send(message: PhoneMessage) {
+      expire();
       const json = JSON.stringify(message);
       const id = 'id' in message ? message.id : `s${nextSeq(sentSeq, deps.now())}`;
       const pieces = fitsOneBox(json) ? [message] : splitParts(id, json);

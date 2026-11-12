@@ -3,7 +3,8 @@ import { type AsyncLockDeps, withLock } from '../../lib/lock-file.js';
 import { MesaError } from '../../lib/result.js';
 import type { SessionRow } from '../../sessions/board/rows.js';
 import { type MacPairing, type MacPairingStore, macKeys } from '../mac-pairing.js';
-import { type PairingClient, PairingError } from '../protocol/client.js';
+import { isGone } from '../pair.js';
+import type { PairingClient } from '../protocol/client.js';
 import type { PhoneMessage } from '../protocol/envelope.js';
 import { type ConnectSocket, mailbox } from '../protocol/mailbox.js';
 import { type PhoneRow, WATCH_MS } from '../protocol/rpc.js';
@@ -29,13 +30,13 @@ const TICK_MS = 2000;
 /** The longest wait between tries to reach the broker. */
 const BACKOFF_MS = 60_000;
 /**
- * ponytail: a socket can die without a close (a sleep, a dropped Wi-Fi), so the listener dials
- * again every 5 minutes; the broker's frames have no ping, add one if that gap matters.
+ * ponytail: a socket can die without a close (a dropped Wi-Fi), so the listener dials again every
+ * 5 minutes, and at once after the Mac wakes; the broker's frames have no ping, add one if a
+ * dropped network's gap matters.
  */
 const REDIAL_MS = 5 * 60_000;
-
-/** Statuses that mean the broker holds no such pairing any more. */
-const GONE = new Set([401, 404, 410]);
+/** A gap between ticks this long means the Mac slept. */
+const WOKE_MS = 30_000;
 
 /**
  * The Mac's listener (`mesa phone serve`, ADR-0027): holds the Pairing's socket, answers each
@@ -136,7 +137,7 @@ async function listen(
       .then(
         () => true,
         async (error) => {
-          if (!(error instanceof PairingError) || !GONE.has(error.status)) return true;
+          if (!isGone(error)) return true;
           await deps.store.remove();
           return false;
         },
@@ -146,13 +147,18 @@ async function listen(
     const rows = phoneRows(await board());
     const changes = rowChanges(listed, rows);
     listed = rows;
-    if (changes.rows.length || changes.gone.length) box.send({ kind: 'update', ...changes });
+    if (changes) box.send({ kind: 'update', ...changes });
   };
 
+  let tickAt = now();
   try {
     while (!stop?.aborted) {
       if (misses && !(await stillPaired())) return { pairingId, ended: 'unpaired' };
-      if (open && now() - dialedAt > REDIAL_MS) {
+      // A tick that comes far later than TICK_MS means the Mac slept, which can kill a socket
+      // with no close: dial again now rather than at the next REDIAL_MS.
+      const slept = now() - tickAt > WOKE_MS;
+      tickAt = now();
+      if (open && (slept || now() - dialedAt > REDIAL_MS)) {
         box.close();
         open = false;
       }

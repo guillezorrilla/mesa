@@ -1,7 +1,6 @@
 import { Stack } from 'expo-router';
 import { Suspense, useState } from 'react';
-import { BusyLine } from '@/components/BusyLine';
-import { Screen } from '@/components/Screen';
+import { BusyScreen } from '@/components/BusyScreen';
 import { AgentList } from './AgentList';
 import type { RowFilter } from './agentRows';
 import { useAgents } from './useAgents';
@@ -16,13 +15,7 @@ export function AgentsScreen() {
         placeholder="Search sessions"
         onChangeText={(event) => setFilter((f) => ({ ...f, query: event.nativeEvent.text }))}
       />
-      <Suspense
-        fallback={
-          <Screen>
-            <BusyLine label="Asking your Mac..." />
-          </Screen>
-        }
-      >
+      <Suspense fallback={<BusyScreen label="Asking your Mac..." />}>
         <AgentList
           listing={agents.listing}
           updates={agents.updates}
@@ -31,7 +24,6 @@ export function AgentsScreen() {
           refreshing={agents.refreshing}
           onRefresh={agents.refresh}
           onMark={agents.mark}
-          heardAt={agents.heardAt()}
         />
       </Suspense>
     </>

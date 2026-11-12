@@ -3,7 +3,10 @@ import { GROUP_TITLES, type Group, groupOf } from './sessionState';
 
 export type RowFilter = { query: string; project?: string; unreadOnly: boolean };
 
-/** The listing with each update the Mac pushed since applied in order: changed rows, gone ids. */
+/**
+ * The listing with each update applied in order: changed rows in place, gone ids out, new ones
+ * in, then the Mac's attention order when the update gives one (a mark made here gives none).
+ */
 export function applyUpdates(rows: readonly PhoneRow[], updates: readonly UpdateMessage[]) {
   let out = [...rows];
   for (const update of updates) {
@@ -12,6 +15,10 @@ export function applyUpdates(rows: readonly PhoneRow[], updates: readonly Update
     out = out.filter((row) => !gone.has(row.id)).map((row) => changed.get(row.id) ?? row);
     const known = new Set(out.map((row) => row.id));
     out.push(...update.rows.filter((row) => !known.has(row.id)));
+    if (!update.order.length) continue;
+    const rank = new Map(update.order.map((id, index) => [id, index]));
+    const last = update.order.length;
+    out.sort((a, b) => (rank.get(a.id) ?? last) - (rank.get(b.id) ?? last));
   }
   return out;
 }

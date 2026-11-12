@@ -45,10 +45,11 @@ export function brokerError(error: unknown, broker: string): never {
   throw new MesaError('internal', error.message);
 }
 
-/** Installs the listener when it is not yet; false when it is not loaded and cannot be. */
-const listening = (deps: PairingDeps) => deps.listener.ensure().catch(() => false);
+/** Installs or starts the listener (a paired profile always has one); false when it cannot run. */
+const ensureListener = (deps: PairingDeps) => deps.listener.ensure().catch(() => false);
 
-const isGone = (error: unknown) => error instanceof PairingError && GONE.has(error.status);
+/** Whether a broker failure means it no longer holds the pairing. */
+export const isGone = (error: unknown) => error instanceof PairingError && GONE.has(error.status);
 
 /**
  * Opens a pairing on the broker and keeps the Mac's half: the QR's secret goes to the broker only
@@ -133,7 +134,7 @@ export async function pairingStatus(deps: PairingDeps): Promise<PhoneStatus> {
       pairingId,
       ...(pairing.pairedAt ? { since: pairing.pairedAt } : {}),
       ...(state !== 'unreachable' && state.phoneSeenAt ? { phoneLastSeen: state.phoneSeenAt } : {}),
-      listening: await listening(deps),
+      listening: await ensureListener(deps),
     };
   if (state === 'unreachable') return { paired: false };
   if (
@@ -146,7 +147,7 @@ export async function pairingStatus(deps: PairingDeps): Promise<PhoneStatus> {
       pairingId,
       since: state.joinedAt,
       phoneLastSeen: state.phoneSeenAt,
-      listening: await listening(deps),
+      listening: await ensureListener(deps),
     };
   return { paired: false, pending: true, pairingId, expiresAt: pairing.expiresAt };
 }

@@ -13,9 +13,10 @@ import { base64url, fromBase64url } from './seal.js';
 export const BOX_BYTES = 6000;
 /** Bytes of payload per part: 5,462 base64url characters, so a part also seals under one box. */
 const PART_BYTES = 4096;
-/** At most 1 MB in one payload; the broker keeps 200 boxes for a side, so 200 KB is about 50. */
-const MAX_PARTS = 256;
-export const PART_TIMEOUT_MS = 15_000;
+/** At most 600 KB in one payload, so its parts fit the 200 boxes the broker keeps for a side. */
+const MAX_PARTS = 150;
+/** Under the phone's 10 s call timeout, so a call whose answer lost a part fails as lost. */
+export const PART_TIMEOUT_MS = 8000;
 
 export const partMessage = z.object({
   kind: z.literal('part'),
@@ -34,7 +35,7 @@ export const fitsOneBox = (json: string) => utf8ToBytes(json).length <= BOX_BYTE
 export function splitParts(id: string, json: string): PartMessage[] {
   const bytes = utf8ToBytes(json);
   const of = Math.ceil(bytes.length / PART_BYTES);
-  if (of > MAX_PARTS) throw new Error(`a phone message of ${bytes.length} bytes is over 1 MB`);
+  if (of > MAX_PARTS) throw new Error(`a phone message of ${bytes.length} bytes is over 600 KB`);
   return Array.from({ length: of }, (_, n) => ({
     kind: 'part',
     id,

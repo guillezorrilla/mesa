@@ -4,17 +4,28 @@ import { useRepeatWhileActive } from '@/lib/useRepeatWhileActive';
 import type { MacLink } from '../mac/macLink';
 import { useMac } from '../mac/useMac';
 
-/** The Mac's rows as last listed, when, and whether that ask went unanswered (the last rows kept). */
-export type Listing = { rows: PhoneRow[]; at: number; offline: boolean };
+/**
+ * The Mac's rows as last listed and when; when that ask went unanswered, the last rows kept and
+ * when the Mac was last heard.
+ */
+export type Listing = { rows: PhoneRow[]; at: number; offline?: { heardAt?: number } };
 type Update = UpdateMessage & { at: number };
 
 /** Asking for the rows also keeps the Mac's updates coming for two minutes (WATCH_MS). */
 const RENEW_MS = 60_000;
 
+/** Updates older than this are in a listing since (one comes every RENEW_MS), so they go. */
+const KEEP_MS = 3 * RENEW_MS;
+const fresh = (update: Update) => Date.now() - update.at < KEEP_MS;
+
 const list = (link: MacLink, last?: Promise<Listing>): Promise<Listing> =>
   link.call({ method: 'sessions' }).then(
-    ({ rows }) => ({ rows, at: Date.now(), offline: false }),
-    async () => ({ rows: (await last)?.rows ?? [], at: Date.now(), offline: true }),
+    ({ rows }) => ({ rows, at: Date.now() }),
+    async () => ({
+      rows: (await last)?.rows ?? [],
+      at: Date.now(),
+      offline: { heardAt: await link.lastHeard() },
+    }),
   );
 
 /**
@@ -29,25 +40,26 @@ export function useAgents() {
   const [refreshing, startRefresh] = useTransition();
 
   useEffect(
-    () => link.onUpdate((update) => setUpdates((all) => [...all, { ...update, at: Date.now() }])),
+    () =>
+      link.onUpdate((update) =>
+        setUpdates((all) => [...all.filter(fresh), { ...update, at: Date.now() }]),
+      ),
     [link],
   );
-  // Each promise is made here, not in an updater, which React may run again while it suspends.
-  const refresh = () => {
+  // The promise is made here, not in an updater, which React may run again while it suspends.
+  const relist = (start: typeof startTransition) => {
     const next = list(link, listing);
-    startRefresh(() => setListing(next));
+    start(() => setListing(next));
   };
-  useRepeatWhileActive(RENEW_MS, () => {
-    const next = list(link, listing);
-    startTransition(() => setListing(next));
-  });
+  const refresh = () => relist(startRefresh);
+  useRepeatWhileActive(RENEW_MS, () => relist(startTransition));
 
   const mark = (row: PhoneRow, unread: boolean) => {
     setUpdates((all) => [
-      ...all,
-      { kind: 'update', rows: [{ ...row, unread }], gone: [], at: Date.now() },
+      ...all.filter(fresh),
+      { kind: 'update', rows: [{ ...row, unread }], gone: [], order: [], at: Date.now() },
     ]);
     link.call({ method: 'mark', id: row.id, unread }).catch(refresh);
   };
-  return { listing, updates, refreshing, refresh, mark, heardAt: () => link.heardAt };
+  return { listing, updates, refreshing, refresh, mark };
 }

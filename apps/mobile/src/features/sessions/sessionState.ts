@@ -1,12 +1,16 @@
+import { BUSY_STATES, WAITING_STATES } from '@mesa/core/phone';
+
 // How the phone reads a session state (CONTEXT.md, Session state): its group on the Agents tab,
-// its words, and its colour token.
+// its words, and its colour token. The sets are core's, so a new state lands in one place.
 
 export type Group = 'needs-you' | 'working' | 'done';
 
-/** Needs you: waiting on a permission or a question. Working: at work or queued. Done: the rest. */
+const has = (set: ReadonlySet<string>, state: string) => set.has(state);
+
+/** Needs you: waiting on a person. Working: at work or queued. Done: the rest. */
 export function groupOf(state: string): Group {
-  if (state === 'waiting-permission' || state === 'waiting-question') return 'needs-you';
-  if (state === 'working' || state === 'queued') return 'working';
+  if (has(WAITING_STATES, state)) return 'needs-you';
+  if (has(BUSY_STATES, state)) return 'working';
   return 'done';
 }
 

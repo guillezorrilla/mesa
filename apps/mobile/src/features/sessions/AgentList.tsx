@@ -20,7 +20,6 @@ export function AgentList({
   refreshing,
   onRefresh,
   onMark,
-  heardAt,
 }: {
   listing: Promise<Listing>;
   updates: (UpdateMessage & { at: number })[];
@@ -29,7 +28,6 @@ export function AgentList({
   refreshing: boolean;
   onRefresh: () => void;
   onMark: (row: PhoneRow, unread: boolean) => void;
-  heardAt: number | undefined;
 }) {
   const listed = use(listing);
   // Updates older than the listing are already in it.
@@ -49,7 +47,7 @@ export function AgentList({
         <View className="gap-2 pb-2">
           {listed.offline ? (
             <View className="px-4">
-              <OfflineNote heardAt={heardAt} now={now} />
+              <OfflineNote heardAt={listed.offline.heardAt} now={now} />
             </View>
           ) : null}
           <AgentFilters projects={projectsOf(rows)} filter={filter} onChange={onFilter} />

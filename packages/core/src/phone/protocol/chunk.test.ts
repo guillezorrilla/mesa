@@ -34,7 +34,7 @@ test('a replayed part changes nothing, and a missing part times out with the pay
 });
 
 /** A paired Mac and phone, each with a mailbox on the fake broker's socket. */
-async function pairedMailboxes() {
+async function pairedMailboxes(now = () => new Date()) {
   const broker = fakePairingBroker();
   const { pairingId, macToken } = await broker
     .http(`${broker.broker}/pairings`, { method: 'POST', body: '{"joinHash":"h"}' })
@@ -53,14 +53,16 @@ async function pairedMailboxes() {
     takenSeq: 0,
   });
   const got = { mac: [] as PhoneMessage[], phone: [] as PhoneMessage[] };
-  const deps = { connect: broker.connect, now: () => new Date() };
+  const lost: string[] = [];
+  const deps = { connect: broker.connect, now };
   const macBox = mailbox(deps, end('mac', macToken, mac, phone), {
     message: (m) => got.mac.push(m),
   });
   const phoneBox = mailbox(deps, end('phone', 'phone-token', phone, mac), {
     message: (m) => got.phone.push(m),
+    lost: (id) => lost.push(id),
   });
-  return { broker, macBox, phoneBox, got };
+  return { broker, macBox, phoneBox, got, lost };
 }
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -117,5 +119,22 @@ test('a connect right after a close gets a socket of its own, and the old one st
   phoneBox.send({ kind: 'text', text: 'back' });
   for (let i = 0; i < 50 && !got.mac.length; i++) await settle();
   expect(got.mac).toEqual([{ kind: 'text', text: 'back' }]);
-  expect(phoneBox.ready).toBe(true);
+});
+
+test('an answer whose part the broker lost is reported lost, with its id, once its time is up', async () => {
+  let at = Date.parse('2026-11-11T12:00:00.000Z');
+  const { broker, macBox, phoneBox, got, lost } = await pairedMailboxes(() => new Date(at));
+  macBox.connect();
+  await settle();
+  macBox.send({ kind: 'response', id: 'q9', result: { tail: [big] } });
+  const room = [...broker.rooms.values()][0];
+  if (!room) throw new Error('no room');
+  room.boxes.splice(1, 1);
+  phoneBox.connect();
+  for (let i = 0; i < 100; i++) await settle();
+  expect(got.phone).toEqual([]);
+  expect(lost).toEqual([]);
+  at += PART_TIMEOUT_MS + 1;
+  phoneBox.send({ kind: 'text', text: 'still there?' });
+  expect(lost).toEqual(['q9']);
 });

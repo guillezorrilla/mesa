@@ -19,7 +19,7 @@ const read = (link: MacLink, id: string, last?: Promise<DetailRead>): Promise<De
       // A Mac that does not answer is offline, as the Agents tab says; its own error is its words.
       error:
         error instanceof MacCallError && error.reason !== 'failed'
-          ? offlineText(link.heardAt, Date.now())
+          ? offlineText(await link.lastHeard(), Date.now())
           : error.message,
     }),
   );

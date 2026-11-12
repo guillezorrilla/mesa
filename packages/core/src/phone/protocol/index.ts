@@ -1,6 +1,7 @@
 // The pairing protocol (`@mesa/core/phone`): what the phone app bundles from core, and nothing else
-// but the pure time words its screens share with the desktop (lib/ago.ts).
+// but the pure time words and session state sets its screens share with the desktop.
 export { relativeAgo, shortAgo, timeAgo } from '../../lib/ago.js';
+export { BUSY_STATES, WAITING_STATES } from '../../sessions/record/states.js';
 export { BOX_BYTES, fitsOneBox, type PartMessage, partJoiner, splitParts } from './chunk.js';
 export {
   type Delivery,

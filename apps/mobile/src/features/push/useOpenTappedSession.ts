@@ -3,14 +3,18 @@ import { router } from 'expo-router';
 import { useEffect } from 'react';
 import { tappedSession } from './tappedSession';
 
-/** Opens the session a tapped push names, once per tap, whether the tap launched the app or not. */
+const open = (response: Notifications.NotificationResponse | null) => {
+  if (!response || response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return;
+  const session = tappedSession(response);
+  if (session) router.push(`/agents/${session}`);
+};
+
+/** Opens the session a tapped push names: the tap that launched the app, then each tap after. */
 export function useOpenTappedSession() {
-  const response = Notifications.useLastNotificationResponse();
   useEffect(() => {
-    if (!response || response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return;
-    const session = tappedSession(response);
-    if (!session) return;
-    router.push(`/agents/${session}`);
+    open(Notifications.getLastNotificationResponse());
     void Notifications.clearLastNotificationResponseAsync();
-  }, [response]);
+    const tapped = Notifications.addNotificationResponseReceivedListener(open);
+    return () => tapped.remove();
+  }, []);
 }

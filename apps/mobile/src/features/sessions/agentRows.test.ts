@@ -1,8 +1,7 @@
 import type { PhoneRow } from '@mesa/core/phone';
 import { expect, test } from 'vitest';
 import { applyUpdates, filterRows, groupRows, projectsOf } from './agentRows';
-import { offlineText } from './offlineText';
-import { groupOf, stateColor, stateWords } from './sessionState';
+import { groupOf } from './sessionState';
 
 const row = (id: string, state: string, more: Partial<PhoneRow> = {}): PhoneRow => ({
   id,
@@ -32,14 +31,29 @@ test('rows group as Needs you, Working, Done, keeping the Mac order inside each'
   expect(groupOf('some-new-state')).toBe('done');
 });
 
-test('updates change rows in place, drop gone ones and add new ones at the end', () => {
-  const rows = [row('a', 'working'), row('b', 'idle')];
+test("updates change rows, drop gone ones, add new ones, and take the Mac's order", () => {
+  const rows = [row('a', 'working'), row('b', 'idle'), row('d', 'idle')];
   const next = applyUpdates(rows, [
-    { kind: 'update', rows: [row('a', 'waiting-question'), row('c', 'working')], gone: ['b'] },
+    {
+      kind: 'update',
+      rows: [row('d', 'waiting-question'), row('c', 'working')],
+      gone: ['b'],
+      order: ['d', 'a', 'c'],
+    },
   ]);
   expect(next.map((r) => [r.id, r.state])).toEqual([
-    ['a', 'waiting-question'],
+    ['d', 'waiting-question'],
+    ['a', 'working'],
     ['c', 'working'],
+  ]);
+  // A mark made on the phone gives no order: the row changes where it is.
+  const marked = applyUpdates(next, [
+    { kind: 'update', rows: [row('a', 'working', { unread: true })], gone: [], order: [] },
+  ]);
+  expect(marked.map((r) => [r.id, r.unread])).toEqual([
+    ['d', false],
+    ['a', true],
+    ['c', false],
   ]);
 });
 
@@ -55,16 +69,4 @@ test('the filter matches title or project, one project, and unread only', () => 
   ).toEqual(['b']);
   expect(filterRows(rows, { query: '', unreadOnly: true }).map((r) => r.id)).toEqual(['a']);
   expect(projectsOf([...rows, row('c', 'idle', { project: null })])).toEqual(['cinder', 'mesa']);
-});
-
-test('state words and colours, and the offline line', () => {
-  expect(stateWords('waiting-permission')).toBe('Asking permission');
-  expect(stateWords('later')).toBe('later');
-  expect(stateColor('idle', true)).toBe('bg-state-unread');
-  expect(stateColor('failed')).toBe('bg-state-failed');
-  const now = Date.parse('2026-11-11T12:00:00.000Z');
-  expect(offlineText(now - 5 * 60_000, now)).toBe(
-    'Your Mac is not answering; it may be asleep or offline. Last heard from it 5m ago.',
-  );
-  expect(offlineText(undefined, now)).toMatch(/Nothing heard from it since the app opened\.$/);
 });

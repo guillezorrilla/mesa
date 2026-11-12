@@ -1,6 +1,5 @@
 import { Suspense } from 'react';
-import { BusyLine } from '@/components/BusyLine';
-import { Screen } from '@/components/Screen';
+import { BusyScreen } from '@/components/BusyScreen';
 import { SessionBody } from './SessionBody';
 import { useSessionDetail } from './useSessionDetail';
 
@@ -8,13 +7,7 @@ import { useSessionDetail } from './useSessionDetail';
 export function SessionScreen({ id }: { id: string }) {
   const read = useSessionDetail(id);
   return (
-    <Suspense
-      fallback={
-        <Screen>
-          <BusyLine label="Asking your Mac..." />
-        </Screen>
-      }
-    >
+    <Suspense fallback={<BusyScreen label="Asking your Mac..." />}>
       <SessionBody read={read} />
     </Suspense>
   );

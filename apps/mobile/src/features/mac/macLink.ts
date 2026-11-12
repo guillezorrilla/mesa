@@ -2,6 +2,7 @@ import {
   macCalls,
   mailbox,
   type PhonePairing,
+  pairingClient,
   phoneKeys,
   type UpdateMessage,
   webSocketConnect,
@@ -19,7 +20,6 @@ const REDIAL_MS = 3000;
  */
 export function macLink(pairing: PhonePairing, keepTaken: (takenSeq: number) => void) {
   const updates = new Set<(update: UpdateMessage) => void>();
-  const heard = new Set<() => void>();
   let heardAt: number | undefined;
   let wanted = false;
   const box = mailbox(
@@ -28,7 +28,6 @@ export function macLink(pairing: PhonePairing, keepTaken: (takenSeq: number) => 
     {
       message: (message) => {
         heardAt = Date.now();
-        for (const listener of heard) listener();
         if (calls.settle(message) || message.kind !== 'update') return;
         for (const listener of updates) listener(message);
       },
@@ -57,10 +56,16 @@ export function macLink(pairing: PhonePairing, keepTaken: (takenSeq: number) => 
     },
     /** Each update the Mac pushes; returns the unsubscribe. */
     onUpdate: (listener: (update: UpdateMessage) => void) => listen(updates, listener),
-    /** Each time anything arrives from the Mac; returns the unsubscribe. */
-    onHeard: (listener: () => void) => listen(heard, listener),
-    get heardAt() {
-      return heardAt;
+    /**
+     * When the Mac was last heard: by this app since it opened, or by the broker (the Mac's last
+     * check-in), whichever is later; undefined when neither knows.
+     */
+    lastHeard: async () => {
+      const info = await pairingClient(fetch, pairing.broker)
+        .state(pairing.pairingId, pairing.phoneToken)
+        .catch(() => undefined);
+      const broker = info?.macSeenAt ? Date.parse(info.macSeenAt) : undefined;
+      return Math.max(heardAt ?? 0, broker ?? 0) || undefined;
     },
   };
 }

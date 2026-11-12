@@ -69,11 +69,15 @@ export const responseMessage = z.object({
   error: z.string().optional(),
 });
 
-/** Rows whose slim row changed since the last update, and the ids that left the board. */
+/**
+ * Rows whose slim row changed since the last update, the ids that left the board, and every id
+ * in the Mac's attention order now, so a row that moved keeps its rank.
+ */
 export const updateMessage = z.object({
   kind: z.literal('update'),
   rows: z.array(phoneRow),
   gone: z.array(z.string()),
+  order: z.array(z.string()),
 });
 
 export type UpdateMessage = z.infer<typeof updateMessage>;

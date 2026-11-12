@@ -1,8 +1,8 @@
 import { Stack } from 'expo-router';
 import { use } from 'react';
-import { View } from 'react-native';
 import { ErrorNote } from '@/components/ErrorNote';
 import { Screen } from '@/components/Screen';
+import { Section } from '@/components/Section';
 import { Text } from '@/components/ui/text';
 import { OutputTail } from './OutputTail';
 import { ReplyList } from './ReplyList';
@@ -19,20 +19,17 @@ export function SessionBody({ read }: { read: Promise<DetailRead> }) {
       <Stack.Screen options={{ title: detail.row.title }} />
       {error ? <ErrorNote text={error} /> : null}
       <SessionHeader row={detail.row} now={now} />
-      {detail.goal ? <Section title="Goal" body={<Text selectable>{detail.goal}</Text>} /> : null}
-      <Section title="Replies" body={<ReplyList replies={detail.replies} now={now} />} />
-      <Section title="Output" body={<OutputTail lines={detail.tail} />} />
+      {detail.goal ? (
+        <Section title="Goal">
+          <Text selectable>{detail.goal}</Text>
+        </Section>
+      ) : null}
+      <Section title="Replies">
+        <ReplyList replies={detail.replies} now={now} />
+      </Section>
+      <Section title="Output">
+        <OutputTail lines={detail.tail} />
+      </Section>
     </Screen>
-  );
-}
-
-function Section({ title, body }: { title: string; body: React.ReactNode }) {
-  return (
-    <View className="gap-2">
-      <Text accessibilityRole="header" className="text-sm font-semibold text-muted-foreground">
-        {title}
-      </Text>
-      {body}
-    </View>
   );
 }
