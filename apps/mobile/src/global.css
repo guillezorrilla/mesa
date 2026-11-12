@@ -1,0 +1,78 @@
+/*
+ * Mesa's design tokens for the phone (ADR-0027), the same values as apps/desktop/src/style.css:
+ * shadcn/ui's tokens over a cool neutral base, and one colour per Session state. Uniwind reads
+ * Tailwind v4 theme variables, not the desktop's [data-theme] selectors, so this is a copy;
+ * tokens.test.ts fails when a value here differs from the desktop's. Biome reads the two @variant
+ * blocks as duplicate properties, so that rule is off for this file (biome.json).
+ */
+@import "tailwindcss";
+@import "uniwind";
+
+@theme {
+  --radius: 0.5rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  /* Embedded by the expo-font plugin, so iOS picks each weight from the family by itself. */
+  --font-sans: "IBM Plex Sans";
+  --font-mono: "IBM Plex Mono";
+}
+
+@layer theme {
+  :root {
+    @variant light {
+      --color-background: oklch(0.985 0.002 250);
+      --color-foreground: oklch(0.2 0.01 250);
+      --color-card: oklch(1 0 0);
+      --color-card-foreground: oklch(0.2 0.01 250);
+      --color-popover: oklch(1 0 0);
+      --color-popover-foreground: oklch(0.2 0.01 250);
+      --color-primary: oklch(0.25 0.02 250);
+      --color-primary-foreground: oklch(0.98 0 0);
+      --color-secondary: oklch(0.95 0.005 250);
+      --color-secondary-foreground: oklch(0.25 0.02 250);
+      --color-muted: oklch(0.95 0.005 250);
+      --color-muted-foreground: oklch(0.5 0.015 250);
+      --color-accent: oklch(0.94 0.008 250);
+      --color-accent-foreground: oklch(0.25 0.02 250);
+      --color-destructive: oklch(0.58 0.22 27);
+      --color-border: oklch(0.9 0.008 250);
+      --color-input: oklch(0.88 0.008 250);
+      --color-ring: oklch(0.7 0.14 70);
+      --color-state-working: oklch(0.55 0.13 250);
+      --color-state-waiting: oklch(0.75 0.16 70);
+      --color-state-idle: oklch(0.6 0.12 165);
+      --color-state-unread: oklch(0.62 0.19 150);
+      --color-state-done: oklch(0.6 0.01 250);
+      --color-state-failed: oklch(0.58 0.2 27);
+    }
+
+    @variant dark {
+      --color-background: oklch(0.105 0.005 250);
+      --color-foreground: oklch(0.93 0.005 250);
+      --color-card: oklch(0.145 0.008 250);
+      --color-card-foreground: oklch(0.93 0.005 250);
+      --color-popover: oklch(0.17 0.008 250);
+      --color-popover-foreground: oklch(0.93 0.005 250);
+      --color-primary: oklch(0.93 0.005 250);
+      --color-primary-foreground: oklch(0.2 0.01 250);
+      --color-secondary: oklch(0.21 0.008 250);
+      --color-secondary-foreground: oklch(0.93 0.005 250);
+      --color-muted: oklch(0.19 0.008 250);
+      --color-muted-foreground: oklch(0.68 0.012 250);
+      --color-accent: oklch(0.22 0.01 250);
+      --color-accent-foreground: oklch(0.93 0.005 250);
+      --color-destructive: oklch(0.66 0.2 25);
+      --color-border: oklch(0.245 0.009 250);
+      --color-input: oklch(0.27 0.009 250);
+      --color-ring: oklch(0.78 0.15 70);
+      --color-state-working: oklch(0.7 0.12 250);
+      --color-state-waiting: oklch(0.82 0.16 75);
+      --color-state-idle: oklch(0.72 0.12 165);
+      --color-state-unread: oklch(0.76 0.19 150);
+      --color-state-done: oklch(0.62 0.01 250);
+      --color-state-failed: oklch(0.7 0.18 25);
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "cli": { "version": ">= 27.0.0", "appVersionSource": "remote" },
+  "build": {
+    "base": { "node": "24.16.0", "pnpm": "11.5.2" },
+    "development": { "extends": "base", "ios": { "simulator": true }, "channel": "development" },
+    "production": { "extends": "base", "autoIncrement": true, "channel": "production" }
+  },
+  "submit": {
+    "production": { "ios": { "ascAppId": "6833602462" } }
+  }
+}

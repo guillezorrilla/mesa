@@ -8,5 +8,7 @@ pnpm check:version
 pnpm build
 pnpm typecheck
 pnpm test
+# The phone app's dependencies and config against its Expo SDK (ADR-0027).
+pnpm --filter @mesa/mobile doctor
 cargo test --quiet --manifest-path apps/desktop/src-tauri/Cargo.toml
 echo "verify: all green"

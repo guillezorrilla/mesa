@@ -1,0 +1,38 @@
+import { startTransition, useActionState, useEffect, useEffectEvent } from 'react';
+import { Screen } from '@/components/Screen';
+import { Text } from '@/components/ui/text';
+import { joinWithLink } from './joinWithLink';
+import { PasteLinkField } from './PasteLinkField';
+import { ScannerPanel } from './ScannerPanel';
+import { usePairing } from './usePairing';
+
+/** Pair with a Mac: scan its code (or paste its link); `link` comes from a scanned mesa:// URL. */
+export function PairScreen({ link }: { link?: string }) {
+  const { save } = usePairing();
+  const [error, join, pending] = useActionState(async (_last: string | undefined, text: string) => {
+    const result = await joinWithLink(fetch, text, new Date());
+    if (result.pairing) await save(result.pairing);
+    return result.error;
+  }, undefined);
+  const submit = (text: string) => startTransition(() => join(text));
+
+  // A link the system opened the app with pairs at once, as a scan would.
+  const pairFromLink = useEffectEvent((text: string) => submit(text));
+  useEffect(() => {
+    if (link) pairFromLink(link);
+  }, [link]);
+
+  return (
+    <Screen>
+      <Text variant="h3">Pair with your Mac</Text>
+      <Text className="text-muted-foreground">
+        On your Mac, open Mesa's Settings, then Phone, and choose Pair phone. Scan the code it
+        shows.
+      </Text>
+      <ScannerPanel onScan={submit} paused={pending} />
+      {pending && <Text className="text-muted-foreground">Pairing...</Text>}
+      {error && <Text className="text-destructive">{error}</Text>}
+      <PasteLinkField onSubmit={submit} pending={pending} />
+    </Screen>
+  );
+}

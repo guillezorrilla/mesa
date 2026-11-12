@@ -1,6 +1,7 @@
 #!/bin/sh
 # One version for the app, the CLI and core (ADR-0017), held in every package.json, Cargo.toml and
-# Cargo.lock; tauri.conf.json reads apps/desktop/package.json's.
+# Cargo.lock; tauri.conf.json reads apps/desktop/package.json's. The phone app keeps its own
+# (ADR-0027): a phone build follows native changes, not desktop releases.
 #
 #   scripts/release/version.sh                     print it
 #   scripts/release/version.sh X.Y.Z[-beta.N]      write it everywhere, and its section in CHANGELOG.md
@@ -14,7 +15,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 const [arg] = process.argv.slice(2);
 const packages = execFileSync('git', ['ls-files', '*package.json'], { encoding: 'utf8' })
   .trim()
-  .split('\n');
+  .split('\n')
+  .filter((file) => !file.startsWith('apps/mobile/'));
 const want = JSON.parse(readFileSync('apps/desktop/package.json', 'utf8')).version;
 const cargo = 'apps/desktop/src-tauri/Cargo.toml';
 const lock = 'apps/desktop/src-tauri/Cargo.lock';

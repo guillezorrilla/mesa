@@ -13,6 +13,10 @@
       "types": "./dist/browser.d.ts",
       "import": "./dist/browser.js"
     },
+    "./phone": {
+      "types": "./dist/phone/protocol/index.d.ts",
+      "import": "./dist/phone/protocol/index.js"
+    },
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "import": "./dist/testing/index.js"
