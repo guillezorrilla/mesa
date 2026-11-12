@@ -1,0 +1,28 @@
+import type { PhoneGate } from '@mesa/core/phone';
+import { router } from 'expo-router';
+import Signpost from 'lucide-react-native/icons/signpost';
+import { Pressable, View } from 'react-native';
+import { Icon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
+
+/** An open decision gate in Needs you: its question and task; it opens the gate to decide. */
+export function GateRow({ gate }: { gate: PhoneGate }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Decide: ${gate.question}, for task ${gate.task}`}
+      onPress={() => router.push(`/agents/gates/${gate.id}`)}
+      className="min-h-16 flex-row items-center gap-3 bg-background px-4 py-3 active:bg-accent"
+    >
+      <Icon as={Signpost} className="size-4 text-state-waiting" />
+      <View className="flex-1 gap-0.5">
+        <Text numberOfLines={2} className="font-semibold">
+          {gate.question}
+        </Text>
+        <Text numberOfLines={1} variant="muted">
+          Your decision, for {gate.task}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}

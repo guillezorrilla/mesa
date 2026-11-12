@@ -2,6 +2,7 @@ import { MesaError } from '../../lib/result.js';
 import type { SessionRow } from '../../sessions/board/rows.js';
 import type { SessionResponses } from '../../sessions/native/responses.js';
 import type { CallResult, PhoneCall } from '../protocol/rpc.js';
+import { answerCrewCall, type CrewDeps, isCrewCall } from './crew.js';
 import { replySegments } from './replies.js';
 import { phoneRows, toPhoneRow } from './rows.js';
 
@@ -12,6 +13,7 @@ export type AnswerDeps = {
   logs: (id: string, tail: number) => { lines: string[] };
   read: (ids: readonly string[]) => unknown;
   unread: (ids: readonly string[]) => unknown;
+  crew: CrewDeps;
 };
 
 /** How many replies and output lines the session screen gets. */
@@ -22,6 +24,7 @@ const TAIL = 60;
 export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unknown> {
   if (call.method === 'sessions')
     return { rows: phoneRows(await deps.board()) } satisfies CallResult<'sessions'>;
+  if (isCrewCall(call)) return answerCrewCall(deps.crew, call);
   if (call.method === 'mark') {
     (call.unread ? deps.unread : deps.read)([call.id]);
     return {} satisfies CallResult<'mark'>;

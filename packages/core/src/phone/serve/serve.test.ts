@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { gateAdvice, gateRequest } from '../../tasks/gate-advice.js';
 import {
   fakePairingBroker,
   fakePhone,
@@ -29,7 +30,8 @@ async function serving() {
   const phone = fakePhone(broker.http, () => NOW);
   await phone.join((await mesa.phone.pair()).result.qr);
   await mesa.phone.status();
-  const session = testStore(home).create(() =>
+  const store = testStore(home);
+  const session = store.create(() =>
     newSession({ goal: 'Fix the login page\nwith tests', name: 'Login fix' }),
   );
   plantOutputLog(home, session.id, 'npm test\n12 passing\n');
@@ -56,7 +58,7 @@ async function serving() {
     box.close();
     return listener;
   };
-  return { mesa, session, calls, pushed, end };
+  return { mesa, store, session, calls, pushed, end };
 }
 
 const until = async (done: () => boolean) => {
@@ -113,4 +115,70 @@ test('a reply is cut into prose and its fenced code blocks', () => {
     { code: false, text: 'Then push.' },
   ]);
   expect(replySegments('```ts\nconst a = 1;')).toEqual([{ code: true, text: 'const a = 1;' }]);
+});
+
+test("a coordinator's crew, its task graph and its gates answer the phone, and a gate resolves", async () => {
+  const { mesa, store, session, calls, end } = await serving();
+  const worker = store.create(() => newSession({ parent: session.id, name: 'Tide parser' }));
+  const parse = mesa.tasks.create('Parse the tide tables', { coordinator: session.id });
+  const chart = mesa.tasks.create('Chart the tides', { coordinator: session.id, deps: [parse.id] });
+  const gate = mesa.gates.create(parse.id, 'Metres or feet?', ['metres', 'feet']);
+
+  const crew = await calls.call({ method: 'crew', id: session.id });
+  expect(crew.workers).toMatchObject([{ id: worker.id, title: 'Tide parser', branch: null }]);
+  expect(crew.tasks).toEqual([
+    { id: parse.id, title: 'Parse the tide tables', state: 'blocked', deps: [], gate: gate.id },
+    { id: chart.id, title: 'Chart the tides', state: 'pending', deps: [parse.id] },
+  ]);
+
+  const { gates } = await calls.call({ method: 'gates' });
+  expect(gates).toEqual([
+    {
+      id: gate.id,
+      question: 'Metres or feet?',
+      options: ['metres', 'feet'],
+      task: 'Parse the tide tables',
+      coordinator: session.id,
+    },
+  ]);
+  // No Decision model in this profile: the advice says why, and the options still show.
+  const advised = await calls.call({ method: 'gate', id: gate.id });
+  expect(advised.advice).toMatchObject({ status: 'unavailable', odds: [] });
+  expect(advised.advice.reason).toContain('no decision model');
+
+  await calls.call({ method: 'resolve', id: gate.id, option: 'feet' });
+  expect((await calls.call({ method: 'gates' })).gates).toEqual([]);
+  await expect(calls.call({ method: 'gate', id: gate.id })).rejects.toThrow(
+    `no open gate ${gate.id}`,
+  );
+  await expect(calls.call({ method: 'merge', id: session.id })).rejects.toThrow('no parent');
+  await end();
+});
+
+test("a gate's options go to the Decision model as next-step slugs and its odds come back by option", () => {
+  const gate = { question: 'Metres or feet?', options: ['metres', 'feet'], task: 'Parse' };
+  expect(gateRequest(gate).candidates).toEqual([
+    { id: 'option-1', step: 'metres' },
+    { id: 'option-2', step: 'feet' },
+  ]);
+  expect(
+    gateAdvice(gate, {
+      site: 'next-step',
+      mode: 'on-demand',
+      status: 'accepted',
+      answer: 'option-2',
+      probabilities: { 'option-1': 0.2, 'option-2': 0.7, defer: 0.1 },
+      model: 'clef-test',
+      latencyMs: 900,
+    }),
+  ).toEqual({
+    status: 'accepted',
+    pick: 'feet',
+    odds: [
+      { option: 'metres', p: 0.2 },
+      { option: 'feet', p: 0.7 },
+    ],
+    defer: 0.1,
+    model: 'clef-test',
+  });
 });
