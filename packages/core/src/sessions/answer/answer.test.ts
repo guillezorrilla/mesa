@@ -1,23 +1,19 @@
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../../mesa.js';
-import { profilePaths } from '../../profile/paths.js';
 import { listReceipts } from '../../receipts/store.js';
 import {
   CLAUDE_VERSION,
+  claudePromptPane,
   fakeTmux,
+  plantHookEvent,
   projectProfile,
   scriptedRunner,
   sequentialIds,
   testDeps,
 } from '../../testing/index.js';
 
-const claudePane = (name: string) =>
-  readFileSync(
-    new URL(`../../agents/claude/fixtures/prompts/${name}.txt`, import.meta.url),
-    'utf8',
-  );
 const codexPane = (name: string) =>
   readFileSync(new URL(`../../agents/codex/fixtures/panes/${name}.txt`, import.meta.url), 'utf8');
 
@@ -34,12 +30,8 @@ async function setUp(agent: 'claude' | 'codex' = 'claude') {
   const { result: opened } = await mesa.sessions.open('lantern-cove', { agent });
   const window = world.windows[0];
   if (!window) throw new Error('no window opened');
-  const events = profilePaths(home, 'default').events;
-  const hook = (at: string, event: string, payload: object) => {
-    mkdirSync(events, { recursive: true });
-    const line = { at, agent, event, mesaSessionId: opened.id, payload };
-    appendFileSync(join(events, `${opened.id}.jsonl`), `${JSON.stringify(line)}\n`);
-  };
+  const hook = (at: string, event: string, payload: object) =>
+    plantHookEvent(home, { session: opened.id, agent, at, event, payload });
   const within = createMesa(
     'default',
     testDeps(home, { run: scripted.run, newId, env: { MESA_SESSION_ID: 'zzzzzzzz' } }),
@@ -53,7 +45,7 @@ test('a permission prompt is read with Allow and Deny, and allow presses 1 with 
   const { home, mesa, window, id, hook } = await setUp();
   hook('2026-09-24T11:59:00.000Z', 'PermissionRequest', bash);
   hook('2026-09-24T11:59:06.000Z', 'Notification', { notification_type: 'permission_prompt' });
-  window.screen = claudePane('bash');
+  window.screen = claudePromptPane('bash');
   const pending = await mesa.sessions.prompt(id);
   expect(pending).toMatchObject({
     status: 'pending',
@@ -98,7 +90,7 @@ test('a permission prompt is read with Allow and Deny, and allow presses 1 with 
 test('deny presses Esc; a Codex approval answers with y', async () => {
   const claude = await setUp();
   claude.hook('2026-09-24T11:59:00.000Z', 'PermissionRequest', bash);
-  claude.window.screen = claudePane('bash');
+  claude.window.screen = claudePromptPane('bash');
   await claude.mesa.sessions.answer(claude.id, { option: 'deny' });
   expect(claude.window.keys).toEqual(['Escape']);
 
@@ -126,7 +118,7 @@ test('a question is answered by its option, or typed where it takes a typed answ
       ],
     },
   });
-  window.screen = claudePane('question');
+  window.screen = claudePromptPane('question');
   expect(await mesa.sessions.prompt(id)).toMatchObject({
     kind: 'question',
     summary: 'Do you prefer red or blue?',
@@ -152,17 +144,17 @@ test('a question is answered by its option, or typed where it takes a typed answ
 test('a stale answer is refused and types nothing: answered in the pane, or another prompt now', async () => {
   const { mesa, window, id, hook } = await setUp();
   hook('2026-09-24T11:59:00.000Z', 'PermissionRequest', bash);
-  window.screen = claudePane('bash');
+  window.screen = claudePromptPane('bash');
   const first = await mesa.sessions.prompt(id);
   if (first.status !== 'pending') throw new Error('not pending');
   // Answered in the pane: the dialog is gone.
-  window.screen = `${claudePane('bash')}\n\n⏺ Ran touch beacon.txt\n❯ `;
+  window.screen = `${claudePromptPane('bash')}\n\n⏺ Ran touch beacon.txt\n❯ `;
   await expect(mesa.sessions.answer(id, { option: 'allow', prompt: first.id })).rejects.toThrow(
     `stale answer: session ${id} waits on no prompt Mesa can answer now`,
   );
   // The next prompt, asking the same: a new hook event, so a new id.
   hook('2026-09-24T11:59:30.000Z', 'PermissionRequest', bash);
-  window.screen = claudePane('bash');
+  window.screen = claudePromptPane('bash');
   await expect(mesa.sessions.answer(id, { option: 'allow', prompt: first.id })).rejects.toThrow(
     `stale answer: session ${id} now waits on another prompt (see mesa prompt ${id})`,
   );
@@ -172,13 +164,13 @@ test('a stale answer is refused and types nothing: answered in the pane, or anot
 test('an agent caller is refused; an unqualified prompt is unsupported; no prompt is a usage error', async () => {
   const { mesa, within, window, id, hook } = await setUp();
   hook('2026-09-24T11:59:00.000Z', 'PermissionRequest', bash);
-  window.screen = claudePane('bash');
+  window.screen = claudePromptPane('bash');
   await expect(within.sessions.answer(id, { option: 'allow' })).rejects.toThrow(
     `only a person answers a prompt; answer it there (mesa attach ${id})`,
   );
   expect(window.keys).toEqual([]);
   // Folder trust: a dialog no reader qualifies.
-  window.screen = claudePane('folder-trust');
+  window.screen = claudePromptPane('folder-trust');
   expect(await mesa.sessions.prompt(id)).toEqual({
     status: 'unsupported',
     session: id,

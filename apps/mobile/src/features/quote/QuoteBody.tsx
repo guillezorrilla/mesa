@@ -1,7 +1,8 @@
 import type { CallResult, NoteDelivery } from '@mesa/core/phone';
 import { use } from 'react';
-import { KeyboardAvoidingView, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { ErrorNote } from '@/components/ErrorNote';
+import { KeyboardScreen } from '@/components/KeyboardScreen';
 import { Text } from '@/components/ui/text';
 import { isSelected, type LineSelection } from '@/lib/lineSelection';
 import { cn } from '@/lib/utils';
@@ -36,7 +37,16 @@ export function QuoteBody({
   const lines = replyLines(found.segments);
   const passage = selection ? passageOf(lines, selection) : '';
   return (
-    <KeyboardAvoidingView behavior="padding" className="flex-1 bg-background">
+    <KeyboardScreen
+      bar={
+        passage.trim() ? (
+          <CommentForm
+            label={quoteLabel(passage.split('\n').length)}
+            send={(comment) => onQuote(passage, comment)}
+          />
+        ) : null
+      }
+    >
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerClassName="py-4">
         <Text variant="muted" className="px-4 pb-2">
           Tap a line, then another, to quote them to the agent.
@@ -57,12 +67,6 @@ export function QuoteBody({
           </Pressable>
         ))}
       </ScrollView>
-      {passage.trim() ? (
-        <CommentForm
-          label={quoteLabel(passage.split('\n').length)}
-          send={(comment) => onQuote(passage, comment)}
-        />
-      ) : null}
-    </KeyboardAvoidingView>
+    </KeyboardScreen>
   );
 }

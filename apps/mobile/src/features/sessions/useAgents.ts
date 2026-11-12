@@ -1,6 +1,7 @@
 import type { PhoneRow, UpdateMessage } from '@mesa/core/phone';
 import { startTransition, useEffect, useState, useTransition } from 'react';
 import { useRepeatWhileActive } from '@/lib/useRepeatWhileActive';
+import { useGates } from '../gates/useGates';
 import type { MacLink } from '../mac/macLink';
 import { useMac } from '../mac/useMac';
 
@@ -30,14 +31,15 @@ const list = (link: MacLink, last?: Promise<Listing>): Promise<Listing> =>
 
 /**
  * The Agents tab's data: the listing as a promise to `use()`, the updates the Mac pushed since,
- * a refresh (pull, and every minute in front, which keeps the updates coming), and marking a
- * session read or unread, shown at once.
+ * the open decision gates (useGates), a refresh (pull, and every minute in front, which keeps the
+ * updates coming), and marking a session read or unread, shown at once.
  */
 export function useAgents() {
   const link = useMac();
   const [listing, setListing] = useState(() => list(link));
   const [updates, setUpdates] = useState<Update[]>([]);
   const [refreshing, startRefresh] = useTransition();
+  const open = useGates();
 
   useEffect(
     () =>
@@ -51,7 +53,10 @@ export function useAgents() {
     const next = list(link, listing);
     start(() => setListing(next));
   };
-  const refresh = () => relist(startRefresh);
+  const refresh = () => {
+    relist(startRefresh);
+    open.refresh();
+  };
   useRepeatWhileActive(RENEW_MS, () => relist(startTransition));
 
   const mark = (row: PhoneRow, unread: boolean) => {
@@ -61,5 +66,5 @@ export function useAgents() {
     ]);
     link.call({ method: 'mark', id: row.id, unread }).catch(refresh);
   };
-  return { listing, updates, refreshing, refresh, mark };
+  return { listing, updates, gates: open.gates, refreshing, refresh, mark };
 }

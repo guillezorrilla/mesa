@@ -24,7 +24,8 @@ export function ReplyList({
   return (
     <View className="gap-6">
       {replies.map((reply) => (
-        <View key={reply.id} className="gap-3">
+        // Two replies with the same text share a revision, so the time tells them apart.
+        <View key={`${reply.id}:${reply.at}`} className="gap-3">
           <View className="flex-row items-center justify-between">
             <Text variant="muted">{reply.at ? relativeAgo(reply.at, now) : ''}</Text>
             <Button

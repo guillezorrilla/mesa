@@ -1,8 +1,9 @@
 import { type NoteDelivery, noteLines } from '@mesa/core/phone';
 import { use } from 'react';
-import { FlatList, KeyboardAvoidingView, View } from 'react-native';
+import { FlatList, View } from 'react-native';
 import { BusyLine } from '@/components/BusyLine';
 import { ErrorNote } from '@/components/ErrorNote';
+import { KeyboardScreen } from '@/components/KeyboardScreen';
 import { Text } from '@/components/ui/text';
 import { isSelected, type LineSelection } from '@/lib/lineSelection';
 import type { MacRead } from '../mac/tryCall';
@@ -35,7 +36,13 @@ export function DiffBody({
   const shown = more ?? use(first);
   const lines = selection ? noteLines(shown.rows, selection.start, selection.end) : undefined;
   return (
-    <KeyboardAvoidingView behavior="padding" className="flex-1 bg-background">
+    <KeyboardScreen
+      bar={
+        lines ? (
+          <CommentForm label={noteLabel(path, lines)} send={(text) => onNote(lines, text)} />
+        ) : null
+      }
+    >
       <FlatList
         contentInsetAdjustmentBehavior="automatic"
         className="flex-1"
@@ -65,9 +72,6 @@ export function DiffBody({
           />
         )}
       />
-      {lines ? (
-        <CommentForm label={noteLabel(path, lines)} send={(text) => onNote(lines, text)} />
-      ) : null}
-    </KeyboardAvoidingView>
+    </KeyboardScreen>
   );
 }

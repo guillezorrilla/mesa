@@ -9,8 +9,9 @@ import type { PhoneMessage } from '../protocol/envelope.js';
 import { type ConnectSocket, mailbox } from '../protocol/mailbox.js';
 import { type PhoneRow, WATCH_MS } from '../protocol/rpc.js';
 import { type AnswerDeps, answerCall } from './answer.js';
+import { deliverQueued } from './deliver.js';
 import { keptDiffs } from './kept-diffs.js';
-import { phoneRows, rowChanges } from './rows.js';
+import { askedRows, phoneRows, rowChanges } from './rows.js';
 
 export type ServeDeps = {
   store: MacPairingStore;
@@ -146,10 +147,16 @@ async function listen(
       );
   const watch = async () => {
     if (!listed || now() > watchUntil) return;
-    const rows = phoneRows(await board());
+    const rows = await askedRows(phoneRows(await board()), deps.answers.prompt);
     const changes = rowChanges(listed, rows);
     listed = rows;
     if (changes) box.send({ kind: 'update', ...changes });
+  };
+  /** Types the queued replies whose sessions' turns have ended, with the app open or closed. */
+  const deliver = async () => {
+    const { queue, send } = deps.answers.steer;
+    if (!queue.all().length) return;
+    await deliverQueued(queue, phoneRows(await board()), send);
   };
 
   let tickAt = now();
@@ -169,6 +176,7 @@ async function listen(
         box.connect();
       }
       await watch().catch(() => undefined);
+      await deliver().catch(() => undefined);
       await deps.sleep(misses ? Math.min(TICK_MS * 2 ** misses, BACKOFF_MS) : TICK_MS);
     }
     return { pairingId, ended: 'stopped' };

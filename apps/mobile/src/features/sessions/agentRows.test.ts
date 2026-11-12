@@ -1,6 +1,6 @@
 import type { PhoneRow } from '@mesa/core/phone';
 import { expect, test } from 'vitest';
-import { applyUpdates, filterRows, groupRows, projectsOf } from './agentRows';
+import { applyUpdates, filterRows, groupRows, isGate, projectsOf } from './agentRows';
 import { groupOf } from './sessionState';
 
 const row = (id: string, state: string, more: Partial<PhoneRow> = {}): PhoneRow => ({
@@ -29,6 +29,23 @@ test('rows group as Needs you, Working, Done, keeping the Mac order inside each'
   expect(groupRows([row('a', 'done')]).map((s) => s.key)).toEqual(['done']);
   expect(groupOf('queued')).toBe('working');
   expect(groupOf('some-new-state')).toBe('done');
+});
+
+test('open decision gates come first in Needs you, even with no session waiting', () => {
+  const gate = {
+    id: 'g-1',
+    question: 'Metres?',
+    options: ['m', 'ft'],
+    task: 'Tides',
+    coordinator: 'a',
+  };
+  const sections = groupRows([row('b', 'waiting-question'), row('c', 'working')], [gate]);
+  expect(sections.map((s) => [s.key, s.data.map((item) => item.id)])).toEqual([
+    ['needs-you', ['g-1', 'b']],
+    ['working', ['c']],
+  ]);
+  expect(sections[0]?.data.map(isGate)).toEqual([true, false]);
+  expect(groupRows([], [gate]).map((s) => s.key)).toEqual(['needs-you']);
 });
 
 test("updates change rows, drop gone ones, add new ones, and take the Mac's order", () => {
