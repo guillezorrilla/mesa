@@ -1,6 +1,6 @@
 // The pairing protocol (`@mesa/core/phone`): what the phone app bundles from core, and nothing else
-// but the pure time words, dollars, local day, session state sets and prompt title its screens
-// share with the desktop.
+// but the pure words, local day, session state sets, prompt title, diff lines and push modes its
+// screens share with the desktop.
 export {
   DIFF_START,
   type DiffAt,
@@ -9,10 +9,11 @@ export {
   noteLines,
 } from '../../git/diff-lines.js';
 export { relativeAgo, shortAgo, timeAgo } from '../../lib/ago.js';
-export { usd } from '../../lib/format.js';
+export { money } from '../../lib/format.js';
 export { localDay } from '../../lib/time.js';
 export { promptTitle } from '../../sessions/answer/title.js';
 export { BUSY_STATES, FINAL_STATES, WAITING_STATES } from '../../sessions/record/states.js';
+export { PHONE_PUSH_LABELS, PHONE_PUSH_MODES, type PhonePushMode } from '../away.js';
 export type { ChangedFile, NoteDelivery, StatusFile } from './changes.js';
 export { BOX_BYTES, fitsOneBox, type PartMessage, partJoiner, splitParts } from './chunk.js';
 export {
@@ -39,6 +40,7 @@ export {
   phoneMessage,
   sealMessage,
 } from './envelope.js';
+export type { PhoneNotice } from './inbox.js';
 export { joinPairing, type PhonePairing, phoneKeys } from './join.js';
 export { formatPairingLink, type PairingLink, parsePairingLink } from './link.js';
 export {
@@ -56,6 +58,7 @@ export {
   openNotice,
   sealNotice,
 } from './notice.js';
+export type { PhonePushes } from './pushes.js';
 export { MacCallError, macCalls } from './requests.js';
 export {
   type CallResult,
@@ -91,6 +94,7 @@ export {
   type SendResult,
   type SessionAction,
 } from './steer.js';
+export type { PhoneSessionUsage, PhoneUsage } from './usage.js';
 export type {
   PhoneHit,
   PhoneMemory,

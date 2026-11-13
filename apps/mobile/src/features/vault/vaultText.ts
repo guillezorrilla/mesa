@@ -1,4 +1,4 @@
-import { type PhoneCall, type PhoneSaved, type PhoneToday, usd } from '@mesa/core/phone';
+import { money, type PhoneCall, type PhoneSaved, type PhoneToday } from '@mesa/core/phone';
 
 // How the phone says what the vault holds: a calendar leaf, Impact's counts, the week's cost, a receipt's kind, a
 // saved decision's outcome, and when a decision can be saved.
@@ -30,7 +30,7 @@ export const foundText = (total: number, shown: number) =>
 
 /** The week's estimated cost as of the Mac's last usage sync (the phone never syncs), or unknown. */
 export const costText = (cost: number | null) =>
-  cost === null ? 'Cost unknown' : `${usd(cost, 2)} estimated at the last sync`;
+  cost === null ? 'Cost unknown' : `${money(cost)} estimated at the last sync`;
 
 const KINDS: Record<string, string> = {
   decision: 'Decision',

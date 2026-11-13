@@ -1,6 +1,7 @@
 // Whether the person is away from the Mac (#1016), as orca gates its phone pushes
 // (docs/spikes/orca-comparison.md, Notifications): the Mac has sat idle for a while, or its
 // screen is locked.
+import { z } from 'zod';
 import type { Runner } from '../lib/process.js';
 
 /** When the paired phone gets a push: only while away, always, or never (`phone.push`). */
@@ -12,6 +13,18 @@ export const PHONE_PUSH_LABELS: Record<PhonePushMode, string> = {
   away: 'When away',
   always: 'Always',
   never: 'Never',
+};
+
+/**
+ * The `phone` settings' fields without their defaults: the config adds those, and the phone's
+ * `pushes` call sets any of them.
+ */
+export const PHONE_PUSH_FIELDS = {
+  push: z.enum(PHONE_PUSH_MODES),
+  /** Minutes the Mac must sit idle before `away` pushes. */
+  awayAfter: z.number().int().min(1).max(240),
+  /** Whether a finished turn pushes too; questions and permissions always do. */
+  finished: z.boolean(),
 };
 
 const IOREG = '/usr/sbin/ioreg';
