@@ -10,21 +10,24 @@ import { Icon } from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
 import { macLabel } from '../mac/macLabel';
+import { useMacPath } from '../mac/useMacPath';
 import { usePushRegistration } from '../push/usePushRegistration';
+import { MacPathRow } from './MacPathRow';
 import { MacSeenLine } from './MacSeenLine';
 import { UnpairButton } from './UnpairButton';
 import { useMacInfo } from './useMacInfo';
 import { usePairing } from './usePairing';
 
 /**
- * One paired Mac: its name, when it last checked in, its pairing, Check again and Unpair, which
- * ends this pairing alone. Registers this phone for that Mac's pushes.
+ * One paired Mac: its name, when it last checked in, the path to it, its pairing, Check again and
+ * Unpair, which ends this pairing alone. Registers this phone for that Mac's pushes.
  */
 export function MacCard({ pairing }: { pairing: PhonePairing }) {
   usePushRegistration(pairing);
   const { forget } = usePairing();
   const { info, refresh, checking } = useMacInfo(pairing);
   const name = macLabel(pairing);
+  const path = useMacPath(pairing.pairingId);
   return (
     <Card className="gap-3 py-4">
       <CardHeader className="flex-row items-center gap-2.5 px-4">
@@ -38,6 +41,7 @@ export function MacCard({ pairing }: { pairing: PhonePairing }) {
           <MacSeenLine info={info} />
         </Suspense>
         <Separator />
+        {path ? <MacPathRow path={path} /> : null}
         <InfoRow label="Pairing" value={pairing.pairingId} />
         <View className="flex-row gap-2 pt-1">
           <Button size="sm" variant="secondary" disabled={checking} onPress={refresh}>
