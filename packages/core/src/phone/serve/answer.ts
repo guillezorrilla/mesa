@@ -13,6 +13,7 @@ import { answerInboxCall, type InboxDeps, isInboxCall } from './inbox.js';
 import { answerPushes, type PushesDeps } from './pushes.js';
 import { replySegments } from './replies.js';
 import { askedRows, managedRows, phoneRows, queuedRows, toPhoneRow } from './rows.js';
+import { answerStartCall, isStartCall, type StartDeps } from './start.js';
 import { phoneUsage } from './usage.js';
 import { answerVaultCall, isVaultCall, type VaultDeps } from './vault.js';
 
@@ -37,6 +38,7 @@ export type AnswerDeps = {
   usage: () => Promise<UsageReport>;
   pushes: PushesDeps;
   vault: VaultDeps;
+  start: StartDeps;
 };
 
 /** How many replies and output lines the session screen gets. */
@@ -67,6 +69,7 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
   if (call.method === 'pushes')
     return answerPushes(deps.pushes, call.set) satisfies CallResult<'pushes'>;
   if (isVaultCall(call)) return answerVaultCall(deps.vault, call);
+  if (isStartCall(call)) return answerStartCall(deps.start, call);
   if (call.method === 'mark') {
     (call.unread ? deps.unread : deps.read)([call.id]);
     return {} satisfies CallResult<'mark'>;

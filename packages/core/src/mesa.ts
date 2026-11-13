@@ -107,6 +107,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const projects = projectsService(ctx);
   const impact = impactService(ctx);
   const rewind = rewindService(ctx, usage);
+  const itemStarts = itemSessions(imports.item, sessions.sessions.open, tickets.promptFor);
   const phone = phoneService(
     ctx,
     { pending: notices.pendingPushes, claim: notices.claimPushes },
@@ -149,6 +150,17 @@ export function createMesa(profile: string, deps: MesaDeps) {
         impact: impact.report,
         rewind: () => rewind.week({ synced: false }),
         saveDecision: vaults.vault.saveDecision,
+      },
+      start: {
+        projects: () => projects.list('last-session'),
+        worktrees: (project) => worktrees.list(project),
+        open: itemStarts.open,
+        tickets: tickets.list,
+        ticket: tickets.show,
+        assign: tickets.assign,
+        history: sessions.sessions.history,
+        search: sessions.sessions.search,
+        adopt: sessions.sessions.adopt,
       },
     },
   );
@@ -212,7 +224,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     sources,
     imports: {
       ...imports,
-      ...itemSessions(imports.item, sessions.sessions.open, tickets.promptFor),
+      ...itemStarts,
     },
     tickets,
     decide: faro.decide,
