@@ -6,7 +6,12 @@ import type { SessionResponses } from '../../sessions/native/responses.js';
 import type { UsageReport } from '../../usage/records.js';
 import { isChangesCall } from '../protocol/changes.js';
 import { isPrsCall } from '../protocol/prs.js';
-import { type CallResult, type PhoneCall, SESSION_REPLIES } from '../protocol/rpc.js';
+import {
+  type CallResult,
+  type PhoneCall,
+  type PhoneRow,
+  SESSION_REPLIES,
+} from '../protocol/rpc.js';
 import { isTerminalCall } from '../protocol/terminal.js';
 import { answerSteer, isSteerCall, type SteerDeps } from './answer-steer.js';
 import { answerChanges, type ChangesDeps } from './changes.js';
@@ -15,7 +20,7 @@ import { answerInboxCall, type InboxDeps, isInboxCall } from './inbox.js';
 import { answerPrs, type PrsDeps } from './prs.js';
 import { answerPushes, type PushesDeps } from './pushes.js';
 import { phoneReplies } from './replies.js';
-import { askedRows, managedRows, phoneRows, queuedRows, toPhoneRow } from './rows.js';
+import { managedRows, phoneRows, queuedRows, toPhoneRow } from './rows.js';
 import { answerStartCall, isStartCall, type StartDeps } from './start.js';
 import { phoneUsage } from './usage.js';
 import { answerVaultCall, isVaultCall, type VaultDeps } from './vault.js';
@@ -48,6 +53,9 @@ export type AnswerDeps = {
   start: StartDeps;
 };
 
+/** The session functions as the listener answers through them, with each waiting row's ask (keptAsks). */
+export type ListenerAnswers = AnswerDeps & { asked: (rows: PhoneRow[]) => Promise<PhoneRow[]> };
+
 /** How many output lines the session screen gets. */
 const TAIL = 60;
 /** How many lines a terminal's live output gets: a few screens of a phone. */
@@ -57,11 +65,11 @@ const OUTPUT = 120;
  * The phone's rows as the board has them now: each waiting one with its `ask`, each with how many
  * replies it has queued. The `sessions` call and the listener's watch both read them so.
  */
-export const boardRows = async (deps: Pick<AnswerDeps, 'board' | 'prompt' | 'steer'>) =>
-  queuedRows(await askedRows(phoneRows(await deps.board()), deps.prompt), deps.steer.queue.all());
+export const boardRows = async (deps: Pick<ListenerAnswers, 'board' | 'asked' | 'steer'>) =>
+  queuedRows(await deps.asked(phoneRows(await deps.board())), deps.steer.queue.all());
 
 /** Answers one call from the phone; throws a MesaError (not_found) for an unknown session. */
-export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unknown> {
+export async function answerCall(deps: ListenerAnswers, call: PhoneCall): Promise<unknown> {
   if (call.method === 'sessions')
     return {
       rows: await boardRows(deps),

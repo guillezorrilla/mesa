@@ -31,8 +31,9 @@ export function phoneService(
     log: 'phone',
   });
   /** The phone's queued replies (CONTEXT.md, Queued message): the listener's, and the Mac's to list. */
+  const queueFile = join(ctx.paths.root, 'phone-queue.json');
   const queue = phoneQueue({
-    file: join(ctx.paths.root, 'phone-queue.json'),
+    file: queueFile,
     lock: ctx,
     clock: ctx.clock,
     newId: ctx.newId,
@@ -105,6 +106,7 @@ export function phoneService(
           },
           lock: ctx,
           lockPath: join(ctx.paths.root, 'phone-listener.lock'),
+          rowFiles: { events: ctx.paths.events, sessions: ctx.paths.sessions, queue: queueFile },
         },
         stop,
       );
