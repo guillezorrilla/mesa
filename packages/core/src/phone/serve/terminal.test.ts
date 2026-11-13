@@ -66,7 +66,7 @@ test('the live output is the log tail, and an unknown key never reaches the Mac'
   await at.end();
 });
 
-test("the screen sizes the window to the phone and draws its pane with the cursor where it is", async () => {
+test('the screen sizes the window to the phone and draws its pane with the cursor where it is', async () => {
   const at = await terminal();
   plantOutputLog(at.home, at.id, '$ ls\n');
   at.window.screen = '\x1b[34m$ ls\x1b[0m\nREADME.md\n\n';

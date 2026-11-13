@@ -24,12 +24,7 @@ export function SessionView({
   if (detail?.row.terminal)
     return (
       <KeyboardScreen bar={<TerminalBar id={id} />}>
-        <TerminalBody
-          detail={detail}
-          error={error}
-          onChange={session.again}
-          pushed={session.pushed}
-        />
+        <TerminalBody detail={detail} error={error} onChange={session.again} />
       </KeyboardScreen>
     );
   return (

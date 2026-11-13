@@ -7,18 +7,16 @@ import { TerminalOutput } from './TerminalOutput';
 
 /**
  * A plain terminal session: its state, then its live output; its menu in its bar. `onChange`
- * reads it again after the phone changed it; `pushed` says whether the Mac pushes its output.
+ * reads it again after the phone changed it.
  */
 export function TerminalBody({
   detail,
   error,
   onChange,
-  pushed,
 }: {
   detail: PhoneDetail;
   error?: string;
   onChange: () => void;
-  pushed: boolean;
 }) {
   return (
     <>
@@ -27,8 +25,6 @@ export function TerminalBody({
       </SessionBar>
       <TerminalOutput
         id={detail.row.id}
-        first={detail.tail}
-        pushed={pushed}
         header={
           <>
             {error ? <ErrorNote text={error} /> : null}

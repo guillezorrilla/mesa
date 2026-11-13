@@ -169,7 +169,8 @@ export function fakeTmux(
       case 'display-message': {
         const w = find(target);
         if (!w) return failed("can't find window");
-        if (rest.at(-1)?.includes('cursor_x')) return ok(`${w.cursor?.x ?? 0} ${w.cursor?.y ?? 0}\n`);
+        if (rest.at(-1)?.includes('cursor_x'))
+          return ok(`${w.cursor?.x ?? 0} ${w.cursor?.y ?? 0}\n`);
         return ok(`${w.dead ? 1 : 0}\t${w.dead ? '' : w.running}`);
       }
       case 'send-keys': {

@@ -38,4 +38,5 @@ const METHODS: readonly string[] = terminalCalls.map((call) => call.shape.method
 
 export const isTerminalCall = (
   call: PhoneCall,
-): call is Extract<PhoneCall, { method: 'output' | 'screen' | 'keys' }> => METHODS.includes(call.method);
+): call is Extract<PhoneCall, { method: 'output' | 'screen' | 'keys' }> =>
+  METHODS.includes(call.method);
