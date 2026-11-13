@@ -7,14 +7,22 @@ import { StatusBar } from 'expo-status-bar';
 import { Suspense } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
+import { InboxProvider } from '@/features/inbox/InboxProvider';
+import { useUnreadCount } from '@/features/inbox/useUnreadCount';
 import { MacProvider } from '@/features/mac/MacProvider';
 import { PairingProvider } from '@/features/pairing/PairingProvider';
 import { usePairing } from '@/features/pairing/usePairing';
 import { useOpenTappedSession } from '@/features/push/useOpenTappedSession';
+import { AgentsProvider } from '@/features/sessions/AgentsProvider';
+import { useNeedsYouCount } from '@/features/sessions/useNeedsYouCount';
+import { badgeText } from '@/lib/badgeText';
 import { haptic } from '@/lib/haptics';
 import { tabBarHidden } from '@/lib/tabBarHidden';
 
-/** The window: the pairing read from the Keychain before any screen, then the tabs. */
+/**
+ * The window: the pairing read from the Keychain before any screen, then the tabs over the
+ * Agents and Inbox data their badges count.
+ */
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -22,9 +30,13 @@ export default function RootLayout() {
         <Suspense>
           <PairingProvider>
             <MacProvider>
-              <StatusBar style="auto" />
-              <Tabs />
-              <PortalHost />
+              <AgentsProvider>
+                <InboxProvider>
+                  <StatusBar style="auto" />
+                  <Tabs />
+                  <PortalHost />
+                </InboxProvider>
+              </AgentsProvider>
             </MacProvider>
           </PairingProvider>
         </Suspense>
@@ -36,12 +48,16 @@ export default function RootLayout() {
 /**
  * Agents, the Inbox, Work (pull requests and tickets) and Usage, once paired, and Settings: the
  * paired Macs, pairing one, the push settings and About; hidden on a session's screen and the new
- * session form, under their bars. A tapped push opens its session; changing tabs gives selection
- * feedback.
+ * session form, under their bars. Agents is badged with what needs you and the Inbox with its
+ * unread notices, in iOS's own badge colour: its digits are always white, which Mesa's dark
+ * waiting amber does not hold. A tapped push opens its session; changing tabs gives
+ * selection feedback.
  */
 function Tabs() {
   const { pairing } = usePairing();
   const segments = useSegments();
+  const needsYou = badgeText(useNeedsYouCount());
+  const unread = badgeText(useUnreadCount());
   useOpenTappedSession();
   return (
     <NativeTabs
@@ -55,10 +71,12 @@ function Tabs() {
       <NativeTabs.Trigger name="agents" hidden={!pairing}>
         <NativeTabs.Trigger.Label>Agents</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'square.stack', selected: 'square.stack.fill' }} />
+        <NativeTabs.Trigger.Badge hidden={!needsYou}>{needsYou}</NativeTabs.Trigger.Badge>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="inbox" hidden={!pairing}>
         <NativeTabs.Trigger.Label>Inbox</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'tray', selected: 'tray.fill' }} />
+        <NativeTabs.Trigger.Badge hidden={!unread}>{unread}</NativeTabs.Trigger.Badge>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="work" hidden={!pairing}>
         <NativeTabs.Trigger.Label>Work</NativeTabs.Trigger.Label>

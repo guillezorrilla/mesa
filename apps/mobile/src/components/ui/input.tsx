@@ -8,7 +8,10 @@ function Input({
   return (
     <TextInput
       className={cn(
-        'dark:bg-input/30 border-input bg-background text-foreground flex min-h-11 w-full min-w-0 flex-row items-center rounded-md border px-3 py-2.5 text-base shadow-sm shadow-black/5',
+        'dark:bg-input/30 border-input bg-background text-foreground flex w-full min-w-0 flex-row items-center rounded-md border px-3 shadow-sm shadow-black/5',
+        // A one-line field on iOS draws its text low and cuts descenders under text-base's line
+        // height, so it gets a fixed height and a font size alone.
+        props.multiline ? 'min-h-11 py-2.5 text-base' : 'h-11 py-0 text-[16px]',
         props.editable === false &&
           cn(
             'opacity-50',
