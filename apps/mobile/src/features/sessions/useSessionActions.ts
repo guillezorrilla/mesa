@@ -40,13 +40,13 @@ export function useSessionActions(row: PhoneRow, archived: boolean, onDone: () =
         (text) => text.trim() && run(action, text.trim()),
       );
     if (!CONFIRMED.has(action)) return run(action);
-    Alert.alert(ACTION_WORDS[action], confirmText(action, row.title), [
+    Alert.alert(ACTION_WORDS[action], confirmText(action, row.title, row.terminal), [
       { text: 'Cancel', style: 'cancel' },
       { text: ACTION_WORDS[action], style: 'destructive', onPress: () => run(action) },
     ]);
   };
   const open = () => {
-    const actions = menuActions(row.state, archived);
+    const actions = menuActions(row.state, archived, row.terminal);
     ActionSheetIOS.showActionSheetWithOptions(
       {
         options: [...actions.map((a) => ACTION_WORDS[a]), 'Cancel'],

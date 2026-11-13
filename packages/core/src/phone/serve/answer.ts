@@ -6,6 +6,7 @@ import type { SessionResponses } from '../../sessions/native/responses.js';
 import type { UsageReport } from '../../usage/records.js';
 import { isChangesCall } from '../protocol/changes.js';
 import type { CallResult, PhoneCall } from '../protocol/rpc.js';
+import { isTerminalCall } from '../protocol/terminal.js';
 import { answerSteer, isSteerCall, type SteerDeps } from './answer-steer.js';
 import { answerChanges, type ChangesDeps } from './changes.js';
 import { answerCrewCall, type CrewDeps, isCrewCall } from './crew.js';
@@ -22,6 +23,8 @@ export type AnswerDeps = {
   board: () => Promise<SessionRow[]>;
   responses: (id: string) => SessionResponses;
   logs: (id: string, tail: number) => { lines: string[] };
+  /** `mesa keys`: keys pressed in a plain terminal session. */
+  keys: (id: string, keys: readonly string[]) => Promise<unknown>;
   read: (ids: readonly string[]) => unknown;
   unread: (ids: readonly string[]) => unknown;
   prompt: (id: string) => Promise<PendingPrompt>;
@@ -44,6 +47,8 @@ export type AnswerDeps = {
 /** How many replies and output lines the session screen gets. */
 const REPLIES = 5;
 const TAIL = 60;
+/** How many lines a terminal's live output gets: a few screens of a phone. */
+const OUTPUT = 120;
 
 /**
  * The phone's rows as the board has them now: each waiting one with its `ask`, each with how many
@@ -68,6 +73,12 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
     ) satisfies CallResult<'usage'>;
   if (call.method === 'pushes')
     return answerPushes(deps.pushes, call.set) satisfies CallResult<'pushes'>;
+  if (isTerminalCall(call)) {
+    if (call.method === 'output')
+      return { lines: deps.logs(call.id, OUTPUT).lines } satisfies CallResult<'output'>;
+    await deps.keys(call.id, call.keys);
+    return {} satisfies CallResult<'keys'>;
+  }
   if (isVaultCall(call)) return answerVaultCall(deps.vault, call);
   if (isStartCall(call)) return answerStartCall(deps.start, call);
   if (call.method === 'mark') {
@@ -98,8 +109,8 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
   if (isSteerCall(call))
     return answerSteer(deps.steer, call, async (id) => toPhoneRow(await managed(id)));
   const row = await managed(call.id);
-  // Newest first, as `review responses` lists them.
-  const replies = deps.responses(call.id).rows.slice(0, REPLIES);
+  // Newest first, as `review responses` lists them; a plain terminal has none.
+  const replies = row.agent === 'terminal' ? [] : deps.responses(call.id).rows.slice(0, REPLIES);
   return {
     row: toPhoneRow(row),
     goal: row.goal ?? null,

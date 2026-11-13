@@ -5,7 +5,7 @@ import { AgentList } from './AgentList';
 import type { RowFilter } from './agentRows';
 import { useAgents } from './useAgents';
 
-/** The Agents tab: every session on the Mac, searched and filtered, live while it is open. */
+/** The Agents tab: every session on every paired Mac, searched and filtered, live while it is open. */
 export function AgentsScreen() {
   const agents = useAgents();
   const [filter, setFilter] = useState<RowFilter>({ query: '', unreadOnly: false });
@@ -17,6 +17,7 @@ export function AgentsScreen() {
       />
       <Suspense fallback={<BusyScreen label="Asking your Mac..." />}>
         <AgentList
+          macs={agents.macs}
           listing={agents.listing}
           updates={agents.updates}
           gates={agents.gates}

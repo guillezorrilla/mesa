@@ -10,6 +10,8 @@ import type { PhoneQueue } from './queue.js';
 export type SessionSteer = {
   /** `mesa send` as a person, the receipt naming the phone; `yes` past a guardrail ask. */
   send: (id: string, text: string, yes: boolean) => Promise<unknown>;
+  /** `mesa type` as a person: a line typed into a plain terminal session, then Enter. */
+  type: (id: string, text: string, yes: boolean) => Promise<unknown>;
   /** The guardrail's verdict on a reply to session `id`, recorded nowhere: it only routes it. */
   check: (id: string, text: string) => Promise<Pick<GuardrailCheck, 'verdict' | 'reason'>>;
   /** Keeps the photo (JPEG bytes) on the Mac and returns the prompt that sends it, with `note`. */
@@ -38,18 +40,21 @@ export const guardrailStop = ({
  * A reply: typed now through `mesa send`'s path (the guardrail has the last word), or, to a
  * session at work that the guardrail lets through (or the person said Send anyway), queued for
  * when its turn ends. A reply the guardrail stops goes on to `mesa send`, which refuses it with
- * its receipt and types nothing.
+ * its receipt and types nothing. A plain terminal has no turn: its line goes through `mesa type`
+ * at once, and it takes no photo.
  */
 async function reply(
   deps: SteerDeps,
   row: PhoneRow,
   call: Extract<SteerCall, { method: 'send' }>,
 ): Promise<SendResult> {
+  if (row.terminal && call.image)
+    throw new MesaError('usage', `session ${row.id} is a terminal; it takes no photo`);
   const text = call.image
     ? deps.image(row.id, Buffer.from(call.image, 'base64'), call.text)
     : call.text;
   const yes = call.yes ?? false;
-  if (waitsForTurn(row.state)) {
+  if (!row.terminal && waitsForTurn(row.state)) {
     const { verdict } = await deps.check(row.id, text);
     if (verdict === 'allow' || (verdict === 'ask' && yes)) {
       deps.queue.add(row.id, text, yes);
@@ -57,7 +62,7 @@ async function reply(
     }
   }
   try {
-    await deps.send(row.id, text, yes);
+    await (row.terminal ? deps.type : deps.send)(row.id, text, yes);
     return { status: 'sent' };
   } catch (error) {
     if (error instanceof MesaError && error.code === 'guardrail_blocked')

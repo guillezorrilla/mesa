@@ -7,4 +7,5 @@ test('the offline line says when the Mac was last heard, or that it was not', ()
     'Your Mac is not answering; it may be asleep or offline. Last heard from it 5m ago.',
   );
   expect(offlineText(undefined, now)).toMatch(/Nothing heard from it since the app opened\.$/);
+  expect(offlineText(undefined, now, 'Studio')).toMatch(/^Studio is not answering;/);
 });
