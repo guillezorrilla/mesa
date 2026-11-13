@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { AGENTS } from '../../agents/agents.js';
+import type { TranscriptStep } from '../../agents/steps.js';
 import { promptOf } from '../../agents/transcripts.js';
 import { closesFence, opensFence } from '../../lib/code-fence.js';
 import type { Env } from '../../lib/process.js';
@@ -41,10 +42,15 @@ export type NativeResponse = {
  */
 export type NativePrompt = { revision: string; text: string; at?: string; newer: number };
 
+/** A step the agent took among the responses (agents/steps.ts), placed as a prompt is. */
+export type NativeStep = TranscriptStep & { newer: number };
+
 export type SessionResponses = {
   rows: NativeResponse[];
   /** The person's prompts from the newest message back to the oldest response read, newest first. */
   prompts: NativePrompt[];
+  /** What the agent did among the responses read, newest first. */
+  steps: NativeStep[];
   reviews: SavedReview[];
   truncated: boolean;
   unavailable?: string;
@@ -94,6 +100,7 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
     return {
       rows: [],
       prompts: [],
+      steps: [],
       reviews,
       truncated: false,
       unavailable: 'Antigravity response transcripts are not qualified',
@@ -102,6 +109,7 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
     return {
       rows: [],
       prompts: [],
+      steps: [],
       reviews,
       truncated: false,
       unavailable: 'Native conversation ID is not available yet',
@@ -112,14 +120,22 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
     return {
       rows: [],
       prompts: [],
+      steps: [],
       reviews,
       truncated: false,
       unavailable: 'Native transcript is not available',
     };
-  const { messages, truncated } = transcripts.messages(file);
+  const { messages, steps: placed, truncated } = transcripts.messages(file);
   const rows: NativeResponse[] = [];
   const prompts: NativePrompt[] = [];
+  const steps: NativeStep[] = [];
+  let next = placed.length - 1;
   for (let i = messages.length - 1; i >= 0 && rows.length < MAX_RESPONSES; i--) {
+    // The steps after message i, before the responses read so far.
+    for (; next >= 0 && (placed[next]?.before ?? 0) > i; next--) {
+      const step = placed[next]?.step;
+      if (step) steps.push({ ...step, newer: rows.length });
+    }
     const message = messages[i];
     const prompt = message?.role === 'user' && !message.tool && promptOf(message.text);
     if (prompt)
@@ -145,7 +161,7 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
       truncated: cut,
     });
   }
-  return { rows, prompts, reviews, truncated: truncated || rows.length === MAX_RESPONSES };
+  return { rows, prompts, steps, reviews, truncated: truncated || rows.length === MAX_RESPONSES };
 }
 
 /** Exact passage and comment to be shown before the existing guarded send. */

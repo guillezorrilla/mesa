@@ -122,7 +122,8 @@ const ROLLOUT = readFileSync(
  * a thread's rollout there, in its start's local-date folder, named as Codex names it, with the
  * fixture's lines under a first line naming `id`, `cwd`, and `startedAt`. `originator` is
  * `codex-tui` (an interactive codex) unless `codex_exec`; the file was last written at
- * `writtenAt`, else at `startedAt`. `name` names a thread in the session index.
+ * `writtenAt`, else at `startedAt`; `lines` follow the fixture's. `name` names a thread in the
+ * session index.
  */
 export function codexWorld() {
   const home = tempDir('codex-');
@@ -132,6 +133,7 @@ export function codexWorld() {
     startedAt: string;
     originator?: string;
     writtenAt?: string;
+    lines?: object[];
   }) => {
     const start = new Date(t.startedAt);
     const time = start.toTimeString().slice(0, 8).replaceAll(':', '-');
@@ -148,7 +150,8 @@ export function codexWorld() {
       originator: t.originator ?? 'codex-tui',
     };
     mkdirSync(dir, { recursive: true });
-    writeFileSync(file, [JSON.stringify(first), ...rest].join('\n'));
+    const extra = (t.lines ?? []).map((line) => JSON.stringify(line));
+    writeFileSync(file, [JSON.stringify(first), ...rest, ...extra].join('\n'));
     const written = new Date(t.writtenAt ?? t.startedAt);
     utimesSync(file, written, written);
     return file;

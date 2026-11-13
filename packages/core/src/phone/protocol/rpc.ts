@@ -10,6 +10,7 @@ import { prsCalls, prsResults } from './prs.js';
 import { pushesCalls, pushesResults } from './pushes.js';
 import { startCalls, startResults } from './start.js';
 import { queuedMessage, steerCalls, steerResults } from './steer.js';
+import { phoneStep, stepCalls, stepResults } from './steps.js';
 import { terminalCalls, terminalResults } from './terminal.js';
 import { usageCalls, usageResults } from './usage.js';
 
@@ -57,6 +58,11 @@ export const phoneDetail = z.object({
       from: z.enum(['agent', 'you']).default('agent'),
     }),
   ),
+  /**
+   * What the agent did among these replies, newest first, for a phone that names a count; an
+   * older Mac sends none, so its chat shows replies alone.
+   */
+  steps: z.array(phoneStep).optional(),
   /** Older replies than these exist, for asking with a larger `replies`. */
   more: z.boolean().default(false),
   tail: z.array(z.string()),
@@ -127,6 +133,7 @@ export const phoneCall = z.discriminatedUnion('method', [
   ...changesCalls,
   ...prsCalls,
   ...terminalCalls,
+  ...stepCalls,
   ...startCalls,
 ]);
 export type PhoneCall = z.infer<typeof phoneCall>;
@@ -149,6 +156,7 @@ export const callResults = {
   ...changesResults,
   ...prsResults,
   ...terminalResults,
+  ...stepResults,
   ...startResults,
 };
 export type CallResult<M extends PhoneCall['method']> = z.infer<(typeof callResults)[M]>;

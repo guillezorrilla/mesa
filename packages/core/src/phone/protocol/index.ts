@@ -120,4 +120,5 @@ export {
   type SendResult,
   type SessionAction,
 } from './steer.js';
+export type { PhoneStep } from './steps.js';
 export type { PhoneSessionUsage, PhoneUsage } from './usage.js';

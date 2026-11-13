@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { lastMatchingLine, tailLines } from '../../lib/file-tail.js';
+import { readTurns } from '../steps.js';
 import {
   type Block,
   MESSAGE_TAIL,
@@ -11,6 +12,7 @@ import {
 } from '../transcripts.js';
 import { codexHome, codexSessionIndex } from './paths.js';
 import { codexHistory, rolloutForThread } from './rollouts.js';
+import { codexStepEvents } from './steps.js';
 
 // A Codex thread as a conversation: its rollout (rollouts.ts) read past the first line, and its
 // name from the session index.
@@ -74,11 +76,16 @@ export const codexTranscriptReader: Transcripts<'codex'> = {
     const { lines, truncated } = tailLines(file, MESSAGE_TAIL);
     // Codex's startup AGENTS and environment messages use role=user before turn_context.
     const firstTurn = lines.findIndex(isTurnContext);
-    const messages = lines.flatMap((line, index) => {
-      const message = messageIn(line);
-      if (!message || (message.role === 'user' && (firstTurn < 0 || index < firstTurn))) return [];
-      return [message];
-    });
-    return { messages, truncated };
+    const turns = readTurns(
+      lines,
+      (line, index) => {
+        const message = messageIn(line);
+        return message?.role === 'user' && (firstTurn < 0 || index < firstTurn)
+          ? undefined
+          : message;
+      },
+      codexStepEvents,
+    );
+    return { ...turns, truncated };
   },
 };
