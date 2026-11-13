@@ -8,9 +8,10 @@ import type { PairingClient } from '../protocol/client.js';
 import type { PhoneMessage } from '../protocol/envelope.js';
 import { type ConnectSocket, mailbox } from '../protocol/mailbox.js';
 import { type PhoneRow, WATCH_MS } from '../protocol/rpc.js';
-import { type AnswerDeps, answerCall } from './answer.js';
+import { type AnswerDeps, answerCall, boardRows } from './answer.js';
 import { deliverQueued } from './deliver.js';
-import { askedRows, phoneRows, rowChanges } from './rows.js';
+import { keptDiffs } from './kept-diffs.js';
+import { phoneRows, rowChanges } from './rows.js';
 
 export type ServeDeps = {
   store: MacPairingStore;
@@ -88,7 +89,8 @@ async function listen(
     });
     return looking;
   };
-  const answers = { ...deps.answers, board };
+  const diff = keptDiffs(deps.answers.changes.diff, now);
+  const answers = { ...deps.answers, board, changes: { ...deps.answers.changes, diff } };
   const respond = async (request: Extract<PhoneMessage, { kind: 'request' }>) => {
     try {
       const result = await answerCall(answers, request.call);
@@ -145,7 +147,7 @@ async function listen(
       );
   const watch = async () => {
     if (!listed || now() > watchUntil) return;
-    const rows = await askedRows(phoneRows(await board()), deps.answers.prompt);
+    const rows = await boardRows(answers);
     const changes = rowChanges(listed, rows);
     listed = rows;
     if (changes) box.send({ kind: 'update', ...changes });

@@ -184,3 +184,24 @@ test('a queued reply that fails holds its session, and one whose session left th
   await deliverQueued(queue, rows, send);
   expect(sent).toEqual(['second:true']);
 });
+
+test('the Mac lists and removes a queued reply, and a watching phone hears of it in an update', async () => {
+  const at = await servingPhone();
+  const { id, hook } = await livePhoneSession(at);
+  hook('UserPromptSubmit');
+  await at.calls.call({ method: 'send', id, text: 'then the docs' });
+  const { rows } = await at.calls.call({ method: 'sessions' });
+  expect(rows.find((row) => row.id === id)?.queued).toBe(1);
+
+  const [held] = at.mesa.phone.queue.list(id);
+  expect(held).toMatchObject({ session: id, text: 'then the docs', from: 'phone' });
+  expect(at.mesa.phone.queue.list('nope')).toEqual([]);
+  at.pushed.length = 0;
+  expect(at.mesa.phone.queue.remove(held?.id ?? '')).toEqual({ id: held?.id, removed: true });
+  const heard = () =>
+    at.pushed.some((m) => m.kind === 'update' && m.rows.some((r) => r.id === id && !r.queued));
+  expect(await untilTrue(heard)).toBe(true);
+  expect((await at.calls.call({ method: 'session', id })).queued).toEqual([]);
+  expect(() => at.mesa.phone.queue.remove(held?.id ?? '')).toThrow('is no longer queued');
+  await at.end();
+});

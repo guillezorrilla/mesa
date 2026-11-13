@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
-import type { CrewReport } from '@mesa/core';
+import type { CrewReport, TreeRow } from '@mesa/core';
 import { expect, test } from 'vitest';
 import { click, fakeBridge, managedRow, PROJECTS, renderWithMesa } from '@/lib/testing';
 import type { WorkspaceView } from '@/lib/workspaceView';
+import { UnreadContext } from '../useUnread';
 import { SessionsSection } from './SessionsSection';
 import { sidebarGroups, sidebarOrder } from './sidebarGroups';
 
@@ -43,47 +44,75 @@ const SESSIONS = [
   setup('setup002', 'tides001', { setupFailed: true }),
   // A worker that reported done shows no setup failure.
   setup('setup003', 'buoys001', { setupFailed: true }),
+  // Mesa's own Vault capture run, live and ended, and a worker that ended: nothing to open.
+  child('capture1', 4, { kind: 'run', goal: '/vault-capture' }),
+  child('capture2', 4, { kind: 'run', goal: '/vault-capture', ...ended() }),
+  child('ended001', 4, { name: 'ended', ...ended() }),
+  // A worker whose terminal went away unasked keeps its row, which opens its Restore.
+  child('lost0001', 5, { name: 'lost', alive: false }),
 ];
+
+function ended() {
+  return { alive: false, endedAt: at(6), lastState: { ...idle(), state: 'done' as const } };
+}
 
 function idle() {
   return { state: 'idle' as const, confidence: 1, at: at(1), source: 'hook' as const };
 }
 
+/** Unread as the app reads it: a row's own mark. */
+const UNREAD = {
+  unread: (row: TreeRow) => row.managed && row.unread === true,
+  mark: () => {},
+  toggleShown: () => {},
+};
+
 async function sidebar(sessions = SESSIONS) {
   const views: WorkspaceView[] = [];
   const groups = sidebarGroups(PROJECTS, sessions);
   const byTestId = await renderWithMesa(
-    <SessionsSection
-      groups={groups}
-      onBoard={sessions.map((s) => s.id)}
-      order={sidebarOrder(groups, [])}
-      view={{ kind: 'session', id: 'coord001' }}
-      onView={(view) => views.push(view)}
-      closedProjects={[]}
-      onToggleProject={() => {}}
-      compactSessions={[]}
-      onToggleCompact={() => {}}
-      chosen={[]}
-      onSelection={() => {}}
-    />,
+    <UnreadContext.Provider value={UNREAD}>
+      <SessionsSection
+        groups={groups}
+        onBoard={sessions.map((s) => s.id)}
+        order={sidebarOrder(groups, [])}
+        view={{ kind: 'session', id: 'coord001' }}
+        onView={(view) => views.push(view)}
+        closedProjects={[]}
+        onToggleProject={() => {}}
+        compactSessions={[]}
+        onToggleCompact={() => {}}
+        chosen={[]}
+        onSelection={() => {}}
+      />
+    </UnreadContext.Provider>,
     fakeBridge().bridge,
   );
   return { byTestId, views, groups };
 }
 
-test("a coordinator's card holds a row per worker, and Setup sessions are no cards", async () => {
+test("a coordinator's card holds a row per worker it can open; Setup sessions and Skill runs are neither", async () => {
   const { byTestId, groups } = await sidebar();
   expect(byTestId('sidebar-session').map((card) => card.dataset.sessionId)).toEqual(['coord001']);
   expect(sidebarOrder(groups, [])).toEqual(['coord001']);
   const rows = byTestId('sidebar-worker');
-  expect(rows.map((row) => row.dataset.sessionId)).toEqual(['charts01', 'buoys001', 'tides001']);
+  expect(rows.map((row) => row.dataset.sessionId)).toEqual([
+    'charts01',
+    'buoys001',
+    'tides001',
+    'lost0001',
+  ]);
   // Titled by its task when it has one, else by its session title.
   expect(rows.map((row) => row.title)).toEqual([
     'Open Document freeBerths',
     'Open buoy-lights',
     'Open tides',
+    'Open lost',
   ]);
   expect(rows[1]?.querySelector('[data-state]')?.getAttribute('aria-label')).toBe('Done');
+  // The selected coordinator's fill stays on its own lines, so its rows keep their colours.
+  expect(byTestId('sidebar-session')[0]?.className).toContain('bg-ring/15');
+  expect(rows[0]?.closest('ul')?.parentElement?.className).not.toContain('bg-ring/15');
 });
 
 test('each worker row says what it is doing now: progress, else report, else last reply', async () => {
@@ -142,4 +171,16 @@ test("a worker's setup failed mark is an icon on its title line, beside its time
   expect(line?.className).toContain('absolute');
   const row = line?.closest('li')?.querySelector('[data-testid="sidebar-worker"]');
   expect(row?.querySelector('.pr-15')?.textContent).toBe('tides');
+});
+
+test("a child's row is filled while its reply is unread, as a card is", async () => {
+  const { byTestId } = await sidebar([
+    SESSIONS[0] as (typeof SESSIONS)[number],
+    child('read0001', 1, { lastState: idle() }),
+    child('news0001', 2, { name: 'news', lastState: idle(), unread: true }),
+  ]);
+  const rows = byTestId('sidebar-worker');
+  expect(rows.map((row) => row.dataset.unread)).toEqual([undefined, 'true']);
+  expect(rows[1]?.title).toBe('Open news, unread');
+  expect(rows[1]?.className).toContain('bg-state-unread/25');
 });

@@ -17,7 +17,8 @@ export type SessionImage = {
   dataUrl: string;
 };
 
-function readImage(path: string) {
+/** A PNG, JPEG or WebP image of at most 5 MiB at `path`, never through a symlink, with its type. */
+export function readImage(path: string) {
   let fd: number;
   try {
     fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);

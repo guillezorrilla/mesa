@@ -3,6 +3,7 @@
 // update is a change the Mac pushes on its own. Each travels as one sealed message (envelope.ts),
 // cut into parts when it does not fit one box (chunk.ts).
 import { z } from 'zod';
+import { changesCalls, changesResults } from './changes.js';
 import { crewCalls, crewResults } from './crew.js';
 import { startCalls, startResults } from './start.js';
 import { queuedMessage, steerCalls, steerResults } from './steer.js';
@@ -21,6 +22,8 @@ export const phoneRow = z.object({
   unread: z.boolean(),
   /** A waiting session's pending prompt in one line; none while it waits on none Mesa reads. */
   ask: z.string().optional(),
+  /** How many replies wait for its turn to end (CONTEXT.md, Queued message); none when absent. */
+  queued: z.number().optional(),
 });
 export type PhoneRow = z.infer<typeof phoneRow>;
 
@@ -63,8 +66,9 @@ export type PhonePrompt = z.infer<typeof phonePrompt>;
 
 /**
  * The calls the Mac answers: the board, one session, marking one read or unread, its pending
- * prompt, answering that prompt (`prompt` is its id, so an answer to an older one is stale), a crew's, steering one
- * (steer.ts) and starting work (start.ts).
+ * prompt, answering that prompt (`prompt` is its id, so an answer to an older one is stale), a
+ * crew's, steering one (steer.ts), reviewing a session's changes (changes.ts) and starting work
+ * (start.ts).
  */
 export const phoneCall = z.discriminatedUnion('method', [
   z.object({ method: z.literal('sessions') }),
@@ -80,6 +84,7 @@ export const phoneCall = z.discriminatedUnion('method', [
   }),
   ...crewCalls,
   ...steerCalls,
+  ...changesCalls,
   ...startCalls,
 ]);
 export type PhoneCall = z.infer<typeof phoneCall>;
@@ -94,6 +99,7 @@ export const callResults = {
   answer: z.object({ status: z.enum(['answered', 'stale']) }),
   ...crewResults,
   ...steerResults,
+  ...changesResults,
   ...startResults,
 };
 export type CallResult<M extends PhoneCall['method']> = z.infer<(typeof callResults)[M]>;

@@ -1,5 +1,5 @@
 import type { CrewRow, SessionState, Task } from '@mesa/core';
-import { crewTitle, duration, isSetupSession, relativeAgo, taskTitle } from '@mesa/core/browser';
+import { crewTitle, duration, isInternalSession, relativeAgo, taskTitle } from '@mesa/core/browser';
 
 /** Where a Crew card stands, as its icon, its colour on the bar and the header's count say it. */
 export type Phase =
@@ -88,7 +88,7 @@ export function crewCards(
   gated: ReadonlySet<string>,
   asking: ReadonlySet<string>,
 ): CrewCard[] {
-  const workers = rows.filter((row) => !isSetupSession(row));
+  const workers = rows.filter((row) => !isInternalSession(row));
   const byId = new Map(workers.map((row) => [row.id, row]));
   const titleOf = new Map(tasks.map((task) => [task.id, taskTitle(task.spec)]));
   const stateOf = new Map(tasks.map((task) => [task.id, task.state]));

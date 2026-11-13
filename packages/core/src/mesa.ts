@@ -32,6 +32,7 @@ import { receiptsService } from './receipts/service.js';
 import { whatsNew } from './release/notes.js';
 import { reportsService } from './reports/report-delivery.js';
 import { sessionsService } from './sessions/service/index.js';
+import { workingFolder } from './sessions/signals/readings.js';
 import { skillsService } from './skills/service.js';
 import { importService } from './sources/import-service.js';
 import { itemSessions } from './sources/item-session.js';
@@ -96,6 +97,13 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const notices = inbox(ctx, automations.runs, gates.open);
   const projects = projectsService(ctx);
   const worktrees = worktreesService(ctx);
+  const files = filesService(ctx);
+  const git = gitService(ctx, faro, worktrees.count, sessions.sessions.run, {
+    board: () => sessions.sessions.list(),
+    send: sessions.sessions.send,
+    open: async (project, opts) => (await sessions.sessions.open(project, opts)).result,
+  });
+  const { notes, responses } = sessions.sessions;
   const itemStarts = itemSessions(imports.item, sessions.sessions.open, tickets.promptFor);
   const phone = phoneService(
     ctx,
@@ -118,6 +126,15 @@ export function createMesa(profile: string, deps: MesaDeps) {
       },
       archived: () => sessions.sessions.list('archived'),
       steer: sessionSteer(ctx, faro, sessions.sessions, prompts.list),
+      changes: {
+        diff: (id) => sessions.sessions.diff(id),
+        where: (id) => workingFolder(ctx, id),
+        notes,
+        replies: (id) => responses.list(id),
+        quote: (id, input) => responses.send(id, input, { noFrom: true }),
+        git,
+        files,
+      },
       start: {
         projects: () => projects.list('last-session'),
         worktrees: (project) => worktrees.list(project),
@@ -157,15 +174,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
     projects,
     automations,
     prompts,
-    files: filesService(ctx),
+    files,
     /** A project's checks, run for an agent: one line, or the errors (CONTEXT.md, Check). */
     check: (project: string, opts?: Parameters<typeof runCheck>[2]) => runCheck(ctx, project, opts),
     worktrees,
-    git: gitService(ctx, faro, worktrees.count, sessions.sessions.run, {
-      board: () => sessions.sessions.list(),
-      send: sessions.sessions.send,
-      open: async (project, opts) => (await sessions.sessions.open(project, opts)).result,
-    }),
+    git,
     ...vaults,
     ...mapService(ctx),
     ...dailyService(ctx),

@@ -85,12 +85,18 @@ export function SessionCard(props: {
   const progress = session.managed && !session.endedAt ? session.progress : undefined;
   const pr = session.managed ? session.pr : undefined;
   const run = useRun();
-  // The frame's colours, which a card with children shares with its rows below.
+  // The frame's border, which a card with children shares with its rows below; its fill marks
+  // the session alone, so a child row keeps its own colours while the parent is selected.
   const frame = cn(
-    'border-border/70 bg-card/40',
+    'border-border/70',
     unread && 'border-state-unread',
-    chosen && 'border-ring/60 bg-accent',
-    selected && 'border-ring bg-ring/15',
+    chosen && 'border-ring/60',
+    selected && 'border-ring',
+  );
+  const fill = cn(
+    'bg-card/40',
+    chosen && 'bg-accent',
+    selected && 'bg-ring/15',
     unread && 'bg-state-unread/25',
   );
   return (
@@ -107,6 +113,7 @@ export function SessionCard(props: {
             compact ? 'min-h-9' : 'min-h-14',
             // The unread fill wins over the selection's, whose border still marks the card.
             frame,
+            fill,
             unread && 'hover:bg-state-unread/35',
             crew && 'rounded-b-none border-b-0',
           )}
@@ -243,7 +250,9 @@ export function SessionCard(props: {
           </button>
         )}
       </div>
-      {crew && <div className={cn('rounded-b-md border border-t-0 pb-1', frame)}>{crew}</div>}
+      {crew && (
+        <div className={cn('rounded-b-md border border-t-0 bg-card/40 pb-1', frame)}>{crew}</div>
+      )}
       {session.managed && session.project !== GENERAL_PROJECT && (
         <HoverAction
           aria-label={`New child session from ${sessionTitle(session)} (${session.id})`}

@@ -50,6 +50,19 @@ export const askedRows = (rows: PhoneRow[], prompt: (id: string) => Promise<Pend
   );
 
 /**
+ * The rows with how many replies each session has queued, so a reply queued or removed on the
+ * Mac changes the row, and a watching phone hears of it in the next update.
+ */
+export function queuedRows(rows: PhoneRow[], queued: readonly { session: string }[]): PhoneRow[] {
+  const count = new Map<string, number>();
+  for (const { session } of queued) count.set(session, (count.get(session) ?? 0) + 1);
+  return rows.map((row) => {
+    const n = count.get(row.id);
+    return n ? { ...row, queued: n } : row;
+  });
+}
+
+/**
  * What changed from `before` to `after`: rows new or different, ids no longer listed, and the
  * order now; none when nothing did.
  */
