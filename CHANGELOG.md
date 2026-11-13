@@ -2,6 +2,31 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.5.1 - 2026-11-13
+
+### Added
+
+- The phone's session chat shows what the agent did between its replies: its commands, reads, searches, edits and reasoning, as one line per turn that opens to each step. A tap shows a step's output or thinking, or opens an edit's diff, and `mesa review responses --json` lists the same steps. (#1149)
+- The phone talks to your Mac directly: on the same Wi-Fi or over Tailscale, replies and answers go straight to the Mac instead of through Mesa's relay, and the phone switches back to the relay on its own anywhere else. Settings shows which path each paired Mac is on. (#1136)
+- Mark all read on the phone: the Inbox marks every notice read from a button beside its title, and a finished session in Agents swipes left to Archive. `mesa notifications read --all` does the same from the terminal, and the Mac's Mark all read now takes one step. (#1131)
+- Formatted descriptions on the phone: a pull request's description and review threads, and a ticket's description and comments, now show their headings, lists, task boxes, links, code and tables as GitHub does, with collapsed sections that open on tap, and a pull request's changed files and line counts sit right under its title, one tap from the file list. (#1140)
+- Tab badges on the phone: the Agents tab shows how many sessions and decision gates need you across your paired Macs, and the Inbox tab how many notices are unread, both kept current while the app is open and capped at 99+. (#1127)
+- The phone's Usage chart responds to touch: tap a day or drag across the last 14 days to see that day's estimated cost, the sessions it leaves out and the models that made it up, with a labelled scale so a small day still reads beside a large one. (#1150)
+
+### Changed
+
+- The phone's Agents tab lists the most recently active session first in Needs you, Working and Done, matching the time each row shows, and keeps that order through the Unread and project filters. (#1148)
+- A session's output on the phone is a real terminal: it shows the session's own screen in its colours, sized to the phone while you watch, follows what it prints as it comes, keeps still when you scroll up with a button to jump back, and copies the lines you long press. (#1151)
+- Live session screens on the phone: an open session's new replies, and a terminal's output, now arrive as soon as your Mac has them, pushed by your Mac instead of asked for every few seconds. A Mac on an older Mesa keeps working as before. (#1132)
+- A session's chat on the phone reads cleanly: the agent's replies show formatted, with bold, code, lists, links and headings, under a solid bar whose back, output and menu buttons show in light and dark; the terminal output moved behind the bar's output button, without Claude Code's and Codex's screen chrome. (#1145)
+
+### Fixed
+
+- The phone's one-line fields, such as the pairing link, the branch of a new session and the terminal's command line, now center their text and no longer cut off the tails of letters like p and g. (#1130)
+- Phone listener after an update: when Mesa updates, the listener that answers your phone restarts on the new version, so the phone gets the update's fixes without a manual restart; Settings > Phone says which version answers it if it could not restart. (#1137)
+- Pairing the phone again right after unpairing it now keeps the new pairing instead of dropping it. (#1141)
+- Usage totals for today, the last 7 days, this month and each day now show the estimated cost of everything that can be priced, with a note such as "excludes 2 sessions", instead of Unknown when a few sessions or models have no price, on the Mac and on the phone. (#1139)
+
 ## 0.5.0 - 2026-11-13
 
 ### Added
