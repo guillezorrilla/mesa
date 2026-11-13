@@ -152,6 +152,12 @@ test('one PR carries its description, checks, threads with verdicts, drafts, own
   });
 });
 
+test('a PR from a Mac before #1134, with no file count, still reads', async () => {
+  const { deps } = fakeDeps();
+  const { files: _, ...older } = await ask(deps, { method: 'pr', ...PR });
+  expect(callResults.pr.parse(older).files).toBeUndefined();
+});
+
 test('the files and their pages come from the PR patch, a page of a changed patch refused', async () => {
   const { deps, asked } = fakeDeps();
   const { files, ...changes } = await ask(deps, { method: 'prChanges', ...PR });
