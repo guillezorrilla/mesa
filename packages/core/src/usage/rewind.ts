@@ -5,10 +5,13 @@ import { listReceipts } from '../receipts/store.js';
 import type { usageService } from './service.js';
 import { usageTotals } from './summary.js';
 
-/** A read-only seven-local-day view; receipts link to exact notes, while usage stays outside the vault. */
+/**
+ * A read-only seven-local-day view; receipts link to exact notes, while usage stays outside the
+ * vault. `synced: false` reads usage as last synced instead of syncing the ledger first (the phone).
+ */
 export function rewindService(ctx: MesaContext, usage: ReturnType<typeof usageService>) {
   return {
-    week: async () => {
+    week: async ({ synced = true }: { synced?: boolean } = {}) => {
       const now = ctx.clock();
       const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
       const within = (at: string) => {
@@ -45,7 +48,7 @@ export function rewindService(ctx: MesaContext, usage: ReturnType<typeof usageSe
           state: record.lastState.state,
         }))
         .sort((a, b) => b.endedAt.localeCompare(a.endedAt));
-      const readings = await usage.list();
+      const readings = synced ? await usage.list() : usage.recorded();
       const recent = new Set(
         records
           .filter(

@@ -55,6 +55,12 @@ function Tabs() {
         <NativeTabs.Trigger.Label>Inbox</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'tray', selected: 'tray.fill' }} />
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="vault" hidden={!pairing}>
+        <NativeTabs.Trigger.Label>Vault</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: 'books.vertical', selected: 'books.vertical.fill' }}
+        />
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="(home)">
         <NativeTabs.Trigger.Label>Mac</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="desktopcomputer" />

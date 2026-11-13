@@ -9,9 +9,6 @@ const STRICT = 'name: lantern-cove\nguardrail: strict\n';
 
 test('the phone starts a session with its goal, agent and worktree; the guardrail asks first and blocks', async () => {
   const at = await servingPhone(STRICT);
-  expect(await at.calls.call({ method: 'projects' })).toEqual({
-    projects: [{ name: 'lantern-cove', label: 'lantern-cove' }],
-  });
   const ask = {
     method: 'start',
     project: 'lantern-cove',

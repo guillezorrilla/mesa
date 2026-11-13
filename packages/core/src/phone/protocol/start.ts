@@ -1,12 +1,10 @@
-// What the phone asks to start work (#1065): the projects and a project's worktrees to pick from,
-// starting a session (`mesa open`), a project's followed tickets, one ticket and assigning it
-// (`mesa tickets`), and the native conversations to search and resume (`mesa history`, `adopt`).
+// What the phone asks to start work (#1065): a project's worktrees to pick from (the projects are
+// the vault's `projects` call), starting a session (`mesa open`), a project's followed tickets,
+// one ticket and assigning it (`mesa tickets`), and the native conversations to search and resume
+// (`mesa history`, `adopt`).
 // rpc.ts adds these calls to phoneCall and their results.
 import { z } from 'zod';
 import { AGENT_NAMES } from '../../agents/names.js';
-
-/** A registered project as the phone lists it (the same row the vault's calls use, #1068). */
-export const phoneProject = z.object({ name: z.string(), label: z.string() });
 
 /** Where a new session runs: the main checkout, a new worktree, or a linked one that exists. */
 export const PLACES = ['checkout', 'worktree', 'existing'] as const;
@@ -92,7 +90,6 @@ export type PhoneConversation = z.infer<typeof phoneConversation>;
 
 /** The start calls, which rpc.ts adds to phoneCall. */
 export const startCalls = [
-  z.object({ method: z.literal('projects') }),
   z.object({ method: z.literal('worktrees'), project: z.string() }),
   startCall,
   z.object({ method: z.literal('tickets'), project: z.string() }),
@@ -112,7 +109,6 @@ export type StartResult = z.infer<typeof startResult>;
 
 /** Each start call's result, which rpc.ts adds to callResults. */
 export const startResults = {
-  projects: z.object({ projects: z.array(phoneProject) }),
   worktrees: z.object({ worktrees: z.array(z.object({ path: z.string(), branch: z.string() })) }),
   start: startResult,
   tickets: z.object({ views: z.array(phoneView), tickets: z.array(phoneTicket) }),

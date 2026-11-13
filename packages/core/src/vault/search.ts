@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { clip } from '../lib/clip.js';
 import { MesaError } from '../lib/result.js';
 import { listVault } from './inventory.js';
-import type { VaultFilter, VaultItem, VaultKind } from './item.js';
+import { itemTitle, type VaultFilter, type VaultItem, type VaultKind } from './item.js';
 import { canvasOf, noteOf } from './reader.js';
 import { vaultFile } from './scope.js';
 
@@ -123,12 +123,11 @@ export function searchVault(
     const { text: body, lines } = searched(vault, item);
     const all = `${path}\n${body.toLocaleLowerCase()}`;
     if (!words.every((word) => all.includes(word))) continue;
-    const name = item.path.slice(item.path.lastIndexOf('/') + 1);
     const hit: VaultHit = {
       path: item.path,
       kind: item.kind,
       ...(item.project ? { project: item.project } : {}),
-      title: item.kind === 'markdown' ? name.replace(/\.md$/i, '') : name,
+      title: itemTitle(item),
       matches: matchesIn(lines, words),
     };
     found.push({ hit, named: words.every((word) => path.includes(word)), modified: item.modified });

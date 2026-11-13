@@ -16,6 +16,7 @@ import { gitService } from './git/service.js';
 import { impactService } from './impact/service.js';
 import { installsService } from './installs/service.js';
 import { instructionsService } from './instructions/service.js';
+import { localDay } from './lib/time.js';
 import { mapService } from './map/service.js';
 import { backgroundDelivery } from './notifications/background.js';
 import { inbox } from './notifications/inbox.js';
@@ -95,7 +96,6 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const tasks = tasksService(ctx, { startWorker: sessions.sessions.worker });
   // Failed automation runs and open gates are notices; the inbox reads them from their owners.
   const notices = inbox(ctx, automations.runs, gates.open);
-  const projects = projectsService(ctx);
   const worktrees = worktreesService(ctx);
   const files = filesService(ctx);
   const git = gitService(ctx, faro, worktrees.count, sessions.sessions.run, {
@@ -104,6 +104,9 @@ export function createMesa(profile: string, deps: MesaDeps) {
     open: async (project, opts) => (await sessions.sessions.open(project, opts)).result,
   });
   const { notes, responses } = sessions.sessions;
+  const projects = projectsService(ctx);
+  const impact = impactService(ctx);
+  const rewind = rewindService(ctx, usage);
   const itemStarts = itemSessions(imports.item, sessions.sessions.open, tickets.promptFor);
   const phone = phoneService(
     ctx,
@@ -138,6 +141,16 @@ export function createMesa(profile: string, deps: MesaDeps) {
       inbox: notices,
       usage: () => usage.list(),
       pushes: { settings: () => ctx.open().config.phone, set: profileApi.config.set },
+      vault: {
+        projects: () => projects.list('last-session'),
+        context: (project) => vaults.vault.context(project),
+        read: vaults.vault.read,
+        search: vaults.vault.search,
+        day: () => localDay(ctx.clock()),
+        impact: impact.report,
+        rewind: () => rewind.week({ synced: false }),
+        saveDecision: vaults.vault.saveDecision,
+      },
       start: {
         projects: () => projects.list('last-session'),
         worktrees: (project) => worktrees.list(project),
@@ -200,9 +213,9 @@ export function createMesa(profile: string, deps: MesaDeps) {
     hooks: hooksService(ctx),
     skills,
     usage,
-    rewind: rewindService(ctx, usage),
+    rewind,
     /** What Mesa decided and kept, and what happened next (CONTEXT.md, Impact). */
-    impact: impactService(ctx),
+    impact,
     statusLine: statusLineService(ctx),
     notifications,
     diagnostics: diagnosticsService(ctx),

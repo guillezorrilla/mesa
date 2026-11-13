@@ -1,6 +1,6 @@
 // The pairing protocol (`@mesa/core/phone`): what the phone app bundles from core, and nothing else
-// but the pure words, session state sets, prompt title, diff lines, push modes and agent names its
-// screens share with the desktop.
+// but the pure words, local day, session state sets, prompt title, diff lines, push modes and agent
+// names its screens share with the desktop.
 export { AGENT_LABELS, AGENT_NAMES, agentLabel } from '../../agents/names.js';
 export {
   DIFF_START,
@@ -11,6 +11,7 @@ export {
 } from '../../git/diff-lines.js';
 export { relativeAgo, shortAgo, timeAgo } from '../../lib/ago.js';
 export { money } from '../../lib/format.js';
+export { localDay } from '../../lib/time.js';
 export { promptTitle } from '../../sessions/answer/title.js';
 export { BUSY_STATES, FINAL_STATES, WAITING_STATES } from '../../sessions/record/states.js';
 export { PHONE_PUSH_LABELS, PHONE_PUSH_MODES, type PhonePushMode } from '../away.js';
@@ -104,3 +105,10 @@ export {
   type SessionAction,
 } from './steer.js';
 export type { PhoneSessionUsage, PhoneUsage } from './usage.js';
+export type {
+  PhoneHit,
+  PhoneMemory,
+  PhoneNote,
+  PhoneSaved,
+  PhoneToday,
+} from './vault.js';

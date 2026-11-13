@@ -11,6 +11,11 @@ import { summarizeUsage } from './summary.js';
 export function usageService(ctx: MesaContext) {
   const ledger = usageStore(ctx.paths.usage, ctx);
   return {
+    /** The ledger's rows as last synced, unknown none: reading them writes nothing. */
+    recorded: () => ({
+      rows: ledger.read().rows,
+      unknown: [] as { session: string; reason: string }[],
+    }),
     list: async (session?: string) => {
       const fresh: UsageRecord[] = [];
       const unknown: { session: string; reason: string }[] = [];
