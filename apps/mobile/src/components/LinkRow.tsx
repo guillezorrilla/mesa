@@ -1,5 +1,3 @@
-import type { Href } from 'expo-router';
-import { router } from 'expo-router';
 import type { LucideIcon } from 'lucide-react-native';
 import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import { Pressable, View } from 'react-native';
@@ -11,18 +9,18 @@ export function LinkRow({
   icon,
   title,
   line,
-  href,
+  onPress,
 }: {
   icon: LucideIcon;
   title: string;
   line: string;
-  href: Href;
+  onPress: () => void;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${title}: ${line}`}
-      onPress={() => router.push(href)}
+      onPress={onPress}
       className="min-h-14 flex-row items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 active:bg-accent"
     >
       <Icon as={icon} className="size-5 text-muted-foreground" />

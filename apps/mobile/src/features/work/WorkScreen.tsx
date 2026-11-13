@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { View } from 'react-native';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { TabHeader } from '@/components/TabHeader';
 import { PrsScreen } from '../prs/PrsScreen';
@@ -18,12 +17,10 @@ const SEGMENTS = [
 export function WorkScreen() {
   const [segment, setSegment] = useState<Segment>('prs');
   const header = (
-    <>
-      <TabHeader title="Work" />
-      <View className="px-4 pt-1 pb-2">
-        <SegmentedControl options={SEGMENTS} value={segment} onChange={setSegment} />
-      </View>
-    </>
+    <TabHeader
+      title="Work"
+      below={<SegmentedControl options={SEGMENTS} value={segment} onChange={setSegment} />}
+    />
   );
   return segment === 'prs' ? <PrsScreen header={header} /> : <TicketsScreen header={header} />;
 }

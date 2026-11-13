@@ -32,7 +32,12 @@ export function MacsScreen() {
       <Section title="Appearance">
         <Text variant="muted">Light or dark follows your iPhone's setting.</Text>
       </Section>
-      <LinkRow icon={Info} title="About" line="Version, build and update" href="/about" />
+      <LinkRow
+        icon={Info}
+        title="About"
+        line="Version, build and update"
+        onPress={() => router.push('/about')}
+      />
     </Screen>
   );
 }

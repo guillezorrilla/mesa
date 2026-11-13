@@ -9,14 +9,8 @@ import { useAgents } from './useAgents';
 export function AgentsScreen() {
   const agents = useAgents();
   const [filter, setFilter] = useState<RowFilter>({ query: '', unreadOnly: false });
-  const [searching, setSearching] = useState(false);
   const header = (
-    <AgentsHeader
-      searching={searching}
-      onSearching={setSearching}
-      query={filter.query}
-      onQuery={(query) => setFilter((f) => ({ ...f, query }))}
-    />
+    <AgentsHeader query={filter.query} onQuery={(query) => setFilter((f) => ({ ...f, query }))} />
   );
   return (
     <Suspense fallback={<BusyScreen label="Asking your Mac..." header={header} />}>
