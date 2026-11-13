@@ -34,8 +34,8 @@ export function useGates() {
         () => undefined,
       );
   };
-  const first = useEffectEvent(refresh);
-  useEffect(() => first(), []);
+  const askNow = useEffectEvent(refresh);
+  useEffect(() => askNow(), []);
   useRepeatWhileActive(EVERY_MS, refresh);
   // A Mac unpaired since takes its gates with it.
   return { gates: gates.filter((gate) => macs.some((mac) => mac.id === gate.mac)), refresh };

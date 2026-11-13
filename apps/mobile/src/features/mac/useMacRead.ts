@@ -27,9 +27,9 @@ export function useMacRead<M extends PhoneCall['method']>(
         )
       : {};
   const [answer, setAnswer] = useState(() => read());
-  const [readFrom, setReadFrom] = useState(link);
-  if (readFrom !== link) {
-    setReadFrom(link);
+  const [readMac, setReadMac] = useState(link);
+  if (readMac !== link) {
+    setReadMac(link);
     setAnswer(read());
   }
   const [refreshing, startPull] = useTransition();

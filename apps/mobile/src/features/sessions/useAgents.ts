@@ -1,11 +1,9 @@
-import { use } from 'react';
 import { useOnFocus } from '@/lib/useOnFocus';
-import { AgentsContext } from './agentsContext';
+import { useAgentsContext } from './agentsContext';
 
 /** The Agents tab's data (AgentsProvider), its open gates asked again on focus (back from one resolved). */
 export function useAgents() {
-  const agents = use(AgentsContext);
-  if (!agents) throw new Error('useAgents outside AgentsProvider');
+  const agents = useAgentsContext();
   useOnFocus(agents.refreshGates);
   return agents;
 }
