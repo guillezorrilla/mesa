@@ -4,7 +4,6 @@ import { ChoiceChips } from '@/components/ChoiceChips';
 import { FormField } from '@/components/FormField';
 import { KeyboardScreen } from '@/components/KeyboardScreen';
 import { Screen } from '@/components/Screen';
-import { useProjects } from '../projects/useProjects';
 import { AfterField } from './AfterField';
 import { FromCard } from './FromCard';
 import { GoalField } from './GoalField';
@@ -12,7 +11,6 @@ import { PlaceField } from './PlaceField';
 import { ProjectField } from './ProjectField';
 import { StartBar } from './StartBar';
 import { AGENT_CHOICES } from './startForm';
-import { useOpenSessions } from './useOpenSessions';
 import { useStart } from './useStart';
 
 /**
@@ -21,8 +19,6 @@ import { useStart } from './useStart';
  */
 export function StartScreen(props: { project?: string; from?: string; title?: string }) {
   const start = useStart(props);
-  const projects = useProjects();
-  const sessions = useOpenSessions();
   const { form, change } = start;
   return (
     <KeyboardScreen
@@ -41,9 +37,12 @@ export function StartScreen(props: { project?: string; from?: string; title?: st
         {props.title ? <FromCard title={props.title} /> : null}
         <Suspense fallback={<BusyLine label="Asking for your projects..." />}>
           <ProjectField
-            projects={projects}
+            projects={start.projects}
             value={form.project}
-            onChange={(project) => change({ project, checkout: undefined, after: 'none' })}
+            locked={Boolean(props.from)}
+            onChange={(project) =>
+              change({ project, checkout: undefined, after: 'none', afterTitle: undefined })
+            }
           />
         </Suspense>
         <GoalField goal={start.goal} onChange={start.setGoal} optional={Boolean(props.from)} />
@@ -58,13 +57,10 @@ export function StartScreen(props: { project?: string; from?: string; title?: st
         <PlaceField form={form} onChange={change} />
         <Suspense fallback={null}>
           <AfterField
-            sessions={sessions}
+            sessions={start.sessions}
             project={form.project}
             value={form.after}
-            onChange={(after, title) => {
-              change({ after });
-              start.setAfterTitle(title);
-            }}
+            onChange={(after, afterTitle) => change({ after, afterTitle })}
           />
         </Suspense>
       </Screen>

@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { BusyScreen } from '@/components/BusyScreen';
+import { useMacRead } from '../mac/useMacRead';
 import { TicketBody } from './TicketBody';
-import { useTicket } from './useTicket';
 
 /** One ticket of `project`, read live from its tracker. */
 export function TicketScreen({
@@ -13,10 +13,10 @@ export function TicketScreen({
   project: string;
   site?: string;
 }) {
-  const read = useTicket(id, site);
+  const { answer } = useMacRead({ method: 'ticket', id, ...(site ? { site } : {}) });
   return (
     <Suspense fallback={<BusyScreen label="Reading the ticket..." />}>
-      <TicketBody read={read} project={project} site={site} />
+      <TicketBody read={answer} project={project} site={site} />
     </Suspense>
   );
 }

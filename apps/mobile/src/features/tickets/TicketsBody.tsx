@@ -1,19 +1,26 @@
+import type { CallResult } from '@mesa/core/phone';
 import { use, useState } from 'react';
 import { View } from 'react-native';
 import { ChoiceChips } from '@/components/ChoiceChips';
+import { ErrorNote } from '@/components/ErrorNote';
 import { Screen } from '@/components/Screen';
 import { Text } from '@/components/ui/text';
-import type { Projects } from '../projects/useProjects';
+import type { MacRead } from '../mac/tryCall';
 import { ProjectTickets } from './ProjectTickets';
 
 /** The projects as chips over the chosen one's tickets, the most recently worked on first. */
-export function TicketsBody({ projects }: { projects: Promise<Projects> }) {
-  const listed = use(projects);
+export function TicketsBody({ projects }: { projects: Promise<MacRead<CallResult<'projects'>>> }) {
+  const { result, error } = use(projects);
+  const listed = result?.projects ?? [];
   const [project, setProject] = useState(listed[0]?.name);
   if (!project)
     return (
       <Screen>
-        <Text variant="muted">Your Mac lists no projects, or did not answer.</Text>
+        {error ? (
+          <ErrorNote text={error} />
+        ) : (
+          <Text variant="muted">Your Mac lists no projects.</Text>
+        )}
       </Screen>
     );
   const chips = (

@@ -33,7 +33,7 @@ export default function RootLayout() {
 }
 
 /**
- * Agents and Tickets, once paired, and the Mac: the pairing and About; hidden on a session's
+ * Agents and Work (followed tickets), once paired, and the Mac: the pairing and About; hidden on a session's
  * screen and the new session form, under their bars. A tapped push opens its session.
  */
 function Tabs() {
@@ -46,9 +46,9 @@ function Tabs() {
         <NativeTabs.Trigger.Label>Agents</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'square.stack', selected: 'square.stack.fill' }} />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="tickets" hidden={!pairing}>
-        <NativeTabs.Trigger.Label>Tickets</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'ticket', selected: 'ticket.fill' }} />
+      <NativeTabs.Trigger name="work" hidden={!pairing}>
+        <NativeTabs.Trigger.Label>Work</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'briefcase', selected: 'briefcase.fill' }} />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="(home)">
         <NativeTabs.Trigger.Label>Mac</NativeTabs.Trigger.Label>

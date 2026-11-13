@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { canStart, launchLine, NEW_FORM, startCall, startNoteText } from './startForm';
+import { canStart, launchLine, NEW_FORM, sameStart, startCall, startNoteText } from './startForm';
 
 const form = { ...NEW_FORM, project: 'lantern-cove' };
 
@@ -9,10 +9,14 @@ test('the launch line names the agent, the project, the place and what it waits 
     'Codex on lantern-cove, in a new worktree',
   );
   expect(
-    launchLine(
-      { ...form, agent: 'claude', place: 'worktree', branch: ' tide-fix ', after: 'a1b2' },
-      'Login fix',
-    ),
+    launchLine({
+      ...form,
+      agent: 'claude',
+      place: 'worktree',
+      branch: ' tide-fix ',
+      after: 'a1b2',
+      afterTitle: 'Login fix',
+    }),
   ).toBe('Claude Code on lantern-cove, in a worktree on tide-fix, after Login fix');
   expect(launchLine({ ...form, place: 'existing', checkout: '/w/lantern-cove-tide' })).toBe(
     "The project's agent on lantern-cove, in worktree lantern-cove-tide",
@@ -62,4 +66,13 @@ test("the guardrail's ask and block are said with their reason, and nothing once
     'The guardrail blocked it: a destructive command. Nothing was started.',
   );
   expect(startNoteText({ status: 'started', session: 'a1b2' })).toBeUndefined();
+});
+
+test('a guardrail note holds only while the start it was given on is unchanged', () => {
+  const asked = startCall(form, 'Chart the tides');
+  expect(sameStart(asked, startCall(form, 'Chart the tides', undefined, true))).toBe(true);
+  expect(sameStart(asked, startCall(form, 'Chart the tides and push'))).toBe(false);
+  expect(sameStart(asked, startCall({ ...form, place: 'worktree' }, 'Chart the tides'))).toBe(
+    false,
+  );
 });

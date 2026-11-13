@@ -5,9 +5,9 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAssign } from './useAssign';
 
-/** Assign to me, until it is done; a refusal says why. */
-export function AssignButton({ id, site }: { id: string; site?: string }) {
-  const { assigned, assign, assigning } = useAssign(id, site);
+/** Assign to me, confirmed first, until it is done; a refusal says why. */
+export function AssignButton({ id, name, site }: { id: string; name: string; site?: string }) {
+  const { assigned, assign, assigning } = useAssign(id, name, site);
   if (assigned.assignee)
     return (
       <Text accessibilityRole="alert" className="text-state-done">

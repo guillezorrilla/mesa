@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { conversationAction, conversationDetail, historyNote } from './historyText';
+import { conversationAction, conversationDetail, historyNote, searchQuery } from './historyText';
 
 const NOW = Date.parse('2026-11-12T12:00:00.000Z');
 const c = {
@@ -26,4 +26,9 @@ test('the list says why it is empty, and when it shows only the newest', () => {
   expect(historyNote('tide', 0, false)).toBe('No conversation says "tide".');
   expect(historyNote('', 30, true)).toBe('The newest 30 shown.');
   expect(historyNote('', 3, false)).toBeUndefined();
+});
+
+test('a search needs two characters, as the Mac searches', () => {
+  expect(searchQuery(' t ')).toBe('');
+  expect(searchQuery(' tide ')).toBe('tide');
 });

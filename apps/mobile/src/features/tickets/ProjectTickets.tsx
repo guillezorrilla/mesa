@@ -2,12 +2,12 @@ import { type ReactNode, Suspense } from 'react';
 import { View } from 'react-native';
 import { BusyLine } from '@/components/BusyLine';
 import { Screen } from '@/components/Screen';
+import { useMacRead } from '../mac/useMacRead';
 import { TicketList } from './TicketList';
-import { useTickets } from './useTickets';
 
 /** `project`'s followed tickets under `header`, pulled to read again; key it by project. */
 export function ProjectTickets({ project, header }: { project: string; header: ReactNode }) {
-  const { tickets, refresh, refreshing } = useTickets(project);
+  const { answer, again, refreshing } = useMacRead({ method: 'tickets', project });
   return (
     <Suspense
       fallback={
@@ -21,10 +21,10 @@ export function ProjectTickets({ project, header }: { project: string; header: R
     >
       <TicketList
         project={project}
-        tickets={tickets}
+        tickets={answer}
         header={header}
         refreshing={refreshing}
-        onRefresh={refresh}
+        onRefresh={again}
       />
     </Suspense>
   );

@@ -1,7 +1,7 @@
 // The pairing protocol (`@mesa/core/phone`): what the phone app bundles from core, and nothing else
 // but the pure time words, session state sets, prompt title, diff lines and agent names its screens
 // share with the desktop.
-export { AGENT_LABELS } from '../../agents/names.js';
+export { AGENT_LABELS, AGENT_NAMES, agentLabel } from '../../agents/names.js';
 export {
   DIFF_START,
   type DiffAt,

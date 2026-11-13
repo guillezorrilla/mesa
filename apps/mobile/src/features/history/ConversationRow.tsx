@@ -20,7 +20,7 @@ export function ConversationRow({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${conversation.title}, ${detail}`}
-      accessibilityHint={action === 'Other profile' ? 'Held by another profile' : action}
+      accessibilityHint={conversation.elsewhere ? 'Held by another profile' : action}
       disabled={conversation.elsewhere}
       onPress={onPress}
       className="min-h-16 flex-row items-center gap-3 bg-background px-4 py-3 active:bg-accent"

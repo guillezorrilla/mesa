@@ -200,7 +200,12 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
           const override =
             opts.guardrail &&
             (await faro.guardrail.gate(
-              { action: 'open', target: '', text: goal ?? '', ...(project ? { project } : {}) },
+              {
+                action: 'open',
+                target: project ?? '',
+                text: goal ?? '',
+                ...(project ? { project } : {}),
+              },
               opts.guardrail,
               decisions,
             ));

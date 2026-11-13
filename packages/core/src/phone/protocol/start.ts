@@ -3,6 +3,7 @@
 // (`mesa tickets`), and the native conversations to search and resume (`mesa history`, `adopt`).
 // rpc.ts adds these calls to phoneCall and their results.
 import { z } from 'zod';
+import { AGENT_NAMES } from '../../agents/names.js';
 
 /** A registered project as the phone lists it (the same row the vault's calls use, #1068). */
 export const phoneProject = z.object({ name: z.string(), label: z.string() });
@@ -19,8 +20,8 @@ export const startCall = z.object({
   method: z.literal('start'),
   project: z.string(),
   goal: z.string().max(GOAL_MAX),
-  /** An agent's name; none takes the project's. */
-  agent: z.string().optional(),
+  /** None takes the project's. */
+  agent: z.enum(AGENT_NAMES).optional(),
   place: z.enum(PLACES),
   /** With `worktree`, its branch, new or existing; none lets Mesa name one. */
   branch: z.string().optional(),
@@ -102,12 +103,11 @@ export const startCalls = [
   z.object({ method: z.literal('adopt'), project: z.string(), id: z.string() }),
 ] as const;
 
-/** A started session, or the guardrail's ask or block with its reason, which started nothing. */
-export const startResult = z.object({
-  status: z.enum(['started', 'ask', 'blocked']),
-  session: z.string().optional(),
-  reason: z.string().optional(),
-});
+/** A started session, or the guardrail's ask or block with its reason, which opened nothing. */
+export const startResult = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('started'), session: z.string() }),
+  z.object({ status: z.enum(['ask', 'blocked']), reason: z.string().optional() }),
+]);
 export type StartResult = z.infer<typeof startResult>;
 
 /** Each start call's result, which rpc.ts adds to callResults. */

@@ -1,7 +1,8 @@
-import type { PhoneRow } from '@mesa/core/phone';
+import { type CallResult, FINAL_STATES } from '@mesa/core/phone';
 import { use } from 'react';
 import { ChoiceChips } from '@/components/ChoiceChips';
 import { FormField } from '@/components/FormField';
+import type { MacRead } from '../mac/tryCall';
 
 /** At once, or queued until one of the project's open sessions is over (`--after`). */
 export function AfterField({
@@ -10,12 +11,15 @@ export function AfterField({
   value,
   onChange,
 }: {
-  sessions: Promise<PhoneRow[]>;
+  sessions: Promise<MacRead<CallResult<'sessions'>>>;
   project?: string;
   value: string;
   onChange: (after: string, title?: string) => void;
 }) {
-  const open = use(sessions).filter((row) => row.project === project);
+  const rows = use(sessions).result?.rows ?? [];
+  const open = rows.filter(
+    (row) => row.project === project && !(FINAL_STATES as ReadonlySet<string>).has(row.state),
+  );
   if (!open.length) return null;
   const choices = [['none', 'Now'] as const, ...open.map((row) => [row.id, row.title] as const)];
   return (

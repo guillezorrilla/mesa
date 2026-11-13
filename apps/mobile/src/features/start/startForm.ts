@@ -1,17 +1,26 @@
-import { AGENT_LABELS, type Place, type StartCall, type StartResult } from '@mesa/core/phone';
+import {
+  AGENT_LABELS,
+  AGENT_NAMES,
+  agentLabel,
+  type Place,
+  type StartCall,
+  type StartResult,
+} from '@mesa/core/phone';
 
 // The start form's pure rules: what a choice means, what the launch line says, and the call it
 // becomes. `agent` and `after` use 'default' and 'none' for no choice, so the chips can name them.
 
 export type StartForm = {
   project?: string;
-  agent: string;
+  agent: 'default' | (typeof AGENT_NAMES)[number];
   place: Place;
   /** With a new worktree: its branch; blank lets Mesa name one. */
   branch: string;
   /** With an existing worktree: its path. */
   checkout?: string;
+  /** The session it waits for, by id, and its title for the launch line. */
   after: string;
+  afterTitle?: string;
 };
 
 export const NEW_FORM: StartForm = {
@@ -22,9 +31,9 @@ export const NEW_FORM: StartForm = {
 };
 
 export const AGENT_CHOICES = [
-  ['default', "Project's"],
-  ...Object.entries(AGENT_LABELS),
-] as const satisfies readonly (readonly [string, string])[];
+  ['default', "Project's"] as const,
+  ...AGENT_NAMES.map((agent) => [agent, AGENT_LABELS[agent]] as const),
+];
 
 export const PLACE_CHOICES = [
   ['checkout', 'Checkout'],
@@ -32,10 +41,8 @@ export const PLACE_CHOICES = [
   ['existing', 'Existing worktree'],
 ] as const satisfies readonly (readonly [Place, string])[];
 
-const agentName = (agent: string) =>
-  agent === 'default'
-    ? "the project's agent"
-    : (AGENT_LABELS[agent as keyof typeof AGENT_LABELS] ?? agent);
+const agentName = (agent: StartForm['agent']) =>
+  agent === 'default' ? "the project's agent" : agentLabel(agent);
 
 /** The last part of a path, as a worktree is named. */
 const folder = (path: string) => path.slice(path.lastIndexOf('/') + 1);
@@ -50,11 +57,11 @@ function placeWords(form: StartForm) {
 
 /**
  * The start in one line, as the bar and the confirmation say it: Claude Code on lantern-cove,
- * in a new worktree, after Login fix. `afterTitle` names the session it waits for.
+ * in a new worktree, after Login fix.
  */
-export function launchLine(form: StartForm, afterTitle?: string) {
+export function launchLine(form: StartForm) {
   const on = form.project ? ` on ${form.project}` : '';
-  const after = form.after !== 'none' ? `, after ${afterTitle ?? form.after}` : '';
+  const after = form.after !== 'none' ? `, after ${form.afterTitle ?? form.after}` : '';
   const line = `${agentName(form.agent)}${on}, in ${placeWords(form)}${after}`;
   return line.charAt(0).toUpperCase() + line.slice(1);
 }
@@ -81,10 +88,14 @@ export function startCall(form: StartForm, goal: string, from?: string, yes = fa
   };
 }
 
+/** Whether two starts ask the same, `yes` aside: a guardrail note holds only for its own start. */
+export const sameStart = (a: StartCall, b: StartCall) =>
+  JSON.stringify({ ...a, yes: false }) === JSON.stringify({ ...b, yes: false });
+
 /** Why the guardrail stopped a start; none once started. */
-export function startNoteText({ status, reason }: StartResult): string | undefined {
-  const why = reason ?? 'no reason given';
-  if (status === 'ask') return `The guardrail asks first: ${why}.`;
-  if (status === 'blocked') return `The guardrail blocked it: ${why}. Nothing was started.`;
-  return undefined;
+export function startNoteText(result: StartResult): string | undefined {
+  if (result.status === 'started') return undefined;
+  const why = result.reason ?? 'no reason given';
+  if (result.status === 'ask') return `The guardrail asks first: ${why}.`;
+  return `The guardrail blocked it: ${why}. Nothing was started.`;
 }
