@@ -2,6 +2,19 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.4.1 - 2026-11-13
+
+### Added
+
+- Review a session's work on your phone: Mesa's iPhone app opens a session's changes file by file with lines added and removed, pages through a large diff as you scroll, and sends a note on the lines you tap, or on a passage of a reply, to its agent through the guardrail. It also stages, commits (with a message you type or one an agent writes), pulls, pushes and switches branch, and browses, searches and previews the session's files. (#1092)
+- A coordinator's crew on your phone: its session screen lists its workers with their state, branch and newest report, and its task graph with ready tasks first, and merges a worker's branch back, listing any conflicting files. Decision gates wait in Needs you and resolve from the phone, with the Decision model's advice and each option's probability beside the options. (#1091)
+- Answer prompts from your phone: in Mesa's iPhone app, Needs you shows what each waiting session asks in one line, and its session screen shows the prompt as a card with the same options you have at the Mac, so you can allow a command or answer a question away from the desk; a prompt already answered at the Mac is refused as moved on. (#1090)
+- Reply to a session from your phone: Mesa's iPhone app, coming next, gets a reply bar on each session with your saved prompts, a photo or screenshot, drafts that wait for you, and a menu to stop, resume, fork, hand off, rename or archive it. A reply to a working session waits on your Mac until its turn ends, and the guardrail checks every reply as it does `mesa send`. (#1093)
+
+### Fixed
+
+- A session's card lists only children you can open: Vault capture runs and children that have ended no longer appear as rows, selecting the card no longer tints its children's rows, and a child's row turns green while its reply is unread, as a card does. (#1097)
+
 ## 0.4.0 - 2026-11-12
 
 ### Added
