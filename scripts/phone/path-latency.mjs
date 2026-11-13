@@ -15,7 +15,7 @@ import {
   webSocketConnect,
 } from '../../packages/core/dist/phone/protocol/index.js';
 
-const [mode, arg, file, trialsArg] = process.argv.slice(2);
+const [mode, arg, file] = process.argv.slice(2);
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 if (mode === 'join') {

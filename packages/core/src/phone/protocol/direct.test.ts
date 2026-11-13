@@ -55,11 +55,13 @@ function macMailbox() {
 const peerSocket = () => {
   const sent: string[] = [];
   let closed = false;
-  return {
-    socket: { send: (data: string) => sent.push(data), close: () => void (closed = true) },
-    sent,
-    closed: () => closed,
+  const socket = {
+    send: (data: string) => sent.push(data),
+    close: () => {
+      closed = true;
+    },
   };
+  return { socket, sent, closed: () => closed };
 };
 
 test('a box both paths deliver is taken once, and one the relay delivers late is still taken', () => {
