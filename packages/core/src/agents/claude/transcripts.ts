@@ -2,6 +2,7 @@ import { type Dirent, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileHead } from '../../lib/file-head.js';
 import { lastMatchingLine, tailLines } from '../../lib/file-tail.js';
+import { readTurns } from '../steps.js';
 import {
   type Block,
   MESSAGE_TAIL,
@@ -13,6 +14,7 @@ import {
   type Where,
 } from '../transcripts.js';
 import { claudeTranscripts } from './paths.js';
+import { claudeStepEvents } from './steps.js';
 
 // Claude Code's transcripts, `<transcripts>/<folder>/<agent session id>.jsonl`: what Mesa reads
 // from them.
@@ -304,7 +306,7 @@ export const claudeTranscriptReader: Transcripts<'claude'> = {
   prompts: (file, count) => promptsIn(file, userText, count),
   messages: (file) => {
     const { lines, truncated } = tailLines(file, MESSAGE_TAIL);
-    return { messages: lines.flatMap((line) => messageIn(line) ?? []), truncated };
+    return { ...readTurns(lines, messageIn, claudeStepEvents), truncated };
   },
   branch: claudeBranch,
   folder: claudeFolder,

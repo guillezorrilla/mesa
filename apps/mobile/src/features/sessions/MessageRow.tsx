@@ -1,5 +1,6 @@
 import { View } from 'react-native';
 import { cn } from '@/lib/utils';
+import { StepRun } from '../steps/StepRun';
 import { AgentReply } from './AgentReply';
 import type { ChatItem } from './chatItems';
 import { GroupLabel } from './GroupLabel';
@@ -11,7 +12,9 @@ export function MessageRow({ id, item, now }: { id: string; item: ChatItem; now:
   return (
     <View className={cn('gap-1.5 px-4', item.first ? 'pt-5' : 'pt-1.5')}>
       {item.first ? <GroupLabel item={item} now={now} /> : null}
-      {you ? (
+      {item.steps ? (
+        <StepRun id={id} steps={item.steps} />
+      ) : you ? (
         <YouBubble text={item.segments.map((s) => s.text).join('\n')} sending={item.sending} />
       ) : (
         <AgentReply id={id} reply={item.reply ?? ''} segments={item.segments} />

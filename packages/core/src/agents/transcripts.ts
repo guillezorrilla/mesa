@@ -2,6 +2,7 @@ import { clip } from '../lib/clip.js';
 import { fileHead } from '../lib/file-head.js';
 import type { Env } from '../lib/process.js';
 import type { Agent } from './names.js';
+import type { PlacedStep } from './steps.js';
 
 // What an agent's entry (AGENTS, agents.ts) reads from its native conversations on disk, and the
 // pieces of that reading every agent's transcripts share. Each agent's own parsing is under
@@ -41,8 +42,15 @@ export type Transcripts<A extends Agent> = {
   name: (where: Where, id: string, file?: string) => string | undefined;
   /** The person's first `count` prompts in transcript `file`, whole (promptsIn). */
   prompts: (file: string, count: number) => string[];
-  /** The messages in the end of `file` (MESSAGE_TAIL), oldest first, and whether it was cut. */
-  messages: (file: string) => { messages: TranscriptMessage[]; truncated: boolean };
+  /**
+   * The messages in the end of `file` (MESSAGE_TAIL), oldest first, the steps between them
+   * (agents/steps.ts), and whether it was cut.
+   */
+  messages: (file: string) => {
+    messages: TranscriptMessage[];
+    steps: PlacedStep[];
+    truncated: boolean;
+  };
   /**
    * The git branch its agent last worked on in transcript `file`, empty when it worked outside git;
    * none for an agent that does not say, or a transcript that does not yet.
