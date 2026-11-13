@@ -28,7 +28,8 @@ test('the phone starts a session with its goal, agent and worktree; the guardrai
 
   const started = await at.calls.call({ ...ask, yes: true });
   expect(started).toEqual({ status: 'started', session: expect.any(String) });
-  const record = testStore(at.home).get(started.session ?? '');
+  if (started.status !== 'started') throw new Error('not started');
+  const record = testStore(at.home).get(started.session);
   expect(record).toMatchObject({ project: 'lantern-cove', agent: 'claude', after: at.session.id });
   const [receipt] = listReceipts(join(at.home, 'vault'), 5, { kind: 'guardrail' });
   expect(receipt?.receipt).toMatchObject({ status: 'ok', outputs: { override: 'yes' } });
