@@ -108,6 +108,8 @@ export const phoneCall = z.discriminatedUnion('method', [
     id: z.string(),
     /** How many of the agent's replies each pushed detail holds, as the `session` call's. */
     replies: z.number().int().min(1).max(SESSION_REPLIES.most).optional(),
+    /** What its window prints is pushed raw as it comes (`stream`), for the phone's terminal. */
+    stream: z.boolean().optional(),
   }),
   z.object({ method: z.literal('unwatch'), id: z.string() }),
   z.object({ method: z.literal('mark'), id: z.string(), unread: z.boolean() }),
@@ -177,6 +179,14 @@ export const watchedSession = z.object({
   detail: phoneDetail.optional(),
   /** A plain terminal's live output, as the `output` call's lines. */
   output: z.array(z.string()).optional(),
+  /**
+   * What its window printed from byte `from` to `to` of its output log, raw, for a watch that
+   * asked for the stream; a `from` the phone has not reached says it missed some, and reads the
+   * screen again.
+   */
+  stream: z
+    .object({ from: z.number().int().min(0), to: z.number().int().min(0), data: z.string() })
+    .optional(),
 });
 export type WatchedSession = z.infer<typeof watchedSession>;
 

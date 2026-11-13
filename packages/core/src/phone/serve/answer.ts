@@ -30,6 +30,10 @@ export type AnswerDeps = {
   board: () => Promise<SessionRow[]>;
   responses: (id: string) => SessionResponses;
   logs: (id: string, tail: number) => { lines: string[] };
+  /** A session's window sized to the phone, as its terminal draws it. */
+  screen: (id: string, cols: number, rows: number) => Promise<{ text: string; at: number }>;
+  /** What a session's window printed since byte `from` of its output log. */
+  since: (id: string, from?: number) => { from: number; to: number; data: string };
   /** `mesa keys`: keys pressed in a plain terminal session. */
   keys: (id: string, keys: readonly string[]) => Promise<unknown>;
   read: (ids: readonly string[]) => unknown;
@@ -93,6 +97,8 @@ export async function answerCall(
   if (isTerminalCall(call)) {
     if (call.method === 'output')
       return { lines: deps.logs(call.id, OUTPUT).lines } satisfies CallResult<'output'>;
+    if (call.method === 'screen')
+      return (await deps.screen(call.id, call.cols, call.rows)) satisfies CallResult<'screen'>;
     await deps.keys(call.id, call.keys);
     return {} satisfies CallResult<'keys'>;
   }

@@ -107,3 +107,40 @@ export function sessionLog(lock: LockDeps, dir: string, id: string, lines?: numb
   const text = outputTail(lock, dir, id, lines);
   return { session: id, path: text ? outputLog(dir, id) : null, lines: text ?? [] };
 }
+
+/** The most one look at the stream carries; past it, the phone reads the screen again. */
+const STREAM_BYTES = 256 * 1024;
+
+/** Where `bytes` ends after its last whole UTF-8 character. */
+function wholeCharacters(bytes: Buffer) {
+  for (let at = bytes.length - 1; at >= Math.max(0, bytes.length - 4); at--) {
+    const byte = bytes[at] ?? 0;
+    if ((byte & 0xc0) === 0x80) continue;
+    const length = byte >= 0xf0 ? 4 : byte >= 0xe0 ? 3 : byte >= 0xc0 ? 2 : 1;
+    return bytes.length - at < length ? at : bytes.length;
+  }
+  return bytes.length;
+}
+
+/**
+ * What session `id`'s window printed since byte `from` of its output log, raw, for the phone's
+ * terminal to draw as it comes (orca's live data), up to `to`: the log's end, or the last whole
+ * character before it. With no `from`, when the log was cut below it, or when more than
+ * STREAM_BYTES came, it skips to the end with no data, which tells the phone to read the screen
+ * again. ponytail: a cut that lands past `from` before a look is read as new output.
+ */
+export function outputSince(dir: string, id: string, from?: number) {
+  const file = outputLog(dir, id);
+  const size = existsSync(file) ? statSync(file).size : 0;
+  if (from === undefined || size <= from || size - from > STREAM_BYTES)
+    return { from: size, to: size, data: '' };
+  const bytes = Buffer.alloc(size - from);
+  const fd = openSync(file, 'r');
+  try {
+    readSync(fd, bytes, 0, bytes.length, from);
+  } finally {
+    closeSync(fd);
+  }
+  const whole = bytes.subarray(0, wholeCharacters(bytes));
+  return { from, to: from + whole.length, data: whole.toString('utf8') };
+}

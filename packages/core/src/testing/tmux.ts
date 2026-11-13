@@ -20,6 +20,8 @@ export type FakeWindow = {
   typed: string[];
   /** What capture-pane shows when a test sets it (an agent's dialog), else what was typed. */
   screen?: string;
+  /** Where its cursor is on its screen, as display-message's cursor_x and cursor_y read it. */
+  cursor?: { x: number; y: number };
   /** Every key and text sent to it, in order (`Escape`, `/exit`, `Enter`); `typed` is the text alone, its screen. */
   keys: string[];
   /** The variables it was opened with (`-e`), such as MESA_SESSION_ID. */
@@ -166,9 +168,9 @@ export function fakeTmux(
         return find(target) ? ok('%1') : failed("can't find window");
       case 'display-message': {
         const w = find(target);
-        return w
-          ? ok(`${w.dead ? 1 : 0}\t${w.dead ? '' : w.running}`)
-          : failed("can't find window");
+        if (!w) return failed("can't find window");
+        if (rest.at(-1)?.includes('cursor_x')) return ok(`${w.cursor?.x ?? 0} ${w.cursor?.y ?? 0}\n`);
+        return ok(`${w.dead ? 1 : 0}\t${w.dead ? '' : w.running}`);
       }
       case 'send-keys': {
         const w = find(target);

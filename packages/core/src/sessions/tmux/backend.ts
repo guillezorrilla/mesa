@@ -343,6 +343,17 @@ export function tmuxBackend({
       await onWindow(target, 'send-keys', key);
     },
     /** The last `lines` lines of the pane, trailing blank lines dropped. */
+    /**
+     * The window's pane as a terminal draws it, for the phone's terminal (orca's serialized
+     * scrollback): its history and screen with their colours, a line each, then the cursor moved
+     * to where the pane's is on its screen.
+     */
+    captureScreen: async (target: WindowTarget) => {
+      const cursor = await onWindow(target, 'display-message', '-p', '#{cursor_x} #{cursor_y}');
+      const text = await onWindow(target, 'capture-pane', '-p', '-e', '-S', '-');
+      const [x = 0, y = 0] = cursor.trim().split(' ').map(Number);
+      return `${text.replace(/\n$/, '').split('\n').join('\r\n')}\x1b[${y + 1};${x + 1}H`;
+    },
     capturePane: async (target: WindowTarget, lines: number) => {
       const out = await onWindow(target, 'capture-pane', '-p', '-S', `-${lines}`);
       return out.replace(/\n+$/, '').split('\n').slice(-lines).join('\n');

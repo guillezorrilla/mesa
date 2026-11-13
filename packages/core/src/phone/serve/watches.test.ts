@@ -25,7 +25,7 @@ const detail = (title: string, terminal = false): PhoneDetail => ({
 /** Watches over a session whose detail and output the test sets, on a clock it moves. */
 const watching = (terminal = false) => {
   let now = 0;
-  const session = { title: 'Docs', output: ['$ ls'] };
+  const session = { title: 'Docs', output: ['$ ls'], log: '' };
   const sent: WatchedSession[] = [];
   const watches = sessionWatches({
     now: () => now,
@@ -37,6 +37,11 @@ const watching = (terminal = false) => {
       detail: detail(session.title, terminal),
       ...(terminal ? { output: session.output } : {}),
     }),
+    // The output log as bytes past the start; past its end, or no start, skips to the end.
+    since: (_id, from) =>
+      from === undefined || from > session.log.length
+        ? { from: session.log.length, to: session.log.length, data: '' }
+        : { from, to: session.log.length, data: session.log.slice(from) },
     send: (watched) => sent.push(watched),
   });
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -130,4 +135,25 @@ test('the listener pushes a watched session to the phone when it changes, and st
   await new Promise((resolve) => setTimeout(resolve, 500));
   expect(watched('Login fix, round 3')).toBe(false);
   await end();
+});
+
+test("a watch that takes the stream gets what the window printed, from where the phone's screen ends", async () => {
+  const agent = watching();
+  agent.watches.answer({ method: 'watch', id: 'ab12cd34', stream: true });
+  // The phone read the screen up to byte 3, then the window printed more, in a burst.
+  agent.session.log = '$ lsREADME.md';
+  agent.watches.seek('ab12cd34', 4);
+  agent.watches.logged('ab12cd34');
+  agent.watches.logged('ab12cd34');
+  await agent.settle();
+  expect(agent.sent).toEqual([{ id: 'ab12cd34', stream: { from: 4, to: 13, data: 'README.md' } }]);
+  // Nothing new sends nothing; a cut log skips to its end, so the phone reads the screen again.
+  agent.watches.logged('ab12cd34');
+  await agent.settle();
+  agent.session.log = 'cut';
+  agent.watches.logged('ab12cd34');
+  await agent.settle();
+  expect(agent.sent.slice(1)).toEqual([{ id: 'ab12cd34', stream: { from: 3, to: 3, data: '' } }]);
+  // No detail is read for the stream: the agent's detail still waits for its own changes.
+  expect(agent.sent.every((s) => !s.detail)).toBe(true);
 });

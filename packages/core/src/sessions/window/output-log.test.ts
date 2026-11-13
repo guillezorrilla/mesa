@@ -11,7 +11,7 @@ import {
 } from 'node:fs';
 import { expect, test } from 'vitest';
 import { lockDeps, plantOutputLog, profilePaths, tempDir } from '../../testing/index.js';
-import { outputTail } from './output-log.js';
+import { outputSince, outputTail } from './output-log.js';
 
 const MB = 1024 * 1024;
 
@@ -126,4 +126,18 @@ test('a log of 20 MB or less is left whole', () => {
     outputTail(lockDeps(), profilePaths(home, 'default').logs, 'a1b2c3d4', 1)?.[0],
   ).toHaveLength(20 * MB);
   expect(statSync(file).size).toBe(20 * MB);
+});
+
+test('outputSince reads the raw stream from a byte to the last whole character, or skips to the end', () => {
+  const home = tempDir();
+  const logs = profilePaths(home, 'default').logs;
+  expect(outputSince(logs, 'a1b2c3d4', 0)).toEqual({ from: 0, to: 0, data: '' });
+  const file = plantOutputLog(home, 'a1b2c3d4', '\x1b[1mtide\x1b[0m ');
+  expect(outputSince(logs, 'a1b2c3d4', 4)).toEqual({ from: 4, to: 13, data: 'tide\x1b[0m ' });
+  // A character the pipe has written only part of waits for the next look.
+  writeFileSync(file, Buffer.concat([readFileSync(file), Buffer.from('潮').subarray(0, 2)]));
+  expect(outputSince(logs, 'a1b2c3d4', 13)).toEqual({ from: 13, to: 13, data: '' });
+  // No start, or a log cut below it, skips to its end.
+  expect(outputSince(logs, 'a1b2c3d4')).toEqual({ from: 15, to: 15, data: '' });
+  expect(outputSince(logs, 'a1b2c3d4', 99)).toEqual({ from: 15, to: 15, data: '' });
 });

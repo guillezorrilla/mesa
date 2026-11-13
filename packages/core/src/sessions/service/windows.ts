@@ -1,6 +1,8 @@
 import type { MesaContext } from '../../context.js';
 import { attachSession } from '../window/attach.js';
+import { outputSince } from '../window/output-log.js';
 import { resizeSession } from '../window/resize.js';
+import { sessionScreen } from '../window/screen.js';
 import { viewProject } from '../window/view.js';
 import type { SessionDeps } from './deps.js';
 
@@ -12,6 +14,11 @@ export function windowActions(ctx: MesaContext, deps: SessionDeps) {
     /** Sizes a session's window to a view now (the app's terminal, after each fit). */
     resize: (id: string, cols: number, rows: number) =>
       resizeSession({ store, tmux }, id, cols, rows),
+    /** A session's window sized to the phone, as its terminal draws it (sessionScreen). */
+    screen: (id: string, cols: number, rows: number) =>
+      sessionScreen({ store, tmux, logs: ctx.paths.logs }, id, cols, rows),
+    /** What a session's window printed since byte `from` of its output log (outputSince). */
+    since: (id: string, from?: number) => outputSince(ctx.paths.logs, id, from),
     /**
      * Attaches to a live session: here (the argv to exec), or in config `terminal.app`;
      * `embedded` for the app's own terminal, which scrolls one line per wheel report.
