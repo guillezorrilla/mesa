@@ -1,8 +1,16 @@
 // The pairing protocol (`@mesa/core/phone`): what the phone app bundles from core, and nothing else
 // but the pure time words, session state sets and prompt title its screens share with the desktop.
+export {
+  DIFF_START,
+  type DiffAt,
+  type DiffLine,
+  diffLines,
+  noteLines,
+} from '../../git/diff-lines.js';
 export { relativeAgo, shortAgo, timeAgo } from '../../lib/ago.js';
 export { promptTitle } from '../../sessions/answer/title.js';
-export { BUSY_STATES, WAITING_STATES } from '../../sessions/record/states.js';
+export { BUSY_STATES, FINAL_STATES, WAITING_STATES } from '../../sessions/record/states.js';
+export type { ChangedFile, NoteDelivery, StatusFile } from './changes.js';
 export { BOX_BYTES, fitsOneBox, type PartMessage, partJoiner, splitParts } from './chunk.js';
 export {
   type Delivery,
@@ -73,6 +81,13 @@ export {
   seal,
   sideKeys,
 } from './seal.js';
+export {
+  IMAGE_MAX,
+  type QueuedMessage,
+  SESSION_ACTIONS,
+  type SendResult,
+  type SessionAction,
+} from './steer.js';
 export type {
   PhoneHit,
   PhoneMemory,

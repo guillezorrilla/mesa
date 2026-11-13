@@ -91,6 +91,7 @@ export const reviewNotesSend = defineCommand({
   args: ['session'],
   flags: {
     path: { type: 'string', description: "Send only this file's notes" },
+    note: { type: 'string', description: 'Send only this unsent note, not the others still open' },
     to: {
       type: 'string',
       description:
@@ -103,6 +104,7 @@ export const reviewNotesSend = defineCommand({
   run: async ({ mesa, args, flags, confirm }) => {
     const data = await mesa.sessions.notes.send(args.session, flags.path, {
       ...(flags.to ? { to: flags.to } : {}),
+      ...(flags.note ? { only: flags.note } : {}),
       yes: flags.yes,
       noFrom: flags['no-from'],
       confirm,

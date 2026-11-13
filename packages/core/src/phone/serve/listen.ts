@@ -9,6 +9,8 @@ import type { PhoneMessage } from '../protocol/envelope.js';
 import { type ConnectSocket, mailbox } from '../protocol/mailbox.js';
 import { type PhoneRow, WATCH_MS } from '../protocol/rpc.js';
 import { type AnswerDeps, answerCall } from './answer.js';
+import { deliverQueued } from './deliver.js';
+import { keptDiffs } from './kept-diffs.js';
 import { askedRows, phoneRows, rowChanges } from './rows.js';
 
 export type ServeDeps = {
@@ -87,7 +89,8 @@ async function listen(
     });
     return looking;
   };
-  const answers = { ...deps.answers, board };
+  const diff = keptDiffs(deps.answers.changes.diff, now);
+  const answers = { ...deps.answers, board, changes: { ...deps.answers.changes, diff } };
   const respond = async (request: Extract<PhoneMessage, { kind: 'request' }>) => {
     try {
       const result = await answerCall(answers, request.call);
@@ -149,6 +152,12 @@ async function listen(
     listed = rows;
     if (changes) box.send({ kind: 'update', ...changes });
   };
+  /** Types the queued replies whose sessions' turns have ended, with the app open or closed. */
+  const deliver = async () => {
+    const { queue, send } = deps.answers.steer;
+    if (!queue.all().length) return;
+    await deliverQueued(queue, phoneRows(await board()), send);
+  };
 
   let tickAt = now();
   try {
@@ -167,6 +176,7 @@ async function listen(
         box.connect();
       }
       await watch().catch(() => undefined);
+      await deliver().catch(() => undefined);
       await deps.sleep(misses ? Math.min(TICK_MS * 2 ** misses, BACKOFF_MS) : TICK_MS);
     }
     return { pairingId, ended: 'stopped' };

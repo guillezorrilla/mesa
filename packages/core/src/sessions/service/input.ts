@@ -7,6 +7,7 @@ import { typeable } from '../../lib/untrusted-text.js';
 import { resolveCheckout } from '../../projects/checkout.js';
 import { receiptText } from '../../receipts/command.js';
 import { joinWarnings } from '../../receipts/recorder.js';
+import type { AnswerVia } from '../answer/answer.js';
 import { openBrowserExternal } from '../input/browser-address.js';
 import {
   type BrowserAnnotationInput,
@@ -99,9 +100,9 @@ export function inputActions(
   const send = (
     id: string,
     prompt: string,
-    opts: { from?: string; noFrom?: boolean; notes?: string[] } & Overrides = {},
+    opts: { from?: string; noFrom?: boolean; notes?: string[]; via?: AnswerVia } & Overrides = {},
   ) => {
-    const { force = false, yes, confirm, from, noFrom, notes } = opts;
+    const { force = false, yes, confirm, from, noFrom, notes, via } = opts;
     const kept = receiptText(prompt, ctx.argv, secrets());
     const target = store.find(id);
     return record(
@@ -128,12 +129,14 @@ export function inputActions(
           ...(from === undefined ? {} : { from }),
           ...(noFrom ? { noFrom } : {}),
           ...(notes ? { notes } : {}),
+          ...(via ? { via } : {}),
         },
         outputs: (r) => ({
           chars: r.chars,
           from: r.from,
           ...(r.woke ? { woke: true } : {}),
           ...(r.override ? { override: r.override } : {}),
+          ...(via ? { via } : {}),
         }),
       },
       // Typed, so the result type comes from the action, as for one that takes nothing.
@@ -214,21 +217,25 @@ export function inputActions(
       remove: (id: string, note: string) => notesOf(id).remove(note),
       clearSent: (id: string) => notesOf(id).clearSent(),
       /**
-       * Sends every unsent note and every sent one not resolved (still open), or `path`'s, as
-       * one prompt through sendReview to session `to`
-       * (default: its own), then marks them sent to it; a stale one stays behind, named in
+       * Sends every unsent note and every sent one not resolved (still open), or `path`'s, or only
+       * the unsent note `only`, as one prompt through sendReview to session `to` (default: its
+       * own), then marks them sent to it; a stale one stays behind, named in
        * `stale`. `to: 'new'` starts a session in the same checkout with the prompt as its goal.
        * Nothing to send sends nothing.
        */
       send: async (
         id: string,
         path?: string,
-        opts: { to?: string; noFrom?: boolean } & Overrides = {},
+        opts: { to?: string; noFrom?: boolean; only?: string } & Overrides = {},
       ): Promise<NotesSent> => {
-        const { to: asked = id, ...overrides } = opts;
+        const { to: asked = id, only, ...overrides } = opts;
         const at = notesAt(id);
         const { notes } = at;
-        const { ready, open: repeats, stale } = await notes.next(path);
+        const next = await notes.next(path);
+        const { stale } = next;
+        // `only`: that one note alone, not the others still open.
+        const ready = only ? next.ready.filter((n) => n.id === only) : next.ready;
+        const repeats = only ? [] : next.open;
         const batch = [...ready, ...repeats];
         if (!batch.length) return { to: asked, sent: [], stale };
         const source = await at.source();
@@ -311,7 +318,8 @@ export function inputActions(
      * Types a prompt into a live session's agent, from another session (`from`, else the window
      * this runs in) when there is one, once the guardrail lets it (`yes`, `force`, and a
      * person's `confirm` past an ask or a block). A blocked or overridden guardrail keeps its
-     * decision and the prompt's first 80 characters.
+     * decision and the prompt's first 80 characters; `via` names the surface a person sent it
+     * from (the phone), as an answer's receipt does.
      */
     send,
   };

@@ -85,8 +85,8 @@ export type PhoneSaved = z.infer<typeof phoneSaved>;
 export const vaultCalls = [
   z.object({ method: z.literal('projects') }),
   z.object({ method: z.literal('project'), name: z.string() }),
-  z.object({ method: z.literal('search'), text: z.string().min(1).max(200) }),
-  z.object({ method: z.literal('note'), path: z.string() }),
+  z.object({ method: z.literal('vaultSearch'), text: z.string().min(1).max(200) }),
+  z.object({ method: z.literal('vaultNote'), path: z.string() }),
   z.object({ method: z.literal('today') }),
   z.object({
     method: z.literal('decide'),
@@ -101,8 +101,8 @@ export const vaultCalls = [
 export const vaultResults = {
   projects: z.object({ projects: z.array(phoneProject) }),
   project: phoneMemory,
-  search: z.object({ total: z.number(), hits: z.array(phoneHit) }),
-  note: phoneNote,
+  vaultSearch: z.object({ total: z.number(), hits: z.array(phoneHit) }),
+  vaultNote: phoneNote,
   today: phoneToday,
   decide: phoneSaved,
 };

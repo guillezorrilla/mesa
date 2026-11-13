@@ -7,7 +7,7 @@ import { VaultList } from './VaultList';
 import { foundText } from './vaultText';
 
 /** What a Vault search found: each item's title and first matching line, or that none matched. */
-export function SearchResults({ read }: { read: Promise<VaultRead<'search'>> }) {
+export function SearchResults({ read }: { read: Promise<VaultRead<'vaultSearch'>> }) {
   const { result, error } = use(read);
   const hits = result?.hits ?? [];
   return (

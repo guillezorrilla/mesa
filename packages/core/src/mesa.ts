@@ -20,6 +20,7 @@ import { localDay } from './lib/time.js';
 import { mapService } from './map/service.js';
 import { backgroundDelivery } from './notifications/background.js';
 import { inbox } from './notifications/inbox.js';
+import { sessionSteer } from './phone/serve/session-steer.js';
 import { phoneService } from './phone/service.js';
 import { prEventsService } from './pr-events/pr-event-delivery.js';
 import { backupService } from './profile/backup.js';
@@ -32,6 +33,7 @@ import { receiptsService } from './receipts/service.js';
 import { whatsNew } from './release/notes.js';
 import { reportsService } from './reports/report-delivery.js';
 import { sessionsService } from './sessions/service/index.js';
+import { workingFolder } from './sessions/signals/readings.js';
 import { skillsService } from './skills/service.js';
 import { importService } from './sources/import-service.js';
 import { itemSessions } from './sources/item-session.js';
@@ -94,6 +96,14 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const tasks = tasksService(ctx, { startWorker: sessions.sessions.worker });
   // Failed automation runs and open gates are notices; the inbox reads them from their owners.
   const notices = inbox(ctx, automations.runs, gates.open);
+  const worktrees = worktreesService(ctx);
+  const files = filesService(ctx);
+  const git = gitService(ctx, faro, worktrees.count, sessions.sessions.run, {
+    board: () => sessions.sessions.list(),
+    send: sessions.sessions.send,
+    open: async (project, opts) => (await sessions.sessions.open(project, opts)).result,
+  });
+  const { notes, responses } = sessions.sessions;
   const projects = projectsService(ctx);
   const impact = impactService(ctx);
   const rewind = rewindService(ctx, usage);
@@ -116,6 +126,17 @@ export function createMesa(profile: string, deps: MesaDeps) {
         resolve: gates.resolve,
         merge: (id) => sessions.sessions.merge(id),
       },
+      archived: () => sessions.sessions.list('archived'),
+      steer: sessionSteer(ctx, faro, sessions.sessions, prompts.list),
+      changes: {
+        diff: (id) => sessions.sessions.diff(id),
+        where: (id) => workingFolder(ctx, id),
+        notes,
+        replies: (id) => responses.list(id),
+        quote: (id, input) => responses.send(id, input, { noFrom: true }),
+        git,
+        files,
+      },
       vault: {
         projects: () => projects.list('last-session'),
         context: (project) => vaults.vault.context(project),
@@ -137,7 +158,6 @@ export function createMesa(profile: string, deps: MesaDeps) {
       return backgroundDelivery(ctx, notices);
     },
   };
-  const worktrees = worktreesService(ctx);
   const installs = installsService(ctx);
   return {
     about: () => about(deps.version, deps.release),
@@ -155,15 +175,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
     projects,
     automations,
     prompts,
-    files: filesService(ctx),
+    files,
     /** A project's checks, run for an agent: one line, or the errors (CONTEXT.md, Check). */
     check: (project: string, opts?: Parameters<typeof runCheck>[2]) => runCheck(ctx, project, opts),
     worktrees,
-    git: gitService(ctx, faro, worktrees.count, sessions.sessions.run, {
-      board: () => sessions.sessions.list(),
-      send: sessions.sessions.send,
-      open: async (project, opts) => (await sessions.sessions.open(project, opts)).result,
-    }),
+    git,
     ...vaults,
     ...mapService(ctx),
     ...dailyService(ctx),

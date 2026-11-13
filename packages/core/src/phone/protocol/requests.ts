@@ -31,8 +31,10 @@ export function macCalls(deps: {
     entry?.settle(result, error);
   };
   return {
+    /** Asks the Mac; `timeoutMs` for a call that runs longer than most (an agent, a push). */
     call<M extends PhoneCall['method']>(
       call: Extract<PhoneCall, { method: M }>,
+      timeoutMs = deps.timeoutMs ?? 10_000,
     ): Promise<CallResult<M>> {
       const id = deps.newId();
       const answer = new Promise<CallResult<M>>((resolve, reject) => {
@@ -48,7 +50,7 @@ export function macCalls(deps: {
       });
       deps.send({ kind: 'request', id, call });
       void deps
-        .wait(deps.timeoutMs ?? 10_000)
+        .wait(timeoutMs)
         .then(() =>
           finish(id, undefined, new MacCallError('timeout', 'the Mac did not answer in time')),
         );

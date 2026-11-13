@@ -107,7 +107,7 @@ export async function answerVaultCall(deps: VaultDeps, call: VaultCall): Promise
       })),
     } satisfies CallResult<'project'>;
   }
-  if (call.method === 'search') {
+  if (call.method === 'vaultSearch') {
     const found = deps.search(call.text, { limit: HITS });
     return {
       total: found.total,
@@ -117,9 +117,10 @@ export async function answerVaultCall(deps: VaultDeps, call: VaultCall): Promise
         ...(hit.project ? { project: hit.project } : {}),
         ...(hit.matches[0] ? { line: hit.matches[0].text } : {}),
       })),
-    } satisfies CallResult<'search'>;
+    } satisfies CallResult<'vaultSearch'>;
   }
-  if (call.method === 'note') return toPhoneNote(deps.read(call.path)) satisfies CallResult<'note'>;
+  if (call.method === 'vaultNote')
+    return toPhoneNote(deps.read(call.path)) satisfies CallResult<'vaultNote'>;
   if (call.method === 'today') {
     const date = deps.day();
     const [impact, rewind] = [deps.impact({ days: 1 }), await deps.rewind()];

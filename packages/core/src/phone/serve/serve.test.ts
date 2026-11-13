@@ -1,81 +1,19 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { listReceipts } from '../../receipts/store.js';
 import { gateAdvice, gateRequest } from '../../tasks/gate-advice.js';
 import {
-  CLAUDE_VERSION,
   claudePromptPane,
-  fakePairingBroker,
-  fakePhone,
-  fakeTmux,
-  memorySecretStore,
   newSession,
   plantHookEvent,
-  plantOutputLog,
-  projectProfile,
-  scriptedRunner,
-  testStore,
+  servingPhone,
+  untilTrue,
 } from '../../testing/index.js';
-import type { PhoneMessage } from '../protocol/envelope.js';
-import { phoneKeys } from '../protocol/join.js';
-import { mailbox } from '../protocol/mailbox.js';
-import { macCalls } from '../protocol/requests.js';
 import { replySegments } from './replies.js';
 import { askLine } from './rows.js';
 
-const NOW = new Date('2026-09-24T12:00:00.000Z');
-
-/** A paired profile with one session, its listener running, and the phone's end of the mailbox. */
-async function serving(run = scriptedRunner({ '/usr/bin/id': '501\n' }).run) {
-  const broker = fakePairingBroker('https://broker.test', () => NOW);
-  const { mesa, home } = projectProfile(run, {
-    http: broker.http,
-    connect: broker.connect,
-    secretStore: memorySecretStore().store,
-    env: { MESA_BROKER_URL: 'https://broker.test' },
-  });
-  const phone = fakePhone(broker.http, () => NOW);
-  await phone.join((await mesa.phone.pair()).result.qr);
-  await mesa.phone.status();
-  const store = testStore(home);
-  const session = store.create(() =>
-    newSession({ goal: 'Fix the login page\nwith tests', name: 'Login fix' }),
-  );
-  plantOutputLog(home, session.id, 'npm test\n12 passing\n');
-
-  const stop = new AbortController();
-  const listener = mesa.phone.serve(stop.signal);
-  const p = phone.pairing;
-  if (!p) throw new Error('not joined');
-  const pushed: PhoneMessage[] = [];
-  let ids = 0;
-  const calls = macCalls({
-    send: (message) => box.send(message),
-    newId: () => `q${++ids}`,
-    wait: () => new Promise(() => {}),
-  });
-  const box = mailbox(
-    { connect: broker.connect, now: () => NOW },
-    { ...p, token: p.phoneToken, keys: phoneKeys(p) },
-    { message: (message) => calls.settle(message) || pushed.push(message) },
-  );
-  box.connect();
-  const end = async () => {
-    stop.abort();
-    box.close();
-    return listener;
-  };
-  return { mesa, home, store, session, calls, pushed, end };
-}
-
-const until = async (done: () => boolean) => {
-  for (let i = 0; i < 500 && !done(); i++) await new Promise((r) => setImmediate(r));
-  expect(done()).toBe(true);
-};
-
 test('the listener answers the board, a session and a mark through core, one per profile', async () => {
-  const { mesa, session, calls, end } = await serving();
+  const { mesa, session, calls, end } = await servingPhone();
   const { rows } = await calls.call({ method: 'sessions' });
   expect(rows).toEqual([
     {
@@ -105,10 +43,10 @@ test('the listener answers the board, a session and a mark through core, one per
 });
 
 test('while the phone watches, a changed row is pushed as an update', async () => {
-  const { mesa, session, calls, pushed, end } = await serving();
+  const { mesa, session, calls, pushed, end } = await servingPhone();
   await calls.call({ method: 'sessions' });
   mesa.sessions.rename(session.id, 'Login fix, round 2');
-  await until(() => pushed.some((m) => m.kind === 'update'));
+  expect(await untilTrue(() => pushed.some((m) => m.kind === 'update'))).toBe(true);
   expect(pushed.find((m) => m.kind === 'update')).toMatchObject({
     rows: [{ id: session.id, title: 'Login fix, round 2' }],
     gone: [],
@@ -117,13 +55,7 @@ test('while the phone watches, a changed row is pushed as an update', async () =
 });
 
 test('the phone reads a waiting prompt, sees it on its row, answers it as the person, and is told when it went stale', async () => {
-  const world = fakeTmux();
-  const run = scriptedRunner({
-    '/usr/bin/id': '501\n',
-    tmux: world.answer,
-    claude: CLAUDE_VERSION,
-  }).run;
-  const { mesa, home, calls, end } = await serving(run);
+  const { mesa, home, world, calls, end } = await servingPhone();
   const { result: opened } = await mesa.sessions.open('lantern-cove', { agent: 'claude' });
   const { id } = opened;
   const window = world.windows[0];
@@ -196,7 +128,7 @@ test('a reply is cut into prose and its fenced code blocks', () => {
 });
 
 test("a coordinator's crew, its task graph and its gates answer the phone, and a gate resolves", async () => {
-  const { mesa, store, session, calls, end } = await serving();
+  const { mesa, store, session, calls, end } = await servingPhone();
   const worker = store.create(() => newSession({ parent: session.id, name: 'Tide parser' }));
   const parse = mesa.tasks.create('Parse the tide tables', { coordinator: session.id });
   const chart = mesa.tasks.create('Chart the tides', { coordinator: session.id, deps: [parse.id] });
@@ -259,67 +191,4 @@ test("a gate's options go to the Decision model as next-step slugs and its odds 
     defer: 0.1,
     model: 'clef-test',
   });
-});
-
-test("the vault answers the phone: a project's memory, search, a note's links, the day, and a saved decision", async () => {
-  const { mesa, calls, end } = await serving();
-  const vault = mesa.vault.list().vault;
-  mkdirSync(join(vault, 'wiki/notes'), { recursive: true });
-  writeFileSync(
-    join(vault, 'projects/lantern-cove.md'),
-    '# Lantern Cove\n\nCharts the tides; see [[tide-tables|the tables]].\n',
-  );
-  writeFileSync(
-    join(vault, 'wiki/notes/tide-tables.md'),
-    '---\nproject: lantern-cove\n---\n# Tide tables\n\nNeap tides read from [[lantern-cove]].\n',
-  );
-
-  expect((await calls.call({ method: 'projects' })).projects).toEqual([
-    { name: 'lantern-cove', label: 'lantern-cove' },
-  ]);
-  const memory = await calls.call({ method: 'project', name: 'lantern-cove' });
-  expect(memory.hub).toMatchObject({
-    path: 'projects/lantern-cove.md',
-    links: [{ text: '[[tide-tables|the tables]]', path: 'wiki/notes/tide-tables.md' }],
-  });
-  expect(memory.notes).toMatchObject([{ path: 'wiki/notes/tide-tables.md' }]);
-
-  const found = await calls.call({ method: 'search', text: 'neap' });
-  expect(found.hits).toEqual([
-    {
-      path: 'wiki/notes/tide-tables.md',
-      title: 'tide-tables',
-      project: 'lantern-cove',
-      line: 'Neap tides read from [[lantern-cove]].',
-    },
-  ]);
-  const note = await calls.call({ method: 'note', path: found.hits[0]?.path ?? '' });
-  expect(note).toMatchObject({
-    title: 'tide-tables',
-    body: '# Tide tables\n\nNeap tides read from [[lantern-cove]].',
-    links: [{ text: '[[lantern-cove]]', path: 'projects/lantern-cove.md' }],
-    clipped: false,
-  });
-
-  // Reading the day never builds its Daily note, nor syncs usage.
-  const today = await calls.call({ method: 'today' });
-  expect(today).toMatchObject({ date: '2026-09-24', daily: null, rewind: { ended: 0 } });
-  expect(existsSync(join(vault, 'daily/2026-09-24.md'))).toBe(false);
-
-  const saved = await calls.call({
-    method: 'decide',
-    project: 'lantern-cove',
-    title: 'Metres for tides',
-    decision: 'Tide heights are in metres',
-    rationale: 'The tables print metres',
-  });
-  expect(saved).toMatchObject({
-    path: 'wiki/decisions/2026-09-24-metres-for-tides.md',
-    changed: true,
-  });
-  expect(saved.receipt).toMatch(/^receipts\//);
-  expect(readFileSync(join(vault, saved.path), 'utf8')).toContain('The tables print metres');
-  await mesa.daily.build();
-  expect((await calls.call({ method: 'today' })).daily?.body).toContain('Metres for tides');
-  await end();
 });

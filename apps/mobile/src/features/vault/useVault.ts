@@ -9,12 +9,12 @@ import { useVaultRead, type VaultRead } from './useVaultRead';
 export function useVault() {
   const link = useMac();
   const projects = useVaultRead({ method: 'projects' });
-  const [search, setSearch] = useState<Promise<VaultRead<'search'>>>();
+  const [search, setSearch] = useState<Promise<VaultRead<'vaultSearch'>>>();
   const find = (text: string) => {
     const words = text.trim();
     // The promise is made here, not in an updater, which React may run again while it suspends.
     const next = words
-      ? link.call({ method: 'search', text: words }).then(
+      ? link.call({ method: 'vaultSearch', text: words }).then(
           (result) => ({ result }),
           (error: Error) => ({ error: error.message }),
         )

@@ -5,7 +5,7 @@ import { useVaultRead } from './useVaultRead';
 
 /** One vault item through the Vault reader: its path, then its Markdown with links followed. */
 export function NoteScreen({ path }: { path: string }) {
-  const read = useVaultRead({ method: 'note', path });
+  const read = useVaultRead({ method: 'vaultNote', path });
   return (
     <Suspense fallback={<BusyScreen label="Reading the note..." />}>
       <NoteBody read={read} path={path} />

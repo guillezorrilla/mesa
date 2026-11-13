@@ -7,7 +7,7 @@ import { NoteView } from './NoteView';
 import type { VaultRead } from './useVaultRead';
 
 /** A note read: its title in the bar, its path, and its Markdown, or why it could not be read. */
-export function NoteBody({ read, path }: { read: Promise<VaultRead<'note'>>; path: string }) {
+export function NoteBody({ read, path }: { read: Promise<VaultRead<'vaultNote'>>; path: string }) {
   const { result: note, error } = use(read);
   return (
     <Screen className="gap-5">
