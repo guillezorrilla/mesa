@@ -10,7 +10,7 @@ import {
   untilTrue,
 } from '../../testing/index.js';
 import type { UsageReport } from '../../usage/records.js';
-import { replySegments } from './replies.js';
+import { phoneReplies, replySegments } from './replies.js';
 import { askLine } from './rows.js';
 import { phoneUsage } from './usage.js';
 
@@ -127,6 +127,34 @@ test('a reply is cut into prose and its fenced code blocks', () => {
     { code: false, text: 'Then push.' },
   ]);
   expect(replySegments('```ts\nconst a = 1;')).toEqual([{ code: true, text: 'const a = 1;' }]);
+});
+
+test("the session screen's conversation places the person's prompts among the agent's replies", () => {
+  const reply = (revision: string, text: string) => ({ revision, text, at: '2026-11-12T10:00:00Z' });
+  const read = {
+    // Newest first: the agent answered the second prompt with r2, the first with r1.
+    rows: [reply('r2', 'Done.\n```sh\npnpm test\n```'), reply('r1', 'Looking.')],
+    prompts: [
+      { revision: 'p3', text: 'And the docs?', newer: 0 },
+      { revision: 'p2', text: 'Run the tests', newer: 1 },
+      { revision: 'p1', text: 'Fix the login', newer: 2 },
+    ],
+  } as unknown as Parameters<typeof phoneReplies>[0];
+  const ids = (count: number, withPrompts: boolean) =>
+    phoneReplies(read, count, withPrompts).replies.map((r) => `${r.from}:${r.id}`);
+  expect(ids(2, true)).toEqual(['you:p3', 'agent:r2', 'you:p2', 'agent:r1', 'you:p1']);
+  expect(ids(1, true)).toEqual(['you:p3', 'agent:r2', 'you:p2']);
+  // An older phone names no count: the agent's replies alone, as before.
+  expect(ids(5, false)).toEqual(['agent:r2', 'agent:r1']);
+  expect(phoneReplies(read, 1, true).more).toBe(true);
+  expect(phoneReplies(read, 2, true).more).toBe(false);
+  expect(phoneReplies(read, 2, true).replies[0]).toEqual({
+    id: 'p3',
+    at: null,
+    segments: [{ code: false, text: 'And the docs?' }],
+    from: 'you',
+  });
+  expect(phoneReplies(read, 2, true).replies[1]?.segments).toHaveLength(2);
 });
 
 test("a coordinator's crew, its task graph and its gates answer the phone, and a gate resolves", async () => {

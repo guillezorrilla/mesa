@@ -1,4 +1,5 @@
 import { closesFence, opensFence } from '../../lib/code-fence.js';
+import type { SessionResponses } from '../../sessions/native/responses.js';
 import type { ReplySegment } from '../protocol/rpc.js';
 
 /**
@@ -25,4 +26,39 @@ export function replySegments(text: string): ReplySegment[] {
   }
   flush(Boolean(open));
   return segments;
+}
+
+/**
+ * The session screen's conversation, newest first: the agent's newest `count` replies with, when
+ * `withPrompts`, the person's prompts placed among them, and whether older replies exist. An older
+ * phone does not ask for prompts, which it would show as the agent's.
+ */
+export function phoneReplies(
+  read: Pick<SessionResponses, 'rows' | 'prompts'>,
+  count: number,
+  withPrompts: boolean,
+) {
+  const reply = (id: string, at: string | undefined, text: string, from: 'agent' | 'you') => ({
+    id,
+    at: at ?? null,
+    segments: from === 'you' ? [{ code: false, text }] : replySegments(text),
+    from,
+  });
+  const rows = read.rows.slice(0, count);
+  const promptsBefore = (newer: number) =>
+    withPrompts
+      ? read.prompts
+          .filter((prompt) => prompt.newer === newer)
+          .map((prompt) => reply(prompt.revision, prompt.at, prompt.text, 'you'))
+      : [];
+  return {
+    replies: [
+      ...promptsBefore(0),
+      ...rows.flatMap((row, index) => [
+        reply(row.revision, row.at, row.text, 'agent'),
+        ...promptsBefore(index + 1),
+      ]),
+    ],
+    more: read.rows.length > count,
+  };
 }

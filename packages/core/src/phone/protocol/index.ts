@@ -73,6 +73,7 @@ export {
   phonePrompt,
   phoneRow,
   type ReplySegment,
+  SESSION_REPLIES,
   type UpdateMessage,
   WATCH_MS,
 } from './rpc.js';

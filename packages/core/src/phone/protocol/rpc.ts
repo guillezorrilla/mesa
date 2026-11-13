@@ -35,14 +35,27 @@ export type PhoneRow = z.infer<typeof phoneRow>;
 export const replySegment = z.object({ code: z.boolean(), text: z.string() });
 export type ReplySegment = z.infer<typeof replySegment>;
 
+/** How many of the agent's replies the session screen gets: by default, and at most. */
+export const SESSION_REPLIES = { first: 5, most: 20 };
+
 /** What the session screen shows: the row, its goal, its latest replies and its output tail. */
 export const phoneDetail = z.object({
   row: phoneRow,
   goal: z.string().nullable(),
-  /** Each reply's id is its text's revision, so a list keeps it across reads. */
+  /**
+   * The conversation newest first: the agent's replies and, from a newer Mac, the person's
+   * prompts among them (`from: 'you'`). Each id is its text's revision, so a list keeps it.
+   */
   replies: z.array(
-    z.object({ id: z.string(), at: z.string().nullable(), segments: z.array(replySegment) }),
+    z.object({
+      id: z.string(),
+      at: z.string().nullable(),
+      segments: z.array(replySegment),
+      from: z.enum(['agent', 'you']).default('agent'),
+    }),
   ),
+  /** Older replies than these exist, for asking with a larger `replies`. */
+  more: z.boolean().default(false),
   tail: z.array(z.string()),
   /** Replies waiting for its turn to end; an older Mac sends none. */
   queued: z.array(queuedMessage).default([]),
@@ -76,7 +89,12 @@ export type PhonePrompt = z.infer<typeof phonePrompt>;
  */
 export const phoneCall = z.discriminatedUnion('method', [
   z.object({ method: z.literal('sessions') }),
-  z.object({ method: z.literal('session'), id: z.string() }),
+  z.object({
+    method: z.literal('session'),
+    id: z.string(),
+    /** How many of the agent's replies to send; an older Mac sends its first 5. */
+    replies: z.number().int().min(1).max(SESSION_REPLIES.most).optional(),
+  }),
   z.object({ method: z.literal('mark'), id: z.string(), unread: z.boolean() }),
   z.object({ method: z.literal('prompt'), id: z.string() }),
   z.object({
