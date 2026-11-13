@@ -1,9 +1,10 @@
-import { type PhoneCrew, REWATCH_MS, type UpdateMessage } from '@mesa/core/phone';
-import { startTransition, useEffect, useEffectEvent, useState } from 'react';
+import { type PhoneCrew, REWATCH_MS } from '@mesa/core/phone';
+import { startTransition, useState } from 'react';
 import { useRepeatWhileActive } from '@/lib/useRepeatWhileActive';
 import type { MacLink } from '../mac/macLink';
 import { useMac } from '../mac/useMac';
-import { workersMoved } from './workersMoved';
+import { useMacUpdates } from '../mac/useMacUpdates';
+import { crewMoved } from './crewMoved';
 
 /** The crew as read, or the last one when the Mac does not answer; none from a Mac without crews. */
 const read = (link: MacLink, id: string, last?: Promise<PhoneCrew | undefined>) =>
@@ -14,7 +15,7 @@ const read = (link: MacLink, id: string, last?: Promise<PhoneCrew | undefined>) 
 
 /**
  * A session's crew and task graph as a promise to `use()`, read again when an update the Mac
- * pushed moves one of its workers to another state, and every minute in front.
+ * pushed moves the crew (crewMoved), and every minute in front.
  */
 export function useCrew(id: string) {
   const link = useMac();
@@ -30,11 +31,10 @@ export function useCrew(id: string) {
       if (last?.workers.length || last?.tasks.length) again();
     });
   });
-  const onUpdate = useEffectEvent((update: UpdateMessage) => {
+  useMacUpdates((update) => {
     void crew.then((last) => {
-      if (workersMoved(last, update.rows)) again();
+      if (crewMoved(id, last, update)) again();
     });
   });
-  useEffect(() => link.onUpdate(onUpdate), [link]);
   return crew;
 }

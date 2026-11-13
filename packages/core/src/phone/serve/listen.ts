@@ -7,19 +7,13 @@ import { isGone } from '../pair.js';
 import type { PairingClient } from '../protocol/client.js';
 import type { PhoneMessage } from '../protocol/envelope.js';
 import { type ConnectSocket, mailbox } from '../protocol/mailbox.js';
-import {
-  isWatchCall,
-  type PhoneCall,
-  type PhoneDetail,
-  type PhoneRow,
-  WATCH_MS,
-} from '../protocol/rpc.js';
+import { isWatchCall, type PhoneCall, type PhoneRow, WATCH_MS } from '../protocol/rpc.js';
 import { type AnswerDeps, answerCall, boardRows, type ListenerAnswers } from './answer.js';
 import { deliverQueued } from './deliver.js';
 import { keptDiffs } from './kept-diffs.js';
 import { watchRowFiles } from './row-files.js';
 import { keptAsks, phoneRows, rowChanges } from './rows.js';
-import { sessionWatches } from './watches.js';
+import { readWatched, sessionWatches } from './watches.js';
 
 export type ServeDeps = {
   store: MacPairingStore;
@@ -76,9 +70,9 @@ const READS: ReadonlySet<PhoneCall['method']> = new Set([
 /**
  * The Mac's listener (`mesa phone serve`, ADR-0027): holds the Pairing's socket, answers each
  * request through core (answerCall), and while a phone watches (a `sessions` request in the last
- * WATCH_MS) sends the rows that changed, and each session it watches (sessionWatches). It looks at the board only when a file a row is read from
- * changed (`watch`), or every FALLBACK_MS, one look at a time, and answers calls from the last look
- * meanwhile. One runs per profile (the lock); it ends when `stop` aborts, or when the broker no
+ * WATCH_MS) sends the rows that changed, and each session it watches (sessionWatches). It looks
+ * at the board only when a file a row is read from changed (`watch`), or every FALLBACK_MS, one
+ * look at a time, and answers calls from the last look meanwhile. One runs per profile (the lock); it ends when `stop` aborts, or when the broker no
  * longer holds the pairing, which it then forgets here too.
  */
 export async function servePhone(deps: ServeDeps, stop?: AbortSignal): Promise<ServeEnd> {
@@ -168,13 +162,8 @@ async function listen(
   const watches = sessionWatches({
     now,
     sleep: deps.sleep,
-    read: async (id, replies) => {
-      const last = { ...answers, board: () => looked?.rows ?? board() };
-      const detail = (await answerCall(last, { method: 'session', id, replies })) as PhoneDetail;
-      if (!detail.row.terminal) return { id, detail };
-      const output = (await answerCall(last, { method: 'output', id })) as { lines: string[] };
-      return { id, detail, output: output.lines };
-    },
+    read: (id, replies) =>
+      readWatched({ ...answers, board: () => looked?.rows ?? board() }, id, replies),
     send: (watched) =>
       box.send({ kind: 'update', rows: [], gone: [], order: [], watched: [watched] }),
   });

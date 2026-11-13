@@ -1,14 +1,10 @@
-import {
-  type PhoneDetail,
-  REWATCH_MS,
-  SESSION_REPLIES,
-  type UpdateMessage,
-} from '@mesa/core/phone';
-import { startTransition, useEffect, useEffectEvent, useState, useTransition } from 'react';
+import { type PhoneDetail, REWATCH_MS, SESSION_REPLIES } from '@mesa/core/phone';
+import { startTransition, useState, useTransition } from 'react';
 import { useRepeatWhileActive } from '@/lib/useRepeatWhileActive';
 import type { MacLink } from '../mac/macLink';
 import { keepLast, tryCall } from '../mac/tryCall';
 import { useMac } from '../mac/useMac';
+import { useMacUpdates } from '../mac/useMacUpdates';
 import { useSessionWatch } from './useSessionWatch';
 
 /** A session's screen data as last read, and why the latest read failed: the last detail stays shown. */
@@ -58,14 +54,13 @@ export function useSessionDetail(id: string) {
   };
   const pushed = useSessionWatch(id, count);
   useRepeatWhileActive(pushed ? REWATCH_MS : EVERY_MS, again);
-  const onUpdate = useEffectEvent((update: UpdateMessage) => {
+  useMacUpdates((update) => {
     const watched = update.watched?.find((each) => each.id === id)?.detail;
     if (watched) {
       const next = Promise.resolve({ detail: watched });
       startTransition(() => setDetail(next));
     } else if (!pushed && update.rows.some((row) => row.id === id)) again();
   });
-  useEffect(() => link.onUpdate(onUpdate), [link]);
   return {
     read: detail,
     again,

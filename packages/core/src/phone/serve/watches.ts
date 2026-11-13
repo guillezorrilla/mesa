@@ -1,9 +1,19 @@
-import { type CallResult, WATCH_MS, type WatchCall, type WatchedSession } from '../protocol/rpc.js';
+import {
+  type CallResult,
+  type PhoneDetail,
+  WATCH_MS,
+  type WatchCall,
+  type WatchedSession,
+} from '../protocol/rpc.js';
+import { answerCall, type ListenerAnswers } from './answer.js';
 
 /** A change comes in a burst of writes (a hook, then its transcript): one read for each burst. */
 const DEBOUNCE_MS = 200;
-/** The least time between two pushes of one session, so a busy terminal sends one a second. */
-const EVERY_MS = 1000;
+/**
+ * The least time between two pushes of one session, so a busy terminal sends two a second, and a
+ * change still goes out within a second of the last push.
+ */
+const PUSH_GAP_MS = 500;
 
 type Watch = {
   until: number;
@@ -18,11 +28,23 @@ type Watch = {
   terminal?: boolean;
 };
 
+/** Session `id` as a watch pushes it: its detail, and a plain terminal's output. */
+export async function readWatched(
+  answers: ListenerAnswers,
+  id: string,
+  replies?: number,
+): Promise<WatchedSession> {
+  const detail = (await answerCall(answers, { method: 'session', id, replies })) as PhoneDetail;
+  if (!detail.row.terminal) return { id, detail };
+  const output = (await answerCall(answers, { method: 'output', id })) as { lines: string[] };
+  return { id, detail, output: output.lines };
+}
+
 /**
  * The sessions a phone watches (the `watch` call, #1128) and the pushes that keep it current:
  * `changed` says a session's files changed (or every watched one's, with no id), and its detail
  * is read again (`read`) and sent (`send`) when it differs from the last one pushed, at most once
- * a second per session. `logged` says an output log changed, which pushes only a terminal. A
+ * every PUSH_GAP_MS per session. `logged` says an output log changed, which pushes only a terminal. A
  * watch not asked again within WATCH_MS lapses.
  */
 export function sessionWatches(deps: {
@@ -59,7 +81,7 @@ export function sessionWatches(deps: {
     }
     watch.pending = true;
     void deps
-      .sleep(Math.max(DEBOUNCE_MS, watch.pushedAt + EVERY_MS - deps.now()))
+      .sleep(Math.max(DEBOUNCE_MS, watch.pushedAt + PUSH_GAP_MS - deps.now()))
       .then(() => push(id, watch))
       .finally(() => {
         watch.pending = false;

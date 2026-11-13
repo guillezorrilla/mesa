@@ -1,8 +1,9 @@
-import { REWATCH_MS, type UpdateMessage } from '@mesa/core/phone';
+import { REWATCH_MS } from '@mesa/core/phone';
 import { useIsFocused } from 'expo-router';
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRepeatWhileActive } from '@/lib/useRepeatWhileActive';
 import { useMac } from '../mac/useMac';
+import { useMacUpdates } from '../mac/useMacUpdates';
 
 /** How often an open terminal asks for its output when its Mac does not push it (an older Mac). */
 const EVERY_MS = 1000;
@@ -31,10 +32,9 @@ export function useTerminalOutput(id: string, first: string[], pushed: boolean) 
         asking.current = false;
       });
   });
-  const onUpdate = useEffectEvent((update: UpdateMessage) => {
+  useMacUpdates((update) => {
     const output = update.watched?.find((each) => each.id === id)?.output;
     if (output) setLines(output);
   });
-  useEffect(() => link.onUpdate(onUpdate), [link]);
   return lines;
 }
