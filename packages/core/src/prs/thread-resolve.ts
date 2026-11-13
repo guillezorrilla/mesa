@@ -2,7 +2,7 @@ import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
 import { callerOf } from '../sessions/window/caller.js';
 import { unwrap } from './cli-read.js';
-import { resolveGithub } from './github-resolve.js';
+import { resolveGithub, threadPrGithub } from './github-resolve.js';
 import type { Reached } from './review.js';
 
 /**
@@ -24,6 +24,10 @@ export function resolveAction(ctx: MesaContext, reach: (project: string) => Prom
         `${project} is on Bitbucket; Mesa resolves threads on GitHub only`,
       );
     const name = `${project} #${number}`;
+    // The receipt names this PR, so a thread on any other is refused before a write.
+    const on = unwrap(at.cli, await threadPrGithub(ctx.run, thread));
+    if (on?.repo.toLowerCase() !== at.repo.toLowerCase() || on.number !== number)
+      throw new MesaError('not_found', `${thread} is not a review thread on ${name}`);
     return ctx.record(
       {
         kind: 'connection',

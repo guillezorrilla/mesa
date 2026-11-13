@@ -11,10 +11,12 @@ export function ThreadCard({
   thread,
   onReply,
   onResolve,
+  busy,
 }: {
   thread: PhoneThread;
   onReply: () => void;
   onResolve?: () => void;
+  busy: boolean;
 }) {
   return (
     <View className="gap-2 rounded-xl border border-border bg-card p-4">
@@ -38,11 +40,11 @@ export function ThreadCard({
         </View>
       ) : null}
       <View className="flex-row gap-2">
-        <Button size="sm" variant="outline" onPress={onReply}>
+        <Button size="sm" variant="outline" disabled={busy} onPress={onReply}>
           <Text>Reply</Text>
         </Button>
         {onResolve ? (
-          <Button size="sm" variant="ghost" onPress={onResolve}>
+          <Button size="sm" variant="ghost" disabled={busy} onPress={onResolve}>
             <Text>{thread.resolved ? 'Reopen' : 'Resolve'}</Text>
           </Button>
         ) : null}

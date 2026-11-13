@@ -11,6 +11,14 @@ test('prs resolve --json resolves a thread, and --reopen opens it again', async 
   const scripted = scriptedRunner({
     git: (args) => (args.includes('get-url') ? 'git@github.com:acme/lantern-cove.git\n' : ''),
     gh: (args) => {
+      if (args.some((a) => a.includes('node(id:')))
+        return JSON.stringify({
+          data: {
+            node: {
+              pullRequest: { number: 7, repository: { nameWithOwner: 'acme/lantern-cove' } },
+            },
+          },
+        });
       const reopen = args.some((a) => a.includes('unresolveReviewThread'));
       const field = reopen ? 'unresolveReviewThread' : 'resolveReviewThread';
       return JSON.stringify({

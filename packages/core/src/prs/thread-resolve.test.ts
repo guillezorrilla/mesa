@@ -10,6 +10,14 @@ function world(origin = 'git@github.com:acme/lantern-cove.git', over = {}) {
     git: (args) => (args.includes('get-url') ? `${origin}\n` : ''),
     gh: (args) => {
       const query = args.find((a) => a.startsWith('query=')) ?? '';
+      if (query.includes('node(id:'))
+        return JSON.stringify({
+          data: {
+            node: args.includes('thread=PRRT_1')
+              ? { pullRequest: { number: 7, repository: { nameWithOwner: 'acme/lantern-cove' } } }
+              : null,
+          },
+        });
       const field = query.includes('unresolveReviewThread')
         ? 'unresolveReviewThread'
         : 'resolveReviewThread';
@@ -28,8 +36,9 @@ test('a person resolves a thread and opens it again, each one mutation with a re
   expect(done.result).toEqual({ thread: 'PRRT_1', resolved: true });
   const again = await mesa.prs.resolve('lantern-cove', 7, 'PRRT_1', false);
   expect(again.result).toEqual({ thread: 'PRRT_1', resolved: false });
+  const writes = gh().filter((c) => c.args.some((a) => a.startsWith('query=mutation')));
   expect(
-    gh().map((c) => c.args.find((a) => a.startsWith('query='))?.match(/\w+ReviewThread/)?.[0]),
+    writes.map((c) => c.args.find((a) => a.startsWith('query='))?.match(/\w+ReviewThread/)?.[0]),
   ).toEqual(['resolveReviewThread', 'unresolveReviewThread']);
   expect(gh()[0]?.args).toEqual(expect.arrayContaining(['-f', 'thread=PRRT_1']));
   expect(mesa.receipts.list({})[0]?.receipt).toMatchObject({
@@ -58,4 +67,15 @@ test('a review session may not resolve: it reads untrusted PR text', async () =>
     message: `review session ${id} cannot resolve threads; a person does`,
   });
   expect(gh()).toEqual([]);
+});
+
+test('a thread on another PR, or an id that is no thread, is refused before any write', async () => {
+  const { mesa, gh } = world();
+  await expect(mesa.prs.resolve('lantern-cove', 8, 'PRRT_1')).rejects.toMatchObject({
+    code: 'not_found',
+  });
+  await expect(mesa.prs.resolve('lantern-cove', 7, 'PRRT_9')).rejects.toMatchObject({
+    code: 'not_found',
+  });
+  expect(gh().some((c) => c.args.some((a) => a.includes('resolveReviewThread')))).toBe(false);
 });

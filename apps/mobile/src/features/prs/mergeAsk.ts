@@ -1,14 +1,5 @@
-import type { PhonePrDetail } from '@mesa/core/phone';
+import { MERGE_LABELS, type MergeMethod, type PhonePrDetail } from '@mesa/core/phone';
 import { checkSummary } from './prText';
-
-export type MergeHow = 'squash' | 'merge' | 'rebase';
-
-/** Each method as GitHub's merge button names it, squash first: Mesa's default. */
-export const MERGE_WORDS: Record<MergeHow, string> = {
-  squash: 'Squash and merge',
-  merge: 'Create a merge commit',
-  rebase: 'Rebase and merge',
-};
 
 /**
  * The confirmation before a merge: the method and the checks' state, and when a check fails, a
@@ -16,7 +7,7 @@ export const MERGE_WORDS: Record<MergeHow, string> = {
  */
 export function mergeAsk(
   pr: Pick<PhonePrDetail, 'number' | 'checks' | 'checkList'>,
-  how: MergeHow,
+  how: MergeMethod,
 ) {
   const failing = pr.checks === 'failing';
   const failed = pr.checkList.filter((check) => check.state === 'failing').map((c) => c.name);
@@ -26,9 +17,15 @@ export function mergeAsk(
       ? 'Checks are still running.'
       : `Checks: ${checkSummary(pr.checkList)}.`;
   return {
-    title: `${MERGE_WORDS[how]} #${pr.number}?`,
+    title: `${MERGE_LABELS[how]} #${pr.number}?`,
     message: checks,
     action: failing ? 'Merge anyway' : 'Merge',
     confirm: failing,
   };
 }
+
+/** What to ask when the Mac refused a merge until confirmed, as core refuses it. */
+export const refusedAsk = (refused: 'conflicting' | 'checks-failing') =>
+  refused === 'conflicting'
+    ? 'It conflicts with its base, so GitHub may refuse it too. Merge anyway?'
+    : 'A check failed since this screen read the PR. Merge anyway?';

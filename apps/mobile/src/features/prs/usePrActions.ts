@@ -1,9 +1,12 @@
-import type {
-  CallResult,
-  PhoneCall,
-  PhoneDraft,
-  PhonePrDetail,
-  PhoneThread,
+import {
+  type CallResult,
+  MERGE_LABELS,
+  MERGE_METHODS,
+  type MergeMethod,
+  type PhoneCall,
+  type PhoneDraft,
+  type PhonePrDetail,
+  type PhoneThread,
 } from '@mesa/core/phone';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -11,10 +14,8 @@ import { ActionSheetIOS, Alert } from 'react-native';
 import { SLOW_MS } from '../mac/slowCall';
 import { tryCall } from '../mac/tryCall';
 import { useMac } from '../mac/useMac';
-import { MERGE_WORDS, type MergeHow, mergeAsk } from './mergeAsk';
+import { mergeAsk, refusedAsk } from './mergeAsk';
 import { sendText } from './sendText';
-
-const HOWS = Object.keys(MERGE_WORDS) as MergeHow[];
 
 /**
  * What the PR screen does through the Mac, each asked first the iOS way (a sheet, a prompt or an
@@ -90,17 +91,28 @@ export function usePrActions(pr: { project: string; number: number }, again: () 
       thread: thread.id,
       resolved: !thread.resolved,
     });
-  const mergeWith = (detail: PhonePrDetail, how: MergeHow) => {
+  /** Merges; a refusal core would lift on a yes (a conflict, a check failed since) is asked again. */
+  const mergeNow = (detail: PhonePrDetail, how: MergeMethod, confirm: boolean) =>
+    run('Merging', { method: 'prMerge', ...ref, how, confirm }, (merged) => {
+      if ('head' in merged)
+        return Alert.alert('Merged', `#${detail.number} merged at ${merged.head.slice(0, 7)}.`);
+      Alert.alert(`${MERGE_LABELS[how]} #${detail.number}?`, refusedAsk(merged.refused), [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Merge anyway',
+          style: 'destructive',
+          onPress: () => void mergeNow(detail, how, true),
+        },
+      ]);
+    });
+  const mergeWith = (detail: PhonePrDetail, how: MergeMethod) => {
     const ask = mergeAsk(detail, how);
     Alert.alert(ask.title, ask.message, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: ask.action,
         style: ask.confirm ? 'destructive' : 'default',
-        onPress: () =>
-          void run('Merging', { method: 'prMerge', ...ref, how, confirm: ask.confirm }, (merged) =>
-            Alert.alert('Merged', `#${detail.number} merged at ${merged.head.slice(0, 7)}.`),
-          ),
+        onPress: () => void mergeNow(detail, how, ask.confirm),
       },
     ]);
   };
@@ -108,11 +120,11 @@ export function usePrActions(pr: { project: string; number: number }, again: () 
     ActionSheetIOS.showActionSheetWithOptions(
       {
         title: `Merge #${detail.number}`,
-        options: [...HOWS.map((h) => MERGE_WORDS[h]), 'Cancel'],
-        cancelButtonIndex: HOWS.length,
+        options: [...MERGE_METHODS.map((m) => MERGE_LABELS[m]), 'Cancel'],
+        cancelButtonIndex: MERGE_METHODS.length,
       },
       (index) => {
-        const how = HOWS[index];
+        const how = MERGE_METHODS[index];
         if (how) mergeWith(detail, how);
       },
     );

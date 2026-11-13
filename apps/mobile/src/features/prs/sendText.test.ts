@@ -6,7 +6,7 @@ test('each outcome of Send to the session reads as one sentence', () => {
     'Sent to the session: it has the failed check now.',
   );
   expect(sendText({ status: 'waiting', session: 's1', reason: 'it is working' })).toBe(
-    'The session is busy; it gets the failed check when it is idle (it is working).',
+    'The session is busy, so nothing was sent (it is working). Mesa sends it on its next pass of PR events once the session is idle, or send it again then.',
   );
   expect(sendText({ status: 'nothing', reason: 'no live session works on this branch' })).toBe(
     'Nothing sent: no live session works on this branch.',

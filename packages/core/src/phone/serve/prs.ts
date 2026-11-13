@@ -1,7 +1,7 @@
 import { MesaError } from '../../lib/result.js';
 import type { PrEventsDelivered } from '../../pr-events/pr-event-delivery.js';
-import type { MergeMethod } from '../../prs/github-merge.js';
-import type { MergeCaller, PrTarget } from '../../prs/merge.js';
+import type { MergeCaller, MergeRefusal, PrTarget } from '../../prs/merge.js';
+import type { MergeMethod } from '../../prs/merge-methods.js';
 import type { DraftInput } from '../../prs/reader.js';
 import { reviewing } from '../../prs/review-sessions.js';
 import type { PrDetail, PrList } from '../../prs/service.js';
@@ -44,7 +44,7 @@ export type PrsDeps = {
   board: () => Promise<SessionRow[]>;
 };
 
-const row = (pr: Omit<PhonePr, 'bucket'> & { bucket: string }): PhonePr => ({
+const row = (pr: PhonePr): PhonePr => ({
   project: pr.project,
   number: pr.number,
   title: pr.title,
@@ -74,6 +74,12 @@ const reviewOf = (rows: readonly SessionRow[], project: string, number: number) 
   return last?.review
     ? { session: last.id, mode: last.review.mode, working: reviewing(last) }
     : null;
+};
+
+/** Why core's merge refused until confirmed (MergeRefusal), from its error's details. */
+const refusalOf = (details: unknown): MergeRefusal | undefined => {
+  const refused = (details as { refused?: unknown } | undefined)?.refused;
+  return refused === 'conflicting' || refused === 'checks-failing' ? refused : undefined;
 };
 
 /** Answers one PR call (#1064) through the same core functions as `mesa prs` and `pr-events`. */
@@ -149,15 +155,20 @@ export async function answerPrs(deps: PrsDeps, call: PrsCall): Promise<unknown> 
       const { result } = await deps.resolve(project, number, call.thread, call.resolved);
       return { resolved: result.resolved } satisfies CallResult<'prResolve'>;
     }
-    case 'prMerge': {
-      const { result } = await deps.merge(
-        { project, number },
-        { method: call.how, confirm: call.confirm, caller: 'phone' },
-      );
-      return { how: result.method, head: result.head } satisfies CallResult<'prMerge'>;
-    }
+    case 'prMerge':
+      return deps
+        .merge({ project, number }, { method: call.how, confirm: call.confirm, caller: 'phone' })
+        .then(
+          ({ result }): CallResult<'prMerge'> => ({ how: result.method, head: result.head }),
+          (error) => {
+            // Core's refusal until confirmed, so the phone asks the person and tries again.
+            const refused = error instanceof MesaError && refusalOf(error.details);
+            if (refused) return { refused } satisfies CallResult<'prMerge'>;
+            throw error;
+          },
+        );
     case 'prSend': {
-      const [pr, delivered] = [await deps.show(project, number), await deps.deliver()];
+      const [pr, delivered] = await Promise.all([deps.show(project, number), deps.deliver()]);
       const owner = ownerOf(await deps.board(), project, pr.branch);
       const mine = delivered.deliveries.find((d) => d.session === owner);
       if (!owner || !mine)

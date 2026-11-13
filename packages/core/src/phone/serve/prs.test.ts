@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { MesaError } from '../../lib/result.js';
 import type { PrEventsDelivered } from '../../pr-events/pr-event-delivery.js';
 import type { PrDetail } from '../../prs/service.js';
 import { multiProjectSession, newSession, placedRow } from '../../testing/sessions.js';
@@ -191,6 +192,29 @@ test('start, discard, reply, resolve and merge each go through core as the phone
     ['resolve', 'tide-pool', 7, 'T1', true],
     ['merge', PR, { method: 'rebase', confirm: true, caller: 'phone' }],
   ]);
+});
+
+test('a merge core refuses until confirmed comes back as the refusal, for the phone to ask', async () => {
+  const { deps } = fakeDeps({
+    merge: async () => {
+      throw new MesaError('usage', 'tide-pool #7 conflicts with its base', {
+        refused: 'conflicting',
+        checks: 'passing',
+        mergeable: 'conflicting',
+      });
+    },
+  });
+  expect(await ask(deps, { method: 'prMerge', ...PR, how: 'squash', confirm: false })).toEqual({
+    refused: 'conflicting',
+  });
+  const broken = fakeDeps({
+    merge: async () => {
+      throw new MesaError('internal', 'gh failed');
+    },
+  });
+  await expect(
+    answerPrs(broken.deps, { method: 'prMerge', ...PR, how: 'squash', confirm: true }),
+  ).rejects.toThrow('gh failed');
 });
 
 test('a failed check goes to the session on the branch, or says why nothing went', async () => {

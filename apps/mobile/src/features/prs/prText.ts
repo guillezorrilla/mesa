@@ -1,4 +1,4 @@
-import type { PhoneCheck, PhonePr } from '@mesa/core/phone';
+import { CHECK_STATES, type PhoneCheck, type PhonePr } from '@mesa/core/phone';
 
 /** Where a PR is and whose: "tide-pool #7 · lee-park". */
 export const prMeta = (pr: Pick<PhonePr, 'project' | 'number' | 'author'>) =>
@@ -25,16 +25,12 @@ export const checkColor = (state: PhoneCheck['state'] | null) =>
 
 /** The checks counted by state, failing first: "1 failing · 2 passing", or "No checks". */
 export function checkSummary(checks: readonly PhoneCheck[]) {
-  const counts = (['failing', 'pending', 'passing', 'skipped'] as const).flatMap((state) => {
+  const counts = CHECK_STATES.flatMap((state) => {
     const n = checks.filter((check) => check.state === state).length;
     return n ? [`${n} ${state === 'pending' ? 'running' : state}`] : [];
   });
   return counts.length ? counts.join(' · ') : 'No checks';
 }
-
-/** Where a thread or draft sits: "src/tide.ts:2", the file alone, or the review summary. */
-export const commentPlace = (c: { path: string | null; line: number | null }) =>
-  c.path ? `${c.path}${c.line ? `:${c.line}` : ''}` : 'Review summary';
 
 const VERDICTS: Record<string, string> = {
   addressed: 'Addressed',

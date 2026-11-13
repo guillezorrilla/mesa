@@ -1,4 +1,4 @@
-import { useViewed } from '../changes/useChanges';
+import { useViewed } from '../changes/useViewed';
 import { SLOW_MS } from '../mac/slowCall';
 import { useMacRead } from '../mac/useMacRead';
 

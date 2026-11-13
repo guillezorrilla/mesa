@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { Runner } from '../lib/process.js';
 import type { JsonRead } from '../lib/run-json.js';
 import { facts, myDrafts, type Pr, posted, readPr, twg } from './bitbucket-pr.js';
-import { orderChecks } from './check-list.js';
+import { checkLink, orderChecks, rollUp } from './check-list.js';
 import type { PrCheck, PrRead, PrThread } from './reader.js';
 
 // An added file has no `old`, a deleted one no `new`.
@@ -22,15 +22,6 @@ const Diffstat = z.array(
     })),
 );
 
-/** The head commit's statuses rolled up: one failure fails it, one still running keeps it pending. */
-function checksOf(pr: Pr): PrRead['checks'] {
-  const states = pr._statuses.map((s) => s.state);
-  if (states.length === 0) return null;
-  if (states.some((s) => s === 'FAILED' || s === 'STOPPED')) return 'failing';
-  if (states.some((s) => s === 'INPROGRESS')) return 'pending';
-  return 'passing';
-}
-
 const STATUS: Record<string, PrCheck['state']> = {
   SUCCESSFUL: 'passing',
   FAILED: 'failing',
@@ -44,7 +35,7 @@ const checkListOf = (pr: Pr): PrCheck[] =>
     pr._statuses.map((s) => ({
       name: s.name ?? s.key ?? 'status',
       state: STATUS[s.state] ?? 'pending',
-      ...(s.url && URL.parse(s.url)?.protocol === 'https:' ? { url: s.url } : {}),
+      ...checkLink(s.url),
     })),
   );
 
@@ -99,6 +90,7 @@ export async function showBitbucket(
   if (!stat.ok) return stat;
   const { me, pr } = read.value;
   const files = stat.value;
+  const checkList = checkListOf(pr);
   return {
     ok: true,
     value: {
@@ -109,8 +101,8 @@ export async function showBitbucket(
       headRef: pr.source.branch.name,
       additions: files.reduce((n, f) => n + f.additions, 0),
       deletions: files.reduce((n, f) => n + f.deletions, 0),
-      checks: checksOf(pr),
-      checkList: checkListOf(pr),
+      checks: rollUp(checkList),
+      checkList,
       threads: threadsOf(pr),
       drafts: myDrafts(pr, me),
       files,

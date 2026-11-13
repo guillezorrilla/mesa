@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { mergeAsk } from './mergeAsk';
+import { mergeAsk, refusedAsk } from './mergeAsk';
 
 test('passing checks merge plainly, naming the method and the checks', () => {
   const ask = mergeAsk(
@@ -40,4 +40,11 @@ test('running checks and no checks say so', () => {
   expect(mergeAsk({ number: 7, checks: null, checkList: [] }, 'merge').message).toBe(
     'Checks: No checks.',
   );
+});
+
+test('a refusal from the Mac is asked again in words', () => {
+  expect(refusedAsk('conflicting')).toBe(
+    'It conflicts with its base, so GitHub may refuse it too. Merge anyway?',
+  );
+  expect(refusedAsk('checks-failing')).toContain('Merge anyway?');
 });

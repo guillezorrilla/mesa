@@ -81,7 +81,7 @@ export {
   prStatus,
   threadProgress,
 } from './prs/buckets.js';
-export { MERGE_METHODS, type MergeMethod } from './prs/github-merge.js';
+export { MERGE_LABELS, MERGE_METHODS, type MergeMethod } from './prs/merge-methods.js';
 export { PR_CLIS } from './prs/provider.js';
 export { PROMPT_ONLY, promptGuarded } from './prs/review-guard.js';
 export { canPost, reviewing, reviewsOf } from './prs/review-sessions.js';

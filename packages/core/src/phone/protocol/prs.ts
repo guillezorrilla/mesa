@@ -3,6 +3,7 @@
 // review session, discarding a draft, replying to and resolving a thread, merging, and sending a
 // failed check to the session that owns the branch. rpc.ts joins them to the other calls.
 import { z } from 'zod';
+import { MERGE_METHODS } from '../../prs/merge-methods.js';
 import { changesResults } from './changes.js';
 
 const pr = { project: z.string(), number: z.number().int().positive() };
@@ -95,7 +96,7 @@ export const prsCalls = [
   z.object({
     method: z.literal('prMerge'),
     ...pr,
-    how: z.enum(['squash', 'merge', 'rebase']),
+    how: z.enum(MERGE_METHODS),
     confirm: z.boolean(),
   }),
   /** Forwards the PR's events, its failed checks among them, to the session on its branch. */
@@ -121,7 +122,11 @@ export const prsResults = {
   prDiscard: z.object({}),
   prReply: z.object({ id: z.string() }),
   prResolve: z.object({ resolved: z.boolean() }),
-  prMerge: z.object({ how: z.string(), head: z.string() }),
+  /** Merged at `head`, or refused until confirmed: a conflict with its base, or a failing check. */
+  prMerge: z.union([
+    z.object({ how: z.string(), head: z.string() }),
+    z.object({ refused: z.enum(['conflicting', 'checks-failing']) }),
+  ]),
   /** Typed into the session, waiting on it (busy, or Mesa unsure it is idle), or nothing to send. */
   prSend: z.object({
     status: z.string(),

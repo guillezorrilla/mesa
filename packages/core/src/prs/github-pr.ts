@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { HttpsUrl } from '../git/pull-requests.js';
 import type { PrFacts } from './buckets.js';
+import { checkLink } from './check-list.js';
 import type { PrCheck, PrDraft, PrHead, PrRead } from './reader.js';
 
 /** A summary draft's id: the pending review's, marked so discard clears the body, not a comment. */
@@ -163,6 +164,6 @@ export function toCheck(context: z.infer<typeof CheckContext>): PrCheck {
   return {
     name,
     state: CHECK_STATE[word ?? ''] ?? 'pending',
-    ...(url && URL.parse(url)?.protocol === 'https:' ? { url } : {}),
+    ...checkLink(url),
   };
 }

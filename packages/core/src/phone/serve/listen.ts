@@ -91,10 +91,11 @@ async function listen(
   };
   const diff = keptDiffs(deps.answers.changes.diff, now);
   // A PR's patch is kept the same way, keyed by its project and number.
-  const prPatch = keptDiffs((key: string) => {
-    const at = key.lastIndexOf('#');
-    return deps.answers.prs.diff(key.slice(0, at), Number(key.slice(at + 1)));
-  }, now);
+  const prPatch = keptDiffs(
+    (pr: { project: string; number: number }) => deps.answers.prs.diff(pr.project, pr.number),
+    now,
+    (pr) => `${pr.project}#${pr.number}`,
+  );
   const answers = {
     ...deps.answers,
     board,
@@ -102,7 +103,7 @@ async function listen(
     prs: {
       ...deps.answers.prs,
       diff: (project: string, number: number, reuse?: boolean) =>
-        prPatch(`${project}#${number}`, reuse),
+        prPatch({ project, number }, reuse),
     },
   };
   const respond = async (request: Extract<PhoneMessage, { kind: 'request' }>) => {

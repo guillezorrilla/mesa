@@ -44,7 +44,7 @@ export function PrBody({
             onMerge={() => actions.merge(pr)}
             busy={Boolean(actions.busy)}
           />
-          <ReviewSection pr={pr} onReview={() => actions.review(pr)} />
+          <ReviewSection pr={pr} onReview={() => actions.review(pr)} busy={Boolean(actions.busy)} />
           <FilesLink pr={pr} />
           <DescriptionSection body={pr.body} />
           <ThreadsSection
@@ -52,8 +52,13 @@ export function PrBody({
             onReply={actions.reply}
             onResolve={actions.resolve}
             canResolve={pr.provider === 'github'}
+            busy={Boolean(actions.busy)}
           />
-          <DraftsSection drafts={pr.drafts} onDiscard={actions.discard} />
+          <DraftsSection
+            drafts={pr.drafts}
+            onDiscard={actions.discard}
+            busy={Boolean(actions.busy)}
+          />
         </>
       ) : null}
     </ScrollView>

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { checkSummary, commentPlace, prMeta, threadState } from './prText';
+import { checkSummary, prMeta, threadState } from './prText';
 
 test('a PR is named by project, number and author', () => {
   expect(prMeta({ project: 'tide-pool', number: 7, author: 'lee-park' })).toBe(
@@ -17,12 +17,6 @@ test('checks count failing first, pending said as running', () => {
       { name: 'd', state: 'passing' },
     ]),
   ).toBe('1 failing · 1 running · 2 passing');
-});
-
-test('a comment sits on a line, a file, or the summary', () => {
-  expect(commentPlace({ path: 'src/tide.ts', line: 2 })).toBe('src/tide.ts:2');
-  expect(commentPlace({ path: 'src/tide.ts', line: null })).toBe('src/tide.ts');
-  expect(commentPlace({ path: null, line: null })).toBe('Review summary');
 });
 
 test("a verdict wins over the provider's resolved flag", () => {

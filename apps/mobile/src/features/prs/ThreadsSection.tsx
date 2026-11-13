@@ -9,11 +9,13 @@ export function ThreadsSection({
   onReply,
   onResolve,
   canResolve,
+  busy,
 }: {
   threads: PhoneThread[];
   onReply: (thread: PhoneThread) => void;
   onResolve: (thread: PhoneThread) => void;
   canResolve: boolean;
+  busy: boolean;
 }) {
   return (
     <Section title="Your threads">
@@ -24,6 +26,7 @@ export function ThreadsSection({
             thread={thread}
             onReply={() => onReply(thread)}
             onResolve={canResolve ? () => onResolve(thread) : undefined}
+            busy={busy}
           />
         ))
       ) : (

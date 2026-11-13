@@ -1,17 +1,18 @@
-import type { PhoneDraft } from '@mesa/core/phone';
+import { commentPlace, type PhoneDraft } from '@mesa/core/phone';
 import { View } from 'react-native';
 import { Section } from '@/components/Section';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { commentPlace } from './prText';
 
 /** My Pending drafts, which only I see until I submit them, each with Discard. */
 export function DraftsSection({
   drafts,
   onDiscard,
+  busy,
 }: {
   drafts: PhoneDraft[];
   onDiscard: (draft: PhoneDraft) => void;
+  busy: boolean;
 }) {
   if (!drafts.length) return null;
   return (
@@ -24,6 +25,7 @@ export function DraftsSection({
             size="sm"
             variant="ghost"
             className="self-start"
+            disabled={busy}
             accessibilityLabel={`Discard the draft on ${commentPlace(draft)}`}
             onPress={() => onDiscard(draft)}
           >
