@@ -3,6 +3,7 @@ import { FileCode2, MessageSquareText } from 'lucide-react';
 import { Muted } from '@/components/Muted';
 import { PersonAvatar } from '@/components/PersonAvatar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { folderOf, nameOf } from '@/features/git/gitChanges';
 import { cn } from '@/lib/utils';
 
@@ -12,19 +13,28 @@ type Thread = PrDetail['threads'][number];
  * My threads on a PR as a conversation each: where it sits, my comment, and the author's last
  * reply on one rail, edged in the thread's state. Provider text is shown as plain text.
  */
-export function PrCommentsTab(props: { threads: readonly Thread[] }) {
+export function PrCommentsTab(props: {
+  threads: readonly Thread[];
+  onResolve?: (thread: string, resolved: boolean) => void;
+}) {
   if (!props.threads.length)
     return <Muted className="py-4">You have no comments on this PR yet.</Muted>;
   return (
     <ul className="space-y-3 py-3">
       {props.threads.map((thread) => (
-        <ThreadCard key={thread.id} thread={thread} />
+        <ThreadCard key={thread.id} thread={thread} onResolve={props.onResolve} />
       ))}
     </ul>
   );
 }
 
-function ThreadCard({ thread }: { thread: Thread }) {
+function ThreadCard({
+  thread,
+  onResolve,
+}: {
+  thread: Thread;
+  onResolve?: (thread: string, resolved: boolean) => void;
+}) {
   const state = THREAD_STATE[thread.verdict?.state ?? (thread.resolved ? 'resolved' : 'open')];
   const tone = TONE[state.tone];
   return (
@@ -40,6 +50,11 @@ function ThreadCard({ thread }: { thread: Thread }) {
           <span className={cn('size-1.5 rounded-full', tone.dot)} />
           {state.label}
         </Badge>
+        {onResolve && (
+          <Button variant="ghost" size="xs" onClick={() => onResolve(thread.id, !thread.resolved)}>
+            {thread.resolved ? 'Reopen' : 'Resolve'}
+          </Button>
+        )}
       </header>
       <div className="px-3 py-3">
         <Comment who="You" body={thread.body} rail={!!thread.lastReply} />

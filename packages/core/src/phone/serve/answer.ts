@@ -5,12 +5,14 @@ import type { SessionRow } from '../../sessions/board/rows.js';
 import type { SessionResponses } from '../../sessions/native/responses.js';
 import type { UsageReport } from '../../usage/records.js';
 import { isChangesCall } from '../protocol/changes.js';
+import { isPrsCall } from '../protocol/prs.js';
 import { type CallResult, type PhoneCall, SESSION_REPLIES } from '../protocol/rpc.js';
 import { isTerminalCall } from '../protocol/terminal.js';
 import { answerSteer, isSteerCall, type SteerDeps } from './answer-steer.js';
 import { answerChanges, type ChangesDeps } from './changes.js';
 import { answerCrewCall, type CrewDeps, isCrewCall } from './crew.js';
 import { answerInboxCall, type InboxDeps, isInboxCall } from './inbox.js';
+import { answerPrs, type PrsDeps } from './prs.js';
 import { answerPushes, type PushesDeps } from './pushes.js';
 import { phoneReplies } from './replies.js';
 import { askedRows, managedRows, phoneRows, queuedRows, toPhoneRow } from './rows.js';
@@ -36,6 +38,8 @@ export type AnswerDeps = {
   steer: SteerDeps;
   /** A session's changes, source control and files (#1063). */
   changes: ChangesDeps;
+  /** Pull requests: the review queue, one PR, reviews, merging (#1064). */
+  prs: Omit<PrsDeps, 'board'>;
   inbox: InboxDeps;
   /** `mesa usage`'s report. */
   usage: () => Promise<UsageReport>;
@@ -64,6 +68,7 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
     } satisfies CallResult<'sessions'>;
   if (isCrewCall(call)) return answerCrewCall(deps.crew, call);
   if (isChangesCall(call)) return answerChanges(deps.changes, call);
+  if (isPrsCall(call)) return answerPrs({ ...deps.prs, board: deps.board }, call);
   if (isInboxCall(call)) return answerInboxCall(deps.inbox, call);
   if (call.method === 'usage')
     return phoneUsage(

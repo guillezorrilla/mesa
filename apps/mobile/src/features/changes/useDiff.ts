@@ -12,5 +12,8 @@ export function useDiff(id: string, path: string, rev: string) {
   const link = useMac();
   const sendNote = (lines: { line: number; end: number }, text: string) =>
     tryCall(link, () => link.call({ method: 'note', id, path, ...lines, text }, SLOW_MS));
-  return { ...useDiffPages(id, path, rev), ...useLineSelection(), sendNote };
+  const pages = useDiffPages((mac, from) =>
+    mac.call({ method: 'diff', id, path, rev, from }, SLOW_MS),
+  );
+  return { ...pages, ...useLineSelection(), sendNote };
 }

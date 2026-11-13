@@ -73,6 +73,19 @@ export const prsCommands = {
     String(number),
     id,
   ]),
+  /** Resolves one of my threads on a GitHub PR, or opens it again. */
+  'prs.resolve': commandWith<
+    PrRef & { thread: string; reopen?: boolean },
+    { thread: string; resolved: boolean }
+  >(({ project, number, thread, reopen }) => [
+    'prs',
+    'resolve',
+    ...(reopen ? ['--reopen'] : []),
+    '--',
+    project,
+    String(number),
+    thread,
+  ]),
   /**
    * Merges the PR through gh with `method` (squash by default), never with --admin; `yes` is the
    * person's confirm to merge when a check fails or it conflicts, which core refuses otherwise.

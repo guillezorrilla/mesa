@@ -3,7 +3,8 @@ import { MesaError } from '../lib/result.js';
 import { callerOf } from '../sessions/window/caller.js';
 import { githubPullLink } from '../sources/github.js';
 import { failure, unwrap } from './cli-read.js';
-import { type MergeMethod, mergeGithub, mergeStateGithub } from './github-merge.js';
+import { mergeGithub, mergeStateGithub } from './github-merge.js';
+import type { MergeMethod } from './merge-methods.js';
 import type { Reached } from './review.js';
 
 /** A pull request named by its registered project and number, or by its GitHub URL. */

@@ -1,6 +1,9 @@
 import { z } from 'zod';
+import { orderChecks } from './check-list.js';
 import { ghGraphql, repoVars } from './github-graphql.js';
 import {
+  CHECK_CONTEXTS,
+  CheckContext,
   checksOf,
   Nodes,
   PR_FACTS,
@@ -9,6 +12,7 @@ import {
   summaryDraft,
   Thread,
   ThreadComment,
+  toCheck,
   toPr,
 } from './github-pr.js';
 import type { PrDraft, PrProviderApi, PrThread } from './reader.js';
@@ -21,9 +25,9 @@ const QUERY = `query($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
       ...PrFacts
-      baseRefName additions deletions
+      body baseRefName additions deletions
       files(first: 100) { nodes { path additions deletions } }
-      head: commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+      head: commits(last: 1) { nodes { commit { statusCheckRollup { state ${CHECK_CONTEXTS} } } } }
       reviewThreads(first: 100) {
         nodes { id path line comments(last: 50) { nodes { id body } } }
       }
@@ -47,6 +51,7 @@ const Response = z.object({
     viewer: z.object({ login: z.string() }),
     repository: z.object({
       pullRequest: PrNode.extend({
+        body: z.string(),
         baseRefName: z.string(),
         additions: z.number().int(),
         deletions: z.number().int(),
@@ -55,7 +60,11 @@ const Response = z.object({
         ).nullable(),
         head: Nodes(
           z.object({
-            commit: z.object({ statusCheckRollup: z.object({ state: z.string() }).nullable() }),
+            commit: z.object({
+              statusCheckRollup: z
+                .object({ state: z.string(), contexts: Nodes(CheckContext) })
+                .nullable(),
+            }),
           }),
         ),
         reviewThreads: Nodes(ShowThread),
@@ -106,6 +115,7 @@ export const showGithub: PrProviderApi['show'] = async (run, repo, number) => {
       },
     ];
   });
+  const rollup = pr.head.nodes[0]?.commit.statusCheckRollup;
   const review = pr.pending.nodes[0];
   const drafts: PrDraft[] = review
     ? [
@@ -126,11 +136,13 @@ export const showGithub: PrProviderApi['show'] = async (run, repo, number) => {
     value: {
       me: viewer.login,
       pr: toPr(pr, viewer.login),
+      body: pr.body,
       base: pr.baseRefName,
       headRef: `pull/${pr.number}/head`,
       additions: pr.additions,
       deletions: pr.deletions,
-      checks: checksOf(pr.head.nodes[0]?.commit.statusCheckRollup?.state),
+      checks: checksOf(rollup?.state),
+      checkList: orderChecks(rollup?.contexts.nodes.map(toCheck) ?? []),
       threads,
       drafts,
       files: pr.files?.nodes ?? [],

@@ -125,3 +125,19 @@ test('a failing or slow twg and unexpected output are reported, never thrown', a
     reason: 'invalid-data',
   });
 });
+
+test('the check list names each status, failing first, with its HTTPS link', async () => {
+  const pr = JSON.stringify({
+    ...JSON.parse(PR),
+    _statuses: [
+      { state: 'SUCCESSFUL', name: 'build', url: 'https://ci.example.com/1' },
+      { state: 'FAILED', key: 'lint', url: 'http://ci.example.com/2' },
+    ],
+  });
+  const read = await bitbucketApi.show(twg(pr).run, REPO, 214);
+  if (!read.ok) throw new Error(read.reason);
+  expect(read.value.checkList).toEqual([
+    { name: 'lint', state: 'failing' },
+    { name: 'build', state: 'passing', url: 'https://ci.example.com/1' },
+  ]);
+});

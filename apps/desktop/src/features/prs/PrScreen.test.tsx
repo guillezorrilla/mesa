@@ -36,6 +36,8 @@ const detail = (over: Partial<PrDetail> = {}): PrDetail => ({
   additions: 233,
   deletions: 61,
   checks: 'passing',
+  checkList: [],
+  body: '',
   threads: [
     {
       id: 'T1',
@@ -208,6 +210,26 @@ test("the Files tab reads the PR's patch only when opened and shows each file's 
   expect(
     document.querySelector('section[aria-label="test/edge/cache.test.ts"]')?.textContent,
   ).toContain("test('304 keeps the body')");
+});
+
+test('Resolve and Reopen on my threads ask core and read the PR again; a Bitbucket PR has neither', async () => {
+  const { bridge, calls } = fakeBridge({
+    'prs show': () => envelope(detail()),
+    'prs resolve': (args) =>
+      envelope({ thread: args.at(-1), resolved: !args.includes('--reopen'), receipt: null }),
+  });
+  await renderWithMesa(<PrScreen project="storefront" number={477} />, bridge);
+  await click(tab('Your comments'));
+  await click(button('Resolve'));
+  expect(calls.find((c) => c[2] === 'resolve')?.slice(-4)).toEqual([
+    '--',
+    'storefront',
+    '477',
+    'T2',
+  ]);
+  await click(button('Reopen'));
+  expect(calls.filter((c) => c[2] === 'resolve').at(-1)).toContain('--reopen');
+  expect(calls.filter((c) => c[2] === 'show')).toHaveLength(3);
 });
 
 test('Discard asks first, then deletes the draft by its id and reads the PR again', async () => {
