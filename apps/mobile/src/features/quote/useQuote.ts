@@ -1,3 +1,4 @@
+import { SESSION_REPLIES } from '@mesa/core/phone';
 import { useLineSelection } from '@/lib/useLineSelection';
 import { SLOW_MS } from '../mac/slowCall';
 import { tryCall } from '../mac/tryCall';
@@ -11,7 +12,8 @@ import { type ReplyLine, tapReplyLine } from './replyLines';
  */
 export function useQuote(id: string, reply: string) {
   const link = useMac();
-  const { answer } = useMacRead({ method: 'session', id });
+  // As many replies as the session screen shows at most, so any reply quoted from it is here.
+  const { answer } = useMacRead({ method: 'session', id, replies: SESSION_REPLIES.most });
   const { selection, tap } = useLineSelection();
   return {
     answer,

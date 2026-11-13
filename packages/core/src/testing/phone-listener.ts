@@ -127,9 +127,9 @@ export async function livePhoneSession(at: ServingPhone, opts: { goal?: string }
  * Lets the listener's loop run until `done`, up to 5 s: it looks again when the file watch hears
  * a change, which comes a moment after the write.
  */
-export async function untilTrue(done: () => boolean) {
+export async function untilTrue(done: () => boolean | Promise<boolean>) {
   const end = Date.now() + 5000;
-  while (!done() && Date.now() < end) await new Promise((r) => setTimeout(r, 5));
+  while (!(await done()) && Date.now() < end) await new Promise((r) => setTimeout(r, 5));
   return done();
 }
 

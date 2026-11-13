@@ -7,11 +7,11 @@ import { isGone } from '../pair.js';
 import type { PairingClient } from '../protocol/client.js';
 import type { PhoneMessage } from '../protocol/envelope.js';
 import { type ConnectSocket, mailbox } from '../protocol/mailbox.js';
-import { type PhoneRow, WATCH_MS } from '../protocol/rpc.js';
-import { type AnswerDeps, type Answers, answerCall, boardRows } from './answer.js';
+import { type PhoneCall, type PhoneRow, WATCH_MS } from '../protocol/rpc.js';
+import { type AnswerDeps, answerCall, boardRows, type ListenerAnswers } from './answer.js';
 import { deliverQueued } from './deliver.js';
 import { keptDiffs } from './kept-diffs.js';
-import type { RowFileChange } from './row-files.js';
+import { watchRowFiles } from './row-files.js';
 import { keptAsks, phoneRows, rowChanges } from './rows.js';
 
 export type ServeDeps = {
@@ -24,8 +24,8 @@ export type ServeDeps = {
   lock: AsyncLockDeps;
   /** The lock file that keeps one listener per profile. */
   lockPath: string;
-  /** Calls its argument when a file a phone row is read from changes; returns the stop (watchRowFiles). */
-  watch: (changed: (change: RowFileChange) => void) => () => void;
+  /** The files a phone row is read from, which the listener watches (watchRowFiles). */
+  rowFiles: Parameters<typeof watchRowFiles>[0];
 };
 
 export type ServeEnd = { pairingId?: string; ended: 'not-paired' | 'unpaired' | 'stopped' };
@@ -42,6 +42,8 @@ const DEBOUNCE_MS = 200;
  * long; a change still reaches a watching phone within about 5 s (the gap, the debounce, the look).
  */
 const GAP_MS = 2500;
+/** How long one wait of a rest lasts: a change or the stop ends the rest within it. */
+const WAIT_MS = 250;
 /** The first wait before dialing the broker again, doubled at each miss. */
 const RETRY_MS = 2000;
 /** The longest wait between tries to reach the broker. */
@@ -55,7 +57,7 @@ const REDIAL_MS = 5 * 60_000;
 /** A wait that ran this much longer than asked means the Mac slept. */
 const WOKE_MS = 30_000;
 /** The calls that only read the board; any other may change a row, so the next read looks again. */
-const READS: ReadonlySet<string> = new Set(['sessions', 'session', 'usage', 'prompt']);
+const READS: ReadonlySet<PhoneCall['method']> = new Set(['sessions', 'session', 'usage', 'prompt']);
 
 /**
  * The Mac's listener (`mesa phone serve`, ADR-0027): holds the Pairing's socket, answers each
@@ -125,8 +127,12 @@ async function listen(
     return looking;
   };
   const diff = keptDiffs(deps.answers.changes.diff, now);
-  const asks = keptAsks(deps.answers.prompt);
-  const answers: Answers = {
+  // A prompt not drawn yet when its hook came is read again at the next look, which comes soon.
+  const asks = keptAsks(deps.answers.prompt, () => {
+    stale = true;
+    heard += 1;
+  });
+  const answers: ListenerAnswers = {
     ...deps.answers,
     board,
     asked: asks.read,
@@ -201,26 +207,21 @@ async function listen(
     await deliverQueued(queue, phoneRows(await board()), send);
   };
 
-  // The loop rests until a change (`heard` moved past `seen`), the fallback, or the stop.
+  // The loop rests in short waits, so a change (`heard` moved past `seen`) or the stop ends a
+  // rest within one of them, and no wait outlives the listener.
   let heard = 0;
   let seen = 0;
-  let early = false;
-  let restEnd = () => {};
-  const rest = (ms: number, onChange: boolean) =>
-    new Promise<void>((resolve) => {
-      restEnd = resolve;
-      early = onChange;
-      if ((onChange && heard !== seen) || stop?.aborted) resolve();
-      void deps.sleep(ms).then(resolve);
-    });
-  const unwatch = deps.watch(({ hooked }) => {
+  const rest = async (ms: number, onChange: boolean) => {
+    for (let waited = 0; waited < ms; waited += WAIT_MS) {
+      if (stop?.aborted || (onChange && heard !== seen)) return;
+      await deps.sleep(WAIT_MS);
+    }
+  };
+  const unwatch = watchRowFiles(deps.rowFiles, ({ hooked }) => {
     if (hooked) asks.forget(hooked);
     stale = true;
     heard += 1;
-    if (early) restEnd();
   });
-  const ended = () => restEnd();
-  stop?.addEventListener('abort', ended);
 
   let slept = false;
   try {
@@ -252,7 +253,6 @@ async function listen(
     return { pairingId, ended: 'stopped' };
   } finally {
     unwatch();
-    stop?.removeEventListener('abort', ended);
     box.close();
     await saving;
   }

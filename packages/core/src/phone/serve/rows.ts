@@ -1,17 +1,23 @@
 import { clip } from '../../lib/clip.js';
 import { firstLine } from '../../lib/format.js';
 import type { PendingPrompt } from '../../sessions/answer/pending.js';
+import { listedSession } from '../../sessions/board/listed.js';
 import type { ManagedRow, SessionRow } from '../../sessions/board/rows.js';
 import { sessionTitle } from '../../sessions/record/labels.js';
 import { WAITING_STATES } from '../../sessions/record/states.js';
 import type { PhoneRow } from '../protocol/rpc.js';
 
 /**
- * The phone's rows: the board's Mesa sessions, in its attention order, each cut to what a list
- * shows. Foreign sessions stay off: the phone acts on sessions, and those are read-only.
+ * The phone's rows: the board's sessions the sidebar lists (listedSession), in its attention
+ * order, each cut to what a list shows. Foreign sessions stay off: the phone acts on sessions,
+ * and those are read-only.
  */
 export const phoneRows = (board: readonly SessionRow[]): PhoneRow[] =>
-  board.filter((row): row is ManagedRow => row.managed).map(toPhoneRow);
+  managedRows(board).filter(listedSession).map(toPhoneRow);
+
+/** The board's Mesa sessions, listed or not: Usage counts an ended session's cost too. */
+export const managedRows = (board: readonly SessionRow[]) =>
+  board.filter((row): row is ManagedRow => row.managed);
 
 export const toPhoneRow = (row: ManagedRow): PhoneRow => ({
   id: row.id,
@@ -21,6 +27,7 @@ export const toPhoneRow = (row: ManagedRow): PhoneRow => ({
   since: row.lastState.at,
   context: row.context ? Math.round(row.context.used) : null,
   unread: Boolean(row.unread),
+  ...(row.agent === 'terminal' ? { terminal: true as const } : {}),
 });
 
 /** The longest `ask` a row carries: a list shows one line. */
@@ -38,10 +45,12 @@ export function askLine(prompt: PendingPrompt): string | undefined {
  * Each waiting row's `ask`, read through `prompt` (a pane capture) only when the session changed
  * since the read that gave it: its state or its time moved, or `forget` was told its hook log
  * changed (a new prompt in the same state). A prompt that does not read (its pane not drawn yet)
- * leaves the row as it is, and is read again on the next look.
+ * leaves the row as it is and calls `unread`, so the next look reads it once more; one that still
+ * does not read (a prompt Mesa cannot read) is left until the session changes.
  */
-export function keptAsks(prompt: (id: string) => Promise<PendingPrompt>) {
+export function keptAsks(prompt: (id: string) => Promise<PendingPrompt>, unread: () => void) {
   const kept = new Map<string, { key: string; ask: Promise<string | undefined> }>();
+  const missed = new Map<string, string>();
   const askOf = (row: PhoneRow) => {
     const key = `${row.state} ${row.since}`;
     const hit = kept.get(row.id);
@@ -49,23 +58,31 @@ export function keptAsks(prompt: (id: string) => Promise<PendingPrompt>) {
     const entry = { key, ask: prompt(row.id).then(askLine, () => undefined) };
     kept.set(row.id, entry);
     void entry.ask.then((ask) => {
-      if (!ask && kept.get(row.id) === entry) kept.delete(row.id);
+      if (ask || missed.get(row.id) === key || kept.get(row.id) !== entry) return;
+      missed.set(row.id, key);
+      kept.delete(row.id);
+      unread();
     });
     return entry.ask;
   };
+  const waiting = (row: PhoneRow) => (WAITING_STATES as ReadonlySet<string>).has(row.state);
   return {
-    read: (rows: PhoneRow[]) =>
-      Promise.all(
+    read: (rows: PhoneRow[]) => {
+      const now = new Set(rows.filter(waiting).map((row) => row.id));
+      for (const id of kept.keys()) if (!now.has(id)) kept.delete(id);
+      for (const id of missed.keys()) if (!now.has(id)) missed.delete(id);
+      return Promise.all(
         rows.map(async (row) => {
-          if (!(WAITING_STATES as ReadonlySet<string>).has(row.state)) {
-            kept.delete(row.id);
-            return row;
-          }
+          if (!waiting(row)) return row;
           const ask = await askOf(row);
           return ask ? { ...row, ask } : row;
         }),
-      ),
-    forget: (id: string) => kept.delete(id),
+      );
+    },
+    forget: (id: string) => {
+      kept.delete(id);
+      missed.delete(id);
+    },
   };
 }
 

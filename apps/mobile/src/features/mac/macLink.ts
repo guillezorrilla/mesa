@@ -51,8 +51,7 @@ export function macLink(pairing: PhonePairing, keepTaken: (takenSeq: number) => 
     /** A read (never a write): asked once more when the Mac did not answer in time. */
     read: <M extends PhoneCall['method']>(
       call: Extract<PhoneCall, { method: M }>,
-      timeoutMs?: number,
-    ): Promise<CallResult<M>> => againOnTimeout(() => calls.call(call, timeoutMs)),
+    ): Promise<CallResult<M>> => againOnTimeout(() => calls.call(call)),
     /** Holds the socket open, dialing again after a drop, until `close`. */
     connect: () => {
       wanted = true;

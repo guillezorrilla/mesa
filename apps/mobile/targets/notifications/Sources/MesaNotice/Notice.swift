@@ -65,11 +65,13 @@ public struct Pairing: Decodable {
   public let macKey: String
 }
 
-/// The notice in a push's box, opened with the pairing's JSON as the app keeps it.
-public func openNotice(_ box: String, pairing json: Data) -> Notice? {
+/// The notice in a push's box with the id of the pairing that opened it, from that pairing's JSON
+/// as the app keeps it; nil when this pairing did not seal it.
+public func openNotice(_ box: String, pairing json: Data) -> (notice: Notice, pairingId: String)? {
   guard let pairing = try? JSONDecoder().decode(Pairing.self, from: json),
     let key = macToPhoneKey(
-      privateKey: pairing.privateKey, macKey: pairing.macKey, pairingId: pairing.pairingId)
+      privateKey: pairing.privateKey, macKey: pairing.macKey, pairingId: pairing.pairingId),
+    let notice = openNotice(box, key: key, pairingId: pairing.pairingId)
   else { return nil }
-  return openNotice(box, key: key, pairingId: pairing.pairingId)
+  return (notice, pairing.pairingId)
 }

@@ -9,6 +9,7 @@ import {
   scriptedRunner,
 } from '../testing/index.js';
 import { macKeys, macPairingStore } from './mac-pairing.js';
+import { macName } from './pair.js';
 import { pairingClient } from './protocol/client.js';
 import { openDeliveries, sealMessage } from './protocol/envelope.js';
 import { newKeyPair } from './protocol/seal.js';
@@ -45,7 +46,7 @@ test('pair shows a QR link and keeps the Mac half in the Keychain only; the phon
   expect(started).toMatchObject({
     pairingId: 'pairing-0000000001',
     qr: expect.stringMatching(
-      /^mesa:\/\/pair\?v=1&b=https%3A%2F%2Fbroker\.test&p=pairing-0000000001&s=/,
+      /^mesa:\/\/pair\?v=1&b=https%3A%2F%2Fbroker\.test&p=pairing-0000000001&s=.*&n=default$/,
     ),
     expiresAt: '2026-09-24T12:10:00.000Z',
     svg: expect.stringContaining('<svg'),
@@ -169,4 +170,10 @@ test('a broker that cannot be reached says so when pairing', async () => {
     "couldn't reach the broker at https://broker.test",
   );
   expect(await mesa.phone.status()).toEqual({ paired: false });
+});
+
+test('the phone names a Mac by its computer name, with the profile when it is not the default', () => {
+  expect(macName('Studio', 'default')).toBe('Studio');
+  expect(macName('Studio', 'work')).toBe('Studio (work)');
+  expect(macName(undefined, 'work')).toBe('work');
 });

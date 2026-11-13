@@ -12,7 +12,6 @@ import type { AnswerDeps } from './serve/answer.js';
 import type { SessionSteer } from './serve/answer-steer.js';
 import { servePhone } from './serve/listen.js';
 import { phoneQueue } from './serve/queue.js';
-import { watchRowFiles } from './serve/row-files.js';
 
 /**
  * The profile's Pairing with a phone (CONTEXT.md, Pairing; ADR-0014's 2026-11-11 amendment), and
@@ -48,6 +47,11 @@ export function phoneService(
         agent.exists() ? (await agent.start()).loaded : (await agent.install()).loaded,
       remove: () => agent.uninstall(),
     },
+    computerName: async () => {
+      const read = await ctx.run('/usr/sbin/scutil', ['--get', 'ComputerName'], 3000);
+      return (read.ok && read.stdout.trim()) || undefined;
+    },
+    profile: ctx.profile,
   };
   return {
     /** Opens a pairing and returns its QR; the receipt names only the pairing id. */
@@ -102,11 +106,7 @@ export function phoneService(
           },
           lock: ctx,
           lockPath: join(ctx.paths.root, 'phone-listener.lock'),
-          watch: (changed) =>
-            watchRowFiles(
-              { events: ctx.paths.events, sessions: ctx.paths.sessions, queue: queueFile },
-              changed,
-            ),
+          rowFiles: { events: ctx.paths.events, sessions: ctx.paths.sessions, queue: queueFile },
         },
         stop,
       );

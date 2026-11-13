@@ -9,6 +9,7 @@ import { inspectActions } from './inspect.js';
 import { lifecycleActions } from './lifecycle.js';
 import { mergeActions } from './merge.js';
 import { sleepActions } from './sleep.js';
+import { terminalActions } from './terminal.js';
 import { waitActions } from './wait.js';
 import { windowActions } from './windows.js';
 
@@ -33,6 +34,7 @@ export function sessionsService(
       ...inspect,
       ...waitActions(ctx, inspect.list),
       ...inputActions(ctx, faro, deps, lifecycle.open),
+      ...terminalActions(ctx, faro, deps),
       ...answerActions(ctx, deps),
       ...lifecycle,
       ...continued,

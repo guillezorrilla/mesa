@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tauri dev",
     "vite": "vite",
-    "build": "vite build && cargo check --manifest-path src-tauri/Cargo.toml",
+    "build": "vite build",
     "build:app": "tauri build",
     "typecheck": "tsc --noEmit",
     "tauri": "tauri"

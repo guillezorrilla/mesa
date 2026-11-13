@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import type { PendingPrompt } from '../../sessions/answer/pending.js';
 import {
   claudePromptPane,
   movableClock,
@@ -6,6 +7,8 @@ import {
   servingPhone,
   untilTrue,
 } from '../../testing/index.js';
+import type { PhoneRow } from '../protocol/rpc.js';
+import { keptAsks } from './rows.js';
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 200));
 const counted = (ran: { file: string; args: string[] }[], command: string) => () =>
@@ -25,8 +28,61 @@ test('a watching phone gets a look only after a file a row is read from changed'
 
   mesa.sessions.rename(session.id, 'Login fix, round 2');
   expect(await untilTrue(() => pushed.some((m) => m.kind === 'update'))).toBe(true);
+  await settle();
+  expect(pushed.filter((m) => m.kind === 'update')).toHaveLength(1);
   expect(looks()).toBeGreaterThan(first);
   await end();
+});
+
+test('an ask whose pane was not drawn yet is read once more, then left until its session changes', async () => {
+  const screens = ['', 'Bash', 'Bash', '', ''];
+  let reads = 0;
+  let unread = 0;
+  const prompt = async (): Promise<PendingPrompt> => {
+    const tool = screens[reads++];
+    return tool
+      ? {
+          status: 'pending',
+          id: 'p1',
+          kind: 'permission',
+          tool,
+          summary: 'ls',
+          options: [],
+          freeText: false,
+        }
+      : { status: 'unsupported', reason: 'no prompt on screen' };
+  };
+  const asks = keptAsks(prompt, () => {
+    unread += 1;
+  });
+  const row: PhoneRow = {
+    id: 'ab12cd34',
+    title: 'Docs',
+    project: null,
+    state: 'waiting-permission',
+    since: 't1',
+    context: null,
+    unread: false,
+  };
+  const read = async (r: PhoneRow) => (await asks.read([r]))[0]?.ask;
+  await settle();
+  expect(await read(row)).toBeUndefined();
+  await settle();
+  expect(unread).toBe(1);
+  expect(await read(row)).toBe('Bash: ls');
+  expect(await read(row)).toBe('Bash: ls');
+  expect(reads).toBe(2);
+  asks.forget(row.id);
+  expect(await read(row)).toBe('Bash: ls');
+  // A new prompt Mesa cannot read: read twice, then left.
+  const next = { ...row, since: 't2' };
+  expect(await read(next)).toBeUndefined();
+  await settle();
+  expect(await read(next)).toBeUndefined();
+  await settle();
+  expect(await read(next)).toBeUndefined();
+  expect(reads).toBe(5);
+  expect(unread).toBe(2);
 });
 
 test("a look captures a waiting session's pane again only when its state or time changed", async () => {
