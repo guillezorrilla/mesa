@@ -30,5 +30,7 @@ test('log lines from a Mac with no screen are drawn a line each', () => {
 });
 
 test("tmux's window-title sequence is taken out; xterm would print the title", () => {
-  expect(forXterm('\x1bkecho\x1b\\arrived\r\n\x1b[32mok\x1b[0m')).toBe('arrived\r\n\x1b[32mok\x1b[0m');
+  expect(forXterm('\x1bkecho\x1b\\arrived\r\n\x1b[32mok\x1b[0m')).toBe(
+    'arrived\r\n\x1b[32mok\x1b[0m',
+  );
 });
