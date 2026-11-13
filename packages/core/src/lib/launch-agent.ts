@@ -63,6 +63,10 @@ export function launchAgent(
       await ctx.run('/bin/launchctl', ['kickstart', `${user}/${label}`], 5000);
       return status();
     },
+    /** Kills a running agent and starts it again, on the executable its plist names now. */
+    restart: async () => {
+      await ctx.run('/bin/launchctl', ['kickstart', '-k', `${await domain()}/${label}`], 5000);
+    },
     install: async () => {
       if (existsSync(plist))
         throw new MesaError(

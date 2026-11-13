@@ -5,6 +5,7 @@ import { warningOf } from '@/components/Toast';
 import { UnsavedFilesDialog } from '@/features/files/UnsavedFilesDialog';
 import { useNativeNotifications } from '@/features/notifications/useNativeNotifications';
 import { useVisualAlert } from '@/features/notifications/useVisualAlert';
+import { usePhoneListenerOnLaunch } from '@/features/phone/usePhoneListenerOnLaunch';
 import { usePhonePush } from '@/features/phone/usePhonePush';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { CloneProjectDialog } from '@/features/projects/CloneProjectDialog';
@@ -158,6 +159,7 @@ function AppShell() {
   });
   useNativeNotifications(navigateLatest);
   usePhonePush();
+  usePhoneListenerOnLaunch();
   const unread = useUnread(view, sessions);
   useAppMenu(navigateLatest);
   useExternalLinks();

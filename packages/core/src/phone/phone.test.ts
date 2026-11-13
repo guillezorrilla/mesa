@@ -1,6 +1,7 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
+import { profilePaths } from '../profile/paths.js';
 import {
   fakePairingBroker,
   fakePhone,
@@ -16,11 +17,14 @@ import { newKeyPair } from './protocol/seal.js';
 
 const NOW = new Date('2026-09-24T12:00:00.000Z');
 
-/** A profile whose broker is a fake one, its Keychain in memory, and a phone on the same broker. */
-function setup() {
+/**
+ * A profile whose broker is a fake one, its Keychain in memory, and a phone on the same broker;
+ * `launchctl` answers each launchctl call (none by default).
+ */
+function setup(launchctl: (args: string[]) => string = () => '') {
   const broker = fakePairingBroker('https://broker.test', () => NOW);
   const secrets = memorySecretStore();
-  const runner = scriptedRunner({ '/usr/bin/id': '501\n' });
+  const runner = scriptedRunner({ '/usr/bin/id': '501\n', '/bin/launchctl': launchctl });
   const { mesa, home } = projectProfile(runner.run, {
     http: broker.http,
     secretStore: secrets.store,
@@ -87,6 +91,51 @@ test('pair shows a QR link and keeps the Mac half in the Keychain only; the phon
   expect(onDisk).not.toContain(item.privateKey);
   expect(onDisk).not.toContain(item.macToken);
   expect(broker.rooms.get('pairing-0000000001')?.boxes).toEqual([]);
+});
+
+test('status restarts a listener that runs another Mesa version onto this one, and leaves a current one alone', async () => {
+  // The running listener writes its pid and version; the test profile's processes are all alive.
+  let file = '';
+  const runs = (version: string) => writeFileSync(file, JSON.stringify({ pid: 4242, version }));
+  const { mesa, home, phone, runner } = setup((args) => {
+    if (args[0] === 'kickstart' && args[1] === '-k') runs('0.1.0-beta.4');
+    return '';
+  });
+  file = join(profilePaths(home, 'default').root, 'phone-listener.json');
+  const restarts = () =>
+    runner.calls.filter((c) => c.args[0] === 'kickstart' && c.args[1] === '-k').length;
+  await phone.join((await mesa.phone.pair()).result.qr);
+  await mesa.phone.status();
+
+  // An update installed 0.1.0-beta.4 while the listener still ran 0.1.0-beta.3 from memory.
+  runs('0.1.0-beta.3');
+  expect(await mesa.phone.status()).toMatchObject({
+    listening: true,
+    listenerVersion: '0.1.0-beta.4',
+  });
+  expect(runner.calls.find((c) => c.args[1] === '-k')?.args).toEqual([
+    'kickstart',
+    '-k',
+    'gui/501/com.mesa.phone.default',
+  ]);
+  // The same version on the next launch: no restart.
+  expect(await mesa.phone.status()).not.toHaveProperty('listenerOutdated');
+  expect(restarts()).toBe(1);
+});
+
+test('a listener that still runs the old version after the restart is reported, not restarted again and again', async () => {
+  let file = '';
+  const { mesa, home, phone, runner } = setup();
+  file = join(profilePaths(home, 'default').root, 'phone-listener.json');
+  await phone.join((await mesa.phone.pair()).result.qr);
+  await mesa.phone.status();
+  writeFileSync(file, JSON.stringify({ pid: 4242, version: '0.1.0-beta.3' }));
+  expect(await mesa.phone.status()).toMatchObject({
+    listening: true,
+    listenerVersion: '0.1.0-beta.3',
+    listenerOutdated: true,
+  });
+  expect(runner.calls.filter((c) => c.args[1] === '-k')).toHaveLength(1);
 });
 
 test('a phone that joins without the secret in its hello is never trusted', async () => {

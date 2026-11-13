@@ -24,6 +24,8 @@ export type ServeDeps = {
   lock: AsyncLockDeps;
   /** The lock file that keeps one listener per profile. */
   lockPath: string;
+  /** Marks this process as the profile's listener once it holds the lock (its version, #1133). */
+  running: () => void;
   /** The files a phone row is read from, which the listener watches (watchRowFiles). */
   rowFiles: Parameters<typeof watchRowFiles>[0];
 };
@@ -74,7 +76,10 @@ export async function servePhone(deps: ServeDeps, stop?: AbortSignal): Promise<S
   return withLock(
     deps.lock,
     deps.lockPath,
-    () => listen(deps, paired, stop),
+    () => {
+      deps.running();
+      return listen(deps, paired, stop);
+    },
     () => new MesaError('locked', 'a phone listener already runs for this profile'),
     0,
   );

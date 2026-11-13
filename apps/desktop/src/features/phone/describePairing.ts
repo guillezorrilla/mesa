@@ -2,8 +2,8 @@ import type { PhoneStatus } from '@mesa/core';
 import { timeAgo } from '@mesa/core/browser';
 
 /**
- * The line under the Phone setting: when it paired and whether the Mac answers the phone, that a
- * code is out, or what pairing gives.
+ * The line under the Phone setting: when it paired, whether the Mac answers the phone and on which
+ * Mesa when an older one still does, that a code is out, or what pairing gives.
  */
 export function describePairing(
   status: PhoneStatus | undefined,
@@ -17,7 +17,10 @@ export function describePairing(
       : '';
     const off =
       status.listening === false ? '; the Mac is not answering it (mesa phone serve)' : '';
-    return `Paired${since}${seen}${off}`;
+    const old = status.listenerOutdated
+      ? `; the Mac answers it with Mesa ${status.listenerVersion}, not this version`
+      : '';
+    return `Paired${since}${seen}${off}${old}`;
   }
   if (showingCode) return 'Scan the code with the Mesa app on your phone';
   return 'Get pinged on your phone when a session needs you; messages are sealed so the broker cannot read them';
