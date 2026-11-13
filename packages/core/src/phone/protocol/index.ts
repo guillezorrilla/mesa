@@ -37,6 +37,7 @@ export type {
   PhoneTask,
   PhoneWorker,
 } from './crew.js';
+export { type DirectMessage, type MacPath, pathOfUrl } from './direct.js';
 export {
   type Opened,
   openDeliveries,
@@ -47,6 +48,7 @@ export {
 } from './envelope.js';
 export type { PhoneNotice } from './inbox.js';
 export { joinPairing, type PhonePairing, phoneKeys } from './join.js';
+export { type PhoneLine, phoneLine } from './line.js';
 export { formatPairingLink, type PairingLink, parsePairingLink } from './link.js';
 export {
   type ConnectSocket,

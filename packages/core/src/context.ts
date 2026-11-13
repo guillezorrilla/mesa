@@ -9,6 +9,7 @@ import type { Env, Runner } from './lib/process.js';
 import { redactWhole } from './lib/redact.js';
 import type { SecretStore } from './lib/secret-store.js';
 import type { ConnectSocket } from './phone/protocol/mailbox.js';
+import type { DirectListen } from './phone/serve/direct-socket.js';
 import { type Config, resolveKey } from './profile/config.js';
 import { profilePaths } from './profile/paths.js';
 import { openProfile, type Profile } from './profile/profile.js';
@@ -40,6 +41,8 @@ export type MesaDeps = {
   http: Http;
   /** The broker's WebSocket, which the phone listener holds (ADR-0027). */
   connect: ConnectSocket;
+  /** The Mac's own socket, which the paired phone dials on the same network (#1129); none in tests that leave the phone on the relay. */
+  listenDirect?: DirectListen;
   /** Where a source's browser sign-in comes back: a loopback listener. */
   listen: CallbackListen;
   /** The sources' tokens: the macOS Keychain. */

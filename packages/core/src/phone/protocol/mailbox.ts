@@ -2,9 +2,12 @@
 // amendment): it authenticates, opens each box the broker hands over, puts parts back together,
 // acks, and seals what this side sends, cutting a message over one box into parts. The Mac's
 // listener and the phone app both run it; what to do on a close (reconnect, or wait) is theirs.
+// The same boxes also go over the direct path (#1129): a socket the phone dials to the Mac's own
+// (`dial`), which the Mac takes (`accept`); one seq count spans both, so a box is taken once.
 import { fitsOneBox, PART_TIMEOUT_MS, partJoiner, splitParts } from './chunk.js';
 import { openMessage, type PhoneMessage, phoneMessage, sealMessage } from './envelope.js';
 import type { SideKeys } from './seal.js';
+import { takenSeqs } from './taken.js';
 
 /** What a side does with a socket's events. */
 export type SocketEvents = {
@@ -49,7 +52,12 @@ export type MailboxEvents = {
   taken?: (seq: number) => void;
   /** A payload whose parts did not all come within PART_TIMEOUT_MS: its id. */
   lost?: (id: string) => void;
+  /** The phone's direct path opened (the URL it dialed) or closed (undefined). */
+  direct?: (url: string | undefined) => void;
 };
+
+/** A socket the other side opened to this one: the Mac's direct socket, as its server hands it. */
+export type AcceptedSocket = { send: (data: string) => void; close: () => void };
 
 /** At most this many boxes wait for the socket; older ones are dropped first. */
 const QUEUE_MAX = 200;
@@ -69,67 +77,109 @@ export function mailbox(
   end: MailboxEnd,
   on: MailboxEvents,
 ) {
-  let socket: ReturnType<ConnectSocket> | undefined;
+  type Socket = ReturnType<ConnectSocket>;
+  let socket: Socket | undefined;
   let ready = false;
-  let { sentSeq, takenSeq } = end;
+  // The direct path, once its sealed hello opened: dialed by the phone, which then always sends
+  // on it, or accepted by the Mac, which answers on it while the phone last spoke there.
+  let direct: { socket: Socket; dialed: boolean } | undefined;
+  // The phone's dials still racing; its sends wait for them (the head start), until `undial`.
+  let dialing: Socket[] = [];
+  let spoke: 'relay' | 'direct' = 'relay';
+  let { sentSeq } = end;
+  const seqs = takenSeqs(end.takenSeq);
   const waiting: string[] = [];
   const joiner = partJoiner(PART_TIMEOUT_MS);
 
-  const sendFrame = (box: string) => JSON.stringify({ t: 'send', box });
+  const frame = (fields: object) => JSON.stringify(fields);
+  /** Where a box goes now, or undefined while it must wait. */
+  const route = (): ((box: string) => void) | undefined => {
+    const way = direct;
+    if (way && (way.dialed || spoke === 'direct'))
+      return (box) =>
+        way.socket.send(frame(way.dialed ? { t: 'send', box } : { t: 'msg', id: 0, box }));
+    if (dialing.length) return undefined;
+    const relay = socket;
+    if (ready && relay) return (box) => relay.send(frame({ t: 'send', box }));
+    return undefined;
+  };
+  const flush = () => {
+    const to = route();
+    if (to) for (const box of waiting.splice(0)) to(box);
+  };
   const deliver = (box: string) => {
-    if (ready && socket) return socket.send(sendFrame(box));
     waiting.push(box);
     if (waiting.length > QUEUE_MAX) waiting.shift();
+    flush();
   };
-  const take = (box: string) => {
-    const opened = openMessage(end.keys, box, takenSeq);
-    if (typeof opened === 'string') return;
-    takenSeq = opened.seq;
-    on.taken?.(takenSeq);
+  const seal = (message: PhoneMessage) => {
+    const now = deps.now();
+    sentSeq = nextSeq(sentSeq, now);
+    return sealMessage(end.keys, sentSeq, now, message);
+  };
+  /** Opens a box from `from`: the whole message once its parts are in, else undefined. */
+  const take = (box: string, from: 'relay' | 'direct'): PhoneMessage | undefined => {
+    const opened = openMessage(end.keys, box, seqs.floor());
+    const last = seqs.last();
+    if (typeof opened === 'string' || !seqs.take(opened.seq)) return undefined;
+    if (seqs.last() !== last) on.taken?.(seqs.last());
+    spoke = from;
     const { message } = opened;
-    if (message.kind !== 'part') return on.message(message);
+    if (message.kind !== 'part') return message;
     const json = joiner.add(message, deps.now().getTime());
-    if (json === undefined) return;
-    let whole: ReturnType<typeof phoneMessage.safeParse>;
+    if (json === undefined) return undefined;
     try {
-      whole = phoneMessage.safeParse(JSON.parse(json));
+      const whole = phoneMessage.safeParse(JSON.parse(json));
+      return whole.success && whole.data.kind !== 'part' ? whole.data : undefined;
     } catch {
-      return;
+      return undefined;
     }
-    if (whole.success && whole.data.kind !== 'part') on.message(whole.data);
   };
   // No timer: a payload missing a part is dropped on the next frame in or message out, which an
   // open screen's polling makes come within seconds.
   const expire = () => {
     for (const id of joiner.expire(deps.now().getTime())) on.lost?.(id);
   };
-  const frameIn = (data: string) => {
-    let frame: { t?: string; id?: number; box?: string };
+  const parse = (data: string): { t?: string; id?: number; box?: string } => {
     try {
-      frame = JSON.parse(data);
+      return JSON.parse(data);
     } catch {
-      return;
+      return {};
     }
-    if (frame.t === 'ready') {
+  };
+  const takeAndTell = (box: string, from: 'relay' | 'direct') => {
+    const message = take(box, from);
+    if (message) on.message(message);
+  };
+  const frameIn = (data: string) => {
+    const got = parse(data);
+    if (got.t === 'ready') {
       ready = true;
-      for (const box of waiting.splice(0)) socket?.send(sendFrame(box));
+      flush();
       on.ready?.();
     }
-    if (frame.t === 'msg' && typeof frame.box === 'string' && typeof frame.id === 'number') {
-      take(frame.box);
-      socket?.send(JSON.stringify({ t: 'ack', upTo: frame.id }));
+    if (got.t === 'msg' && typeof got.box === 'string' && typeof got.id === 'number') {
+      takeAndTell(got.box, 'relay');
+      socket?.send(frame({ t: 'ack', upTo: got.id }));
     }
     expire();
   };
+  const directGone = (gone: Socket) => {
+    if (direct?.socket !== gone) return;
+    const dialed = direct.dialed;
+    direct = undefined;
+    if (dialed) on.direct?.(undefined);
+    flush();
+  };
 
   return {
-    /** Opens the socket and authenticates, unless one is open already. */
+    /** Opens the socket to the broker and authenticates, unless one is open already. */
     connect() {
       if (socket) return;
       // Events of a socket this side already let go of (close) are ignored, so a connect right
       // after a close gets a socket of its own rather than waiting on the old one's close.
       const mine = deps.connect(socketUrl(end.broker, end.pairingId), {
-        open: () => socket === mine && mine.send(JSON.stringify({ t: 'auth', token: end.token })),
+        open: () => socket === mine && mine.send(frame({ t: 'auth', token: end.token })),
         message: (data) => socket === mine && frameIn(data),
         close: () => {
           if (socket !== mine) return;
@@ -140,12 +190,83 @@ export function mailbox(
       });
       socket = mine;
     },
-    /** Lets the socket go at once; `closed` is for a close this side did not ask for. */
+    /** Lets the broker's socket go at once (not the direct path); `closed` is for a close this side did not ask for. */
     close() {
       const old = socket;
       socket = undefined;
       ready = false;
       old?.close();
+    },
+    /**
+     * The phone dials the Mac's socket at each URL; the first to open carries a sealed hello and,
+     * once the Mac answers ready, takes every send. Sends wait meanwhile, until `undial`.
+     */
+    dial(urls: string[]) {
+      if (direct || dialing.length) return;
+      for (const url of urls) {
+        const mine: Socket = deps.connect(url, {
+          open: () => {
+            if (!dialing.includes(mine)) return;
+            for (const other of dialing) if (other !== mine) other.close();
+            dialing = [mine];
+            mine.send(frame({ t: 'auth', box: seal({ kind: 'direct' }) }));
+          },
+          message: (data) => {
+            const got = parse(data);
+            if (got.t === 'ready' && dialing.length === 1 && dialing[0] === mine) {
+              dialing = [];
+              direct = { socket: mine, dialed: true };
+              on.direct?.(url);
+              flush();
+            }
+            if (got.t === 'msg' && direct?.socket === mine && typeof got.box === 'string')
+              takeAndTell(got.box, 'direct');
+            expire();
+          },
+          close: () => {
+            if (dialing.includes(mine)) {
+              dialing = dialing.filter((other) => other !== mine);
+              if (!dialing.length) flush();
+            } else directGone(mine);
+          },
+        });
+        dialing.push(mine);
+      }
+    },
+    /** Lets the direct path and any dial go: sends go by the broker. */
+    undial() {
+      const old = [...dialing, ...(direct ? [direct.socket] : [])];
+      dialing = [];
+      if (direct) directGone(direct.socket);
+      for (const gone of old) gone.close();
+      flush();
+    },
+    /**
+     * The Mac takes a socket the phone opened to its own: its first frame must be a sealed hello
+     * that opens with this pairing's keys and a fresh seq, or the socket is closed, so a stranger
+     * on the network gets nothing. Feed it the socket's frames and its close.
+     */
+    accept(peer: AcceptedSocket) {
+      const self = { socket: peer, dialed: false };
+      return {
+        message: (data: string) => {
+          const got = parse(data);
+          if (direct !== self) {
+            const hello =
+              got.t === 'auth' && typeof got.box === 'string' ? take(got.box, 'direct') : undefined;
+            if (hello?.kind !== 'direct') return peer.close();
+            const old = direct;
+            direct = self;
+            old?.socket.close();
+            peer.send(frame({ t: 'ready' }));
+            flush();
+            on.message(hello);
+          } else if (got.t === 'send' && typeof got.box === 'string')
+            takeAndTell(got.box, 'direct');
+          expire();
+        },
+        close: () => directGone(peer),
+      };
     },
     /** Seals a message for the other side, in parts when it does not fit one box. */
     send(message: PhoneMessage) {
@@ -153,11 +274,9 @@ export function mailbox(
       const json = JSON.stringify(message);
       const id = 'id' in message ? message.id : `s${nextSeq(sentSeq, deps.now())}`;
       const pieces = fitsOneBox(json) ? [message] : splitParts(id, json);
-      for (const piece of pieces) {
-        const now = deps.now();
-        sentSeq = nextSeq(sentSeq, now);
-        deliver(sealMessage(end.keys, sentSeq, now, piece));
-      }
+      for (const piece of pieces) deliver(seal(piece));
     },
   };
 }
+
+export type Mailbox = ReturnType<typeof mailbox>;
