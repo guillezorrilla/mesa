@@ -1,7 +1,23 @@
 import type { PhoneGate, PhoneRow, UpdateMessage } from '@mesa/core/phone';
 import { GROUP_TITLES, type Group, groupOf } from './sessionState';
 
-export type RowFilter = { query: string; project?: string; unreadOnly: boolean };
+/** `mac` keeps one paired Mac's rows (its pairing id); none keeps every Mac's. */
+export type RowFilter = { query: string; project?: string; mac?: string; unreadOnly: boolean };
+
+/** A row, or an open gate, with the pairing of the Mac it came from. */
+export type OnMac<T> = T & { mac: string };
+
+/**
+ * One Mac's rows as last listed and when; when that ask went unanswered, the last rows kept and
+ * when the Mac was last heard.
+ */
+export type Listing = {
+  mac: string;
+  rows: PhoneRow[];
+  at: number;
+  offline?: { heardAt?: number };
+};
+export type MacUpdate = OnMac<UpdateMessage & { at: number }>;
 
 /**
  * The listing with each update applied in order: changed rows in place, gone ids out, new ones
@@ -23,13 +39,30 @@ export function applyUpdates(rows: readonly PhoneRow[], updates: readonly Update
   return out;
 }
 
-/** The rows a filter keeps: the query in the title or project, the project, unread only. */
-export function filterRows(rows: readonly PhoneRow[], filter: RowFilter) {
+/**
+ * Every Mac's rows as one list, in pairing order: each listing with the updates its Mac pushed
+ * after it (applyUpdates), each row naming its Mac.
+ */
+export function mergeListings(listings: readonly Listing[], updates: readonly MacUpdate[]) {
+  return listings.flatMap((listing) =>
+    applyUpdates(
+      listing.rows,
+      updates.filter((update) => update.mac === listing.mac && update.at > listing.at),
+    ).map((row) => ({ ...row, mac: listing.mac })),
+  );
+}
+
+/** The rows a filter keeps: the query in the title or project, the project, the Mac, unread only. */
+export function filterRows<R extends PhoneRow & { mac?: string }>(
+  rows: readonly R[],
+  filter: RowFilter,
+) {
   const query = filter.query.trim().toLowerCase();
   return rows.filter(
     (row) =>
       (!query || `${row.title} ${row.project ?? ''}`.toLowerCase().includes(query)) &&
       (!filter.project || row.project === filter.project) &&
+      (!filter.mac || row.mac === filter.mac) &&
       (!filter.unreadOnly || row.unread),
   );
 }
@@ -38,14 +71,17 @@ export function filterRows(rows: readonly PhoneRow[], filter: RowFilter) {
  * Needs you (open decision gates first, whatever the filter: each waits on the person), Working,
  * Done, each in the Mac's attention order, empty groups left out.
  */
-export function groupRows(rows: readonly PhoneRow[], gates: readonly PhoneGate[] = []) {
+export function groupRows<R extends PhoneRow, G extends PhoneGate>(
+  rows: readonly R[],
+  gates: readonly G[] = [],
+) {
   const groups: Group[] = ['needs-you', 'working', 'done'];
   return groups
     .map((group) => ({
       key: group,
       title: GROUP_TITLES[group],
       data: [
-        ...(group === 'needs-you' ? gates : []),
+        ...(group === 'needs-you' ? gates : ([] as G[])),
         ...rows.filter((row) => groupOf(row.state) === group),
       ],
     }))
@@ -58,3 +94,7 @@ export const isGate = (item: PhoneRow | PhoneGate): item is PhoneGate => 'questi
 /** The projects the rows name, sorted, for the project filter. */
 export const projectsOf = (rows: readonly PhoneRow[]) =>
   [...new Set(rows.flatMap((row) => (row.project ? [row.project] : [])))].sort();
+
+/** Where a row's session runs, as its row says it: its project, and its Mac among several. */
+export const placeOf = (project: string | null, mac?: string) =>
+  mac ? (project ? `${project} on ${mac}` : mac) : project;

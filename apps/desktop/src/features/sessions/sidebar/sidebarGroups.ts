@@ -2,7 +2,7 @@ import type { ProjectRow, TreeRow } from '@mesa/core';
 import {
   activeSession,
   GENERAL_PROJECT,
-  isInternalSession,
+  listedSession,
   orderSessions,
   recoverable,
   sessionProjects,
@@ -23,7 +23,8 @@ export type NestedRow = { session: TreeRow; depth: number };
  * active and recoverable children sit inside its card (crewOf, its descendants oldest first, each
  * followed by its own), while an ended one, with nothing left to open, drops out. Mesa's own
  * plumbing (isInternalSession) is neither: a Skill run shows nowhere, a Setup session only as its
- * owner's mark when it failed (failedSetupsOf).
+ * owner's mark when it failed (failedSetupsOf). What is listed at all is listedSession's, which
+ * the phone's Agents tab shares.
  */
 export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonly TreeRow[]) {
   const visible = projects
@@ -34,18 +35,13 @@ export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonl
   const active = sessions
     .filter(activeSession)
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
-  const shown = (session: TreeRow) => !isInternalSession(session);
-  const listed = sessions.filter(
-    (session) => shown(session) && (activeSession(session) || recoverable(session)),
-  );
+  const listed = sessions.filter(listedSession);
   const activeIds = new Set(active.map((session) => session.id));
   const parentOf = (session: TreeRow) => (session.managed ? session.parentNow : undefined);
   /** Not inside an active parent's card. */
   const onTop = (session: TreeRow) => !activeIds.has(parentOf(session) ?? '');
-  const cards = active.filter((session) => shown(session) && onTop(session));
-  const stranded = sessions.filter(
-    (session) => recoverable(session) && shown(session) && onTop(session),
-  );
+  const cards = active.filter((session) => listedSession(session) && onTop(session));
+  const stranded = listed.filter((session) => recoverable(session) && onTop(session));
   // `seen` stops at a loop of hand-edited parents (sessionTree places those at the top).
   const crewOf = (id: string, depth = 1, seen = new Set([id])): NestedRow[] =>
     listed

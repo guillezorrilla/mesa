@@ -1,7 +1,7 @@
 import { router, Stack } from 'expo-router';
 import { headerTitleStyle } from '@/lib/headerStyle';
 
-/** The Mac tab: the pairing, pairing from a link, usage, and About. */
+/** The Mac tab: the paired Macs, pairing another (or from a link), usage, and About. */
 export default function HomeLayout() {
   return (
     <Stack screenOptions={{ headerTitleStyle }}>
@@ -15,7 +15,7 @@ export default function HomeLayout() {
           />
         </Stack.Toolbar>
       </Stack.Screen>
-      <Stack.Screen name="pair" options={{ title: 'Pair' }} />
+      <Stack.Screen name="pair" options={{ title: 'Pair a Mac' }} />
       <Stack.Screen name="about" options={{ title: 'About' }} />
       <Stack.Screen name="usage" options={{ title: 'Usage', headerLargeTitle: true }} />
     </Stack>

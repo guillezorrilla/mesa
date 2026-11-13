@@ -46,7 +46,9 @@ final class VectorsTests: XCTestCase {
       "sentSeq": 1, "takenSeq": 0,
     ])
     XCTAssertEqual(
-      openNotice(vectors.macToPhoneNotice, pairing: pairing)?.title, "Fix the login bug")
+      openNotice(vectors.macToPhoneNotice, pairing: pairing)?.notice.title, "Fix the login bug")
+    XCTAssertEqual(
+      openNotice(vectors.macToPhoneNotice, pairing: pairing)?.pairingId, vectors.pairingId)
     XCTAssertNil(openNotice(vectors.macToPhoneNotice, pairing: Data("{}".utf8)))
   }
 

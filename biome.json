@@ -16,7 +16,8 @@
       "!.agents",
       "!.claude",
       "!docs",
-      "!pnpm-lock.yaml"
+      "!pnpm-lock.yaml",
+      "!apps/mobile/src/uniwind-types.d.ts"
     ]
   },
   "formatter": {

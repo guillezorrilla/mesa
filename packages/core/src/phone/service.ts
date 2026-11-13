@@ -46,6 +46,11 @@ export function phoneService(
         agent.exists() ? (await agent.start()).loaded : (await agent.install()).loaded,
       remove: () => agent.uninstall(),
     },
+    computerName: async () => {
+      const read = await ctx.run('/usr/sbin/scutil', ['--get', 'ComputerName'], 3000);
+      return (read.ok && read.stdout.trim()) || undefined;
+    },
+    profile: ctx.profile,
   };
   return {
     /** Opens a pairing and returns its QR; the receipt names only the pairing id. */

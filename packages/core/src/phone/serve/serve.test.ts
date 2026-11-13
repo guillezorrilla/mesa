@@ -7,10 +7,11 @@ import {
   newSession,
   plantHookEvent,
   servingPhone,
+  testStore,
   untilTrue,
 } from '../../testing/index.js';
 import type { UsageReport } from '../../usage/records.js';
-import { replySegments } from './replies.js';
+import { phoneReplies, replySegments } from './replies.js';
 import { askLine } from './rows.js';
 import { phoneUsage } from './usage.js';
 
@@ -129,6 +130,38 @@ test('a reply is cut into prose and its fenced code blocks', () => {
   expect(replySegments('```ts\nconst a = 1;')).toEqual([{ code: true, text: 'const a = 1;' }]);
 });
 
+test("the session screen's conversation places the person's prompts among the agent's replies", () => {
+  const reply = (revision: string, text: string) => ({
+    revision,
+    text,
+    at: '2026-11-12T10:00:00Z',
+  });
+  const read = {
+    // Newest first: the agent answered the second prompt with r2, the first with r1.
+    rows: [reply('r2', 'Done.\n```sh\npnpm test\n```'), reply('r1', 'Looking.')],
+    prompts: [
+      { revision: 'p3', text: 'And the docs?', newer: 0 },
+      { revision: 'p2', text: 'Run the tests', newer: 1 },
+      { revision: 'p1', text: 'Fix the login', newer: 2 },
+    ],
+  };
+  const ids = (count: number, withPrompts: boolean) =>
+    phoneReplies(read, count, withPrompts).replies.map((r) => `${r.from}:${r.id}`);
+  expect(ids(2, true)).toEqual(['you:p3', 'agent:r2', 'you:p2', 'agent:r1', 'you:p1']);
+  expect(ids(1, true)).toEqual(['you:p3', 'agent:r2', 'you:p2']);
+  // An older phone names no count: the agent's replies alone, as before.
+  expect(ids(5, false)).toEqual(['agent:r2', 'agent:r1']);
+  expect(phoneReplies(read, 1, true).more).toBe(true);
+  expect(phoneReplies(read, 2, true).more).toBe(false);
+  expect(phoneReplies(read, 2, true).replies[0]).toEqual({
+    id: 'p3',
+    at: null,
+    segments: [{ code: false, text: 'And the docs?' }],
+    from: 'you',
+  });
+  expect(phoneReplies(read, 2, true).replies[1]?.segments).toHaveLength(2);
+});
+
 test("a coordinator's crew, its task graph and its gates answer the phone, and a gate resolves", async () => {
   const { mesa, store, session, calls, end } = await servingPhone();
   const worker = store.create(() => newSession({ parent: session.id, name: 'Tide parser' }));
@@ -235,6 +268,10 @@ test('the Inbox, usage and push settings answer the phone through core', async (
   expect(usage.sessions).toEqual([
     { id: session.id, title: 'Login fix', project: 'lantern-cove', cost: null, context: null },
   ]);
+  // Ended, it leaves the Agents tab as it leaves the sidebar, and Usage still counts it.
+  testStore(home).update(session.id, { endedAt: '2026-09-24T12:30:00.000Z' });
+  expect((await calls.call({ method: 'sessions' })).rows).toEqual([]);
+  expect((await calls.call({ method: 'usage' })).sessions.map((s) => s.id)).toEqual([session.id]);
 
   expect(await calls.call({ method: 'pushes', set: { push: 'always', finished: false } })).toEqual({
     push: 'always',

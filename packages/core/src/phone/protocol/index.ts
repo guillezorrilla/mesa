@@ -16,6 +16,7 @@ export { BUCKET_LABELS, commentPlace } from '../../prs/buckets.js';
 export { CHECK_STATES } from '../../prs/check-list.js';
 export { MERGE_LABELS, MERGE_METHODS, type MergeMethod } from '../../prs/merge-methods.js';
 export { promptTitle } from '../../sessions/answer/title.js';
+export { NAMED_KEYS } from '../../sessions/input/terminal-keys.js';
 export { BUSY_STATES, FINAL_STATES, WAITING_STATES } from '../../sessions/record/states.js';
 export { PHONE_PUSH_LABELS, PHONE_PUSH_MODES, type PhonePushMode } from '../away.js';
 export type { ChangedFile, NoteDelivery, StatusFile } from './changes.js';
@@ -83,6 +84,7 @@ export {
   phonePrompt,
   phoneRow,
   type ReplySegment,
+  SESSION_REPLIES,
   type UpdateMessage,
   WATCH_MS,
 } from './rpc.js';

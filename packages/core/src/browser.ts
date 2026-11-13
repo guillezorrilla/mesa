@@ -94,6 +94,7 @@ export {
   type KeepAwakeMode,
   wantsAwake,
 } from './sessions/awake.js';
+export { listedSession } from './sessions/board/listed.js';
 export { descendantOrder } from './sessions/end/descendants.js';
 export { inNextSend } from './sessions/input/next-send.js';
 export { notesPrompt } from './sessions/input/notes-prompt.js';

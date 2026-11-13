@@ -126,6 +126,8 @@ test('a pairing link round-trips, and a link with a bad broker, key or version i
   expect(parsePairingLink(formatPairingLink({ ...link, macKey: 'short' }))).toBeUndefined();
   expect(parsePairingLink(text.replace('v=1', 'v=2'))).toBeUndefined();
   expect(parsePairingLink('https://example.com')).toBeUndefined();
+  const named = { ...link, name: 'Studio (work)' };
+  expect(parsePairingLink(formatPairingLink(named))).toEqual(named);
 });
 
 test('every phone call has its own method name, as each family adds its calls to one union', () => {
