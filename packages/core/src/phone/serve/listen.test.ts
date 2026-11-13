@@ -43,6 +43,7 @@ test('an ask whose pane was not drawn yet is read once more, then left until its
     return tool
       ? {
           status: 'pending',
+          session: 'ab12cd34',
           id: 'p1',
           kind: 'permission',
           tool,
@@ -50,7 +51,7 @@ test('an ask whose pane was not drawn yet is read once more, then left until its
           options: [],
           freeText: false,
         }
-      : { status: 'unsupported', reason: 'no prompt on screen' };
+      : { status: 'unsupported', session: 'ab12cd34', reason: 'no prompt on screen' };
   };
   const asks = keptAsks(prompt, () => {
     unread += 1;
