@@ -24,11 +24,11 @@ import {
 } from './agentRows';
 import { agentsEmpty } from './agentsEmpty';
 import { OfflineNote } from './OfflineNote';
-import { stateColor, stateWords } from './sessionState';
+import { groupOf, stateColor, stateWords } from './sessionState';
 
 /**
  * Every paired Mac's sessions under `header`, grouped Needs you (with open decision gates), Working, Done, live,
- * filtered by Mac, project or unread, swiped to mark read or unread.
+ * filtered by Mac, project or unread, swiped to mark read or unread and, when Done, to archive.
  */
 export function AgentList({
   header,
@@ -41,6 +41,7 @@ export function AgentList({
   refreshing,
   onRefresh,
   onMark,
+  onArchive,
 }: {
   header: ReactNode;
   macs: Pick<Mac, 'id' | 'name'>[];
@@ -52,6 +53,7 @@ export function AgentList({
   refreshing: boolean;
   onRefresh: () => void;
   onMark: (row: OnMac<PhoneRow>, unread: boolean) => void;
+  onArchive: (row: OnMac<PhoneRow>) => void;
 }) {
   const listed = use(listing);
   const rows = mergeListings(listed, updates);
@@ -104,9 +106,18 @@ export function AgentList({
       )}
       renderItem={({ item }) => {
         if (isGate(item)) return <GateRow gate={item} />;
-        const toggle = item.unread ? 'Mark read' : 'Mark unread';
+        const actions = [
+          {
+            name: 'toggleUnread',
+            label: item.unread ? 'Mark read' : 'Mark unread',
+            run: () => onMark(item, !item.unread),
+          },
+          ...(groupOf(item.state) === 'done'
+            ? [{ name: 'archive', label: 'Archive', run: () => onArchive(item) }]
+            : []),
+        ];
         return (
-          <SwipeRow action={toggle} onAction={() => onMark(item, !item.unread)}>
+          <SwipeRow actions={actions}>
             <SessionRow
               row={{
                 ...item,
@@ -118,9 +129,7 @@ export function AgentList({
               onPress={() =>
                 router.push({ pathname: '/agents/[id]', params: { id: item.id, mac: item.mac } })
               }
-              actions={[
-                { name: 'toggleUnread', label: toggle, run: () => onMark(item, !item.unread) },
-              ]}
+              actions={actions}
             />
           </SwipeRow>
         );

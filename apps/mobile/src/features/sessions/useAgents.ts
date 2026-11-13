@@ -48,8 +48,8 @@ const listAll = async (macs: Mac[], last?: Promise<Listing[]>) => {
 /**
  * The Agents tab's data over every paired Mac: their listings as a promise to `use()`, the
  * updates each pushed since, the open decision gates (useGates), a refresh (pull, and every
- * minute in front, which keeps the updates coming), and marking a session read or unread on its
- * own Mac, shown at once.
+ * minute in front, which keeps the updates coming), and marking a session read or unread or
+ * archiving it on its own Mac, shown at once.
  */
 export function useAgents() {
   const macs = useMacs();
@@ -86,21 +86,27 @@ export function useAgents() {
   };
   useRepeatWhileActive(RENEW_MS, () => relist(startTransition));
 
-  const mark = (row: OnMac<PhoneRow>, unread: boolean) => {
+  /** Shows `change` to the row at once, then asks its Mac; a refusal relists. */
+  const change = (
+    row: OnMac<PhoneRow>,
+    shown: Pick<MacUpdate, 'rows' | 'gone'>,
+    call: (link: Mac['link']) => Promise<unknown>,
+  ) => {
     setUpdates((all) => [
       ...all.filter(fresh),
-      {
-        kind: 'update',
-        mac: row.mac,
-        rows: [{ ...row, unread }],
-        gone: [],
-        order: [],
-        at: Date.now(),
-      },
+      { kind: 'update', mac: row.mac, ...shown, order: [], at: Date.now() },
     ]);
     const mac = macs.find((one) => one.id === row.mac);
     if (!mac) return refresh();
-    mac.link.call({ method: 'mark', id: row.id, unread }).catch(refresh);
+    call(mac.link).catch(refresh);
   };
-  return { macs, listing, updates, gates: open.gates, refreshing, refresh, mark };
+  const mark = (row: OnMac<PhoneRow>, unread: boolean) =>
+    change(row, { rows: [{ ...row, unread }], gone: [] }, (link) =>
+      link.call({ method: 'mark', id: row.id, unread }),
+    );
+  const archive = (row: OnMac<PhoneRow>) =>
+    change(row, { rows: [], gone: [row.id] }, (link) =>
+      link.call({ method: 'act', id: row.id, action: 'archive' }),
+    );
+  return { macs, listing, updates, gates: open.gates, refreshing, refresh, mark, archive };
 }

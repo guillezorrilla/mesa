@@ -3,8 +3,12 @@ import type { InboxItem } from '../../notifications/inbox-items.js';
 import { type inboxCalls, inboxResults, type PhoneNotice } from '../protocol/inbox.js';
 import type { CallResult } from '../protocol/rpc.js';
 
-/** The Inbox functions the CLI uses (`mesa notifications`, `notifications read`). */
-export type InboxDeps = { list: () => InboxItem[]; markRead: (id: string) => void };
+/** The Inbox functions the CLI uses (`mesa notifications`, `notifications read [--all]`). */
+export type InboxDeps = {
+  list: () => InboxItem[];
+  markRead: (id: string) => void;
+  markAllRead: () => number;
+};
 
 /** How many notices the phone lists, newest first. */
 const NOTICES = 50;
@@ -33,6 +37,8 @@ export function answerInboxCall(deps: InboxDeps, call: InboxCall): unknown {
     return {
       notices: deps.list().slice(0, NOTICES).map(toPhoneNotice),
     } satisfies CallResult<'inbox'>;
+  if (call.method === 'noticesRead')
+    return { count: deps.markAllRead() } satisfies CallResult<'noticesRead'>;
   deps.markRead(call.id);
   return {} satisfies CallResult<'noticeRead'>;
 }

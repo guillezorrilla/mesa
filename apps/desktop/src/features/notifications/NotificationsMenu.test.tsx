@@ -72,7 +72,8 @@ test('a Doctor notice explains itself and its fix runs, then Doctor rechecks', a
   let rechecks = 0;
   const { bridge, calls } = fakeBridge({
     notifications: () => envelope(installed ? [finished] : [hooks, finished]),
-    'notifications read': (args) => envelope({ id: args.at(-1), read: true }),
+    'notifications read': (args) =>
+      envelope(args.at(-1) === '--all' ? { count: 1 } : { id: args.at(-1), read: true }),
     'hooks install': () => {
       installed = true;
       return envelope({ changed: true, codex: { changed: false, hint: '' }, receipt: null });
@@ -102,9 +103,7 @@ test('a Doctor notice explains itself and its fix runs, then Doctor rechecks', a
   expect(rechecks).toBe(1);
   expect(panel()).not.toContain('Session hooks are not enabled');
   await click(button('Mark all read'));
-  expect(calls.filter((args) => args[2] === 'read').map((args) => args.at(-1))).toEqual([
-    finished.id,
-  ]);
+  expect(calls.some((args) => args[2] === 'read' && args.at(-1) === '--all')).toBe(true);
   await click(button('Session turn finished'));
   expect(opened).toEqual(['aaaaaaaa']);
 });
@@ -376,10 +375,10 @@ test('a release notice sums its notes, expands to them as plain text, and expand
   expect(calls.some((args) => args[2] === 'clear' && args.at(-1) === release.id)).toBe(true);
 });
 
-test('Mark all read marks a release notice read', async () => {
+test('Mark all read marks every notice, a release notice too, in one call', async () => {
   const { bridge, calls } = fakeBridge({
     notifications: () => envelope([release, finished]),
-    'notifications read': (args) => envelope({ id: args.at(-1), read: true }),
+    'notifications read': () => envelope({ count: 2 }),
   });
   await renderWithMesa(
     <NotificationsMenu
@@ -394,10 +393,7 @@ test('Mark all read marks a release notice read', async () => {
     bridge,
   );
   await click(button('Mark all read'));
-  expect(calls.filter((args) => args[2] === 'read').map((args) => args.at(-1))).toEqual([
-    release.id,
-    finished.id,
-  ]);
+  expect(calls.filter((args) => args[2] === 'read').map((args) => args.at(-1))).toEqual(['--all']);
 });
 
 test('a gate notice shows its question and one button per option; a click resolves it and the notice goes, a refused one says why', async () => {
