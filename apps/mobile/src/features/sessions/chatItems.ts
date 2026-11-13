@@ -1,4 +1,4 @@
-import type { PhoneDetail, ReplySegment } from '@mesa/core/phone';
+import type { PhoneDetail, PhoneStep, ReplySegment } from '@mesa/core/phone';
 import type { Outgoing } from '../compose/useSend';
 
 /** One message in a session's conversation as the screen shows it, oldest first. */
@@ -11,6 +11,8 @@ export type ChatItem = {
   reply?: string;
   /** Sent from this screen and still on its way. */
   sending?: boolean;
+  /** What the agent did in one gap between messages, oldest first: a run of steps, not a reply. */
+  steps?: PhoneStep[];
   /** Opens a group: the other side spoke last, or long enough ago to show the time again. */
   first: boolean;
 };
@@ -25,24 +27,58 @@ const opensGroup = (item: Omit<ChatItem, 'first'>, last?: Omit<ChatItem, 'first'
     last.at !== null &&
     Date.parse(item.at) - Date.parse(last.at) > GROUP_GAP_MS);
 
+type Reply = PhoneDetail['replies'][number];
+
+/**
+ * The Mac's replies (newest first) with the agent's steps between them: each gap's steps as one
+ * run, after the replies newer than them and before that gap's prompts, which came first.
+ */
+function withSteps(replies: Reply[], steps: PhoneStep[]): (Reply | PhoneStep[])[] {
+  const gap = (newer: number) => {
+    const run = steps.filter((step) => step.newer === newer).reverse();
+    return run.length ? [run] : [];
+  };
+  const out: (Reply | PhoneStep[])[] = [...gap(0)];
+  let agent = 0;
+  for (const reply of replies) {
+    out.push(reply);
+    if (reply.from === 'agent') {
+      agent += 1;
+      out.push(...gap(agent));
+    }
+  }
+  return out;
+}
+
 /**
  * The conversation oldest first, so the newest sits at the bottom: the Mac's replies (sent newest
- * first) and then what this screen sent that the transcript does not show yet, each marked where a
- * group opens. A send the transcript already holds (its text among the person's) is shown once.
+ * first) and the agent's steps among them (withSteps), then what this screen sent that the
+ * transcript does not show yet, each marked where a group opens. A send the transcript already holds (its text among the person's) is shown once.
  * ponytail: matched by text, so a second identical send hides once the first lands; match on
  * time if that ever matters.
  */
-export function chatItems(replies: PhoneDetail['replies'], echoes: Outgoing[]): ChatItem[] {
+export function chatItems(
+  replies: PhoneDetail['replies'],
+  echoes: Outgoing[],
+  steps: PhoneStep[] = [],
+): ChatItem[] {
   const said = new Set(replies.filter((r) => r.from === 'you').map((r) => r.segments[0]?.text));
   const items: Omit<ChatItem, 'first'>[] = [
-    ...[...replies].reverse().map((r) => ({
-      // Two replies with the same text share a revision, so the time tells them apart.
-      key: `${r.from}:${r.id}:${r.at}`,
-      from: r.from,
-      at: r.at,
-      segments: r.segments,
-      ...(r.from === 'agent' ? { reply: r.id } : {}),
-    })),
+    ...withSteps(replies, steps)
+      .reverse()
+      .map((r) =>
+        Array.isArray(r)
+          ? // A run speaks for the agent, so it opens or joins the agent's group.
+            { key: `steps:${r[0]?.id}`, from: 'agent' as const, at: null, segments: [], steps: r }
+          : {
+              // Two replies with the same text share a revision, so the time tells them apart.
+              key: `${r.from}:${r.id}:${r.at}`,
+              from: r.from,
+              at: r.at,
+              segments: r.segments,
+              ...(r.from === 'agent' ? { reply: r.id } : {}),
+            },
+      ),
     ...echoes
       .filter((echo) => echo.sending || !said.has(echo.text))
       .map((echo) => ({

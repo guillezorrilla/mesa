@@ -47,7 +47,7 @@ export function SessionBody({ session, echoes }: { session: SessionDetail; echoe
       ) : (
         <ChatList
           id={detail.row.id}
-          items={chatItems(detail.replies, echoes)}
+          items={chatItems(detail.replies, echoes, detail.steps)}
           now={now}
           top={
             <ChatTop
