@@ -1,10 +1,11 @@
+import { money } from '@mesa/core/browser';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import { useOpenInObsidian } from '@/features/vault/useOpenInObsidian';
 import { useCommand } from '@/lib/useCommand';
-import { compact, money } from './format';
+import { compact } from './format';
 
 /** The folded Weekly Rewind; its notes and sessions load only once it is opened. */
 export function WeeklyRewind(props: { onSession: (id: string) => void }) {

@@ -1,0 +1,39 @@
+import type { CallResult } from '@mesa/core/phone';
+import { use } from 'react';
+import { ErrorNote } from '@/components/ErrorNote';
+import { Screen } from '@/components/Screen';
+import { Section } from '@/components/Section';
+import { Text } from '@/components/ui/text';
+import type { MacRead } from '../mac/tryCall';
+import { CostAlert } from './CostAlert';
+import { CostTiles } from './CostTiles';
+import { DayBars } from './DayBars';
+import { SessionCosts } from './SessionCosts';
+
+/** Usage as the Mac counted it: alerts first, then the periods, the days and the sessions. */
+export function UsageBody({ answer }: { answer: Promise<MacRead<CallResult<'usage'>>> }) {
+  const { result, error } = use(answer);
+  return (
+    <Screen className="gap-6">
+      {error ? <ErrorNote text={error} /> : null}
+      {result ? (
+        <>
+          {result.alerts.map((alert) => (
+            <CostAlert key={alert} text={alert} />
+          ))}
+          <CostTiles today={result.today} week={result.week} month={result.month} />
+          <Section title="Last 14 days">
+            <DayBars days={result.days} />
+          </Section>
+          <Section title="Sessions">
+            <SessionCosts sessions={result.sessions} />
+          </Section>
+          <Text variant="muted">
+            Estimated from each agent's own token counts at list prices. Alerts never pause
+            sessions.
+          </Text>
+        </>
+      ) : null}
+    </Screen>
+  );
+}

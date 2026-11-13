@@ -65,7 +65,9 @@ export async function pushPending(deps: PushDeps): Promise<PushOutcome> {
   const { push: mode, awayAfter } = deps.settings;
   if (mode === 'never') return outcome('off');
   const window = awayAfter * 60_000 + PUSH_WINDOW_MS;
-  const items = deps.pending(new Date(deps.clock().getTime() - window).toISOString());
+  const items = deps
+    .pending(new Date(deps.clock().getTime() - window).toISOString())
+    .filter((item) => item.kind !== 'finished' || deps.settings.finished);
   if (!items.length) return outcome('none');
   const found = await paired(deps);
   if (!found) return outcome('unpaired');

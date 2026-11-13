@@ -133,6 +133,9 @@ export function createMesa(profile: string, deps: MesaDeps) {
         git,
         files,
       },
+      inbox: notices,
+      usage: () => usage.list(),
+      pushes: { settings: () => ctx.open().config.phone, set: profileApi.config.set },
     },
   );
   // The scheduler's tick pushes to the phone too, so a session that needs the person reaches
