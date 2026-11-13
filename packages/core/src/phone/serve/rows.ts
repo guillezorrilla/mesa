@@ -13,7 +13,11 @@ import type { PhoneRow } from '../protocol/rpc.js';
  * and those are read-only.
  */
 export const phoneRows = (board: readonly SessionRow[]): PhoneRow[] =>
-  board.filter((row): row is ManagedRow => row.managed && listedSession(row)).map(toPhoneRow);
+  managedRows(board).filter(listedSession).map(toPhoneRow);
+
+/** The board's Mesa sessions, listed or not: Usage counts an ended session's cost too. */
+export const managedRows = (board: readonly SessionRow[]) =>
+  board.filter((row): row is ManagedRow => row.managed);
 
 export const toPhoneRow = (row: ManagedRow): PhoneRow => ({
   id: row.id,
