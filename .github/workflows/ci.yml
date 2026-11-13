@@ -32,14 +32,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
       - run: command -v tmux || sudo apt-get install -y --no-install-recommends tmux
-      - run: pnpm verify test --shard=${{ matrix.shard }}/4
+      - run: pnpm verify test --project unix --shard=${{ matrix.shard }}/3
 
   mobile:
     runs-on: ubuntu-latest
@@ -51,7 +51,8 @@ jobs:
       - run: pnpm verify mobile
 
   native:
-    # The Rust crate depends on objc2 and the push extension on CryptoKit, so both build only on macOS.
+    # The Rust crate depends on objc2 and the push extension on CryptoKit, so both build only on
+    # macOS, as do vitest's `macos` project files (vitest.config.ts).
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -63,7 +64,10 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: apps/desktop/src-tauri
-      - run: sh scripts/verify.sh native
+      - uses: ./.github/actions/setup
+      - run: brew install tmux
+      - run: pnpm verify test --project macos
+      - run: pnpm verify native
 
   verify:
     needs: [checks, test, mobile, native]
