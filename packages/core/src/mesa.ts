@@ -16,6 +16,7 @@ import { gitService } from './git/service.js';
 import { impactService } from './impact/service.js';
 import { installsService } from './installs/service.js';
 import { instructionsService } from './instructions/service.js';
+import { localDay } from './lib/time.js';
 import { mapService } from './map/service.js';
 import { backgroundDelivery } from './notifications/background.js';
 import { inbox } from './notifications/inbox.js';
@@ -103,6 +104,9 @@ export function createMesa(profile: string, deps: MesaDeps) {
     open: async (project, opts) => (await sessions.sessions.open(project, opts)).result,
   });
   const { notes, responses } = sessions.sessions;
+  const projects = projectsService(ctx);
+  const impact = impactService(ctx);
+  const rewind = rewindService(ctx, usage);
   const phone = phoneService(
     ctx,
     { pending: notices.pendingPushes, claim: notices.claimPushes },
@@ -137,6 +141,16 @@ export function createMesa(profile: string, deps: MesaDeps) {
       inbox: notices,
       usage: () => usage.list(),
       pushes: { settings: () => ctx.open().config.phone, set: profileApi.config.set },
+      vault: {
+        projects: () => projects.list('last-session'),
+        context: (project) => vaults.vault.context(project),
+        read: vaults.vault.read,
+        search: vaults.vault.search,
+        day: () => localDay(ctx.clock()),
+        impact: impact.report,
+        rewind: () => rewind.week({ synced: false }),
+        saveDecision: vaults.vault.saveDecision,
+      },
     },
   );
   // The scheduler's tick pushes to the phone too, so a session that needs the person reaches
@@ -162,7 +176,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     ...profileApi,
     profiles: profilesService(ctx),
     backup: backupService(ctx, prompts.list),
-    projects: projectsService(ctx),
+    projects,
     automations,
     prompts,
     files,
@@ -188,9 +202,9 @@ export function createMesa(profile: string, deps: MesaDeps) {
     hooks: hooksService(ctx),
     skills,
     usage,
-    rewind: rewindService(ctx, usage),
+    rewind,
     /** What Mesa decided and kept, and what happened next (CONTEXT.md, Impact). */
-    impact: impactService(ctx),
+    impact,
     statusLine: statusLineService(ctx),
     notifications,
     diagnostics: diagnosticsService(ctx),

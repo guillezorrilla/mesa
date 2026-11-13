@@ -33,6 +33,12 @@ export type VaultItem = {
 /** `type` is a kind or a category. */
 export type VaultFilter = { project?: string; type?: string };
 
+/** An item's title as Obsidian shows it: its file name, without `.md` for a note. */
+export function itemTitle(item: Pick<VaultItem, 'path' | 'kind'>): string {
+  const name = item.path.slice(item.path.lastIndexOf('/') + 1);
+  return item.kind === 'markdown' ? name.replace(/\.md$/i, '') : name;
+}
+
 // Obsidian's attachment formats: images, audio, video, and PDF.
 const ATTACHMENTS = new Set(
   (

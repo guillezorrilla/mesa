@@ -15,6 +15,7 @@ import { answerPushes, type PushesDeps } from './pushes.js';
 import { replySegments } from './replies.js';
 import { askedRows, phoneRows, queuedRows, toPhoneRow } from './rows.js';
 import { phoneUsage } from './usage.js';
+import { answerVaultCall, isVaultCall, type VaultDeps } from './vault.js';
 
 /** The session functions the CLI uses, which every phone call goes through. */
 export type AnswerDeps = {
@@ -38,6 +39,7 @@ export type AnswerDeps = {
   /** `mesa usage`'s report. */
   usage: () => Promise<UsageReport>;
   pushes: PushesDeps;
+  vault: VaultDeps;
 };
 
 /** How many replies and output lines the session screen gets. */
@@ -75,6 +77,7 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
     await deps.keys(call.id, call.keys);
     return {} satisfies CallResult<'keys'>;
   }
+  if (isVaultCall(call)) return answerVaultCall(deps.vault, call);
   if (call.method === 'mark') {
     (call.unread ? deps.unread : deps.read)([call.id]);
     return {} satisfies CallResult<'mark'>;

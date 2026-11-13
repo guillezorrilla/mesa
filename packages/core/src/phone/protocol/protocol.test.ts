@@ -9,6 +9,7 @@ import { expect, test } from 'vitest';
 import { openMessage, sealMessage } from './envelope.js';
 import { formatPairingLink, parsePairingLink } from './link.js';
 import { NOTICE_MAX, openNotice, sealNotice } from './notice.js';
+import { callResults, phoneCall } from './rpc.js';
 import { base64url, fromBase64url, newKeyPair, newSecret, open, seal, sideKeys } from './seal.js';
 import vectors from './vectors.json' with { type: 'json' };
 
@@ -127,4 +128,10 @@ test('a pairing link round-trips, and a link with a bad broker, key or version i
   expect(parsePairingLink('https://example.com')).toBeUndefined();
   const named = { ...link, name: 'Studio (work)' };
   expect(parsePairingLink(formatPairingLink(named))).toEqual(named);
+});
+
+test('every phone call has its own method name, as each family adds its calls to one union', () => {
+  const methods = phoneCall.options.map((call) => call.shape.method.value);
+  expect(methods.filter((m, i) => methods.indexOf(m) !== i)).toEqual([]);
+  expect(Object.keys(callResults).sort()).toEqual([...methods].sort());
 });
