@@ -9,7 +9,12 @@ export type PairingLink = {
   secret: string;
   /** The Mac's X25519 public key, base64url. */
   macKey: string;
+  /** What the phone calls this Mac (its computer name, and the profile when not the default). */
+  name?: string;
 };
+
+/** The longest Mac name a link carries. */
+const NAME_MAX = 64;
 
 const PREFIX = 'mesa://pair';
 
@@ -21,6 +26,7 @@ export function formatPairingLink(link: PairingLink): string {
     p: link.pairingId,
     s: link.secret,
     k: link.macKey,
+    ...(link.name ? { n: link.name.slice(0, NAME_MAX) } : {}),
   });
   return `${PREFIX}?${query}`;
 }
@@ -52,10 +58,12 @@ export function parsePairingLink(text: string): PairingLink | undefined {
   )
     return undefined;
   if (!isKey(secret) || !isKey(macKey)) return undefined;
+  const name = query.get('n')?.trim().slice(0, NAME_MAX);
   return {
     broker: new URL(broker as string).origin,
     pairingId,
     secret: secret as string,
     macKey: macKey as string,
+    ...(name ? { name } : {}),
   };
 }

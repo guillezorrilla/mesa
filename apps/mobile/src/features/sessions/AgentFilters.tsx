@@ -1,21 +1,27 @@
-import { ScrollView } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import type { Mac } from '../mac/macsContext';
 import type { RowFilter } from './agentRows';
 
-/** Unread only, then one chip per project; the chosen ones filled. */
+/**
+ * One chip per Mac when several are paired, then Unread only and one chip per project; the
+ * chosen ones filled.
+ */
 export function AgentFilters({
+  macs,
   projects,
   filter,
   onChange,
 }: {
+  macs: Pick<Mac, 'id' | 'name'>[];
   projects: string[];
   filter: RowFilter;
   onChange: (filter: RowFilter) => void;
 }) {
-  const chip = (label: string, on: boolean, change: Partial<RowFilter>) => (
+  const chip = (key: string, label: string, on: boolean, change: Partial<RowFilter>) => (
     <Button
-      key={label}
+      key={key}
       size="sm"
       variant={on ? 'default' : 'secondary'}
       accessibilityState={{ selected: on }}
@@ -28,11 +34,21 @@ export function AgentFilters({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerClassName="gap-2 px-4 py-2"
+      contentContainerClassName="items-center gap-2 px-4 py-2"
     >
-      {chip('Unread', filter.unreadOnly, { unreadOnly: !filter.unreadOnly })}
+      {macs.length > 1 ? (
+        <>
+          {macs.map((mac) =>
+            chip(`mac:${mac.id}`, mac.name, filter.mac === mac.id, {
+              mac: filter.mac === mac.id ? undefined : mac.id,
+            }),
+          )}
+          <View className="mx-1 h-5 w-px bg-border" />
+        </>
+      ) : null}
+      {chip('unread', 'Unread', filter.unreadOnly, { unreadOnly: !filter.unreadOnly })}
       {projects.map((project) =>
-        chip(project, filter.project === project, {
+        chip(`project:${project}`, project, filter.project === project, {
           project: filter.project === project ? undefined : project,
         }),
       )}

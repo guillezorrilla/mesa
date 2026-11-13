@@ -9,14 +9,20 @@ import { PasteLinkField } from './PasteLinkField';
 import { ScannerPanel } from './ScannerPanel';
 import { usePairing } from './usePairing';
 
-/** Pair with a Mac: scan its code (or paste its link); `link` comes from a scanned mesa:// URL. */
-export function PairScreen({ link }: { link?: string }) {
+/**
+ * Pair with a Mac: scan its code (or paste its link); `link` comes from a scanned mesa:// URL,
+ * and `onPaired` leaves the screen once paired (pairing another Mac).
+ */
+export function PairScreen({ link, onPaired }: { link?: string; onPaired?: () => void }) {
   const { save } = usePairing();
   const [error, join, pending] = useActionState(async (_last: string | undefined, text: string) => {
     const result = await joinWithLink(fetch, text, new Date());
     // VoiceOver hears the outcome; the screen changes under the person's finger otherwise.
     AccessibilityInfo.announceForAccessibility(result.error ?? 'Paired with your Mac.');
-    if (result.pairing) await save(result.pairing);
+    if (result.pairing) {
+      await save(result.pairing);
+      onPaired?.();
+    }
     return result.error;
   }, undefined);
   const submit = (text: string) => startTransition(() => join(text));

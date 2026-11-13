@@ -13,6 +13,7 @@ export { relativeAgo, shortAgo, timeAgo } from '../../lib/ago.js';
 export { money } from '../../lib/format.js';
 export { localDay } from '../../lib/time.js';
 export { promptTitle } from '../../sessions/answer/title.js';
+export { NAMED_KEYS } from '../../sessions/input/terminal-keys.js';
 export { BUSY_STATES, FINAL_STATES, WAITING_STATES } from '../../sessions/record/states.js';
 export { PHONE_PUSH_LABELS, PHONE_PUSH_MODES, type PhonePushMode } from '../away.js';
 export type { ChangedFile, NoteDelivery, StatusFile } from './changes.js';

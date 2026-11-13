@@ -1,16 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect } from 'react';
 import { PairScreen } from '@/features/pairing/PairScreen';
-import { usePairing } from '@/features/pairing/usePairing';
 
-/** `mesa://pair?...`, which the system opens when the Camera app reads the Mac's code. */
+/**
+ * Pairing another Mac, from Pair another Mac or from `mesa://pair?...`, which the system opens
+ * when the Camera app reads a Mac's code; back to the paired Macs once paired.
+ */
 export default function PairLink() {
-  const { pairing } = usePairing();
   const params = useLocalSearchParams<Record<string, string>>();
-  // Back to home rather than a second home on top of this screen (a Redirect replaces only this one).
-  useEffect(() => {
-    if (pairing) router.dismissTo('/');
-  }, [pairing]);
-  if (pairing) return null;
-  return <PairScreen link={`mesa://pair?${new URLSearchParams(params)}`} />;
+  const link = params.p ? `mesa://pair?${new URLSearchParams(params)}` : undefined;
+  return <PairScreen link={link} onPaired={() => router.dismissTo('/')} />;
 }

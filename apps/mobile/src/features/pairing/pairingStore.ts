@@ -1,10 +1,8 @@
-import type { PhonePairing } from '@mesa/core/phone';
 import * as SecureStore from 'expo-secure-store';
-
-const KEY = 'mesa.pairing';
+import { pairingKeys } from './pairingKeys';
 
 /**
- * Where the pairing lives: the Keychain, in the access group the Notification Service Extension
+ * Where the pairings live: the Keychain, in the access group the Notification Service Extension
  * shares (#1016), readable after the first unlock so a push that lands while locked still opens.
  */
 const OPTIONS: SecureStore.SecureStoreOptions = {
@@ -12,12 +10,8 @@ const OPTIONS: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
 };
 
-export async function readPairing(): Promise<PhonePairing | undefined> {
-  const text = await SecureStore.getItemAsync(KEY, OPTIONS);
-  return text ? (JSON.parse(text) as PhonePairing) : undefined;
-}
-
-export const writePairing = (pairing: PhonePairing) =>
-  SecureStore.setItemAsync(KEY, JSON.stringify(pairing), OPTIONS);
-
-export const forgetPairing = () => SecureStore.deleteItemAsync(KEY, OPTIONS);
+export const pairingStore = pairingKeys({
+  get: (key) => SecureStore.getItemAsync(key, OPTIONS),
+  set: (key, value) => SecureStore.setItemAsync(key, value, OPTIONS),
+  remove: (key) => SecureStore.deleteItemAsync(key, OPTIONS),
+});

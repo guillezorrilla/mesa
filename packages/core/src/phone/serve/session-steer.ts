@@ -27,6 +27,7 @@ export function sessionSteer(
     sessions.send(id, text, { noFrom: true, yes, via: 'phone' });
   return {
     send,
+    type: (id, text, yes) => sessions.terminal.type(id, text, { yes, via: 'phone' }),
     check: (id, text) =>
       faro.guardrail.check(typeable(text), projectScope(ctx.store.get(id).project)),
     // ponytail: photos stay in phone-images/ for the agent to read later, a refused one too;
