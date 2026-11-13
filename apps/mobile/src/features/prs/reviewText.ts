@@ -11,7 +11,10 @@ export function reviewText(pr: Pick<PhonePrDetail, 'bucket' | 'drafts' | 'review
       say: `A review session is ${pr.review.working ? 'at work' : 'open and idle'}, ${pr.review.mode === 'post' ? 'posting its comments' : 'leaving drafts'}.${waiting}`,
       action: 'Open the review session',
     };
-  const bucket = BUCKET_LABELS[pr.bucket as keyof typeof BUCKET_LABELS] ?? 'Not for you';
+  const bucket =
+    pr.bucket === 'done'
+      ? 'Nothing to do: you approved it, or it is merged or closed'
+      : (BUCKET_LABELS[pr.bucket as keyof typeof BUCKET_LABELS] ?? 'Not for you');
   return {
     say: `${bucket}.${waiting}`,
     action: pr.bucket === 'updated' || pr.bucket === 'waiting' ? 'Re-review...' : 'Start review...',

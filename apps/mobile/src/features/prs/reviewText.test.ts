@@ -7,6 +7,9 @@ test('with no review session, the bucket and Start or Re-review', () => {
     action: 'Start review...',
   });
   expect(reviewText({ bucket: 'updated', drafts: [], review: null }).action).toBe('Re-review...');
+  expect(reviewText({ bucket: 'done', drafts: [], review: null }).say).toBe(
+    'Nothing to do: you approved it, or it is merged or closed.',
+  );
 });
 
 test('a live review session is opened, and waiting drafts are counted', () => {
