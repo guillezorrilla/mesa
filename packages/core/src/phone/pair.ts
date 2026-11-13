@@ -154,7 +154,7 @@ export async function pairingStatus(deps: PairingDeps): Promise<PhoneStatus> {
     .state(pairingId, pairing.macToken)
     .catch(async (error) => {
       if (isGone(error)) {
-        await deps.store.remove();
+        await deps.store.forget(pairingId);
         return undefined;
       }
       if (pairing.phoneKey) return 'unreachable' as const;

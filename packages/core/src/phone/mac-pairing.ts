@@ -28,18 +28,28 @@ const ACCOUNT = 'pairing';
 
 export function macPairingStore(secrets: SecretStore, profile: string) {
   const service = `mesa.${profile}.phone`;
+  const read = async (): Promise<MacPairing | undefined> => {
+    const text = await secrets.get(service, ACCOUNT);
+    if (text === undefined) return undefined;
+    try {
+      return macPairing.parse(JSON.parse(text));
+    } catch {
+      return undefined;
+    }
+  };
+  const remove = () => secrets.delete(service, ACCOUNT);
   return {
-    read: async (): Promise<MacPairing | undefined> => {
-      const text = await secrets.get(service, ACCOUNT);
-      if (text === undefined) return undefined;
-      try {
-        return macPairing.parse(JSON.parse(text));
-      } catch {
-        return undefined;
-      }
-    },
+    read,
     write: (pairing: MacPairing) => secrets.set(service, ACCOUNT, JSON.stringify(pairing)),
-    remove: () => secrets.delete(service, ACCOUNT),
+    remove,
+    /**
+     * Removes pairing `pairingId` only if it is still the kept one, so a pairing made since (an
+     * unpair, then a pair) outlives whoever learned the old one ended (#1138).
+     * ponytail: read then delete is not atomic; the window is one Keychain read, a lock if it bites.
+     */
+    forget: async (pairingId: string) => {
+      if ((await read())?.pairingId === pairingId) await remove();
+    },
   };
 }
 export type MacPairingStore = ReturnType<typeof macPairingStore>;
