@@ -65,7 +65,7 @@ Issue #23 wires the second signal into `mesa sessions`:
 
 `classifySession` in packages/core/src/sessions/signals/state.ts asks one Choice over the six states, one Score for attention, and one Noul ("a human is needed now") through `decide`. Its fixtures are in `sessions/signals/fixtures/state/`.
 
-- A hook event more than a minute old gets 0.8, unless the listing agrees with it, in which case it gets 0.95.
+- A hook event more than a minute old gets 0.8, unless the listing agrees with it, in which case it gets 0.95. An idle Stop that names running background work also keeps 0.95 against a busy listing, since that work explains it (2026-11-13: at 0.8 a parent with a server running in the background never got its child reports).
 - A hook event that means nothing for state is skipped in favour of the one before it: a `Notification` of type `permission_prompt`, or a `PreToolUse` for another tool.
 - Tail patterns score 0.6. That is the cap from the "tail is display" amendment, and the low end of #25's 0.6 to 0.8.
 - The tail is read only when neither a hook nor the listing speaks. It uses CCManager's Claude Code markers (ADR-0005, attributed in the file header), split into a permission wait and a question wait by the screen's own words.
