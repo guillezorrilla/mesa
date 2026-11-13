@@ -39,9 +39,29 @@ test('several pairings each keep their own entry, and one is forgotten alone', a
   expect(map.has('mesa.pairing.studio-0000000001')).toBe(false);
 });
 
-test('a phone paired before several Macs keeps its pairing, moved to an entry of its own', async () => {
+test('a phone paired before several Macs keeps its pairing, in its own entry and the legacy key', async () => {
   const { map, kv } = memory();
   map.set('mesa.pairing', JSON.stringify(pairing('legacy-0000000001')));
   expect((await pairingKeys(kv).read()).map((p) => p.pairingId)).toEqual(['legacy-0000000001']);
-  expect([...map.keys()].sort()).toEqual(['mesa.pairing.legacy-0000000001', 'mesa.pairings']);
+  expect([...map.keys()].sort()).toEqual([
+    'mesa.pairing',
+    'mesa.pairing.legacy-0000000001',
+    'mesa.pairings',
+  ]);
+});
+
+test('the legacy key, which an older extension reads, always holds the first pairing kept', async () => {
+  const { map, kv } = memory();
+  const keys = pairingKeys(kv);
+  const legacy = () => JSON.parse(map.get('mesa.pairing') ?? 'null')?.pairingId;
+  await keys.add(pairing('studio-0000000001'));
+  await keys.add(pairing('laptop-0000000002'));
+  expect(legacy()).toBe('studio-0000000001');
+  await keys.forget('laptop-0000000002');
+  expect(legacy()).toBe('studio-0000000001');
+  await keys.add(pairing('laptop-0000000002'));
+  await keys.forget('studio-0000000001');
+  expect(legacy()).toBe('laptop-0000000002');
+  await keys.forget('laptop-0000000002');
+  expect(map.has('mesa.pairing')).toBe(false);
 });
