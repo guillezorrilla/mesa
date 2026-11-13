@@ -1,5 +1,4 @@
-import type { CallResult } from '@mesa/core/phone';
-import { router } from 'expo-router';
+import type { CallResult, ChangedFile } from '@mesa/core/phone';
 import { use } from 'react';
 import { FlatList, RefreshControl, View } from 'react-native';
 import { ErrorNote } from '@/components/ErrorNote';
@@ -9,16 +8,16 @@ import { ChangedFileRow } from './ChangedFileRow';
 import { changesSummary } from './changesSummary';
 import { viewedKey } from './viewedKey';
 
-/** A session's changed files against its base, each opening its diff, pulled to read again. */
+/** A branch's changed files against its base, each opening its diff, pulled to read again. */
 export function ChangesList({
-  id,
+  onOpen,
   answer,
   refreshing,
   onRefresh,
   seen,
   onToggleViewed,
 }: {
-  id: string;
+  onOpen: (file: ChangedFile) => void;
   answer: Promise<MacRead<CallResult<'changes'>>>;
   refreshing: boolean;
   onRefresh: () => void;
@@ -50,12 +49,7 @@ export function ChangesList({
         <ChangedFileRow
           file={item}
           viewed={seen.has(viewedKey(item))}
-          onPress={() =>
-            router.push({
-              pathname: '/agents/diff',
-              params: { id, path: item.path, rev: item.rev },
-            })
-          }
+          onPress={() => onOpen(item)}
           onToggleViewed={() => onToggleViewed(viewedKey(item))}
         />
       )}

@@ -127,6 +127,12 @@ async function listen(
     return looking;
   };
   const diff = keptDiffs(deps.answers.changes.diff, now);
+  // A PR's patch is kept the same way, keyed by its project and number.
+  const prPatch = keptDiffs(
+    (pr: { project: string; number: number }) => deps.answers.prs.diff(pr.project, pr.number),
+    now,
+    (pr) => `${pr.project}#${pr.number}`,
+  );
   // A prompt not drawn yet when its hook came is read again at the next look, which comes soon.
   const asks = keptAsks(deps.answers.prompt, () => {
     stale = true;
@@ -137,6 +143,11 @@ async function listen(
     board,
     asked: asks.read,
     changes: { ...deps.answers.changes, diff },
+    prs: {
+      ...deps.answers.prs,
+      diff: (project: string, number: number, reuse?: boolean) =>
+        prPatch({ project, number }, reuse),
+    },
   };
   const respond = async (request: Extract<PhoneMessage, { kind: 'request' }>) => {
     try {

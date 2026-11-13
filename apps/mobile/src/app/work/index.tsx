@@ -1,3 +1,3 @@
-import { TicketsScreen } from '@/features/tickets/TicketsScreen';
+import { WorkScreen } from '@/features/work/WorkScreen';
 
-export default TicketsScreen;
+export default WorkScreen;

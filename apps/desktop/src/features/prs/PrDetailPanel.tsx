@@ -20,6 +20,8 @@ const firstTab = (pr: PrDetail): DetailTab =>
 export function PrDetailPanel(props: {
   pr: PrDetail;
   onDiscard: (draft: PrDraft) => void;
+  /** Resolves a thread or opens it again; absent where Mesa cannot (Bitbucket). */
+  onResolve?: (thread: string, resolved: boolean) => void;
   /** The tab last picked on this PR, kept by the app across visits; else the first that has items. */
   tab?: string;
   onTab?: (tab: DetailTab) => void;
@@ -56,7 +58,7 @@ export function PrDetailPanel(props: {
         ))}
       </div>
       <div role="tabpanel" data-testid={`pr-tab-${tab}`}>
-        {tab === 'comments' && <PrCommentsTab threads={pr.threads} />}
+        {tab === 'comments' && <PrCommentsTab threads={pr.threads} onResolve={props.onResolve} />}
         {tab === 'drafts' &&
           (pr.drafts.length ? (
             pr.drafts.map((d) => (

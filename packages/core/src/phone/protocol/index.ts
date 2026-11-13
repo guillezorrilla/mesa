@@ -12,6 +12,9 @@ export {
 export { relativeAgo, shortAgo, timeAgo } from '../../lib/ago.js';
 export { money } from '../../lib/format.js';
 export { localDay } from '../../lib/time.js';
+export { BUCKET_LABELS, commentPlace } from '../../prs/buckets.js';
+export { CHECK_STATES } from '../../prs/check-list.js';
+export { MERGE_LABELS, MERGE_METHODS, type MergeMethod } from '../../prs/merge-methods.js';
 export { promptTitle } from '../../sessions/answer/title.js';
 export { NAMED_KEYS } from '../../sessions/input/terminal-keys.js';
 export { BUSY_STATES, FINAL_STATES, WAITING_STATES } from '../../sessions/record/states.js';
@@ -60,6 +63,13 @@ export {
   openNotice,
   sealNotice,
 } from './notice.js';
+export type {
+  PhoneCheck,
+  PhoneDraft,
+  PhonePr,
+  PhonePrDetail,
+  PhoneThread,
+} from './prs.js';
 export type { PhonePushes } from './pushes.js';
 export { MacCallError, macCalls } from './requests.js';
 export {
