@@ -1,41 +1,58 @@
-import { money } from '@mesa/core/phone';
+import type { PhoneUsage } from '@mesa/core/phone';
+import type { LayoutRectangle } from 'react-native';
 import { View } from 'react-native';
-import { Text } from '@/components/ui/text';
-import { cn } from '@/lib/utils';
-import { barShares, dayInitial } from './usageText';
+import { chartScale } from './chartScale';
+import { AXIS_WIDTH, DayAxis } from './DayAxis';
+import { type BarTone, DayBar } from './DayBar';
 
-/** The last days' estimated cost as bars, oldest first, today in the primary tone. */
-export function DayBars({ days }: { days: { day: string; cost: number | null }[] }) {
-  const shares = barShares(days.map((day) => day.cost));
+/** A bar's tone: the selected day stands out and dims the rest; with none, today does. */
+function tone(index: number, last: number, selected: number | null): BarTone {
+  if (selected !== null) return index === selected ? 'selected' : 'dimmed';
+  return index === last ? 'today' : 'plain';
+}
+
+/**
+ * The last days' estimated cost as bars on gridlines, oldest first, with the scale on the right.
+ * `onBars` hears where the bars lie in the chart's card, so a finger's point picks a day.
+ */
+export function DayBars({
+  days,
+  selected,
+  onToggle,
+  onBars,
+}: {
+  days: PhoneUsage['days'];
+  selected: number | null;
+  onToggle: (index: number) => void;
+  onBars: (area: LayoutRectangle) => void;
+}) {
+  const { labels, shares } = chartScale(days.map((day) => day.cost));
   return (
-    <View className="flex-row items-end gap-1.5">
-      {days.map(({ day, cost }, index) => {
-        const today = index === days.length - 1;
-        return (
-          <View
-            key={day}
-            accessible
-            accessibilityLabel={`${day}, ${money(cost)}`}
-            className="flex-1 items-center gap-1.5"
-          >
-            <View className="h-24 w-full justify-end">
-              <View
-                className={cn('w-full rounded-sm', today ? 'bg-primary' : 'bg-muted-foreground/40')}
-                // At least a hairline, so a day with nothing still shows its place.
-                style={{ height: `${Math.max(2, (shares[index] ?? 0) * 100)}%` }}
-              />
-            </View>
-            <Text
-              className={cn(
-                'font-mono text-xs',
-                today ? 'font-semibold text-foreground' : 'text-muted-foreground',
-              )}
-            >
-              {dayInitial(day)}
-            </Text>
-          </View>
-        );
-      })}
+    <View
+      className="flex-row"
+      onLayout={({ nativeEvent: { layout } }) =>
+        onBars({ ...layout, width: layout.width - AXIS_WIDTH })
+      }
+    >
+      <View className="flex-1">
+        <View className="absolute inset-x-0 top-0 h-32 justify-between">
+          {[0, 1, 2].map((line) => (
+            <View key={line} className="h-px bg-border" />
+          ))}
+        </View>
+        <View className="flex-row gap-1.5">
+          {days.map((day, index) => (
+            <DayBar
+              key={day.day}
+              day={day}
+              share={shares[index] ?? 0}
+              tone={tone(index, days.length - 1, selected)}
+              onToggle={() => onToggle(index)}
+            />
+          ))}
+        </View>
+      </View>
+      <DayAxis labels={labels} />
     </View>
   );
 }

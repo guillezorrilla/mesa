@@ -26,8 +26,18 @@ export const phoneUsage = z.object({
   excluded: z
     .object({ today: z.number(), week: z.number(), month: z.number() })
     .default({ today: 0, week: 0, month: 0 }),
-  /** The last 14 local days, oldest first, each `YYYY-MM-DD`. */
-  days: z.array(z.object({ day: z.string(), cost })),
+  /**
+   * The last 14 local days, oldest first, each `YYYY-MM-DD`, with how many sessions its cost leaves
+   * out and its costliest models (at most 3, #1144); an older Mac sends neither.
+   */
+  days: z.array(
+    z.object({
+      day: z.string(),
+      cost,
+      excluded: z.number().default(0),
+      models: z.array(z.object({ model: z.string(), cost })).default([]),
+    }),
+  ),
   /** Costliest first. */
   sessions: z.array(phoneSessionUsage),
   /** Each reached cost alert as it reads on the Mac (core's costAlertText). */

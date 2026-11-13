@@ -348,6 +348,16 @@ test("the phone's usage sums each session's cost, unknown when one reading has n
     breakdown: [],
     agents: [],
   } satisfies UsageReport;
+  const model = (name: string, cost: number | null) => ({
+    agent: 'claude' as const,
+    model: name,
+    totals: totals(cost),
+  });
+  report.daily[89] = {
+    day: 'd89',
+    totals: totals(89, 1),
+    models: [model('haiku', 1), model('unpriced', null), model('opus', 80), model('sonnet', 8)],
+  };
   const usage = phoneUsage(report, [row('b', 10), row('c', null), row('a', 42), row('d', 3)]);
   expect(usage).toMatchObject({
     today: 2,
@@ -355,8 +365,18 @@ test("the phone's usage sums each session's cost, unknown when one reading has n
     month: 4,
     excluded: { today: 2, week: 1, month: 0 },
   });
-  expect(usage.days[0]).toEqual({ day: 'd76', cost: 76 });
+  expect(usage.days[0]).toEqual({ day: 'd76', cost: 76, excluded: 0, models: [] });
   expect(usage.days).toHaveLength(14);
+  expect(usage.days[13]).toEqual({
+    day: 'd89',
+    cost: 89,
+    excluded: 1,
+    models: [
+      { model: 'opus', cost: 80 },
+      { model: 'sonnet', cost: 8 },
+      { model: 'haiku', cost: 1 },
+    ],
+  });
   expect(usage.sessions.map((s) => [s.id, s.cost, s.context])).toEqual([
     ['a', 1.75, 42],
     ['d', 0, 3],
