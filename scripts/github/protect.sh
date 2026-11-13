@@ -185,12 +185,11 @@ ensure "dependabot security updates" "$(get "repos/$REPO/automated-security-fixe
 ensure "private vulnerability reporting" "$(get "repos/$REPO/private-vulnerability-reporting" | jq -c '.enabled // false')" \
   true gh api -X PUT "repos/$REPO/private-vulnerability-reporting"
 
-codeql_want='{"state": "configured", "languages": ["javascript-typescript"], "query_suite": "default"}'
-# GitHub answers with the language and its aliases (javascript, typescript), so the check asks
-# only whether javascript-typescript is among them.
-codeql_have=$(get "repos/$REPO/code-scanning/default-setup" |
-  jq -c '{state, query_suite, languages: (if (.languages // []) | index("javascript-typescript") then ["javascript-typescript"] else .languages end)}')
-ensure "codeql default setup" "$codeql_have" "$codeql_want" send PATCH "repos/$REPO/code-scanning/default-setup" "$codeql_want"
+# Code scanning runs from .github/workflows/codeql.yml (ADR-0017); GitHub refuses that workflow's
+# results while default setup is on, so it stays off.
+codeql_want='{"state": "not-configured"}'
+codeql_have=$(get "repos/$REPO/code-scanning/default-setup" | jq -c '{state}')
+ensure "codeql default setup off" "$codeql_have" "$codeql_want" send PATCH "repos/$REPO/code-scanning/default-setup" "$codeql_want"
 
 if [ $CHECK = 1 ] && [ $drift = 1 ]; then
   echo "drift found: run scripts/github/protect.sh to apply"

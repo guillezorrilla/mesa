@@ -7,6 +7,7 @@ import {
   newSession,
   plantHookEvent,
   servingPhone,
+  testStore,
   untilTrue,
 } from '../../testing/index.js';
 import type { UsageReport } from '../../usage/records.js';
@@ -267,6 +268,10 @@ test('the Inbox, usage and push settings answer the phone through core', async (
   expect(usage.sessions).toEqual([
     { id: session.id, title: 'Login fix', project: 'lantern-cove', cost: null, context: null },
   ]);
+  // Ended, it leaves the Agents tab as it leaves the sidebar, and Usage still counts it.
+  testStore(home).update(session.id, { endedAt: '2026-09-24T12:30:00.000Z' });
+  expect((await calls.call({ method: 'sessions' })).rows).toEqual([]);
+  expect((await calls.call({ method: 'usage' })).sessions.map((s) => s.id)).toEqual([session.id]);
 
   expect(await calls.call({ method: 'pushes', set: { push: 'always', finished: false } })).toEqual({
     push: 'always',
