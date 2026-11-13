@@ -21,6 +21,7 @@ export const toPhoneRow = (row: ManagedRow): PhoneRow => ({
   since: row.lastState.at,
   context: row.context ? Math.round(row.context.used) : null,
   unread: Boolean(row.unread),
+  ...(row.agent === 'terminal' ? { terminal: true as const } : {}),
 });
 
 /** The longest `ask` a row carries: a list shows one line. */

@@ -8,6 +8,7 @@ import { crewCalls, crewResults } from './crew.js';
 import { inboxCalls, inboxResults } from './inbox.js';
 import { pushesCalls, pushesResults } from './pushes.js';
 import { queuedMessage, steerCalls, steerResults } from './steer.js';
+import { terminalCalls, terminalResults } from './terminal.js';
 import { usageCalls, usageResults } from './usage.js';
 
 /** One session as the phone lists it: the board row cut to what a list shows (about 200 bytes). */
@@ -26,6 +27,8 @@ export const phoneRow = z.object({
   ask: z.string().optional(),
   /** How many replies wait for its turn to end (CONTEXT.md, Queued message); none when absent. */
   queued: z.number().optional(),
+  /** A plain terminal session (CONTEXT.md): no replies; typed into a line or a key at a time. */
+  terminal: z.literal(true).optional(),
 });
 export type PhoneRow = z.infer<typeof phoneRow>;
 
@@ -90,6 +93,7 @@ export const phoneCall = z.discriminatedUnion('method', [
   ...pushesCalls,
   ...steerCalls,
   ...changesCalls,
+  ...terminalCalls,
 ]);
 export type PhoneCall = z.infer<typeof phoneCall>;
 
@@ -107,6 +111,7 @@ export const callResults = {
   ...pushesResults,
   ...steerResults,
   ...changesResults,
+  ...terminalResults,
 };
 export type CallResult<M extends PhoneCall['method']> = z.infer<(typeof callResults)[M]>;
 

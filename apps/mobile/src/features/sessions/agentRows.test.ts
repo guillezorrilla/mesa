@@ -1,6 +1,14 @@
 import type { PhoneRow } from '@mesa/core/phone';
 import { expect, test } from 'vitest';
-import { applyUpdates, filterRows, groupRows, isGate, projectsOf } from './agentRows';
+import {
+  applyUpdates,
+  filterRows,
+  groupRows,
+  isGate,
+  mergeListings,
+  placeOf,
+  projectsOf,
+} from './agentRows';
 import { groupOf } from './sessionState';
 
 const row = (id: string, state: string, more: Partial<PhoneRow> = {}): PhoneRow => ({
@@ -86,4 +94,43 @@ test('the filter matches title or project, one project, and unread only', () => 
   ).toEqual(['b']);
   expect(filterRows(rows, { query: '', unreadOnly: true }).map((r) => r.id)).toEqual(['a']);
   expect(projectsOf([...rows, row('c', 'idle', { project: null })])).toEqual(['cinder', 'mesa']);
+});
+
+test("several Macs' rows merge in pairing order, each with its own updates, and the Mac filter keeps one", () => {
+  const listings = [
+    { mac: 'studio', rows: [row('a', 'working')], at: 10 },
+    { mac: 'laptop', rows: [row('b', 'idle')], at: 10 },
+  ];
+  const updates = [
+    {
+      kind: 'update' as const,
+      mac: 'laptop',
+      at: 20,
+      rows: [row('b', 'done')],
+      gone: [],
+      order: [],
+    },
+    {
+      kind: 'update' as const,
+      mac: 'studio',
+      at: 5,
+      rows: [row('a', 'done')],
+      gone: [],
+      order: [],
+    },
+  ];
+  const merged = mergeListings(listings, updates);
+  expect(merged.map((r) => [r.mac, r.id, r.state])).toEqual([
+    ['studio', 'a', 'working'],
+    ['laptop', 'b', 'done'],
+  ]);
+  expect(
+    filterRows(merged, { query: '', unreadOnly: false, mac: 'laptop' }).map((r) => r.id),
+  ).toEqual(['b']);
+});
+
+test('a row names its Mac only among several', () => {
+  expect(placeOf('mesa', 'Studio')).toBe('mesa on Studio');
+  expect(placeOf(null, 'Studio')).toBe('Studio');
+  expect(placeOf('mesa')).toBe('mesa');
 });

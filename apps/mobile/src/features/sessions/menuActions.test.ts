@@ -13,3 +13,9 @@ test('stop and archive say what they do before they run', () => {
   );
   expect(confirmText('archive', 'Login fix')).toMatch(/^Archive Login fix\?/);
 });
+
+test('a terminal stops, renames and archives, and its stop says the shell closes', () => {
+  expect(menuActions('working', false, true)).toEqual(['stop', 'rename', 'archive']);
+  expect(menuActions('done', false, true)).toEqual(['rename', 'archive']);
+  expect(confirmText('stop', 'Shell', true)).toBe('Stop Shell? Its shell and its window close.');
+});

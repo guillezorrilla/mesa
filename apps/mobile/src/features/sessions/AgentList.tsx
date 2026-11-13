@@ -1,4 +1,4 @@
-import type { PhoneGate, PhoneRow, UpdateMessage } from '@mesa/core/phone';
+import type { PhoneGate, PhoneRow } from '@mesa/core/phone';
 import { router } from 'expo-router';
 import { use } from 'react';
 import { RefreshControl, SectionList, View } from 'react-native';
@@ -8,19 +8,26 @@ import { Text } from '@/components/ui/text';
 import { GateRow } from '../gates/GateRow';
 import { AgentFilters } from './AgentFilters';
 import {
-  applyUpdates,
   filterRows,
   groupRows,
   isGate,
+  type Listing,
+  type MacUpdate,
+  mergeListings,
+  type OnMac,
+  placeOf,
   projectsOf,
   type RowFilter,
 } from './agentRows';
 import { OfflineNote } from './OfflineNote';
 import { stateColor, stateWords } from './sessionState';
-import type { Listing } from './useAgents';
 
-/** The sessions grouped Needs you (with open decision gates), Working, Done, live, filtered, swiped to mark read or unread. */
+/**
+ * Every paired Mac's sessions grouped Needs you (with open decision gates), Working, Done, live,
+ * filtered by Mac, project or unread, swiped to mark read or unread.
+ */
 export function AgentList({
+  macs,
   listing,
   updates,
   gates,
@@ -30,42 +37,53 @@ export function AgentList({
   onRefresh,
   onMark,
 }: {
-  listing: Promise<Listing>;
-  updates: (UpdateMessage & { at: number })[];
-  gates: PhoneGate[];
+  macs: { id: string; name: string }[];
+  listing: Promise<Listing[]>;
+  updates: MacUpdate[];
+  gates: OnMac<PhoneGate>[];
   filter: RowFilter;
   onFilter: (filter: RowFilter) => void;
   refreshing: boolean;
   onRefresh: () => void;
-  onMark: (row: PhoneRow, unread: boolean) => void;
+  onMark: (row: OnMac<PhoneRow>, unread: boolean) => void;
 }) {
   const listed = use(listing);
-  // Updates older than the listing are already in it.
-  const rows = applyUpdates(
-    listed.rows,
-    updates.filter((update) => update.at > listed.at),
-  );
+  const rows = mergeListings(listed, updates);
+  const several = macs.length > 1;
+  const nameOf = (mac: string) => macs.find((m) => m.id === mac)?.name;
+  const shownGates = gates.filter((gate) => !filter.mac || gate.mac === filter.mac);
   const now = Date.now();
   return (
     <SectionList
       contentInsetAdjustmentBehavior="automatic"
       className="flex-1 bg-background"
-      sections={groupRows(filterRows(rows, filter), gates)}
-      keyExtractor={(row) => row.id}
+      sections={groupRows(filterRows(rows, filter), shownGates)}
+      keyExtractor={(item) => `${item.mac}:${item.id}`}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ListHeaderComponent={
         <View className="gap-2 pb-2">
-          {listed.offline ? (
-            <View className="px-4">
-              <OfflineNote heardAt={listed.offline.heardAt} now={now} />
-            </View>
-          ) : null}
-          <AgentFilters projects={projectsOf(rows)} filter={filter} onChange={onFilter} />
+          {listed.map((one) =>
+            one.offline ? (
+              <View key={one.mac} className="px-4">
+                <OfflineNote
+                  heardAt={one.offline.heardAt}
+                  now={now}
+                  name={several ? nameOf(one.mac) : undefined}
+                />
+              </View>
+            ) : null,
+          )}
+          <AgentFilters
+            macs={macs}
+            projects={projectsOf(rows)}
+            filter={filter}
+            onChange={onFilter}
+          />
         </View>
       }
       ListEmptyComponent={
         <Text className="px-4 py-8 text-center text-muted-foreground">
-          {rows.length ? 'No session matches.' : 'No sessions on your Mac.'}
+          {rows.length ? 'No session matches.' : `No sessions on your ${several ? 'Macs' : 'Mac'}.`}
         </Text>
       }
       renderSectionHeader={({ section }) => (
@@ -82,11 +100,16 @@ export function AgentList({
         return (
           <SwipeRow action={toggle} onAction={() => onMark(item, !item.unread)}>
             <SessionRow
-              row={item}
+              row={{
+                ...item,
+                project: placeOf(item.project, several ? nameOf(item.mac) : undefined),
+              }}
               stateColor={stateColor(item.state, item.unread)}
               stateWords={stateWords(item.state)}
               now={now}
-              onPress={() => router.push(`/agents/${item.id}`)}
+              onPress={() =>
+                router.push({ pathname: '/agents/[id]', params: { id: item.id, mac: item.mac } })
+              }
               actions={[
                 { name: 'toggleUnread', label: toggle, run: () => onMark(item, !item.unread) },
               ]}

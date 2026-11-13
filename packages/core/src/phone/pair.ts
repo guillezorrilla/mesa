@@ -16,7 +16,19 @@ export type PairingDeps = {
    * phone is paired, removed on unpair. `ensure` says whether it is loaded.
    */
   listener: { ensure: () => Promise<boolean>; remove: () => Promise<unknown> };
+  /** This Mac's computer name, as System Settings shows it; undefined when it cannot be read. */
+  computerName: () => Promise<string | undefined>;
+  profile: string;
 };
+
+/**
+ * What the phone calls this Mac and profile, among the Macs it pairs: the computer name, with the
+ * profile when it is not the default; the profile alone when the name cannot be read.
+ */
+export function macName(computer: string | undefined, profile: string): string {
+  if (!computer) return profile;
+  return profile === 'default' ? computer : `${computer} (${profile})`;
+}
 
 export type PairStart = { pairingId: string; qr: string; expiresAt: string };
 export type PhoneStatus = {
@@ -87,7 +99,13 @@ export async function startPairing(deps: PairingDeps, broker: string): Promise<P
   });
   return {
     pairingId: created.pairingId,
-    qr: formatPairingLink({ broker, pairingId: created.pairingId, secret, macKey: keys.publicKey }),
+    qr: formatPairingLink({
+      broker,
+      pairingId: created.pairingId,
+      secret,
+      macKey: keys.publicKey,
+      name: macName(await deps.computerName().catch(() => undefined), deps.profile),
+    }),
     expiresAt: created.expiresAt,
   };
 }

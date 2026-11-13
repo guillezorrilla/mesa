@@ -45,6 +45,7 @@ import { importGoal, importLinks, importList, importRefresh, importStatus } from
 import { init } from './init.js';
 import { installs } from './installs.js';
 import { instructionsList, instructionsRead, instructionsWrite } from './instructions.js';
+import { keys } from './keys.js';
 import { log } from './log.js';
 import { logs } from './logs.js';
 import { map } from './map.js';
@@ -116,6 +117,7 @@ import { stop } from './stop.js';
 import { swap } from './swap.js';
 import { tasks, tasksCancel, tasksCreate, tasksRetry, tasksShow } from './tasks.js';
 import { TICKETS_COMMANDS } from './tickets/index.js';
+import { typeLine } from './type.js';
 import { unarchive } from './unarchive.js';
 import { unread } from './unread.js';
 import { unregister } from './unregister.js';
@@ -274,6 +276,8 @@ export const COMMANDS: Command[] = [
   run,
   search,
   send,
+  typeLine,
+  keys,
   sessions,
   show,
   swap,

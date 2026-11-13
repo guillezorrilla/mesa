@@ -13,6 +13,8 @@ export type PhonePairing = {
   /** The last `seq` sent and the last taken, so neither side's box is taken twice. */
   sentSeq: number;
   takenSeq: number;
+  /** What the phone calls the Mac, from its link; none from a Mac older than the name. */
+  name?: string;
 };
 
 /** The phone's keys for its pairing. */
@@ -44,6 +46,7 @@ export async function joinPairing(
     macKey: link.macKey,
     sentSeq: 1,
     takenSeq: 0,
+    ...(link.name ? { name: link.name } : {}),
   };
   const hello = sealMessage(phoneKeys(pairing), 1, now, {
     kind: 'hello',

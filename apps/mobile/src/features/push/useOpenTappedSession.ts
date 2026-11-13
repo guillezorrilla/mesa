@@ -5,11 +5,15 @@ import { tappedSession } from './tappedSession';
 
 const open = (response: Notifications.NotificationResponse | null) => {
   if (!response || response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return;
-  const session = tappedSession(response);
-  if (session) router.push(`/agents/${session}`);
+  const tapped = tappedSession(response);
+  if (!tapped) return;
+  router.push({
+    pathname: '/agents/[id]',
+    params: { id: tapped.session, ...(tapped.mac ? { mac: tapped.mac } : {}) },
+  });
 };
 
-/** Opens the session a tapped push names: the tap that launched the app, then each tap after. */
+/** Opens the session a tapped push names, on the Mac that sent it: the tap that launched the app, then each tap after. */
 export function useOpenTappedSession() {
   useEffect(() => {
     open(Notifications.getLastNotificationResponse());

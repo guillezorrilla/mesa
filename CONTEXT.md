@@ -129,7 +129,7 @@ Not: task, job, run (`kind: run` qualifies a session, it is not another name for
 
 ## Plain terminal session
 
-`mesa open <project> --terminal` starts the profile's login shell in a project checkout, or in its own worktree with `--branch`. It uses `kind: terminal` and `agent: terminal` in the session record, with no agent session id, goal, provider, context use, or skill links. The Board observes its tmux window directly; it does not ask Faro to infer a coding-agent state. Attach and stop work as for other windows. Send, resume, and handoff refuse it because there is no coding-agent conversation. The app's quick Terminal choice uses this path. `--run <command>` has the shell run a command line first and then stay open, as the Reviews setup does for `gh auth login --web` or `twg login`.
+`mesa open <project> --terminal` starts the profile's login shell in a project checkout, or in its own worktree with `--branch`. It uses `kind: terminal` and `agent: terminal` in the session record, with no agent session id, goal, provider, context use, or skill links. The Board observes its tmux window directly; it does not ask Faro to infer a coding-agent state. Attach and stop work as for other windows. Send, resume, and handoff refuse it because there is no coding-agent conversation; a person types into it with `mesa type <id> <line>` (the line, then Enter, through the guardrail, its receipt a `guardrail` one) and `mesa keys <id> <key...>` (Escape, Tab, Enter, Up, Down, Left, Right or `C-<letter>`, by tmux's names, past no guardrail since they carry no text), which the Phone's terminal screen uses too; both refuse an agent session and any Mesa window, so a review or an agent never types into a shell. The app's quick Terminal choice uses this path. `--run <command>` has the shell run a command line first and then stay open, as the Reviews setup does for `gh auth login --web` or `twg login`.
 
 ## Archived session
 
@@ -601,7 +601,7 @@ Not: mobile app, remote, companion.
 
 ## Pairing
 
-The link between one Mac's profile and one Phone, made by scanning a QR from Settings > Phone or `mesa phone pair`: a Durable Object on the Broker named by a random id, holding the Mailbox, each side's token hash and the phone's push token. The keys agreed in the QR seal everything that passes; the pairing is the only authentication, with no account. `mesa phone status` and `mesa phone unpair` read and end it.
+The link between one Mac's profile and one Phone, made by scanning a QR from Settings > Phone or `mesa phone pair`; a phone keeps one pairing per Mac or profile it scanned, each named by the QR's Mac name (the computer name, with the profile when it is not `default`), each with its own Keychain item and socket, and unpairs each alone: a Durable Object on the Broker named by a random id, holding the Mailbox, each side's token hash and the phone's push token. The keys agreed in the QR seal everything that passes; the pairing is the only authentication, with no account. `mesa phone status` and `mesa phone unpair` read and end it.
 Not: device, connection (a Source's), account.
 
 ## Mailbox

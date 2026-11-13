@@ -110,6 +110,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
       board: () => sessions.sessions.list(),
       responses: (id) => sessions.sessions.responses.list(id),
       logs: (id, tail) => sessions.sessions.logs(id, tail),
+      keys: (id, keys) => sessions.sessions.terminal.keys(id, keys),
       read: sessions.sessions.read,
       unread: sessions.sessions.unread,
       prompt: sessions.sessions.prompt,
