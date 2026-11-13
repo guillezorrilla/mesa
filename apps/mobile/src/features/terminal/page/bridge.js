@@ -27,10 +27,12 @@
   // it. A height change alone (the keyboard) keeps the rows, the terminal pinned to the page's
   // bottom so the newest line stays in view, as orca's keyboard lift: rows changed on the phone
   // alone would move what the window draws next.
-  let width = 0;
+  let fitted = false;
   const refit = () => {
-    if (width === window.innerWidth) return;
-    width = window.innerWidth;
+    // The width holds the same cols however tall the page is (and WebKit moves innerWidth as the
+    // keyboard opens), so the cols proposed for it decide.
+    if (fitted && fit.proposeDimensions()?.cols === term.cols) return;
+    fitted = true;
     surface.style.top = '';
     surface.style.height = '';
     fit.fit();
