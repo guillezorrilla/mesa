@@ -23,6 +23,7 @@ import { answerPushes, type PushesDeps } from './pushes.js';
 import { phoneReplies } from './replies.js';
 import { managedRows, phoneRows, queuedRows, toPhoneRow } from './rows.js';
 import { answerStartCall, isStartCall, type StartDeps } from './start.js';
+import { phoneSteps, stepText } from './steps.js';
 import { phoneUsage } from './usage.js';
 
 /** The session functions the CLI uses, which every phone call goes through. */
@@ -133,15 +134,21 @@ export async function answerCall(
   const row = await managed(call.id);
   // Newest first, as `review responses` lists them; a phone that names a count shows prompts too,
   // and a plain terminal has none.
-  const conversation = phoneReplies(
-    row.agent === 'terminal' ? { rows: [], prompts: [] } : deps.responses(call.id),
-    call.replies ?? SESSION_REPLIES.first,
-    call.replies !== undefined,
-  );
+  const read =
+    row.agent === 'terminal' ? { rows: [], prompts: [], steps: [] } : deps.responses(call.id);
+  if (call.method === 'step') {
+    const step = read.steps.find((each) => each.id === call.step);
+    if (!step) throw new MesaError('not_found', `no step ${call.step} in session ${call.id}`);
+    return { text: stepText(step) } satisfies CallResult<'step'>;
+  }
+  const count = call.replies ?? SESSION_REPLIES.first;
+  // A phone that names a count is new enough for prompts and steps.
+  const newerPhone = call.replies !== undefined;
   return {
     row: toPhoneRow(row),
     goal: row.goal ?? null,
-    ...conversation,
+    ...phoneReplies(read, count, newerPhone),
+    ...(newerPhone ? { steps: phoneSteps(read.steps, count) } : {}),
     tail: deps.logs(call.id, TAIL).lines,
     queued: deps.steer.queue.of(call.id),
     archived: Boolean(row.archivedAt),

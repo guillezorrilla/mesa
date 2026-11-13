@@ -60,3 +60,32 @@ test('the new count is how many messages came after the last one seen', () => {
   expect(newSince(['a'], undefined)).toBe(0);
   expect(newSince(['a'], 'gone')).toBe(0);
 });
+
+test("the agent's steps sit in their gap as one run each, after the prompt that asked", () => {
+  const step = (id: string, newer: number) => ({
+    type: 'tool' as const,
+    id,
+    newer,
+    kind: 'command',
+    name: 'Bash',
+    target: id,
+    status: 'done',
+  });
+  const items = chatItems(
+    [reply('ask2', null, 'you'), reply('r1', '2026-11-12T10:05:00Z'), reply('ask1', null, 'you')],
+    [],
+    // Newest first, as the Mac sends them: s3 is still running after ask2, s1 and s2 led to r1.
+    [step('s3', 0), step('s2', 1), step('s1', 1)],
+  );
+  expect(
+    items.map((i) => (i.steps ? i.steps.map((s) => s.id).join('+') : i.segments[0]?.text)),
+  ).toEqual(['ask1', 's1+s2', 'r1', 'ask2', 's3']);
+  // A run speaks for the agent: it opens the agent's group, and its reply joins it.
+  expect(items.map((i) => [i.from, i.first])).toEqual([
+    ['you', true],
+    ['agent', true],
+    ['agent', false],
+    ['you', true],
+    ['agent', true],
+  ]);
+});
