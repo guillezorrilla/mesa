@@ -7,7 +7,7 @@ import { Text } from '@/components/ui/text';
 import type { MacRead } from '../mac/tryCall';
 import { CostAlert } from './CostAlert';
 import { CostTiles } from './CostTiles';
-import { DayBars } from './DayBars';
+import { DayChart } from './DayChart';
 import { SessionCosts } from './SessionCosts';
 
 /**
@@ -36,7 +36,7 @@ export function UsageBody({
             month={{ cost: result.month, excluded: result.excluded.month }}
           />
           <Section title="Last 14 days">
-            <DayBars days={result.days} />
+            <DayChart days={result.days} />
           </Section>
           <Section title="Sessions">
             <SessionCosts sessions={result.sessions} />
