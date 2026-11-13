@@ -43,7 +43,8 @@ test('weekly rewind keeps meaningful notes and outcomes within local days and na
   expect(report).toMatchObject({ from: '2026-09-18', through: '2026-09-24', timezone: 'UTC' });
   expect(report.notes.map((note) => note.path)).toEqual([recent.path]);
   expect(report.sessions.map((row) => row.id)).toEqual([session.id]);
-  expect(report.usage.estimatedCostUsd).toBeNull();
+  // Nothing priced and two sessions not read: unknown, with both counted as left out.
+  expect(report.usage).toMatchObject({ estimatedCostUsd: null, excluded: 2 });
   expect(report.missing).toContain(`${session.id}: native session id is not available`);
   expect(report.missing).toContain(`${longRunning.id}: native session id is not available`);
   expect((await createMesa('default', testDeps(home, { clock })).rewind.week()).notes).toEqual(

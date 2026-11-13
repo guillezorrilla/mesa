@@ -36,10 +36,6 @@ export const tokenLine = (totals: UsageTotals) =>
 /** A model row that counted any tokens; an all-zero one (such as `<synthetic>`) is noise. */
 export const counted = (row: UsageBreakdown[number]) => allTokens(row.totals) !== 0;
 
-/** The priced part of some rows' spend: a cost with no list price counts as nothing. */
-export const knownCost = (rows: UsageBreakdown) =>
-  rows.reduce((sum, row) => sum + (row.totals.estimatedCostUsd ?? 0), 0);
-
 /** A day key (2026-09-26) as "Sat, Sep 26", read in UTC so it never shifts a day. */
 export const dayLabel = (day: string, weekday = true) =>
   new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', {

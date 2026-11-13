@@ -101,8 +101,16 @@ test('Claude repeated message updates count once, survive removal, and stay in t
   store.create(() => newSession({ agent: 'codex' }));
   const incomplete = await mesa.usage.list();
   expect(incomplete.unknown).toHaveLength(1);
-  expect(incomplete.periods.today).toMatchObject({ input: null, estimatedCostUsd: null });
-  expect(incomplete.daily.at(-1)?.totals.estimatedCostUsd).toBeNull();
+  // The unread Codex session leaves the totals partial, not unknown.
+  expect(incomplete.periods.today).toMatchObject({
+    input: 20,
+    estimatedCostUsd: 0.000167,
+    excluded: 1,
+  });
+  expect(incomplete.daily.at(-1)?.totals).toMatchObject({
+    estimatedCostUsd: 0.000167,
+    excluded: 1,
+  });
   expect(incomplete.alerts).toContainEqual({
     period: 'today',
     thresholdUsd: 0.0001,
@@ -405,7 +413,8 @@ test('current Claude models have list prices; an unknown model stays unknown, no
     priceVersion: null,
     estimatedCostUsd: null,
   });
-  expect(unknown.periods.today.estimatedCostUsd).toBeNull();
+  expect(unknown.periods.today.estimatedCostUsd).toBeCloseTo(0.031145, 12);
+  expect(unknown.periods.today.excluded).toBe(1);
 });
 
 test('a long history summarizes without copying its buckets per row', () => {
@@ -540,4 +549,62 @@ test('Haiku 5.5 costs five times as much once a prompt passes 100K tokens', () =
     (5 * (1000 * 0.5 + 100_001 * 0.01)) / 1_000_000,
     12,
   );
+});
+
+test('a span sums what it can price and counts the sessions it leaves out', () => {
+  const now = new Date('2026-09-24T12:10:00.000Z');
+  const row = (session: string, model: string, tokens: number): UsageRecord => {
+    const counts = {
+      input: tokens,
+      output: tokens,
+      cacheRead: 0,
+      cacheWrite: 0,
+      cacheWrite5m: 0,
+      cacheWrite1h: 0,
+    };
+    return {
+      id: `claude:${session}:${model}`,
+      session,
+      agent: 'claude',
+      nativeSessionId: '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f',
+      model,
+      at,
+      source: 'claude-transcript',
+      tokens: counts,
+      ...claudeListPrice(model, counts),
+    };
+  };
+  const priced = row('lantern1', 'claude-opus-5-5', 1000);
+  const cost = priced.estimatedCostUsd ?? 0;
+  // A zero-token `<synthetic>` reading costs nothing and leaves nothing out.
+  const synthetic = row('lantern1', '<synthetic>', 0);
+  expect(synthetic.estimatedCostUsd).toBe(0);
+  expect(summarizeUsage([priced, synthetic], now).periods.today).toMatchObject({
+    events: 2,
+    input: 1000,
+    estimatedCostUsd: cost,
+    excluded: 0,
+  });
+  // A model with no list price: its tokens count, its session is left out of the cost.
+  const unpriced = summarizeUsage([priced, row('harbor22', 'claude-lantern-9', 500)], now);
+  expect(unpriced.periods.today).toMatchObject({
+    input: 1500,
+    estimatedCostUsd: cost,
+    excluded: 1,
+  });
+  expect(unpriced.daily.at(-1)?.totals).toMatchObject({ estimatedCostUsd: cost, excluded: 1 });
+  // A session whose usage could not be read, overlapping the span.
+  const unread = [{ id: 'quill333', startedAt: '2026-09-24T09:00:00.000Z' }];
+  expect(summarizeUsage([priced], now, unread).periods['7d']).toMatchObject({
+    estimatedCostUsd: cost,
+    excluded: 1,
+  });
+  // Nothing known: unknown, not zero.
+  expect(summarizeUsage([], now, unread).periods.today).toMatchObject({
+    events: 0,
+    input: null,
+    estimatedCostUsd: null,
+    excluded: 1,
+  });
+  expect(summarizeUsage([], now).periods.today).toMatchObject({ estimatedCostUsd: 0, excluded: 0 });
 });

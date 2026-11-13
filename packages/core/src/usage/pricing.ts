@@ -42,6 +42,9 @@ const LONG_PROMPT = new Map([['claude-haiku-5-5', { above: 100_000, times: 5 }]]
 
 /** Published standard Claude API list price, not a Claude Code subscription bill. */
 export function claudeListPrice(model: string | undefined, tokens: UsageRecord['tokens']) {
+  // A reading with no tokens (such as model `<synthetic>`) costs nothing, priced or not.
+  if (Object.values(tokens).every((value) => value === 0))
+    return { priceVersion: null, estimatedCostUsd: 0 };
   // A dated snapshot id (claude-haiku-4-5-20251001) has its alias's price.
   const alias = model?.replace(/-\d{8}$/, '');
   const price = alias ? PRICES.get(alias) : undefined;

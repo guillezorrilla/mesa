@@ -4,7 +4,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { SectionLabel } from '@/components/SectionLabel';
 import { Cost } from './Cost';
-import { allTokens, compact, counted, dayLabel, knownCost, modelKey, tokenLine } from './format';
+import { allTokens, compact, counted, dayLabel, modelKey, tokenLine } from './format';
 
 /** The chart's days that had usage, newest first; each opens onto its models. */
 export function UsageByDay(props: { daily: UsageReport['daily'] }) {
@@ -46,11 +46,7 @@ export function UsageByDay(props: { daily: UsageReport['daily'] }) {
                     {compact(allTokens(day.totals))} tokens
                   </span>
                 )}
-                <Cost
-                  value={day.totals.estimatedCostUsd}
-                  known={knownCost(day.models)}
-                  className="w-16 text-right text-sm font-medium"
-                />
+                <Cost totals={day.totals} className="w-16 text-right text-sm font-medium" />
               </button>
               {expanded && (
                 <div className="space-y-1 pr-3 pb-2 pl-10">
@@ -63,11 +59,7 @@ export function UsageByDay(props: { daily: UsageReport['daily'] }) {
                         {AGENT_LABELS[row.agent]}
                       </span>
                       <span className="text-muted-foreground">{tokenLine(row.totals)}</span>
-                      <Cost
-                        value={row.totals.estimatedCostUsd}
-                        known={0}
-                        className="w-16 text-right font-medium"
-                      />
+                      <Cost totals={row.totals} className="w-16 text-right font-medium" />
                     </p>
                   ))}
                 </div>
