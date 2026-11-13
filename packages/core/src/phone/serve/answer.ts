@@ -23,7 +23,6 @@ import { phoneReplies } from './replies.js';
 import { managedRows, phoneRows, queuedRows, toPhoneRow } from './rows.js';
 import { answerStartCall, isStartCall, type StartDeps } from './start.js';
 import { phoneUsage } from './usage.js';
-import { answerVaultCall, isVaultCall, type VaultDeps } from './vault.js';
 
 /** The session functions the CLI uses, which every phone call goes through. */
 export type AnswerDeps = {
@@ -49,7 +48,6 @@ export type AnswerDeps = {
   /** `mesa usage`'s report. */
   usage: () => Promise<UsageReport>;
   pushes: PushesDeps;
-  vault: VaultDeps;
   start: StartDeps;
 };
 
@@ -91,7 +89,6 @@ export async function answerCall(deps: ListenerAnswers, call: PhoneCall): Promis
     await deps.keys(call.id, call.keys);
     return {} satisfies CallResult<'keys'>;
   }
-  if (isVaultCall(call)) return answerVaultCall(deps.vault, call);
   if (isStartCall(call)) return answerStartCall(deps.start, call);
   if (call.method === 'mark') {
     (call.unread ? deps.unread : deps.read)([call.id]);

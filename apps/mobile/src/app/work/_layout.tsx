@@ -8,7 +8,7 @@ export default function WorkLayout() {
   if (!pairing) return <Redirect href="/" />;
   return (
     <Stack screenOptions={{ headerTitleStyle }}>
-      <Stack.Screen name="index" options={{ title: 'Work' }} />
+      <Stack.Screen name="index" options={{ title: 'Work', headerShown: false }} />
       <Stack.Screen name="ticket" options={{ title: '' }} />
       <Stack.Screen name="pr" options={{ title: '' }} />
       <Stack.Screen name="pr-files" options={{ title: 'Files changed' }} />

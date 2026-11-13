@@ -16,7 +16,6 @@ import { gitService } from './git/service.js';
 import { impactService } from './impact/service.js';
 import { installsService } from './installs/service.js';
 import { instructionsService } from './instructions/service.js';
-import { localDay } from './lib/time.js';
 import { mapService } from './map/service.js';
 import { backgroundDelivery } from './notifications/background.js';
 import { inbox } from './notifications/inbox.js';
@@ -158,16 +157,6 @@ export function createMesa(profile: string, deps: MesaDeps) {
       inbox: notices,
       usage: () => usage.list(),
       pushes: { settings: () => ctx.open().config.phone, set: profileApi.config.set },
-      vault: {
-        projects: () => projects.list('last-session'),
-        context: (project) => vaults.vault.context(project),
-        read: vaults.vault.read,
-        search: vaults.vault.search,
-        day: () => localDay(ctx.clock()),
-        impact: impact.report,
-        rewind: () => rewind.week({ synced: false }),
-        saveDecision: vaults.vault.saveDecision,
-      },
       start: {
         projects: () => projects.list('last-session'),
         worktrees: (project) => worktrees.list(project),

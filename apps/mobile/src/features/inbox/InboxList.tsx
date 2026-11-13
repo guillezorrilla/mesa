@@ -1,23 +1,33 @@
 import type { CallResult, PhoneNotice } from '@mesa/core/phone';
-import { use } from 'react';
+import Inbox from 'lucide-react-native/icons/inbox';
+import { type ReactNode, use } from 'react';
 import { FlatList, RefreshControl, View } from 'react-native';
+import { EmptyState } from '@/components/EmptyState';
 import { ErrorNote } from '@/components/ErrorNote';
+import { SwipeRow } from '@/components/SwipeRow';
 import { Separator } from '@/components/ui/separator';
-import { Text } from '@/components/ui/text';
 import type { MacRead } from '../mac/tryCall';
 import { NoticeRow } from './NoticeRow';
+import { newestFirst } from './newestFirst';
 
-/** The notices as a list pulled to refresh; a Mac that did not answer says why above them. */
+/**
+ * The notices newest first under `header`, as a list pulled to refresh, an unread one swiped to
+ * mark it read; a Mac that did not answer says why above them.
+ */
 export function InboxList({
   answer,
+  header,
   refreshing,
   onRefresh,
   onOpen,
+  onMarkRead,
 }: {
   answer: Promise<MacRead<CallResult<'inbox'>>>;
+  header: ReactNode;
   refreshing: boolean;
   onRefresh: () => void;
   onOpen: (notice: PhoneNotice) => void;
+  onMarkRead: (notice: PhoneNotice) => void;
 }) {
   const { result, error } = use(answer);
   const now = Date.now();
@@ -25,25 +35,42 @@ export function InboxList({
     <FlatList
       contentInsetAdjustmentBehavior="automatic"
       className="flex-1 bg-background"
-      data={result?.notices ?? []}
+      data={newestFirst(result?.notices ?? [])}
       keyExtractor={(notice) => notice.id}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      ItemSeparatorComponent={() => <Separator className="ml-14" />}
+      ItemSeparatorComponent={() => <Separator className="ml-16" />}
       ListHeaderComponent={
-        error ? (
-          <View className="p-4">
-            <ErrorNote text={error} />
-          </View>
-        ) : undefined
+        <>
+          {header}
+          {error ? (
+            <View className="p-4">
+              <ErrorNote text={error} />
+            </View>
+          ) : null}
+        </>
       }
       ListEmptyComponent={
         result ? (
-          <Text className="px-4 py-8 text-center text-muted-foreground">
-            Nothing in your Mac's Inbox.
-          </Text>
+          <EmptyState
+            icon={Inbox}
+            title="Nothing in your Inbox"
+            line="When a session needs you, a crew finishes or Mesa has news, it lands here."
+          />
         ) : undefined
       }
-      renderItem={({ item }) => <NoticeRow notice={item} now={now} onOpen={() => onOpen(item)} />}
+      renderItem={({ item }) => {
+        if (item.read) return <NoticeRow notice={item} now={now} onOpen={() => onOpen(item)} />;
+        return (
+          <SwipeRow action="Mark read" onAction={() => onMarkRead(item)}>
+            <NoticeRow
+              notice={item}
+              now={now}
+              onOpen={() => onOpen(item)}
+              onMarkRead={() => onMarkRead(item)}
+            />
+          </SwipeRow>
+        );
+      }}
     />
   );
 }

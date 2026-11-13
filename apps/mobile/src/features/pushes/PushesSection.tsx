@@ -4,7 +4,7 @@ import { Section } from '@/components/Section';
 import { useMacRead } from '../mac/useMacRead';
 import { PushesRead } from './PushesRead';
 
-/** The Mac tab's Pushes: the settings once the Mac answers, why not when it does not. */
+/** The Settings tab's Pushes: the settings once the Mac answers, why not when it does not. */
 export function PushesSection() {
   const { answer } = useMacRead({ method: 'pushes' });
   return (

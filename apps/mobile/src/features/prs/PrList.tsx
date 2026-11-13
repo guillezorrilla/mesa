@@ -1,6 +1,6 @@
 import type { CallResult } from '@mesa/core/phone';
 import { router } from 'expo-router';
-import { use } from 'react';
+import { type ReactNode, use } from 'react';
 import { RefreshControl, SectionList, View } from 'react-native';
 import { ErrorNote } from '@/components/ErrorNote';
 import { Text } from '@/components/ui/text';
@@ -8,13 +8,15 @@ import type { MacRead } from '../mac/tryCall';
 import { PrRow } from './PrRow';
 import { groupPrs } from './prGroups';
 
-/** The queue grouped by bucket, most urgent first, each PR opening its screen. */
+/** The queue grouped by bucket, most urgent first, under `header`, each PR opening its screen. */
 export function PrList({
   answer,
+  header,
   refreshing,
   onRefresh,
 }: {
   answer: Promise<MacRead<CallResult<'prs'>>>;
+  header?: ReactNode;
   refreshing: boolean;
   onRefresh: () => void;
 }) {
@@ -28,16 +30,19 @@ export function PrList({
       keyExtractor={(pr) => `${pr.project}#${pr.number}`}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ListHeaderComponent={
-        error || result?.problems.length ? (
-          <View className="gap-2 px-4 pb-2">
-            {error ? <ErrorNote text={error} /> : null}
-            {result?.problems.map((problem) => (
-              <Text key={problem} variant="muted">
-                {problem}
-              </Text>
-            ))}
-          </View>
-        ) : undefined
+        <>
+          {header}
+          {error || result?.problems.length ? (
+            <View className="gap-2 px-4 pb-2">
+              {error ? <ErrorNote text={error} /> : null}
+              {result?.problems.map((problem) => (
+                <Text key={problem} variant="muted">
+                  {problem}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+        </>
       }
       ListEmptyComponent={
         result ? (

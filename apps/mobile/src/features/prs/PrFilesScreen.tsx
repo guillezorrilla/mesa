@@ -6,7 +6,7 @@ import { usePrFiles } from './usePrFiles';
 
 /** What a PR changed, file by file, in the Changes viewer. */
 export function PrFilesScreen({ project, number }: { project: string; number: number }) {
-  const { answer, again, refreshing, seen, toggleViewed } = usePrFiles(project, number);
+  const { answer, pull, refreshing, seen, toggleViewed } = usePrFiles(project, number);
   return (
     <>
       <Stack.Screen options={{ title: 'Files changed' }} />
@@ -20,7 +20,7 @@ export function PrFilesScreen({ project, number }: { project: string; number: nu
           }
           answer={answer}
           refreshing={refreshing}
-          onRefresh={again}
+          onRefresh={pull}
           seen={seen}
           onToggleViewed={toggleViewed}
         />

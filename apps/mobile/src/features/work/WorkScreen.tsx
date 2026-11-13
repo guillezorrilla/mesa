@@ -1,6 +1,6 @@
-import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { TabHeader } from '@/components/TabHeader';
 import { PrsScreen } from '../prs/PrsScreen';
 import { TicketsScreen } from '../tickets/TicketsScreen';
 
@@ -10,24 +10,17 @@ const SEGMENTS = [
   { value: 'tickets', label: 'Tickets' },
 ] as const;
 
-/** The Work tab: pull requests or tickets, switched in its title bar, pull requests first. */
+/**
+ * The Work tab: pull requests or tickets, switched under its title at the top of the list, pull
+ * requests first.
+ */
 export function WorkScreen() {
   const [segment, setSegment] = useState<Segment>('prs');
-  return (
-    <>
-      <Stack.Screen
-        options={{
-          headerTitle: () => (
-            <SegmentedControl
-              options={SEGMENTS}
-              value={segment}
-              onChange={setSegment}
-              className="w-56"
-            />
-          ),
-        }}
-      />
-      {segment === 'prs' ? <PrsScreen /> : <TicketsScreen />}
-    </>
+  const header = (
+    <TabHeader
+      title="Work"
+      below={<SegmentedControl options={SEGMENTS} value={segment} onChange={setSegment} />}
+    />
   );
+  return segment === 'prs' ? <PrsScreen header={header} /> : <TicketsScreen header={header} />;
 }

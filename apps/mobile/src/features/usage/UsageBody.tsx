@@ -1,5 +1,5 @@
 import type { CallResult } from '@mesa/core/phone';
-import { use } from 'react';
+import { type ReactNode, use } from 'react';
 import { ErrorNote } from '@/components/ErrorNote';
 import { Screen } from '@/components/Screen';
 import { Section } from '@/components/Section';
@@ -10,11 +10,20 @@ import { CostTiles } from './CostTiles';
 import { DayBars } from './DayBars';
 import { SessionCosts } from './SessionCosts';
 
-/** Usage as the Mac counted it: alerts first, then the periods, the days and the sessions. */
-export function UsageBody({ answer }: { answer: Promise<MacRead<CallResult<'usage'>>> }) {
+/**
+ * Usage as the Mac counted it, under `header`: alerts first, then the periods, the days and the
+ * sessions.
+ */
+export function UsageBody({
+  answer,
+  header,
+}: {
+  answer: Promise<MacRead<CallResult<'usage'>>>;
+  header?: ReactNode;
+}) {
   const { result, error } = use(answer);
   return (
-    <Screen className="gap-6">
+    <Screen className="gap-6" header={header}>
       {error ? <ErrorNote text={error} /> : null}
       {result ? (
         <>

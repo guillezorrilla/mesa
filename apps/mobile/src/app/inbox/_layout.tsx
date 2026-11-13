@@ -8,7 +8,7 @@ export default function InboxLayout() {
   if (!pairing) return <Redirect href="/" />;
   return (
     <Stack screenOptions={{ headerTitleStyle }}>
-      <Stack.Screen name="index" options={{ title: 'Inbox', headerLargeTitle: true }} />
+      <Stack.Screen name="index" options={{ title: 'Inbox', headerShown: false }} />
     </Stack>
   );
 }

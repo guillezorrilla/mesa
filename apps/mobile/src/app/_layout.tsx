@@ -34,9 +34,10 @@ export default function RootLayout() {
 }
 
 /**
- * Agents, Work (pull requests and tickets) and the Inbox, once paired, and the Mac: the pairing,
- * usage, the push settings and About; hidden on a session's screen and the new session form,
- * under their bars. A tapped push opens its session; changing tabs gives selection feedback.
+ * Agents, the Inbox, Work (pull requests and tickets) and Usage, once paired, and Settings: the
+ * paired Macs, pairing one, the push settings and About; hidden on a session's screen and the new
+ * session form, under their bars. A tapped push opens its session; changing tabs gives selection
+ * feedback.
  */
 function Tabs() {
   const { pairing } = usePairing();
@@ -55,23 +56,23 @@ function Tabs() {
         <NativeTabs.Trigger.Label>Agents</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'square.stack', selected: 'square.stack.fill' }} />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="work" hidden={!pairing}>
-        <NativeTabs.Trigger.Label>Work</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'briefcase', selected: 'briefcase.fill' }} />
-      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="inbox" hidden={!pairing}>
         <NativeTabs.Trigger.Label>Inbox</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'tray', selected: 'tray.fill' }} />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="vault" hidden={!pairing}>
-        <NativeTabs.Trigger.Label>Vault</NativeTabs.Trigger.Label>
+      <NativeTabs.Trigger name="work" hidden={!pairing}>
+        <NativeTabs.Trigger.Label>Work</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'briefcase', selected: 'briefcase.fill' }} />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="usage" hidden={!pairing}>
+        <NativeTabs.Trigger.Label>Usage</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
-          sf={{ default: 'books.vertical', selected: 'books.vertical.fill' }}
+          sf={{ default: 'gauge.with.needle', selected: 'gauge.with.needle.fill' }}
         />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="(home)">
-        <NativeTabs.Trigger.Label>Mac</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="desktopcomputer" />
+        <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'gearshape', selected: 'gearshape.fill' }} />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

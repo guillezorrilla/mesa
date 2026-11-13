@@ -1,7 +1,9 @@
 import type { PhoneGate, PhoneRow } from '@mesa/core/phone';
 import { router } from 'expo-router';
-import { use } from 'react';
+import Bot from 'lucide-react-native/icons/bot';
+import { type ReactNode, use } from 'react';
 import { RefreshControl, SectionList, View } from 'react-native';
+import { EmptyState } from '@/components/EmptyState';
 import { SessionRow } from '@/components/SessionRow';
 import { SwipeRow } from '@/components/SwipeRow';
 import { Text } from '@/components/ui/text';
@@ -20,14 +22,16 @@ import {
   projectsOf,
   type RowFilter,
 } from './agentRows';
+import { agentsEmpty } from './agentsEmpty';
 import { OfflineNote } from './OfflineNote';
 import { stateColor, stateWords } from './sessionState';
 
 /**
- * Every paired Mac's sessions grouped Needs you (with open decision gates), Working, Done, live,
+ * Every paired Mac's sessions under `header`, grouped Needs you (with open decision gates), Working, Done, live,
  * filtered by Mac, project or unread, swiped to mark read or unread.
  */
 export function AgentList({
+  header,
   macs,
   listing,
   updates,
@@ -38,6 +42,7 @@ export function AgentList({
   onRefresh,
   onMark,
 }: {
+  header: ReactNode;
   macs: Pick<Mac, 'id' | 'name'>[];
   listing: Promise<Listing[]>;
   updates: MacUpdate[];
@@ -61,8 +66,12 @@ export function AgentList({
       sections={groupRows(filterRows(rows, filter), shownGates)}
       keyExtractor={(item) => `${item.mac}:${item.id}`}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      // A tap while searching presses what it lands on, instead of only closing the keyboard.
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
       ListHeaderComponent={
         <View className="gap-2 pb-2">
+          {header}
           {listed.map((one) =>
             one.offline ? (
               <View key={one.mac} className="px-4">
@@ -83,9 +92,7 @@ export function AgentList({
         </View>
       }
       ListEmptyComponent={
-        <Text className="px-4 py-8 text-center text-muted-foreground">
-          {rows.length ? 'No session matches.' : `No sessions on your ${several ? 'Macs' : 'Mac'}.`}
-        </Text>
+        <EmptyState icon={Bot} {...agentsEmpty(rows.length, filter.query, several)} />
       }
       renderSectionHeader={({ section }) => (
         <Text

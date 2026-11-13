@@ -6,12 +6,12 @@ import { usePr } from './usePr';
 
 /** One pull request: its checks and merge, review, description, my threads and drafts, files. */
 export function PrScreen({ project, number }: { project: string; number: number }) {
-  const { answer, again, refreshing, actions } = usePr(project, number);
+  const { answer, pull, refreshing, actions } = usePr(project, number);
   return (
     <>
       <Stack.Screen options={{ title: `#${number}` }} />
       <Suspense fallback={<BusyScreen label="Reading the pull request..." />}>
-        <PrBody answer={answer} refreshing={refreshing} onRefresh={again} actions={actions} />
+        <PrBody answer={answer} refreshing={refreshing} onRefresh={pull} actions={actions} />
       </Suspense>
     </>
   );

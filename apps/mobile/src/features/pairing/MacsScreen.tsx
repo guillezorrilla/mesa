@@ -1,21 +1,23 @@
 import { router } from 'expo-router';
+import Info from 'lucide-react-native/icons/info';
 import Plus from 'lucide-react-native/icons/plus';
+import { LinkRow } from '@/components/LinkRow';
 import { Screen } from '@/components/Screen';
 import { Section } from '@/components/Section';
+import { TabHeader } from '@/components/TabHeader';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { HapticsSection } from '../haptics/HapticsSection';
 import { PushesSection } from '../pushes/PushesSection';
-import { UsageLink } from '../usage/UsageLink';
 import { MacCard } from './MacCard';
 import { usePairing } from './usePairing';
 
-/** The Mac tab once paired: each paired Mac, pairing another, usage, and this phone's settings. */
+/** The Settings tab once paired: each paired Mac, pairing another, this phone's settings, About. */
 export function MacsScreen() {
   const { pairings } = usePairing();
   return (
-    <Screen>
+    <Screen header={<TabHeader title="Settings" />}>
       <Section title={pairings.length > 1 ? 'Paired Macs' : 'Paired Mac'}>
         {pairings.map((pairing) => (
           <MacCard key={pairing.pairingId} pairing={pairing} />
@@ -25,12 +27,17 @@ export function MacsScreen() {
           <Text>Pair another Mac</Text>
         </Button>
       </Section>
-      <UsageLink />
       <PushesSection />
       <HapticsSection />
       <Section title="Appearance">
         <Text variant="muted">Light or dark follows your iPhone's setting.</Text>
       </Section>
+      <LinkRow
+        icon={Info}
+        title="About"
+        line="Version, build and update"
+        onPress={() => router.push('/about')}
+      />
     </Screen>
   );
 }
