@@ -97,7 +97,10 @@ export function classify(s: SessionSignals): LastState {
     if (listing && listing.state !== fromHook && movedOn && !backgroundWork) {
       return seen(listing.state, listing.confidence, 'listing');
     }
-    const confidence = age < FRESH_MS || listing?.state === fromHook ? HOOK : STALE_HOOK;
+    // Running work the Stop names explains a busy listing, so it does not make the idle less sure:
+    // a parent with a server in the background still gets its child reports (idle delivery).
+    const sure = age < FRESH_MS || listing?.state === fromHook || backgroundWork;
+    const confidence = sure ? HOOK : STALE_HOOK;
     return { state: fromHook, confidence, source: 'hook', at: s.event.at };
   }
   if (listing) return seen(listing.state, listing.confidence, 'listing');

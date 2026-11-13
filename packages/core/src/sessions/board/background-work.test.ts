@@ -75,8 +75,9 @@ test('an idle_prompt notification after Stop keeps it idle, since the Stop', asy
   expect(await stateAt('12:05:00', events)).toMatchObject({
     state: 'idle',
     source: 'hook',
-    // Stale, and the listing disagrees.
-    confidence: 0.8,
+    // Stale, but the work the Stop names explains the busy listing: as sure as a fresh hook, so
+    // idle delivery types a child's report into it.
+    confidence: 0.95,
     at: '2026-09-24T12:01:09.000Z',
   });
 });
