@@ -86,26 +86,26 @@ export function useAgents() {
   };
   useRepeatWhileActive(RENEW_MS, () => relist(startTransition));
 
-  /** Shows `change` to the row at once, then asks its Mac; a refusal relists. */
-  const change = (
+  /** Shows `update` to the row's list at once, then asks its Mac; a refusal relists. */
+  const showThenAsk = (
     row: OnMac<PhoneRow>,
-    shown: Pick<MacUpdate, 'rows' | 'gone'>,
+    update: Pick<MacUpdate, 'rows' | 'gone'>,
     call: (link: Mac['link']) => Promise<unknown>,
   ) => {
     setUpdates((all) => [
       ...all.filter(fresh),
-      { kind: 'update', mac: row.mac, ...shown, order: [], at: Date.now() },
+      { kind: 'update', mac: row.mac, ...update, order: [], at: Date.now() },
     ]);
     const mac = macs.find((one) => one.id === row.mac);
     if (!mac) return refresh();
     call(mac.link).catch(refresh);
   };
   const mark = (row: OnMac<PhoneRow>, unread: boolean) =>
-    change(row, { rows: [{ ...row, unread }], gone: [] }, (link) =>
+    showThenAsk(row, { rows: [{ ...row, unread }], gone: [] }, (link) =>
       link.call({ method: 'mark', id: row.id, unread }),
     );
   const archive = (row: OnMac<PhoneRow>) =>
-    change(row, { rows: [], gone: [row.id] }, (link) =>
+    showThenAsk(row, { rows: [], gone: [row.id] }, (link) =>
       link.call({ method: 'act', id: row.id, action: 'archive' }),
     );
   return { macs, listing, updates, gates: open.gates, refreshing, refresh, mark, archive };

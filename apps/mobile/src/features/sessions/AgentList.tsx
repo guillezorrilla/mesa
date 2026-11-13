@@ -24,11 +24,12 @@ import {
 } from './agentRows';
 import { agentsEmpty } from './agentsEmpty';
 import { OfflineNote } from './OfflineNote';
-import { groupOf, stateColor, stateWords } from './sessionState';
+import { rowActions } from './rowActions';
+import { stateColor, stateWords } from './sessionState';
 
 /**
  * Every paired Mac's sessions under `header`, grouped Needs you (with open decision gates), Working, Done, live,
- * filtered by Mac, project or unread, swiped to mark read or unread and, when Done, to archive.
+ * filtered by Mac, project or unread, swiped to mark read or unread and, once ended, to archive (rowActions).
  */
 export function AgentList({
   header,
@@ -106,16 +107,10 @@ export function AgentList({
       )}
       renderItem={({ item }) => {
         if (isGate(item)) return <GateRow gate={item} />;
-        const actions = [
-          {
-            name: 'toggleUnread',
-            label: item.unread ? 'Mark read' : 'Mark unread',
-            run: () => onMark(item, !item.unread),
-          },
-          ...(groupOf(item.state) === 'done'
-            ? [{ name: 'archive', label: 'Archive', run: () => onArchive(item) }]
-            : []),
-        ];
+        const actions = rowActions(item, {
+          mark: (unread) => onMark(item, unread),
+          archive: () => onArchive(item),
+        });
         return (
           <SwipeRow actions={actions}>
             <SessionRow

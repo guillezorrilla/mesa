@@ -15,11 +15,11 @@ export function useInbox() {
   const read = useLiveRead({ method: 'inbox' });
   const markRead = (notice: PhoneNotice) =>
     link.call({ method: 'noticeRead', id: notice.id }).then(read.again, () => undefined);
-  const shown = async () => {
+  const readNotices = async () => {
     const answer: MacRead<CallResult<'inbox'>> = await read.answer;
     return answer.result?.notices ?? [];
   };
-  const markAll = () => markAllRead(link.call, shown).then(read.again, () => undefined);
+  const markAll = () => markAllRead(link.call, readNotices).then(read.again, () => undefined);
   const open = (notice: PhoneNotice) => {
     if (!notice.read) markRead(notice);
     const href = noticeHref(notice);
