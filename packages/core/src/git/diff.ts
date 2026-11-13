@@ -3,6 +3,7 @@ import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import { type Checkout, resolveCheckout } from '../projects/checkout.js';
 import { gitCommand } from './command.js';
+import { DIFF_START, type DiffLine, diffLines } from './diff-lines.js';
 import { literalPath } from './path.js';
 
 /** One aligned row; `oldLine` and `newLine` are the 1-based file lines on each side, when present. */
@@ -32,60 +33,39 @@ export const diffCounts = (rows: readonly DiffRow[]) => ({
 
 /** Align consecutive removed and added lines for the side-by-side view. */
 export function diffRows(patch: string): DiffRow[] {
-  const lines = patch.replace(/\n$/, '').split('\n');
   if (!patch) return [];
+  const lines = diffLines(patch.replace(/\n$/, '').split('\n'), DIFF_START).rows;
   const rows: DiffRow[] = [];
-  // Inside a hunk a `--- x` line is a removed `-- x`, not a file header.
-  let inHunk = false;
-  let oldLine = 0;
-  let newLine = 0;
-  const numbered = (left?: boolean, right?: boolean) => ({
-    ...(left ? { oldLine: oldLine++ } : {}),
-    ...(right ? { newLine: newLine++ } : {}),
-  });
-  const is = (line: string | undefined, sign: '-' | '+') => inHunk && line?.startsWith(sign);
   for (let i = 0; i < lines.length; ) {
-    const line = lines[i] ?? '';
-    if (is(line, '-')) {
-      const removed: string[] = [];
-      const added: string[] = [];
-      while (is(lines[i], '-')) {
-        removed.push((lines[i] ?? '').slice(1));
-        i++;
-      }
-      while (is(lines[i], '+')) {
-        added.push((lines[i] ?? '').slice(1));
-        i++;
-      }
+    const line = lines[i] as DiffLine;
+    if (line.kind === 'del' || line.kind === 'add') {
+      const removed: DiffLine[] = [];
+      const added: DiffLine[] = [];
+      while (lines[i]?.kind === 'del') removed.push(lines[i++] as DiffLine);
+      while (lines[i]?.kind === 'add') added.push(lines[i++] as DiffLine);
       for (let j = 0; j < Math.max(removed.length, added.length); j++) {
+        const left = removed[j];
+        const right = added[j];
         rows.push({
           kind: 'change',
-          left: removed[j] ?? '',
-          right: added[j] ?? '',
-          ...numbered(j < removed.length, j < added.length),
+          left: left?.text ?? '',
+          right: right?.text ?? '',
+          ...(left ? { oldLine: left.old } : {}),
+          ...(right ? { newLine: right.new } : {}),
         });
       }
-    } else if (is(line, '+')) {
-      rows.push({ kind: 'change', left: '', right: line.slice(1), ...numbered(false, true) });
-      i++;
-    } else if (inHunk && line.startsWith(' ')) {
+      continue;
+    }
+    i++;
+    if (line.kind === 'context')
       rows.push({
         kind: 'context',
-        left: line.slice(1),
-        right: line.slice(1),
-        ...numbered(true, true),
+        left: line.text,
+        right: line.text,
+        oldLine: line.old,
+        newLine: line.new,
       });
-      i++;
-    } else {
-      const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)/.exec(line);
-      if (hunk) {
-        inHunk = true;
-        oldLine = Number(hunk[1]);
-        newLine = Number(hunk[2]);
-      } else if (line.startsWith('diff ')) inHunk = false;
-      rows.push({ kind: 'meta', left: line, right: line });
-      i++;
-    }
+    else rows.push({ kind: 'meta', left: line.text, right: line.text });
   }
   return rows;
 }
