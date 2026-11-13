@@ -1,5 +1,5 @@
+import { money } from '@mesa/core/browser';
 import { cn } from '@/lib/utils';
-import { money } from './format';
 
 /**
  * An estimate in dollars. When part of it has no list price or could not be read, the priced part

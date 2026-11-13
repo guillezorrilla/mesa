@@ -19,6 +19,10 @@ export function duration(seconds: number): string {
 export const usd = (value: number, places?: number) =>
   `$${places === undefined ? value : value.toFixed(places)}`;
 
+/** An estimated cost to the cent; a cost too small for a cent still reads as spent. */
+export const money = (value: number | null) =>
+  value === null ? 'Unknown' : value > 0 && value < 0.005 ? '<$0.01' : usd(value, 2);
+
 /** What a run or a decision cost at list price, as ` (list price $0.0123)`; nothing when free. */
 export const listPrice = (costUsd: number | undefined) =>
   costUsd === undefined ? '' : ` (list price ${usd(costUsd, 4)})`;

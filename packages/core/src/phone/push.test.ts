@@ -41,7 +41,7 @@ async function setup(options: { http?: (broker: Http) => Http } = {}) {
     newSession({ project: 'lantern-cove', name: 'Fix the login bug' }),
   );
   let asked = 0;
-  const ask = () => {
+  const ask = (event = 'PermissionRequest') => {
     time.pass(5_000);
     asked += 1;
     recordHookEvent(
@@ -56,7 +56,7 @@ async function setup(options: { http?: (broker: Http) => Http } = {}) {
         agent: 'claude',
         mesaSessionId: session.id,
         payload: JSON.stringify({
-          hook_event_name: 'PermissionRequest',
+          hook_event_name: event,
           tool_name: `Bash${asked}`,
         }),
       },
@@ -146,6 +146,23 @@ test('`phone.awayAfter` sets the idle minutes', async () => {
   s.mac.idleSeconds = 90;
   s.ask();
   expect(await s.mesa.phone.push()).toMatchObject({ status: 'pushed' });
+});
+
+test('`phone.finished` off holds back a finished turn; a question still pushes', async () => {
+  const s = await setup();
+  setConfigValue(s.config, 'phone.push', 'always', lockDeps());
+  setConfigValue(s.config, 'phone.finished', 'false', lockDeps());
+  s.ask('Stop');
+  expect(await s.mesa.phone.push()).toMatchObject({ status: 'none' });
+  s.ask();
+  expect(await s.mesa.phone.push()).toMatchObject({ status: 'pushed' });
+  expect(s.pushes().map((push) => push.notice?.body)).toEqual([
+    'lantern-cove: Session needs permission',
+  ]);
+  setConfigValue(s.config, 'phone.finished', 'true', lockDeps());
+  s.ask('Stop');
+  expect(await s.mesa.phone.push()).toMatchObject({ status: 'pushed' });
+  expect(s.pushes()[1]?.notice).toMatchObject({ body: 'lantern-cove: Session turn finished' });
 });
 
 test('a failed push leaves the notice in the Inbox and is not tried again', async () => {
