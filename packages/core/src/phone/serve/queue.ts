@@ -39,19 +39,16 @@ export function phoneQueue(deps: {
       },
       deps.lock,
     );
-  const strip = ({ session: _, yes: __, ...message }: Held): QueuedMessage => message;
+  /** Every queued message, or session `id`'s, oldest first, as the Mac lists them. */
+  const list = (id?: string): QueuedEntry[] =>
+    all()
+      .filter((held) => id === undefined || held.session === id)
+      .map(({ yes: _, ...held }) => ({ ...held, from: 'phone' as const }));
   return {
     all,
-    /** Every queued message, or session `id`'s, oldest first, as the Mac lists them. */
-    list: (id?: string): QueuedEntry[] =>
-      all()
-        .filter((held) => id === undefined || held.session === id)
-        .map(({ yes: _, ...held }) => ({ ...held, from: 'phone' as const })),
-    /** Session `id`'s messages, oldest first. */
-    of: (id: string) =>
-      all()
-        .filter((held) => held.session === id)
-        .map(strip),
+    list,
+    /** Session `id`'s messages, oldest first, as the phone shows them. */
+    of: (id: string): QueuedMessage[] => list(id).map(({ session: _, from: __, ...m }) => m),
     add: (session: string, text: string, yes: boolean) =>
       void change((held) => [
         ...held,

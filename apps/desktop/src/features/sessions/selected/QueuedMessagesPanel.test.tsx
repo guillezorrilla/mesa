@@ -2,7 +2,7 @@
 import type { QueuedEntry } from '@mesa/core';
 import { expect, test } from 'vitest';
 import { click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
-import { QueuedMessages } from './QueuedMessages';
+import { QueuedMessagesPanel } from './QueuedMessagesPanel';
 
 const queued = (id: string, text: string, error?: string): QueuedEntry => ({
   id,
@@ -26,7 +26,7 @@ test("a session's queued replies from the phone each have Remove, which takes on
       return envelope({ id, removed: true });
     },
   });
-  const byTestId = await renderWithMesa(<QueuedMessages sessionId="a1b2c3d4" />, bridge);
+  const byTestId = await renderWithMesa(<QueuedMessagesPanel sessionId="a1b2c3d4" />, bridge);
   const list = byTestId('queued-messages')[0];
   expect(list?.textContent).toContain('Queued from your phone');
   expect(list?.textContent).toContain('then the docs');
@@ -43,6 +43,17 @@ test("a session's queued replies from the phone each have Remove, which takes on
 
 test('nothing shows when no reply waits', async () => {
   const { bridge } = fakeBridge({ 'queue list': () => envelope([]) });
-  const byTestId = await renderWithMesa(<QueuedMessages sessionId="a1b2c3d4" />, bridge);
+  const byTestId = await renderWithMesa(<QueuedMessagesPanel sessionId="a1b2c3d4" />, bridge);
   expect(byTestId('queued-messages')).toEqual([]);
+});
+
+test('a reply the phone removed leaves the list within 2 s while any wait', async () => {
+  let held = [queued('m1', 'then the docs'), queued('m2', 'and the changelog')];
+  const { bridge } = fakeBridge({ 'queue list': () => envelope(held) });
+  const byTestId = await renderWithMesa(<QueuedMessagesPanel sessionId="a1b2c3d4" />, bridge);
+  expect(byTestId('queued-messages')[0]?.textContent).toContain('then the docs');
+  held = held.filter((m) => m.id !== 'm1');
+  await new Promise((done) => setTimeout(done, 2500));
+  expect(byTestId('queued-messages')[0]?.textContent).not.toContain('then the docs');
+  expect(byTestId('queued-messages')[0]?.textContent).toContain('and the changelog');
 });

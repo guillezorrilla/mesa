@@ -1,5 +1,6 @@
 import { relativeAgo } from '@mesa/core/browser';
 import { Clock, Smartphone, X } from 'lucide-react';
+import { SectionLabel } from '@/components/SectionLabel';
 import { Button } from '@/components/ui/button';
 import { useQueuedMessages } from './useQueuedMessages';
 
@@ -7,7 +8,7 @@ import { useQueuedMessages } from './useQueuedMessages';
  * The replies the phone queued for this session while it worked, outlined dashed as on the
  * phone, each typed in when its turn ends unless removed here first. Nothing when none wait.
  */
-export function QueuedMessages(props: { sessionId: string }) {
+export function QueuedMessagesPanel(props: { sessionId: string }) {
   const { queued, remove } = useQueuedMessages(props.sessionId);
   if (!queued.length) return null;
   const now = Date.now();
@@ -17,9 +18,9 @@ export function QueuedMessages(props: { sessionId: string }) {
       aria-label="Queued from your phone"
       className="grid gap-1.5"
     >
-      <h3 className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+      <SectionLabel className="flex items-center gap-1.5 normal-case tracking-normal">
         <Smartphone aria-hidden className="size-3.5" /> Queued from your phone
-      </h3>
+      </SectionLabel>
       <ul className="grid gap-1.5">
         {queued.map((message) => (
           <li

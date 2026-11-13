@@ -33,14 +33,18 @@ export type AnswerDeps = {
 const REPLIES = 5;
 const TAIL = 60;
 
+/**
+ * The phone's rows as the board has them now: each waiting one with its `ask`, each with how many
+ * replies it has queued. The `sessions` call and the listener's watch both read them so.
+ */
+export const boardRows = async (deps: Pick<AnswerDeps, 'board' | 'prompt' | 'steer'>) =>
+  queuedRows(await askedRows(phoneRows(await deps.board()), deps.prompt), deps.steer.queue.all());
+
 /** Answers one call from the phone; throws a MesaError (not_found) for an unknown session. */
 export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unknown> {
   if (call.method === 'sessions')
     return {
-      rows: queuedRows(
-        await askedRows(phoneRows(await deps.board()), deps.prompt),
-        deps.steer.queue.all(),
-      ),
+      rows: await boardRows(deps),
     } satisfies CallResult<'sessions'>;
   if (isCrewCall(call)) return answerCrewCall(deps.crew, call);
   if (isChangesCall(call)) return answerChanges(deps.changes, call);
