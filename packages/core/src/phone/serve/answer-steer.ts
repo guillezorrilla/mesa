@@ -26,7 +26,10 @@ export const isSteerCall = (call: PhoneCall): call is SteerCall =>
   (STEER_METHODS as readonly string[]).includes(call.method);
 
 /** The guardrail's ask or block, as the phone shows it. */
-const stopped = ({ verdict, reason }: Pick<GuardrailCheck, 'verdict' | 'reason'>): SendResult => ({
+export const guardrailStop = ({
+  verdict,
+  reason,
+}: Pick<GuardrailCheck, 'verdict' | 'reason'>): SendResult & { status: 'ask' | 'blocked' } => ({
   status: verdict === 'block' ? 'blocked' : 'ask',
   reason,
 });
@@ -58,7 +61,7 @@ async function reply(
     return { status: 'sent' };
   } catch (error) {
     if (error instanceof MesaError && error.code === 'guardrail_blocked')
-      return stopped(error.details as GuardrailCheck);
+      return guardrailStop(error.details as GuardrailCheck);
     throw error;
   }
 }
