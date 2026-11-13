@@ -9,6 +9,9 @@ import { StateDot } from '@/components/StateDot';
 import { Text } from '@/components/ui/text';
 import { stateColor, stateWords } from './sessionState';
 
+// Asked on the tap: read while rendering, it can be stale. A session opened alone goes to the list.
+const back = () => (router.canGoBack() ? router.back() : router.replace('/agents'));
+
 /**
  * A session's own top bar, opaque as orca's (MobileSessionHeader): back, its title over its state,
  * and its actions (`children`); `row` is missing while the session is read.
@@ -19,9 +22,7 @@ export function SessionBar({ row, children }: { row?: PhoneRow; children?: React
     <View style={{ paddingTop: top }} className="border-b border-border bg-card">
       <View className="h-13 flex-row items-center gap-2 px-3">
         <View className="flex-1 flex-row">
-          {router.canGoBack() ? (
-            <HeaderButton icon={ChevronLeft} label="Back" filled onPress={() => router.back()} />
-          ) : null}
+          <HeaderButton icon={ChevronLeft} label="Back" filled onPress={back} />
         </View>
         {row ? (
           <View className="max-w-[62%] shrink items-center">
