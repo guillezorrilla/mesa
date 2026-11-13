@@ -25,7 +25,7 @@ export const phoneStatus = defineCommand({
   run: async ({ mesa }) => {
     const data = await mesa.phone.status();
     const text = data.paired
-      ? `paired ${data.pairingId} since ${data.since}${data.phoneLastSeen ? `, phone last seen ${data.phoneLastSeen}` : ''}`
+      ? `paired ${data.pairingId} since ${data.since}${data.phoneLastSeen ? `, phone last seen ${data.phoneLastSeen}` : ''}${data.listenerOutdated ? `; the listener still runs ${data.listenerVersion}` : ''}`
       : data.pending
         ? `waiting for the phone to scan ${data.pairingId} (until ${data.expiresAt})`
         : 'not paired';

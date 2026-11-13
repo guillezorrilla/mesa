@@ -1,9 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { listReceipts } from '../../receipts/store.js';
 import { gateAdvice, gateRequest } from '../../tasks/gate-advice.js';
 import {
   claudePromptPane,
+  listenerRecord,
   newSession,
   plantHookEvent,
   servingPhone,
@@ -16,8 +18,13 @@ import { askLine } from './rows.js';
 import { phoneUsage } from './usage.js';
 
 test('the listener answers the board, a session and a mark through core, one per profile', async () => {
-  const { mesa, session, calls, end } = await servingPhone();
+  const { mesa, home, session, calls, end } = await servingPhone();
   const { rows } = await calls.call({ method: 'sessions' });
+  // It says which Mesa it runs, so a look after an update restarts an older one (#1133).
+  expect(JSON.parse(readFileSync(listenerRecord(home), 'utf8'))).toEqual({
+    pid: 4242,
+    version: '0.1.0-beta.4',
+  });
   expect(rows).toEqual([
     {
       id: session.id,

@@ -1,8 +1,8 @@
 import { join } from 'node:path';
 import type { MesaContext } from '../context.js';
-import { launchAgent } from '../lib/launch-agent.js';
 import { MesaError } from '../lib/result.js';
 import { brokerUrl } from '../sources/broker.js';
+import { phoneListener } from './listener.js';
 import { macPairingStore } from './mac-pairing.js';
 import { type PairingDeps, pairingStatus, startPairing, unpair } from './pair.js';
 import { pairingClient } from './protocol/client.js';
@@ -23,13 +23,7 @@ export function phoneService(
   pushes: Pick<PushDeps, 'pending' | 'claim'>,
   answers: Omit<AnswerDeps, 'steer'> & { steer: SessionSteer },
 ) {
-  const agent = launchAgent(ctx, {
-    name: 'phone',
-    what: 'phone listener',
-    command: ['phone', 'serve'],
-    run: 'keep-alive',
-    log: 'phone',
-  });
+  const listener = phoneListener(ctx);
   /** The phone's queued replies (CONTEXT.md, Queued message): the listener's, and the Mac's to list. */
   const queueFile = join(ctx.paths.root, 'phone-queue.json');
   const queue = phoneQueue({
@@ -42,11 +36,7 @@ export function phoneService(
     store: macPairingStore(ctx.secretStore, ctx.profile),
     client: (broker) => pairingClient(ctx.http, broker),
     clock: ctx.clock,
-    listener: {
-      ensure: async () =>
-        agent.exists() ? (await agent.start()).loaded : (await agent.install()).loaded,
-      remove: () => agent.uninstall(),
-    },
+    listener,
     computerName: async () => {
       const read = await ctx.run('/usr/sbin/scutil', ['--get', 'ComputerName'], 3000);
       return (read.ok && read.stdout.trim()) || undefined;
@@ -106,6 +96,7 @@ export function phoneService(
           },
           lock: ctx,
           lockPath: join(ctx.paths.root, 'phone-listener.lock'),
+          markRunning: listener.markRunning,
           rowFiles: {
             events: ctx.paths.events,
             sessions: ctx.paths.sessions,

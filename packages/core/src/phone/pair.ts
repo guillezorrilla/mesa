@@ -1,5 +1,6 @@
 import type { Clock } from '../lib/clock.js';
 import { MesaError } from '../lib/result.js';
+import type { ListenerState } from './listener.js';
 import { type MacPairing, type MacPairingStore, macKeys } from './mac-pairing.js';
 import { type PairingClient, PairingError } from './protocol/client.js';
 import { openMessage } from './protocol/envelope.js';
@@ -13,9 +14,9 @@ export type PairingDeps = {
   clock: Clock;
   /**
    * The LaunchAgent that runs the Mac's listener (`mesa phone serve`, ADR-0027): installed once a
-   * phone is paired, removed on unpair. `ensure` says whether it is loaded.
+   * phone is paired, removed on unpair. `ensure` says whether it is loaded and what it runs.
    */
-  listener: { ensure: () => Promise<boolean>; remove: () => Promise<unknown> };
+  listener: { ensure: () => Promise<ListenerState>; remove: () => Promise<unknown> };
   /** This Mac's computer name, as System Settings shows it; undefined when it cannot be read. */
   computerName: () => Promise<string | undefined>;
   profile: string;
@@ -41,6 +42,10 @@ export type PhoneStatus = {
   expiresAt?: string;
   /** Paired: whether the listener that answers the phone is loaded (ADR-0027). */
   listening?: boolean;
+  /** Paired: the Mesa version the running listener runs (#1133). */
+  listenerVersion?: string;
+  /** Paired: the listener still runs another version than this Mesa's after a restart. */
+  listenerOutdated?: true;
 };
 
 /** Statuses that mean the broker holds no such pairing any more. */
@@ -57,8 +62,18 @@ export function brokerError(error: unknown, broker: string): never {
   throw new MesaError('internal', error.message);
 }
 
-/** Installs or starts the listener (a paired profile always has one); false when it cannot run. */
-const ensureListener = (deps: PairingDeps) => deps.listener.ensure().catch(() => false);
+/**
+ * Installs, starts, or restarts onto this version the listener (a paired profile always has one),
+ * as status fields; not listening when it cannot run.
+ */
+const ensureListener = async (deps: PairingDeps) => {
+  const found = await deps.listener.ensure().catch(() => ({ loaded: false }) as ListenerState);
+  return {
+    listening: found.loaded,
+    ...(found.version ? { listenerVersion: found.version } : {}),
+    ...(found.outdated ? { listenerOutdated: true as const } : {}),
+  };
+};
 
 /** Whether a broker failure means it no longer holds the pairing. */
 export const isGone = (error: unknown) => error instanceof PairingError && GONE.has(error.status);
@@ -152,7 +167,7 @@ export async function pairingStatus(deps: PairingDeps): Promise<PhoneStatus> {
       pairingId,
       ...(pairing.pairedAt ? { since: pairing.pairedAt } : {}),
       ...(state !== 'unreachable' && state.phoneSeenAt ? { phoneLastSeen: state.phoneSeenAt } : {}),
-      listening: await ensureListener(deps),
+      ...(await ensureListener(deps)),
     };
   if (state === 'unreachable') return { paired: false };
   if (
@@ -165,7 +180,7 @@ export async function pairingStatus(deps: PairingDeps): Promise<PhoneStatus> {
       pairingId,
       since: state.joinedAt,
       phoneLastSeen: state.phoneSeenAt,
-      listening: await ensureListener(deps),
+      ...(await ensureListener(deps)),
     };
   return { paired: false, pending: true, pairingId, expiresAt: pairing.expiresAt };
 }
