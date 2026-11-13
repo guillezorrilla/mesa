@@ -43,7 +43,17 @@ const SESSIONS = [
   setup('setup002', 'tides001', { setupFailed: true }),
   // A worker that reported done shows no setup failure.
   setup('setup003', 'buoys001', { setupFailed: true }),
+  // Mesa's own Vault capture run, live and ended, and a worker that ended: nothing to open.
+  child('capture1', 4, { kind: 'run', goal: '/vault-capture' }),
+  child('capture2', 4, { kind: 'run', goal: '/vault-capture', ...ended() }),
+  child('ended001', 4, { name: 'ended', ...ended() }),
+  // A worker whose terminal went away unasked keeps its row, which opens its Restore.
+  child('lost0001', 5, { name: 'lost', alive: false }),
 ];
+
+function ended() {
+  return { alive: false, endedAt: at(6), lastState: { ...idle(), state: 'done' as const } };
+}
 
 function idle() {
   return { state: 'idle' as const, confidence: 1, at: at(1), source: 'hook' as const };
@@ -71,19 +81,28 @@ async function sidebar(sessions = SESSIONS) {
   return { byTestId, views, groups };
 }
 
-test("a coordinator's card holds a row per worker, and Setup sessions are no cards", async () => {
+test("a coordinator's card holds a row per worker it can open; Setup sessions and Skill runs are neither", async () => {
   const { byTestId, groups } = await sidebar();
   expect(byTestId('sidebar-session').map((card) => card.dataset.sessionId)).toEqual(['coord001']);
   expect(sidebarOrder(groups, [])).toEqual(['coord001']);
   const rows = byTestId('sidebar-worker');
-  expect(rows.map((row) => row.dataset.sessionId)).toEqual(['charts01', 'buoys001', 'tides001']);
+  expect(rows.map((row) => row.dataset.sessionId)).toEqual([
+    'charts01',
+    'buoys001',
+    'tides001',
+    'lost0001',
+  ]);
   // Titled by its task when it has one, else by its session title.
   expect(rows.map((row) => row.title)).toEqual([
     'Open Document freeBerths',
     'Open buoy-lights',
     'Open tides',
+    'Open lost',
   ]);
   expect(rows[1]?.querySelector('[data-state]')?.getAttribute('aria-label')).toBe('Done');
+  // The selected coordinator's fill stays on its own lines, so its rows keep their colours.
+  expect(byTestId('sidebar-session')[0]?.className).toContain('bg-ring/15');
+  expect(rows[0]?.closest('ul')?.parentElement?.className).not.toContain('bg-ring/15');
 });
 
 test('each worker row says what it is doing now: progress, else report, else last reply', async () => {

@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import type { CrewRow } from '../../sessions/board/crew.js';
-import { crewTitle, isSetupSession, taskTitle } from '../../sessions/record/labels.js';
+import { crewTitle, isInternalSession, taskTitle } from '../../sessions/record/labels.js';
 import type { SessionMerge } from '../../sessions/service/merge.js';
 import type { GateAdvice } from '../../tasks/gate-advice.js';
 import type { OpenGate } from '../../tasks/gates.js';
@@ -65,8 +65,8 @@ export async function answerCrewCall(deps: CrewDeps, call: CrewCall): Promise<un
     const [rows, tasks] = [await deps.crew(call.id), deps.tasks(call.id)];
     const gated = new Map(deps.gates().map((gate) => [gate.task, gate.id]));
     return {
-      // A Setup session is no worker, as on the desktop's Crew panel.
-      workers: rows.filter((row) => !isSetupSession(row)).map(toPhoneWorker),
+      // A Setup session or a Skill run is no worker, as on the desktop's Crew panel.
+      workers: rows.filter((row) => !isInternalSession(row)).map(toPhoneWorker),
       tasks: tasks.map((task) => {
         const gate = gated.get(task.id);
         return {
