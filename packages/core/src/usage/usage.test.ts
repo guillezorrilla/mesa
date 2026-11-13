@@ -107,7 +107,10 @@ test('Claude repeated message updates count once, survive removal, and stay in t
     estimatedCostUsd: 0.000167,
     excluded: 1,
   });
-  expect(incomplete.daily.at(-1)?.totals).toMatchObject({ estimatedCostUsd: 0.000167, excluded: 1 });
+  expect(incomplete.daily.at(-1)?.totals).toMatchObject({
+    estimatedCostUsd: 0.000167,
+    excluded: 1,
+  });
   expect(incomplete.alerts).toContainEqual({
     period: 'today',
     thresholdUsd: 0.0001,
@@ -584,7 +587,11 @@ test('a span sums what it can price and counts the sessions it leaves out', () =
   });
   // A model with no list price: its tokens count, its session is left out of the cost.
   const unpriced = summarizeUsage([priced, row('harbor22', 'claude-lantern-9', 500)], now);
-  expect(unpriced.periods.today).toMatchObject({ input: 1500, estimatedCostUsd: cost, excluded: 1 });
+  expect(unpriced.periods.today).toMatchObject({
+    input: 1500,
+    estimatedCostUsd: cost,
+    excluded: 1,
+  });
   expect(unpriced.daily.at(-1)?.totals).toMatchObject({ estimatedCostUsd: cost, excluded: 1 });
   // A session whose usage could not be read, overlapping the span.
   const unread = [{ id: 'quill333', startedAt: '2026-09-24T09:00:00.000Z' }];

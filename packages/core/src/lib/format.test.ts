@@ -1,5 +1,14 @@
 import { expect, test } from 'vitest';
-import { duration, excludedNote, formatBytes, listPrice, money, odds, percent, usd } from './format.js';
+import {
+  duration,
+  excludedNote,
+  formatBytes,
+  listPrice,
+  money,
+  odds,
+  percent,
+  usd,
+} from './format.js';
 
 test('durations and list prices read the same everywhere', () => {
   expect([0, 42, 60, 303, 3600, 7620].map(duration)).toEqual([

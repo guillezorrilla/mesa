@@ -1,29 +1,32 @@
-import { money } from '@mesa/core/browser';
+import type { UsageTotals } from '@mesa/core';
+import { excludedNote, money } from '@mesa/core/browser';
 import { cn } from '@/lib/utils';
 
 /**
- * An estimate in dollars. When part of it has no list price or could not be read, the priced part
+ * An estimate in dollars. When it leaves sessions out (no list price, or not read), the priced part
  * shows with a `+`; when none of it is priced, a quiet n/a.
  */
-export function Cost(props: { value: number | null; known: number; className?: string }) {
-  if (props.value !== null)
-    return <span className={cn('tabular-nums', props.className)}>{money(props.value)}</span>;
-  if (props.known > 0)
+export function Cost(props: {
+  totals: Pick<UsageTotals, 'estimatedCostUsd' | 'excluded'>;
+  className?: string;
+}) {
+  const { estimatedCostUsd: value, excluded } = props.totals;
+  if (value === null)
     return (
       <span
-        className={cn('tabular-nums', props.className)}
-        title="Priced usage only: some usage has no list price or could not be read"
+        className={cn('font-normal text-muted-foreground', props.className)}
+        title="No list price"
       >
-        {money(props.known)}
-        <span className="text-muted-foreground">+</span>
+        n/a
       </span>
     );
   return (
     <span
-      className={cn('font-normal text-muted-foreground', props.className)}
-      title="No list price"
+      className={cn('tabular-nums', props.className)}
+      title={excluded > 0 ? `Priced usage only: ${excludedNote(excluded)}` : undefined}
     >
-      n/a
+      {money(value)}
+      {excluded > 0 && <span className="text-muted-foreground">+</span>}
     </span>
   );
 }
