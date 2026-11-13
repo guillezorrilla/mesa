@@ -11,7 +11,7 @@ import {
 import { join } from 'node:path';
 import { tailLines } from '../../lib/file-tail.js';
 import { type LockDeps, lockedBy, withLockSync } from '../../lib/lock-file.js';
-import { plainText } from './terminal-text.js';
+import { colouredText, plainText } from './terminal-text.js';
 
 // A session's output log: everything its window printed, which tmux's pipe-pane appends to
 // `sessions/logs/<id>.log` while the config's `sessions.log` is on (ADR-0001). It is the raw
@@ -66,12 +66,15 @@ function cut(lock: LockDeps, file: string) {
   );
 }
 
-/** A raw stretch of the stream as plain lines: trailing spaces and blank lines dropped. */
-const plainLines = (raw: string) =>
-  plainText(raw)
+/**
+ * A raw stretch of the stream as plain lines, or with their colours (`colour`): trailing spaces
+ * and blank lines dropped. ponytail: a blank line's colour change is dropped with it.
+ */
+const textLines = (raw: string, colour: boolean) =>
+  (colour ? colouredText : plainText)(raw)
     .split('\n')
     .map((line) => line.trimEnd())
-    .filter(Boolean);
+    .filter((line) => plainText(line).trim());
 
 /**
  * The last `lines` lines of session `id`'s output (every line without `lines`), as plain text:
@@ -79,21 +82,23 @@ const plainLines = (raw: string) =>
  * screen with them. Undefined when the session has no log: logging was off when it started, or
  * it has not started. The one reader of a session's output, for people and receipts alike. With
  * `lines` it reads only the log's end, from a whole line, 64 KB first and twice as much until
- * it holds them (tailLines), so a poll of a 20 MB log reads tens of KB.
+ * it holds them (tailLines), so a poll of a 20 MB log reads tens of KB. With `colour` each line
+ * keeps its colour and style sequences (colouredText).
  */
 export function outputTail(
   lock: LockDeps,
   dir: string,
   id: string,
   lines?: number,
+  colour = false,
 ): string[] | undefined {
   const file = outputLog(dir, id);
   if (!existsSync(file)) return undefined;
   cut(lock, file);
-  if (lines === undefined) return plainLines(readFileSync(file, 'utf8'));
+  if (lines === undefined) return textLines(readFileSync(file, 'utf8'), colour);
   for (let chunk = TAIL_BYTES; ; chunk *= 2) {
     const read = tailLines(file, chunk);
-    const text = plainLines(read.lines.join('\n'));
+    const text = textLines(read.lines.join('\n'), colour);
     if (!read.truncated || text.length >= lines)
       return text.slice(Math.max(0, text.length - lines));
   }
@@ -102,8 +107,14 @@ export function outputTail(
 /** What `mesa logs` prints: a session's output lines, and its log's path, null when it has none. */
 export type SessionLog = { session: string; path: string | null; lines: string[] };
 
-/** Session `id`'s output (outputTail) as `mesa logs` prints it. */
-export function sessionLog(lock: LockDeps, dir: string, id: string, lines?: number): SessionLog {
-  const text = outputTail(lock, dir, id, lines);
+/** Session `id`'s output (outputTail) as `mesa logs` prints it, coloured with `colour`. */
+export function sessionLog(
+  lock: LockDeps,
+  dir: string,
+  id: string,
+  lines?: number,
+  colour = false,
+): SessionLog {
+  const text = outputTail(lock, dir, id, lines, colour);
   return { session: id, path: text ? outputLog(dir, id) : null, lines: text ?? [] };
 }

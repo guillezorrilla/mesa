@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { plainText } from './terminal-text.js';
+import { colouredText, plainText } from './terminal-text.js';
 
 test('plainText drops CSI sequences: colours with semicolons or colons, modes, the kitty keyboard', () => {
   expect(plainText('\x1b[1m\x1b[38;2;215;119;87mtide\x1b[0m')).toBe('tide');
@@ -33,4 +33,11 @@ test('plainText reads a carriage return as a line break, one with the newline af
 test('plainText drops control characters but tab and newline, and keeps any other text', () => {
   expect(plainText('bell\x07 back\x08 nul\x00 del\x7f\ttab\n')).toBe('bell back nul del\ttab\n');
   expect(plainText('é ✓ ⏺ 潮')).toBe('é ✓ ⏺ 潮');
+});
+
+test('colouredText keeps colour and style sequences and drops every other escape and control', () => {
+  expect(colouredText('\x1b[1m\x1b[38;2;215;119;87mtide\x1b[0m\x1b[2K\x1b[12;40H')).toBe(
+    '\x1b[1m\x1b[38;2;215;119;87mtide\x1b[0m',
+  );
+  expect(colouredText('\x1b]0;title\x07a\x07\x1b[mb\r\nc\x1b')).toBe('a\x1b[mb\nc');
 });

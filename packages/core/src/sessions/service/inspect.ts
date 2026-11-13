@@ -108,12 +108,12 @@ export function inspectActions(
     /** A session's goal, or not_found when it was started without one. */
     goal: (id: string) => sessionGoal(store, id),
     /**
-     * A session's output as plain text, its last `tail` lines when given (sessionLog); not_found
-     * for an unknown id.
+     * A session's output as plain text, its last `tail` lines when given, with its colours when
+     * `colour` (sessionLog); not_found for an unknown id.
      */
-    logs: (id: string, tail?: number) => {
+    logs: (id: string, tail?: number, colour = false) => {
       store.get(id);
-      return sessionLog(ctx, paths.logs, id, tail);
+      return sessionLog(ctx, paths.logs, id, tail, colour);
     },
     /**
      * The local URLs every unended session's dev server printed, or `session`'s (not_found for an

@@ -1,6 +1,4 @@
-import { withoutChrome } from './screenChrome';
 import { TerminalOutput } from './TerminalOutput';
-import { useTerminalOutput } from './useTerminalOutput';
 
 /**
  * An agent session's output in place of its conversation, as orca keeps its terminal apart from
@@ -8,6 +6,5 @@ import { useTerminalOutput } from './useTerminalOutput';
  */
 export function OutputPane({ id, first }: { id: string; first: string[] }) {
   // An agent's output log is never pushed (only a terminal's), so it is asked every second.
-  const lines = useTerminalOutput(id, first, false);
-  return <TerminalOutput lines={withoutChrome(lines)} header={null} />;
+  return <TerminalOutput id={id} first={first} pushed={false} agent />;
 }

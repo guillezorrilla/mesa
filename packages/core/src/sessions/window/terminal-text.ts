@@ -14,11 +14,26 @@ const SEQUENCE =
 // biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are what it matches.
 const CONTROL = /[\x00-\x08\x0b-\x1f\x7f]/g;
 
+/** A colour or style (SGR) sequence, which coloured text keeps. */
+// biome-ignore lint/suspicious/noControlCharactersInRegex: escape sequences are what it matches.
+const SGR = /^\x1b\[[0-9;:]*m$/;
+/** CONTROL, but the escape that starts a kept SGR sequence. */
+// biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are what it matches.
+const CONTROL_BUT_SGR = /(?!\x1b\[[0-9;:]*m)[\x00-\x08\x0b-\x1f\x7f]/g;
+
+const text = (raw: string, colour: boolean) =>
+  raw
+    .replace(SEQUENCE, (sequence) => (colour && SGR.test(sequence) ? sequence : ''))
+    .replace(/\r\n?/g, '\n')
+    .replace(colour ? CONTROL_BUT_SGR : CONTROL, '');
+
 /**
  * `raw` as plain text: escape sequences and control characters dropped, and a carriage return
  * (with the newline after it, if any) read as one line break.
  * ponytail: what the stream wrote, in order, not the screen it drew; a TUI that moves its cursor
  * to redraw leaves each frame's text. A terminal emulator (@xterm/headless) would give the screen.
  */
-export const plainText = (raw: string) =>
-  raw.replace(SEQUENCE, '').replace(/\r\n?/g, '\n').replace(CONTROL, '');
+export const plainText = (raw: string) => text(raw, false);
+
+/** `raw` as plainText reads it, but its colour and style (SGR) sequences kept, for a phone to draw. */
+export const colouredText = (raw: string) => text(raw, true);

@@ -4,7 +4,6 @@ import { SessionBar } from '../sessions/SessionBar';
 import { SessionHeader } from '../sessions/SessionHeader';
 import { SessionMenu } from '../sessions/SessionMenu';
 import { TerminalOutput } from './TerminalOutput';
-import { useTerminalOutput } from './useTerminalOutput';
 
 /**
  * A plain terminal session: its state, then its live output; its menu in its bar. `onChange`
@@ -21,14 +20,15 @@ export function TerminalBody({
   onChange: () => void;
   pushed: boolean;
 }) {
-  const lines = useTerminalOutput(detail.row.id, detail.tail, pushed);
   return (
     <>
       <SessionBar row={detail.row}>
         <SessionMenu row={detail.row} archived={detail.archived} onDone={onChange} />
       </SessionBar>
       <TerminalOutput
-        lines={lines}
+        id={detail.row.id}
+        first={detail.tail}
+        pushed={pushed}
         header={
           <>
             {error ? <ErrorNote text={error} /> : null}

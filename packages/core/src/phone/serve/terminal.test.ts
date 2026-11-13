@@ -56,11 +56,17 @@ test('a line from the phone is typed with Enter through the guardrail, never que
   await at.end();
 });
 
-test('the live output is the log tail, and an unknown key never reaches the Mac', async () => {
+test('the live output is the log tail, a page at a time, coloured when asked, and an unknown key never reaches the Mac', async () => {
   const at = await terminal();
-  plantOutputLog(at.home, at.id, '$ ls\nREADME.md\nsrc\n');
+  plantOutputLog(at.home, at.id, '$ ls\n\x1b[34mREADME.md\x1b[0m\nsrc\n');
   expect(await at.calls.call({ method: 'output', id: at.id })).toEqual({
     lines: ['$ ls', 'README.md', 'src'],
+    more: false,
+  });
+  // A page of the last lines, with their colours, says older ones exist.
+  expect(await at.calls.call({ method: 'output', id: at.id, lines: 2, colour: true })).toEqual({
+    lines: ['\x1b[34mREADME.md\x1b[0m', 'src'],
+    more: true,
   });
   expect(phoneCall.safeParse({ method: 'keys', id: at.id, keys: ['rm'] }).success).toBe(false);
   await at.end();

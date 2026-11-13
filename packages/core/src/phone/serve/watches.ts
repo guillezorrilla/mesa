@@ -18,6 +18,8 @@ const PUSH_GAP_MS = 500;
 type Watch = {
   until: number;
   replies?: number;
+  /** A terminal's output goes with its colours (the watch call's `colour`). */
+  colour?: boolean;
   /** What was pushed last, as JSON, so only what changed goes out again. */
   sent: { detail?: string; output?: string };
   pushedAt: number;
@@ -28,15 +30,18 @@ type Watch = {
   terminal?: boolean;
 };
 
-/** Session `id` as a watch pushes it: its detail, and a plain terminal's output. */
+/** Session `id` as a watch pushes it: its detail, and a plain terminal's output, coloured with `colour`. */
 export async function readWatched(
   answers: ListenerAnswers,
   id: string,
   replies?: number,
+  colour?: boolean,
 ): Promise<WatchedSession> {
   const detail = (await answerCall(answers, { method: 'session', id, replies })) as PhoneDetail;
   if (!detail.row.terminal) return { id, detail };
-  const output = (await answerCall(answers, { method: 'output', id })) as { lines: string[] };
+  const output = (await answerCall(answers, { method: 'output', id, colour })) as {
+    lines: string[];
+  };
   return { id, detail, output: output.lines };
 }
 
@@ -50,7 +55,7 @@ export async function readWatched(
 export function sessionWatches(deps: {
   now: () => number;
   sleep: (ms: number) => Promise<void>;
-  read: (id: string, replies?: number) => Promise<WatchedSession>;
+  read: (id: string, replies?: number, colour?: boolean) => Promise<WatchedSession>;
   send: (watched: WatchedSession) => void;
 }) {
   const watches = new Map<string, Watch>();
@@ -60,7 +65,7 @@ export function sessionWatches(deps: {
     return watches.get(id);
   };
   const push = async (id: string, watch: Watch) => {
-    const next = await deps.read(id, watch.replies).catch(() => undefined);
+    const next = await deps.read(id, watch.replies, watch.colour).catch(() => undefined);
     watch.pushedAt = deps.now();
     if (!next || live(id) !== watch) return;
     watch.terminal = next.output !== undefined;
@@ -97,11 +102,12 @@ export function sessionWatches(deps: {
       else {
         const watch = live(call.id);
         const until = deps.now() + WATCH_MS;
-        if (watch) Object.assign(watch, { until, replies: call.replies });
+        if (watch) Object.assign(watch, { until, replies: call.replies, colour: call.colour });
         else
           watches.set(call.id, {
             until,
             replies: call.replies,
+            colour: call.colour,
             sent: {},
             pushedAt: 0,
             pending: false,

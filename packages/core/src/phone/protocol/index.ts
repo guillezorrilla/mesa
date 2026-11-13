@@ -12,6 +12,7 @@ export {
 export { relativeAgo, shortAgo, timeAgo } from '../../lib/ago.js';
 export { excludedNote, money } from '../../lib/format.js';
 export { localDay } from '../../lib/time.js';
+export { type TerminalColors, terminalPalette } from '../../profile/terminal-palettes.js';
 export { BUCKET_LABELS, commentPlace } from '../../prs/buckets.js';
 export { CHECK_STATES } from '../../prs/check-list.js';
 export { MERGE_LABELS, MERGE_METHODS, type MergeMethod } from '../../prs/merge-methods.js';
@@ -120,4 +121,5 @@ export {
   type SendResult,
   type SessionAction,
 } from './steer.js';
+export { OUTPUT_LINES } from './terminal.js';
 export type { PhoneSessionUsage, PhoneUsage } from './usage.js';

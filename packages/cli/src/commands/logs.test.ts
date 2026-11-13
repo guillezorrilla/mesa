@@ -6,7 +6,7 @@ const cli = cliHarness();
 beforeEach(cli.reset);
 const { mesa } = cli;
 
-test('logs prints the output log as plain text, --tail its last lines; rm removes it', async () => {
+test('logs prints the output log as plain text, --tail its last lines, --colour its colours; rm removes it', async () => {
   const world = cli.withTmux();
   await cli.withProject();
   const id = (await mesa('open', 'lantern-cove')).stdout.split('\n')[0] ?? '';
@@ -29,6 +29,9 @@ test('logs prints the output log as plain text, --tail its last lines; rm remove
     path: file,
     lines: ['Low water 12:25'],
   });
+  expect((await mesa('logs', id, '--tail', '3', '--colour')).stdout).toBe(
+    '\x1b[1mReading the tide tables\x1b[0m\nHigh water 06:12\nLow water 12:25\n',
+  );
   expect(await mesa('logs', id, '--tail', 'last')).toMatchObject({
     code: 2,
     stderr: '--tail must be a whole number, not last\n',
