@@ -25,6 +25,19 @@ test('a paired phone whose listener is not loaded says the Mac is not answering 
   expect(describePairing({ paired: true, listening: true }, false, NOW)).toBe('Paired');
 });
 
+test('a listener still on an older Mesa after the restart says which version answers the phone', () => {
+  expect(
+    describePairing(
+      { paired: true, listening: true, listenerVersion: '0.4.1', listenerOutdated: true },
+      false,
+      NOW,
+    ),
+  ).toBe('Paired; the Mac answers it with Mesa 0.4.1, not this version');
+  expect(
+    describePairing({ paired: true, listening: true, listenerVersion: '0.5.0' }, false, NOW),
+  ).toBe('Paired');
+});
+
 test('a code on show asks for the scan; otherwise it says what pairing gives', () => {
   expect(describePairing({ paired: false, pending: true }, true, NOW)).toBe(
     'Scan the code with the Mesa app on your phone',

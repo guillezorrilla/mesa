@@ -393,6 +393,28 @@ test('a state file with several notices for a session shows only its newest', ()
   ]);
 });
 
+test('markAllRead marks every unread notice read in one write and counts them', () => {
+  const { run } = scriptedRunner();
+  const { home, mesa } = projectProfile(run);
+  const session = testStore(home).create(() => newSession());
+  const file = eventsLog(profilePaths(home, 'default').events, session.id);
+  mkdirSync(dirname(file), { recursive: true });
+  appendFileSync(
+    file,
+    `${JSON.stringify({ at: '2026-09-24T12:00:00.000Z', agent: 'claude', event: 'PermissionRequest', payload: { tool_name: 'Bash' } })}\n`,
+  );
+  mesa.notifications.recordDoctor({
+    healthy: true,
+    summary: '',
+    checks: [{ name: 'claude hooks', ok: false, status: 'warn', hint: HOOKS_HINT }],
+  });
+  const [first] = mesa.notifications.list();
+  mesa.notifications.markRead(first?.id ?? '');
+  expect(mesa.notifications.markAllRead()).toBe(1);
+  expect(mesa.notifications.list().map((item) => item.read)).toEqual([true, true]);
+  expect(mesa.notifications.markAllRead()).toBe(0);
+});
+
 test('clearAll clears every current notice at once and keeps hook offsets so none return', () => {
   const { run } = scriptedRunner();
   const { home, mesa } = projectProfile(run);

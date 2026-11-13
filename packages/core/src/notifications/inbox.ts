@@ -165,6 +165,12 @@ export function inbox(
     list,
     markRead: (id: string) => change(id, 'read'),
     clear: (id: string) => change(id, 'cleared'),
+    /** Marks every unread notice the Inbox shows read in one write; counts them. */
+    markAllRead: () => {
+      const unread = list().filter((item) => !item.read);
+      if (unread.length) store.write({ read: unread.map((item) => item.id) });
+      return unread.length;
+    },
     /**
      * Clears every notice in one write, a hidden finished turn's too, so none is delivered later;
      * kept hook offsets stop them coming back. Counts the ones the Inbox showed.

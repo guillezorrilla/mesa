@@ -85,10 +85,12 @@ export {
   phoneDetail,
   phonePrompt,
   phoneRow,
+  REWATCH_MS,
   type ReplySegment,
   SESSION_REPLIES,
   type UpdateMessage,
   WATCH_MS,
+  type WatchedSession,
 } from './rpc.js';
 export {
   base64url,

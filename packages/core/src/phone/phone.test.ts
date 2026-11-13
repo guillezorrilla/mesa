@@ -1,9 +1,10 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import {
   fakePairingBroker,
   fakePhone,
+  listenerRecord,
   memorySecretStore,
   projectProfile,
   scriptedRunner,
@@ -16,11 +17,14 @@ import { newKeyPair } from './protocol/seal.js';
 
 const NOW = new Date('2026-09-24T12:00:00.000Z');
 
-/** A profile whose broker is a fake one, its Keychain in memory, and a phone on the same broker. */
-function setup() {
+/**
+ * A profile whose broker is a fake one, its Keychain in memory, and a phone on the same broker;
+ * `launchctl` answers each launchctl call (none by default).
+ */
+function setup(launchctl: (args: string[]) => string = () => '') {
   const broker = fakePairingBroker('https://broker.test', () => NOW);
   const secrets = memorySecretStore();
-  const runner = scriptedRunner({ '/usr/bin/id': '501\n' });
+  const runner = scriptedRunner({ '/usr/bin/id': '501\n', '/bin/launchctl': launchctl });
   const { mesa, home } = projectProfile(runner.run, {
     http: broker.http,
     secretStore: secrets.store,
@@ -87,6 +91,78 @@ test('pair shows a QR link and keeps the Mac half in the Keychain only; the phon
   expect(onDisk).not.toContain(item.privateKey);
   expect(onDisk).not.toContain(item.macToken);
   expect(broker.rooms.get('pairing-0000000001')?.boxes).toEqual([]);
+});
+
+/**
+ * A paired profile whose listener LaunchAgent runs as `pid` (launchctl print names it); a restart
+ * (kickstart -k) starts a new process that records `restartsAs`, or none when it is undefined.
+ */
+async function pairedListener(restartsAs: string | undefined) {
+  let pid = 100;
+  let home = '';
+  const at = setup((args) => {
+    if (args[0] === 'kickstart' && args[1] === '-k') {
+      pid += 1;
+      if (restartsAs) records(pid, restartsAs);
+    }
+    return args[0] === 'print' ? `\tstate = running\n\tpid = ${pid}\n` : '';
+  });
+  home = at.home;
+  const records = (by: number, version: string) =>
+    writeFileSync(listenerRecord(home), JSON.stringify({ pid: by, version }));
+  await at.phone.join((await at.mesa.phone.pair()).result.qr);
+  await at.mesa.phone.status();
+  const restarts = () =>
+    at.runner.calls.filter((c) => c.args[0] === 'kickstart' && c.args[1] === '-k');
+  return { ...at, records, restarts, pid: () => pid };
+}
+
+test('status restarts a listener that runs another Mesa version onto this one, and leaves a current one alone', async () => {
+  const { mesa, records, restarts, pid } = await pairedListener('0.1.0-beta.4');
+  // An update installed 0.1.0-beta.4 while the listener still ran 0.1.0-beta.3 from memory.
+  records(pid(), '0.1.0-beta.3');
+  expect(await mesa.phone.status()).toMatchObject({
+    listening: true,
+    listenerVersion: '0.1.0-beta.4',
+  });
+  expect(restarts().map((c) => c.args)).toEqual([
+    ['kickstart', '-k', 'gui/501/com.mesa.phone.default'],
+  ]);
+  // The same version on the next launch: no restart.
+  expect(await mesa.phone.status()).not.toHaveProperty('listenerOutdated');
+  expect(restarts()).toHaveLength(1);
+});
+
+test('a running listener that recorded no version is from an older Mesa, and is restarted', async () => {
+  const { mesa, restarts } = await pairedListener('0.1.0-beta.4');
+  expect(await mesa.phone.status()).toMatchObject({ listenerVersion: '0.1.0-beta.4' });
+  expect(restarts()).toHaveLength(1);
+});
+
+test('a listener the plist runs from another CLI is left alone by this one', async () => {
+  const { mesa, home, records, restarts, pid } = await pairedListener('0.1.0-beta.4');
+  const plist = join(home, 'Library/LaunchAgents/com.mesa.phone.default.plist');
+  writeFileSync(
+    plist,
+    readFileSync(plist, 'utf8').replace('/usr/local/bin/mesa', '/opt/other/mesa'),
+  );
+  records(pid(), '0.1.0-beta.3');
+  expect(await mesa.phone.status()).toMatchObject({
+    listenerVersion: '0.1.0-beta.3',
+    listenerOutdated: true,
+  });
+  expect(restarts()).toHaveLength(0);
+});
+
+test('a listener still on the old version after the restart is reported outdated', async () => {
+  // The plist's CLI was not replaced, so the restarted listener runs the old version again.
+  const { mesa, records, restarts, pid } = await pairedListener('0.1.0-beta.3');
+  records(pid(), '0.1.0-beta.3');
+  expect(await mesa.phone.status()).toMatchObject({
+    listenerVersion: '0.1.0-beta.3',
+    listenerOutdated: true,
+  });
+  expect(restarts()).toHaveLength(1);
 });
 
 test('a phone that joins without the secret in its hello is never trusted', async () => {

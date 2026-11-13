@@ -7,13 +7,14 @@ import { isGone } from '../pair.js';
 import type { PairingClient } from '../protocol/client.js';
 import type { PhoneMessage } from '../protocol/envelope.js';
 import { type ConnectSocket, mailbox } from '../protocol/mailbox.js';
-import { type PhoneCall, type PhoneRow, WATCH_MS } from '../protocol/rpc.js';
+import { isWatchCall, type PhoneCall, type PhoneRow, WATCH_MS } from '../protocol/rpc.js';
 import { type AnswerDeps, answerCall, boardRows, type ListenerAnswers } from './answer.js';
 import { deliverQueued } from './deliver.js';
 import type { DirectListen, DirectServer } from './direct-socket.js';
 import { keptDiffs } from './kept-diffs.js';
 import { watchRowFiles } from './row-files.js';
 import { keptAsks, phoneRows, rowChanges } from './rows.js';
+import { readWatched, sessionWatches } from './watches.js';
 
 export type ServeDeps = {
   store: MacPairingStore;
@@ -27,6 +28,8 @@ export type ServeDeps = {
   lock: AsyncLockDeps;
   /** The lock file that keeps one listener per profile. */
   lockPath: string;
+  /** Marks this process as the profile's listener once it holds the lock (its version, #1133). */
+  markRunning: () => void;
   /** The files a phone row is read from, which the listener watches (watchRowFiles). */
   rowFiles: Parameters<typeof watchRowFiles>[0];
 };
@@ -60,14 +63,21 @@ const REDIAL_MS = 5 * 60_000;
 /** A wait that ran this much longer than asked means the Mac slept. */
 const WOKE_MS = 30_000;
 /** The calls that only read the board; any other may change a row, so the next read looks again. */
-const READS: ReadonlySet<PhoneCall['method']> = new Set(['sessions', 'session', 'usage', 'prompt']);
+const READS: ReadonlySet<PhoneCall['method']> = new Set([
+  'sessions',
+  'session',
+  'usage',
+  'prompt',
+  'watch',
+  'unwatch',
+]);
 
 /**
  * The Mac's listener (`mesa phone serve`, ADR-0027): holds the Pairing's socket, answers each
  * request through core (answerCall), and while a phone watches (a `sessions` request in the last
- * WATCH_MS) sends the rows that changed. It looks at the board only when a file a row is read from
- * changed (`watch`), or every FALLBACK_MS, one look at a time, and answers calls from the last look
- * meanwhile. One runs per profile (the lock); it ends when `stop` aborts, or when the broker no
+ * WATCH_MS) sends the rows that changed, and each session it watches (sessionWatches). It looks
+ * at the board only when a file a row is read from changed (`watch`), or every FALLBACK_MS, one
+ * look at a time, and answers calls from the last look meanwhile. One runs per profile (the lock); it ends when `stop` aborts, or when the broker no
  * longer holds the pairing, which it then forgets here too.
  */
 export async function servePhone(deps: ServeDeps, stop?: AbortSignal): Promise<ServeEnd> {
@@ -77,7 +87,10 @@ export async function servePhone(deps: ServeDeps, stop?: AbortSignal): Promise<S
   return withLock(
     deps.lock,
     deps.lockPath,
-    () => listen(deps, paired, stop),
+    () => {
+      deps.markRunning();
+      return listen(deps, paired, stop);
+    },
     () => new MesaError('locked', 'a phone listener already runs for this profile'),
     0,
   );
@@ -152,9 +165,20 @@ async function listen(
         prPatch({ project, number }, reuse),
     },
   };
+  // A watched session is read with the last look's rows: its replies and output are new now, and
+  // a row it changed is pushed again after the next look.
+  const watches = sessionWatches({
+    now,
+    sleep: deps.sleep,
+    read: (id, replies) =>
+      readWatched({ ...answers, board: () => looked?.rows ?? board() }, id, replies),
+    send: (watched) =>
+      box.send({ kind: 'update', rows: [], gone: [], order: [], watched: [watched] }),
+  });
   const respond = async (request: Extract<PhoneMessage, { kind: 'request' }>) => {
     try {
-      const result = await answerCall(answers, request.call);
+      const { call } = request;
+      const result = isWatchCall(call) ? watches.answer(call) : await answerCall(answers, call);
       if (!READS.has(request.call.method)) stale = true;
       box.send({ kind: 'response', id: request.id, result });
       if (request.call.method === 'sessions') {
@@ -240,7 +264,10 @@ async function listen(
       await deps.sleep(WAIT_MS);
     }
   };
-  const unwatch = watchRowFiles(deps.rowFiles, ({ hooked }) => {
+  const unwatch = watchRowFiles(deps.rowFiles, ({ hooked, logged }) => {
+    // An output log is no row's: it pushes a watched terminal, never a look at the board.
+    if (logged) return watches.logged(logged);
+    watches.changed(hooked);
     if (hooked) asks.forget(hooked);
     stale = true;
     heard += 1;
@@ -260,6 +287,9 @@ async function listen(
       }
       seen = heard;
       await watch().catch(() => undefined);
+      // A look first, so a watched session's row is pushed as the board has it now.
+      if (watches.any()) await board().catch(() => undefined);
+      watches.changed();
       await deliver().catch(() => undefined);
       // Only the rest is timed, never the look: a look slowed by a loaded Mac is not a Mac that
       // slept, which can kill a socket with no close, so it dials again now, not at REDIAL_MS.

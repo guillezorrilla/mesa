@@ -1,9 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { listReceipts } from '../../receipts/store.js';
 import { gateAdvice, gateRequest } from '../../tasks/gate-advice.js';
 import {
   claudePromptPane,
+  listenerRecord,
   newSession,
   plantHookEvent,
   servingPhone,
@@ -16,8 +18,13 @@ import { askLine } from './rows.js';
 import { phoneUsage } from './usage.js';
 
 test('the listener answers the board, a session and a mark through core, one per profile', async () => {
-  const { mesa, session, calls, end } = await servingPhone();
+  const { mesa, home, session, calls, end } = await servingPhone();
   const { rows } = await calls.call({ method: 'sessions' });
+  // It says which Mesa it runs, so a look after an update restarts an older one (#1133).
+  expect(JSON.parse(readFileSync(listenerRecord(home), 'utf8'))).toEqual({
+    pid: 4242,
+    version: '0.1.0-beta.4',
+  });
   expect(rows).toEqual([
     {
       id: session.id,
@@ -260,6 +267,17 @@ test('the Inbox, usage and push settings answer the phone through core', async (
   expect((await calls.call({ method: 'inbox' })).notices[0]?.read).toBe(true);
   expect(mesa.notifications.list()[0]?.read).toBe(true);
   await expect(calls.call({ method: 'noticeRead', id: 'nope' })).rejects.toThrow('no inbox item');
+  mesa.notifications.clearAll();
+  plantHookEvent(home, {
+    session: session.id,
+    agent: 'claude',
+    at: '2026-09-24T11:59:30.000Z',
+    event: 'PermissionRequest',
+    payload: { tool_name: 'Bash' },
+  });
+  expect(await calls.call({ method: 'noticesRead' })).toEqual({ count: 1 });
+  expect(mesa.notifications.list().map((item) => item.read)).toEqual([true]);
+  expect(await calls.call({ method: 'noticesRead' })).toEqual({ count: 0 });
 
   // No readings yet: nothing spent, the session listed with its context.
   const usage = await calls.call({ method: 'usage' });
