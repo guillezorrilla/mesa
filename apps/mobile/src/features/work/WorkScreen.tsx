@@ -1,8 +1,8 @@
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { SegmentedControl } from '@/components/SegmentedControl';
-import { Text } from '@/components/ui/text';
 import { PrsScreen } from '../prs/PrsScreen';
+import { TicketsScreen } from '../tickets/TicketsScreen';
 
 type Segment = 'prs' | 'tickets';
 const SEGMENTS = [
@@ -27,7 +27,7 @@ export function WorkScreen() {
           ),
         }}
       />
-      {segment === 'prs' ? <PrsScreen /> : <Text>Tickets</Text>}
+      {segment === 'prs' ? <PrsScreen /> : <TicketsScreen />}
     </>
   );
 }

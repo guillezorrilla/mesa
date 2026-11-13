@@ -33,8 +33,9 @@ export default function RootLayout() {
 }
 
 /**
- * Agents, Work (pull requests and tickets) and the Inbox, once paired, and the Mac: the pairing, usage, the push settings and
- * About; hidden on a session's screen, under its reply bar. A tapped push opens its session.
+ * Agents, Work (pull requests and tickets) and the Inbox, once paired, and the Mac: the pairing,
+ * usage, the push settings and About; hidden on a session's screen and the new session form,
+ * under their bars. A tapped push opens its session.
  */
 function Tabs() {
   const { pairing } = usePairing();
