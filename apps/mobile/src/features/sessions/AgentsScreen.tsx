@@ -25,6 +25,7 @@ export function AgentsScreen() {
         refreshing={agents.refreshing}
         onRefresh={agents.refresh}
         onMark={agents.mark}
+        onArchive={agents.archive}
       />
     </Suspense>
   );

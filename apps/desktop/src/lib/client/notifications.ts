@@ -23,6 +23,7 @@ export const notificationsCommands = {
     '--',
     id,
   ]),
+  'notifications.readAll': command<{ count: number }>('notifications', 'read', '--all'),
   'notifications.clear': commandWith<{ id: string }, { id: string; cleared: true }>(({ id }) => [
     'notifications',
     'clear',

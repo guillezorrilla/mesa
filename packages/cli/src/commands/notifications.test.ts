@@ -59,7 +59,7 @@ test('background delivery diagnostics and a claimed notice use the same JSON inb
   });
 });
 
-test('notifications clear --all clears the whole inbox and reports the count', async () => {
+test('notifications read --all and clear --all act on the whole inbox and report the count', async () => {
   cli.withTmux();
   await cli.withProject();
   mkdirSync(cli.paths.events, { recursive: true });
@@ -71,6 +71,15 @@ test('notifications clear --all clears the whole inbox and reports the count', a
     writeFileSync(join(cli.paths.events, `${id}.jsonl`), asks(at));
   }
   expect((await cli.mesa('notifications', '--json')).json.data).toHaveLength(2);
+  expect((await cli.mesa('notifications', 'read', '--all', '--json')).json.data).toEqual({
+    count: 2,
+  });
+  const listed = (await cli.mesa('notifications', '--json')).json.data as { read: boolean }[];
+  expect(listed.map((item) => item.read)).toEqual([true, true]);
+  expect((await cli.mesa('notifications', 'read', '--all', '--json')).json.data).toEqual({
+    count: 0,
+  });
+  expect((await cli.mesa('notifications', 'read', '--json')).json.error.code).toBe('usage');
   expect((await cli.mesa('notifications', 'clear', '--all', '--json')).json.data).toEqual({
     count: 2,
   });

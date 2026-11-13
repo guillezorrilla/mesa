@@ -8,18 +8,20 @@ import { useTerminalOutput } from './useTerminalOutput';
 
 /**
  * A plain terminal session: its state, then its live output; its menu in the header. `onChange`
- * reads it again after the phone changed it.
+ * reads it again after the phone changed it; `pushed` says whether the Mac pushes its output.
  */
 export function TerminalBody({
   detail,
   error,
   onChange,
+  pushed,
 }: {
   detail: PhoneDetail;
   error?: string;
   onChange: () => void;
+  pushed: boolean;
 }) {
-  const lines = useTerminalOutput(detail.row.id, detail.tail);
+  const lines = useTerminalOutput(detail.row.id, detail.tail, pushed);
   return (
     <>
       <Stack.Screen
