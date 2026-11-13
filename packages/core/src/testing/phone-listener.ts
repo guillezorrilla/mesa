@@ -26,8 +26,9 @@ const NOW = fixedClock()();
  * phone's end of the mailbox (`calls`, and what the Mac `pushed`); `world` is the tmux a live
  * session opens in, and `mesaYaml` the project's. `ran` is every command the Mac ran and `dials`
  * how often the listener dialed the broker; `clock` is the Mac's, and `tmux` sees each tmux
- * command first. `end` stops the listener and returns its end. With `direct`, the Mac also has
- * its own socket and the phone's line dials it on `timers`; `paths` is each path the line took.
+ * command first. `end` stops the listener and returns its end; `listener` is that end, and
+ * `broker` the fake broker both sides dial. With `direct`, the Mac also has its own socket and the
+ * phone's line dials it on `timers`; `paths` is each path the line took.
  */
 export async function servingPhone(
   mesaYaml?: string,
@@ -109,6 +110,8 @@ export async function servingPhone(
     paths,
     ran: runner.calls,
     dials: () => dials,
+    broker,
+    listener,
     end,
   };
 }

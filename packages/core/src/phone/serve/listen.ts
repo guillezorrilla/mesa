@@ -233,7 +233,7 @@ async function listen(
         () => true,
         async (error) => {
           if (!isGone(error)) return true;
-          await deps.store.remove();
+          await deps.store.forget(pairingId);
           return false;
         },
       );
