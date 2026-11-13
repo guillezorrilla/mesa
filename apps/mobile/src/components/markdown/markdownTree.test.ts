@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import type { Block } from './markdownNodes';
 import { markdownTree } from './markdownTree';
 
 const text = (value: string) => ({ type: 'text', value });
@@ -238,4 +239,19 @@ test('a tag GitHub does not allow shows as typed, as GitHub shows it', () => {
   expect(markdownTree('uses Array<string> here')).toEqual([
     { type: 'paragraph', children: [text('uses Array<string> here')] },
   ]);
+});
+
+test('a section past the cap still closes only itself', () => {
+  // The ninth opens no section; its `</details>` must not close the eighth.
+  const source = `${'<details>\n'.repeat(9)}\ninner\n\n</details>\n\nmiddle\n\n${'</details>\n'.repeat(8)}\nafter\n`;
+  let node: Block | undefined = markdownTree(source)[0];
+  for (let depth = 1; depth < 8; depth++)
+    node = node?.type === 'details' ? node.children[0] : undefined;
+  expect(node).toMatchObject({
+    type: 'details',
+    children: [
+      { type: 'paragraph', children: [text('inner')] },
+      { type: 'paragraph', children: [text('middle')] },
+    ],
+  });
 });

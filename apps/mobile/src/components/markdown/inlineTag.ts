@@ -1,22 +1,7 @@
-import { attr, GITHUB_TAGS } from './htmlTags';
+import { attr, GITHUB_TAGS, SPANS } from './htmlTags';
 
 /** A markdown-it inline token as the tree reads it: its type, its text, and a link's href. */
 export type InlineToken = { type: string; content: string; href: string };
-
-// Inline HTML GitHub draws as a span, named as markdown-it names that span's tokens.
-const SPANS: Record<string, string> = {
-  a: 'link',
-  b: 'strong',
-  strong: 'strong',
-  i: 'em',
-  em: 'em',
-  del: 's',
-  s: 's',
-  strike: 's',
-  code: 'code',
-  kbd: 'code',
-  tt: 'code',
-};
 
 const TAG = /^<(\/?)([a-z][a-z0-9]*)(?=[\s/>])([^<>]*)>$/i;
 

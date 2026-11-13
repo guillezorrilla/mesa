@@ -8,6 +8,22 @@ export const GITHUB_TAGS = new Set(
   ).split(' '),
 );
 
+/** The inline tags GitHub draws as a span, by the span: markdown-it's name for it (`strong` for
+ *  `<b>`), read by inlineTag for inline HTML and by htmlToMarkdown for block HTML. */
+export const SPANS: Record<string, string> = {
+  a: 'link',
+  b: 'strong',
+  strong: 'strong',
+  i: 'em',
+  em: 'em',
+  del: 's',
+  s: 's',
+  strike: 's',
+  code: 'code',
+  kbd: 'code',
+  tt: 'code',
+};
+
 /** One attribute's value in a tag's attribute text, quoted or bare; '' when absent. */
 export function attr(attrs: string, name: string) {
   const match = new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(
