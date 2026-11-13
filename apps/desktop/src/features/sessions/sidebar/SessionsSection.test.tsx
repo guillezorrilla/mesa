@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
-import type { CrewReport } from '@mesa/core';
+import type { CrewReport, TreeRow } from '@mesa/core';
 import { expect, test } from 'vitest';
 import { click, fakeBridge, managedRow, PROJECTS, renderWithMesa } from '@/lib/testing';
 import type { WorkspaceView } from '@/lib/workspaceView';
+import { UnreadContext } from '../useUnread';
 import { SessionsSection } from './SessionsSection';
 import { sidebarGroups, sidebarOrder } from './sidebarGroups';
 
@@ -59,23 +60,32 @@ function idle() {
   return { state: 'idle' as const, confidence: 1, at: at(1), source: 'hook' as const };
 }
 
+/** Unread as the app reads it: a row's own mark. */
+const UNREAD = {
+  unread: (row: TreeRow) => row.managed && row.unread === true,
+  mark: () => {},
+  toggleShown: () => {},
+};
+
 async function sidebar(sessions = SESSIONS) {
   const views: WorkspaceView[] = [];
   const groups = sidebarGroups(PROJECTS, sessions);
   const byTestId = await renderWithMesa(
-    <SessionsSection
-      groups={groups}
-      onBoard={sessions.map((s) => s.id)}
-      order={sidebarOrder(groups, [])}
-      view={{ kind: 'session', id: 'coord001' }}
-      onView={(view) => views.push(view)}
-      closedProjects={[]}
-      onToggleProject={() => {}}
-      compactSessions={[]}
-      onToggleCompact={() => {}}
-      chosen={[]}
-      onSelection={() => {}}
-    />,
+    <UnreadContext.Provider value={UNREAD}>
+      <SessionsSection
+        groups={groups}
+        onBoard={sessions.map((s) => s.id)}
+        order={sidebarOrder(groups, [])}
+        view={{ kind: 'session', id: 'coord001' }}
+        onView={(view) => views.push(view)}
+        closedProjects={[]}
+        onToggleProject={() => {}}
+        compactSessions={[]}
+        onToggleCompact={() => {}}
+        chosen={[]}
+        onSelection={() => {}}
+      />
+    </UnreadContext.Provider>,
     fakeBridge().bridge,
   );
   return { byTestId, views, groups };
@@ -161,4 +171,16 @@ test("a worker's setup failed mark is an icon on its title line, beside its time
   expect(line?.className).toContain('absolute');
   const row = line?.closest('li')?.querySelector('[data-testid="sidebar-worker"]');
   expect(row?.querySelector('.pr-15')?.textContent).toBe('tides');
+});
+
+test("a child's row is filled while its reply is unread, as a card is", async () => {
+  const { byTestId } = await sidebar([
+    SESSIONS[0] as (typeof SESSIONS)[number],
+    child('read0001', 1, { lastState: idle() }),
+    child('news0001', 2, { name: 'news', lastState: idle(), unread: true }),
+  ]);
+  const rows = byTestId('sidebar-worker');
+  expect(rows.map((row) => row.dataset.unread)).toEqual([undefined, 'true']);
+  expect(rows[1]?.title).toBe('Open news, unread');
+  expect(rows[1]?.className).toContain('bg-state-unread/25');
 });
