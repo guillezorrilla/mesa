@@ -1,17 +1,18 @@
 import type { UsageReport } from '@mesa/core';
+import { excludedNote } from '@mesa/core/browser';
 import { Info } from 'lucide-react';
 import { Cost } from './Cost';
-import { counted, knownCost } from './format';
+import { counted } from './format';
 
 const PERIODS = [
-  ['today', 'Today', 1],
-  ['7d', 'Last 7 days', 7],
-  ['30d', 'Last 30 days', 30],
+  ['today', 'Today'],
+  ['7d', 'Last 7 days'],
+  ['30d', 'Last 30 days'],
 ] as const;
 
 /**
- * Estimated spend today and over the last 7 and 30 local days, and one line naming what the totals
- * leave out: models with no list price and sessions whose usage could not be read.
+ * Estimated spend today and over the last 7 and 30 local days, each with how many sessions it leaves
+ * out, and one line naming them: models with no list price and sessions whose usage was not read.
  */
 export function UsageStatCards(props: { report: UsageReport }) {
   const unpriced = props.report.breakdown
@@ -21,14 +22,16 @@ export function UsageStatCards(props: { report: UsageReport }) {
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-3 divide-x rounded-lg border bg-background">
-        {PERIODS.map(([period, label, days]) => (
+        {PERIODS.map(([period, label]) => (
           <div key={period} className="px-4 py-3">
             <p className="text-xs text-muted-foreground">{label}</p>
             <Cost
-              value={props.report.periods[period].estimatedCostUsd}
-              known={knownCost(props.report.daily.slice(-days).flatMap((day) => day.models))}
+              totals={props.report.periods[period]}
               className="mt-0.5 block text-2xl font-semibold tracking-tight"
             />
+            <p className="mt-0.5 text-xs text-muted-foreground empty:hidden">
+              {excludedNote(props.report.periods[period].excluded)}
+            </p>
           </div>
         ))}
       </div>

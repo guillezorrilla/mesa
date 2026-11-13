@@ -23,6 +23,10 @@ export const usd = (value: number, places?: number) =>
 export const money = (value: number | null) =>
   value === null ? 'Unknown' : value > 0 && value < 0.005 ? '<$0.01' : usd(value, 2);
 
+/** What a partial usage total leaves out (UsageTotals' `excluded`); nothing when it is whole. */
+export const excludedNote = (sessions: number) =>
+  sessions > 0 ? `excludes ${counted(sessions, 'session')}` : '';
+
 /** What a run or a decision cost at list price, as ` (list price $0.0123)`; nothing when free. */
 export const listPrice = (costUsd: number | undefined) =>
   costUsd === undefined ? '' : ` (list price ${usd(costUsd, 4)})`;

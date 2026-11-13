@@ -3,6 +3,7 @@ import { router, Stack } from 'expo-router';
 import Play from 'lucide-react-native/icons/play';
 import { use } from 'react';
 import { ErrorNote } from '@/components/ErrorNote';
+import { Markdown } from '@/components/markdown/Markdown';
 import { Screen } from '@/components/Screen';
 import { Section } from '@/components/Section';
 import { Button } from '@/components/ui/button';
@@ -47,7 +48,11 @@ export function TicketBody({
           </Button>
           {ticket.mine ? null : <AssignButton id={ticket.id} name={ticket.key} site={site} />}
           <Section title="Description">
-            <Text selectable>{ticket.description || 'No description.'}</Text>
+            {ticket.description.trim() ? (
+              <Markdown text={ticket.description} />
+            ) : (
+              <Text variant="muted">No description.</Text>
+            )}
           </Section>
           <TicketComments comments={ticket.comments} />
         </>

@@ -1,11 +1,22 @@
 import { localDay } from '../lib/time.js';
 import type { UsageBreakdown, UsageRecord, UsageReport, UsageTotals } from './records.js';
 
-export function usageTotals(rows: UsageRecord[]): UsageTotals {
-  const sum = (read: (row: UsageRecord) => number | null) =>
-    rows.some((row) => read(row) === null)
-      ? null
-      : rows.reduce((total, row) => total + (read(row) ?? 0), 0);
+/**
+ * Rows summed, each field over the rows that know it. `unknown` names sessions whose usage could
+ * not be read; with the sessions of unpriced rows they make `excluded`. A field is null only when
+ * no row knows it and something is excluded.
+ */
+export function usageTotals(rows: UsageRecord[], unknown: readonly string[] = []): UsageTotals {
+  const excluded = new Set(unknown);
+  for (const row of rows) if (row.estimatedCostUsd === null) excluded.add(row.session);
+  const sum = (read: (row: UsageRecord) => number | null) => {
+    let total: number | null = null;
+    for (const row of rows) {
+      const value = read(row);
+      if (value !== null) total = (total ?? 0) + value;
+    }
+    return total ?? (excluded.size ? null : 0);
+  };
   return {
     events: rows.length,
     input: sum((row) => row.tokens.input),
@@ -13,6 +24,7 @@ export function usageTotals(rows: UsageRecord[]): UsageTotals {
     cacheRead: sum((row) => row.tokens.cacheRead),
     cacheWrite: sum((row) => row.tokens.cacheWrite),
     estimatedCostUsd: sum((row) => row.estimatedCostUsd),
+    excluded: excluded.size,
   };
 }
 
@@ -33,33 +45,28 @@ function byModel(rows: UsageRecord[]): UsageBreakdown {
 
 /**
  * Local calendar days, as `mesa daily` reads them: a day starts at local midnight, so one around a
- * DST change is 23 or 25 hours. Unknown readings keep aggregates unknown.
+ * DST change is 23 or 25 hours. A span sums what it knows; `unknown` sessions it overlaps count in its
+ * `excluded`.
  */
 export function summarizeUsage(
   rows: UsageRecord[],
   now: Date,
-  unknown: readonly { startedAt: string; endedAt?: string }[] = [],
+  unknown: readonly { id: string; startedAt: string; endedAt?: string }[] = [],
 ): Pick<UsageReport, 'periods' | 'daily' | 'breakdown' | 'agents'> {
   /** When the local day `back` days before today starts. */
   const dayStart = (back: number) =>
     new Date(now.getFullYear(), now.getMonth(), now.getDate() - back).getTime();
-  const totals = (found: UsageRecord[], from: number, until = now.getTime()) => {
-    const known = usageTotals(found);
-    return unknown.some(
-      (session) =>
-        Date.parse(session.startedAt) < until &&
-        (!session.endedAt || Date.parse(session.endedAt) > from),
-    )
-      ? {
-          ...known,
-          input: null,
-          output: null,
-          cacheRead: null,
-          cacheWrite: null,
-          estimatedCostUsd: null,
-        }
-      : known;
-  };
+  const totals = (found: UsageRecord[], from: number, until = now.getTime()) =>
+    usageTotals(
+      found,
+      unknown
+        .filter(
+          (session) =>
+            Date.parse(session.startedAt) < until &&
+            (!session.endedAt || Date.parse(session.endedAt) > from),
+        )
+        .map((session) => session.id),
+    );
   const since = (from: number) =>
     totals(
       rows.filter((row) => {

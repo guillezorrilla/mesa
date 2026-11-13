@@ -3457,6 +3457,7 @@ test('a usage threshold alerts during session work and opens Usage', async () =>
     cacheRead: 0,
     cacheWrite: 0,
     estimatedCostUsd: 0,
+    excluded: 0,
   };
   const { bridge } = fakeBridge({
     usage: () =>

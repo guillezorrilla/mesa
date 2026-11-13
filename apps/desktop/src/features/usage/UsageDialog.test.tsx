@@ -13,7 +13,15 @@ import {
 } from '@/lib/testing';
 import { UsageDialog } from './UsageDialog';
 
-const zero = { events: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, estimatedCostUsd: 0 };
+const zero = {
+  events: 0,
+  input: 0,
+  output: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+  estimatedCostUsd: 0,
+  excluded: 0,
+};
 const opus = {
   events: 3,
   input: 8,
@@ -21,6 +29,7 @@ const opus = {
   cacheRead: 178_600,
   cacheWrite: 28_600,
   estimatedCostUsd: 0.27,
+  excluded: 0,
 };
 const day = (date: string, models: UsageReport['breakdown'] = []) => ({
   day: date,
@@ -73,8 +82,10 @@ test('the dialog shows period cards, the daily chart by model, agents, and days 
   );
 });
 
-test('unpriced usage leaves known costs showing, names the gaps, and hides empty models', async () => {
-  const unpriced = { ...opus, estimatedCostUsd: null };
+test('partial totals show what is priced, how many sessions they leave out, and hide empty models', async () => {
+  const unpriced = { ...opus, estimatedCostUsd: null, excluded: 1 };
+  // Core's totals for the day: Opus priced, the Codex session unpriced and one session not read.
+  const partial = { ...opus, excluded: 2 };
   const models: UsageReport['breakdown'] = [
     { agent: 'claude', model: 'opus-5-5', totals: opus },
     { agent: 'claude', model: '<synthetic>', totals: { ...zero, events: 1 } },
@@ -83,11 +94,11 @@ test('unpriced usage leaves known costs showing, names the gaps, and hides empty
   const report: UsageReport = {
     ...used,
     unknown: [{ session: 'abcdefgh', reason: 'claude usage is unavailable' }],
-    periods: { today: unpriced, '7d': unpriced, '30d': unpriced, '90d': unpriced, month: unpriced },
-    daily: [...used.daily.slice(0, -1), { day: '2026-09-26', totals: unpriced, models }],
+    periods: { today: partial, '7d': partial, '30d': partial, '90d': partial, month: partial },
+    daily: [...used.daily.slice(0, -1), { day: '2026-09-26', totals: partial, models }],
     breakdown: models,
     agents: [
-      { agent: 'claude', totals: unpriced },
+      { agent: 'claude', totals: opus },
       { agent: 'codex', totals: unpriced },
     ],
   };
@@ -97,7 +108,8 @@ test('unpriced usage leaves known costs showing, names the gaps, and hides empty
     bridge,
   );
   const panel = text('usage-panel', byTestId);
-  expect(panel).toContain('Today$0.27+');
+  expect(panel).toContain('Today$0.27+excludes 2 sessions');
+  expect(panel).toContain('Last 30 days$0.27+excludes 2 sessions');
   expect(panel).not.toContain('Unknown');
   expect(panel).toContain(
     'No list price: gpt-invented. Not read: abcdefgh (claude usage is unavailable).',
@@ -236,7 +248,7 @@ test('weekly rewind loads when opened, then opens the exact note and session evi
         state: 'done',
       },
     ],
-    usage: { ...zero, input: null, output: null, estimatedCostUsd: null },
+    usage: { ...zero, input: null, output: null, estimatedCostUsd: null, excluded: 1 },
     missing: ['aaaaaaaa: native session id is not available'],
   };
   const opened: string[] = [];

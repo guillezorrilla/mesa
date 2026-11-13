@@ -30,7 +30,11 @@ export function UsageBody({
           {result.alerts.map((alert) => (
             <CostAlert key={alert} text={alert} />
           ))}
-          <CostTiles today={result.today} week={result.week} month={result.month} />
+          <CostTiles
+            today={{ cost: result.today, excluded: result.excluded.today }}
+            week={{ cost: result.week, excluded: result.excluded.week }}
+            month={{ cost: result.month, excluded: result.excluded.month }}
+          />
           <Section title="Last 14 days">
             <DayBars days={result.days} />
           </Section>

@@ -41,3 +41,7 @@ const VERDICTS: Record<string, string> = {
 /** A thread's state as its badge says it: a re-review's verdict wins over resolved. */
 export const threadState = (thread: { resolved: boolean; verdict?: string }) =>
   (thread.verdict && VERDICTS[thread.verdict]) ?? (thread.resolved ? 'Resolved' : 'Open');
+
+/** The PR's size in files: "3 files changed", or "Files changed" from a Mac that does not count. */
+export const filesText = (files: number | undefined) =>
+  files === undefined ? 'Files changed' : `${files} file${files === 1 ? '' : 's'} changed`;

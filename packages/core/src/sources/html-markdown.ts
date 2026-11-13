@@ -21,8 +21,21 @@ const FAITHFUL: DefuddleOptions = {
   markdown: true,
 };
 
+/** Task items keep their boxes, which the converter drops: Atlassian's (`li[data-inline-task-id]`,
+ *  `checked` by class) and HTML checkboxes become GitHub's `[x]` and `[ ]`. */
+function keepTaskBoxes(page: ReturnType<typeof document>) {
+  for (const item of page.querySelectorAll('li[data-inline-task-id]'))
+    item.prepend(item.classList.contains('checked') ? '[x] ' : '[ ] ');
+  for (const box of page.querySelectorAll('input[type=checkbox]'))
+    box.replaceWith(box.hasAttribute('checked') ? '[x] ' : '[ ] ');
+}
+
 /** `html` as Markdown, all of it, its relative links made absolute against `url`. */
 export async function htmlToMarkdown(html: string, url: string): Promise<string> {
   if (!html.trim()) return '';
-  return (await Defuddle(document(html), url, FAITHFUL)).content.trim();
+  const page = document(html);
+  keepTaskBoxes(page);
+  const { content } = await Defuddle(page, url, FAITHFUL);
+  // The converter escapes the boxes' brackets; at an item's start they are a task list.
+  return content.replace(/^(\s*[-*+] )\\\[([ x])\\\] /gm, '$1[$2] ').trim();
 }

@@ -46,6 +46,11 @@ export type UsageTotals = {
   cacheRead: number | null;
   cacheWrite: number | null;
   estimatedCostUsd: number | null;
+  /**
+   * How many sessions the estimated cost leaves out in part or whole: a reading with no price, or a
+   * session whose usage could not be read. Above 0, the totals are partial.
+   */
+  excluded: number;
 };
 
 export const count = (value: unknown): number | null =>

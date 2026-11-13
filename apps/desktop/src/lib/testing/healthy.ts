@@ -182,6 +182,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
       cacheRead: 0,
       cacheWrite: 0,
       estimatedCostUsd: 0,
+      excluded: 0,
     };
     return envelope({
       rows: [],

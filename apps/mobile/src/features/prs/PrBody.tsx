@@ -13,7 +13,8 @@ import { ReviewSection } from './ReviewSection';
 import { ThreadsSection } from './ThreadsSection';
 import type { usePrActions } from './usePrActions';
 
-/** The PR read, top to bottom in the order a person ships it: checks and merge first. */
+/** The PR read, top to bottom in the order a person ships it: its size and files, then checks
+ *  and merge. */
 export function PrBody({
   answer,
   refreshing,
@@ -38,6 +39,7 @@ export function PrBody({
       {pr ? (
         <>
           <PrHeader pr={pr} />
+          <FilesLink pr={pr} />
           <ChecksSection
             pr={pr}
             onSend={actions.send}
@@ -45,7 +47,6 @@ export function PrBody({
             busy={Boolean(actions.busy)}
           />
           <ReviewSection pr={pr} onReview={() => actions.review(pr)} busy={Boolean(actions.busy)} />
-          <FilesLink pr={pr} />
           <DescriptionSection body={pr.body} />
           <ThreadsSection
             threads={pr.threads}

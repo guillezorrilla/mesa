@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
 import { Cost } from './Cost';
-import { counted, knownCost, modelKey, seriesColor, tokenLine } from './format';
+import { counted, modelKey, seriesColor, tokenLine } from './format';
 
 /** The 90-day cost of each model that used tokens, grouped under its provider, with its share as a bar. */
 export function UsageByAgent(props: Pick<UsageReport, 'breakdown' | 'agents'>) {
@@ -45,11 +45,7 @@ export function UsageByAgent(props: Pick<UsageReport, 'breakdown' | 'agents'>) {
                   )}
                   {AGENT_LABELS[agent]}
                 </span>
-                <Cost
-                  value={totals.estimatedCostUsd}
-                  known={knownCost(rows)}
-                  className="text-xs text-muted-foreground"
-                />
+                <Cost totals={totals} className="text-xs text-muted-foreground" />
               </button>
               {open &&
                 rows.map((row) => (
@@ -69,11 +65,7 @@ export function UsageByAgent(props: Pick<UsageReport, 'breakdown' | 'agents'>) {
                         />
                       </span>
                     )}
-                    <Cost
-                      value={row.totals.estimatedCostUsd}
-                      known={0}
-                      className="w-16 text-right text-sm font-medium"
-                    />
+                    <Cost totals={row.totals} className="w-16 text-right text-sm font-medium" />
                   </div>
                 ))}
             </div>
