@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { AGENTS } from '../../agents/agents.js';
+import { promptOf } from '../../agents/transcripts.js';
 import { closesFence, opensFence } from '../../lib/code-fence.js';
 import type { Env } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
@@ -34,8 +35,16 @@ export type NativeResponse = {
   truncated: boolean;
 };
 
+/**
+ * A prompt the person wrote among the responses: its text's revision, its text, when, and how many
+ * of the responses are newer than it, which places it among them.
+ */
+export type NativePrompt = { revision: string; text: string; at?: string; newer: number };
+
 export type SessionResponses = {
   rows: NativeResponse[];
+  /** The person's prompts from the newest message back to the oldest response read, newest first. */
+  prompts: NativePrompt[];
   reviews: SavedReview[];
   truncated: boolean;
   unavailable?: string;
@@ -84,6 +93,7 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
   if (record.agent === 'antigravity')
     return {
       rows: [],
+      prompts: [],
       reviews,
       truncated: false,
       unavailable: 'Antigravity response transcripts are not qualified',
@@ -91,6 +101,7 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
   if (!record.agentSessionId)
     return {
       rows: [],
+      prompts: [],
       reviews,
       truncated: false,
       unavailable: 'Native conversation ID is not available yet',
@@ -100,14 +111,24 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
   if (!file)
     return {
       rows: [],
+      prompts: [],
       reviews,
       truncated: false,
       unavailable: 'Native transcript is not available',
     };
   const { messages, truncated } = transcripts.messages(file);
   const rows: NativeResponse[] = [];
+  const prompts: NativePrompt[] = [];
   for (let i = messages.length - 1; i >= 0 && rows.length < MAX_RESPONSES; i--) {
     const message = messages[i];
+    const prompt = message?.role === 'user' && !message.tool && promptOf(message.text);
+    if (prompt)
+      prompts.push({
+        revision: sha(prompt),
+        text: prompt.slice(0, MAX_TEXT),
+        ...(message.at ? { at: message.at } : {}),
+        newer: rows.length,
+      });
     if (message?.role !== 'assistant') continue;
     const text = message.text.slice(0, MAX_TEXT);
     const cut = message.text.length > MAX_TEXT;
@@ -124,7 +145,7 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
       truncated: cut,
     });
   }
-  return { rows, reviews, truncated: truncated || rows.length === MAX_RESPONSES };
+  return { rows, prompts, reviews, truncated: truncated || rows.length === MAX_RESPONSES };
 }
 
 /** Exact passage and comment to be shown before the existing guarded send. */

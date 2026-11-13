@@ -19,12 +19,16 @@ export type TranscriptRow<A extends Agent> = {
   file: string;
 };
 
-/** One message in a transcript: who wrote it, its text, when, and the line that holds it. */
+/**
+ * One message in a transcript: who wrote it, its text, when, and the line that holds it; `tool`
+ * when its text is only tool results (a user message the agent's tools wrote, not the person).
+ */
 export type TranscriptMessage = {
   role: 'user' | 'assistant';
   text: string;
   at?: string;
   line: string;
+  tool?: true;
 };
 
 /** An agent's readers of its native conversations. */
@@ -69,7 +73,7 @@ export const PROMPT_CHARS = 60;
 const INJECTED = ['<', 'Caveat:', '# AGENTS.md', 'The following is the Codex'];
 
 /** `text` trimmed, or none when blank or injected (a command, its output, a caveat). */
-function promptOf(text: unknown): string | undefined {
+export function promptOf(text: unknown): string | undefined {
   if (typeof text !== 'string') return undefined;
   const prompt = text.trim();
   if (!prompt || INJECTED.some((start) => prompt.startsWith(start))) return undefined;
@@ -147,5 +151,17 @@ export function messageOf(raw: unknown, at: unknown, line: string): TranscriptMe
         : [];
   const text = parts.filter((part: unknown): part is string => typeof part === 'string').join('\n');
   if (!text) return undefined;
-  return { role: message.role, text, ...(typeof at === 'string' ? { at } : {}), line };
+  const blocks = Array.isArray(message.content)
+    ? (message.content as ({ type?: unknown; text?: unknown } | null)[])
+    : [];
+  const tool =
+    blocks.some((part) => part?.type === 'tool_result') &&
+    !blocks.some((part) => typeof part?.text === 'string');
+  return {
+    role: message.role,
+    text,
+    ...(typeof at === 'string' ? { at } : {}),
+    line,
+    ...(tool ? { tool: true as const } : {}),
+  };
 }

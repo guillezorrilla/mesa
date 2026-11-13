@@ -5,14 +5,14 @@ import type { SessionRow } from '../../sessions/board/rows.js';
 import type { SessionResponses } from '../../sessions/native/responses.js';
 import type { UsageReport } from '../../usage/records.js';
 import { isChangesCall } from '../protocol/changes.js';
-import type { CallResult, PhoneCall } from '../protocol/rpc.js';
+import { type CallResult, type PhoneCall, SESSION_REPLIES } from '../protocol/rpc.js';
 import { isTerminalCall } from '../protocol/terminal.js';
 import { answerSteer, isSteerCall, type SteerDeps } from './answer-steer.js';
 import { answerChanges, type ChangesDeps } from './changes.js';
 import { answerCrewCall, type CrewDeps, isCrewCall } from './crew.js';
 import { answerInboxCall, type InboxDeps, isInboxCall } from './inbox.js';
 import { answerPushes, type PushesDeps } from './pushes.js';
-import { replySegments } from './replies.js';
+import { phoneReplies } from './replies.js';
 import { askedRows, managedRows, phoneRows, queuedRows, toPhoneRow } from './rows.js';
 import { answerStartCall, isStartCall, type StartDeps } from './start.js';
 import { phoneUsage } from './usage.js';
@@ -44,8 +44,7 @@ export type AnswerDeps = {
   start: StartDeps;
 };
 
-/** How many replies and output lines the session screen gets. */
-const REPLIES = 5;
+/** How many output lines the session screen gets. */
 const TAIL = 60;
 /** How many lines a terminal's live output gets: a few screens of a phone. */
 const OUTPUT = 120;
@@ -109,16 +108,17 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
   if (isSteerCall(call))
     return answerSteer(deps.steer, call, async (id) => toPhoneRow(await managed(id)));
   const row = await managed(call.id);
-  // Newest first, as `review responses` lists them; a plain terminal has none.
-  const replies = row.agent === 'terminal' ? [] : deps.responses(call.id).rows.slice(0, REPLIES);
+  // Newest first, as `review responses` lists them; a phone that names a count shows prompts too,
+  // and a plain terminal has none.
+  const conversation = phoneReplies(
+    row.agent === 'terminal' ? { rows: [], prompts: [] } : deps.responses(call.id),
+    call.replies ?? SESSION_REPLIES.first,
+    call.replies !== undefined,
+  );
   return {
     row: toPhoneRow(row),
     goal: row.goal ?? null,
-    replies: replies.map((reply) => ({
-      id: reply.revision,
-      at: reply.at ?? null,
-      segments: replySegments(reply.text),
-    })),
+    ...conversation,
     tail: deps.logs(call.id, TAIL).lines,
     queued: deps.steer.queue.of(call.id),
     archived: Boolean(row.archivedAt),

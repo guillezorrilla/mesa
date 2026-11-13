@@ -10,18 +10,16 @@ import { appended } from './draftMap';
 import { PhotoChip } from './PhotoChip';
 import { PromptChips } from './PromptChips';
 import { SendNote } from './SendNote';
-import { SentList } from './SentList';
-import { usePhoto } from './usePhoto';
 import { usePrompts } from './usePrompts';
-import { useSend } from './useSend';
+import type { Reply } from './useReply';
 
 /**
- * The reply bar under a session: what was sent from here, the last send's note, saved prompts,
- * an attached photo, then attach, the draft and send. iOS's own keyboard dictation types into it.
+ * The reply bar under a session: the last send's note, saved prompts, an attached photo, then
+ * attach, the draft and send; what was sent shows in the conversation above. iOS's own keyboard
+ * dictation types into it.
  */
-export function Composer({ id, onSent }: { id: string; onSent: () => void }) {
-  const { photo, setPhoto, attach } = usePhoto();
-  const send = useSend(id, { onSent, restorePhoto: setPhoto });
+export function Composer({ reply }: { reply: Reply }) {
+  const { photo, setPhoto, attach, send } = reply;
   const prompts = usePrompts();
   const empty = !send.draft.trim() && !photo;
   const submit = (yes = false) => {
@@ -30,7 +28,6 @@ export function Composer({ id, onSent }: { id: string; onSent: () => void }) {
   };
   return (
     <View className="gap-2.5 border-t border-border bg-background px-3 py-2.5">
-      <SentList items={send.shown} />
       <SendNote outcome={send.outcome} onSendAnyway={() => submit(true)} />
       <Suspense fallback={null}>
         <PromptChips
