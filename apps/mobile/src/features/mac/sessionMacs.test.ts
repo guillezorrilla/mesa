@@ -11,4 +11,5 @@ test("a screen talks to the Mac its route names, else its id's, else the Mac it 
   expect(macFor({ id: 'forked00' })).toBe('laptop');
   expect(macFor({ id: 'forked00', mac: 'studio' })).toBe('studio');
   expect(macFor({ id: 'forked00' })).toBe('studio');
+  expect(macFor(undefined)).toBeUndefined();
 });

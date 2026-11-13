@@ -11,6 +11,8 @@ export const AGENT_LABELS = {
 export type Agent = keyof typeof AGENT_LABELS;
 export const AGENT_NAMES = Object.keys(AGENT_LABELS) as [Agent, ...Agent[]];
 export const DEFAULT_AGENT: Agent = 'claude';
+/** `agent`'s label, or its name for one this build does not know (a newer Mac's, on the phone). */
+export const agentLabel = (agent: string): string => AGENT_LABELS[agent as Agent] ?? agent;
 export const AGENT_EXECUTABLES = { claude: 'claude', codex: 'codex', antigravity: 'agy' } as const;
 
 /** Qualified native operations. Mesa-owned stop, queue, handoff, and worktree controls apply to all. */

@@ -13,12 +13,14 @@ export function rememberMac(mac: string, ids: readonly string[]) {
 /**
  * The Mac a screen's route names: `mac` (a push names its pairing), else the Mac its `id` was
  * seen on, else the Mac of the screen it was pushed from (a session a fork just started); the id
- * is then known to be there. Undefined until any is known: the first Mac.
+ * is then known to be there. A screen with neither (New session, the Agents list) gets
+ * undefined: the first Mac.
  */
 export function macFor(params: { mac?: string; id?: string } | undefined): string | undefined {
-  const mac = params?.mac ?? (params?.id ? owners.get(params.id) : undefined) ?? scoped;
+  const id = params?.id;
+  const mac = params?.mac ?? (id ? (owners.get(id) ?? scoped) : undefined);
   if (!mac) return undefined;
   scoped = mac;
-  if (params?.id) owners.set(params.id, mac);
+  if (id) owners.set(id, mac);
   return mac;
 }
