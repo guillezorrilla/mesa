@@ -2,7 +2,7 @@
 // day, per session with its context use, and the cost alerts reached. rpc.ts adds the call.
 import { z } from 'zod';
 
-/** An estimated cost in US dollars; null while any reading in it has no price. */
+/** An estimated cost in US dollars, of what is priced; null when nothing in it is. */
 const cost = z.number().nullable();
 
 /** One session on the board: its estimated cost so far and how full its context window is. */
@@ -19,6 +19,13 @@ export const phoneUsage = z.object({
   today: cost,
   week: cost,
   month: cost,
+  /**
+   * How many sessions each period's cost leaves out (core's UsageTotals `excluded`). An older Mac
+   * sends none, and its periods are null while any is.
+   */
+  excluded: z
+    .object({ today: z.number(), week: z.number(), month: z.number() })
+    .default({ today: 0, week: 0, month: 0 }),
   /** The last 14 local days, oldest first, each `YYYY-MM-DD`. */
   days: z.array(z.object({ day: z.string(), cost })),
   /** Costliest first. */

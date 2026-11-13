@@ -61,7 +61,7 @@ export function usageService(ctx: MesaContext) {
               size: stats.reduce((total, stat) => total + stat.size, 0),
               mtimeMs: Math.max(...stats.map((stat) => stat.mtimeMs)),
               // Raised when a reader counts differently, so sources it stamped are read again.
-              reader: 3,
+              reader: 4,
             };
             if (
               prior &&
@@ -90,10 +90,6 @@ export function usageService(ctx: MesaContext) {
         now,
         records.filter((record) => unknownIds.has(record.id)),
       );
-      const known = summarizeUsage(
-        rows.filter((row) => row.estimatedCostUsd !== null),
-        now,
-      );
       const config = existsSync(ctx.paths.config) ? loadConfig(ctx.paths.config).usage : undefined;
       const alerts = (
         [
@@ -102,7 +98,7 @@ export function usageService(ctx: MesaContext) {
           ['month', config?.monthlyAlertUsd ?? 0],
         ] as const
       ).flatMap(([period, thresholdUsd]) => {
-        const knownCostUsd = known.periods[period].estimatedCostUsd;
+        const knownCostUsd = summary.periods[period].estimatedCostUsd;
         return !session && thresholdUsd > 0 && knownCostUsd !== null && knownCostUsd >= thresholdUsd
           ? [{ period, thresholdUsd, knownCostUsd }]
           : [];

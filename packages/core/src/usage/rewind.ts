@@ -59,23 +59,16 @@ export function rewindService(ctx: MesaContext, usage: ReturnType<typeof usageSe
           .map((record) => record.id),
       );
       const unknown = readings.unknown.filter((item) => recent.has(item.session));
-      const totals = usageTotals(readings.rows.filter((row) => within(row.at)));
       return {
         from: localDay(start),
         through: localDay(now),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         notes,
         sessions,
-        usage: unknown.length
-          ? {
-              ...totals,
-              input: null,
-              output: null,
-              cacheRead: null,
-              cacheWrite: null,
-              estimatedCostUsd: null,
-            }
-          : totals,
+        usage: usageTotals(
+          readings.rows.filter((row) => within(row.at)),
+          unknown.map((item) => item.session),
+        ),
         missing: [
           ...(!vaultAvailable ? ['Vault is not initialized'] : []),
           ...unknown.map((item) => `${item.session}: ${item.reason}`),

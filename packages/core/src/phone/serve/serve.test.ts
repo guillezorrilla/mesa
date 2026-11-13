@@ -11,6 +11,7 @@ import {
   untilTrue,
 } from '../../testing/index.js';
 import type { UsageReport } from '../../usage/records.js';
+import { callResults } from '../protocol/rpc.js';
 import { phoneReplies, replySegments } from './replies.js';
 import { askLine } from './rows.js';
 import { phoneUsage } from './usage.js';
@@ -263,7 +264,16 @@ test('the Inbox, usage and push settings answer the phone through core', async (
 
   // No readings yet: nothing spent, the session listed with its context.
   const usage = await calls.call({ method: 'usage' });
-  expect(usage).toMatchObject({ today: 0, week: 0, month: 0, alerts: [] });
+  expect(usage).toMatchObject({
+    today: 0,
+    week: 0,
+    month: 0,
+    excluded: { today: 0, week: 0, month: 0 },
+    alerts: [],
+  });
+  // An older Mac sends no `excluded`: the phone reads its periods as whole.
+  const { excluded: _, ...older } = usage;
+  expect(callResults.usage.parse(older).excluded).toEqual({ today: 0, week: 0, month: 0 });
   expect(usage.days).toHaveLength(14);
   expect(usage.sessions).toEqual([
     { id: session.id, title: 'Login fix', project: 'lantern-cove', cost: null, context: null },

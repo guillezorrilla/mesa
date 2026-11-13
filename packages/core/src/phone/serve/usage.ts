@@ -39,6 +39,11 @@ export function phoneUsage(report: UsageReport, rows: readonly PhoneRow[]): Phon
     today: report.periods.today.estimatedCostUsd,
     week: report.periods['7d'].estimatedCostUsd,
     month: report.periods.month.estimatedCostUsd,
+    excluded: {
+      today: report.periods.today.excluded,
+      week: report.periods['7d'].excluded,
+      month: report.periods.month.excluded,
+    },
     days: report.daily
       .slice(-DAYS)
       .map(({ day, totals }) => ({ day, cost: totals.estimatedCostUsd })),

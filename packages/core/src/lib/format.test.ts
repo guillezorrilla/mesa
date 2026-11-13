@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { duration, formatBytes, listPrice, money, odds, percent, usd } from './format.js';
+import { duration, excludedNote, formatBytes, listPrice, money, odds, percent, usd } from './format.js';
 
 test('durations and list prices read the same everywhere', () => {
   expect([0, 42, 60, 303, 3600, 7620].map(duration)).toEqual([
@@ -26,6 +26,7 @@ test('dollars read to the places a site shows, or in full', () => {
   expect(money(0.004)).toBe('<$0.01');
   expect(money(0)).toBe('$0.00');
   expect(money(null)).toBe('Unknown');
+  expect([0, 1, 2].map(excludedNote)).toEqual(['', 'excludes 1 session', 'excludes 2 sessions']);
 });
 
 test("Faro's odds read to two places", () => {

@@ -10,7 +10,7 @@ export {
   noteLines,
 } from '../../git/diff-lines.js';
 export { relativeAgo, shortAgo, timeAgo } from '../../lib/ago.js';
-export { money } from '../../lib/format.js';
+export { excludedNote, money } from '../../lib/format.js';
 export { localDay } from '../../lib/time.js';
 export { BUCKET_LABELS, commentPlace } from '../../prs/buckets.js';
 export { CHECK_STATES } from '../../prs/check-list.js';
