@@ -56,6 +56,12 @@ export const taskTitle = firstLine;
 export const isSetupSession = (s: SessionRow) =>
   s.managed && s.kind === 'terminal' && Boolean(s.parent) && /^Setup( |$)/.test(s.name ?? '');
 
+/**
+ * Mesa's own plumbing, which no crew list shows: a Setup session (its owner's mark shows a failed
+ * one) or a Skill run (isRun), such as a Vault capture's.
+ */
+export const isInternalSession = (s: SessionRow) => isSetupSession(s) || isRun(s);
+
 /** `owner`'s Setup sessions among `rows` (isSetupSession), those that report to it now. */
 export const setupSessionsOf = <R extends SessionRow>(rows: readonly R[], owner: string) =>
   rows.filter((s) => isSetupSession(s) && s.managed && s.parentNow === owner);
