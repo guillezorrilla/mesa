@@ -1,4 +1,4 @@
-import { firstLine } from '../../agents/steps.js';
+import { firstLine, keep } from '../../agents/steps.js';
 import { clip } from '../../lib/clip.js';
 import type { NativeStep } from '../../sessions/native/responses.js';
 import type { PhoneStep } from '../protocol/steps.js';
@@ -44,4 +44,6 @@ export function phoneSteps(steps: NativeStep[], count: number): PhoneStep[] {
 
 /** A step's whole text, as its opened row shows it: a tool's output, an edit's hunk, a thought. */
 export const stepText = (step: NativeStep) =>
-  step.type === 'tool' ? step.output : step.type === 'edit' ? step.hunk.join('\n') : step.text;
+  keep(
+    step.type === 'tool' ? step.output : step.type === 'edit' ? step.hunk.join('\n') : step.text,
+  );

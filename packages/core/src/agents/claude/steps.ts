@@ -1,10 +1,13 @@
+import { isAbsolute, relative } from 'node:path';
 import {
   editHunk,
   firstLine,
+  keep,
   resultText,
   type StepEvent,
   type ToolKind,
   type TranscriptStep,
+  stringOf as text,
 } from '../steps.js';
 import { parsedLine } from '../transcripts.js';
 
@@ -14,6 +17,7 @@ import { parsedLine } from '../transcripts.js';
 type Line = {
   type?: unknown;
   uuid?: unknown;
+  cwd?: unknown;
   isSidechain?: unknown;
   message?: { content?: unknown };
 };
@@ -43,11 +47,12 @@ const TOOLS: Record<string, [ToolKind, string]> = {
   TodoWrite: ['plan', ''],
 };
 
-const text = (value: unknown) => (typeof value === 'string' ? value : '');
-
 /** An Edit, MultiEdit, Write or NotebookEdit call as an edit of its file; none for another tool. */
-function editOf(id: string, name: string, input: Input): TranscriptStep | undefined {
-  const path = text(input.file_path) || text(input.notebook_path);
+function editOf(id: string, name: string, input: Input, cwd: string): TranscriptStep | undefined {
+  const written = text(input.file_path) || text(input.notebook_path);
+  // Claude Code writes absolute paths; one under its folder reads as the changes list names it.
+  const inside = cwd && isAbsolute(written) ? relative(cwd, written) : '';
+  const path = inside && !inside.startsWith('..') ? inside : written;
   const parts =
     name === 'Edit'
       ? [[text(input.old_string), text(input.new_string)]]
@@ -72,12 +77,12 @@ function editOf(id: string, name: string, input: Input): TranscriptStep | undefi
 }
 
 /** A tool_use block as a step. */
-function toolOf(block: ContentBlock): TranscriptStep | undefined {
+function toolOf(block: ContentBlock, cwd: string): TranscriptStep | undefined {
   const id = text(block.id);
   const name = text(block.name);
   if (!id || !name) return undefined;
   const input = block.input && typeof block.input === 'object' ? (block.input as Input) : {};
-  const edit = editOf(id, name, input);
+  const edit = editOf(id, name, input, cwd);
   if (edit) return edit;
   const [kind, field] = TOOLS[name] ?? ['other', ''];
   return {
@@ -113,12 +118,18 @@ export function claudeStepEvents(line: string): StepEvent[] {
   if (entry.type !== 'assistant') return [];
   return blocks.flatMap((block, at): StepEvent[] => {
     if (block?.type === 'tool_use') {
-      const step = toolOf(block);
+      const step = toolOf(block, text(entry.cwd));
       return step ? [{ start: step }] : [];
     }
     if (block?.type === 'thinking' && text(block.thinking).trim())
       return [
-        { start: { type: 'thought', id: `${text(entry.uuid)}:${at}`, text: text(block.thinking) } },
+        {
+          start: {
+            type: 'thought',
+            id: `${text(entry.uuid)}:${at}`,
+            text: keep(text(block.thinking)),
+          },
+        },
       ];
     return [];
   });

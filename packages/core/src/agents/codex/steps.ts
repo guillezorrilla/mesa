@@ -1,9 +1,12 @@
 import {
   firstLine,
+  HUNK_LINES,
+  keep,
   resultText,
   type StepEvent,
   type ToolKind,
   type TranscriptStep,
+  stringOf as text,
 } from '../steps.js';
 import { parsedLine } from '../transcripts.js';
 
@@ -22,8 +25,6 @@ type Payload = {
   action?: { command?: unknown; query?: unknown };
   summary?: unknown;
 };
-
-const text = (value: unknown) => (typeof value === 'string' ? value : '');
 
 /** Codex's tools by kind; any other name is `other`. */
 const KINDS: Record<string, ToolKind> = {
@@ -70,7 +71,7 @@ export function patchEdits(id: string, patch: string): TranscriptStep[] {
     path: edit.path,
     added: edit.lines.filter((line) => line.startsWith('+')).length,
     removed: edit.lines.filter((line) => line.startsWith('-')).length,
-    hunk: edit.lines.slice(0, 2000),
+    hunk: edit.lines.slice(0, HUNK_LINES),
     status: 'running',
   }));
 }
@@ -135,7 +136,7 @@ export function codexStepEvents(line: string): StepEvent[] {
         ? (payload.summary as { text?: unknown }[]).map((part) => text(part?.text)).join('\n\n')
         : '';
       return summary.trim() && text(payload.id)
-        ? [{ start: { type: 'thought', id: text(payload.id), text: summary } }]
+        ? [{ start: { type: 'thought', id: text(payload.id), text: keep(summary) } }]
         : [];
     }
     default:

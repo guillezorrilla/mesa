@@ -2,4 +2,4 @@
 type: added
 ---
 
-Steps in the phone's session chat: what the agent did between its replies, its commands, file reads and searches, edits and reasoning, shows as one line per turn that opens to each step, a step's output or thinking on a tap and an edit's diff in the diff viewer; `mesa review responses --json` lists the same steps.
+The phone's session chat shows what the agent did between its replies: its commands, reads, searches, edits and reasoning, as one line per turn that opens to each step. A tap shows a step's output or thinking, or opens an edit's diff, and `mesa review responses --json` lists the same steps.

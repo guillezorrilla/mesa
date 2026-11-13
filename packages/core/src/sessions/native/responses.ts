@@ -161,6 +161,12 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
       truncated: cut,
     });
   }
+  // Every message read: the steps before the first are older than every response.
+  if (rows.length < MAX_RESPONSES)
+    for (; next >= 0; next--) {
+      const step = placed[next]?.step;
+      if (step) steps.push({ ...step, newer: rows.length });
+    }
   return { rows, prompts, steps, reviews, truncated: truncated || rows.length === MAX_RESPONSES };
 }
 

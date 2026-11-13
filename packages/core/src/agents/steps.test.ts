@@ -7,6 +7,7 @@ const claudeLine = (type: 'user' | 'assistant', content: unknown, extra: object 
   type,
   uuid: `${type}-${JSON.stringify(content).length}`,
   timestamp: at,
+  cwd: '/code/kettle',
   message: { role: type, content },
   ...extra,
 });
@@ -30,7 +31,8 @@ test("Claude Code's tool calls, edits and thinking are read between its messages
         id: 'tu-2',
         name: 'Edit',
         input: {
-          file_path: 'src/boil.ts',
+          // Claude Code writes the path whole; it reads relative to its folder.
+          file_path: '/code/kettle/src/boil.ts',
           old_string: 'a\nfloor(t)\nb',
           new_string: 'a\nround(t)\nb',
         },
@@ -120,6 +122,7 @@ test("Codex's calls, apply_patch edits and reasoning summaries are read between 
           '*** End Patch',
         ].join('\n'),
       }),
+      response({ type: 'custom_tool_call_output', call_id: 'call-2', output: 'Success.' }),
       response({
         type: 'message',
         role: 'assistant',
@@ -133,7 +136,7 @@ test("Codex's calls, apply_patch edits and reasoning summaries are read between 
   expect(steps.map(({ step }) => step)).toMatchObject([
     { type: 'thought', id: 'rs-1', text: 'Look at the timer' },
     { type: 'tool', id: 'call-1', kind: 'command', target: 'pnpm test', status: 'failed' },
-    { type: 'edit', id: 'call-2', path: 'src/boil.ts', added: 1, removed: 1 },
-    { type: 'edit', id: 'call-2:1', path: 'src/boil.test.ts', added: 1, removed: 0 },
+    { type: 'edit', id: 'call-2', path: 'src/boil.ts', added: 1, removed: 1, status: 'done' },
+    { type: 'edit', id: 'call-2:1', path: 'src/boil.test.ts', added: 1, status: 'done' },
   ]);
 });

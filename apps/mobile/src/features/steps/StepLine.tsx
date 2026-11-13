@@ -7,7 +7,7 @@ import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 import { StepDetail } from './StepDetail';
 import { stepIcon } from './stepIcon';
-import { stepLabel } from './stepWords';
+import { failed as hasFailed, stepLabel } from './stepWords';
 
 /**
  * One tool call or thought in a run, as orca's tool line: its mark, a muted verb and its target
@@ -16,7 +16,7 @@ import { stepLabel } from './stepWords';
 export function StepLine({ id, step }: { id: string; step: PhoneStep }) {
   const [open, setOpen] = useState(false);
   const { verb, target } = stepLabel(step);
-  const failed = step.type !== 'thought' && step.status === 'failed';
+  const failed = hasFailed(step);
   return (
     <View className="gap-1.5">
       <Pressable

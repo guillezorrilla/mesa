@@ -9,8 +9,7 @@ import { cn } from '@/lib/utils';
 import { EditLine } from './EditLine';
 import { StepLine } from './StepLine';
 import { stepIcon } from './stepIcon';
-import { runSentence } from './stepWords';
-import { useOpenEdit } from './useOpenEdit';
+import { failed as hasFailed, running, runSentence } from './stepWords';
 
 /**
  * What the agent did in one gap of session `id`'s conversation, as orca's tool run: one muted
@@ -19,10 +18,9 @@ import { useOpenEdit } from './useOpenEdit';
  */
 export function StepRun({ id, steps }: { id: string; steps: PhoneStep[] }) {
   const [open, setOpen] = useState(false);
-  const openEdit = useOpenEdit(id);
   const first = steps[0];
-  const failed = steps.filter((step) => step.type !== 'thought' && step.status === 'failed').length;
-  const done = steps.every((step) => step.type === 'thought' || step.status !== 'running');
+  const failed = steps.filter(hasFailed).length;
+  const done = !steps.some(running);
   if (!first) return null;
   return (
     <View className="gap-1">
@@ -47,7 +45,7 @@ export function StepRun({ id, steps }: { id: string; steps: PhoneStep[] }) {
         <View className="ml-[7px] gap-0.5 border-l border-border pl-[13px]">
           {steps.map((step) =>
             step.type === 'edit' ? (
-              <EditLine key={step.id} step={step} onOpen={openEdit} />
+              <EditLine key={step.id} id={id} step={step} />
             ) : (
               <StepLine key={step.id} id={id} step={step} />
             ),

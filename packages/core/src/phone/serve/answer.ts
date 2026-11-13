@@ -136,12 +136,13 @@ export async function answerCall(
     return { text: stepText(step) } satisfies CallResult<'step'>;
   }
   const count = call.replies ?? SESSION_REPLIES.first;
-  const withSteps = call.replies !== undefined;
+  // A phone that names a count is new enough for prompts and steps.
+  const newerPhone = call.replies !== undefined;
   return {
     row: toPhoneRow(row),
     goal: row.goal ?? null,
-    ...phoneReplies(read, count, withSteps),
-    ...(withSteps ? { steps: phoneSteps(read.steps, count) } : {}),
+    ...phoneReplies(read, count, newerPhone),
+    ...(newerPhone ? { steps: phoneSteps(read.steps, count) } : {}),
     tail: deps.logs(call.id, TAIL).lines,
     queued: deps.steer.queue.of(call.id),
     archived: Boolean(row.archivedAt),

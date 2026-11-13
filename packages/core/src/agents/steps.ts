@@ -7,6 +7,9 @@ import type { TranscriptMessage } from './transcripts.js';
 /** What a tool call did, by the kind of work, as orca's chat words and draws it. */
 export type ToolKind = 'read' | 'search' | 'list' | 'command' | 'web' | 'agent' | 'plan' | 'other';
 
+/** Where a tool call or an edit is: still running, done, or failed. */
+export type StepStatus = 'running' | 'done' | 'failed';
+
 /**
  * One step: a tool call (its kind, its tool's name, a one-line target such as a path or a
  * command, whether it failed, and what it printed), an edit of one file (its path, lines added
@@ -20,7 +23,7 @@ export type TranscriptStep =
       kind: ToolKind;
       name: string;
       target: string;
-      status: 'running' | 'done' | 'failed';
+      status: StepStatus;
       output: string;
     }
   | {
@@ -30,7 +33,7 @@ export type TranscriptStep =
       added: number;
       removed: number;
       hunk: string[];
-      status: 'running' | 'done' | 'failed';
+      status: StepStatus;
     }
   | { type: 'thought'; id: string; text: string };
 
@@ -42,10 +45,18 @@ export type StepEvent =
 /** A step and how many of the transcript's messages come before it. */
 export type PlacedStep = { step: TranscriptStep; before: number };
 
-/** How much of a tool's output or a hunk a step keeps. */
+/** How much of a tool's output or a thought a step keeps, and how many lines of a hunk. */
 export const STEP_TEXT = 32 << 10;
+export const HUNK_LINES = 2000;
 
-const keep = (text: string) => text.slice(0, STEP_TEXT);
+/** `text` cut to what a step keeps, saying so when cut. */
+export const keep = (text: string) =>
+  text.length > STEP_TEXT
+    ? `${text.slice(0, STEP_TEXT)}\n[${text.length - STEP_TEXT} more characters on the Mac]`
+    : text;
+
+/** A transcript field as a string, empty when it is none. */
+export const stringOf = (value: unknown) => (typeof value === 'string' ? value : '');
 
 /** A one-line target from a longer text: its first non-blank line, trimmed. */
 export const firstLine = (text: unknown) =>
@@ -76,7 +87,7 @@ export function editHunk(before: string, after: string) {
       ...removed.map((line) => `-${line}`),
       ...added.map((line) => `+${line}`),
       ...old.slice(old.length - tail).map((line) => ` ${line}`),
-    ].slice(0, 2000),
+    ].slice(0, HUNK_LINES),
   };
 }
 
@@ -100,10 +111,13 @@ export function readTurns(
         steps.push({ step: event.start, before: messages.length });
         continue;
       }
-      const step = byId.get(event.result.id);
-      if (!step || step.type === 'thought') continue;
-      step.status = event.result.failed ? 'failed' : 'done';
-      if (step.type === 'tool') step.output = keep(event.result.output);
+      // One call's result finishes each step it started (a patch's edits are `<id>:<n>`).
+      const { id } = event.result;
+      for (const [key, step] of byId) {
+        if ((key !== id && !key.startsWith(`${id}:`)) || step.type === 'thought') continue;
+        step.status = event.result.failed ? 'failed' : 'done';
+        if (step.type === 'tool') step.output = keep(event.result.output);
+      }
     }
     const message = messageIn(line, index);
     if (message) messages.push(message);

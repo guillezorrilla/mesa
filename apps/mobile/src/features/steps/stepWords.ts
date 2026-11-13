@@ -54,6 +54,12 @@ export function runSentence(steps: PhoneStep[]): string {
     .join(', ');
 }
 
+/** A tool call or an edit that failed; a thought never does. */
+export const failed = (step: PhoneStep) => step.type !== 'thought' && step.status === 'failed';
+
+/** A tool call or an edit still running. */
+export const running = (step: PhoneStep) => step.type !== 'thought' && step.status === 'running';
+
 /** How many lines of a step's text show before "Show all". */
 export const SHOWN_LINES = 40;
 
