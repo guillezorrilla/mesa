@@ -92,3 +92,16 @@ test('a Mac with no direct socket answers the ask with nothing, and the phone st
   expect(at.paths).toEqual([]);
   await at.end();
 });
+
+test('a retry dial that never opens holds no call: it goes by the relay at once', async () => {
+  const at = await servingDirect();
+  expect(await untilTrue(() => at.line.path() !== 'relay')).toBe(true);
+  at.direct.down();
+  expect(await untilTrue(() => at.line.path() === 'relay')).toBe(true);
+  at.direct.silent();
+  const dials = at.direct.dials();
+  await at.timers.pass(RETRY_MS);
+  expect(await untilTrue(() => at.direct.dials() > dials)).toBe(true);
+  expect((await at.calls.call({ method: 'sessions' })).rows).toHaveLength(1);
+  await at.end();
+});

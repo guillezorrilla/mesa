@@ -7,10 +7,13 @@ import { z } from 'zod';
  * The phone's `{kind: 'direct'}` asks the Mac where its socket is, and is also the sealed box that
  * opens a direct socket; the Mac answers with its `port` and `hosts` (none when it has no socket).
  */
+/** The most addresses the Mac offers. */
+export const HOSTS_MAX = 8;
+
 export const directMessage = z.object({
   kind: z.literal('direct'),
   port: z.number().int().min(1).max(65_535).optional(),
-  hosts: z.array(z.ipv4()).max(8).optional(),
+  hosts: z.array(z.ipv4()).max(HOSTS_MAX).optional(),
 });
 export type DirectMessage = z.infer<typeof directMessage>;
 
@@ -18,7 +21,7 @@ export type DirectMessage = z.infer<typeof directMessage>;
 export type MacPath = 'relay' | 'lan' | 'tailscale';
 
 /** Tailscale's addresses: 100.64.0.0/10 (orca's classifyRemotePairingHostname). */
-const isTailnet = (host: string) => {
+export const isTailnet = (host: string) => {
   const [a, b] = host.split('.').map(Number);
   return a === 100 && b !== undefined && b >= 64 && b <= 127;
 };

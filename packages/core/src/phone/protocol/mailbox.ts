@@ -83,8 +83,9 @@ export function mailbox(
   // The direct path, once its sealed hello opened: dialed by the phone, which then always sends
   // on it, or accepted by the Mac, which answers on it while the phone last spoke there.
   let direct: { socket: Socket; dialed: boolean } | undefined;
-  // The phone's dials still racing; its sends wait for them (the head start), until `undial`.
+  // The phone's dials still racing; while `holding`, its sends wait for them (the head start).
   let dialing: Socket[] = [];
+  let holding = false;
   let spoke: 'relay' | 'direct' = 'relay';
   let { sentSeq } = end;
   const seqs = takenSeqs(end.takenSeq);
@@ -98,7 +99,7 @@ export function mailbox(
     if (way && (way.dialed || spoke === 'direct'))
       return (box) =>
         way.socket.send(frame(way.dialed ? { t: 'send', box } : { t: 'msg', id: 0, box }));
-    if (dialing.length) return undefined;
+    if (dialing.length && holding) return undefined;
     const relay = socket;
     if (ready && relay) return (box) => relay.send(frame({ t: 'send', box }));
     return undefined;
@@ -117,13 +118,16 @@ export function mailbox(
     sentSeq = nextSeq(sentSeq, now);
     return sealMessage(end.keys, sentSeq, now, message);
   };
-  /** Opens a box from `from`: the whole message once its parts are in, else undefined. */
-  const take = (box: string, from: 'relay' | 'direct'): PhoneMessage | undefined => {
+  /**
+   * Opens a box, noting that the other side spoke `from` there (a hello's caller notes it once the
+   * hello checks): the whole message once its parts are in, else undefined.
+   */
+  const take = (box: string, from?: 'relay' | 'direct'): PhoneMessage | undefined => {
     const opened = openMessage(end.keys, box, seqs.floor());
     const last = seqs.last();
     if (typeof opened === 'string' || !seqs.take(opened.seq)) return undefined;
     if (seqs.last() !== last) on.taken?.(seqs.last());
-    spoke = from;
+    if (from) spoke = from;
     const { message } = opened;
     if (message.kind !== 'part') return message;
     const json = joiner.add(message, deps.now().getTime());
@@ -199,10 +203,12 @@ export function mailbox(
     },
     /**
      * The phone dials the Mac's socket at each URL; the first to open carries a sealed hello and,
-     * once the Mac answers ready, takes every send. Sends wait meanwhile, until `undial`.
+     * once the Mac answers ready, takes every send. With `hold`, sends wait meanwhile, until
+     * `undial`; without, they go by the broker until then.
      */
-    dial(urls: string[]) {
+    dial(urls: string[], hold: boolean) {
       if (direct || dialing.length) return;
+      holding = hold;
       for (const url of urls) {
         const mine: Socket = deps.connect(url, {
           open: () => {
@@ -253,8 +259,9 @@ export function mailbox(
           const got = parse(data);
           if (direct !== self) {
             const hello =
-              got.t === 'auth' && typeof got.box === 'string' ? take(got.box, 'direct') : undefined;
+              got.t === 'auth' && typeof got.box === 'string' ? take(got.box) : undefined;
             if (hello?.kind !== 'direct') return peer.close();
+            spoke = 'direct';
             const old = direct;
             direct = self;
             old?.socket.close();

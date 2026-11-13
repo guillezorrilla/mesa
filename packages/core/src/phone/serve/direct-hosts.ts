@@ -1,11 +1,8 @@
 import type { NetworkInterfaceInfo } from 'node:os';
+import { HOSTS_MAX, isTailnet } from '../protocol/direct.js';
 
 /** Addresses no phone can dial: link-local (169.254/16) and a proxy's fake IPs (198.18/15, orca's). */
 const UNDIALABLE = /^(169\.254|198\.1[89])\./;
-const isTailnet = (address: string) => {
-  const [a, b] = address.split('.').map(Number);
-  return a === 100 && b !== undefined && b >= 64 && b <= 127;
-};
 
 /**
  * The Mac's addresses the phone may dial its direct socket at, Tailscale's first, then the LAN's
@@ -20,5 +17,5 @@ export function directHosts(interfaces: NodeJS.Dict<NetworkInterfaceInfo[]>): st
         family === 'IPv4' && !internal && !UNDIALABLE.test(address),
     )
     .map(({ address }) => address);
-  return [...new Set([...hosts.filter(isTailnet), ...hosts])].slice(0, 8);
+  return [...new Set([...hosts.filter(isTailnet), ...hosts])].slice(0, HOSTS_MAX);
 }

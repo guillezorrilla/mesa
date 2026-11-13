@@ -16,7 +16,8 @@ export const RETRY_MS = 60_000;
 /**
  * The phone's choice of path to one Mac (#1129, after orca's MobileEndpointSupervisor): it asks the
  * Mac where its own socket is, over the relay, and dials it; sends go direct once it answers, by
- * the relay when it does not within HEAD_START_MS or drops, and direct again after RETRY_MS. Feed
+ * the relay when it does not within HEAD_START_MS or drops, and direct again after RETRY_MS (a
+ * dial that holds no send, as orca's return probe). Feed
  * it every message from the Mac (`heard`) and every move of the mailbox's direct path (`moved`).
  */
 export function directPath(
@@ -29,6 +30,8 @@ export function directPath(
   let running = false;
   let dialing = false;
   let dials = 0;
+  // Sends wait for the first dial after the line opens (the head start), not for a retry.
+  let fresh = false;
   let coolUntil = 0;
   // Bumped on stop, so a wait from an earlier run does nothing.
   let run = 0;
@@ -50,7 +53,8 @@ export function directPath(
     if (!running || dialing || path !== 'relay' || !urls.length || deps.now() < coolUntil) return;
     dialing = true;
     const mine = ++dials;
-    box.dial(urls);
+    box.dial(urls, fresh);
+    fresh = false;
     later(HEAD_START_MS, () => {
       if (!dialing || mine !== dials) return;
       dialing = false;
@@ -63,6 +67,7 @@ export function directPath(
     /** The line opened: dial the addresses known, and ask for fresh ones. */
     start() {
       running = true;
+      fresh = true;
       dial();
       ask();
     },
