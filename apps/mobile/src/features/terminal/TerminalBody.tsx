@@ -1,13 +1,13 @@
 import type { PhoneDetail } from '@mesa/core/phone';
-import { Stack } from 'expo-router';
 import { ErrorNote } from '@/components/ErrorNote';
+import { SessionBar } from '../sessions/SessionBar';
 import { SessionHeader } from '../sessions/SessionHeader';
 import { SessionMenu } from '../sessions/SessionMenu';
 import { TerminalOutput } from './TerminalOutput';
 import { useTerminalOutput } from './useTerminalOutput';
 
 /**
- * A plain terminal session: its state, then its live output; its menu in the header. `onChange`
+ * A plain terminal session: its state, then its live output; its menu in its bar. `onChange`
  * reads it again after the phone changed it; `pushed` says whether the Mac pushes its output.
  */
 export function TerminalBody({
@@ -24,14 +24,9 @@ export function TerminalBody({
   const lines = useTerminalOutput(detail.row.id, detail.tail, pushed);
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: detail.row.title,
-          headerRight: () => (
-            <SessionMenu row={detail.row} archived={detail.archived} onDone={onChange} />
-          ),
-        }}
-      />
+      <SessionBar row={detail.row}>
+        <SessionMenu row={detail.row} archived={detail.archived} onDone={onChange} />
+      </SessionBar>
       <TerminalOutput
         lines={lines}
         header={

@@ -1,10 +1,9 @@
 import type { PhoneRow } from '@mesa/core/phone';
 import Ellipsis from 'lucide-react-native/icons/ellipsis';
-import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
+import { RoundButton } from '@/components/RoundButton';
 import { useSessionActions } from './useSessionActions';
 
-/** The header's session menu: stop or resume, fork, hand off, rename, archive or unarchive. */
+/** The session bar's menu: stop or resume, fork, hand off, rename, archive or unarchive. */
 export function SessionMenu({
   row,
   archived,
@@ -15,9 +14,5 @@ export function SessionMenu({
   onDone: () => void;
 }) {
   const open = useSessionActions(row, archived, onDone);
-  return (
-    <Button size="icon" variant="ghost" onPress={open} accessibilityLabel="Session actions">
-      <Icon as={Ellipsis} className="size-6 text-foreground" />
-    </Button>
-  );
+  return <RoundButton icon={Ellipsis} label="Session actions" onPress={open} />;
 }
