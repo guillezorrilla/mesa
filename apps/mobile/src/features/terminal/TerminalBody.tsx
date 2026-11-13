@@ -4,31 +4,27 @@ import { SessionBar } from '../sessions/SessionBar';
 import { SessionHeader } from '../sessions/SessionHeader';
 import { SessionMenu } from '../sessions/SessionMenu';
 import { TerminalOutput } from './TerminalOutput';
-import { useTerminalOutput } from './useTerminalOutput';
 
 /**
  * A plain terminal session: its state, then its live output; its menu in its bar. `onChange`
- * reads it again after the phone changed it; `pushed` says whether the Mac pushes its output.
+ * reads it again after the phone changed it.
  */
 export function TerminalBody({
   detail,
   error,
   onChange,
-  pushed,
 }: {
   detail: PhoneDetail;
   error?: string;
   onChange: () => void;
-  pushed: boolean;
 }) {
-  const lines = useTerminalOutput(detail.row.id, detail.tail, pushed);
   return (
     <>
       <SessionBar row={detail.row}>
         <SessionMenu row={detail.row} archived={detail.archived} onDone={onChange} />
       </SessionBar>
       <TerminalOutput
-        lines={lines}
+        id={detail.row.id}
         header={
           <>
             {error ? <ErrorNote text={error} /> : null}

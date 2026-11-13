@@ -1,35 +1,32 @@
-import { type ReactNode, useRef } from 'react';
-import { ScrollView, type ScrollViewInstance, View } from 'react-native';
-import { Text } from '@/components/ui/text';
+import type { ReactNode } from 'react';
+import { View } from 'react-native';
+import { JumpButton } from '../sessions/JumpButton';
+import { TerminalPage } from './TerminalPage';
+import { useTerminalStream } from './useTerminalStream';
 
 /**
- * A terminal's screen: `header` above its output, as native mono text that follows the newest
- * line, selectable to copy.
+ * A session's output as orca's terminal: xterm in a page, the window's own screen in its colours
+ * at the phone's width, following the newest line until the person scrolls up, when a button
+ * jumps back. One screen for a terminal session (`header` above it) and an agent's output
+ * (`agent`).
  */
-export function TerminalOutput({ lines, header }: { lines: string[]; header: ReactNode }) {
-  const scroll = useRef<ScrollViewInstance>(null);
+export function TerminalOutput({
+  id,
+  agent = false,
+  header,
+}: {
+  id: string;
+  agent?: boolean;
+  header?: ReactNode;
+}) {
+  const terminal = useTerminalStream(id, agent);
   return (
-    <ScrollView
-      ref={scroll}
-      className="flex-1 bg-background"
-      contentContainerClassName="gap-3 p-4"
-      contentInsetAdjustmentBehavior="automatic"
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="interactive"
-      onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: false })}
-    >
-      {header}
-      <View className="min-h-64 rounded-xl border border-border bg-muted px-3 py-2.5">
-        {lines.length ? (
-          <Text selectable className="font-mono text-xs leading-5 text-foreground">
-            {lines.join('\n')}
-          </Text>
-        ) : (
-          <Text variant="muted" className="font-mono text-xs">
-            No output yet.
-          </Text>
-        )}
+    <View className="flex-1 bg-background">
+      {header ? <View className="gap-3 px-4 pt-3 pb-2">{header}</View> : null}
+      <View className="flex-1">
+        <TerminalPage ref={terminal.page} onMessage={terminal.onMessage} />
+        {terminal.away ? <JumpButton fresh={0} onPress={terminal.jump} /> : null}
       </View>
-    </ScrollView>
+    </View>
   );
 }

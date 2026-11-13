@@ -66,6 +66,20 @@ test('the live output is the log tail, and an unknown key never reaches the Mac'
   await at.end();
 });
 
+test('the screen sizes the window to the phone and draws its pane with the cursor where it is', async () => {
+  const at = await terminal();
+  plantOutputLog(at.home, at.id, '$ ls\n');
+  at.window.screen = '\x1b[34m$ ls\x1b[0m\nREADME.md\n\n';
+  at.window.cursor = { x: 2, y: 2 };
+  expect(await at.calls.call({ method: 'screen', id: at.id, cols: 44, rows: 30 })).toEqual({
+    text: '\x1b[34m$ ls\x1b[0m\r\nREADME.md\r\n\x1b[3;3H',
+    at: 5,
+  });
+  // Sized for the phone now, and back to tmux's own policy, so the Mac's view takes it back.
+  expect(at.window.size).toEqual({ cols: 44, rows: 30, pinned: false });
+  await at.end();
+});
+
 test('mesa type and mesa keys refuse an agent session and an unknown key', async () => {
   const at = await servingPhone();
   const { id } = await livePhoneSession(at);

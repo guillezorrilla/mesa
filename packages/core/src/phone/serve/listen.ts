@@ -7,12 +7,18 @@ import { isGone } from '../pair.js';
 import type { PairingClient } from '../protocol/client.js';
 import type { PhoneMessage } from '../protocol/envelope.js';
 import { type ConnectSocket, mailbox } from '../protocol/mailbox.js';
-import { isWatchCall, type PhoneCall, type PhoneRow, WATCH_MS } from '../protocol/rpc.js';
+import {
+  type CallResult,
+  isWatchCall,
+  type PhoneCall,
+  type PhoneRow,
+  WATCH_MS,
+} from '../protocol/rpc.js';
 import { type AnswerDeps, answerCall, boardRows, type ListenerAnswers } from './answer.js';
 import { deliverQueued } from './deliver.js';
 import type { DirectListen, DirectServer } from './direct-socket.js';
 import { keptDiffs } from './kept-diffs.js';
-import { watchRowFiles } from './row-files.js';
+import { watchOutputLog, watchRowFiles } from './row-files.js';
 import { keptAsks, phoneRows, rowChanges } from './rows.js';
 import { readWatched, sessionWatches } from './watches.js';
 
@@ -170,8 +176,10 @@ async function listen(
   const watches = sessionWatches({
     now,
     sleep: deps.sleep,
-    read: (id, replies) =>
-      readWatched({ ...answers, board: () => looked?.rows ?? board() }, id, replies),
+    read: (id, replies, stream) =>
+      readWatched({ ...answers, board: () => looked?.rows ?? board() }, id, replies, stream),
+    since: answers.since,
+    follow: (id, changed) => watchOutputLog(deps.rowFiles.logs, id, changed),
     send: (watched) =>
       box.send({ kind: 'update', rows: [], gone: [], order: [], watched: [watched] }),
   });
@@ -179,6 +187,8 @@ async function listen(
     try {
       const { call } = request;
       const result = isWatchCall(call) ? watches.answer(call) : await answerCall(answers, call);
+      // The stream goes on from where the screen the phone just read ends.
+      if (call.method === 'screen') watches.seek(call.id, (result as CallResult<'screen'>).at);
       if (!READS.has(request.call.method)) stale = true;
       box.send({ kind: 'response', id: request.id, result });
       if (request.call.method === 'sessions') {
@@ -306,6 +316,7 @@ async function listen(
     return { pairingId, ended: 'stopped' };
   } finally {
     unwatch();
+    watches.close();
     direct?.close();
     box.close();
     await saving;

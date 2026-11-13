@@ -43,7 +43,7 @@ export function SessionBody({ session, echoes }: { session: SessionDetail; echoe
       </SessionBar>
       {error ? <ErrorNote text={error} /> : null}
       {output ? (
-        <OutputPane id={detail.row.id} first={detail.tail} />
+        <OutputPane id={detail.row.id} />
       ) : (
         <ChatList
           id={detail.row.id}
