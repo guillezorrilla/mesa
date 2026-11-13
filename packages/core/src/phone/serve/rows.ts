@@ -1,17 +1,23 @@
 import { clip } from '../../lib/clip.js';
 import { firstLine } from '../../lib/format.js';
 import type { PendingPrompt } from '../../sessions/answer/pending.js';
+import { listedSession } from '../../sessions/board/listed.js';
 import type { ManagedRow, SessionRow } from '../../sessions/board/rows.js';
 import { sessionTitle } from '../../sessions/record/labels.js';
 import { WAITING_STATES } from '../../sessions/record/states.js';
 import type { PhoneRow } from '../protocol/rpc.js';
 
 /**
- * The phone's rows: the board's Mesa sessions, in its attention order, each cut to what a list
- * shows. Foreign sessions stay off: the phone acts on sessions, and those are read-only.
+ * The phone's rows: the board's sessions the sidebar lists (listedSession), in its attention
+ * order, each cut to what a list shows. Foreign sessions stay off: the phone acts on sessions,
+ * and those are read-only.
  */
 export const phoneRows = (board: readonly SessionRow[]): PhoneRow[] =>
-  board.filter((row): row is ManagedRow => row.managed).map(toPhoneRow);
+  managedRows(board).filter(listedSession).map(toPhoneRow);
+
+/** The board's Mesa sessions, listed or not: Usage counts an ended session's cost too. */
+export const managedRows = (board: readonly SessionRow[]) =>
+  board.filter((row): row is ManagedRow => row.managed);
 
 export const toPhoneRow = (row: ManagedRow): PhoneRow => ({
   id: row.id,

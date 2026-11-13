@@ -13,7 +13,7 @@ import { answerCrewCall, type CrewDeps, isCrewCall } from './crew.js';
 import { answerInboxCall, type InboxDeps, isInboxCall } from './inbox.js';
 import { answerPushes, type PushesDeps } from './pushes.js';
 import { replySegments } from './replies.js';
-import { askedRows, phoneRows, queuedRows, toPhoneRow } from './rows.js';
+import { askedRows, managedRows, phoneRows, queuedRows, toPhoneRow } from './rows.js';
 import { answerStartCall, isStartCall, type StartDeps } from './start.js';
 import { phoneUsage } from './usage.js';
 import { answerVaultCall, isVaultCall, type VaultDeps } from './vault.js';
@@ -69,7 +69,7 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
   if (call.method === 'usage')
     return phoneUsage(
       await deps.usage(),
-      phoneRows(await deps.board()),
+      managedRows(await deps.board()).map(toPhoneRow),
     ) satisfies CallResult<'usage'>;
   if (call.method === 'pushes')
     return answerPushes(deps.pushes, call.set) satisfies CallResult<'pushes'>;
