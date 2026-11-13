@@ -1,5 +1,4 @@
 import type { PhoneGate } from '@mesa/core/phone';
-import { useIsFocused } from 'expo-router';
 import { useEffect, useEffectEvent, useState } from 'react';
 import { useRepeatWhileActive } from '@/lib/useRepeatWhileActive';
 import { rememberMac } from '../mac/sessionMacs';
@@ -10,9 +9,10 @@ import type { OnMac } from '../sessions/agentRows';
 const EVERY_MS = 60_000;
 
 /**
- * Every paired Mac's open decision gates for Needs you, each naming its Mac, asked on focus (back
- * from a gate just resolved), every minute, and on `refresh`. They never hold the listing: a Mac
- * older than the phone does not answer `gates`, and its last gates stay until one does.
+ * Every paired Mac's open decision gates for Needs you, each naming its Mac, asked at once, every
+ * minute, and on `refresh` (the Agents tab's focus, back from a gate just resolved). They never
+ * hold the listing: a Mac older than the phone does not answer `gates`, and its last gates stay
+ * until one does.
  */
 // ponytail: gates are asked, not pushed in updateMessage; push them if a new gate must show sooner.
 export function useGates() {
@@ -34,11 +34,8 @@ export function useGates() {
         () => undefined,
       );
   };
-  const focused = useIsFocused();
-  const onFocus = useEffectEvent(refresh);
-  useEffect(() => {
-    if (focused) onFocus();
-  }, [focused]);
+  const askNow = useEffectEvent(refresh);
+  useEffect(() => askNow(), []);
   useRepeatWhileActive(EVERY_MS, refresh);
   // A Mac unpaired since takes its gates with it.
   return { gates: gates.filter((gate) => macs.some((mac) => mac.id === gate.mac)), refresh };
