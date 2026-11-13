@@ -28,6 +28,30 @@ export function stepLabel(step: PhoneStep): { verb: string; target: string } {
   return { verb, target: step.target || (named ? step.name : '') };
 }
 
+/** How long the live line's target may be before it is cut. */
+export const LIVE_TARGET = 60;
+
+/**
+ * What a working agent is doing now, as orca's live line says it (#1153): its current step's
+ * verb and target, a long command cut to its first line and LIVE_TARGET characters; "Thinking"
+ * after a thought, and "Working" when the Mac names no step (an older Mac, or between steps).
+ */
+export function liveWords(step?: PhoneStep): { verb: string; target: string } {
+  if (!step) return { verb: 'Working', target: '' };
+  if (step.type === 'thought') return { verb: 'Thinking', target: '' };
+  const { verb, target } = stepLabel(step);
+  const line = target.split('\n')[0]?.trim() ?? '';
+  const chars = Array.from(line);
+  const cut =
+    chars.length > LIVE_TARGET
+      ? `${chars
+          .slice(0, LIVE_TARGET - 3)
+          .join('')
+          .trimEnd()}...`
+      : line;
+  return { verb, target: cut };
+}
+
 const counted = (verb: string, count: number, [one, many]: [string, string]) =>
   `${verb} ${count} ${count === 1 ? one : many}`;
 

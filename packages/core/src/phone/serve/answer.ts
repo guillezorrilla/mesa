@@ -134,7 +134,7 @@ export async function answerCall(
   const row = await managed(call.id);
   // Newest first, as `review responses` lists them; a phone that names a count shows prompts too,
   // and a plain terminal has none.
-  const read =
+  const read: Pick<SessionResponses, 'rows' | 'prompts' | 'steps' | 'current'> =
     row.agent === 'terminal' ? { rows: [], prompts: [], steps: [] } : deps.responses(call.id);
   if (call.method === 'step') {
     const step = read.steps.find((each) => each.id === call.step);
@@ -149,6 +149,7 @@ export async function answerCall(
     goal: row.goal ?? null,
     ...phoneReplies(read, count, newerPhone),
     ...(newerPhone ? { steps: phoneSteps(read.steps, count) } : {}),
+    ...(newerPhone && read.current ? { current: read.current } : {}),
     tail: deps.logs(call.id, TAIL).lines,
     queued: deps.steer.queue.of(call.id),
     archived: Boolean(row.archivedAt),

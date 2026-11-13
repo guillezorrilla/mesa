@@ -38,6 +38,48 @@ test("a session's steps are placed among its replies as its prompts are", async 
   ]);
 });
 
+test('the step an agent is on now is its last, with no result and nothing said after it', async () => {
+  const world = fakeTmux();
+  const run = scriptedRunner({ tmux: world.answer, claude: CLAUDE_VERSION }).run;
+  const { home, dir, mesa } = projectProfile(run);
+  const opened = (await mesa.sessions.open('lantern-cove')).result;
+  const line = (type: 'user' | 'assistant', content: unknown) => ({
+    type,
+    uuid: `${type}-${JSON.stringify(content)}`,
+    message: { role: type, content },
+  });
+  const bash = (id: string) =>
+    line('assistant', [{ type: 'tool_use', id, name: 'Bash', input: { command: 'pnpm test' } }]);
+  const result = (id: string) =>
+    line('user', [{ type: 'tool_result', tool_use_id: id, content: 'ok' }]);
+  const current = (lines: object[]) => {
+    plantTranscript(home, opened.agentSessionId ?? '', dir, [
+      line('user', 'Chart the tide'),
+      ...lines,
+    ]);
+    return mesa.sessions.responses.list(opened.id).current;
+  };
+
+  expect(current([bash('run-1')])).toBe('run-1');
+  expect(current([bash('run-1'), result('run-1')])).toBeUndefined();
+  expect(
+    current([
+      bash('run-1'),
+      result('run-1'),
+      line('assistant', [{ type: 'thinking', thinking: 'Next, the moon.' }]),
+    ]),
+  ).toMatch(/^assistant-.*Next, the moon.*:0$/);
+  // A call left without a result by a stop is not current once the person speaks again.
+  expect(current([bash('run-1'), line('user', 'Stop, chart the moon')])).toBeUndefined();
+  expect(
+    current([
+      bash('run-1'),
+      result('run-1'),
+      line('assistant', [{ type: 'text', text: 'Charted.' }]),
+    ]),
+  ).toBeUndefined();
+});
+
 const tool = (id: string, newer: number): NativeStep => ({
   type: 'tool',
   id,

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { AGENTS } from '../../agents/agents.js';
-import type { TranscriptStep } from '../../agents/steps.js';
+import { currentStep, type TranscriptStep } from '../../agents/steps.js';
 import { promptOf } from '../../agents/transcripts.js';
 import { closesFence, opensFence } from '../../lib/code-fence.js';
 import type { Env } from '../../lib/process.js';
@@ -51,6 +51,8 @@ export type SessionResponses = {
   prompts: NativePrompt[];
   /** What the agent did among the responses read, newest first. */
   steps: NativeStep[];
+  /** The id of the step the agent is on now (currentStep), none when it is on none. */
+  current?: string;
   reviews: SavedReview[];
   truncated: boolean;
   unavailable?: string;
@@ -126,6 +128,7 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
       unavailable: 'Native transcript is not available',
     };
   const { messages, steps: placed, truncated } = transcripts.messages(file);
+  const current = currentStep({ messages, steps: placed });
   const rows: NativeResponse[] = [];
   const prompts: NativePrompt[] = [];
   const steps: NativeStep[] = [];
@@ -167,7 +170,14 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
       const step = placed[next]?.step;
       if (step) steps.push({ ...step, newer: rows.length });
     }
-  return { rows, prompts, steps, reviews, truncated: truncated || rows.length === MAX_RESPONSES };
+  return {
+    rows,
+    prompts,
+    steps,
+    ...(current ? { current } : {}),
+    reviews,
+    truncated: truncated || rows.length === MAX_RESPONSES,
+  };
 }
 
 /** Exact passage and comment to be shown before the existing guarded send. */
