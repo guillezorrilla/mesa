@@ -1,16 +1,14 @@
-import { terminalPalette } from '@mesa/core/phone';
 import * as Clipboard from 'expo-clipboard';
 import { useIsFocused } from 'expo-router';
 import { useRef, useState } from 'react';
-import { useColorScheme } from 'react-native';
 import type WebView from 'react-native-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
 import { useRepeatWhileActive } from '@/lib/useRepeatWhileActive';
 import { useMac } from '../mac/useMac';
 import { useMacUpdates } from '../mac/useMacUpdates';
 import { forXterm, fromPage, linesText, streamStep, type ToPage } from './page/pageMessages';
-import { terminalPage } from './page/terminalPage';
 import { withoutChrome } from './screenChrome';
+import { useStreamWatch } from './useStreamWatch';
 
 /** How often a terminal drawn from log lines asks for them again. */
 const EVERY_MS = 1000;
@@ -18,11 +16,11 @@ const EVERY_MS = 1000;
 /**
  * Session `id`'s output terminal, streamed as orca streams its own: once the page says how many
  * cols and rows fit, the Mac sizes the window to them and sends its screen, then the watch pushes
- * what the window prints (`stream`), written as it comes, or the screen is read again when some
- * was missed. A Mac that sends no screen (an older one, or a session whose window is gone) gives
+ * what the window prints (useStreamWatch), written as it comes, or the screen is read again when
+ * some was missed. A Mac that sends no screen (an older one, or a session whose window is gone) gives
  * its log's lines instead, an agent's (`agent`) without its screen chrome (#1142), asked every
  * second while the newest line shows. `away` while the person reads back, `jump` to return; a
- * copy from the page goes to the clipboard. The page takes the phone's light or dark palette.
+ * copy from the page goes to the clipboard.
  */
 export function useTerminalStream(id: string, agent: boolean) {
   const link = useMac();
@@ -34,16 +32,18 @@ export function useTerminalStream(id: string, agent: boolean) {
   const lines = useRef(false);
   const reading = useRef(false);
   const [away, setAway] = useState(false);
+  useStreamWatch(id);
   const send = (message: ToPage) => page.current?.postMessage(JSON.stringify(message));
   const drawLines = async () => {
     const output = await link.call({ method: 'output', id });
     send({ type: 'init', data: linesText(agent ? withoutChrome(output.lines) : output.lines) });
   };
   const read = () => {
-    if (!fits.current || reading.current) return;
+    const asked = fits.current;
+    if (!asked || reading.current) return;
     reading.current = true;
     link
-      .call({ method: 'screen', id, ...fits.current })
+      .call({ method: 'screen', id, ...asked })
       .then(
         (screen) => {
           at.current = screen.at;
@@ -59,6 +59,8 @@ export function useTerminalStream(id: string, agent: boolean) {
       .catch(() => undefined)
       .finally(() => {
         reading.current = false;
+        // A size that came during the read reads again.
+        if (fits.current !== asked) read();
       });
   };
   useRepeatWhileActive(EVERY_MS, () => {
@@ -83,7 +85,6 @@ export function useTerminalStream(id: string, agent: boolean) {
   };
   return {
     page,
-    html: terminalPage(terminalPalette({ theme: 'follow' }, useColorScheme() === 'dark')),
     onMessage,
     away,
     jump: () => send({ type: 'bottom' }),

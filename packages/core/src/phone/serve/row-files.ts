@@ -65,13 +65,17 @@ export function watchRowFiles(
 /**
  * Calls `changed` each time session `id`'s output log in `dir` is written, until the returned
  * stop. A watch on the file itself: macOS reports no writes to a file another process holds open
- * (the window's `cat >>`) on a watch of its folder. A log not made yet is not watched.
+ * (the window's `cat >>`) on a watch of its folder. None when the log is not made yet.
  */
-export function watchOutputLog(dir: string, id: string, changed: () => void): () => void {
+export function watchOutputLog(
+  dir: string,
+  id: string,
+  changed: () => void,
+): (() => void) | undefined {
   try {
     const watcher = watch(join(dir, `${id}.log`), changed).on('error', () => undefined);
     return () => watcher.close();
   } catch {
-    return () => undefined;
+    return undefined;
   }
 }

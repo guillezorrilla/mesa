@@ -187,6 +187,7 @@ async function listen(
     try {
       const { call } = request;
       const result = isWatchCall(call) ? watches.answer(call) : await answerCall(answers, call);
+      // The stream goes on from where the screen the phone just read ends.
       if (call.method === 'screen') watches.seek(call.id, (result as CallResult<'screen'>).at);
       if (!READS.has(request.call.method)) stale = true;
       box.send({ kind: 'response', id: request.id, result });
@@ -315,6 +316,7 @@ async function listen(
     return { pairingId, ended: 'stopped' };
   } finally {
     unwatch();
+    watches.close();
     direct?.close();
     box.close();
     await saving;

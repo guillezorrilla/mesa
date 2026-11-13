@@ -18,6 +18,6 @@ html,body{margin:0;height:100%;overflow:hidden;background:${palette.background};
 </style></head>
 <body><div id="terminal"></div>
 <div id="menu" hidden><button id="copy">Copy</button><button id="all">Select all</button></div>
-<script>window.MESA_THEME=${JSON.stringify(palette)};</script>
+<script>window.MESA_THEME=${JSON.stringify(palette).replaceAll('<', '\\u003c')};</script>
 <script>${ENGINE.js}</script>
 </body></html>`;

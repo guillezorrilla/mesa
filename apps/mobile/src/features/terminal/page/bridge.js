@@ -23,12 +23,19 @@
   const surface = document.getElementById('terminal');
   term.open(surface);
 
-  let size = '';
+  // A new width (a turn of the phone) fits the terminal again, and the app sizes the window to
+  // it. A height change alone (the keyboard) keeps the rows, the terminal pinned to the page's
+  // bottom so the newest line stays in view, as orca's keyboard lift: rows changed on the phone
+  // alone would move what the window draws next.
+  let width = 0;
   const refit = () => {
+    if (width === window.innerWidth) return;
+    width = window.innerWidth;
+    surface.style.top = '';
+    surface.style.height = '';
     fit.fit();
-    const next = `${term.cols}x${term.rows}`;
-    if (next === size) return;
-    size = next;
+    surface.style.top = 'auto';
+    surface.style.height = `${surface.clientHeight}px`;
     post({ type: 'size', cols: term.cols, rows: term.rows });
   };
 

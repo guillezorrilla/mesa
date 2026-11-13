@@ -24,7 +24,7 @@ export function TerminalOutput({
     <View className="flex-1 bg-background">
       {header ? <View className="gap-3 px-4 pt-3 pb-2">{header}</View> : null}
       <View className="flex-1">
-        <TerminalPage ref={terminal.page} html={terminal.html} onMessage={terminal.onMessage} />
+        <TerminalPage ref={terminal.page} onMessage={terminal.onMessage} />
         {terminal.away ? <JumpButton fresh={0} onPress={terminal.jump} /> : null}
       </View>
     </View>

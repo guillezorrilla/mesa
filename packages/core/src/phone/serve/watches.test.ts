@@ -25,7 +25,7 @@ const detail = (title: string, terminal = false): PhoneDetail => ({
 /** Watches over a session whose detail and output the test sets, on a clock it moves. */
 const watching = (terminal = false) => {
   let now = 0;
-  const session = { title: 'Docs', output: ['$ ls'], log: '' };
+  const session = { title: 'Docs', output: ['$ ls'], log: '', logged: true };
   const sent: WatchedSession[] = [];
   // The output logs watched while a watch takes the stream: each one's change callback.
   const followed: (() => void)[] = [];
@@ -44,7 +44,9 @@ const watching = (terminal = false) => {
       from === undefined || from > session.log.length
         ? { from: session.log.length, to: session.log.length, data: '' }
         : { from, to: session.log.length, data: session.log.slice(from) },
+    // A log not made yet cannot be watched.
     follow: (_id, changed) => {
+      if (!session.logged) return undefined;
       followed.push(changed);
       return () => followed.splice(0);
     },
@@ -167,4 +169,23 @@ test("a watch that takes the stream gets what the window printed, from where the
   // Unwatched, its log is no longer watched.
   agent.watches.answer({ method: 'unwatch', id: 'ab12cd34' });
   expect(agent.followed).toHaveLength(0);
+});
+
+test("the stream is the output terminal's: kept across the screen's asks, ended when it closes", async () => {
+  const { watches, session, followed } = watching();
+  session.logged = false;
+  watches.answer({ method: 'watch', id: 'ab12cd34', replies: 10 });
+  watches.answer({ method: 'watch', id: 'ab12cd34', stream: true });
+  // No log yet: the next ask watches it once it is there.
+  expect(followed).toHaveLength(0);
+  session.logged = true;
+  watches.answer({ method: 'watch', id: 'ab12cd34', replies: 10 });
+  expect(followed).toHaveLength(1);
+  watches.answer({ method: 'watch', id: 'ab12cd34', stream: false });
+  expect(followed).toHaveLength(0);
+  // The listener stopping ends every watch and its log's watch.
+  watches.answer({ method: 'watch', id: 'ab12cd34', stream: true });
+  watches.close();
+  expect(followed).toHaveLength(0);
+  expect(watches.any()).toBe(false);
 });
