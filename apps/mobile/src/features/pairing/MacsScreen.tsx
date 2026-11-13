@@ -5,6 +5,7 @@ import { Section } from '@/components/Section';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { HapticsSection } from '../haptics/HapticsSection';
 import { PushesSection } from '../pushes/PushesSection';
 import { UsageLink } from '../usage/UsageLink';
 import { MacCard } from './MacCard';
@@ -26,6 +27,7 @@ export function MacsScreen() {
       </Section>
       <UsageLink />
       <PushesSection />
+      <HapticsSection />
       <Section title="Appearance">
         <Text variant="muted">Light or dark follows your iPhone's setting.</Text>
       </Section>

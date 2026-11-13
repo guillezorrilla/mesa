@@ -4,6 +4,7 @@ import { BusyLine } from '@/components/BusyLine';
 import { ErrorNote } from '@/components/ErrorNote';
 import { Screen } from '@/components/Screen';
 import { Text } from '@/components/ui/text';
+import { haptic } from '@/lib/haptics';
 import { joinWithLink } from './joinWithLink';
 import { PasteLinkField } from './PasteLinkField';
 import { ScannerPanel } from './ScannerPanel';
@@ -16,7 +17,7 @@ import { usePairing } from './usePairing';
 export function PairScreen({ link, onPaired }: { link?: string; onPaired?: () => void }) {
   const { save } = usePairing();
   const [error, join, pending] = useActionState(async (_last: string | undefined, text: string) => {
-    const result = await joinWithLink(fetch, text, new Date());
+    const result = await joinWithLink(fetch, text, new Date(), haptic);
     // VoiceOver hears the outcome; the screen changes under the person's finger otherwise.
     AccessibilityInfo.announceForAccessibility(result.error ?? 'Paired with your Mac.');
     if (result.pairing) {
