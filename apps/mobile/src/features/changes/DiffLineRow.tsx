@@ -27,7 +27,7 @@ const SPAN = {
   comment: 'text-muted-foreground italic',
 };
 
-/** One line of a diff: its old and new numbers, its sign and coloured code; tapped to select it. */
+/** One line of a diff: its old and new numbers, its sign and coloured code; tapped to select it, when it can be. */
 export function DiffLineRow({
   row,
   selected,
@@ -35,12 +35,13 @@ export function DiffLineRow({
 }: {
   row: DiffLine;
   selected: boolean;
-  onPress: () => void;
+  onPress?: () => void;
 }) {
   const code = row.kind === 'add' || row.kind === 'del' || row.kind === 'context';
   return (
     <Pressable
       accessibilityState={{ selected }}
+      disabled={!onPress}
       onPress={onPress}
       className={cn(
         'flex-row border-l-2 pr-2',

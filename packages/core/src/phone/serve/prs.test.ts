@@ -152,7 +152,8 @@ test('one PR carries its description, checks, threads with verdicts, drafts, own
 
 test('the files and their pages come from the PR patch, a page of a changed patch refused', async () => {
   const { deps, asked } = fakeDeps();
-  const { files } = await ask(deps, { method: 'prChanges', ...PR });
+  const { files, ...changes } = await ask(deps, { method: 'prChanges', ...PR });
+  expect(changes).toEqual({ base: 'main', branch: 'feature', omitted: 0 });
   expect(files).toEqual([{ path: 'src/tide.ts', added: 1, removed: 0, rev: expect.any(String) }]);
   const rev = files[0]?.rev ?? '';
   const page = await ask(deps, { method: 'prDiff', ...PR, path: 'src/tide.ts', rev, from: 0 });

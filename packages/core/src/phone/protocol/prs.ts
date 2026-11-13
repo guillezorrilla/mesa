@@ -3,7 +3,7 @@
 // review session, discarding a draft, replying to and resolving a thread, merging, and sending a
 // failed check to the session that owns the branch. rpc.ts joins them to the other calls.
 import { z } from 'zod';
-import { changedFile, changesResults } from './changes.js';
+import { changesResults } from './changes.js';
 
 const pr = { project: z.string(), number: z.number().int().positive() };
 
@@ -114,7 +114,8 @@ export const prsResults = {
     problems: z.array(z.string()),
   }),
   pr: phonePrDetail,
-  prChanges: z.object({ files: z.array(changedFile) }),
+  /** As a session's `changes`: the PR's branch against its base. */
+  prChanges: changesResults.changes,
   prDiff: changesResults.diff,
   prStart: z.object({ session: z.string(), existing: z.boolean(), mode: z.string() }),
   prDiscard: z.object({}),

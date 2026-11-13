@@ -114,9 +114,16 @@ export async function answerPrs(deps: PrsDeps, call: PrsCall): Promise<unknown> 
       } satisfies CallResult<'pr'>;
     }
     case 'prChanges': {
-      const files = patchFiles((await deps.diff(project, number)).patch);
+      const [pr, { patch }] = await Promise.all([
+        deps.show(project, number),
+        deps.diff(project, number),
+      ]);
+      const files = patchFiles(patch).map(({ lines: _, ...file }) => file);
       return {
-        files: files.map(({ lines: _, ...file }) => file),
+        base: pr.base,
+        branch: pr.branch,
+        files,
+        omitted: 0,
       } satisfies CallResult<'prChanges'>;
     }
     case 'prDiff': {
