@@ -17,7 +17,7 @@ export function AgentReply({
   segments: Segment[];
 }) {
   return (
-    <View className="gap-1">
+    <View className="gap-3">
       {segments.map((segment, part) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: a reply's segments are a fixed cut of its text.
         <ReplySegment key={part} code={segment.code} text={segment.text} />

@@ -2,10 +2,8 @@ import ArrowUp from 'lucide-react-native/icons/arrow-up';
 import ImagePlus from 'lucide-react-native/icons/image-plus';
 import { Suspense } from 'react';
 import { View } from 'react-native';
-import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
+import { RoundButton } from '@/components/RoundButton';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
 import { appended } from './draftMap';
 import { PhotoChip } from './PhotoChip';
 import { PromptChips } from './PromptChips';
@@ -14,9 +12,9 @@ import { usePrompts } from './usePrompts';
 import type { Reply } from './useReply';
 
 /**
- * The reply bar under a session: the last send's note, saved prompts, an attached photo, then
- * attach, the draft and send; what was sent shows in the conversation above. iOS's own keyboard
- * dictation types into it.
+ * The reply bar under a session: the last send's note, saved prompts, an attached photo, then one
+ * floating box as orca's composer, the draft over attach and send; what was sent shows in the
+ * conversation above. iOS's own keyboard dictation types into it.
  */
 export function Composer({ reply }: { reply: Reply }) {
   const { photo, setPhoto, attach, send } = reply;
@@ -27,7 +25,7 @@ export function Composer({ reply }: { reply: Reply }) {
     setPhoto(undefined);
   };
   return (
-    <View className="gap-2.5 border-t border-border bg-background px-3 py-2.5">
+    <View className="gap-2.5 bg-background px-3 pt-1.5 pb-2">
       <SendNote outcome={send.outcome} onSendAnyway={() => submit(true)} />
       <Suspense fallback={null}>
         <PromptChips
@@ -36,38 +34,25 @@ export function Composer({ reply }: { reply: Reply }) {
         />
       </Suspense>
       {photo ? <PhotoChip uri={photo.uri} onRemove={() => setPhoto(undefined)} /> : null}
-      <View className="flex-row items-end gap-2">
-        <Button
-          size="icon"
-          variant="ghost"
-          className="rounded-full"
-          onPress={attach}
-          accessibilityLabel="Attach a photo"
-        >
-          <Icon as={ImagePlus} className="size-6 text-muted-foreground" />
-        </Button>
+      <View className="rounded-3xl border border-border bg-card p-3">
         <Input
           multiline
           value={send.draft}
           onChangeText={send.setDraft}
           placeholder="Reply to this session"
           accessibilityLabel="Reply"
-          className="max-h-36 min-h-11 flex-1 rounded-3xl bg-card px-4 py-3 shadow-none"
+          className="max-h-40 min-h-8 rounded-none border-0 bg-transparent px-1.5 py-1 shadow-none dark:bg-transparent"
         />
-        <Button
-          size="icon"
-          // Empty, it shows as secondary, not faded.
-          className={cn('rounded-full', empty && 'opacity-100')}
-          variant={empty ? 'secondary' : 'default'}
-          onPress={() => submit()}
-          disabled={empty}
-          accessibilityLabel="Send"
-        >
-          <Icon
-            as={ArrowUp}
-            className={empty ? 'size-5 text-muted-foreground' : 'size-5 text-primary-foreground'}
+        <View className="mt-2 flex-row items-center justify-between">
+          <RoundButton icon={ImagePlus} label="Attach a photo" onPress={attach} />
+          <RoundButton
+            icon={ArrowUp}
+            label="Send"
+            bright={!empty}
+            disabled={empty}
+            onPress={() => submit()}
           />
-        </Button>
+        </View>
       </View>
     </View>
   );
