@@ -108,6 +108,7 @@ export async function answerPrs(deps: PrsDeps, call: PrsCall): Promise<unknown> 
         base: pr.base,
         additions: pr.additions,
         deletions: pr.deletions,
+        files: pr.files.length,
         checks: pr.checks,
         checkList: pr.checkList,
         threads: pr.threads.map(({ author: _, verdict, ...thread }) => ({

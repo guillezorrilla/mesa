@@ -1,5 +1,6 @@
 import type { PhoneTicketDetail } from '@mesa/core/phone';
 import { View } from 'react-native';
+import { Markdown } from '@/components/markdown/Markdown';
 import { Section } from '@/components/Section';
 import { Text } from '@/components/ui/text';
 
@@ -15,7 +16,7 @@ export function TicketComments({ comments }: { comments: PhoneTicketDetail['comm
           <Text variant="muted" className="text-xs">
             {c.author}, {c.at.slice(0, 10)}
           </Text>
-          <Text selectable>{c.text}</Text>
+          <Markdown text={c.text} />
         </View>
       ))}
     </Section>

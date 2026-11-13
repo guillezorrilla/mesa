@@ -141,6 +141,7 @@ test('one PR carries its description, checks, threads with verdicts, drafts, own
   const { deps } = fakeDeps();
   expect(await ask(deps, { method: 'pr', ...PR })).toMatchObject({
     body: 'Raises it.',
+    files: 1,
     checks: 'failing',
     checkList: [{ name: 'lint', state: 'failing', url: 'https://ci.example.com/1' }],
     threads: [{ id: 'T1', resolved: false, verdict: 'partly' }],
@@ -149,6 +150,12 @@ test('one PR carries its description, checks, threads with verdicts, drafts, own
     owner: 'own1',
     review: { session: 'rev1', mode: 'drafts', working: true },
   });
+});
+
+test('a PR from a Mac before #1134, with no file count, still reads', async () => {
+  const { deps } = fakeDeps();
+  const { files: _, ...older } = await ask(deps, { method: 'pr', ...PR });
+  expect(callResults.pr.parse(older).files).toBeUndefined();
 });
 
 test('the files and their pages come from the PR patch, a page of a changed patch refused', async () => {

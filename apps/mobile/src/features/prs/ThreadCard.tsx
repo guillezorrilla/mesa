@@ -1,5 +1,6 @@
 import type { PhoneThread } from '@mesa/core/phone';
 import { View } from 'react-native';
+import { Markdown } from '@/components/markdown/Markdown';
 import { PathText } from '@/components/PathText';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,15 +29,13 @@ export function ThreadCard({
           <Text>{threadState(thread)}</Text>
         </Badge>
       </View>
-      <Text selectable>{thread.body}</Text>
+      <Markdown text={thread.body} />
       {thread.lastReply ? (
         <View className="border-l-2 border-border pl-3">
           <Text className="text-xs font-medium text-muted-foreground">
             {thread.lastReply.author}
           </Text>
-          <Text selectable variant="muted">
-            {thread.lastReply.body}
-          </Text>
+          <Markdown text={thread.lastReply.body} />
         </View>
       ) : null}
       <View className="flex-row gap-2">
