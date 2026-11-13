@@ -1,6 +1,9 @@
+/** The screens under Agents with a bar pinned where the floating tab bar would sit. */
+const BAR_SCREENS = new Set(['[id]', 'diff', 'quote']);
+
 /**
  * Whether the tab bar hides for the route `segments` (expo-router's useSegments): on a session's
- * screen, whose reply bar sits where the floating tab bar would, as Messages hides it in a chat.
+ * screen (its reply bar) and on a diff or a quote (their note form), as Messages hides it in a chat.
  */
 export const tabBarHidden = (segments: readonly string[]) =>
-  segments.length === 2 && segments[0] === 'agents' && segments[1] === '[id]';
+  segments.length === 2 && segments[0] === 'agents' && BAR_SCREENS.has(segments[1] ?? '');

@@ -3,6 +3,7 @@
 // update is a change the Mac pushes on its own. Each travels as one sealed message (envelope.ts),
 // cut into parts when it does not fit one box (chunk.ts).
 import { z } from 'zod';
+import { changesCalls, changesResults } from './changes.js';
 import { crewCalls, crewResults } from './crew.js';
 import { inboxCalls, inboxResults } from './inbox.js';
 import { pushesCalls, pushesResults } from './pushes.js';
@@ -66,7 +67,8 @@ export type PhonePrompt = z.infer<typeof phonePrompt>;
 /**
  * The calls the Mac answers: the board, one session, marking one read or unread, its pending
  * prompt, answering that prompt (`prompt` is its id, so an answer to an older one is stale), a
- * crew's, steering one (steer.ts), and the Inbox, usage and push settings.
+ * crew's, steering one (steer.ts), reviewing a session's changes (changes.ts), and the Inbox,
+ * usage and push settings.
  */
 export const phoneCall = z.discriminatedUnion('method', [
   z.object({ method: z.literal('sessions') }),
@@ -85,6 +87,7 @@ export const phoneCall = z.discriminatedUnion('method', [
   ...usageCalls,
   ...pushesCalls,
   ...steerCalls,
+  ...changesCalls,
 ]);
 export type PhoneCall = z.infer<typeof phoneCall>;
 
@@ -101,6 +104,7 @@ export const callResults = {
   ...usageResults,
   ...pushesResults,
   ...steerResults,
+  ...changesResults,
 };
 export type CallResult<M extends PhoneCall['method']> = z.infer<(typeof callResults)[M]>;
 

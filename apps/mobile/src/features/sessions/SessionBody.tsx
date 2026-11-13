@@ -10,6 +10,7 @@ import { OutputTail } from './OutputTail';
 import { QueuedList } from './QueuedList';
 import { ReplyList } from './ReplyList';
 import { SessionHeader } from './SessionHeader';
+import { SessionLinks } from './SessionLinks';
 import { SessionMenu } from './SessionMenu';
 import { groupOf } from './sessionState';
 import type { DetailRead } from './useSessionDetail';
@@ -49,6 +50,7 @@ export function SessionBody({
         waiting={groupOf(detail.row.state) === 'needs-you'}
         since={detail.row.since}
       />
+      <SessionLinks id={detail.row.id} />
       {detail.goal ? (
         <Section title="Goal">
           <Text selectable>{detail.goal}</Text>
@@ -61,7 +63,7 @@ export function SessionBody({
         </Section>
       ) : null}
       <Section title="Replies">
-        <ReplyList replies={detail.replies} now={now} />
+        <ReplyList id={detail.row.id} replies={detail.replies} now={now} />
       </Section>
       <Section title="Output">
         <OutputTail lines={detail.tail} />

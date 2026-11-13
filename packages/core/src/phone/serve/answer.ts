@@ -4,8 +4,10 @@ import type { PendingPrompt } from '../../sessions/answer/pending.js';
 import type { SessionRow } from '../../sessions/board/rows.js';
 import type { SessionResponses } from '../../sessions/native/responses.js';
 import type { UsageReport } from '../../usage/records.js';
+import { isChangesCall } from '../protocol/changes.js';
 import type { CallResult, PhoneCall } from '../protocol/rpc.js';
 import { answerSteer, isSteerCall, type SteerDeps } from './answer-steer.js';
+import { answerChanges, type ChangesDeps } from './changes.js';
 import { answerCrewCall, type CrewDeps, isCrewCall } from './crew.js';
 import { answerInboxCall, type InboxDeps, isInboxCall } from './inbox.js';
 import { answerPushes, type PushesDeps } from './pushes.js';
@@ -27,6 +29,8 @@ export type AnswerDeps = {
   /** The archived sessions, which the board leaves out. */
   archived: () => Promise<SessionRow[]>;
   steer: SteerDeps;
+  /** A session's changes, source control and files (#1063). */
+  changes: ChangesDeps;
   inbox: InboxDeps;
   /** `mesa usage`'s report. */
   usage: () => Promise<UsageReport>;
@@ -44,6 +48,7 @@ export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unk
       rows: await askedRows(phoneRows(await deps.board()), deps.prompt),
     } satisfies CallResult<'sessions'>;
   if (isCrewCall(call)) return answerCrewCall(deps.crew, call);
+  if (isChangesCall(call)) return answerChanges(deps.changes, call);
   if (isInboxCall(call)) return answerInboxCall(deps.inbox, call);
   if (call.method === 'usage')
     return phoneUsage(
