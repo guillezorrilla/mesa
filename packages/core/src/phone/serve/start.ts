@@ -76,7 +76,9 @@ async function start(deps: StartDeps, call: Extract<StartCallOf, { method: 'star
       ...(place === 'existing' && checkout ? { checkout } : {}),
       ...(after ? { after } : {}),
       // Its goal is the person's own words after the ticket's, as `open --from` builds it.
-      ...(from ? { from } : {}),
+      // ponytail: imported with no Write notes run, which takes minutes and the phone waits 10 s;
+      // the session reads the ticket's snapshot. Run notes in the background if they are missed.
+      ...(from ? { from, notes: false } : {}),
       noParent: true,
       guardrail: { yes: yes ?? false },
     });
@@ -123,7 +125,11 @@ function history(deps: StartDeps, query?: string) {
       };
     };
     if (!searched) {
-      found.push(...listed.rows.map((r) => of(r.agent, r.id, r.id.slice(0, 8), r.updatedAt)));
+      found.push(
+        ...listed.rows.map((r) =>
+          of(r.agent, r.id, `Conversation ${r.id.slice(0, 8)}`, r.updatedAt),
+        ),
+      );
       partial ||= listed.total > listed.rows.length;
       continue;
     }

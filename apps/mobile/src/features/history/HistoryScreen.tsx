@@ -11,6 +11,7 @@ export function HistoryScreen() {
     <>
       <Stack.SearchBar
         placeholder="Search conversation text"
+        hideWhenScrolling={false}
         onSearchButtonPress={(event) => search(event.nativeEvent.text)}
         onCancelButtonPress={() => search('')}
       />

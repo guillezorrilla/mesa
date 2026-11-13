@@ -55,7 +55,8 @@ function placeWords(form: StartForm) {
 export function launchLine(form: StartForm, afterTitle?: string) {
   const on = form.project ? ` on ${form.project}` : '';
   const after = form.after !== 'none' ? `, after ${afterTitle ?? form.after}` : '';
-  return `${agentName(form.agent)}${on}, in ${placeWords(form)}${after}`;
+  const line = `${agentName(form.agent)}${on}, in ${placeWords(form)}${after}`;
+  return line.charAt(0).toUpperCase() + line.slice(1);
 }
 
 /** Whether the form can start: a project, a goal or a ticket, and a worktree when it asks for one. */

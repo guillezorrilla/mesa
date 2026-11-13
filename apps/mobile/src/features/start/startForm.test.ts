@@ -4,7 +4,7 @@ import { canStart, launchLine, NEW_FORM, startCall, startNoteText } from './star
 const form = { ...NEW_FORM, project: 'lantern-cove' };
 
 test('the launch line names the agent, the project, the place and what it waits for', () => {
-  expect(launchLine(form)).toBe("the project's agent on lantern-cove, in the checkout");
+  expect(launchLine(form)).toBe("The project's agent on lantern-cove, in the checkout");
   expect(launchLine({ ...form, agent: 'codex', place: 'worktree' })).toBe(
     'Codex on lantern-cove, in a new worktree',
   );
@@ -15,7 +15,7 @@ test('the launch line names the agent, the project, the place and what it waits 
     ),
   ).toBe('Claude Code on lantern-cove, in a worktree on tide-fix, after Login fix');
   expect(launchLine({ ...form, place: 'existing', checkout: '/w/lantern-cove-tide' })).toBe(
-    "the project's agent on lantern-cove, in worktree lantern-cove-tide",
+    "The project's agent on lantern-cove, in worktree lantern-cove-tide",
   );
 });
 
