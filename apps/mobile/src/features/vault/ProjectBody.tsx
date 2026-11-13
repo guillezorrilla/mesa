@@ -1,15 +1,16 @@
+import type { CallResult } from '@mesa/core/phone';
 import { use } from 'react';
 import { ErrorNote } from '@/components/ErrorNote';
 import { Screen } from '@/components/Screen';
 import { Section } from '@/components/Section';
 import { Text } from '@/components/ui/text';
+import type { MacRead } from '../mac/tryCall';
 import { NoteView } from './NoteView';
-import type { VaultRead } from './useVaultRead';
 import { VaultList } from './VaultList';
 import { dayOf } from './vaultText';
 
 /** A project's memory: the start of its hub, its decisions and notes, and its earlier goals. */
-export function ProjectBody({ read }: { read: Promise<VaultRead<'project'>> }) {
+export function ProjectBody({ read }: { read: Promise<MacRead<CallResult<'project'>>> }) {
   const { result: memory, error } = use(read);
   if (!memory) return <Screen>{error ? <ErrorNote text={error} /> : null}</Screen>;
   const { hub, decisions, notes, goals } = memory;

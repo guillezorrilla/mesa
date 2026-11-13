@@ -1,23 +1,22 @@
+import type { CallResult } from '@mesa/core/phone';
 import { startTransition, useState } from 'react';
+import { type MacRead, tryCall } from '../mac/tryCall';
 import { useMac } from '../mac/useMac';
-import { useVaultRead, type VaultRead } from './useVaultRead';
+import { useMacRead } from '../mac/useMacRead';
 
 /**
- * The Vault tab's data: the Mac's projects, read once, and a Vault search, asked when the person
- * submits words and dropped when they cancel or empty the box.
+ * The Vault tab's data: the Mac's projects, and a Vault search, asked when the person submits
+ * words and dropped when they cancel or empty the box.
  */
 export function useVault() {
   const link = useMac();
-  const projects = useVaultRead({ method: 'projects' });
-  const [search, setSearch] = useState<Promise<VaultRead<'vaultSearch'>>>();
+  const { answer: projects } = useMacRead({ method: 'projects' });
+  const [search, setSearch] = useState<Promise<MacRead<CallResult<'vaultSearch'>>>>();
   const find = (text: string) => {
     const words = text.trim();
     // The promise is made here, not in an updater, which React may run again while it suspends.
     const next = words
-      ? link.call({ method: 'vaultSearch', text: words }).then(
-          (result) => ({ result }),
-          (error: Error) => ({ error: error.message }),
-        )
+      ? tryCall(link, () => link.call({ method: 'vaultSearch', text: words }))
       : undefined;
     startTransition(() => setSearch(next));
   };

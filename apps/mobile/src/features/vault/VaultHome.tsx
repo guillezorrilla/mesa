@@ -1,3 +1,4 @@
+import type { CallResult } from '@mesa/core/phone';
 import { router } from 'expo-router';
 import { use } from 'react';
 import { View } from 'react-native';
@@ -5,12 +6,12 @@ import { ErrorNote } from '@/components/ErrorNote';
 import { Screen } from '@/components/Screen';
 import { Section } from '@/components/Section';
 import { Text } from '@/components/ui/text';
+import type { MacRead } from '../mac/tryCall';
 import { TodayCard } from './TodayCard';
-import type { VaultRead } from './useVaultRead';
 import { VaultRow } from './VaultRow';
 
 /** The Vault tab before a search: today's digest, then each project's memory. */
-export function VaultHome({ read }: { read: Promise<VaultRead<'projects'>> }) {
+export function VaultHome({ read }: { read: Promise<MacRead<CallResult<'projects'>>> }) {
   const { result, error } = use(read);
   const projects = result?.projects ?? [];
   return (

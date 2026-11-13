@@ -1,12 +1,12 @@
 import { router, Stack } from 'expo-router';
 import { Suspense } from 'react';
 import { BusyScreen } from '@/components/BusyScreen';
+import { useMacRead } from '../mac/useMacRead';
 import { ProjectBody } from './ProjectBody';
-import { useVaultRead } from './useVaultRead';
 
 /** One project's memory, with a bar button that saves a decision for it. */
 export function ProjectScreen({ name }: { name: string }) {
-  const read = useVaultRead({ method: 'project', name });
+  const { answer: read } = useMacRead({ method: 'project', name });
   return (
     <>
       <Stack.Screen options={{ title: name }} />

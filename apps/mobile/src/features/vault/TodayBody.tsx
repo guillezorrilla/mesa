@@ -1,15 +1,16 @@
+import type { CallResult } from '@mesa/core/phone';
 import { use } from 'react';
 import { ErrorNote } from '@/components/ErrorNote';
 import { Screen } from '@/components/Screen';
 import { Section } from '@/components/Section';
 import { Text } from '@/components/ui/text';
+import type { MacRead } from '../mac/tryCall';
 import { ImpactStats } from './ImpactStats';
 import { NoteView } from './NoteView';
 import { RewindSection } from './RewindSection';
-import type { VaultRead } from './useVaultRead';
 
 /** The day read: its date, Impact today, the Daily note or how to build it, and the Rewind. */
-export function TodayBody({ read }: { read: Promise<VaultRead<'today'>> }) {
+export function TodayBody({ read }: { read: Promise<MacRead<CallResult<'today'>>> }) {
   const { result: today, error } = use(read);
   return (
     <Screen className="gap-6">

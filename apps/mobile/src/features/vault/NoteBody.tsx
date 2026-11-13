@@ -1,13 +1,20 @@
+import type { CallResult } from '@mesa/core/phone';
 import { Stack } from 'expo-router';
 import { use } from 'react';
 import { ErrorNote } from '@/components/ErrorNote';
 import { Screen } from '@/components/Screen';
 import { Text } from '@/components/ui/text';
+import type { MacRead } from '../mac/tryCall';
 import { NoteView } from './NoteView';
-import type { VaultRead } from './useVaultRead';
 
 /** A note read: its title in the bar, its path, and its Markdown, or why it could not be read. */
-export function NoteBody({ read, path }: { read: Promise<VaultRead<'vaultNote'>>; path: string }) {
+export function NoteBody({
+  read,
+  path,
+}: {
+  read: Promise<MacRead<CallResult<'vaultNote'>>>;
+  path: string;
+}) {
   const { result: note, error } = use(read);
   return (
     <Screen className="gap-5">
