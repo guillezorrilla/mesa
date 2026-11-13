@@ -14,7 +14,7 @@ ADR-0002 chose Electron. The owner asked for a faster, Rust-based shell. Tauri 2
 - The embedded terminal is Rust: the `portable-pty` crate spawns `tmux -L mesa-<profile> attach-session -t <target> -f ignore-size` and streams bytes to the webview as Tauri events; `@xterm/xterm` 6 renders them. Commands: `term_open`, `term_write`, `term_resize`, `term_close`.
 - Native dialogs use `@tauri-apps/plugin-dialog`. Process spawning happens only in Rust commands; the shell plugin is limited to opening URLs.
 - Packaging: `tauri build` produces the `.app` and `.dmg`; signing, hardened runtime, and notarization are configured in `tauri.conf.json` (P7).
-- CI: `dtolnay/rust-toolchain@stable` with `Swatinem/rust-cache`; `pnpm build` runs `vite build` plus `cargo check` for the desktop app. Full `tauri build` runs only in the release workflow.
+- CI: `dtolnay/rust-toolchain@stable` with `Swatinem/rust-cache`; `pnpm build` runs `vite build` for the desktop app, and `pnpm verify native` compiles and tests the crate (`cargo test`; ADR-0017). Full `tauri build` runs only in the release workflow.
 - ponytail: the per-call Node start-up of `run_mesa` (about 50 to 100 ms) is accepted for a board that polls every 2 seconds. Upgrade path when it hurts: `mesa serve` over a Unix socket speaking JSON lines, same envelope.
 
 ## Evidence
