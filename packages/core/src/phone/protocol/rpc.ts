@@ -9,6 +9,7 @@ import { inboxCalls, inboxResults } from './inbox.js';
 import { pushesCalls, pushesResults } from './pushes.js';
 import { queuedMessage, steerCalls, steerResults } from './steer.js';
 import { usageCalls, usageResults } from './usage.js';
+import { vaultCalls, vaultResults } from './vault.js';
 
 /** One session as the phone lists it: the board row cut to what a list shows (about 200 bytes). */
 export const phoneRow = z.object({
@@ -69,8 +70,8 @@ export type PhonePrompt = z.infer<typeof phonePrompt>;
 /**
  * The calls the Mac answers: the board, one session, marking one read or unread, its pending
  * prompt, answering that prompt (`prompt` is its id, so an answer to an older one is stale), a
- * crew's, steering one (steer.ts), reviewing a session's changes (changes.ts), and the Inbox,
- * usage and push settings.
+ * crew's, steering one (steer.ts), reviewing a session's changes (changes.ts), the Inbox,
+ * usage and push settings, and the vault's (vault.ts).
  */
 export const phoneCall = z.discriminatedUnion('method', [
   z.object({ method: z.literal('sessions') }),
@@ -90,6 +91,7 @@ export const phoneCall = z.discriminatedUnion('method', [
   ...pushesCalls,
   ...steerCalls,
   ...changesCalls,
+  ...vaultCalls,
 ]);
 export type PhoneCall = z.infer<typeof phoneCall>;
 
@@ -107,6 +109,7 @@ export const callResults = {
   ...pushesResults,
   ...steerResults,
   ...changesResults,
+  ...vaultResults,
 };
 export type CallResult<M extends PhoneCall['method']> = z.infer<(typeof callResults)[M]>;
 
