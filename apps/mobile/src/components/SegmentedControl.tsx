@@ -7,13 +7,18 @@ export function SegmentedControl<T extends string>({
   options,
   value,
   onChange,
+  className,
 }: {
   options: readonly { value: T; label: string }[];
   value: T;
   onChange: (value: T) => void;
+  className?: string;
 }) {
   return (
-    <View accessibilityRole="tablist" className="flex-row rounded-lg bg-muted p-0.5">
+    <View
+      accessibilityRole="tablist"
+      className={cn('flex-row rounded-lg bg-muted p-0.5', className)}
+    >
       {options.map((option) => {
         const selected = option.value === value;
         return (
