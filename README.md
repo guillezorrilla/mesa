@@ -6,11 +6,14 @@
 
 <p align="center">
   <strong>Mesa</strong> is the Mac app above Claude Code, Codex and Gemini.<br>
-  One shared memory across every project, your tickets and pull requests in one place, and proof of what it changed.
+  One shared memory across every project, your tickets and pull requests in one place, and proof of what it changed.<br>
+  And an iPhone app to answer and steer every session away from your desk.
 </p>
 
 <p align="center">
   <a href="https://github.com/guillezorrilla/mesa/releases/latest/download/Mesa_universal.dmg"><strong>Download for macOS</strong></a>
+  &nbsp;&middot;&nbsp;
+  <a href="https://forms.gle/NT6UXQe61MiSM7P26">iPhone beta</a>
   &nbsp;&middot;&nbsp;
   <a href="https://mesa-hq.pages.dev">Website</a>
   &nbsp;&middot;&nbsp;
@@ -39,6 +42,31 @@ Running agents side by side is solved: every agent manager gives you a board of 
 - **Your whole workday.** Tickets from Jira, Linear, ClickUp and GitHub Issues, PR reviews on GitHub and Bitbucket, and a diff for every session, next to the agents doing the work.
 - **Use every agent, depend on none.** Claude Code, Codex and Gemini (through Antigravity CLI) run unchanged with your own subscriptions. No Mesa account, no API key, nothing leaves your Mac unless you connect a decision model.
 
+## Mesa for iPhone
+
+Your Mac keeps doing the work; your phone keeps you in it. Mesa for iPhone is in **private beta on TestFlight**: [request access](https://forms.gle/NT6UXQe61MiSM7P26) with your email and you get an invite, then pair it from **Settings > Phone** on your Mac (or `mesa phone pair`) by scanning the QR code.
+
+<table>
+  <tr>
+    <td align="center" width="33%"><picture><source media="(prefers-color-scheme: dark)" srcset="site/img/phone-agents-dark.webp"><img src="site/img/phone-agents-light.webp" width="240" alt="The Agents tab: one session needs you, two are working and three are done, across three projects"></picture></td>
+    <td align="center" width="33%"><picture><source media="(prefers-color-scheme: dark)" srcset="site/img/phone-prompt-dark.webp"><img src="site/img/phone-prompt-light.webp" width="240" alt="A session asking permission to run pnpm test export, with Allow and Deny on the phone"></picture></td>
+    <td align="center" width="33%"><picture><source media="(prefers-color-scheme: dark)" srcset="site/img/phone-chat-dark.webp"><img src="site/img/phone-chat-light.webp" width="240" alt="A session chat on the phone: the agent explains what it found, edits a file, and a live line says it is running the tests"></picture></td>
+  </tr>
+  <tr>
+    <td align="center">Every session</td>
+    <td align="center">Allow or deny</td>
+    <td align="center">Watch it work</td>
+  </tr>
+</table>
+
+- **Pinged when it matters.** A notification when a session asks a question, needs permission or finishes while you are away, and badges for what needs you.
+- **Every session, live.** Needs you, Working and Done across your projects and Macs. A session's chat shows the agent's commands, reads and edits as they happen, and its terminal in its own colours.
+- **Reply and answer.** Answer a prompt with the same options as at your desk, or send the next step with a saved prompt or a screenshot; the guardrail checks every reply.
+- **Review and ship.** A session's changes file by file with notes on any line, commit, pull and push; pull requests with checks, threads and drafts, merged from the phone.
+- **Start and steer.** Start a session from a goal, a ticket or a past conversation, follow a coordinator's crew, resolve a decision gate, or drive a plain terminal with its key row.
+- **Inbox and usage.** Your Mac's notices, and what today, each day and each session cost.
+- **Sealed end to end.** Everything between the phone and your Mac is encrypted, so Mesa's relay carries only boxes it cannot open. On the same Wi-Fi or over Tailscale the phone talks to your Mac directly. No account; the Mac has to be awake.
+
 ## Features
 
 | | |
@@ -47,14 +75,19 @@ Running agents side by side is solved: every agent manager gives you a board of 
 | **Decision model** (optional) | CLEF (free on Cloudflare, about 1,000 decisions a day) or Jev hands each agent the project note that matters for your prompt, and spots a session waiting for you when hooks are silent. |
 | **Impact** | What Mesa decided for you (a note brought into a prompt, a question the rules missed, a risky command stopped), who decided, how sure, and what happened next. `mesa impact` |
 | **Tickets** | Follow a Jira sprint, Linear cycle, ClickUp list or GitHub repo. **Investigate** finds the root cause with proof and leaves the code as it was; **Start goal** finishes the ticket, proven by tests and checks, then commits on a branch and pushes it. |
-| **PR reviews** | Every GitHub and Bitbucket pull request that needs you, across projects. Review sessions leave drafts only you can see, never approve or merge, and a re-review marks your earlier comments addressed or not. |
-| **Diff per session** | Each session in its own worktree or branch; the Diff panel shows everything it changed since its base branch. One session can span several repositories on the same branch. |
+| **PR reviews** | Every GitHub and Bitbucket pull request that needs you, across projects. Review sessions leave drafts only you can see, never approve or merge, and a re-review marks your earlier comments addressed or not. Reply to or resolve a thread, and merge with squash, merge commit or rebase. |
+| **Diff per session** | Each session in its own worktree or branch; the Diff panel shows everything it changed since its base branch, in a folder tree. Leave notes on any line and send them to the agent as one prompt. One session can span several repositories on the same branch. |
+| **Prompts as buttons** | A session asking to run a command or make an edit, or asking a question, shows its options as buttons. `mesa prompt`, `mesa answer` |
+| **Crews** | A coordinator plans tasks with dependencies and hands each to a worker in its own worktree, on a cheaper model if you like. Workers report done, failed or blocked, ask questions, and merge back; the Crew panel shows it all, and decision gates wait for your choice. `mesa worker`, `mesa tasks` |
+| **Git with an agent** | Commit messages and pull request text written for you, a failed pre-commit hook or a merge conflict handed to an agent to fix, and Discard changes. `mesa git message`, `mesa git resolve` |
 | **Handoff** | Pass a session to another agent, in the same tool or a different one, with its goal and a note, before its context fills. |
-| **Board** | Every session from every project, working, idle, done or waiting for you, with its branch. Tile several in a grid; sessions keep running when the app closes. |
+| **Board** | Every session from every project, working, idle, done or waiting for you, with its branch, pull request, lines changed and last reply. Tile several in a grid; sessions keep running when the app closes. |
+| **Never lose a session** | Unread sessions turn green until you open them, sessions a restart closed come back on their own, archived ones wait in Archived, and idle ones can sleep to free memory and wake when you return. |
 | **Bring what you have** | Mesa finds your last 30 days of Claude Code and Codex conversations and adopts them as sessions you can resume. |
 | **Guardrails** | Risky actions are allowed, asked or blocked, and every block is saved as a Receipt with its evidence. |
 | **Automations** | Run a skill, start a session or refresh imported knowledge on a schedule, a file change or a session state. |
-| **Cost** | Estimated cost per day, model and agent, from public list prices. |
+| **Cost** | Estimated cost per day, model and agent, from public list prices. Mesa's own background runs use cheaper models, such as Haiku. |
+| **Small things** | Drop a screenshot on a terminal, open a session's dev server from the title bar (`mesa ports`), run a project's checks with short output (`mesa check`), and keep the Mac awake while agents work (`mesa awake`). |
 | **CLI** | Every screen has a `mesa` command with `--json`, so scripts and agents can drive Mesa too. |
 
 <table>
@@ -93,7 +126,9 @@ mesa open my-app --goal "Fix the flaky login test"
 mesa open my-app --from ENG-123 --as goal    # finish a ticket on its own branch
 mesa open my-api --with my-web --worktree    # one session in two repositories, one branch
 mesa sessions                                # every session, highest attention first
+mesa worker my-app "Add the CSV export"      # inside a session: a worker that reports back
 mesa handoff <session> --agent codex         # switch agents, keep the context
+mesa phone pair                              # pair the iPhone app by QR
 mesa impact                                  # what Mesa decided for you
 ```
 
@@ -108,6 +143,7 @@ Terms are defined in [CONTEXT.md](CONTEXT.md), and the decisions behind the desi
 - **Local by default.** Your profile, session records, Receipts and vault stay on your Mac. No account and no usage analytics. Once a day Mesa sends an anonymous install ID with its version, so its maker can count installs and updates; `mesa installs off` (or Settings > General) stops it and erases it.
 - **Agents run as you,** with your own sign-in. Mesa never handles those credentials.
 - **The decision model is opt-in.** Without a key, Mesa makes no model call. With CLEF or Jev, it sends short, capped excerpts for each decision; the key stays in the macOS Keychain ([what leaves your Mac](docs/decisions.md#what-text-leaves-your-mac)).
+- **Your phone** gets only what your Mac seals for it. The relay that carries it sees only boxes it cannot read, and on the same Wi-Fi or over Tailscale the phone skips it.
 - **Connections** to Atlassian, Notion, ClickUp, Linear and GitHub keep their tokens in the Keychain. The OAuth broker that hands them over stores and logs nothing ([ADR-0014](docs/adr/0014-oauth-broker-and-keychain-tokens.md)), and you can run your own with `MESA_BROKER_URL`.
 
 ## Building from source
