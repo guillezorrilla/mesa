@@ -96,7 +96,7 @@ export function phoneService(
           },
           lock: ctx,
           lockPath: join(ctx.paths.root, 'phone-listener.lock'),
-          running: listener.running,
+          markRunning: listener.markRunning,
           rowFiles: { events: ctx.paths.events, sessions: ctx.paths.sessions, queue: queueFile },
         },
         stop,

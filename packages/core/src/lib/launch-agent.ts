@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import type { MesaContext } from '../context.js';
 import { writeFileAtomic } from './atomic-file.js';
@@ -44,14 +44,32 @@ export function launchAgent(
       throw new MesaError('internal', 'cannot resolve the logged-in user for launchd');
     return `gui/${uid.stdout.trim()}`;
   };
-  const status = async () => {
+  /** Whether it is loaded, and the pid of its running process when one runs. */
+  const status = async (): Promise<{
+    label: string;
+    plist: string;
+    loaded: boolean;
+    pid?: number;
+  }> => {
     if (!existsSync(plist)) return { label, plist, loaded: false };
     const result = await ctx.run('/bin/launchctl', ['print', `${await domain()}/${label}`], 5000);
-    return { label, plist, loaded: result.ok };
+    const pid = result.ok ? /^\s*pid = (\d+)$/m.exec(result.stdout)?.[1] : undefined;
+    return { label, plist, loaded: result.ok, ...(pid ? { pid: Number(pid) } : {}) };
   };
+  /** The plist's ProgramArguments: this Mesa CLI's, then the subcommand. */
+  const programArguments = () =>
+    `<key>ProgramArguments</key><array>${[...ctx.self, '--profile', ctx.profile, '--json', ...spec.command].map(string).join('')}</array>`;
   return {
     status,
     exists: () => existsSync(plist),
+    /** Whether the installed plist runs this very Mesa CLI (not another build's or worktree's). */
+    runsThisCli: () => {
+      try {
+        return readFileSync(plist, 'utf8').includes(programArguments());
+      } catch {
+        return false;
+      }
+    },
     /**
      * Starts an installed agent that is not running (one that exited cleanly, or was unloaded);
      * a running one is left as it is.
@@ -91,10 +109,9 @@ export function launchAgent(
           );
         env.MESA_NOTIFICATION_HELPER = ctx.env.MESA_NOTIFICATION_HELPER;
       }
-      const args = [...ctx.self, '--profile', ctx.profile, '--json', ...spec.command];
       const fields = [
         `<key>Label</key>${string(label)}`,
-        `<key>ProgramArguments</key><array>${args.map(string).join('')}</array>`,
+        programArguments(),
         `<key>WorkingDirectory</key>${string(ctx.paths.root)}`,
         `<key>EnvironmentVariables</key><dict>${Object.entries(env)
           .map(([k, v]) => `<key>${xml(k)}</key>${string(v)}`)

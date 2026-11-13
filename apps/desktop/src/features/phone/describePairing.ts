@@ -17,10 +17,10 @@ export function describePairing(
       : '';
     const off =
       status.listening === false ? '; the Mac is not answering it (mesa phone serve)' : '';
-    const old = status.listenerOutdated
+    const outdated = status.listenerOutdated
       ? `; the Mac answers it with Mesa ${status.listenerVersion}, not this version`
       : '';
-    return `Paired${since}${seen}${off}${old}`;
+    return `Paired${since}${seen}${off}${outdated}`;
   }
   if (showingCode) return 'Scan the code with the Mesa app on your phone';
   return 'Get pinged on your phone when a session needs you; messages are sealed so the broker cannot read them';

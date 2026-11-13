@@ -147,3 +147,7 @@ export function plantQueuedMessage(home: string, session: string, text: string) 
   queue.add(session, text, false);
   return queue.all().at(-1)?.id ?? '';
 }
+
+/** The record the running listener keeps of its pid and version, in `home`'s default profile. */
+export const listenerRecord = (home: string) =>
+  join(profilePaths(home, 'default').root, 'phone-listener.json');
