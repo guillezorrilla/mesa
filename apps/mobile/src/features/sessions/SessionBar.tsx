@@ -4,7 +4,7 @@ import ChevronLeft from 'lucide-react-native/icons/chevron-left';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { HeaderButton } from '@/components/HeaderButton';
+import { RoundButton } from '@/components/RoundButton';
 import { StateDot } from '@/components/StateDot';
 import { Text } from '@/components/ui/text';
 import { stateColor, stateWords } from './sessionState';
@@ -22,7 +22,7 @@ export function SessionBar({ row, children }: { row?: PhoneRow; children?: React
     <View style={{ paddingTop: top }} className="border-b border-border bg-card">
       <View className="h-13 flex-row items-center gap-2 px-3">
         <View className="flex-1 flex-row">
-          <HeaderButton icon={ChevronLeft} label="Back" filled onPress={back} />
+          <RoundButton icon={ChevronLeft} label="Back" onPress={back} />
         </View>
         {row ? (
           <View className="max-w-[62%] shrink items-center">

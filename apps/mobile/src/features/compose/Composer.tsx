@@ -1,10 +1,9 @@
 import ArrowUp from 'lucide-react-native/icons/arrow-up';
 import ImagePlus from 'lucide-react-native/icons/image-plus';
 import { Suspense } from 'react';
-import { Pressable, View } from 'react-native';
-import { Icon } from '@/components/ui/icon';
+import { View } from 'react-native';
+import { RoundButton } from '@/components/RoundButton';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
 import { appended } from './draftMap';
 import { PhotoChip } from './PhotoChip';
 import { PromptChips } from './PromptChips';
@@ -45,35 +44,14 @@ export function Composer({ reply }: { reply: Reply }) {
           className="max-h-40 min-h-8 rounded-none border-0 bg-transparent px-1.5 py-1 shadow-none dark:bg-transparent"
         />
         <View className="mt-2 flex-row items-center justify-between">
-          <Pressable
-            onPress={attach}
-            accessibilityRole="button"
-            accessibilityLabel="Attach a photo"
-            hitSlop={3}
-            className="size-[38px] items-center justify-center rounded-full bg-secondary active:opacity-70"
-          >
-            <Icon as={ImagePlus} className="size-[19px] text-foreground" />
-          </Pressable>
-          <Pressable
-            onPress={() => submit()}
+          <RoundButton icon={ImagePlus} label="Attach a photo" onPress={attach} />
+          <RoundButton
+            icon={ArrowUp}
+            label="Send"
+            bright={!empty}
             disabled={empty}
-            accessibilityRole="button"
-            accessibilityLabel="Send"
-            accessibilityState={{ disabled: empty }}
-            hitSlop={3}
-            className={cn(
-              'size-[38px] items-center justify-center rounded-full active:opacity-70',
-              empty ? 'bg-secondary' : 'bg-primary',
-            )}
-          >
-            <Icon
-              as={ArrowUp}
-              className={cn(
-                'size-[19px]',
-                empty ? 'text-muted-foreground' : 'text-primary-foreground',
-              )}
-            />
-          </Pressable>
+            onPress={() => submit()}
+          />
         </View>
       </View>
     </View>

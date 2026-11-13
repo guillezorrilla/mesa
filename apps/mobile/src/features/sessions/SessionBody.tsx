@@ -1,7 +1,7 @@
 import SquareTerminal from 'lucide-react-native/icons/square-terminal';
 import { use, useState } from 'react';
 import { ErrorNote } from '@/components/ErrorNote';
-import { HeaderButton } from '@/components/HeaderButton';
+import { RoundButton } from '@/components/RoundButton';
 import { Screen } from '@/components/Screen';
 import type { Outgoing } from '../compose/useSend';
 import { OutputPane } from '../terminal/OutputPane';
@@ -33,10 +33,9 @@ export function SessionBody({ session, echoes }: { session: SessionDetail; echoe
   return (
     <>
       <SessionBar row={detail.row}>
-        <HeaderButton
+        <RoundButton
           icon={SquareTerminal}
           label="Output"
-          filled
           selected={output}
           onPress={() => setOutput(!output)}
         />
