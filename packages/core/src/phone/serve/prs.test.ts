@@ -141,6 +141,7 @@ test('one PR carries its description, checks, threads with verdicts, drafts, own
   const { deps } = fakeDeps();
   expect(await ask(deps, { method: 'pr', ...PR })).toMatchObject({
     body: 'Raises it.',
+    files: 1,
     checks: 'failing',
     checkList: [{ name: 'lint', state: 'failing', url: 'https://ci.example.com/1' }],
     threads: [{ id: 'T1', resolved: false, verdict: 'partly' }],

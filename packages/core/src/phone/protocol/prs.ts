@@ -57,6 +57,8 @@ export const phonePrDetail = phonePr.extend({
   base: z.string(),
   additions: z.number(),
   deletions: z.number(),
+  /** How many files it changes; absent from a Mac before #1134. */
+  files: z.number().int().nonnegative().optional(),
   checks: z.enum(['passing', 'failing', 'pending']).nullable(),
   checkList: z.array(phoneCheck),
   threads: z.array(phoneThread),
