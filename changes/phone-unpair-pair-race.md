@@ -2,4 +2,4 @@
 type: fixed
 ---
 
-Pairing the phone again right after unpairing it keeps the new pairing: the old listener, ending, no longer removes it.
+Pairing the phone again right after unpairing it now keeps the new pairing instead of dropping it.
