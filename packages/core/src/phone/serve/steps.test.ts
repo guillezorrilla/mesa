@@ -69,6 +69,15 @@ test('the step an agent is on now is its last, with no result and nothing said a
       line('assistant', [{ type: 'thinking', thinking: 'Next, the moon.' }]),
     ]),
   ).toMatch(/^assistant-.*Next, the moon.*:0$/);
+  const edit = line('assistant', [
+    {
+      type: 'tool_use',
+      id: 'edit-1',
+      name: 'Edit',
+      input: { file_path: `${dir}/tide.ts`, old_string: 'feet', new_string: 'metres' },
+    },
+  ]);
+  expect(current([edit])).toBe('edit-1');
   // A call left without a result by a stop is not current once the person speaks again.
   expect(current([bash('run-1'), line('user', 'Stop, chart the moon')])).toBeUndefined();
   expect(

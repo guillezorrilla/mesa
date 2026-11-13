@@ -4,6 +4,7 @@ import { ErrorNote } from '@/components/ErrorNote';
 import { RoundButton } from '@/components/RoundButton';
 import { Screen } from '@/components/Screen';
 import type { Outgoing } from '../compose/useSend';
+import { liveOf } from '../steps/liveOf';
 import { OutputPane } from '../terminal/OutputPane';
 import { ChatBottom } from './ChatBottom';
 import { ChatList } from './ChatList';
@@ -32,10 +33,7 @@ export function SessionBody({ session, echoes }: { session: SessionDetail; echoe
     );
   const now = Date.now();
   // While it works, the step it is on shows as the live line at the bottom, not yet as a row.
-  const live =
-    detail.row.state === 'working'
-      ? detail.steps?.find((step) => step.id === detail.current)
-      : undefined;
+  const live = liveOf(detail);
   return (
     <>
       <SessionBar row={detail.row}>
@@ -56,7 +54,7 @@ export function SessionBody({ session, echoes }: { session: SessionDetail; echoe
           items={chatItems(
             detail.replies,
             echoes,
-            detail.steps?.filter((step) => step !== live),
+            detail.steps?.filter((step) => step !== live?.step),
           )}
           now={now}
           top={

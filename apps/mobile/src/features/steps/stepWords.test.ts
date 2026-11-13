@@ -1,13 +1,6 @@
 import type { PhoneStep } from '@mesa/core/phone';
 import { expect, test } from 'vitest';
-import {
-  LIVE_TARGET,
-  liveWords,
-  runSentence,
-  SHOWN_LINES,
-  shownText,
-  stepLabel,
-} from './stepWords';
+import { LIVE_CHARS, liveWords, runSentence, SHOWN_LINES, shownText, stepLabel } from './stepWords';
 
 const tool = (kind: string, target = '', status = 'done', name = 'Bash'): PhoneStep => ({
   type: 'tool',
@@ -89,7 +82,7 @@ test("the live line names the agent's current step, Thinking after a thought, el
   const long = liveWords(
     tool('command', `pnpm exec vitest run ${'src/a.test.ts '.repeat(9)}\necho`, 'running'),
   );
-  expect(Array.from(long.target)).toHaveLength(LIVE_TARGET);
+  expect(Array.from(long.target)).toHaveLength(LIVE_CHARS);
   expect(long.target).toMatch(/^pnpm exec vitest run src\/a\.test\.ts .*\.\.\.$/);
   expect(liveWords(tool('command', 'cd web &&\npnpm build', 'running')).target).toBe('cd web &&');
 });

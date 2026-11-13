@@ -1,5 +1,5 @@
 // The pairing protocol (`@mesa/core/phone`): what the phone app bundles from core, and nothing else
-// but the pure words, local day, session state sets, prompt title, diff lines, push modes and agent
+// but the pure words, clip, local day, session state sets, prompt title, diff lines, push modes and agent
 // names its screens share with the desktop.
 export { AGENT_LABELS, AGENT_NAMES, agentLabel } from '../../agents/names.js';
 export {
@@ -10,6 +10,7 @@ export {
   noteLines,
 } from '../../git/diff-lines.js';
 export { relativeAgo, shortAgo, timeAgo } from '../../lib/ago.js';
+export { clip } from '../../lib/clip.js';
 export { excludedNote, money } from '../../lib/format.js';
 export { localDay } from '../../lib/time.js';
 export { type TerminalColors, terminalPalette } from '../../profile/terminal-palettes.js';
