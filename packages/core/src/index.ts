@@ -92,6 +92,7 @@ export type { InboxFix, InboxItem } from './notifications/inbox-items.js';
 export type { PairStart, PhoneStatus } from './phone/pair.js';
 export { webSocketConnect } from './phone/protocol/mailbox.js';
 export type { PushOutcome } from './phone/push.js';
+export { wsDirectListen } from './phone/serve/direct-socket.js';
 export type { ServeEnd } from './phone/serve/listen.js';
 export type { QueuedEntry } from './phone/serve/queue.js';
 export type {

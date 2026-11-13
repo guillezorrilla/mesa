@@ -34,6 +34,11 @@ const config: ExpoConfig = {
       // Standard encryption protecting the person's own data only (owner, 2026-11-11), so App
       // Store Connect asks no export-compliance question per build.
       ITSAppUsesNonExemptEncryption: false,
+      // The direct path (#1129): iOS asks once before the app dials the Mac on the same Wi-Fi.
+      NSLocalNetworkUsageDescription:
+        'Mesa talks to your Mac directly when both are on the same network, which is faster than going through the internet.',
+      // The Mac's socket is plain ws:// on a LAN or tailnet address; every box on it is sealed.
+      NSAppTransportSecurity: { NSAllowsArbitraryLoads: false, NSAllowsLocalNetworking: true },
     },
     entitlements: {
       // Production always: TestFlight is the only device build, and Expo's default (development)

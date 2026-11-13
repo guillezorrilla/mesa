@@ -1,20 +1,22 @@
 import { join } from 'node:path';
 import type { Clock } from '../lib/clock.js';
+import type { MacPath } from '../phone/protocol/direct.js';
 import type { PhoneMessage } from '../phone/protocol/envelope.js';
 import { phoneKeys } from '../phone/protocol/join.js';
-import { mailbox } from '../phone/protocol/mailbox.js';
-import { macCalls } from '../phone/protocol/requests.js';
+import { phoneLine } from '../phone/protocol/line.js';
 import { phoneQueue } from '../phone/serve/queue.js';
 import { profilePaths } from '../profile/paths.js';
 import { recordHookEvent } from '../sessions/signals/hook-events.js';
 import { CLAUDE_VERSION } from './agents.js';
 import { fixedClock } from './clock.js';
+import type { fakeDirectSocket } from './direct-socket.js';
 import { fakePairingBroker } from './pairing-broker.js';
 import { fakePhone } from './phone.js';
 import { projectProfile } from './profile.js';
 import { scriptedRunner } from './runner.js';
 import { memorySecretStore } from './secrets.js';
 import { newSession, plantOutputLog, testStore } from './sessions.js';
+import type { manualTimers } from './timers.js';
 import { fakeTmux } from './tmux.js';
 
 const NOW = fixedClock()();
@@ -25,11 +27,17 @@ const NOW = fixedClock()();
  * session opens in, and `mesaYaml` the project's. `ran` is every command the Mac ran and `dials`
  * how often the listener dialed the broker; `clock` is the Mac's, and `tmux` sees each tmux
  * command first. `end` stops the listener and returns its end; `listener` is that end, and
- * `broker` the fake broker both sides dial.
+ * `broker` the fake broker both sides dial. With `direct`, the Mac also has its own socket and the
+ * phone's line dials it on `timers`; `paths` is each path the line took.
  */
 export async function servingPhone(
   mesaYaml?: string,
-  opts: { clock?: Clock; tmux?: (command: string[]) => void } = {},
+  opts: {
+    clock?: Clock;
+    tmux?: (command: string[]) => void;
+    direct?: ReturnType<typeof fakeDirectSocket>;
+    timers?: ReturnType<typeof manualTimers>;
+  } = {},
 ) {
   const broker = fakePairingBroker('https://broker.test', () => NOW);
   const world = fakeTmux(opts.tmux ? { before: opts.tmux } : {});
@@ -49,6 +57,7 @@ export async function servingPhone(
     },
     secretStore: memorySecretStore().store,
     env: { MESA_BROKER_URL: 'https://broker.test' },
+    ...(opts.direct ? { listenDirect: opts.direct.listen } : {}),
   });
   const phone = fakePhone(broker.http, () => NOW);
   await phone.join((await mesa.phone.pair()).result.qr);
@@ -64,21 +73,29 @@ export async function servingPhone(
   const p = phone.pairing;
   if (!p) throw new Error('not joined');
   const pushed: PhoneMessage[] = [];
+  const paths: MacPath[] = [];
   let ids = 0;
-  const calls = macCalls({
-    send: (message) => box.send(message),
-    newId: () => `q${++ids}`,
-    wait: () => new Promise(() => {}),
-  });
-  const box = mailbox(
-    { connect: broker.connect, now: () => NOW },
+  const { timers } = opts;
+  const line = phoneLine(
+    {
+      connect: opts.direct ? opts.direct.connect(broker.connect) : broker.connect,
+      now: timers ? () => new Date(timers.now()) : () => NOW,
+      wait: timers?.wait ?? (() => new Promise(() => {})),
+      newId: () => `q${++ids}`,
+    },
     { ...p, token: p.phoneToken, keys: phoneKeys(p) },
-    { message: (message) => calls.settle(message) || pushed.push(message) },
+    {
+      message: (message) => {
+        if (message.kind !== 'response' && message.kind !== 'direct') pushed.push(message);
+      },
+      path: (path) => paths.push(path),
+    },
   );
-  box.connect();
+  const calls = { call: line.call };
+  line.connect();
   const end = async () => {
     stop.abort();
-    box.close();
+    line.close();
     return listener;
   };
   return {
@@ -89,6 +106,8 @@ export async function servingPhone(
     session,
     calls,
     pushed,
+    line,
+    paths,
     ran: runner.calls,
     dials: () => dials,
     broker,
