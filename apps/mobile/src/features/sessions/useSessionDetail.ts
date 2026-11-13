@@ -12,7 +12,7 @@ export type DetailRead = { detail?: PhoneDetail; error?: string };
 const EVERY_MS = 5000;
 
 const read = async (link: MacLink, id: string, last?: Promise<DetailRead>): Promise<DetailRead> => {
-  const next = await tryCall(link, () => link.call({ method: 'session', id }));
+  const next = await tryCall(link, () => link.read({ method: 'session', id }));
   return keepLast(next.error ? { error: next.error } : { detail: next.result }, last);
 };
 

@@ -12,6 +12,7 @@ import type { AnswerDeps } from './serve/answer.js';
 import type { SessionSteer } from './serve/answer-steer.js';
 import { servePhone } from './serve/listen.js';
 import { phoneQueue } from './serve/queue.js';
+import { watchRowFiles } from './serve/row-files.js';
 
 /**
  * The profile's Pairing with a phone (CONTEXT.md, Pairing; ADR-0014's 2026-11-11 amendment), and
@@ -31,8 +32,9 @@ export function phoneService(
     log: 'phone',
   });
   /** The phone's queued replies (CONTEXT.md, Queued message): the listener's, and the Mac's to list. */
+  const queueFile = join(ctx.paths.root, 'phone-queue.json');
   const queue = phoneQueue({
-    file: join(ctx.paths.root, 'phone-queue.json'),
+    file: queueFile,
     lock: ctx,
     clock: ctx.clock,
     newId: ctx.newId,
@@ -100,6 +102,11 @@ export function phoneService(
           },
           lock: ctx,
           lockPath: join(ctx.paths.root, 'phone-listener.lock'),
+          watch: (changed) =>
+            watchRowFiles(
+              { events: ctx.paths.events, sessions: ctx.paths.sessions, queue: queueFile },
+              changed,
+            ),
         },
         stop,
       );

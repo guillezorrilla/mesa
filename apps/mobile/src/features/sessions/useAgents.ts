@@ -20,7 +20,7 @@ const KEEP_MS = 3 * RENEW_MS;
 const fresh = (update: Update) => Date.now() - update.at < KEEP_MS;
 
 const list = (link: MacLink, last?: Promise<Listing>): Promise<Listing> =>
-  link.call({ method: 'sessions' }).then(
+  link.read({ method: 'sessions' }).then(
     ({ rows }) => ({ rows, at: Date.now() }),
     async () => ({
       rows: (await last)?.rows ?? [],

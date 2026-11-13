@@ -35,19 +35,39 @@ export function askLine(prompt: PendingPrompt): string | undefined {
 }
 
 /**
- * The rows with each waiting session's `ask` read through `prompt`; a prompt that does not read
- * leaves the row as it is.
- * ponytail: one pane capture per waiting session per look (every 2 s while a phone watches);
- * keep the last ask per state time if many waiting sessions make it slow.
+ * Each waiting row's `ask`, read through `prompt` (a pane capture) only when the session changed
+ * since the read that gave it: its state or its time moved, or `forget` was told its hook log
+ * changed (a new prompt in the same state). A prompt that does not read (its pane not drawn yet)
+ * leaves the row as it is, and is read again on the next look.
  */
-export const askedRows = (rows: PhoneRow[], prompt: (id: string) => Promise<PendingPrompt>) =>
-  Promise.all(
-    rows.map(async (row) => {
-      if (!(WAITING_STATES as ReadonlySet<string>).has(row.state)) return row;
-      const ask = await prompt(row.id).then(askLine, () => undefined);
-      return ask ? { ...row, ask } : row;
-    }),
-  );
+export function keptAsks(prompt: (id: string) => Promise<PendingPrompt>) {
+  const kept = new Map<string, { key: string; ask: Promise<string | undefined> }>();
+  const askOf = (row: PhoneRow) => {
+    const key = `${row.state} ${row.since}`;
+    const hit = kept.get(row.id);
+    if (hit?.key === key) return hit.ask;
+    const entry = { key, ask: prompt(row.id).then(askLine, () => undefined) };
+    kept.set(row.id, entry);
+    void entry.ask.then((ask) => {
+      if (!ask && kept.get(row.id) === entry) kept.delete(row.id);
+    });
+    return entry.ask;
+  };
+  return {
+    read: (rows: PhoneRow[]) =>
+      Promise.all(
+        rows.map(async (row) => {
+          if (!(WAITING_STATES as ReadonlySet<string>).has(row.state)) {
+            kept.delete(row.id);
+            return row;
+          }
+          const ask = await askOf(row);
+          return ask ? { ...row, ask } : row;
+        }),
+      ),
+    forget: (id: string) => kept.delete(id),
+  };
+}
 
 /**
  * The rows with how many replies each session has queued, so a reply queued or removed on the

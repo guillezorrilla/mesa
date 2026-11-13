@@ -1,6 +1,8 @@
 import {
+  type CallResult,
   macCalls,
   mailbox,
+  type PhoneCall,
   type PhonePairing,
   pairingClient,
   phoneKeys,
@@ -8,6 +10,7 @@ import {
   webSocketConnect,
 } from '@mesa/core/phone';
 import { randomUUID } from 'expo-crypto';
+import { againOnTimeout } from './againOnTimeout';
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 /** How long after a dropped socket the app dials again, while it is in front. */
@@ -45,6 +48,11 @@ export function macLink(pairing: PhonePairing, keepTaken: (takenSeq: number) => 
   };
   return {
     call: calls.call,
+    /** A read (never a write): asked once more when the Mac did not answer in time. */
+    read: <M extends PhoneCall['method']>(
+      call: Extract<PhoneCall, { method: M }>,
+      timeoutMs?: number,
+    ): Promise<CallResult<M>> => againOnTimeout(() => calls.call(call, timeoutMs)),
     /** Holds the socket open, dialing again after a drop, until `close`. */
     connect: () => {
       wanted = true;

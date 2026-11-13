@@ -5,14 +5,14 @@ import type { SessionRow } from '../../sessions/board/rows.js';
 import type { SessionResponses } from '../../sessions/native/responses.js';
 import type { UsageReport } from '../../usage/records.js';
 import { isChangesCall } from '../protocol/changes.js';
-import type { CallResult, PhoneCall } from '../protocol/rpc.js';
+import type { CallResult, PhoneCall, PhoneRow } from '../protocol/rpc.js';
 import { answerSteer, isSteerCall, type SteerDeps } from './answer-steer.js';
 import { answerChanges, type ChangesDeps } from './changes.js';
 import { answerCrewCall, type CrewDeps, isCrewCall } from './crew.js';
 import { answerInboxCall, type InboxDeps, isInboxCall } from './inbox.js';
 import { answerPushes, type PushesDeps } from './pushes.js';
 import { replySegments } from './replies.js';
-import { askedRows, phoneRows, queuedRows, toPhoneRow } from './rows.js';
+import { phoneRows, queuedRows, toPhoneRow } from './rows.js';
 import { phoneUsage } from './usage.js';
 import { answerVaultCall, isVaultCall, type VaultDeps } from './vault.js';
 
@@ -39,6 +39,9 @@ export type AnswerDeps = {
   vault: VaultDeps;
 };
 
+/** What the listener answers through: the session functions, and each waiting row's ask (keptAsks). */
+export type Answers = AnswerDeps & { asked: (rows: PhoneRow[]) => Promise<PhoneRow[]> };
+
 /** How many replies and output lines the session screen gets. */
 const REPLIES = 5;
 const TAIL = 60;
@@ -47,11 +50,11 @@ const TAIL = 60;
  * The phone's rows as the board has them now: each waiting one with its `ask`, each with how many
  * replies it has queued. The `sessions` call and the listener's watch both read them so.
  */
-export const boardRows = async (deps: Pick<AnswerDeps, 'board' | 'prompt' | 'steer'>) =>
-  queuedRows(await askedRows(phoneRows(await deps.board()), deps.prompt), deps.steer.queue.all());
+export const boardRows = async (deps: Pick<Answers, 'board' | 'asked' | 'steer'>) =>
+  queuedRows(await deps.asked(phoneRows(await deps.board())), deps.steer.queue.all());
 
 /** Answers one call from the phone; throws a MesaError (not_found) for an unknown session. */
-export async function answerCall(deps: AnswerDeps, call: PhoneCall): Promise<unknown> {
+export async function answerCall(deps: Answers, call: PhoneCall): Promise<unknown> {
   if (call.method === 'sessions')
     return {
       rows: await boardRows(deps),

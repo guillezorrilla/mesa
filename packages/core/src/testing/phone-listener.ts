@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import type { Clock } from '../lib/clock.js';
 import type { PhoneMessage } from '../phone/protocol/envelope.js';
 import { phoneKeys } from '../phone/protocol/join.js';
 import { mailbox } from '../phone/protocol/mailbox.js';
@@ -21,11 +22,17 @@ const NOW = fixedClock()();
 /**
  * A paired profile (its session `store`) with one record-only session (`session`), its phone listener running, and the
  * phone's end of the mailbox (`calls`, and what the Mac `pushed`); `world` is the tmux a live
- * session opens in, and `mesaYaml` the project's. `end` stops the listener and returns its end.
+ * session opens in, and `mesaYaml` the project's. `ran` is every command the Mac ran and `dials`
+ * how often the listener dialed the broker; `clock` is the Mac's, and `tmux` sees each tmux
+ * command first. `end` stops the listener and returns its end.
  */
-export async function servingPhone(mesaYaml?: string) {
+export async function servingPhone(
+  mesaYaml?: string,
+  opts: { clock?: Clock; tmux?: (command: string[]) => void } = {},
+) {
   const broker = fakePairingBroker('https://broker.test', () => NOW);
-  const world = fakeTmux();
+  const world = fakeTmux(opts.tmux ? { before: opts.tmux } : {});
+  let dials = 0;
   const runner = scriptedRunner({
     '/usr/bin/id': '501\n',
     tmux: world.answer,
@@ -33,8 +40,12 @@ export async function servingPhone(mesaYaml?: string) {
   });
   const { mesa, home } = projectProfile(runner.run, {
     ...(mesaYaml === undefined ? {} : { mesaYaml }),
+    ...(opts.clock ? { clock: opts.clock } : {}),
     http: broker.http,
-    connect: broker.connect,
+    connect: (url, on) => {
+      dials += 1;
+      return broker.connect(url, on);
+    },
     secretStore: memorySecretStore().store,
     env: { MESA_BROKER_URL: 'https://broker.test' },
   });
@@ -69,7 +80,18 @@ export async function servingPhone(mesaYaml?: string) {
     box.close();
     return listener;
   };
-  return { mesa, home, store, world, session, calls, pushed, end };
+  return {
+    mesa,
+    home,
+    store,
+    world,
+    session,
+    calls,
+    pushed,
+    ran: runner.calls,
+    dials: () => dials,
+    end,
+  };
 }
 
 export type ServingPhone = Awaited<ReturnType<typeof servingPhone>>;
@@ -101,9 +123,13 @@ export async function livePhoneSession(at: ServingPhone, opts: { goal?: string }
   return { id: opened.id, window, hook };
 }
 
-/** Lets the listener's loop run until `done`, up to 500 turns of the event loop. */
+/**
+ * Lets the listener's loop run until `done`, up to 5 s: it looks again when the file watch hears
+ * a change, which comes a moment after the write.
+ */
 export async function untilTrue(done: () => boolean) {
-  for (let i = 0; i < 500 && !done(); i++) await new Promise((r) => setImmediate(r));
+  const end = Date.now() + 5000;
+  while (!done() && Date.now() < end) await new Promise((r) => setTimeout(r, 5));
   return done();
 }
 
