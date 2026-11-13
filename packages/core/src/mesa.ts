@@ -118,7 +118,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     {
       board: () => sessions.sessions.list(),
       responses: (id) => sessions.sessions.responses.list(id),
-      logs: (id, tail, colour) => sessions.sessions.logs(id, tail, colour),
+      logs: (id, tail) => sessions.sessions.logs(id, tail),
       keys: (id, keys) => sessions.sessions.terminal.keys(id, keys, { via: 'phone' }),
       read: sessions.sessions.read,
       unread: sessions.sessions.unread,

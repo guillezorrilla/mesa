@@ -47,11 +47,6 @@ test('outputTail reads the raw stream as plain text: escapes, controls, and blan
   ]);
   expect(outputTail(lockDeps(), logs, 'a1b2c3d4', 0)).toEqual([]);
   expect(outputTail(lockDeps(), logs, 'a1b2c3d4', 50)).toHaveLength(7);
-  // Coloured, a line keeps its colours; a line of colour changes alone is blank and dropped.
-  expect(outputTail(lockDeps(), logs, 'a1b2c3d4', 7, true)?.slice(0, 2)).toEqual([
-    '\x1b[1m\x1b[38;2;215;119;87mTide tables\x1b[0m',
-    'a link and a bell',
-  ]);
 });
 
 test('a tail of a log past its first read gives what a whole read does, from whole lines', () => {

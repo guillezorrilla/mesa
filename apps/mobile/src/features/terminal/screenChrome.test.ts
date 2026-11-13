@@ -40,8 +40,3 @@ test('a line after a rule stays unless a chrome line follows it', () => {
   const kept = ['──────', 'Summary of the run', 'All green.'];
   expect(withoutChrome(kept)).toEqual(['Summary of the run', 'All green.']);
 });
-
-test('lines of any kind are read by their plain text', () => {
-  const lines = [{ text: said[0] ?? '' }, { text: '❯' }];
-  expect(withoutChrome(lines, (line) => line.text)).toEqual([lines[0]]);
-});

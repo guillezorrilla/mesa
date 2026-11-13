@@ -13,7 +13,7 @@ import {
   SESSION_REPLIES,
   type WatchCall,
 } from '../protocol/rpc.js';
-import { isTerminalCall, OUTPUT_LINES } from '../protocol/terminal.js';
+import { isTerminalCall } from '../protocol/terminal.js';
 import { answerSteer, isSteerCall, type SteerDeps } from './answer-steer.js';
 import { answerChanges, type ChangesDeps } from './changes.js';
 import { answerCrewCall, type CrewDeps, isCrewCall } from './crew.js';
@@ -29,7 +29,7 @@ import { phoneUsage } from './usage.js';
 export type AnswerDeps = {
   board: () => Promise<SessionRow[]>;
   responses: (id: string) => SessionResponses;
-  logs: (id: string, tail: number, colour?: boolean) => { lines: string[] };
+  logs: (id: string, tail: number) => { lines: string[] };
   /** `mesa keys`: keys pressed in a plain terminal session. */
   keys: (id: string, keys: readonly string[]) => Promise<unknown>;
   read: (ids: readonly string[]) => unknown;
@@ -57,6 +57,8 @@ export type ListenerAnswers = AnswerDeps & { asked: (rows: PhoneRow[]) => Promis
 
 /** How many output lines the session screen gets. */
 const TAIL = 60;
+/** How many lines a terminal's live output gets: a few screens of a phone. */
+const OUTPUT = 120;
 
 /**
  * The phone's rows as the board has them now: each waiting one with its `ask`, each with how many
@@ -89,15 +91,8 @@ export async function answerCall(
   if (call.method === 'pushes')
     return answerPushes(deps.pushes, call.set) satisfies CallResult<'pushes'>;
   if (isTerminalCall(call)) {
-    if (call.method === 'output') {
-      const lines = call.lines ?? OUTPUT_LINES.first;
-      // One line past those asked says whether older ones exist.
-      const read = deps.logs(call.id, lines + 1, call.colour).lines;
-      return {
-        lines: read.slice(-lines),
-        more: read.length > lines,
-      } satisfies CallResult<'output'>;
-    }
+    if (call.method === 'output')
+      return { lines: deps.logs(call.id, OUTPUT).lines } satisfies CallResult<'output'>;
     await deps.keys(call.id, call.keys);
     return {} satisfies CallResult<'keys'>;
   }

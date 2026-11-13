@@ -25,21 +25,18 @@ const detail = (title: string, terminal = false): PhoneDetail => ({
 /** Watches over a session whose detail and output the test sets, on a clock it moves. */
 const watching = (terminal = false) => {
   let now = 0;
-  const session = { title: 'Docs', output: ['$ ls'], colour: undefined as boolean | undefined };
+  const session = { title: 'Docs', output: ['$ ls'] };
   const sent: WatchedSession[] = [];
   const watches = sessionWatches({
     now: () => now,
     sleep: async (ms) => {
       now += ms;
     },
-    read: async (id, _replies, colour) => {
-      session.colour = colour;
-      return {
-        id,
-        detail: detail(session.title, terminal),
-        ...(terminal ? { output: session.output } : {}),
-      };
-    },
+    read: async (id) => ({
+      id,
+      detail: detail(session.title, terminal),
+      ...(terminal ? { output: session.output } : {}),
+    }),
     send: (watched) => sent.push(watched),
   });
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -92,11 +89,9 @@ test('a watch not asked again within WATCH_MS lapses', async () => {
 
 test("an output log pushes a terminal's output, not an agent session; a burst is one push", async () => {
   const terminal = watching(true);
-  terminal.watches.answer({ method: 'watch', id: 'ab12cd34', colour: true });
+  terminal.watches.answer({ method: 'watch', id: 'ab12cd34' });
   terminal.watches.logged('ab12cd34');
   await terminal.settle();
-  // The watch's colour reaches the read, so its output comes coloured.
-  expect(terminal.session.colour).toBe(true);
   terminal.session.output = ['$ ls', 'README.md'];
   terminal.watches.logged('ab12cd34');
   terminal.watches.logged('ab12cd34');

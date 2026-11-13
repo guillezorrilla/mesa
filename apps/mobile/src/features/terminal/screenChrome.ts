@@ -19,12 +19,10 @@ const chrome = (line = '') => CHROME.some((pattern) => pattern.test(line.trim())
 
 /**
  * A session's output without its agent's screen chrome: each chrome line, and the status line
- * Claude Code draws between the box's lower rule and the mode line (the cwd, by default). Each
- * line is read by its plain `text`, so coloured lines keep their colours.
+ * Claude Code draws between the box's lower rule and the mode line (the cwd, by default).
  */
-export function withoutChrome<T>(lines: T[], text: (line: T) => string = String): T[] {
-  const plain = lines.map(text);
+export function withoutChrome(lines: string[]): string[] {
   const statusLine = (at: number) =>
-    RULE.test(plain[at - 1]?.trim() ?? '') && chrome(plain[at + 1]);
-  return lines.filter((_, at) => !chrome(plain[at]) && !statusLine(at));
+    RULE.test(lines[at - 1]?.trim() ?? '') && chrome(lines[at + 1]);
+  return lines.filter((line, at) => !chrome(line) && !statusLine(at));
 }

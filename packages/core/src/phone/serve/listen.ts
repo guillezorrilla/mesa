@@ -170,8 +170,8 @@ async function listen(
   const watches = sessionWatches({
     now,
     sleep: deps.sleep,
-    read: (id, replies, colour) =>
-      readWatched({ ...answers, board: () => looked?.rows ?? board() }, id, replies, colour),
+    read: (id, replies) =>
+      readWatched({ ...answers, board: () => looked?.rows ?? board() }, id, replies),
     send: (watched) =>
       box.send({ kind: 'update', rows: [], gone: [], order: [], watched: [watched] }),
   });

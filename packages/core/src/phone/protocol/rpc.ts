@@ -108,8 +108,6 @@ export const phoneCall = z.discriminatedUnion('method', [
     id: z.string(),
     /** How many of the agent's replies each pushed detail holds, as the `session` call's. */
     replies: z.number().int().min(1).max(SESSION_REPLIES.most).optional(),
-    /** A terminal's pushed output keeps its colours, as the `output` call's `colour`. */
-    colour: z.boolean().optional(),
   }),
   z.object({ method: z.literal('unwatch'), id: z.string() }),
   z.object({ method: z.literal('mark'), id: z.string(), unread: z.boolean() }),
