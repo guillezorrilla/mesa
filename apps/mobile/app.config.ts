@@ -14,7 +14,7 @@ const config: ExpoConfig = {
   scheme: 'mesa',
   // iOS only (ADR-0027); also keeps CI's fingerprint equal to EAS's, which leaves web out.
   platforms: ['ios'],
-  version: '0.1.0',
+  version: '0.2.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
