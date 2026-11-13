@@ -8,7 +8,7 @@ export default function UsageLayout() {
   if (!pairing) return <Redirect href="/" />;
   return (
     <Stack screenOptions={{ headerTitleStyle }}>
-      <Stack.Screen name="index" options={{ title: 'Usage', headerLargeTitle: true }} />
+      <Stack.Screen name="index" options={{ title: 'Usage', headerShown: false }} />
     </Stack>
   );
 }

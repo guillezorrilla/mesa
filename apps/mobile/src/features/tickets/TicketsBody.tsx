@@ -24,15 +24,12 @@ export function TicketsBody({
   const [project, setProject] = useState(listed[0]?.name);
   if (!project)
     return (
-      <Screen className="px-0">
-        {header}
-        <View className="px-4">
-          {error ? (
-            <ErrorNote text={error} />
-          ) : (
-            <Text variant="muted">Your Mac lists no projects.</Text>
-          )}
-        </View>
+      <Screen header={header}>
+        {error ? (
+          <ErrorNote text={error} />
+        ) : (
+          <Text variant="muted">Your Mac lists no projects.</Text>
+        )}
       </Screen>
     );
   const chips = (

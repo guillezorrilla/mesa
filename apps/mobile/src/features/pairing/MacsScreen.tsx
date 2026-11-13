@@ -4,6 +4,7 @@ import Plus from 'lucide-react-native/icons/plus';
 import { LinkRow } from '@/components/LinkRow';
 import { Screen } from '@/components/Screen';
 import { Section } from '@/components/Section';
+import { TabHeader } from '@/components/TabHeader';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -15,7 +16,7 @@ import { usePairing } from './usePairing';
 export function MacsScreen() {
   const { pairings } = usePairing();
   return (
-    <Screen>
+    <Screen header={<TabHeader title="Settings" />}>
       <Section title={pairings.length > 1 ? 'Paired Macs' : 'Paired Mac'}>
         {pairings.map((pairing) => (
           <MacCard key={pairing.pairingId} pairing={pairing} />

@@ -5,7 +5,7 @@ import { headerTitleStyle } from '@/lib/headerStyle';
 export default function HomeLayout() {
   return (
     <Stack screenOptions={{ headerTitleStyle }}>
-      <Stack.Screen name="index" options={{ title: 'Settings', headerLargeTitle: true }} />
+      <Stack.Screen name="index" options={{ title: 'Settings', headerShown: false }} />
       <Stack.Screen name="pair" options={{ title: 'Pair a Mac' }} />
       <Stack.Screen name="about" options={{ title: 'About' }} />
     </Stack>

@@ -1,6 +1,6 @@
 import type { CallResult, PhoneNotice } from '@mesa/core/phone';
 import Inbox from 'lucide-react-native/icons/inbox';
-import { use } from 'react';
+import { type ReactNode, use } from 'react';
 import { FlatList, RefreshControl, View } from 'react-native';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorNote } from '@/components/ErrorNote';
@@ -11,17 +11,19 @@ import { NoticeRow } from './NoticeRow';
 import { newestFirst } from './newestFirst';
 
 /**
- * The notices newest first as a list pulled to refresh, an unread one swiped to mark it read; a
- * Mac that did not answer says why above them.
+ * The notices newest first under `header`, as a list pulled to refresh, an unread one swiped to
+ * mark it read; a Mac that did not answer says why above them.
  */
 export function InboxList({
   answer,
+  header,
   refreshing,
   onRefresh,
   onOpen,
   onMarkRead,
 }: {
   answer: Promise<MacRead<CallResult<'inbox'>>>;
+  header: ReactNode;
   refreshing: boolean;
   onRefresh: () => void;
   onOpen: (notice: PhoneNotice) => void;
@@ -38,11 +40,14 @@ export function InboxList({
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ItemSeparatorComponent={() => <Separator className="ml-16" />}
       ListHeaderComponent={
-        error ? (
-          <View className="p-4">
-            <ErrorNote text={error} />
-          </View>
-        ) : undefined
+        <>
+          {header}
+          {error ? (
+            <View className="p-4">
+              <ErrorNote text={error} />
+            </View>
+          ) : null}
+        </>
       }
       ListEmptyComponent={
         result ? (

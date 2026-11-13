@@ -1,4 +1,4 @@
-import { startTransition, useActionState, useEffect, useEffectEvent } from 'react';
+import { type ReactNode, startTransition, useActionState, useEffect, useEffectEvent } from 'react';
 import { AccessibilityInfo, View } from 'react-native';
 import { BusyLine } from '@/components/BusyLine';
 import { ErrorNote } from '@/components/ErrorNote';
@@ -11,9 +11,18 @@ import { usePairing } from './usePairing';
 
 /**
  * Pair with a Mac: scan its code (or paste its link); `link` comes from a scanned mesa:// URL,
- * and `onPaired` leaves the screen once paired (pairing another Mac).
+ * `onPaired` leaves the screen once paired (pairing another Mac), and `header` is the Settings
+ * tab's title when no Mac is paired yet.
  */
-export function PairScreen({ link, onPaired }: { link?: string; onPaired?: () => void }) {
+export function PairScreen({
+  link,
+  onPaired,
+  header,
+}: {
+  link?: string;
+  onPaired?: () => void;
+  header?: ReactNode;
+}) {
   const { save } = usePairing();
   const [error, join, pending] = useActionState(async (_last: string | undefined, text: string) => {
     const result = await joinWithLink(fetch, text, new Date());
@@ -34,7 +43,7 @@ export function PairScreen({ link, onPaired }: { link?: string; onPaired?: () =>
   }, [link]);
 
   return (
-    <Screen className="gap-6">
+    <Screen className="gap-6" header={header}>
       <View className="gap-2">
         <Text variant="h3">Pair with your Mac</Text>
         <Text className="text-muted-foreground">

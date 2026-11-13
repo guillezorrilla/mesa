@@ -1,7 +1,7 @@
-import { Stack } from 'expo-router';
 import { Suspense, useState } from 'react';
 import { BusyScreen } from '@/components/BusyScreen';
 import { AgentList } from './AgentList';
+import { AgentsHeader } from './AgentsHeader';
 import type { RowFilter } from './agentRows';
 import { useAgents } from './useAgents';
 
@@ -9,25 +9,29 @@ import { useAgents } from './useAgents';
 export function AgentsScreen() {
   const agents = useAgents();
   const [filter, setFilter] = useState<RowFilter>({ query: '', unreadOnly: false });
+  const [searching, setSearching] = useState(false);
+  const header = (
+    <AgentsHeader
+      searching={searching}
+      onSearching={setSearching}
+      query={filter.query}
+      onQuery={(query) => setFilter((f) => ({ ...f, query }))}
+    />
+  );
   return (
-    <>
-      <Stack.SearchBar
-        placeholder="Search sessions"
-        onChangeText={(event) => setFilter((f) => ({ ...f, query: event.nativeEvent.text }))}
+    <Suspense fallback={<BusyScreen label="Asking your Mac..." header={header} />}>
+      <AgentList
+        header={header}
+        macs={agents.macs}
+        listing={agents.listing}
+        updates={agents.updates}
+        gates={agents.gates}
+        filter={filter}
+        onFilter={setFilter}
+        refreshing={agents.refreshing}
+        onRefresh={agents.refresh}
+        onMark={agents.mark}
       />
-      <Suspense fallback={<BusyScreen label="Asking your Mac..." />}>
-        <AgentList
-          macs={agents.macs}
-          listing={agents.listing}
-          updates={agents.updates}
-          gates={agents.gates}
-          filter={filter}
-          onFilter={setFilter}
-          refreshing={agents.refreshing}
-          onRefresh={agents.refresh}
-          onMark={agents.mark}
-        />
-      </Suspense>
-    </>
+    </Suspense>
   );
 }
