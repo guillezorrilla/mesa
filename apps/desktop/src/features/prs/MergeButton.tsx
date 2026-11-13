@@ -1,16 +1,10 @@
 import type { MergeMethod, PrDetail } from '@mesa/core';
-import { MERGE_METHODS } from '@mesa/core/browser';
+import { MERGE_LABELS, MERGE_METHODS } from '@mesa/core/browser';
 import { GitMerge } from 'lucide-react';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { SplitButton } from '@/components/SplitButton';
 import { DropdownMenuCheckboxItem, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
-
-const METHOD_LABEL: Record<MergeMethod, string> = {
-  squash: 'Squash and merge',
-  merge: 'Merge commit',
-  rebase: 'Rebase and merge',
-};
 
 const CHECKS_SAY: Record<NonNullable<PrDetail['checks']> | 'none', string> = {
   passing: 'Its checks pass.',
@@ -55,22 +49,22 @@ export function MergeButton(props: {
                 checked={method === m}
                 onCheckedChange={() => setMethod(m)}
               >
-                {METHOD_LABEL[m]}
+                {MERGE_LABELS[m]}
               </DropdownMenuCheckboxItem>
             ))}
           </>
         }
       >
         <GitMerge aria-hidden />
-        {METHOD_LABEL[method]}
+        {MERGE_LABELS[method]}
       </SplitButton>
       {confirming && (
         <ActionDialog
           testId="merge-pr-dialog"
-          title={`${METHOD_LABEL[method]} #${props.pr.number}?`}
+          title={`${MERGE_LABELS[method]} #${props.pr.number}?`}
           description={`${CHECKS_SAY[props.pr.checks ?? 'none']} Mesa merges through gh, never past branch protection.`}
           submit={{
-            label: failing ? 'Merge anyway' : METHOD_LABEL[method],
+            label: failing ? 'Merge anyway' : MERGE_LABELS[method],
             testId: 'confirm-merge-pr',
             disabled: merging,
             ...(failing ? { variant: 'destructive' as const } : {}),

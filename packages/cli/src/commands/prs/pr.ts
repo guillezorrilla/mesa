@@ -138,3 +138,24 @@ export const prsDiscard = defineCommand({
     });
   },
 });
+
+export const prsResolve = defineCommand({
+  name: 'prs resolve',
+  summary:
+    'Resolve a review thread on a GitHub pull request, or open it again with --reopen; a person does this, never a review session',
+  args: ['project', 'number', 'thread'],
+  flags: { reopen: { type: 'boolean', description: 'Open the thread again' } },
+  example: 'mesa prs resolve lantern-cove 482 PRRT_kwDOA1',
+  run: async ({ mesa, args, flags }) => {
+    const recorded = await mesa.prs.resolve(
+      args.project,
+      wholeNumber(args.number, 'number'),
+      args.thread,
+      !flags.reopen,
+    );
+    return recordedOutput(recorded, {
+      data: recorded.result,
+      text: `${recorded.result.resolved ? 'Resolved' : 'Reopened'} ${recorded.result.thread}`,
+    });
+  },
+});

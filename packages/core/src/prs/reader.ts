@@ -45,10 +45,19 @@ export type PrDraft = {
 
 export type PrFile = { path: string; additions: number; deletions: number };
 
+/** One check on the head commit (a CI run or a commit status) and where its details are. */
+export type PrCheck = {
+  name: string;
+  state: 'passing' | 'failing' | 'pending' | 'skipped';
+  url?: string;
+};
+
 /** One PR read in full for its detail: the list's facts plus threads, my drafts and files. */
 export type PrRead = {
   me: string;
   pr: PrHead & PrFacts;
+  /** The PR's description as its author wrote it: untrusted text, shown plain. */
+  body: string;
   base: string;
   /** The ref on origin a review fetches its head from: GitHub's pull/<n>/head, Bitbucket's source branch. */
   headRef: string;
@@ -56,6 +65,8 @@ export type PrRead = {
   deletions: number;
   /** The head commit's checks rolled up; null when it has none. */
   checks: 'passing' | 'failing' | 'pending' | null;
+  /** Each of the head commit's checks, the ones failing first. */
+  checkList: PrCheck[];
   threads: PrThread[];
   drafts: PrDraft[];
   files: PrFile[];

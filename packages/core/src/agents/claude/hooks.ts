@@ -3,7 +3,7 @@ import * as hooks from '../hooks.js';
 import { claudeSettings } from './paths.js';
 
 /**
- * The events Mesa listens to; PreToolUse only for AskUserQuestion. Those that only log run async,
+ * The events Mesa listens to; PreToolUse only for AskUserQuestion and Agent (exploreOnHaiku). Those that only log run async,
  * so the agent never waits on them (#894); PermissionRequest blocks on a person anyway, and
  * SessionEnd must finish before Claude exits.
  */
@@ -11,7 +11,7 @@ export const HOOK_EVENTS: hooks.HookFile['events'] = [
   { event: 'SessionStart' },
   { event: 'UserPromptSubmit' },
   { event: 'PermissionRequest' },
-  { event: 'PreToolUse', matcher: 'AskUserQuestion' },
+  { event: 'PreToolUse', matcher: 'AskUserQuestion|Agent' },
   // The only hook between an approval or an answer and Stop (ADR-0003 amendment).
   { event: 'PostToolUse', async: true },
   { event: 'Notification', async: true },

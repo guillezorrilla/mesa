@@ -171,3 +171,11 @@ The owner chose (Decision model next-step: release-first 0.95, unused-setup repo
 - Mesa recommends the ponytail plugin in its README and does not copy it: nothing to keep in sync, no attribution to carry, and a person who has the plugin never gets its rules twice.
 - The owner trims the unused plugins, agents and connectors in their own setup; Mesa writes no config for it.
 - Not built: a Mesa reader command, a large-read guard, more Bash trimming, trimming Mesa's injected text.
+
+## Step 8: Explore on Haiku by hook (2026-11-13)
+
+After 0.4.0 shipped the Explore line, the first six hours on the default profile (aggregates only) showed 0 Explore calls and 22 other subagent calls: all of them `/code-review` Standards and Spec reviewers, 12 with no model (so on Opus) and 10 on Sonnet. Before 0.4.0, none of 246 Explore calls asked for Haiku. Advice in the pointer is not enough, as Spotify found for its routing rules.
+
+Claude Code's docs say Explore runs on the session's model and ignores `CLAUDE_CODE_SUBAGENT_MODEL`, and that a PreToolUse hook can rewrite a tool's input with `updatedInput`. A probe with `claude -p --model sonnet` in an invented folder, asked to start Explore with no model, ran Sonnet alone without the hook and Sonnet plus Haiku with it, in default and auto permission modes, with and without `permissionDecision: "allow"`. orca uses the same `updatedInput` output, for its plugins, and also sets no decision.
+
+Decision (Decision model next-step, Jev, abstained at margin 0.49: hook and skill 0.59, reviewers on Haiku 0.21, hook only 0.14, skill only 0.04): Mesa's PreToolUse hook now matches `Agent` too and sets `model: haiku` on an Explore call that names none, approving nothing (`exploreOnHaiku`); and the repo's `code-review` skill starts both reviewers on Sonnet, since a review needs more judgement than a search.

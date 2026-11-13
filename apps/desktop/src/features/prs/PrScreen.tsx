@@ -68,6 +68,10 @@ export function PrScreen(
     if (await run('prs.discard', { project: pr.project, number: pr.number, id: draft.id }))
       await show.refresh();
   };
+  const resolve = async (thread: string, resolved: boolean) => {
+    const ref = { project: pr.project, number: pr.number, thread };
+    if (await run('prs.resolve', resolved ? ref : { ...ref, reopen: true })) await show.refresh();
+  };
   const checks = pr.checks ? CHECK_LABEL[pr.checks] : undefined;
   const open = (id: string) => navigate?.({ kind: 'session', id });
   const reviews = reviewSessionsOf(props.sessions ?? [], pr);
@@ -169,7 +173,13 @@ export function PrScreen(
           onSession={open}
         />
       )}
-      <PrDetailPanel pr={pr} onDiscard={setDiscarding} tab={props.tab} onTab={props.onTab} />
+      <PrDetailPanel
+        pr={pr}
+        onDiscard={setDiscarding}
+        onResolve={pr.provider === 'github' ? resolve : undefined}
+        tab={props.tab}
+        onTab={props.onTab}
+      />
       {discarding && (
         <ActionDialog
           testId="discard-draft-dialog"

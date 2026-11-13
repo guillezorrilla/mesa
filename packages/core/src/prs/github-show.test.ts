@@ -22,7 +22,15 @@ test('show reads one PR in one gh api graphql call: threads, my drafts, files an
     headRef: 'pull/477/head',
     additions: 120,
     deletions: 14,
+    body: 'Caches resized images at the edge.\n\nCloses #470.',
     checks: 'failing',
+    // Failing first; a run not completed is pending; a link that is not HTTPS is dropped.
+    checkList: [
+      { name: 'lint', state: 'failing', url: 'https://github.com/acme/storefront/actions/runs/2' },
+      { name: 'deploy/preview', state: 'pending' },
+      { name: 'e2e', state: 'pending' },
+      { name: 'test', state: 'passing', url: 'https://github.com/acme/storefront/actions/runs/1' },
+    ],
     files: [
       { path: 'src/edge/cache.ts', additions: 90, deletions: 10 },
       { path: 'src/edge/purge.ts', additions: 30, deletions: 4 },
@@ -77,7 +85,7 @@ test('show maps every check rollup, and none as null', async () => {
   const pr = (state: string | null) => {
     const json = JSON.parse(FIXTURE);
     json.data.repository.pullRequest.head.nodes = [
-      { commit: { statusCheckRollup: state ? { state } : null } },
+      { commit: { statusCheckRollup: state ? { state, contexts: { nodes: [] } } : null } },
     ];
     return JSON.stringify(json);
   };

@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { Suspense } from 'react';
 import { BusyScreen } from '@/components/BusyScreen';
 import { ChangesList } from './ChangesList';
@@ -12,7 +12,12 @@ export function ChangesScreen({ id }: { id: string }) {
       <Stack.Screen options={{ title: 'Changes' }} />
       <Suspense fallback={<BusyScreen label="Asking your Mac..." />}>
         <ChangesList
-          id={id}
+          onOpen={(file) =>
+            router.push({
+              pathname: '/agents/diff',
+              params: { id, path: file.path, rev: file.rev },
+            })
+          }
           answer={answer}
           refreshing={refreshing}
           onRefresh={again}

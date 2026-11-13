@@ -18,7 +18,8 @@ import {
 
 // Session records: one JSON file per session in the profile's `sessions/`, outliving tmux.
 
-const RECORD_FILE = /^([0-9a-z]{8})\.json$/;
+/** A session record's file name, `<id>.json`. */
+export const RECORD_FILE = /^([0-9a-z]{8})\.json$/;
 
 type Patch = Partial<Omit<SessionRecord, 'id'>>;
 

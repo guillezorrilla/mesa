@@ -8,14 +8,20 @@ export const DIFF_KEPT_MS = 60_000;
  * is read anew and kept. ponytail: a page read within the minute after an edit shows the patch the
  * list was read from, which is the one the phone is paging.
  */
-export function keptDiffs<T>(read: (id: string) => Promise<T>, now: () => number) {
+export function keptDiffs<A, T>(
+  read: (of: A) => Promise<T>,
+  now: () => number,
+  /** The key a read is kept under: a session id as is, a PR by its project and number. */
+  keyOf: (of: A) => string = String,
+) {
   const kept = new Map<string, { at: number; read: Promise<T> }>();
-  return (id: string, reuse = false): Promise<T> => {
-    const last = kept.get(id);
+  return (of: A, reuse = false): Promise<T> => {
+    const key = keyOf(of);
+    const last = kept.get(key);
     if (reuse && last && now() - last.at < DIFF_KEPT_MS) return last.read;
-    const next = read(id);
-    kept.set(id, { at: now(), read: next });
-    next.catch(() => kept.delete(id));
+    const next = read(of);
+    kept.set(key, { at: now(), read: next });
+    next.catch(() => kept.delete(key));
     return next;
   };
 }
