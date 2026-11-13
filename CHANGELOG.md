@@ -2,6 +2,29 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.5.0 - 2026-11-13
+
+### Added
+
+- Haptic feedback on your phone: a success tap when pairing, a reply, an answer, a new session or a merge lands, a warning when a guardrail or a conflict holds one back, an error tap when it fails, and a light tick when you change tabs or choices. Turn it off with the Haptics switch in the Mac tab. (#1117)
+- Several Macs on one iPhone, and terminals from the phone: the iPhone app pairs with more than one Mac or profile, lists all their sessions in Agents with a filter per Mac, and unpairs each on its own; a plain terminal session opens with its live output, a command line and a key row (Ctrl, Esc, Tab, arrows, Enter), and `mesa type` and `mesa keys` do the same from the CLI. (#1104)
+- The Inbox and usage on your phone: the Inbox tab lists the Mac's notices with their read state and opens the session or decision each names, and Usage shows estimated cost today, by day and by session with each session's context, and the cost alerts. Settings also picks which pushes the phone gets: when away, always or never, and finished turns on or off. (#1095)
+- Pull requests on your phone: the Work tab's PRs list shows the pull requests that need you in Mesa's buckets, and a PR's screen shows its checks, description, your threads and drafts, and its files in the diff viewer; from there you can start a review session, reply to or resolve a thread, discard a draft, send a failed check to the session on the branch, and merge. On your Mac, Resolve on a PR's threads and `mesa prs resolve` do the same for a thread. (#1111)
+- Start work from your phone: in Mesa's iPhone app, the + on Agents starts a session on any project with a goal (your saved prompts and a kept draft), the agent, a checkout, new or existing worktree and branch, and an optional session to wait for, then opens it once you confirm; the guardrail checks the goal first. The Work tab lists each project's followed tickets, assigns one to you and starts a session from it, and Past conversations searches your Claude Code and Codex history across projects and resumes one. (#1101)
+- Replies your phone queued, on your Mac: a session's view lists the replies your phone queued while it worked, under the prompt box, each with Remove, and `mesa queue list` and `mesa queue remove` do the same; a removal reaches the phone within seconds. (#1098)
+
+### Changed
+
+- Cheaper Explore agents: in a Mesa session, Claude Code's Explore subagent now runs on Haiku whenever the agent starts it without naming a model, instead of on the session's own model. (#1119)
+- A session on your phone now reads like a messages app: the conversation runs oldest to newest with the latest reply just above the reply bar, your own messages as bubbles on the right and the agent's replies full width. It opens at the bottom and stays there as replies arrive; scroll up and it holds still, with a Jump to latest button that counts what came in. Scrolling to the top loads older replies, and queued replies, the pending prompt and the session's output (its last lines, tap to see all) sit at the bottom of the same flow. Your messages and older replies need the Mac on this release; an older Mac still shows its last 5 replies. (#1114)
+- The phone listener uses far less of your Mac: it looks at your sessions only when one changes, or every 15 seconds, instead of every 2 seconds, and the phone says your Mac is slow to answer, not asleep or offline, when it heard from it in the last minute. (#1116)
+- The phone's tabs are now Agents, Inbox, Work, Usage and Settings: each title sits right under the status bar at the same height, Agents searches from a button beside its title, the Inbox lists the newest notice first and marks one read with a swipe, and the Vault tab is gone. (#1125)
+
+### Fixed
+
+- A session that finished its turn while a server or monitor keeps running in the background now gets its child sessions' reports, instead of holding them until that work ends. (#1121)
+- The phone's Agents tab lists the same sessions as the Mac's sidebar: finished sessions and Mesa's own runs, such as Vault captures and Setup sessions, no longer appear there. (#1103)
+
 ## 0.4.1 - 2026-11-13
 
 ### Added
