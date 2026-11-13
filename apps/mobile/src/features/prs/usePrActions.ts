@@ -11,6 +11,8 @@ import {
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActionSheetIOS, Alert } from 'react-native';
+import { haptic } from '@/lib/haptics';
+import { outcomeFeel } from '@/lib/outcomeFeel';
 import { SLOW_MS } from '../mac/slowCall';
 import { tryCall } from '../mac/tryCall';
 import { useMac } from '../mac/useMac';
@@ -27,7 +29,7 @@ export function usePrActions(pr: { project: string; number: number }, again: () 
   const link = useMac();
   const [busy, setBusy] = useState<string>();
   const ref = { project: pr.project, number: pr.number };
-  /** Runs `call` with `label` shown, then `done` with its result, or says why it failed. */
+  /** Runs `call` with `label` shown, then `done` with its result, or says why it failed (an error tap). */
   const run = async <M extends PhoneCall['method']>(
     label: string,
     call: Extract<PhoneCall, { method: M }>,
@@ -36,7 +38,10 @@ export function usePrActions(pr: { project: string; number: number }, again: () 
     setBusy(label);
     const read = await tryCall(link, () => link.call(call, SLOW_MS));
     setBusy(undefined);
-    if (read.error !== undefined) return Alert.alert(`Could not finish: ${label}`, read.error);
+    if (read.error !== undefined) {
+      haptic('error');
+      return Alert.alert(`Could not finish: ${label}`, read.error);
+    }
     if (read.result) done?.(read.result);
     again();
   };
@@ -94,6 +99,7 @@ export function usePrActions(pr: { project: string; number: number }, again: () 
   /** Merges; a refusal core would lift on a yes (a conflict, a check failed since) is asked again. */
   const mergeNow = (detail: PhonePrDetail, how: MergeMethod, confirm: boolean) =>
     run('Merging', { method: 'prMerge', ...ref, how, confirm }, (merged) => {
+      haptic(outcomeFeel({ merged: 'head' in merged }));
       if ('head' in merged)
         return Alert.alert('Merged', `#${detail.number} merged at ${merged.head.slice(0, 7)}.`);
       Alert.alert(`${MERGE_LABELS[how]} #${detail.number}?`, refusedAsk(merged.refused), [

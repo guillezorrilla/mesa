@@ -1,8 +1,12 @@
 import { View } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { haptic } from '@/lib/haptics';
 
-/** One chip per choice, wrapping onto more lines as needed, the chosen one filled; a press picks it. */
+/**
+ * One chip per choice, wrapping onto more lines as needed, the chosen one filled; a press picks it,
+ * with selection feedback when the choice changes, as iOS's segmented control gives.
+ */
 export function ChoiceChips<T extends string>({
   label,
   choices,
@@ -23,7 +27,10 @@ export function ChoiceChips<T extends string>({
           size="sm"
           variant={choice === value ? 'default' : 'secondary'}
           accessibilityState={{ selected: choice === value }}
-          onPress={() => onChange(choice)}
+          onPress={() => {
+            if (choice !== value) haptic('selection');
+            onChange(choice);
+          }}
         >
           <Text>{words}</Text>
         </Button>

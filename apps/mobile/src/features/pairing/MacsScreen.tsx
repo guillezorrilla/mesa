@@ -8,6 +8,7 @@ import { TabHeader } from '@/components/TabHeader';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { HapticsSection } from '../haptics/HapticsSection';
 import { PushesSection } from '../pushes/PushesSection';
 import { MacCard } from './MacCard';
 import { usePairing } from './usePairing';
@@ -27,6 +28,7 @@ export function MacsScreen() {
         </Button>
       </Section>
       <PushesSection />
+      <HapticsSection />
       <Section title="Appearance">
         <Text variant="muted">Light or dark follows your iPhone's setting.</Text>
       </Section>

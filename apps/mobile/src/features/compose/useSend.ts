@@ -1,6 +1,8 @@
 import { MacCallError, type SendResult } from '@mesa/core/phone';
 import { randomUUID } from 'expo-crypto';
 import { startTransition, useActionState, useOptimistic, useState } from 'react';
+import { haptic } from '@/lib/haptics';
+import { outcomeFeel } from '@/lib/outcomeFeel';
 import { useMac } from '../mac/useMac';
 import { draftOf } from './drafts';
 import type { Photo } from './pickPhoto';
@@ -46,10 +48,12 @@ export function useSend(
         // After an await, a state update joins the action's transition only inside startTransition.
         if (result.status === 'sent')
           startTransition(() => setSent((list) => [...list, { ...item, sending: false }]));
+        haptic(outcomeFeel(result));
         if (result.status === 'sent' || result.status === 'queued') onSent();
         else rollBack();
         return { result };
       } catch (error) {
+        haptic('error');
         rollBack();
         // A Mac that answered nothing may still have typed it; the person checks before sending again.
         const unsure = error instanceof MacCallError && error.reason !== 'failed';

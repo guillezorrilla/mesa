@@ -2,6 +2,8 @@ import type { StartCall, StartResult } from '@mesa/core/phone';
 import { router } from 'expo-router';
 import { startTransition, useActionState, useState } from 'react';
 import { Alert } from 'react-native';
+import { haptic } from '@/lib/haptics';
+import { outcomeFeel } from '@/lib/outcomeFeel';
 import { setDraft } from '../compose/drafts';
 import { useDraft } from '../compose/useDraft';
 import { useMac } from '../mac/useMac';
@@ -31,12 +33,16 @@ export function useStart({ project, from }: { project?: string; from?: string })
       const call = startCall(form, goal, from, yes);
       return link.call(call).then(
         (result) => {
+          haptic(outcomeFeel(result));
           if (result.status !== 'started') return { result, call };
           setDraft(draftKey(from), '');
           router.replace(`/agents/${result.session}`);
           return {};
         },
-        (error: Error) => ({ error: error.message, call }),
+        (error: Error) => {
+          haptic('error');
+          return { error: error.message, call };
+        },
       );
     },
     {},

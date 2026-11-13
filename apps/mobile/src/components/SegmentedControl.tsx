@@ -1,8 +1,9 @@
 import { Pressable, View } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { haptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 
-/** A row of two or three choices, one picked, as iOS's segmented control draws it. */
+/** A row of two or three choices, one picked, as iOS's segmented control draws it and taps. */
 export function SegmentedControl<T extends string>({
   options,
   value,
@@ -26,7 +27,10 @@ export function SegmentedControl<T extends string>({
             key={option.value}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
-            onPress={() => onChange(option.value)}
+            onPress={() => {
+              if (!selected) haptic('selection');
+              onChange(option.value);
+            }}
             className={cn(
               'min-h-9 flex-1 items-center justify-center rounded-md px-3',
               selected && 'bg-background shadow-sm shadow-black/10',

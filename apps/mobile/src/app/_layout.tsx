@@ -11,6 +11,7 @@ import { MacProvider } from '@/features/mac/MacProvider';
 import { PairingProvider } from '@/features/pairing/PairingProvider';
 import { usePairing } from '@/features/pairing/usePairing';
 import { useOpenTappedSession } from '@/features/push/useOpenTappedSession';
+import { haptic } from '@/lib/haptics';
 import { tabBarHidden } from '@/lib/tabBarHidden';
 
 /** The window: the pairing read from the Keychain before any screen, then the tabs. */
@@ -35,14 +36,22 @@ export default function RootLayout() {
 /**
  * Agents, the Inbox, Work (pull requests and tickets) and Usage, once paired, and Settings: the
  * paired Macs, pairing one, the push settings and About; hidden on a session's screen and the new
- * session form, under their bars. A tapped push opens its session.
+ * session form, under their bars. A tapped push opens its session; changing tabs gives selection
+ * feedback.
  */
 function Tabs() {
   const { pairing } = usePairing();
   const segments = useSegments();
   useOpenTappedSession();
   return (
-    <NativeTabs hidden={tabBarHidden(segments)}>
+    <NativeTabs
+      hidden={tabBarHidden(segments)}
+      screenListeners={({ navigation }) => ({
+        tabPress: (event) => {
+          if (!navigation.isFocused() && !event.data.isPrevented) haptic('selection');
+        },
+      })}
+    >
       <NativeTabs.Trigger name="agents" hidden={!pairing}>
         <NativeTabs.Trigger.Label>Agents</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'square.stack', selected: 'square.stack.fill' }} />

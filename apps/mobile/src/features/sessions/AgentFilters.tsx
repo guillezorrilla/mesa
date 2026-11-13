@@ -1,12 +1,13 @@
 import { ScrollView, View } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { haptic } from '@/lib/haptics';
 import type { Mac } from '../mac/macsContext';
 import type { RowFilter } from './agentRows';
 
 /**
  * One chip per Mac when several are paired, then Unread only and one chip per project; the
- * chosen ones filled.
+ * chosen ones filled; each press changes the filter, with selection feedback.
  */
 export function AgentFilters({
   macs,
@@ -25,7 +26,10 @@ export function AgentFilters({
       size="sm"
       variant={on ? 'default' : 'secondary'}
       accessibilityState={{ selected: on }}
-      onPress={() => onChange({ ...filter, ...change })}
+      onPress={() => {
+        haptic('selection');
+        onChange({ ...filter, ...change });
+      }}
     >
       <Text>{label}</Text>
     </Button>
