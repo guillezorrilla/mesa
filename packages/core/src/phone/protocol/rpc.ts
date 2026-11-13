@@ -5,8 +5,11 @@
 import { z } from 'zod';
 import { changesCalls, changesResults } from './changes.js';
 import { crewCalls, crewResults } from './crew.js';
+import { inboxCalls, inboxResults } from './inbox.js';
+import { pushesCalls, pushesResults } from './pushes.js';
 import { startCalls, startResults } from './start.js';
 import { queuedMessage, steerCalls, steerResults } from './steer.js';
+import { usageCalls, usageResults } from './usage.js';
 
 /** One session as the phone lists it: the board row cut to what a list shows (about 200 bytes). */
 export const phoneRow = z.object({
@@ -67,8 +70,8 @@ export type PhonePrompt = z.infer<typeof phonePrompt>;
 /**
  * The calls the Mac answers: the board, one session, marking one read or unread, its pending
  * prompt, answering that prompt (`prompt` is its id, so an answer to an older one is stale), a
- * crew's, steering one (steer.ts), reviewing a session's changes (changes.ts) and starting work
- * (start.ts).
+ * crew's, steering one (steer.ts), reviewing a session's changes (changes.ts), the Inbox, usage
+ * and push settings, and starting work (start.ts).
  */
 export const phoneCall = z.discriminatedUnion('method', [
   z.object({ method: z.literal('sessions') }),
@@ -83,6 +86,9 @@ export const phoneCall = z.discriminatedUnion('method', [
     text: z.string().max(4000).optional(),
   }),
   ...crewCalls,
+  ...inboxCalls,
+  ...usageCalls,
+  ...pushesCalls,
   ...steerCalls,
   ...changesCalls,
   ...startCalls,
@@ -98,6 +104,9 @@ export const callResults = {
   /** Answered, or stale: the session no longer waits on that prompt. */
   answer: z.object({ status: z.enum(['answered', 'stale']) }),
   ...crewResults,
+  ...inboxResults,
+  ...usageResults,
+  ...pushesResults,
   ...steerResults,
   ...changesResults,
   ...startResults,

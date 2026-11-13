@@ -5,18 +5,21 @@ import { View } from 'react-native';
 import { BusyLine } from '@/components/BusyLine';
 import { InfoRow } from '@/components/InfoRow';
 import { Screen } from '@/components/Screen';
+import { Section } from '@/components/Section';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
 import { usePushRegistration } from '../push/usePushRegistration';
+import { PushesSection } from '../pushes/PushesSection';
+import { UsageLink } from '../usage/UsageLink';
 import { MacSeenLine } from './MacSeenLine';
 import { UnpairButton } from './UnpairButton';
 import { useMacInfo } from './useMacInfo';
 import { usePairing } from './usePairing';
 
-/** Paired: which pairing, when the Mac last checked in, and Unpair. */
+/** Paired: which pairing, when the Mac last checked in, Unpair, usage, and this phone's settings. */
 export function PairedScreen({ pairing }: { pairing: PhonePairing }) {
   usePushRegistration(pairing);
   const { forget } = usePairing();
@@ -42,6 +45,11 @@ export function PairedScreen({ pairing }: { pairing: PhonePairing }) {
         </Button>
         <UnpairButton onUnpair={forget} />
       </View>
+      <UsageLink />
+      <PushesSection />
+      <Section title="Appearance">
+        <Text variant="muted">Light or dark follows your iPhone's setting.</Text>
+      </Section>
     </Screen>
   );
 }

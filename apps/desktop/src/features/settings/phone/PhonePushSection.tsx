@@ -1,6 +1,7 @@
 import { PHONE_PUSH_LABELS, PHONE_PUSH_MODES } from '@mesa/core/browser';
-import { BellRing, Hourglass } from 'lucide-react';
+import { BellRing, CircleCheck, Hourglass } from 'lucide-react';
 import { ChoiceField } from '../controls/ChoiceField';
+import { ToggleField } from '../controls/ToggleField';
 import { SettingRow } from '../SettingRow';
 import { SettingSection } from '../SettingSection';
 import { useSettings } from '../useSettings';
@@ -59,6 +60,16 @@ export function PhonePushSection() {
             options={withCurrent(String(config.phone.awayAfter))}
             toValue={Number}
           />
+        }
+      />
+      <SettingRow
+        icon={CircleCheck}
+        title="Finished turns"
+        description="Push when a session finishes a turn, too. The phone can change this as well."
+        htmlFor="phone-finished"
+        keywords="phone push finished done turn"
+        control={
+          <ToggleField id="phone-finished" path="phone.finished" checked={config.phone.finished} />
         }
       />
       <TestPushRow />

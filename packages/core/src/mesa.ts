@@ -135,6 +135,9 @@ export function createMesa(profile: string, deps: MesaDeps) {
         git,
         files,
       },
+      inbox: notices,
+      usage: () => usage.list(),
+      pushes: { settings: () => ctx.open().config.phone, set: profileApi.config.set },
       start: {
         projects: () => projects.list('last-session'),
         worktrees: (project) => worktrees.list(project),

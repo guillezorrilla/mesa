@@ -9,8 +9,10 @@ import {
   servingPhone,
   untilTrue,
 } from '../../testing/index.js';
+import type { UsageReport } from '../../usage/records.js';
 import { replySegments } from './replies.js';
 import { askLine } from './rows.js';
+import { phoneUsage } from './usage.js';
 
 test('the listener answers the board, a session and a mark through core, one per profile', async () => {
   const { mesa, session, calls, end } = await servingPhone();
@@ -191,4 +193,104 @@ test("a gate's options go to the Decision model as next-step slugs and its odds 
     defer: 0.1,
     model: 'clef-test',
   });
+});
+
+test('the Inbox, usage and push settings answer the phone through core', async () => {
+  const { mesa, home, session, calls, end } = await servingPhone();
+  expect(await calls.call({ method: 'pushes' })).toEqual({
+    push: 'away',
+    awayAfter: 5,
+    finished: true,
+  });
+
+  // A question raises an Inbox notice that names its session; the phone marks it read.
+  const at = '2026-09-24T11:59:00.000Z';
+  plantHookEvent(home, {
+    session: session.id,
+    agent: 'claude',
+    at,
+    event: 'PermissionRequest',
+    payload: { tool_name: 'Bash' },
+  });
+  const { notices } = await calls.call({ method: 'inbox' });
+  expect(notices).toEqual([
+    {
+      id: expect.any(String),
+      kind: 'input-required',
+      at,
+      title: 'Session needs permission',
+      read: false,
+      session: { id: session.id, title: 'Login fix' },
+    },
+  ]);
+  await calls.call({ method: 'noticeRead', id: notices[0]?.id ?? '' });
+  expect((await calls.call({ method: 'inbox' })).notices[0]?.read).toBe(true);
+  expect(mesa.notifications.list()[0]?.read).toBe(true);
+  await expect(calls.call({ method: 'noticeRead', id: 'nope' })).rejects.toThrow('no inbox item');
+
+  // No readings yet: nothing spent, the session listed with its context.
+  const usage = await calls.call({ method: 'usage' });
+  expect(usage).toMatchObject({ today: 0, week: 0, month: 0, alerts: [] });
+  expect(usage.days).toHaveLength(14);
+  expect(usage.sessions).toEqual([
+    { id: session.id, title: 'Login fix', project: 'lantern-cove', cost: null, context: null },
+  ]);
+
+  expect(await calls.call({ method: 'pushes', set: { push: 'always', finished: false } })).toEqual({
+    push: 'always',
+    awayAfter: 5,
+    finished: false,
+  });
+  expect(mesa.config.get().phone).toMatchObject({ push: 'always', finished: false });
+  await end();
+});
+
+test("the phone's usage sums each session's cost, unknown when one reading has no price", () => {
+  const totals = (estimatedCostUsd: number | null) => ({
+    events: 1,
+    input: 1,
+    output: 1,
+    cacheRead: 0,
+    cacheWrite: 0,
+    estimatedCostUsd,
+  });
+  const reading = (session: string, cost: number | null) =>
+    ({ session, estimatedCostUsd: cost }) as UsageReport['rows'][number];
+  const row = (id: string, context: number | null) => ({
+    id,
+    title: id,
+    project: null,
+    state: 'idle',
+    since: '',
+    context,
+    unread: false,
+  });
+  const report = {
+    rows: [reading('a', 1.5), reading('a', 0.25), reading('b', 0.5), reading('b', null)],
+    unknown: [{ session: 'c', reason: 'native session id is not available' }],
+    periods: {
+      today: totals(2),
+      '7d': totals(3),
+      '30d': totals(4),
+      '90d': totals(4),
+      month: totals(4),
+    },
+    alerts: [{ period: 'today' as const, thresholdUsd: 1, knownCostUsd: 2 }],
+    daily: Array.from({ length: 90 }, (_, i) => ({ day: `d${i}`, totals: totals(i), models: [] })),
+    breakdown: [],
+    agents: [],
+  } satisfies UsageReport;
+  const usage = phoneUsage(report, [row('b', 10), row('c', null), row('a', 42), row('d', 3)]);
+  expect(usage).toMatchObject({ today: 2, week: 3, month: 4 });
+  expect(usage.days[0]).toEqual({ day: 'd76', cost: 76 });
+  expect(usage.days).toHaveLength(14);
+  expect(usage.sessions.map((s) => [s.id, s.cost, s.context])).toEqual([
+    ['a', 1.75, 42],
+    ['d', 0, 3],
+    ['b', null, 10],
+    ['c', null, null],
+  ]);
+  expect(usage.alerts).toEqual([
+    'Known estimated today cost reached your $1.00 alert. Agents keep running.',
+  ]);
 });

@@ -1,10 +1,11 @@
 import type { UsageReport } from '@mesa/core';
+import { money } from '@mesa/core/browser';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { cn } from '@/lib/utils';
-import { compact, dayLabel, modelKey, money, SERIES, seriesColor } from './format';
+import { compact, dayLabel, modelKey, SERIES, seriesColor } from './format';
 
 type Day = UsageReport['daily'][number];
 type Series = { key: string; label: string; color: string; value: (day: Day) => number };
