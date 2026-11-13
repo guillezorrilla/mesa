@@ -130,7 +130,11 @@ test('a reply is cut into prose and its fenced code blocks', () => {
 });
 
 test("the session screen's conversation places the person's prompts among the agent's replies", () => {
-  const reply = (revision: string, text: string) => ({ revision, text, at: '2026-11-12T10:00:00Z' });
+  const reply = (revision: string, text: string) => ({
+    revision,
+    text,
+    at: '2026-11-12T10:00:00Z',
+  });
   const read = {
     // Newest first: the agent answered the second prompt with r2, the first with r1.
     rows: [reply('r2', 'Done.\n```sh\npnpm test\n```'), reply('r1', 'Looking.')],
