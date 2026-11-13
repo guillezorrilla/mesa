@@ -48,11 +48,14 @@ const TOOLS: Record<string, [ToolKind, string]> = {
 };
 
 /** An Edit, MultiEdit, Write or NotebookEdit call as an edit of its file; none for another tool. */
-function editOf(id: string, name: string, input: Input, cwd: string): TranscriptStep | undefined {
-  const written = text(input.file_path) || text(input.notebook_path);
-  // Claude Code writes absolute paths; one under its folder reads as the changes list names it.
+/** Claude Code writes absolute paths; one under its folder reads as the changes list names it. */
+function inFolder(cwd: string, written: string) {
   const inside = cwd && isAbsolute(written) ? relative(cwd, written) : '';
-  const path = inside && !inside.startsWith('..') ? inside : written;
+  return inside && !inside.startsWith('..') ? inside : written;
+}
+
+function editOf(id: string, name: string, input: Input, cwd: string): TranscriptStep | undefined {
+  const path = inFolder(cwd, text(input.file_path) || text(input.notebook_path));
   const parts =
     name === 'Edit'
       ? [[text(input.old_string), text(input.new_string)]]
@@ -90,7 +93,12 @@ function toolOf(block: ContentBlock, cwd: string): TranscriptStep | undefined {
     id,
     kind,
     name,
-    target: field ? firstLine(input[field]) : '',
+    target:
+      field === 'file_path'
+        ? inFolder(cwd, text(input[field]))
+        : field
+          ? firstLine(input[field])
+          : '',
     status: 'running',
     output: '',
   };

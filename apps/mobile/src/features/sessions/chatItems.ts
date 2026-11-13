@@ -28,23 +28,25 @@ const opensGroup = (item: Omit<ChatItem, 'first'>, last?: Omit<ChatItem, 'first'
     Date.parse(item.at) - Date.parse(last.at) > GROUP_GAP_MS);
 
 type Reply = PhoneDetail['replies'][number];
+/** One gap's steps, oldest first, timed as the reply they led to (none while still working). */
+type Run = { run: PhoneStep[]; at: string | null };
 
 /**
  * The Mac's replies (newest first) with the agent's steps between them: each gap's steps as one
  * run, after the replies newer than them and before that gap's prompts, which came first.
  */
-function withSteps(replies: Reply[], steps: PhoneStep[]): (Reply | PhoneStep[])[] {
-  const gap = (newer: number) => {
+function withSteps(replies: Reply[], steps: PhoneStep[]): (Reply | Run)[] {
+  const gap = (newer: number, at: string | null) => {
     const run = steps.filter((step) => step.newer === newer).reverse();
-    return run.length ? [run] : [];
+    return run.length ? [{ run, at }] : [];
   };
-  const out: (Reply | PhoneStep[])[] = [...gap(0)];
+  const out: (Reply | Run)[] = [...gap(0, null)];
   let agent = 0;
   for (const reply of replies) {
     out.push(reply);
     if (reply.from === 'agent') {
       agent += 1;
-      out.push(...gap(agent));
+      out.push(...gap(agent, reply.at));
     }
   }
   return out;
@@ -53,7 +55,8 @@ function withSteps(replies: Reply[], steps: PhoneStep[]): (Reply | PhoneStep[])[
 /**
  * The conversation oldest first, so the newest sits at the bottom: the Mac's replies (sent newest
  * first) and the agent's steps among them (withSteps), then what this screen sent that the
- * transcript does not show yet, each marked where a group opens. A send the transcript already holds (its text among the person's) is shown once.
+ * transcript does not show yet, each marked where a group opens. A send the transcript already
+ * holds (its text among the person's) is shown once.
  * ponytail: matched by text, so a second identical send hides once the first lands; match on
  * time if that ever matters.
  */
@@ -67,9 +70,15 @@ export function chatItems(
     ...withSteps(replies, steps)
       .reverse()
       .map((r) =>
-        Array.isArray(r)
+        'run' in r
           ? // A run speaks for the agent, so it opens or joins the agent's group.
-            { key: `steps:${r[0]?.id}`, from: 'agent' as const, at: null, segments: [], steps: r }
+            {
+              key: `steps:${r.run[0]?.id}`,
+              from: 'agent' as const,
+              at: r.at,
+              segments: [],
+              steps: r.run,
+            }
           : {
               // Two replies with the same text share a revision, so the time tells them apart.
               key: `${r.from}:${r.id}:${r.at}`,

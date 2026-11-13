@@ -41,9 +41,10 @@ export function EditLine({ id, step }: { id: string; step: Extract<PhoneStep, { 
         </Text>
         <Text className="font-mono text-xs text-state-done">+{step.added}</Text>
         <Text className="font-mono text-xs text-state-failed">-{step.removed}</Text>
+        <View className="flex-1" />
         <Icon
           as={ChevronRight}
-          className={cn('ml-auto size-3.5 text-muted-foreground', inline && 'rotate-90')}
+          className={cn('size-3.5 text-muted-foreground', inline && 'rotate-90')}
         />
       </Pressable>
       {inline ? (
