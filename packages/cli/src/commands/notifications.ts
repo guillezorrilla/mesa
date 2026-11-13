@@ -27,12 +27,19 @@ export const notifications = defineCommand({
 
 export const notificationsRead = defineCommand({
   name: 'notifications read',
-  summary: 'Mark an inbox item read',
-  args: ['id'],
+  summary: 'Mark an inbox item read, or with --all every one',
+  args: ['id?'],
+  flags: { all: { type: 'boolean', description: 'Mark every unread inbox item read' } },
   example: 'mesa notifications read 2026-09-24T12:00:00.000Z:abc123',
-  run: ({ mesa, args }) => {
-    mesa.notifications.markRead(args.id);
-    return { data: { id: args.id, read: true }, text: `Marked ${args.id} read` };
+  run: ({ mesa, args, flags }) => {
+    if (!flags.all === !args.id) throw new MesaError('usage', 'give one inbox item id or --all');
+    if (flags.all) {
+      const count = mesa.notifications.markAllRead();
+      return { data: { count }, text: `Marked ${count} notifications read` };
+    }
+    const id = args.id ?? '';
+    mesa.notifications.markRead(id);
+    return { data: { id, read: true }, text: `Marked ${id} read` };
   },
 });
 

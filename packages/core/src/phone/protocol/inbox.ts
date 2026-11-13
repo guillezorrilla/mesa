@@ -1,5 +1,5 @@
 // What the phone asks about the Mac's Inbox (#1067): its notices with their read state, and
-// marking one read. rpc.ts adds these calls to phoneCall and their results.
+// marking one read or (#1123) every one. rpc.ts adds these calls to phoneCall and their results.
 import { z } from 'zod';
 
 /** A notice as the phone lists it, with what it opens: a session or a gate. */
@@ -22,6 +22,8 @@ export type PhoneNotice = z.infer<typeof phoneNotice>;
 export const inboxCalls = [
   z.object({ method: z.literal('inbox') }),
   z.object({ method: z.literal('noticeRead'), id: z.string() }),
+  /** Every unread notice; a Mac older than #1123 drops it unanswered. */
+  z.object({ method: z.literal('noticesRead') }),
 ] as const;
 
 /** Each Inbox call's result, which rpc.ts adds to callResults. */
@@ -29,4 +31,6 @@ export const inboxResults = {
   /** Newest first. */
   inbox: z.object({ notices: z.array(phoneNotice) }),
   noticeRead: z.object({}),
+  /** How many were unread. */
+  noticesRead: z.object({ count: z.number() }),
 };

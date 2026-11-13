@@ -146,7 +146,7 @@ export function NotificationsMenu(props: {
                 size="sm"
                 className="h-7 text-xs"
                 disabled={!unread.length}
-                onClick={() => void mark('notifications.read', unread)}
+                onClick={() => void run('notifications.readAll').then(inbox.refresh)}
               >
                 Mark all read
               </Button>
