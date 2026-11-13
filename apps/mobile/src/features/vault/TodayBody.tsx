@@ -18,7 +18,7 @@ export function TodayBody({ read }: { read: Promise<MacRead<CallResult<'today'>>
       {today ? (
         <>
           <Text className="font-mono text-sm text-muted-foreground">{today.date}</Text>
-          <Section title="Impact today">
+          <Section title="Impact, last 24 hours">
             <ImpactStats impact={today.impact} />
           </Section>
           <Section title="Daily">

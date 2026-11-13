@@ -1,6 +1,6 @@
-import type { PhoneSaved, PhoneToday } from '@mesa/core/phone';
+import { type PhoneCall, type PhoneSaved, type PhoneToday, usd } from '@mesa/core/phone';
 
-// How the phone says what the vault holds: a day and its calendar leaf, Impact's counts, the week's cost, a receipt's kind, a
+// How the phone says what the vault holds: a calendar leaf, Impact's counts, the week's cost, a receipt's kind, a
 // saved decision's outcome, and when a decision can be saved.
 
 /** Impact today as three numbers, the person's words for each; a guardrail stop counts as caught. */
@@ -9,13 +9,6 @@ export const impactStats = (impact: PhoneToday['impact']) => [
   { label: 'Notes in', value: impact.notesIn },
   { label: 'Caught', value: impact.caught + impact.stopped },
 ];
-
-/** An ISO time's local day, `YYYY-MM-DD`, as the vault names its days. */
-export function dayOf(iso: string) {
-  const at = new Date(iso);
-  const two = (n: number) => String(n).padStart(2, '0');
-  return `${at.getFullYear()}-${two(at.getMonth() + 1)}-${two(at.getDate())}`;
-}
 
 const MONTHS = 'JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC'.split(' ');
 const WEEKDAYS = 'Sunday Monday Tuesday Wednesday Thursday Friday Saturday'.split(' ');
@@ -35,9 +28,9 @@ export const foundText = (total: number, shown: number) =>
       ? `The first ${shown} of ${total}`
       : `${total} found`;
 
-/** The week's estimated cost, or that some of it is unknown, never a guess. */
-export const costText = (usd: number | null) =>
-  usd === null ? 'Cost unknown' : `$${usd.toFixed(2)} estimated`;
+/** The week's estimated cost as of the Mac's last usage sync (the phone never syncs), or unknown. */
+export const costText = (cost: number | null) =>
+  cost === null ? 'Cost unknown' : `${usd(cost, 2)} estimated at the last sync`;
 
 const KINDS: Record<string, string> = {
   decision: 'Decision',
@@ -55,7 +48,8 @@ export const savedText = (saved: PhoneSaved) =>
     ? 'Kept in your vault, with its receipt.'
     : 'The same decision is already kept; nothing was added.';
 
-export type DecisionDraft = { project: string; title: string; decision: string; rationale: string };
+/** What saving a decision sends: the `decide` call without its method. */
+export type DecisionDraft = Omit<Extract<PhoneCall, { method: 'decide' }>, 'method'>;
 
 /** A decision can be saved once it names its project, title, decision and rationale. */
 export const draftReady = (draft: DecisionDraft) =>

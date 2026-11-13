@@ -85,6 +85,13 @@ test("an HTML comment is hidden, and a summary reads without its links' markup",
   expect(noteBlocks('<!-- mesa:daily:start -->\n## Log\n<!-- mesa:daily:end -->', [])).toEqual([
     { kind: 'heading', level: 2, spans: [{ text: 'Log' }] },
   ]);
+  // A nested one leaves no comment behind once the inner one goes; an unclosed one hides the rest.
+  expect(noteBlocks('a <!-<!---->- b', [])).toEqual([
+    { kind: 'paragraph', spans: [{ text: 'a' }] },
+  ]);
+  expect(noteBlocks('kept\n<!-- open\nhidden', [])).toEqual([
+    { kind: 'paragraph', spans: [{ text: 'kept' }] },
+  ]);
   expect(plainText('Saved decision Tides in [[wiki/decisions/tides|tides]] **now**')).toBe(
     'Saved decision Tides in tides now',
   );

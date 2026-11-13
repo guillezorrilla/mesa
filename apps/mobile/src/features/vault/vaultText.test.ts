@@ -2,7 +2,6 @@ import { expect, test } from 'vitest';
 import {
   calendarLeaf,
   costText,
-  dayOf,
   draftReady,
   foundText,
   impactStats,
@@ -20,7 +19,7 @@ test('Impact today reads as three counts, a guardrail stop counting as caught', 
 
 test('the cost says when it is unknown, and kinds read as words', () => {
   expect(costText(null)).toBe('Cost unknown');
-  expect(costText(1.234)).toBe('$1.23 estimated');
+  expect(costText(1.234)).toBe('$1.23 estimated at the last sync');
   expect(kindWord('vault-change')).toBe('Vault change');
   expect(kindWord('phone')).toBe('Phone');
 });
@@ -33,8 +32,7 @@ test('a saved decision says whether it added anything; a draft needs every field
   expect(draftReady({ ...draft, rationale: '  ' })).toBe(false);
 });
 
-test('a time reads as its local day', () => {
-  expect(dayOf(new Date(2026, 10, 2, 23, 30).toISOString())).toBe('2026-11-02');
+test('a day reads as a calendar leaf', () => {
   expect(calendarLeaf(new Date(2026, 10, 12))).toEqual({
     month: 'NOV',
     day: '12',

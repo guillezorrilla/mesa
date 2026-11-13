@@ -1,5 +1,6 @@
 // The pairing protocol (`@mesa/core/phone`): what the phone app bundles from core, and nothing else
-// but the pure time words, session state sets and prompt title its screens share with the desktop.
+// but the pure time words, dollars, local day, session state sets and prompt title its screens
+// share with the desktop.
 export {
   DIFF_START,
   type DiffAt,
@@ -8,6 +9,8 @@ export {
   noteLines,
 } from '../../git/diff-lines.js';
 export { relativeAgo, shortAgo, timeAgo } from '../../lib/ago.js';
+export { usd } from '../../lib/format.js';
+export { localDay } from '../../lib/time.js';
 export { promptTitle } from '../../sessions/answer/title.js';
 export { BUSY_STATES, FINAL_STATES, WAITING_STATES } from '../../sessions/record/states.js';
 export type { ChangedFile, NoteDelivery, StatusFile } from './changes.js';

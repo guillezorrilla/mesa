@@ -1,13 +1,13 @@
-import type { CallResult } from '@mesa/core/phone';
+import { type CallResult, localDay } from '@mesa/core/phone';
 import { use } from 'react';
 import { ErrorNote } from '@/components/ErrorNote';
 import { Screen } from '@/components/Screen';
-import { Section } from '@/components/Section';
 import { Text } from '@/components/ui/text';
 import type { MacRead } from '../mac/tryCall';
+import { ListSection } from './ListSection';
 import { NoteView } from './NoteView';
-import { VaultList } from './VaultList';
-import { dayOf } from './vaultText';
+
+const dayOf = (iso: string) => localDay(new Date(iso));
 
 /** A project's memory: the start of its hub, its decisions and notes, and its earlier goals. */
 export function ProjectBody({ read }: { read: Promise<MacRead<CallResult<'project'>>> }) {
@@ -20,42 +20,28 @@ export function ProjectBody({ read }: { read: Promise<MacRead<CallResult<'projec
       {!hub && !decisions.length && !notes.length && !goals.length ? (
         <Text variant="muted">Nothing in the vault for this project yet.</Text>
       ) : null}
-      {decisions.length ? (
-        <Section title="Decisions">
-          <VaultList
-            items={decisions.map((d) => ({
-              key: d.path,
-              title: d.title,
-              stamp: d.when,
-              path: d.path,
-            }))}
-          />
-        </Section>
-      ) : null}
-      {notes.length ? (
-        <Section title="Notes">
-          <VaultList
-            items={notes.map((n) => ({
-              key: n.path,
-              title: n.title,
-              stamp: dayOf(n.modified),
-              path: n.path,
-            }))}
-          />
-        </Section>
-      ) : null}
-      {goals.length ? (
-        <Section title="Earlier goals">
-          <VaultList
-            items={goals.map((g) => ({
-              key: g.id,
-              title: g.goal ?? 'Started without a goal',
-              stamp: dayOf(g.started),
-              path: g.summary,
-            }))}
-          />
-        </Section>
-      ) : null}
+      <ListSection
+        title="Decisions"
+        items={decisions.map((d) => ({ key: d.path, title: d.title, stamp: d.when, path: d.path }))}
+      />
+      <ListSection
+        title="Notes"
+        items={notes.map((n) => ({
+          key: n.path,
+          title: n.title,
+          stamp: dayOf(n.modified),
+          path: n.path,
+        }))}
+      />
+      <ListSection
+        title="Earlier goals"
+        items={goals.map((g) => ({
+          key: g.id,
+          title: g.goal ?? 'Started without a goal',
+          stamp: dayOf(g.started),
+          path: g.summary,
+        }))}
+      />
     </Screen>
   );
 }

@@ -6,6 +6,7 @@ import { MesaError } from '../../lib/result.js';
 import type { ProjectRow } from '../../projects/projects.js';
 import type { Recorded } from '../../receipts/recorder.js';
 import type { WeeklyRewind } from '../../usage/rewind.js';
+import { itemTitle } from '../../vault/item.js';
 import { dailyNotePath } from '../../vault/layout.js';
 import type { ProjectContext } from '../../vault/mount/project-context.js';
 import type { DecisionInput, Saved } from '../../vault/mount/session-writes.js';
@@ -43,14 +44,12 @@ const VAULT_METHODS = new Set<string>(vaultCalls.map((call) => call.shape.method
 export const isVaultCall = (call: { method: string }): call is VaultCall =>
   VAULT_METHODS.has(call.method);
 
-const fileTitle = (path: string) => path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/i, '');
-
 /** A vault item as the phone's reader shows it: Markdown cut to `chars`, its resolved links. */
 export function toPhoneNote(read: VaultRead, chars = NOTE_CHARS): PhoneNote {
   if (read.preview !== 'markdown')
     return {
       path: read.path,
-      title: fileTitle(read.path),
+      title: itemTitle(read),
       body: '',
       links: [],
       clipped: false,
@@ -66,7 +65,7 @@ export function toPhoneNote(read: VaultRead, chars = NOTE_CHARS): PhoneNote {
   );
   return {
     path: read.path,
-    title: (typeof title === 'string' && title.trim()) || fileTitle(read.path),
+    title: (typeof title === 'string' && title.trim()) || itemTitle(read),
     body,
     links: [...links].map(([text, path]) => ({ text, path })),
     clipped: body !== read.body.trim(),

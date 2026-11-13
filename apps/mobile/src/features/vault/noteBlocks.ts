@@ -4,6 +4,8 @@
 // ponytail: headings, lists, tasks, quotes, code, tables as code, rules, bold, italic, code spans
 // and links; nested emphasis and HTML show as written. Add more when a real note needs it.
 
+import { pathParts } from '../../lib/pathParts';
+
 export type Span = {
   text: string;
   bold?: boolean;
@@ -41,7 +43,7 @@ function wikiWords(inner: string) {
   const [target = '', alias] = inner.split('|');
   if (alias?.trim()) return alias.trim();
   const [file = '', sub] = target.split('#');
-  const name = file.slice(file.lastIndexOf('/') + 1).replace(/\.md$/i, '');
+  const name = pathParts(file).name.replace(/\.md$/i, '');
   return [name, sub].filter(Boolean).join(' > ');
 }
 
@@ -75,7 +77,18 @@ export const plainText = (text: string) =>
     .map((span) => span.text)
     .join('');
 
-const COMMENT = /<!--[\s\S]*?-->/g;
+/** An HTML comment; one never closed runs to the end, as Obsidian hides it. */
+const COMMENT = /<!--[\s\S]*?(?:-->|$)/g;
+
+/** `body` with its HTML comments gone, removed until none is left, so a nested one leaves none. */
+function withoutComments(body: string) {
+  let text = body;
+  for (let last = ''; last !== text; ) {
+    last = text;
+    text = text.replace(COMMENT, '');
+  }
+  return text;
+}
 
 /** `body`'s blocks in order, its HTML comments hidden as Obsidian hides them; `links` are its resolved links. */
 export function noteBlocks(body: string, links: readonly Link[]): Block[] {
@@ -105,7 +118,7 @@ export function noteBlocks(body: string, links: readonly Link[]): Block[] {
     item = undefined;
   };
 
-  for (const line of body.replace(COMMENT, '').split('\n')) {
+  for (const line of withoutComments(body).split('\n')) {
     if (code) {
       if (line.trim().startsWith(code.fence)) {
         blocks.push({ kind: 'code', text: code.lines.join('\n') });
