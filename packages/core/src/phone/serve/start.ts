@@ -63,6 +63,10 @@ async function start(deps: StartDeps, call: StartCall): Promise<CallResult<'star
 /** Answers one start call (#1065); throws a MesaError for an unknown project or ticket. */
 export async function answerStartCall(deps: StartDeps, call: StartCallOf): Promise<unknown> {
   switch (call.method) {
+    case 'projects':
+      return {
+        projects: shown(deps).map((p) => ({ name: p.name, label: p.label })),
+      } satisfies CallResult<'projects'>;
     case 'worktrees':
       return {
         worktrees: (await deps.worktrees(call.project)).flatMap((w) =>

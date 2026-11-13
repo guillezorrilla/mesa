@@ -10,6 +10,4 @@ test('the tab bar hides on a session, a diff, a quote and the new session form, 
   expect(tabBarHidden(['agents', 'quote'])).toBe(true);
   expect(tabBarHidden(['agents', 'changes', '[id]'])).toBe(false);
   expect(tabBarHidden(['(home)', 'about'])).toBe(false);
-  expect(tabBarHidden(['vault', 'decide'])).toBe(true);
-  expect(tabBarHidden(['vault', 'note'])).toBe(false);
 });

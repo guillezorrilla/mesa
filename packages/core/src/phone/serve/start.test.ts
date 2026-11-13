@@ -143,3 +143,11 @@ test("a project's followed tickets, one ticket cut for a phone, and assigning it
   ).toEqual({ assignee: 'Grace' });
   expect(asked).toEqual(['show jira:HAR-219 harbour', 'assign jira:HAR-219 harbour']);
 });
+
+test('the phone lists the projects to start in', async () => {
+  const at = await servingPhone();
+  expect((await at.calls.call({ method: 'projects' })).projects).toEqual([
+    { name: 'lantern-cove', label: 'lantern-cove' },
+  ]);
+  await at.end();
+});

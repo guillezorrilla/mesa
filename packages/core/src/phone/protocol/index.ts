@@ -107,10 +107,3 @@ export {
   type SessionAction,
 } from './steer.js';
 export type { PhoneSessionUsage, PhoneUsage } from './usage.js';
-export type {
-  PhoneHit,
-  PhoneMemory,
-  PhoneNote,
-  PhoneSaved,
-  PhoneToday,
-} from './vault.js';

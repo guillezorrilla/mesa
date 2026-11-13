@@ -4,12 +4,11 @@ const BAR_SCREENS = new Set([
   'agents/diff',
   'agents/quote',
   'agents/start',
-  'vault/decide',
 ]);
 
 /**
  * Whether the tab bar hides for the route `segments` (expo-router's useSegments): on a session's
  * screen (its reply bar), on a diff or a quote (their note form), on the new session form (its
- * Start bar) and on saving a decision (its Save bar), as Messages hides it in a chat.
+ * Start bar), as Messages hides it in a chat.
  */
 export const tabBarHidden = (segments: readonly string[]) => BAR_SCREENS.has(segments.join('/'));
