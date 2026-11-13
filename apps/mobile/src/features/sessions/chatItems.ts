@@ -1,4 +1,5 @@
 import type { PhoneDetail, ReplySegment } from '@mesa/core/phone';
+import type { Outgoing } from '../compose/useSend';
 
 /** One message in a session's conversation as the screen shows it, oldest first. */
 export type ChatItem = {
@@ -14,9 +15,6 @@ export type ChatItem = {
   first: boolean;
 };
 
-/** A reply this screen sent, as the reply bar keeps it (useSend's Outgoing). */
-type Echo = { key: string; text: string; photo: boolean; sending: boolean };
-
 /** How long a pause starts a new group under the same speaker. */
 const GROUP_GAP_MS = 10 * 60_000;
 
@@ -31,8 +29,10 @@ const opensGroup = (item: Omit<ChatItem, 'first'>, last?: Omit<ChatItem, 'first'
  * The conversation oldest first, so the newest sits at the bottom: the Mac's replies (sent newest
  * first) and then what this screen sent that the transcript does not show yet, each marked where a
  * group opens. A send the transcript already holds (its text among the person's) is shown once.
+ * ponytail: matched by text, so a second identical send hides once the first lands; match on
+ * time if that ever matters.
  */
-export function chatItems(replies: PhoneDetail['replies'], echoes: Echo[]): ChatItem[] {
+export function chatItems(replies: PhoneDetail['replies'], echoes: Outgoing[]): ChatItem[] {
   const said = new Set(replies.filter((r) => r.from === 'you').map((r) => r.segments[0]?.text));
   const items: Omit<ChatItem, 'first'>[] = [
     ...[...replies].reverse().map((r) => ({

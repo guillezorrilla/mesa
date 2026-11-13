@@ -16,12 +16,14 @@ const atTail = ({ contentOffset, contentSize, layoutMeasurement }: NativeScrollE
  * Keeps a conversation list on its latest message while the person is there, as orca does: one
  * non-animated follower pins the end as content grows; a drag stops following and a drag that
  * ends at the bottom follows again. Away from the bottom it counts the messages that arrived
- * since (`keys` oldest first), and a drag near the top calls `onTop` for older ones.
+ * since (`keys` oldest first), and scrolling near the top calls `onTop` for older ones, once per
+ * page.
  */
 export function useTailFollow<T>(keys: string[], onTop: () => void) {
   const list = useRef<FlatList<T>>(null);
   const following = useRef(true);
-  const dragging = useRef(false);
+  // How many messages there were when older ones were last asked for: once per page.
+  const askedAt = useRef(-1);
   // The newest message shown when the person scrolled away; none while following.
   const [seen, setSeen] = useState<string>();
   const follow = (yes: boolean) => {
@@ -34,7 +36,6 @@ export function useTailFollow<T>(keys: string[], onTop: () => void) {
     if (following.current) list.current?.scrollToOffset({ offset: height, animated: false });
   };
   const settle = (event: ScrollEvent) => {
-    dragging.current = false;
     if (atTail(event.nativeEvent)) follow(true);
   };
   return {
@@ -49,13 +50,16 @@ export function useTailFollow<T>(keys: string[], onTop: () => void) {
       onLayout: () => pin(),
       onContentSizeChange: (_width: number, height: number) => pin(height),
       onScrollBeginDrag: () => {
-        dragging.current = true;
         if (following.current) follow(false);
       },
       onScrollEndDrag: settle,
       onMomentumScrollEnd: settle,
+      // Only the person's scrolling reaches the top (a drag or its fling): the follower pins the end.
       onScroll: (event: ScrollEvent) => {
-        if (dragging.current && event.nativeEvent.contentOffset.y < NEAR_TOP_PX) onTop();
+        if (following.current || event.nativeEvent.contentOffset.y >= NEAR_TOP_PX) return;
+        if (askedAt.current === keys.length) return;
+        askedAt.current = keys.length;
+        onTop();
       },
       scrollEventThrottle: 32,
     },

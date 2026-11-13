@@ -1,5 +1,5 @@
 import { closesFence, opensFence } from '../../lib/code-fence.js';
-import type { SessionResponses } from '../../sessions/native/responses.js';
+import type { NativePrompt, NativeResponse } from '../../sessions/native/responses.js';
 import type { ReplySegment } from '../protocol/rpc.js';
 
 /**
@@ -34,7 +34,7 @@ export function replySegments(text: string): ReplySegment[] {
  * phone does not ask for prompts, which it would show as the agent's.
  */
 export function phoneReplies(
-  read: Pick<SessionResponses, 'rows' | 'prompts'>,
+  read: { rows: Pick<NativeResponse, 'revision' | 'text' | 'at'>[]; prompts: NativePrompt[] },
   count: number,
   withPrompts: boolean,
 ) {

@@ -100,6 +100,14 @@ test("the person's prompts come with the responses, placed among them, without t
       line('user', [{ type: 'tool_result', content: 'heron.txt' }], '2026-09-28T12:00:02.000Z'),
       line('assistant', [{ type: 'text', text: 'Found it.' }], '2026-09-28T12:00:03.000Z'),
       line('user', '<command-name>/clear</command-name>', '2026-09-28T12:00:04.000Z'),
+      line(
+        'user',
+        [
+          { type: 'image', source: {} },
+          { type: 'text', text: 'See this' },
+        ],
+        '2026-09-28T12:00:04.500Z',
+      ),
       line('user', [{ type: 'text', text: 'Thanks' }], '2026-09-28T12:00:05.000Z'),
     ].join('\n'),
   );
@@ -107,6 +115,7 @@ test("the person's prompts come with the responses, placed among them, without t
   expect(listed.rows.map((row) => row.text)).toEqual(['Found it.', 'Looking.']);
   expect(listed.prompts).toMatchObject([
     { text: 'Thanks', newer: 0, at: '2026-09-28T12:00:05.000Z' },
+    { text: 'See this', newer: 0 },
     { text: 'Find the heron', newer: 2 },
   ]);
 });

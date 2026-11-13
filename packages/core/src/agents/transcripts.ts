@@ -151,11 +151,12 @@ export function messageOf(raw: unknown, at: unknown, line: string): TranscriptMe
         : [];
   const text = parts.filter((part: unknown): part is string => typeof part === 'string').join('\n');
   if (!text) return undefined;
+  const blocks = Array.isArray(message.content)
+    ? (message.content as ({ type?: unknown; text?: unknown } | null)[])
+    : [];
   const tool =
-    Array.isArray(message.content) &&
-    (message.content as { type?: unknown; text?: unknown }[]).every(
-      (part) => typeof part?.text !== 'string',
-    );
+    blocks.some((part) => part?.type === 'tool_result') &&
+    !blocks.some((part) => typeof part?.text === 'string');
   return {
     role: message.role,
     text,

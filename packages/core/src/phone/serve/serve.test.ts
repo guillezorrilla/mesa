@@ -143,7 +143,7 @@ test("the session screen's conversation places the person's prompts among the ag
       { revision: 'p2', text: 'Run the tests', newer: 1 },
       { revision: 'p1', text: 'Fix the login', newer: 2 },
     ],
-  } as unknown as Parameters<typeof phoneReplies>[0];
+  };
   const ids = (count: number, withPrompts: boolean) =>
     phoneReplies(read, count, withPrompts).replies.map((r) => `${r.from}:${r.id}`);
   expect(ids(2, true)).toEqual(['you:p3', 'agent:r2', 'you:p2', 'agent:r1', 'you:p1']);

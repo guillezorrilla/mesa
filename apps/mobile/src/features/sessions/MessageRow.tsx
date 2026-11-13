@@ -10,7 +10,7 @@ export function MessageRow({ id, item, now }: { id: string; item: ChatItem; now:
   const you = item.from === 'you';
   return (
     <View className={cn('gap-1.5 px-4', item.first ? 'pt-5' : 'pt-1.5')}>
-      {item.first ? <GroupLabel you={you} at={item.at} now={now} /> : null}
+      {item.first ? <GroupLabel item={item} now={now} /> : null}
       {you ? (
         <YouBubble text={item.segments.map((s) => s.text).join('\n')} sending={item.sending} />
       ) : (
