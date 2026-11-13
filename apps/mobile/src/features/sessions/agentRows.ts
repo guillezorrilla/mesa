@@ -92,6 +92,10 @@ export function groupRows<R extends PhoneRow, G extends PhoneGate>(
     .filter((section) => section.data.length);
 }
 
+/** How many wait on the person, whatever the filter: every open gate and every waiting session. */
+export const needsYouCount = (rows: readonly PhoneRow[], gates: readonly PhoneGate[]) =>
+  gates.length + rows.filter((row) => groupOf(row.state) === 'needs-you').length;
+
 /** Whether a Needs you item is a decision gate rather than a session. */
 export const isGate = (item: PhoneRow | PhoneGate): item is PhoneGate => 'question' in item;
 

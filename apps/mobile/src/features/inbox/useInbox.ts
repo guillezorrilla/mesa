@@ -1,16 +1,20 @@
 import type { PhoneNotice } from '@mesa/core/phone';
 import { router } from 'expo-router';
-import { useLiveRead } from '../mac/useLiveRead';
+import { use } from 'react';
+import { useOnFocus } from '@/lib/useOnFocus';
 import { useMac } from '../mac/useMac';
+import { InboxContext } from './inboxContext';
 import { noticeHref } from './noticeHref';
 
 /**
- * The Mac's Inbox as useLiveRead reads it, marking a notice read (then reading the Inbox again),
- * and opening one: marked read, then its screen.
+ * The Mac's Inbox as InboxProvider reads it, asked again on focus, marking a notice read (then
+ * reading the Inbox again), and opening one: marked read, then its screen.
  */
 export function useInbox() {
   const link = useMac();
-  const read = useLiveRead({ method: 'inbox' });
+  const read = use(InboxContext);
+  if (!read) throw new Error('useInbox outside InboxProvider');
+  useOnFocus(read.again);
   const markRead = (notice: PhoneNotice) =>
     link.call({ method: 'noticeRead', id: notice.id }).then(read.again, () => undefined);
   const open = (notice: PhoneNotice) => {
