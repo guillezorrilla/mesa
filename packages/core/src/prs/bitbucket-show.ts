@@ -2,7 +2,8 @@ import { z } from 'zod';
 import type { Runner } from '../lib/process.js';
 import type { JsonRead } from '../lib/run-json.js';
 import { facts, myDrafts, type Pr, posted, readPr, twg } from './bitbucket-pr.js';
-import type { PrRead, PrThread } from './reader.js';
+import { orderChecks } from './check-list.js';
+import type { PrCheck, PrRead, PrThread } from './reader.js';
 
 // An added file has no `old`, a deleted one no `new`.
 // ponytail: twg's default of 100 files; page when a PR outgrows it.
@@ -29,6 +30,23 @@ function checksOf(pr: Pr): PrRead['checks'] {
   if (states.some((s) => s === 'INPROGRESS')) return 'pending';
   return 'passing';
 }
+
+const STATUS: Record<string, PrCheck['state']> = {
+  SUCCESSFUL: 'passing',
+  FAILED: 'failing',
+  STOPPED: 'failing',
+  INPROGRESS: 'pending',
+};
+
+/** Each head commit status as a check; a link that is not HTTPS is left out. */
+const checkListOf = (pr: Pr): PrCheck[] =>
+  orderChecks(
+    pr._statuses.map((s) => ({
+      name: s.name ?? s.key ?? 'status',
+      state: STATUS[s.state] ?? 'pending',
+      ...(s.url && URL.parse(s.url)?.protocol === 'https:' ? { url: s.url } : {}),
+    })),
+  );
 
 /** Inline threads, each with the PR author's newest posted reply; a reply may answer another reply. */
 function threadsOf(pr: Pr): PrThread[] {
@@ -86,11 +104,13 @@ export async function showBitbucket(
     value: {
       me,
       pr: facts(pr, me),
+      body: pr.description ?? '',
       base: pr.destination.branch.name,
       headRef: pr.source.branch.name,
       additions: files.reduce((n, f) => n + f.additions, 0),
       deletions: files.reduce((n, f) => n + f.deletions, 0),
       checks: checksOf(pr),
+      checkList: checkListOf(pr),
       threads: threadsOf(pr),
       drafts: myDrafts(pr, me),
       files,

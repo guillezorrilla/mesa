@@ -38,6 +38,7 @@ type Comment = z.infer<typeof Comment>;
 export const Pr = z.object({
   id: z.number().int(),
   title: z.string(),
+  description: z.string().nullish(),
   state: z.enum(['OPEN', 'MERGED', 'DECLINED', 'SUPERSEDED']),
   updated_on: z.string(),
   links: z.object({ html: z.object({ href: HttpsUrl }) }),
@@ -65,7 +66,16 @@ export const Pr = z.object({
   ),
   _commits: z.array(z.object({ date: z.string() })),
   // The head commit's build statuses: SUCCESSFUL, FAILED, INPROGRESS or STOPPED.
-  _statuses: z.array(z.object({ state: z.string() })).default([]),
+  _statuses: z
+    .array(
+      z.object({
+        state: z.string(),
+        name: z.string().nullish(),
+        key: z.string().nullish(),
+        url: z.string().nullish(),
+      }),
+    )
+    .default([]),
 });
 export type Pr = z.infer<typeof Pr>;
 

@@ -31,6 +31,7 @@ import {
 } from './reader.js';
 import { type Reached, reviewActions } from './review.js';
 import type { ReviewStartDeps } from './review-start.js';
+import { resolveAction } from './thread-resolve.js';
 import { prVerdicts, type ThreadVerdict, withVerdicts } from './verdicts.js';
 import { reviewVoice } from './voice.js';
 
@@ -169,6 +170,7 @@ export function prsService(ctx: MesaContext, deps: Pick<ReviewStartDeps, 'open' 
     show,
     ...reviewActions(ctx, deps, { reach, read }),
     merge: mergeAction(ctx, { reach, projectOf }),
+    resolve: resolveAction(ctx, reach),
 
     /** The PR's changes as one patch and its rows, read apart from `show` so the detail stays light. */
     async diff(project: string, number: number): Promise<PrPatch> {

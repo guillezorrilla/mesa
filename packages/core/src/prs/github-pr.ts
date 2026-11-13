@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { HttpsUrl } from '../git/pull-requests.js';
 import type { PrFacts } from './buckets.js';
-import type { PrDraft, PrHead, PrRead } from './reader.js';
+import type { PrCheck, PrDraft, PrHead, PrRead } from './reader.js';
 
 /** A summary draft's id: the pending review's, marked so discard clears the body, not a comment. */
 export const SUMMARY_PREFIX = 'review:';
@@ -116,3 +116,53 @@ const CHECKS: Record<string, PrRead['checks']> = {
 /** The head commit's `statusCheckRollup.state` as Mesa names it; null when it has no checks. */
 export const checksOf = (state: string | undefined): PrRead['checks'] =>
   CHECKS[state ?? ''] ?? null;
+
+/** The head commit's checks, as the detail's query asks for them (`contexts`). */
+export const CHECK_CONTEXTS = `contexts(first: 50) { nodes {
+  __typename
+  ... on CheckRun { name status conclusion detailsUrl }
+  ... on StatusContext { context state targetUrl }
+} }`;
+
+export const CheckContext = z.union([
+  z.object({
+    __typename: z.literal('CheckRun'),
+    name: z.string(),
+    status: z.string(),
+    conclusion: z.string().nullable(),
+    detailsUrl: z.string().nullable(),
+  }),
+  z.object({
+    __typename: z.literal('StatusContext'),
+    context: z.string(),
+    state: z.string(),
+    targetUrl: z.string().nullable(),
+  }),
+]);
+
+/** A run's conclusion or a status's state as a check's state; anything unfinished is pending. */
+const CHECK_STATE: Record<string, PrCheck['state']> = {
+  SUCCESS: 'passing',
+  NEUTRAL: 'passing',
+  FAILURE: 'failing',
+  ERROR: 'failing',
+  TIMED_OUT: 'failing',
+  ACTION_REQUIRED: 'failing',
+  STARTUP_FAILURE: 'failing',
+  CANCELLED: 'skipped',
+  SKIPPED: 'skipped',
+  STALE: 'skipped',
+};
+
+/** One check run or commit status as a check; a link that is not HTTPS is left out. */
+export function toCheck(context: z.infer<typeof CheckContext>): PrCheck {
+  const run = context.__typename === 'CheckRun';
+  const name = run ? context.name : context.context;
+  const word = run ? (context.status === 'COMPLETED' ? context.conclusion : null) : context.state;
+  const url = run ? context.detailsUrl : context.targetUrl;
+  return {
+    name,
+    state: CHECK_STATE[word ?? ''] ?? 'pending',
+    ...(url && URL.parse(url)?.protocol === 'https:' ? { url } : {}),
+  };
+}

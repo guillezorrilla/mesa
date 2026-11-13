@@ -90,7 +90,21 @@ async function listen(
     return looking;
   };
   const diff = keptDiffs(deps.answers.changes.diff, now);
-  const answers = { ...deps.answers, board, changes: { ...deps.answers.changes, diff } };
+  // A PR's patch is kept the same way, keyed by its project and number.
+  const prPatch = keptDiffs((key: string) => {
+    const at = key.lastIndexOf('#');
+    return deps.answers.prs.diff(key.slice(0, at), Number(key.slice(at + 1)));
+  }, now);
+  const answers = {
+    ...deps.answers,
+    board,
+    changes: { ...deps.answers.changes, diff },
+    prs: {
+      ...deps.answers.prs,
+      diff: (project: string, number: number, reuse?: boolean) =>
+        prPatch(`${project}#${number}`, reuse),
+    },
+  };
   const respond = async (request: Extract<PhoneMessage, { kind: 'request' }>) => {
     try {
       const result = await answerCall(answers, request.call);

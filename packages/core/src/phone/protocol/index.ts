@@ -8,6 +8,7 @@ export {
   noteLines,
 } from '../../git/diff-lines.js';
 export { relativeAgo, shortAgo, timeAgo } from '../../lib/ago.js';
+export { BUCKET_LABELS } from '../../prs/buckets.js';
 export { promptTitle } from '../../sessions/answer/title.js';
 export { BUSY_STATES, FINAL_STATES, WAITING_STATES } from '../../sessions/record/states.js';
 export type { ChangedFile, NoteDelivery, StatusFile } from './changes.js';
@@ -53,6 +54,13 @@ export {
   openNotice,
   sealNotice,
 } from './notice.js';
+export type {
+  PhoneCheck,
+  PhoneDraft,
+  PhonePr,
+  PhonePrDetail,
+  PhoneThread,
+} from './prs.js';
 export { MacCallError, macCalls } from './requests.js';
 export {
   type CallResult,

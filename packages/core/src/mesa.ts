@@ -103,6 +103,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
     open: async (project, opts) => (await sessions.sessions.open(project, opts)).result,
   });
   const { notes, responses } = sessions.sessions;
+  const prs = prsService(ctx, { open: sessions.sessions.open, stop: sessions.sessions.stop });
+  const prEvents = prEventsService(ctx, {
+    board: () => sessions.sessions.list(),
+    send: sessions.sessions.send,
+  });
   const phone = phoneService(
     ctx,
     { pending: notices.pendingPushes, claim: notices.claimPushes },
@@ -132,6 +137,17 @@ export function createMesa(profile: string, deps: MesaDeps) {
         quote: (id, input) => responses.send(id, input, { noFrom: true }),
         git,
         files,
+      },
+      prs: {
+        list: () => prs.list(),
+        show: prs.show,
+        diff: prs.diff,
+        start: prs.start,
+        discard: prs.discard,
+        draft: prs.draft,
+        resolve: prs.resolve,
+        merge: prs.merge,
+        deliver: prEvents.deliver,
       },
     },
   );
@@ -171,16 +187,13 @@ export function createMesa(profile: string, deps: MesaDeps) {
     ...dailyService(ctx),
     receipts: receiptsService(ctx),
     ...sessions,
-    prEvents: prEventsService(ctx, {
-      board: () => sessions.sessions.list(),
-      send: sessions.sessions.send,
-    }),
+    prEvents,
     reports,
     /** Planned work and what each part waits on (CONTEXT.md, Task graph). */
     tasks,
     /** Decisions only a person makes, which block a task until resolved (CONTEXT.md, Decision gate). */
     gates,
-    prs: prsService(ctx, { open: sessions.sessions.open, stop: sessions.sessions.stop }),
+    prs,
     hooks: hooksService(ctx),
     skills,
     usage,

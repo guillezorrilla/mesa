@@ -1,7 +1,7 @@
 import type { Command } from '../../command.js';
 import { prs, prsSetup } from './list.js';
 import { prsMerge } from './merge.js';
-import { prsDiff, prsDiscard, prsDraft, prsDrafts, prsShow } from './pr.js';
+import { prsDiff, prsDiscard, prsDraft, prsDrafts, prsResolve, prsShow } from './pr.js';
 import { prsPublish, prsStart, prsVerdict } from './review.js';
 import { prsVoice } from './voice.js';
 
@@ -14,6 +14,7 @@ export const PRS_COMMANDS: Command[] = [
   prsDraft,
   prsDrafts,
   prsDiscard,
+  prsResolve,
   prsStart,
   prsPublish,
   prsMerge,
