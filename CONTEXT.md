@@ -180,7 +180,7 @@ Not: scheduled, deferred.
 
 ## Queued message
 
-A reply the person sent from the phone to a session at work (`working`, or a Queued session), held by the phone listener in the profile's `phone-queue.json` until the session's turn ends, then typed through `mesa send`'s path as from a person, with the app open or closed (#1062). The guardrail checks it when it is queued: a block is refused then, and an ask needs the person's Send anyway, which its delivery keeps. A session waiting on a person keeps its messages until answered. Until it is typed the phone shows it and can take it back (remove, or edit and send again); one that could not be typed stays with the reason.
+A reply the person sent from the phone to a session at work (`working`, or a Queued session), held by the phone listener in the profile's `phone-queue.json` until the session's turn ends, then typed through `mesa send`'s path as from a person, with the app open or closed (#1062). The guardrail checks it when it is queued: a block is refused then, and an ask needs the person's Send anyway, which its delivery keeps. A session waiting on a person keeps its messages until answered. Until it is typed the phone shows it and can take it back (remove, or edit and send again); one that could not be typed stays with the reason. The Mac shows them too, under the desktop's prompt composer and in `mesa queue list|remove`, and a removal there reaches a watching phone in its next update (#1096).
 Not: a Queued session, which is a session waiting to start.
 
 ## Worker

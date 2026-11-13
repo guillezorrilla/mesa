@@ -169,6 +169,8 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
   diagnostics: () => envelope({ events: [], total: 0, limit: 100 }),
   projects: () => envelope([] satisfies ProjectRow[]),
   receipts: () => envelope([]),
+  // Nothing the phone queued (CONTEXT.md, Queued message), so a session panel lists none.
+  'queue list': () => envelope([]),
   sessions: () => envelope([] satisfies SessionRow[]),
   // The Archived section's read: none, so a test's `sessions` answer is the board's alone.
   'sessions --archived': () => envelope([] satisfies SessionRow[]),

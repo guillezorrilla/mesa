@@ -21,6 +21,8 @@ export const phoneRow = z.object({
   unread: z.boolean(),
   /** A waiting session's pending prompt in one line; none while it waits on none Mesa reads. */
   ask: z.string().optional(),
+  /** How many replies wait for its turn to end (CONTEXT.md, Queued message); none when absent. */
+  queued: z.number().optional(),
 });
 export type PhoneRow = z.infer<typeof phoneRow>;
 

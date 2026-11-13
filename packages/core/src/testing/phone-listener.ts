@@ -1,7 +1,9 @@
+import { join } from 'node:path';
 import type { PhoneMessage } from '../phone/protocol/envelope.js';
 import { phoneKeys } from '../phone/protocol/join.js';
 import { mailbox } from '../phone/protocol/mailbox.js';
 import { macCalls } from '../phone/protocol/requests.js';
+import { phoneQueue } from '../phone/serve/queue.js';
 import { profilePaths } from '../profile/paths.js';
 import { recordHookEvent } from '../sessions/signals/hook-events.js';
 import { CLAUDE_VERSION } from './agents.js';
@@ -103,4 +105,19 @@ export async function livePhoneSession(at: ServingPhone, opts: { goal?: string }
 export async function untilTrue(done: () => boolean) {
   for (let i = 0; i < 500 && !done(); i++) await new Promise((r) => setImmediate(r));
   return done();
+}
+
+/**
+ * Queues `text` for `session` in `home`'s default profile, as the listener does for a reply the
+ * phone sent while it worked (CONTEXT.md, Queued message); returns the message's id.
+ */
+export function plantQueuedMessage(home: string, session: string, text: string) {
+  const queue = phoneQueue({
+    file: join(profilePaths(home, 'default').root, 'phone-queue.json'),
+    lock: { processId: process.pid, processAlive: () => false, clock: fixedClock() },
+    clock: fixedClock(),
+    newId: () => `m${queue.all().length + 1}`,
+  });
+  queue.add(session, text, false);
+  return queue.all().at(-1)?.id ?? '';
 }

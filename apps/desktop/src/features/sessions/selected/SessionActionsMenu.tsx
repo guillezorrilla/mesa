@@ -24,6 +24,7 @@ import { KnowledgeContext } from '@/features/vault/KnowledgeContext';
 import type { OpenDialog } from '../dialogs/SessionDialogs';
 import type { SessionCommands } from '../useSessionCommands';
 import { PromptComposer } from './PromptComposer';
+import { QueuedMessagesPanel } from './QueuedMessagesPanel';
 import { RowMenu } from './RowMenu';
 import { RunCheckButton } from './RunCheckButton';
 import type { PromptInsert } from './usePromptInsert';
@@ -198,6 +199,7 @@ export function SessionActionsMenu({
               onClearImage={prompt.clearImage}
             />
           )}
+          {!isRun(row) && row.kind !== 'terminal' && <QueuedMessagesPanel sessionId={row.id} />}
           <div className="max-h-64 w-full overflow-auto">
             <KnowledgeContext session={row.id} />
           </div>
