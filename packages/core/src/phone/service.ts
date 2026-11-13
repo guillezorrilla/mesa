@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import type { MesaContext } from '../context.js';
 import { launchAgent } from '../lib/launch-agent.js';
+import { MesaError } from '../lib/result.js';
 import { brokerUrl } from '../sources/broker.js';
 import { macPairingStore } from './mac-pairing.js';
 import { type PairingDeps, pairingStatus, startPairing, unpair } from './pair.js';
@@ -28,6 +29,13 @@ export function phoneService(
     command: ['phone', 'serve'],
     run: 'keep-alive',
     log: 'phone',
+  });
+  /** The phone's queued replies (CONTEXT.md, Queued message): the listener's, and the Mac's to list. */
+  const queue = phoneQueue({
+    file: join(ctx.paths.root, 'phone-queue.json'),
+    lock: ctx,
+    clock: ctx.clock,
+    newId: ctx.newId,
   });
   const deps: PairingDeps = {
     store: macPairingStore(ctx.secretStore, ctx.profile),
@@ -88,21 +96,32 @@ export function phoneService(
           sleep: ctx.sleep,
           answers: {
             ...answers,
-            steer: {
-              ...answers.steer,
-              queue: phoneQueue({
-                file: join(ctx.paths.root, 'phone-queue.json'),
-                lock: ctx,
-                clock: ctx.clock,
-                newId: ctx.newId,
-              }),
-            },
+            steer: { ...answers.steer, queue },
           },
           lock: ctx,
           lockPath: join(ctx.paths.root, 'phone-listener.lock'),
         },
         stop,
       );
+    },
+    /**
+     * The replies the phone queued for busy sessions (`mesa queue`, and under the desktop's
+     * composer), all or session `id`'s; removing one the listener already typed is not_found.
+     */
+    queue: {
+      list: (id?: string) => {
+        ctx.open();
+        return queue.list(id);
+      },
+      remove: (id: string) => {
+        ctx.open();
+        if (!queue.remove(id))
+          throw new MesaError(
+            'not_found',
+            `queued message ${id} is no longer queued: the listener typed it, or it was removed`,
+          );
+        return { id, removed: true as const };
+      },
     },
     unpair: () => {
       ctx.open();
