@@ -260,6 +260,17 @@ test('the Inbox, usage and push settings answer the phone through core', async (
   expect((await calls.call({ method: 'inbox' })).notices[0]?.read).toBe(true);
   expect(mesa.notifications.list()[0]?.read).toBe(true);
   await expect(calls.call({ method: 'noticeRead', id: 'nope' })).rejects.toThrow('no inbox item');
+  mesa.notifications.clearAll();
+  plantHookEvent(home, {
+    session: session.id,
+    agent: 'claude',
+    at: '2026-09-24T11:59:30.000Z',
+    event: 'PermissionRequest',
+    payload: { tool_name: 'Bash' },
+  });
+  expect(await calls.call({ method: 'noticesRead' })).toEqual({ count: 1 });
+  expect(mesa.notifications.list().map((item) => item.read)).toEqual([true]);
+  expect(await calls.call({ method: 'noticesRead' })).toEqual({ count: 0 });
 
   // No readings yet: nothing spent, the session listed with its context.
   const usage = await calls.call({ method: 'usage' });
