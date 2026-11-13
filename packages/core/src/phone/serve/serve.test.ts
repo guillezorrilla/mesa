@@ -344,7 +344,11 @@ test("the phone's usage sums each session's cost, unknown when one reading has n
       month: totals(4),
     },
     alerts: [{ period: 'today' as const, thresholdUsd: 1, knownCostUsd: 2 }],
-    daily: Array.from({ length: 90 }, (_, i) => ({ day: `d${i}`, totals: totals(i), models: [] })),
+    daily: Array.from({ length: 90 }, (_, i) => ({
+      day: `d${i}`,
+      totals: totals(i),
+      models: [] as UsageReport['breakdown'],
+    })),
     breakdown: [],
     agents: [],
   } satisfies UsageReport;
