@@ -72,12 +72,12 @@ export function filterRows<R extends PhoneRow & { mac?: string }>(
 }
 
 /** Newest first by when the row entered its state (the time it shows), then by id. */
-const newestFirst = (a: PhoneRow, b: PhoneRow) =>
+const lastActiveFirst = (a: PhoneRow, b: PhoneRow) =>
   Date.parse(b.since) - Date.parse(a.since) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 /**
  * Needs you (open decision gates first, whatever the filter: each waits on the person), Working,
- * Done, each newest first (as orca's newestFirst), empty groups left out.
+ * Done, each latest active first (lastActiveFirst), empty groups left out.
  */
 export function groupRows<R extends PhoneRow, G extends PhoneGate>(
   rows: readonly R[],
@@ -90,7 +90,7 @@ export function groupRows<R extends PhoneRow, G extends PhoneGate>(
       title: GROUP_TITLES[group],
       data: [
         ...(group === 'needs-you' ? gates : ([] as G[])),
-        ...rows.filter((row) => groupOf(row.state) === group).sort(newestFirst),
+        ...rows.filter((row) => groupOf(row.state) === group).sort(lastActiveFirst),
       ],
     }))
     .filter((section) => section.data.length);
