@@ -1,7 +1,7 @@
 import { CodeBlock } from '@/components/CodeBlock';
-import { Text } from '@/components/ui/text';
+import { Markdown } from '@/components/markdown/Markdown';
 
-/** One part of a reply: prose as selectable text, code as a block with its copy button. */
+/** One part of a reply: prose as Markdown, as orca's chat draws it; code as a block to copy. */
 export function ReplySegment({ code, text }: { code: boolean; text: string }) {
-  return code ? <CodeBlock code={text} /> : <Text selectable>{text}</Text>;
+  return code ? <CodeBlock code={text} /> : <Markdown text={text} />;
 }
