@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { View } from 'react-native';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 import type { Item } from './markdownNodes';
 
 /** A list's items, each behind its bullet, its number, or its task box (read-only). */
@@ -24,7 +25,7 @@ export function MarkdownList({
         // biome-ignore lint/suspicious/noArrayIndexKey: an item's place in its list never moves.
         <View key={at} className="flex-row gap-2">
           {item.checked === null ? (
-            <Text className="min-w-5 font-mono text-muted-foreground leading-6">
+            <Text className={cn('font-mono text-muted-foreground leading-6', ordered && 'min-w-5')}>
               {ordered ? `${start + at}.` : '•'}
             </Text>
           ) : (

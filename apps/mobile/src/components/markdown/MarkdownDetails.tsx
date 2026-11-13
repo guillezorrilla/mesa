@@ -1,9 +1,9 @@
+import ChevronDown from 'lucide-react-native/icons/chevron-down';
 import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import { type ReactNode, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { cn } from '@/lib/utils';
 import { MarkdownInline } from './MarkdownInline';
 import type { Inline } from './markdownNodes';
 
@@ -27,10 +27,7 @@ export function MarkdownDetails({
         onPress={() => setExpanded(!expanded)}
         className="min-h-11 flex-row items-center gap-2 bg-muted px-3 py-2 active:bg-accent"
       >
-        <Icon
-          as={ChevronRight}
-          className={cn('size-4 text-muted-foreground', expanded && 'rotate-90')}
-        />
+        <Icon as={expanded ? ChevronDown : ChevronRight} className="size-4 text-muted-foreground" />
         <Text className="shrink font-medium">
           {summary.length ? <MarkdownInline nodes={summary} /> : 'Details'}
         </Text>

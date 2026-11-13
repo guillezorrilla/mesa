@@ -8,8 +8,8 @@ import type { Row } from './markdownNodes';
 // ponytail: one fixed column width; measure columns if wide tables read badly.
 export function MarkdownTable({ rows }: { rows: Row[] }) {
   return (
-    <ScrollView horizontal className="rounded-lg border border-border">
-      <View>
+    <ScrollView horizontal>
+      <View className="overflow-hidden rounded-lg border border-border">
         {rows.map((row, r) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: a row's place in its table never moves.
           <View key={r} className={cn('flex-row', r > 0 && 'border-t border-border')}>
