@@ -1,5 +1,6 @@
 import { startTransition, useActionState, useOptimistic, useState } from 'react';
 import { haptic } from '@/lib/haptics';
+import { outcomeFeel } from '@/lib/outcomeFeel';
 import { useMac } from '../mac/useMac';
 import { answerErrorText, type LastAnswer } from './promptText';
 
@@ -20,7 +21,7 @@ export function useAnswer(id: string, since: string) {
       const at = since;
       try {
         const { status } = await link.call({ method: 'answer', id, ...choice });
-        haptic(status === 'answered' ? 'success' : 'warning');
+        haptic(outcomeFeel({ status }));
         if (status === 'answered') return { outcome: { kind: 'answered', label }, at };
         // After an await the action's transition is gone: start one, so the card stays shown.
         startTransition(() => setRound((r) => r + 1));

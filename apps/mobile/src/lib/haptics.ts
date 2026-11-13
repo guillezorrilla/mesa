@@ -1,42 +1,19 @@
-import { File, Paths } from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
-import { useSyncExternalStore } from 'react';
-import { hapticPlayer } from './hapticPlayer';
+import { fileStore } from './fileStore';
+import { type Feel, hapticPlayer } from './hapticPlayer';
 
-// Haptics on this phone, and whether the person left them on: stored in the app's documents, on
-// unless turned off in the phone's settings (HapticsSection).
+/** Whether the person left haptics on: on unless turned off in the phone's settings. */
+export const hapticsOn = fileStore('haptics.json', (text) => text.trim() !== 'false', true);
 
-const file = new File(Paths.document, 'haptics.json');
-const read = () => {
-  try {
-    return (JSON.parse(file.textSync()) as { on?: unknown }).on !== false;
-  } catch {
-    return true;
-  }
-};
-let on = file.exists ? read() : true;
-const listeners = new Set<() => void>();
-
-export function setHapticsOn(next: boolean) {
-  on = next;
-  for (const listener of listeners) listener();
-  if (!file.exists) file.create();
-  file.writeSync(JSON.stringify({ on }));
-}
-
-const subscribe = (listener: () => void) => {
-  listeners.add(listener);
-  return () => void listeners.delete(listener);
-};
-
-/** Whether haptics are on, and its setter, for the setting's switch. */
-export function useHapticsOn() {
-  return [useSyncExternalStore(subscribe, () => on), setHapticsOn] as const;
-}
+const NOTIFICATIONS = {
+  success: Haptics.NotificationFeedbackType.Success,
+  warning: Haptics.NotificationFeedbackType.Warning,
+  error: Haptics.NotificationFeedbackType.Error,
+} satisfies Record<Exclude<Feel, 'selection'>, Haptics.NotificationFeedbackType>;
 
 /** Plays a feel (lib/hapticPlayer) on the Taptic Engine, unless haptics are off. */
 export const haptic = hapticPlayer({
-  on: () => on,
-  notify: (type) => Haptics.notificationAsync(type as Haptics.NotificationFeedbackType),
+  on: hapticsOn.get,
+  notify: (type) => Haptics.notificationAsync(NOTIFICATIONS[type]),
   select: Haptics.selectionAsync,
 });

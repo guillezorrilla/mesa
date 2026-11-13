@@ -2,6 +2,7 @@ import { MacCallError, type SendResult } from '@mesa/core/phone';
 import { randomUUID } from 'expo-crypto';
 import { startTransition, useActionState, useOptimistic, useState } from 'react';
 import { haptic } from '@/lib/haptics';
+import { outcomeFeel } from '@/lib/outcomeFeel';
 import { useMac } from '../mac/useMac';
 import { draftOf } from './drafts';
 import type { Photo } from './pickPhoto';
@@ -47,13 +48,9 @@ export function useSend(
         // After an await, a state update joins the action's transition only inside startTransition.
         if (result.status === 'sent')
           startTransition(() => setSent((list) => [...list, { ...item, sending: false }]));
-        if (result.status === 'sent' || result.status === 'queued') {
-          haptic('success');
-          onSent();
-        } else {
-          haptic('warning');
-          rollBack();
-        }
+        haptic(outcomeFeel(result));
+        if (result.status === 'sent' || result.status === 'queued') onSent();
+        else rollBack();
         return { result };
       } catch (error) {
         haptic('error');

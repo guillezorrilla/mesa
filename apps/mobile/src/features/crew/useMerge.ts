@@ -1,6 +1,7 @@
 import type { PhoneMerge } from '@mesa/core/phone';
 import { useActionState } from 'react';
 import { haptic } from '@/lib/haptics';
+import { outcomeFeel } from '@/lib/outcomeFeel';
 import { useMac } from '../mac/useMac';
 
 export type MergeState = { merge?: PhoneMerge; error?: string };
@@ -12,7 +13,7 @@ export function useMerge(id: string) {
     (): Promise<MergeState> =>
       link.call({ method: 'merge', id }).then(
         (merge) => {
-          haptic(merge.merged ? 'success' : 'warning');
+          haptic(outcomeFeel(merge));
           return { merge };
         },
         (error: Error) => {

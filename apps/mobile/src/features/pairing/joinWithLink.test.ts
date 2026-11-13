@@ -7,7 +7,7 @@ import { joinWithLink } from './joinWithLink';
 const NOW = new Date('2026-11-11T12:00:00.000Z');
 
 /** The haptics a join played, in order. */
-const felt = () => {
+const recorder = () => {
   const played: Feel[] = [];
   return { played, feel: (f: Feel) => void played.push(f) };
 };
@@ -28,7 +28,7 @@ async function opened() {
 
 test('a scanned link pairs: the phone keeps its pairing, has sent its hello, and taps success', async () => {
   const { broker, link, pairingId } = await opened();
-  const { played, feel } = felt();
+  const { played, feel } = recorder();
   const result = await joinWithLink(broker.http, link, NOW, feel);
   expect(played).toEqual(['success']);
   expect(result.pairing).toMatchObject({
@@ -42,7 +42,7 @@ test('a scanned link pairs: the phone keeps its pairing, has sent its hello, and
 
 test('text that is not a pairing link, a used code and no network each say what to do, with an error tap', async () => {
   const { broker, link } = await opened();
-  const { played, feel } = felt();
+  const { played, feel } = recorder();
   expect(await joinWithLink(broker.http, 'https://example.com', NOW, feel)).toEqual({
     error: "That isn't a Mesa pairing code.",
   });

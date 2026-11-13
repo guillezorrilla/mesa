@@ -1,7 +1,7 @@
 import { Switch, View } from 'react-native';
 import { Section } from '@/components/Section';
 import { Text } from '@/components/ui/text';
-import { useHapticsOn } from '@/lib/haptics';
+import { useHapticsOn } from '@/lib/useHapticsOn';
 
 /** The phone's Haptics setting: on unless the person turns it off, kept on this phone. */
 export function HapticsSection() {

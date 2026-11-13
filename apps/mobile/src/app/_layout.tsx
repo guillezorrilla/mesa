@@ -46,8 +46,8 @@ function Tabs() {
     <NativeTabs
       hidden={tabBarHidden(segments)}
       screenListeners={({ navigation }) => ({
-        tabPress: () => {
-          if (!navigation.isFocused()) haptic('selection');
+        tabPress: (event) => {
+          if (!navigation.isFocused() && !event.data.isPrevented) haptic('selection');
         },
       })}
     >
