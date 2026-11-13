@@ -47,7 +47,7 @@ export function TerminalBar({ id }: { id: string }) {
           autoComplete="off"
           placeholder="Type a command"
           accessibilityLabel="Command line"
-          className="min-h-11 flex-1 rounded-3xl bg-card px-4 font-mono text-sm shadow-none"
+          className="flex-1 rounded-3xl bg-card px-4 font-mono text-[14px] shadow-none"
         />
         <Button
           size="icon"
