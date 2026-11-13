@@ -7,7 +7,6 @@ import { StatusBar } from 'expo-status-bar';
 import { Suspense } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
-import { useCSSVariable } from 'uniwind';
 import { InboxProvider } from '@/features/inbox/InboxProvider';
 import { useUnreadCount } from '@/features/inbox/useUnreadCount';
 import { MacProvider } from '@/features/mac/MacProvider';
@@ -50,7 +49,8 @@ export default function RootLayout() {
  * Agents, the Inbox, Work (pull requests and tickets) and Usage, once paired, and Settings: the
  * paired Macs, pairing one, the push settings and About; hidden on a session's screen and the new
  * session form, under their bars. Agents is badged with what needs you and the Inbox with its
- * unread notices, in the waiting colour. A tapped push opens its session; changing tabs gives
+ * unread notices, in iOS's own badge colour: its digits are always white, which Mesa's dark
+ * waiting amber does not hold. A tapped push opens its session; changing tabs gives
  * selection feedback.
  */
 function Tabs() {
@@ -58,12 +58,10 @@ function Tabs() {
   const segments = useSegments();
   const needsYou = badgeText(useNeedsYouCount());
   const unread = badgeText(useUnreadCount());
-  const waiting = useCSSVariable('--color-state-waiting') as string;
   useOpenTappedSession();
   return (
     <NativeTabs
       hidden={tabBarHidden(segments)}
-      badgeBackgroundColor={waiting}
       screenListeners={({ navigation }) => ({
         tabPress: (event) => {
           if (!navigation.isFocused() && !event.data.isPrevented) haptic('selection');
