@@ -11,13 +11,13 @@ import { dayDate } from './usageText';
 export function DayReadout({ day }: { day: PhoneDay | null }) {
   if (!day)
     return (
-      <View className="h-20 justify-center">
+      <View className="h-20 justify-end">
         <Text variant="muted">Tap or drag across the bars to see a day.</Text>
       </View>
     );
   const note = excludedNote(day.excluded);
   return (
-    <View className="h-20 justify-center gap-0.5" importantForAccessibility="no-hide-descendants">
+    <View className="h-20 justify-end gap-0.5" importantForAccessibility="no-hide-descendants">
       <Text className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {dayDate(day.day)}
       </Text>

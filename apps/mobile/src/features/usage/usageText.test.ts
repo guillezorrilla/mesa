@@ -5,6 +5,8 @@ test("a day reads as its weekday's initial under its bar and as a short date ove
   expect(dayInitial('2026-11-12')).toBe('T');
   expect(dayInitial('2026-11-15')).toBe('S');
   expect(dayDate('2026-11-12', 'en-US')).toBe('Thu, Nov 12');
+  // The day before a DST change reads as itself, whatever the zone (Hermes used today's offset).
+  expect(dayDate('2026-10-31', 'en-US')).toBe('Sat, Oct 31');
 });
 
 test("VoiceOver reads a bar's whole date, its cost, and the sessions a partial cost leaves out", () => {
