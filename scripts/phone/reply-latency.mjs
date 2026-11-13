@@ -1,11 +1,14 @@
-// How long a reply landing on the Mac takes to reach a phone (#1128): a Node phone on the real
-// request layer (core's dist: joinPairing, mailbox, macCalls) against a broker, `wrangler dev` for
-// a test. Build core first (pnpm --filter @mesa/core build). Run from the repo root, with
+// How long a reply landing on the Mac takes to reach a phone (#1128), and a call's round trip, on
+// either path (#1129): a Node phone on the real request layer (core's dist: joinPairing,
+// phoneLine) against a broker, `wrangler dev` for a test. Build core first (pnpm --filter @mesa/core build). Run from the repo root, with
 // MESA_PROFILE a throwaway profile and MEASURE_DIR a scratch folder for its state:
 //
 //   node scripts/phone/reply-latency.mjs seed            plants a Claude session and its transcript
 //   node scripts/phone/reply-latency.mjs join <link>     joins the pairing `mesa phone pair --json` gave
-//   node scripts/phone/reply-latency.mjs poll|push       measures, with `mesa phone serve` running
+//   node scripts/phone/reply-latency.mjs poll|push|calls measures, with `mesa phone serve` running
+//
+// The phone talks to the Mac's own socket when the Mac offers one (ADR-0028); MEASURE_PATH=relay
+// keeps it on the broker's relay. `calls` times TRIALS `sessions` round trips.
 //
 // The listener reads transcripts under CLAUDE_CONFIG_DIR=$MEASURE_DIR/claude. `poll` asks `session`
 // every 5 s, as the session screen did before #1128; `push` sends `watch` and waits for the
@@ -71,8 +74,8 @@ if (mode === 'join') {
   save();
   process.exit(0);
 }
-if (!pairing || (mode !== 'poll' && mode !== 'push')) {
-  console.error('usage: seed | join <link> | poll | push (join first)');
+if (!pairing || !['poll', 'push', 'calls'].includes(mode)) {
+  console.error('usage: seed | join <link> | poll | push | calls (join first)');
   process.exit(2);
 }
 
@@ -81,25 +84,33 @@ const wait = (ms) => new Promise((done) => setTimeout(done, ms));
 const newest = (detail) =>
   detail.replies.find((reply) => reply.from === 'agent')?.segments[0]?.text;
 let seen;
-const box = p.mailbox(
-  { connect: p.webSocketConnect, now: () => new Date() },
+/** With MEASURE_PATH=relay, a dial to the Mac's own socket (any but the broker's) never opens. */
+const connect =
+  process.env.MEASURE_PATH === 'relay'
+    ? (url, on) => {
+        if (url.includes('/pairings/')) return p.webSocketConnect(url, on);
+        setTimeout(on.close, 0);
+        return { send: () => {}, close: () => {} };
+      }
+    : p.webSocketConnect;
+const line = p.phoneLine(
+  { connect, now: () => new Date(), wait, newId: randomUUID },
   { ...pairing, token: pairing.phoneToken, keys: p.phoneKeys(pairing) },
   {
     message: (message) => {
-      if (calls.settle(message) || message.kind !== 'update') return;
+      if (message.kind !== 'update') return;
       const detail = message.watched?.find((each) => each.id === seed.id)?.detail;
       if (detail) seen = newest(detail);
     },
-    lost: (id) => calls.lost(id),
-    closed: () => setTimeout(() => box.connect(), 1000),
+    closed: () => setTimeout(() => line.connect(), 1000),
     taken: (seq) => {
       pairing.takenSeq = seq;
       save();
     },
   },
 );
-const calls = p.macCalls({ send: (message) => box.send(message), newId: randomUUID, wait });
-box.connect();
+const calls = { call: line.call };
+line.connect();
 
 /** A reply lands as Claude Code writes one: the transcript line, then its Stop hook event. */
 const land = (text) => {
@@ -120,6 +131,10 @@ const land = (text) => {
 
 const ask = () => calls.call({ method: 'session', id: seed.id, replies: 10 });
 await ask();
+// The Mac's answer to the phone's ask starts the direct dial; give it a moment to open.
+for (let n = 0; n < 30 && process.env.MEASURE_PATH !== 'relay' && line.path() === 'relay'; n++)
+  await wait(100);
+const path = line.path();
 if (mode === 'push') await calls.call({ method: 'watch', id: seed.id, replies: 10 });
 const poll =
   mode === 'poll' &&
@@ -133,19 +148,32 @@ const poll =
   );
 const times = [];
 for (let n = 1; n <= Number(process.env.TRIALS ?? 8); n++) {
+  if (mode === 'calls') {
+    const at = performance.now();
+    await calls.call({ method: 'sessions' });
+    times.push(Math.round(performance.now() - at));
+    console.log(mode, path, n, times.at(-1), 'ms');
+    continue;
+  }
   await wait(1500 + Math.random() * 3000);
   const text = `${mode} reply ${n} ${Date.now()}`;
   const at = Date.now();
   land(text);
   while (seen !== text && Date.now() - at < 30_000) await wait(10);
   times.push(seen === text ? Date.now() - at : null);
-  console.log(mode, n, times.at(-1), 'ms');
+  console.log(mode, path, n, times.at(-1), 'ms');
 }
 const got = times.filter((ms) => ms !== null).sort((a, b) => a - b);
 console.log(
-  JSON.stringify({ mode, ms: times, median: got[Math.floor(got.length / 2)], max: got.at(-1) }),
+  JSON.stringify({
+    mode,
+    path,
+    ms: times,
+    median: got[Math.floor(got.length / 2)],
+    max: got.at(-1),
+  }),
 );
 if (mode === 'push') await calls.call({ method: 'unwatch', id: seed.id });
 if (poll) clearInterval(poll);
-box.close();
+line.close();
 process.exit(0);
