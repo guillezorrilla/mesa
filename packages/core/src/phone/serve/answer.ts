@@ -30,6 +30,8 @@ import { phoneUsage } from './usage.js';
 export type AnswerDeps = {
   board: () => Promise<SessionRow[]>;
   responses: (id: string) => SessionResponses;
+  /** The file `responses` reads session `id`'s from, none while it has none. */
+  transcript: (id: string) => string | undefined;
   logs: (id: string, tail: number) => { lines: string[] };
   /** A session's window sized to the phone, as its terminal draws it. */
   screen: (id: string, cols: number, rows: number) => Promise<{ text: string; at: number }>;

@@ -92,6 +92,17 @@ export function replyBlocks(text: string, cut = false): string[] {
   return blocks.filter((block) => block.trim());
 }
 
+/**
+ * Session `id`'s native transcript, the file `sessionResponses` reads; none for a session with no
+ * readable conversation (a terminal, Antigravity, no native id yet) or none on disk yet.
+ */
+export function sessionTranscript(deps: Omit<ResponseDeps, 'profile'>, id: string) {
+  const record = deps.store.get(id);
+  if (record.kind !== 'interactive' || !record.agentSessionId) return undefined;
+  if (record.agent === 'terminal' || record.agent === 'antigravity') return undefined;
+  return AGENTS[record.agent].transcripts.file(deps, record.agentSessionId);
+}
+
 /** Recent native assistant messages, with exact source and text revisions for later review. */
 export function sessionResponses(deps: ResponseDeps, id: string): SessionResponses {
   const record = deps.store.get(id);

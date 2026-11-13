@@ -36,6 +36,8 @@ type Watch = {
   streaming: boolean;
   /** Stops watching its output log, while the watch takes the stream. */
   unfollow?: () => void;
+  /** Stops watching its agent's transcript, which says what it is doing now (#1153). */
+  unwatchTranscript?: () => void;
 };
 
 /**
@@ -56,7 +58,8 @@ export async function readWatched(
 
 /**
  * The sessions a phone watches (the `watch` call, #1128) and the pushes that keep it current:
- * `changed` says a session's files changed (or every watched one's, with no id), and its detail
+ * `changed` says a session's files changed (or every watched one's, with no id), as does a write to
+ * its agent's transcript (`transcript`), and its detail
  * is read again (`read`) and sent (`send`) when it differs from the last one pushed, at most once
  * every PUSH_GAP_MS per session. `logged` says an output log changed (a stream's own log is watched
  * through `follow` while it is taken), which pushes only a terminal, or
@@ -73,11 +76,18 @@ export function sessionWatches(deps: {
    * none when it cannot yet (no log), and the next ask of the watch tries again.
    */
   follow: (id: string, changed: () => void) => (() => void) | undefined;
+  /**
+   * Watches session `id`'s agent transcript, calling `changed` on each write; returns the stop, or
+   * none when it has none yet, and the next ask of the watch tries again. A tool call starts with
+   * no hook, so its transcript line is what pushes the step the agent is on (#1153).
+   */
+  transcript: (id: string, changed: () => void) => (() => void) | undefined;
   send: (watched: WatchedSession) => void;
 }) {
   const watches = new Map<string, Watch>();
   const end = (id: string) => {
     watches.get(id)?.unfollow?.();
+    watches.get(id)?.unwatchTranscript?.();
     watches.delete(id);
   };
   const live = (id: string) => {
@@ -172,6 +182,8 @@ export function sessionWatches(deps: {
             again: false,
           });
         const kept = watches.get(call.id);
+        if (kept && !kept.unwatchTranscript)
+          kept.unwatchTranscript = deps.transcript(call.id, () => schedule(call.id));
         if (kept?.stream && !kept.unfollow)
           kept.unfollow = deps.follow(call.id, () => logged(call.id));
         if (!kept?.stream && kept?.unfollow) {

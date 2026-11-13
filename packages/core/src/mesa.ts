@@ -118,6 +118,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     {
       board: () => sessions.sessions.list(),
       responses: (id) => sessions.sessions.responses.list(id),
+      transcript: (id) => sessions.sessions.responses.file(id),
       logs: (id, tail) => sessions.sessions.logs(id, tail),
       screen: sessions.sessions.screen,
       since: sessions.sessions.since,
