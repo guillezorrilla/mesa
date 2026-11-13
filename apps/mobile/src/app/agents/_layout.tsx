@@ -21,7 +21,8 @@ export default function AgentsLayout() {
       )}
     >
       <Stack.Screen name="index" options={{ title: 'Agents', headerShown: false }} />
-      <Stack.Screen name="[id]" options={{ title: '' }} />
+      {/* A session draws its own bar (SessionBar), as orca's does. */}
+      <Stack.Screen name="[id]" options={{ title: '', headerShown: false }} />
       <Stack.Screen name="start" options={{ title: 'New session' }} />
       <Stack.Screen name="history" options={{ title: 'Past conversations' }} />
     </Stack>
