@@ -1,4 +1,4 @@
-import { excludedNote, money, type PhoneUsage } from '@mesa/core/phone';
+import { excludedNote, money, type PhoneDay } from '@mesa/core/phone';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { dayDate } from './usageText';
@@ -8,7 +8,7 @@ import { dayDate } from './usageText';
  * and what the cost leaves out; with no day selected, how to pick one. It keeps one height, so the
  * bars under it never move.
  */
-export function DayReadout({ day }: { day: PhoneUsage['days'][number] | null }) {
+export function DayReadout({ day }: { day: PhoneDay | null }) {
   if (!day)
     return (
       <View className="h-20 justify-center">

@@ -44,6 +44,8 @@ export const phoneUsage = z.object({
   alerts: z.array(z.string()),
 });
 export type PhoneUsage = z.infer<typeof phoneUsage>;
+/** One of the last days, as the phone's Usage chart draws it. */
+export type PhoneDay = PhoneUsage['days'][number];
 
 /** The usage call, which rpc.ts adds to phoneCall. */
 export const usageCalls = [z.object({ method: z.literal('usage') })] as const;

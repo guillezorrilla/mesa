@@ -1,8 +1,9 @@
-import type { PhoneUsage } from '@mesa/core/phone';
+import type { PhoneDay } from '@mesa/core/phone';
 import type { LayoutRectangle } from 'react-native';
 import { View } from 'react-native';
+import { cn } from '@/lib/utils';
 import { chartScale } from './chartScale';
-import { AXIS_WIDTH, DayAxis } from './DayAxis';
+import { AXIS_WIDTH, DayAxis, PLOT_HEIGHT } from './DayAxis';
 import { type BarTone, DayBar } from './DayBar';
 
 /** A bar's tone: the selected day stands out and dims the rest; with none, today does. */
@@ -21,7 +22,7 @@ export function DayBars({
   onToggle,
   onBars,
 }: {
-  days: PhoneUsage['days'];
+  days: PhoneDay[];
   selected: number | null;
   onToggle: (index: number) => void;
   onBars: (area: LayoutRectangle) => void;
@@ -35,7 +36,7 @@ export function DayBars({
       }
     >
       <View className="flex-1">
-        <View className="absolute inset-x-0 top-0 h-32 justify-between">
+        <View className={cn('absolute inset-x-0 top-0 justify-between', PLOT_HEIGHT)}>
           {[0, 1, 2].map((line) => (
             <View key={line} className="h-px bg-border" />
           ))}

@@ -1,9 +1,6 @@
 // How the phone says a day of usage: its initial under a bar, its date over the readout, and
 // what VoiceOver reads for its bar.
-import { excludedNote, money } from '@mesa/core/phone';
-
-/** A day as the chart has it: its estimated cost and how many sessions that leaves out. */
-type Day = { day: string; cost: number | null; excluded: number };
+import { excludedNote, money, type PhoneDay } from '@mesa/core/phone';
 
 /** A local day `YYYY-MM-DD` as a Date at its local midnight. */
 function localDate(day: string) {
@@ -16,21 +13,26 @@ export function dayInitial(day: string) {
   return 'SMTWTFS'[localDate(day).getDay()] ?? '';
 }
 
-/** A local day as the readout heads it: `Wed, Nov 12`. */
-export function dayDate(day: string, locale?: string) {
+/** A local day's date, its names `short` (`Wed, Nov 12`) or `long` (`Wednesday, November 12`). */
+function dateText(day: string, names: 'short' | 'long', locale?: string) {
   return localDate(day).toLocaleDateString(locale, {
-    weekday: 'short',
-    month: 'short',
+    weekday: names,
+    month: names,
     day: 'numeric',
   });
 }
 
+/** A local day as the readout heads it: `Wed, Nov 12`. */
+export function dayDate(day: string, locale?: string) {
+  return dateText(day, 'short', locale);
+}
+
 /** What VoiceOver reads for a day's bar: its whole date, its cost, and what the cost leaves out. */
-export function dayBarLabel({ day, cost, excluded }: Day, locale?: string) {
-  const date = localDate(day).toLocaleDateString(locale, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  });
-  return [date, money(cost), excludedNote(excluded)].filter(Boolean).join(', ');
+export function dayBarLabel(
+  { day, cost, excluded }: Pick<PhoneDay, 'day' | 'cost' | 'excluded'>,
+  locale?: string,
+) {
+  return [dateText(day, 'long', locale), money(cost), excludedNote(excluded)]
+    .filter(Boolean)
+    .join(', ');
 }

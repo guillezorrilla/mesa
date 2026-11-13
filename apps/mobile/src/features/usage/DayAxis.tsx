@@ -1,8 +1,11 @@
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 /** How wide the axis column beside the bars is, in points. */
 export const AXIS_WIDTH = 44;
+/** How tall the plot is, from the zero gridline to the top one: the bars and the axis share it. */
+export const PLOT_HEIGHT = 'h-32';
 
 /**
  * The scale's labels, top, middle and zero, beside the bars' gridlines on the right, as Apple
@@ -13,7 +16,7 @@ export function DayAxis({ labels }: { labels: string[] }) {
     <View
       importantForAccessibility="no-hide-descendants"
       accessibilityElementsHidden
-      className="h-32 justify-between pl-2"
+      className={cn(PLOT_HEIGHT, 'justify-between pl-2')}
       style={{ width: AXIS_WIDTH }}
     >
       {labels.map((label) => (

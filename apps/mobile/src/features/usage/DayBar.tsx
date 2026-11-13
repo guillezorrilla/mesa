@@ -1,7 +1,8 @@
-import type { PhoneUsage } from '@mesa/core/phone';
+import type { PhoneDay } from '@mesa/core/phone';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
+import { PLOT_HEIGHT } from './DayAxis';
 import { dayBarLabel, dayInitial } from './usageText';
 
 /** How a bar stands: the selected day, a day beside it, today with none selected, or another day. */
@@ -31,7 +32,7 @@ export function DayBar({
   tone,
   onToggle,
 }: {
-  day: PhoneUsage['days'][number];
+  day: PhoneDay;
   share: number;
   tone: BarTone;
   onToggle: () => void;
@@ -45,7 +46,7 @@ export function DayBar({
       onAccessibilityTap={onToggle}
       className="flex-1 items-center gap-1.5"
     >
-      <View className="h-32 w-full justify-end">
+      <View className={cn(PLOT_HEIGHT, 'w-full justify-end')}>
         {(day.cost ?? 0) > 0 ? (
           <View
             className={cn('w-full rounded-sm', BAR[tone])}

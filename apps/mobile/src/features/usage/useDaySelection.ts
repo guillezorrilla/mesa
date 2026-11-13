@@ -13,6 +13,7 @@ import { dayAt } from './chartScale';
  */
 export function useDaySelection(count: number) {
   const [selected, setSelected] = useState<number | null>(null);
+  // The selection as the gesture callbacks last set it, read there without waiting for a render.
   const shown = useRef<number | null>(null);
   const bars = useRef<LayoutRectangle | null>(null);
   const dragging = useRef(false);
@@ -24,13 +25,13 @@ export function useDaySelection(count: number) {
     if (day !== null) haptic('selection');
   };
   const toggle = (day: number) => choose(shown.current === day ? null : day);
-  /** The day under a point in the card, or null off the bars; a drag holds to the first and last. */
-  const under = (x: number, y: number, held: boolean) => {
+  /** The day under a point in the card, or null off the bars; `clamped` (a drag) holds to the first and last. */
+  const under = (x: number, y: number, clamped: boolean) => {
     const area = bars.current;
     if (!area || !count) return null;
     const across = x - area.x;
     const inside = across >= 0 && across < area.width && y >= area.y && y <= area.y + area.height;
-    return held || inside ? dayAt(across, area.width, count) : null;
+    return clamped || inside ? dayAt(across, area.width, count) : null;
   };
 
   const pan = usePanGesture({

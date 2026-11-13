@@ -1,4 +1,4 @@
-import type { PhoneUsage } from '@mesa/core/phone';
+import type { PhoneDay } from '@mesa/core/phone';
 import { View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { DayBars } from './DayBars';
@@ -7,7 +7,7 @@ import { DayReadout } from './DayReadout';
 import { useDaySelection } from './useDaySelection';
 
 /** The last days' cost as a chart a finger reads: the selected day's readout, the bars, its models. */
-export function DayChart({ days }: { days: PhoneUsage['days'] }) {
+export function DayChart({ days }: { days: PhoneDay[] }) {
   const { selected, toggle, gesture, onBars } = useDaySelection(days.length);
   const day = selected === null ? null : (days[selected] ?? null);
   return (
