@@ -6,7 +6,7 @@ import { useChanges } from './useChanges';
 
 /** What a session changed, file by file, each marked viewed or not. */
 export function ChangesScreen({ id }: { id: string }) {
-  const { answer, again, refreshing, seen, toggleViewed } = useChanges(id);
+  const { answer, pull, refreshing, seen, toggleViewed } = useChanges(id);
   return (
     <>
       <Stack.Screen options={{ title: 'Changes' }} />
@@ -15,7 +15,7 @@ export function ChangesScreen({ id }: { id: string }) {
           id={id}
           answer={answer}
           refreshing={refreshing}
-          onRefresh={again}
+          onRefresh={pull}
           seen={seen}
           onToggleViewed={toggleViewed}
         />

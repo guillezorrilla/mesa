@@ -10,7 +10,7 @@ const viewed = new Map<string, ReadonlySet<string>>();
 
 /** A session's changed files, and which of them were marked viewed. */
 export function useChanges(id: string) {
-  const { answer, again, refreshing } = useMacRead({ method: 'changes', id }, SLOW_MS);
+  const { answer, pull, refreshing } = useMacRead({ method: 'changes', id }, SLOW_MS);
   const [seen, setSeen] = useState(() => viewed.get(id) ?? new Set<string>());
   const toggleViewed = (key: string) => {
     const next = new Set(seen);
@@ -18,5 +18,5 @@ export function useChanges(id: string) {
     viewed.set(id, next);
     setSeen(next);
   };
-  return { answer, again, refreshing, seen, toggleViewed };
+  return { answer, pull, refreshing, seen, toggleViewed };
 }

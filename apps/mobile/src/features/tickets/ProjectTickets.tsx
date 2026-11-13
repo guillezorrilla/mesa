@@ -7,7 +7,7 @@ import { TicketList } from './TicketList';
 
 /** `project`'s followed tickets under `header`, pulled to read again; key it by project. */
 export function ProjectTickets({ project, header }: { project: string; header: ReactNode }) {
-  const { answer, again, refreshing } = useMacRead({ method: 'tickets', project });
+  const { answer, pull, refreshing } = useMacRead({ method: 'tickets', project });
   return (
     <Suspense
       fallback={
@@ -24,7 +24,7 @@ export function ProjectTickets({ project, header }: { project: string; header: R
         tickets={answer}
         header={header}
         refreshing={refreshing}
-        onRefresh={again}
+        onRefresh={pull}
       />
     </Suspense>
   );

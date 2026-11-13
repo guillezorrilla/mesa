@@ -11,7 +11,7 @@ export function InboxScreen() {
       <InboxList
         answer={inbox.answer}
         refreshing={inbox.refreshing}
-        onRefresh={inbox.again}
+        onRefresh={inbox.pull}
         onOpen={inbox.open}
       />
     </Suspense>

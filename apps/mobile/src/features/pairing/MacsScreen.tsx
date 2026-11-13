@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { PushesSection } from '../pushes/PushesSection';
-import { UsageLink } from '../usage/UsageLink';
 import { MacCard } from './MacCard';
 import { usePairing } from './usePairing';
 
@@ -24,7 +23,6 @@ export function MacsScreen() {
           <Text>Pair another Mac</Text>
         </Button>
       </Section>
-      <UsageLink />
       <PushesSection />
       <Section title="Appearance">
         <Text variant="muted">Light or dark follows your iPhone's setting.</Text>
