@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { fromPage, linesText, streamStep } from './pageMessages';
+import { forXterm, fromPage, linesText, streamStep } from './pageMessages';
 
 test("the page's messages are read; anything else is not", () => {
   expect(fromPage('{"type":"size","cols":48,"rows":30}')).toEqual({
@@ -27,4 +27,8 @@ test('a gap, a burst skipped, or a cut log reads the screen again', () => {
 
 test('log lines from a Mac with no screen are drawn a line each', () => {
   expect(linesText(['$ ls', 'README.md'])).toBe('$ ls\r\nREADME.md');
+});
+
+test("tmux's window-title sequence is taken out; xterm would print the title", () => {
+  expect(forXterm('\x1bkecho\x1b\\arrived\r\n\x1b[32mok\x1b[0m')).toBe('arrived\r\n\x1b[32mok\x1b[0m');
 });

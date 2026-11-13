@@ -8,7 +8,7 @@ import type { WebViewMessageEvent } from 'react-native-webview';
 import { useRepeatWhileActive } from '@/lib/useRepeatWhileActive';
 import { useMac } from '../mac/useMac';
 import { useMacUpdates } from '../mac/useMacUpdates';
-import { fromPage, linesText, streamStep, type ToPage } from './page/pageMessages';
+import { forXterm, fromPage, linesText, streamStep, type ToPage } from './page/pageMessages';
 import { terminalPage } from './page/terminalPage';
 import { withoutChrome } from './screenChrome';
 
@@ -71,7 +71,7 @@ export function useTerminalStream(id: string, agent: boolean) {
     if (step === 'reload') return read();
     if (step !== 'write') return;
     at.current = stream.to;
-    send({ type: 'write', data: stream.data });
+    send({ type: 'write', data: forXterm(stream.data) });
   });
   const onMessage = (event: WebViewMessageEvent) => {
     const message = fromPage(event.nativeEvent.data);

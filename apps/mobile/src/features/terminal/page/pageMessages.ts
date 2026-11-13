@@ -35,5 +35,13 @@ export function streamStep(at: number, stream: Stream): 'write' | 'drawn' | 'rel
   return 'reload';
 }
 
+/**
+ * What a window printed, for xterm: tmux's own window-title sequence (`ESC k title ESC \`, which a
+ * shell sends inside tmux) taken out, since xterm knows no such sequence and would print the
+ * title. ponytail: one split across two pushes still prints.
+ */
+// biome-ignore lint/suspicious/noControlCharactersInRegex: escape sequences are what it matches.
+export const forXterm = (data: string) => data.replace(/\x1bk[^\x1b]*\x1b\\/g, '');
+
 /** Output log lines as a terminal draws them, for a Mac that sends no screen. */
 export const linesText = (lines: string[]) => lines.join('\r\n');
