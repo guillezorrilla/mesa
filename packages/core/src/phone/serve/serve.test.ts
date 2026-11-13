@@ -306,13 +306,14 @@ test('the Inbox, usage and push settings answer the phone through core', async (
 });
 
 test("the phone's usage sums each session's cost, unknown when one reading has no price", () => {
-  const totals = (estimatedCostUsd: number | null) => ({
+  const totals = (estimatedCostUsd: number | null, excluded = 0) => ({
     events: 1,
     input: 1,
     output: 1,
     cacheRead: 0,
     cacheWrite: 0,
     estimatedCostUsd,
+    excluded,
   });
   const reading = (session: string, cost: number | null) =>
     ({ session, estimatedCostUsd: cost }) as UsageReport['rows'][number];
@@ -329,8 +330,8 @@ test("the phone's usage sums each session's cost, unknown when one reading has n
     rows: [reading('a', 1.5), reading('a', 0.25), reading('b', 0.5), reading('b', null)],
     unknown: [{ session: 'c', reason: 'native session id is not available' }],
     periods: {
-      today: totals(2),
-      '7d': totals(3),
+      today: totals(2, 2),
+      '7d': totals(3, 1),
       '30d': totals(4),
       '90d': totals(4),
       month: totals(4),
@@ -341,7 +342,12 @@ test("the phone's usage sums each session's cost, unknown when one reading has n
     agents: [],
   } satisfies UsageReport;
   const usage = phoneUsage(report, [row('b', 10), row('c', null), row('a', 42), row('d', 3)]);
-  expect(usage).toMatchObject({ today: 2, week: 3, month: 4 });
+  expect(usage).toMatchObject({
+    today: 2,
+    week: 3,
+    month: 4,
+    excluded: { today: 2, week: 1, month: 0 },
+  });
   expect(usage.days[0]).toEqual({ day: 'd76', cost: 76 });
   expect(usage.days).toHaveLength(14);
   expect(usage.sessions.map((s) => [s.id, s.cost, s.context])).toEqual([
