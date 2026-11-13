@@ -4,6 +4,7 @@ import { ErrorNote } from '@/components/ErrorNote';
 import { RoundButton } from '@/components/RoundButton';
 import { Screen } from '@/components/Screen';
 import type { Outgoing } from '../compose/useSend';
+import { liveOf } from '../steps/liveOf';
 import { OutputPane } from '../terminal/OutputPane';
 import { ChatBottom } from './ChatBottom';
 import { ChatList } from './ChatList';
@@ -16,8 +17,9 @@ import type { SessionDetail } from './useSessionDetail';
 /**
  * What a session said and is doing, as a conversation read bottom up: its state, links, goal and
  * crew at the top, the replies and the person's messages (`echoes`, this screen's sends) in time
- * order, then what waits on its turn and its pending prompt by the reply bar. Its bar holds its
- * menu and a button that shows its output in place of the conversation, as orca's terminal tab.
+ * order, then what it is doing now, what waits on its turn and its pending prompt by the reply
+ * bar. Its bar holds its menu and a button that shows its output in place of the conversation, as
+ * orca's terminal tab.
  */
 export function SessionBody({ session, echoes }: { session: SessionDetail; echoes: Outgoing[] }) {
   const { detail, error } = use(session.read);
@@ -30,6 +32,8 @@ export function SessionBody({ session, echoes }: { session: SessionDetail; echoe
       </>
     );
   const now = Date.now();
+  // While it works, the step it is on shows as the live line at the bottom, not yet as a row.
+  const live = liveOf(detail);
   return (
     <>
       <SessionBar row={detail.row}>
@@ -47,7 +51,11 @@ export function SessionBody({ session, echoes }: { session: SessionDetail; echoe
       ) : (
         <ChatList
           id={detail.row.id}
-          items={chatItems(detail.replies, echoes, detail.steps)}
+          items={chatItems(
+            detail.replies,
+            echoes,
+            detail.steps?.filter((step) => step !== live?.step),
+          )}
           now={now}
           top={
             <ChatTop
@@ -57,7 +65,7 @@ export function SessionBody({ session, echoes }: { session: SessionDetail; echoe
               atMost={session.atMost}
             />
           }
-          bottom={<ChatBottom detail={detail} onChange={session.again} />}
+          bottom={<ChatBottom detail={detail} live={live} onChange={session.again} />}
           onTop={() => detail.more && session.older()}
         />
       )}

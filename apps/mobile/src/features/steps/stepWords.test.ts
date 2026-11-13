@@ -1,6 +1,6 @@
 import type { PhoneStep } from '@mesa/core/phone';
 import { expect, test } from 'vitest';
-import { runSentence, SHOWN_LINES, shownText, stepLabel } from './stepWords';
+import { LIVE_CHARS, liveWords, runSentence, SHOWN_LINES, shownText, stepLabel } from './stepWords';
 
 const tool = (kind: string, target = '', status = 'done', name = 'Bash'): PhoneStep => ({
   type: 'tool',
@@ -11,14 +11,14 @@ const tool = (kind: string, target = '', status = 'done', name = 'Bash'): PhoneS
   target,
   status,
 });
-const edit = (path: string): PhoneStep => ({
+const edit = (path: string, status = 'done'): PhoneStep => ({
   type: 'edit',
   id: path,
   newer: 0,
   path,
   added: 2,
   removed: 1,
-  status: 'done',
+  status,
 });
 
 test("a step's row reads as orca's: a verb by its kind and state, then its target", () => {
@@ -60,4 +60,29 @@ test("a step's long text shows its first lines until Show all", () => {
   expect(shownText(long, false).text.split('\n')).toHaveLength(SHOWN_LINES);
   expect(shownText(long, true)).toEqual({ text: long, more: 0 });
   expect(shownText('ok\n\n', false)).toEqual({ text: 'ok', more: 0 });
+});
+
+test("the live line names the agent's current step, Thinking after a thought, else Working", () => {
+  const live = (step?: PhoneStep) => {
+    const { verb, target } = liveWords(step);
+    return target ? `${verb} ${target}` : verb;
+  };
+  expect(live(tool('command', 'pnpm test', 'running'))).toBe('Running pnpm test');
+  expect(live(tool('read', 'src/merchant-settings.ts', 'running'))).toBe(
+    'Reading src/merchant-settings.ts',
+  );
+  expect(live(edit('src/tide.ts', 'running'))).toBe('Editing src/tide.ts');
+  expect(live(tool('search', 'floor\\(', 'running'))).toBe('Searching floor\\(');
+  expect(live({ type: 'thought', id: 't', newer: 0, line: 'Feet or metres?' })).toBe('Thinking');
+  expect(live(tool('a-newer-kind', '', 'running', 'mcp__tickets__list'))).toBe(
+    'Using mcp__tickets__list',
+  );
+  expect(live()).toBe('Working');
+
+  const long = liveWords(
+    tool('command', `pnpm exec vitest run ${'src/a.test.ts '.repeat(9)}\necho`, 'running'),
+  );
+  expect(Array.from(long.target)).toHaveLength(LIVE_CHARS);
+  expect(long.target).toMatch(/^pnpm exec vitest run src\/a\.test\.ts .*\.\.\.$/);
+  expect(liveWords(tool('command', 'cd web &&\npnpm build', 'running')).target).toBe('cd web &&');
 });

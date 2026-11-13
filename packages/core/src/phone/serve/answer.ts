@@ -30,6 +30,8 @@ import { phoneUsage } from './usage.js';
 export type AnswerDeps = {
   board: () => Promise<SessionRow[]>;
   responses: (id: string) => SessionResponses;
+  /** The file `responses` reads session `id`'s from, none while it has none. */
+  transcript: (id: string) => string | undefined;
   logs: (id: string, tail: number) => { lines: string[] };
   /** A session's window sized to the phone, as its terminal draws it. */
   screen: (id: string, cols: number, rows: number) => Promise<{ text: string; at: number }>;
@@ -134,7 +136,7 @@ export async function answerCall(
   const row = await managed(call.id);
   // Newest first, as `review responses` lists them; a phone that names a count shows prompts too,
   // and a plain terminal has none.
-  const read =
+  const read: Pick<SessionResponses, 'rows' | 'prompts' | 'steps' | 'current'> =
     row.agent === 'terminal' ? { rows: [], prompts: [], steps: [] } : deps.responses(call.id);
   if (call.method === 'step') {
     const step = read.steps.find((each) => each.id === call.step);
@@ -149,6 +151,7 @@ export async function answerCall(
     goal: row.goal ?? null,
     ...phoneReplies(read, count, newerPhone),
     ...(newerPhone ? { steps: phoneSteps(read.steps, count) } : {}),
+    ...(newerPhone && read.current ? { current: read.current } : {}),
     tail: deps.logs(call.id, TAIL).lines,
     queued: deps.steer.queue.of(call.id),
     archived: Boolean(row.archivedAt),

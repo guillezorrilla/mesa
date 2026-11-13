@@ -1,5 +1,6 @@
+import { appendFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { servingPhone, untilTrue } from '../../testing/index.js';
+import { newSession, plantTranscript, servingPhone, untilTrue } from '../../testing/index.js';
 import { type PhoneDetail, WATCH_MS, type WatchedSession } from '../protocol/rpc.js';
 import { sessionWatches } from './watches.js';
 
@@ -29,6 +30,8 @@ const watching = (terminal = false) => {
   const sent: WatchedSession[] = [];
   // The output logs watched while a watch takes the stream: each one's change callback.
   const followed: (() => void)[] = [];
+  // The agent transcripts watched, by session: each one's change callback.
+  const transcripts = new Map<string, () => void>();
   const watches = sessionWatches({
     now: () => now,
     sleep: async (ms) => {
@@ -50,10 +53,22 @@ const watching = (terminal = false) => {
       followed.push(changed);
       return () => followed.splice(0);
     },
+    transcript: (id, changed) => {
+      transcripts.set(id, changed);
+      return () => transcripts.delete(id);
+    },
     send: (watched) => sent.push(watched),
   });
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-  return { watches, session, sent, followed, settle, pass: (ms: number) => (now += ms) };
+  return {
+    watches,
+    session,
+    sent,
+    followed,
+    transcripts,
+    settle,
+    pass: (ms: number) => (now += ms),
+  };
 };
 
 test('a watched session is pushed when its files change, only when it changed, until unwatched', async () => {
@@ -188,4 +203,44 @@ test("the stream is the output terminal's: kept across the screen's asks, ended 
   watches.close();
   expect(followed).toHaveLength(0);
   expect(watches.any()).toBe(false);
+});
+
+test("a watched session is pushed when its agent's transcript is written, as a tool call starts", async () => {
+  const { watches, session, sent, transcripts, settle } = watching();
+  watches.answer({ method: 'watch', id: 'ab12cd34', replies: 10 });
+  // Asked again, it keeps the one transcript watch it has.
+  const first = transcripts.get('ab12cd34');
+  watches.answer({ method: 'watch', id: 'ab12cd34' });
+  expect(transcripts.get('ab12cd34')).toBe(first);
+
+  session.title = 'Docs, running pnpm test';
+  first?.();
+  await settle();
+  expect(sent.map((s) => s.detail?.row.title)).toEqual(['Docs, running pnpm test']);
+
+  watches.answer({ method: 'unwatch', id: 'ab12cd34' });
+  expect(transcripts.has('ab12cd34')).toBe(false);
+});
+
+test('a watched session pushes the step its agent is on now, read from the transcript it follows', async () => {
+  const { mesa, home, store, calls, pushed, end } = await servingPhone();
+  const session = store.create(() => newSession({ name: 'Tides', agentSessionId: 'tide-1' }));
+  const user = { type: 'user', uuid: 'u1', message: { role: 'user', content: 'Chart the tide' } };
+  const file = plantTranscript(home, 'tide-1', '/code/tides', [user]);
+  // The file the listener follows for the watch (its transcript's writes push, unit-tested above).
+  expect(mesa.sessions.responses.file(session.id)).toBe(file);
+  await calls.call({ method: 'watch', id: session.id, replies: 10 });
+  const call = { type: 'tool_use', id: 'run-1', name: 'Bash', input: { command: 'pnpm test' } };
+  appendFileSync(
+    file,
+    `\n${JSON.stringify({ type: 'assistant', uuid: 'a1', message: { role: 'assistant', content: [call] } })}`,
+  );
+  const current = () =>
+    pushed.some(
+      (m) =>
+        m.kind === 'update' &&
+        m.watched?.some((w) => w.id === session.id && w.detail?.current === 'run-1'),
+    );
+  expect(await untilTrue(current)).toBe(true);
+  await end();
 });

@@ -125,6 +125,18 @@ export function readTurns(
   return { messages, steps };
 }
 
+/**
+ * The step an agent is on now (#1153), as orca's live line reads it: the last step read, when
+ * nothing was said after it and it is a tool call or edit with no result yet, or a thought the
+ * agent goes on from; none otherwise, as after a result or a prompt.
+ */
+export function currentStep(turns: { messages: unknown[]; steps: PlacedStep[] }) {
+  const last = turns.steps.at(-1);
+  if (!last || last.before < turns.messages.length) return undefined;
+  const { step } = last;
+  return step.type === 'thought' || step.status === 'running' ? step.id : undefined;
+}
+
 /** A tool result's text: its string, or its text blocks' joined. */
 export function resultText(content: unknown): string {
   if (typeof content === 'string') return keep(content);

@@ -27,7 +27,7 @@ import {
 } from '../input/review-notes.js';
 import { sendReview } from '../input/reviews.js';
 import { sendPrompt } from '../input/send.js';
-import { previewResponseReview, sessionResponses } from '../native/responses.js';
+import { previewResponseReview, sessionResponses, sessionTranscript } from '../native/responses.js';
 import { projectScope } from '../record/general.js';
 import { sessionLabel } from '../record/labels.js';
 import { recordAgent } from '../record/record.js';
@@ -176,6 +176,7 @@ export function inputActions(
     },
     responses: {
       list: (id: string) => sessionResponses({ profile, store, home: ctx.home, env: ctx.env }, id),
+      file: (id: string) => sessionTranscript({ store, home: ctx.home, env: ctx.env }, id),
       preview: (id: string, input: Parameters<typeof previewResponseReview>[2]) =>
         previewResponseReview({ profile, store, home: ctx.home, env: ctx.env }, id, input),
       send: (

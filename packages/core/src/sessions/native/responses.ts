@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { AGENTS } from '../../agents/agents.js';
-import type { TranscriptStep } from '../../agents/steps.js';
+import { currentStep, type TranscriptStep } from '../../agents/steps.js';
 import { promptOf } from '../../agents/transcripts.js';
 import { closesFence, opensFence } from '../../lib/code-fence.js';
 import type { Env } from '../../lib/process.js';
@@ -51,6 +51,8 @@ export type SessionResponses = {
   prompts: NativePrompt[];
   /** What the agent did among the responses read, newest first. */
   steps: NativeStep[];
+  /** The id of the step the agent is on now (currentStep), none when it is on none. */
+  current?: string;
   reviews: SavedReview[];
   truncated: boolean;
   unavailable?: string;
@@ -90,6 +92,17 @@ export function replyBlocks(text: string, cut = false): string[] {
   return blocks.filter((block) => block.trim());
 }
 
+/**
+ * Session `id`'s native transcript, the file `sessionResponses` reads; none for a session with no
+ * readable conversation (a terminal, Antigravity, no native id yet) or none on disk yet.
+ */
+export function sessionTranscript(deps: Omit<ResponseDeps, 'profile'>, id: string) {
+  const record = deps.store.get(id);
+  if (record.kind !== 'interactive' || !record.agentSessionId) return undefined;
+  if (record.agent === 'terminal' || record.agent === 'antigravity') return undefined;
+  return AGENTS[record.agent].transcripts.file(deps, record.agentSessionId);
+}
+
 /** Recent native assistant messages, with exact source and text revisions for later review. */
 export function sessionResponses(deps: ResponseDeps, id: string): SessionResponses {
   const record = deps.store.get(id);
@@ -126,6 +139,7 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
       unavailable: 'Native transcript is not available',
     };
   const { messages, steps: placed, truncated } = transcripts.messages(file);
+  const current = currentStep({ messages, steps: placed });
   const rows: NativeResponse[] = [];
   const prompts: NativePrompt[] = [];
   const steps: NativeStep[] = [];
@@ -167,7 +181,14 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
       const step = placed[next]?.step;
       if (step) steps.push({ ...step, newer: rows.length });
     }
-  return { rows, prompts, steps, reviews, truncated: truncated || rows.length === MAX_RESPONSES };
+  return {
+    rows,
+    prompts,
+    steps,
+    ...(current ? { current } : {}),
+    reviews,
+    truncated: truncated || rows.length === MAX_RESPONSES,
+  };
 }
 
 /** Exact passage and comment to be shown before the existing guarded send. */

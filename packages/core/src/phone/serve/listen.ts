@@ -18,7 +18,7 @@ import { type AnswerDeps, answerCall, boardRows, type ListenerAnswers } from './
 import { deliverQueued } from './deliver.js';
 import type { DirectListen, DirectServer } from './direct-socket.js';
 import { keptDiffs } from './kept-diffs.js';
-import { watchOutputLog, watchRowFiles } from './row-files.js';
+import { watchFile, watchOutputLog, watchRowFiles } from './row-files.js';
 import { keptAsks, phoneRows, rowChanges } from './rows.js';
 import { readWatched, sessionWatches } from './watches.js';
 
@@ -180,6 +180,14 @@ async function listen(
       readWatched({ ...answers, board: () => looked?.rows ?? board() }, id, replies, stream),
     since: answers.since,
     follow: (id, changed) => watchOutputLog(deps.rowFiles.logs, id, changed),
+    // A watch may name a session gone from the store: it has no transcript to watch.
+    transcript: (id, changed) => {
+      try {
+        return watchFile(deps.answers.transcript(id), changed);
+      } catch {
+        return undefined;
+      }
+    },
     send: (watched) =>
       box.send({ kind: 'update', rows: [], gone: [], order: [], watched: [watched] }),
   });

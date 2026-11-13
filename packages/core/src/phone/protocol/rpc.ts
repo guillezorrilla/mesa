@@ -63,6 +63,11 @@ export const phoneDetail = z.object({
    * older Mac sends none, so its chat shows replies alone.
    */
   steps: z.array(phoneStep).optional(),
+  /**
+   * The id of the step among `steps` the agent is on now (#1153); an older Mac, or an agent on
+   * none, sends none, and a working session's chat then says only that it works.
+   */
+  current: z.string().optional(),
   /** Older replies than these exist, for asking with a larger `replies`. */
   more: z.boolean().default(false),
   tail: z.array(z.string()),

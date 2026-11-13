@@ -1,4 +1,4 @@
-import type { PhoneStep } from '@mesa/core/phone';
+import { clip, type PhoneStep } from '@mesa/core/phone';
 
 // How a step reads on its row, in orca's words (native-chat-tool-row-verb-copy.ts,
 // native-chat-tool-run-words.ts): a verb and a target per step, a sentence per run of steps.
@@ -26,6 +26,21 @@ export function stepLabel(step: PhoneStep): { verb: string; target: string } {
   const verb = step.status === 'running' ? words.running : words.done;
   const named = step.kind === 'agent' || !KINDS[step.kind];
   return { verb, target: step.target || (named ? step.name : '') };
+}
+
+/** How many characters of the live line's target show before it is cut. */
+export const LIVE_CHARS = 60;
+
+/**
+ * What a working agent is doing now, as orca's live line says it (#1153): its current step's
+ * verb and target, a long command cut to its first line and LIVE_CHARS characters; "Thinking"
+ * after a thought, and "Working" when the Mac names no step (an older Mac, or between steps).
+ */
+export function liveWords(step?: PhoneStep): { verb: string; target: string } {
+  if (!step) return { verb: 'Working', target: '' };
+  if (step.type === 'thought') return { verb: 'Thinking', target: '' };
+  const { verb, target } = stepLabel(step);
+  return { verb, target: clip(target.split('\n')[0]?.trim() ?? '', LIVE_CHARS) };
 }
 
 const counted = (verb: string, count: number, [one, many]: [string, string]) =>
