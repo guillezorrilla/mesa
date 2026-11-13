@@ -98,6 +98,18 @@ export const phoneCall = z.discriminatedUnion('method', [
     /** How many of the agent's replies to send; an older Mac sends its first 5. */
     replies: z.number().int().min(1).max(SESSION_REPLIES.most).optional(),
   }),
+  /**
+   * Subscribes to one session while its screen is open (#1128): the Mac pushes its detail, and a
+   * terminal's output, in an `update` (watched) each time its files change, until `unwatch` or
+   * until WATCH_MS pass with no `watch` again. An older Mac answers neither, so the phone polls.
+   */
+  z.object({
+    method: z.literal('watch'),
+    id: z.string(),
+    /** How many of the agent's replies each pushed detail holds, as the `session` call's. */
+    replies: z.number().int().min(1).max(SESSION_REPLIES.most).optional(),
+  }),
+  z.object({ method: z.literal('unwatch'), id: z.string() }),
   z.object({ method: z.literal('mark'), id: z.string(), unread: z.boolean() }),
   z.object({ method: z.literal('prompt'), id: z.string() }),
   z.object({
@@ -123,6 +135,8 @@ export type PhoneCall = z.infer<typeof phoneCall>;
 export const callResults = {
   sessions: z.object({ rows: z.array(phoneRow) }),
   session: phoneDetail,
+  watch: z.object({}),
+  unwatch: z.object({}),
   mark: z.object({}),
   prompt: phonePrompt,
   /** Answered, or stale: the session no longer waits on that prompt. */
@@ -157,18 +171,37 @@ export const responseMessage = z.object({
   error: z.string().optional(),
 });
 
+/** A watched session as pushed: its detail and a terminal's output, each only when it changed. */
+export const watchedSession = z.object({
+  id: z.string(),
+  detail: phoneDetail.optional(),
+  /** A plain terminal's live output, as the `output` call's lines. */
+  output: z.array(z.string()).optional(),
+});
+export type WatchedSession = z.infer<typeof watchedSession>;
+
 /**
  * Rows whose slim row changed since the last update, the ids that left the board, and every id
- * in the Mac's attention order now, so a row that moved keeps its rank.
+ * in the Mac's attention order now, so a row that moved keeps its rank (none when only watched
+ * sessions changed); and the watched sessions that changed, which an older phone never asks for.
  */
 export const updateMessage = z.object({
   kind: z.literal('update'),
   rows: z.array(phoneRow),
   gone: z.array(z.string()),
   order: z.array(z.string()),
+  watched: z.array(watchedSession).optional(),
 });
 
 export type UpdateMessage = z.infer<typeof updateMessage>;
 
-/** How long one `sessions` request keeps updates coming. */
+/** How long one `sessions` or `watch` request keeps updates coming. */
 export const WATCH_MS = 120_000;
+
+/** How often the phone asks for its watch again, well inside WATCH_MS so it never lapses while open. */
+export const REWATCH_MS = 60_000;
+
+export type WatchCall = Extract<PhoneCall, { method: 'watch' | 'unwatch' }>;
+
+export const isWatchCall = (call: PhoneCall): call is WatchCall =>
+  call.method === 'watch' || call.method === 'unwatch';

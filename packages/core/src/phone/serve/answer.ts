@@ -11,6 +11,7 @@ import {
   type PhoneCall,
   type PhoneRow,
   SESSION_REPLIES,
+  type WatchCall,
 } from '../protocol/rpc.js';
 import { isTerminalCall } from '../protocol/terminal.js';
 import { answerSteer, isSteerCall, type SteerDeps } from './answer-steer.js';
@@ -66,8 +67,14 @@ const OUTPUT = 120;
 export const boardRows = async (deps: Pick<ListenerAnswers, 'board' | 'asked' | 'steer'>) =>
   queuedRows(await deps.asked(phoneRows(await deps.board())), deps.steer.queue.all());
 
-/** Answers one call from the phone; throws a MesaError (not_found) for an unknown session. */
-export async function answerCall(deps: ListenerAnswers, call: PhoneCall): Promise<unknown> {
+/**
+ * Answers one call from the phone, but a watch, which the listener keeps (sessionWatches); throws
+ * a MesaError (not_found) for an unknown session.
+ */
+export async function answerCall(
+  deps: ListenerAnswers,
+  call: Exclude<PhoneCall, WatchCall>,
+): Promise<unknown> {
   if (call.method === 'sessions')
     return {
       rows: await boardRows(deps),
