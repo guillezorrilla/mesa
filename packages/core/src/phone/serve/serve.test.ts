@@ -351,3 +351,13 @@ test("the phone's usage sums each session's cost, unknown when one reading has n
     'Known estimated today cost reached your $1.00 alert. Agents keep running.',
   ]);
 });
+
+test('a listener that ends on an unpair forgets only its own pairing, never a newer one', async () => {
+  const { mesa, broker, listener } = await servingPhone();
+  await mesa.phone.unpair();
+  const { pairingId } = (await mesa.phone.pair()).result;
+  // The broker closes the old pairing's socket; the listener dials, misses, and learns it is gone.
+  broker.drop('mac');
+  expect(await listener).toEqual({ pairingId: 'pairing-0000000001', ended: 'unpaired' });
+  expect(await mesa.phone.status()).toMatchObject({ paired: false, pending: true, pairingId });
+});
