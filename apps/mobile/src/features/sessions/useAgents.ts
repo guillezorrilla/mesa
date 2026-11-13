@@ -53,7 +53,14 @@ const listAll = async (macs: Mac[], last?: Promise<Listing[]>) => {
  */
 export function useAgents() {
   const macs = useMacs();
+  const ids = macs.map((mac) => mac.id).join();
   const [listing, setListing] = useState(() => listAll(macs));
+  // A Mac paired or unpaired is listed (or dropped) at once, not at the next minute's relist.
+  const [listedFor, setListedFor] = useState(ids);
+  if (listedFor !== ids) {
+    setListedFor(ids);
+    setListing(listAll(macs, listing));
+  }
   const [updates, setUpdates] = useState<MacUpdate[]>([]);
   const [refreshing, startRefresh] = useTransition();
   const open = useGates();
@@ -91,10 +98,9 @@ export function useAgents() {
         at: Date.now(),
       },
     ]);
-    macs
-      .find((mac) => mac.id === row.mac)
-      ?.link.call({ method: 'mark', id: row.id, unread })
-      .catch(refresh);
+    const mac = macs.find((one) => one.id === row.mac);
+    if (!mac) return refresh();
+    mac.link.call({ method: 'mark', id: row.id, unread }).catch(refresh);
   };
   return { macs, listing, updates, gates: open.gates, refreshing, refresh, mark };
 }

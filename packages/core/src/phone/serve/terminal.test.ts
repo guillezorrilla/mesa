@@ -45,6 +45,11 @@ test('a line from the phone is typed with Enter through the guardrail, never que
 
   await at.calls.call({ method: 'keys', id: at.id, keys: ['C-c', 'Up', 'Enter'] });
   expect(at.window.keys.slice(-3)).toEqual(['C-c', 'Up', 'Enter']);
+  const [pressed] = listReceipts(join(at.home, 'vault'), 5, { kind: 'guardrail' });
+  expect(pressed?.receipt).toMatchObject({
+    status: 'ok',
+    inputs: { session: at.id, keys: ['C-c', 'Up', 'Enter'], via: 'phone' },
+  });
   await expect(
     at.calls.call({ method: 'send', id: at.id, text: 'look', image: 'AAAA' }),
   ).rejects.toThrow('takes no photo');

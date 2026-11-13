@@ -61,8 +61,27 @@ export function terminalActions(ctx: MesaContext, faro: Faro, deps: SessionDeps)
             ),
         );
       },
-      /** Presses keys by tmux name (Enter, Escape, Up, C-c), in order. */
-      keys: (id: string, keys: readonly string[]) => pressKeys({ store, tmux, caller }, id, keys),
+      /**
+       * Presses keys by tmux name (Enter, Escape, Up, C-c), in order. They carry no text for the
+       * guardrail to read, yet Up then Enter runs a command again, so the receipt keeps them.
+       */
+      keys: (id: string, keys: readonly string[], opts: { via?: AnswerVia } = {}) => {
+        const { via } = opts;
+        const target = store.find(id);
+        return record(
+          {
+            kind: 'guardrail',
+            scope: { project: target?.project, session: target?.id },
+            summary: (r) => `Pressed ${r.keys.join(' ')} in terminal ${id}`,
+            failure: `Could not press keys in terminal ${id}`,
+            project: () => (target ? projectScope(target.project) : undefined),
+            session: () => id,
+            inputs: { session: id, keys: [...keys], ...(via ? { via } : {}) },
+            outputs: () => (via ? { via } : {}),
+          },
+          () => pressKeys({ store, tmux, caller }, id, keys),
+        );
+      },
     },
   };
 }

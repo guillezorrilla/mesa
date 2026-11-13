@@ -117,7 +117,7 @@ import { stop } from './stop.js';
 import { swap } from './swap.js';
 import { tasks, tasksCancel, tasksCreate, tasksRetry, tasksShow } from './tasks.js';
 import { TICKETS_COMMANDS } from './tickets/index.js';
-import { typeLine } from './type.js';
+import { typeCommand } from './type.js';
 import { unarchive } from './unarchive.js';
 import { unread } from './unread.js';
 import { unregister } from './unregister.js';
@@ -276,7 +276,7 @@ export const COMMANDS: Command[] = [
   run,
   search,
   send,
-  typeLine,
+  typeCommand,
   keys,
   sessions,
   show,

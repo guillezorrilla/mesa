@@ -6,6 +6,7 @@ import { SessionRow } from '@/components/SessionRow';
 import { SwipeRow } from '@/components/SwipeRow';
 import { Text } from '@/components/ui/text';
 import { GateRow } from '../gates/GateRow';
+import type { Mac } from '../mac/macsContext';
 import { AgentFilters } from './AgentFilters';
 import {
   filterRows,
@@ -37,7 +38,7 @@ export function AgentList({
   onRefresh,
   onMark,
 }: {
-  macs: { id: string; name: string }[];
+  macs: Pick<Mac, 'id' | 'name'>[];
   listing: Promise<Listing[]>;
   updates: MacUpdate[];
   gates: OnMac<PhoneGate>[];

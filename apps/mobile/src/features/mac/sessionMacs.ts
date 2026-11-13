@@ -2,11 +2,23 @@
 // alone (a session's changes, a gate, a session the Inbox opens) talks to that Mac.
 // ponytail: one map for the app's life, never pruned; ids are a few bytes each.
 const owners = new Map<string, string>();
+/** The Mac the last scoped screen talked to: one pushed from it, by an id not seen yet, is there too. */
+let scoped: string | undefined;
 
 /** Notes that `ids` came from the Mac paired as `mac`. */
 export function rememberMac(mac: string, ids: readonly string[]) {
   for (const id of ids) owners.set(id, mac);
 }
 
-/** The Mac a session or gate came from, when the phone has seen it. */
-export const macOf = (id: string | undefined) => (id ? owners.get(id) : undefined);
+/**
+ * The Mac a screen's route names: `mac` (a push names its pairing), else the Mac its `id` was
+ * seen on, else the Mac of the screen it was pushed from (a session a fork just started); the id
+ * is then known to be there. Undefined until any is known: the first Mac.
+ */
+export function macFor(params: { mac?: string; id?: string } | undefined): string | undefined {
+  const mac = params?.mac ?? (params?.id ? owners.get(params.id) : undefined) ?? scoped;
+  if (!mac) return undefined;
+  scoped = mac;
+  if (params?.id) owners.set(params.id, mac);
+  return mac;
+}

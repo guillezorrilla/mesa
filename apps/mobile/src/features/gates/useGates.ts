@@ -40,5 +40,6 @@ export function useGates() {
     if (focused) onFocus();
   }, [focused]);
   useRepeatWhileActive(EVERY_MS, refresh);
-  return { gates, refresh };
+  // A Mac unpaired since takes its gates with it.
+  return { gates: gates.filter((gate) => macs.some((mac) => mac.id === gate.mac)), refresh };
 }

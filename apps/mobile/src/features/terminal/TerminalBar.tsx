@@ -10,20 +10,23 @@ import { ctrlKeyOf } from './ctrlKey';
 import { KeyRow } from './KeyRow';
 import { useKeys } from './useKeys';
 
-const keep = () => undefined;
+/** A terminal line needs no read after it and has no photo to put back. */
+const nothing = () => undefined;
 
 /**
  * The bar under a terminal: the last line's note (the guardrail's ask or block), the key row,
  * then the line typed and sent with Enter, through the guardrail; an empty line sends Enter. A
- * letter typed while Ctrl is held is sent as that Ctrl key instead.
+ * letter typed while Ctrl is held is sent as that Ctrl key instead; anything else lets go of Ctrl.
  */
 export function TerminalBar({ id }: { id: string }) {
-  const send = useSend(id, { onSent: keep, restorePhoto: keep });
+  const send = useSend(id, { onSent: nothing, restorePhoto: nothing });
   const keys = useKeys(id);
   const type = (next: string) => {
     const key = keys.ctrl ? ctrlKeyOf(send.draft, next) : undefined;
-    if (key) keys.press([key]);
-    else send.setDraft(next);
+    if (key) return keys.press([key]);
+    // Ctrl and anything but a letter types it as it is, and lets go of Ctrl.
+    keys.releaseCtrl();
+    send.setDraft(next);
   };
   const submit = () => (send.draft.trim() ? send.submit(undefined) : keys.press(['Enter']));
   return (

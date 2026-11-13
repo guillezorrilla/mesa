@@ -1,6 +1,7 @@
 import { ScrollView, View } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import type { Mac } from '../mac/macsContext';
 import type { RowFilter } from './agentRows';
 
 /**
@@ -13,7 +14,7 @@ export function AgentFilters({
   filter,
   onChange,
 }: {
-  macs: { id: string; name: string }[];
+  macs: Pick<Mac, 'id' | 'name'>[];
   projects: string[];
   filter: RowFilter;
   onChange: (filter: RowFilter) => void;

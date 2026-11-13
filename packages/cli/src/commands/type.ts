@@ -1,7 +1,7 @@
 import { defineCommand } from '../command.js';
 import { recordedOutput } from '../output/recorded.js';
 
-export const typeLine = defineCommand({
+export const typeCommand = defineCommand({
   name: 'type',
   summary:
     'Type a line into a plain terminal session, then Enter, once the guardrail allows it; a person only',

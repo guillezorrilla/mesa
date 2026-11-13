@@ -3,7 +3,7 @@ import { useMac } from '../mac/useMac';
 
 /**
  * Keys pressed in terminal session `id` through its Mac, Ctrl held for the next letter (`ctrl`),
- * and why the last press failed; any press lets go of Ctrl.
+ * and why the last press failed; any press lets go of Ctrl, as does `releaseCtrl`.
  */
 export function useKeys(id: string) {
   const link = useMac();
@@ -16,5 +16,11 @@ export function useKeys(id: string) {
       (failed: Error) => setError(`Keys not sent: ${failed.message}.`),
     );
   };
-  return { ctrl, toggleCtrl: () => setCtrl((held) => !held), press, error };
+  return {
+    ctrl,
+    toggleCtrl: () => setCtrl((held) => !held),
+    releaseCtrl: () => setCtrl(false),
+    press,
+    error,
+  };
 }

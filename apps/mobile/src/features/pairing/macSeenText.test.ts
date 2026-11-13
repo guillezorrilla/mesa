@@ -9,4 +9,5 @@ test('a Mac card says when it last checked in, that it has not, or that the brok
   );
   expect(macSeenText(INFO)).toBe('Not checked in since pairing.');
   expect(macSeenText('unreachable')).toBe("Mesa's broker can't be reached right now.");
+  expect(macSeenText('gone')).toBe('This Mac ended the pairing. Unpair it here too.');
 });
