@@ -6,6 +6,7 @@ import {
   groupRows,
   isGate,
   mergeListings,
+  needsYouCount,
   placeOf,
   projectsOf,
 } from './agentRows';
@@ -138,4 +139,16 @@ test('a row names its Mac only among several', () => {
   expect(placeOf('mesa', 'Studio')).toBe('mesa on Studio');
   expect(placeOf(null, 'Studio')).toBe('Studio');
   expect(placeOf('mesa')).toBe('mesa');
+});
+
+test('Needs you counts every open gate and every waiting session, whatever the filter', () => {
+  const gate = { id: 'g-1', question: 'Metres?', options: ['m'], task: 'Tides', coordinator: 'a' };
+  const rows = [
+    row('a', 'waiting-question'),
+    row('b', 'waiting-permission', { project: 'other' }),
+    row('c', 'working'),
+    row('d', 'done', { unread: true }),
+  ];
+  expect(needsYouCount(rows, [gate])).toBe(3);
+  expect(needsYouCount([], [])).toBe(0);
 });

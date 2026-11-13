@@ -1,6 +1,5 @@
 import type { PhoneCall } from '@mesa/core/phone';
-import { useIsFocused } from 'expo-router';
-import { useEffect, useEffectEvent } from 'react';
+import { useOnFocus } from '@/lib/useOnFocus';
 import { useRepeatWhileActive } from '@/lib/useRepeatWhileActive';
 import { useMacRead } from './useMacRead';
 
@@ -15,12 +14,8 @@ export function useLiveRead<M extends PhoneCall['method']>(
   call: Extract<PhoneCall, { method: M }>,
 ) {
   const read = useMacRead(call);
-  const focused = useIsFocused();
-  const onFocus = useEffectEvent(read.again);
   // ponytail: the first focus asks again right after the first read; skip it if the Mac strains.
-  useEffect(() => {
-    if (focused) onFocus();
-  }, [focused]);
+  useOnFocus(read.again);
   useRepeatWhileActive(EVERY_MS, read.again);
   return read;
 }
