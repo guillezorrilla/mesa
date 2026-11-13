@@ -34,6 +34,8 @@ type Watch = {
   at?: number;
   /** A look at the stream is waiting. */
   streaming: boolean;
+  /** Stops watching its output log, while the watch takes the stream. */
+  unfollow?: () => void;
 };
 
 /**
@@ -56,7 +58,8 @@ export async function readWatched(
  * The sessions a phone watches (the `watch` call, #1128) and the pushes that keep it current:
  * `changed` says a session's files changed (or every watched one's, with no id), and its detail
  * is read again (`read`) and sent (`send`) when it differs from the last one pushed, at most once
- * every PUSH_GAP_MS per session. `logged` says an output log changed, which pushes only a terminal, or
+ * every PUSH_GAP_MS per session. `logged` says an output log changed (a stream's own log is watched
+ * through `follow` while it is taken), which pushes only a terminal, or
  * what any session's window printed to a watch that takes its stream (`since`), STREAM_MS after
  * the change. A watch not asked again within WATCH_MS lapses.
  */
@@ -65,12 +68,18 @@ export function sessionWatches(deps: {
   sleep: (ms: number) => Promise<void>;
   read: (id: string, replies?: number, stream?: boolean) => Promise<WatchedSession>;
   since: (id: string, from?: number) => NonNullable<WatchedSession['stream']>;
+  /** Watches session `id`'s output log, calling `changed` on each write; returns the stop. */
+  follow: (id: string, changed: () => void) => () => void;
   send: (watched: WatchedSession) => void;
 }) {
   const watches = new Map<string, Watch>();
+  const end = (id: string) => {
+    watches.get(id)?.unfollow?.();
+    watches.delete(id);
+  };
   const live = (id: string) => {
     const watch = watches.get(id);
-    if (watch && watch.until < deps.now()) watches.delete(id);
+    if (watch && watch.until < deps.now()) end(id);
     return watches.get(id);
   };
   const push = async (id: string, watch: Watch) => {
@@ -116,10 +125,19 @@ export function sessionWatches(deps: {
       if (sent !== undefined && next.to !== sent) deps.send({ id, stream: next });
     });
   };
+  /**
+   * Session `id`'s output log changed: a watch that takes its stream gets what it printed, and
+   * otherwise a terminal's output is pushed while an agent's waits.
+   */
+  const logged = (id: string) => {
+    const watch = live(id);
+    if (watch?.stream) stream(id, watch);
+    else if (watch?.terminal !== false) schedule(id);
+  };
   return {
     /** Answers `watch` (subscribe, or ask again before it lapses) and `unwatch`. */
     answer(call: WatchCall): CallResult<'watch' | 'unwatch'> {
-      if (call.method === 'unwatch') watches.delete(call.id);
+      if (call.method === 'unwatch') end(call.id);
       else {
         const watch = live(call.id);
         const until = deps.now() + WATCH_MS;
@@ -135,6 +153,9 @@ export function sessionWatches(deps: {
             pending: false,
             again: false,
           });
+        const kept = watches.get(call.id);
+        if (kept?.stream && !kept.unfollow)
+          kept.unfollow = deps.follow(call.id, () => logged(call.id));
       }
       return {};
     },
@@ -144,15 +165,8 @@ export function sessionWatches(deps: {
     changed(id?: string) {
       for (const each of id === undefined ? [...watches.keys()] : [id]) schedule(each);
     },
-    /**
-     * Session `id`'s output log changed: a watch that takes its stream gets what it printed, and
-     * otherwise a terminal's output is pushed while an agent's waits.
-     */
-    logged(id: string) {
-      const watch = live(id);
-      if (watch?.stream) stream(id, watch);
-      else if (watch?.terminal !== false) schedule(id);
-    },
+    /** Session `id`'s output log changed (logged). */
+    logged,
     /** The phone read session `id`'s screen up to byte `at` of its log: its stream goes on from there. */
     seek(id: string, at: number) {
       const watch = live(id);

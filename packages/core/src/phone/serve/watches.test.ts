@@ -27,6 +27,8 @@ const watching = (terminal = false) => {
   let now = 0;
   const session = { title: 'Docs', output: ['$ ls'], log: '' };
   const sent: WatchedSession[] = [];
+  // The output logs watched while a watch takes the stream: each one's change callback.
+  const followed: (() => void)[] = [];
   const watches = sessionWatches({
     now: () => now,
     sleep: async (ms) => {
@@ -42,10 +44,14 @@ const watching = (terminal = false) => {
       from === undefined || from > session.log.length
         ? { from: session.log.length, to: session.log.length, data: '' }
         : { from, to: session.log.length, data: session.log.slice(from) },
+    follow: (_id, changed) => {
+      followed.push(changed);
+      return () => followed.splice(0);
+    },
     send: (watched) => sent.push(watched),
   });
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-  return { watches, session, sent, settle, pass: (ms: number) => (now += ms) };
+  return { watches, session, sent, followed, settle, pass: (ms: number) => (now += ms) };
 };
 
 test('a watched session is pushed when its files change, only when it changed, until unwatched', async () => {
@@ -143,7 +149,9 @@ test("a watch that takes the stream gets what the window printed, from where the
   // The phone read the screen up to byte 3, then the window printed more, in a burst.
   agent.session.log = '$ lsREADME.md';
   agent.watches.seek('ab12cd34', 4);
-  agent.watches.logged('ab12cd34');
+  // Its own log is watched: each write to it is a change.
+  expect(agent.followed).toHaveLength(1);
+  agent.followed[0]?.();
   agent.watches.logged('ab12cd34');
   await agent.settle();
   expect(agent.sent).toEqual([{ id: 'ab12cd34', stream: { from: 4, to: 13, data: 'README.md' } }]);
@@ -156,4 +164,7 @@ test("a watch that takes the stream gets what the window printed, from where the
   expect(agent.sent.slice(1)).toEqual([{ id: 'ab12cd34', stream: { from: 3, to: 3, data: '' } }]);
   // No detail is read for the stream: the agent's detail still waits for its own changes.
   expect(agent.sent.every((s) => !s.detail)).toBe(true);
+  // Unwatched, its log is no longer watched.
+  agent.watches.answer({ method: 'unwatch', id: 'ab12cd34' });
+  expect(agent.followed).toHaveLength(0);
 });

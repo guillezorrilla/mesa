@@ -18,7 +18,7 @@ import { type AnswerDeps, answerCall, boardRows, type ListenerAnswers } from './
 import { deliverQueued } from './deliver.js';
 import type { DirectListen, DirectServer } from './direct-socket.js';
 import { keptDiffs } from './kept-diffs.js';
-import { watchRowFiles } from './row-files.js';
+import { watchOutputLog, watchRowFiles } from './row-files.js';
 import { keptAsks, phoneRows, rowChanges } from './rows.js';
 import { readWatched, sessionWatches } from './watches.js';
 
@@ -179,6 +179,7 @@ async function listen(
     read: (id, replies, stream) =>
       readWatched({ ...answers, board: () => looked?.rows ?? board() }, id, replies, stream),
     since: answers.since,
+    follow: (id, changed) => watchOutputLog(deps.rowFiles.logs, id, changed),
     send: (watched) =>
       box.send({ kind: 'update', rows: [], gone: [], order: [], watched: [watched] }),
   });

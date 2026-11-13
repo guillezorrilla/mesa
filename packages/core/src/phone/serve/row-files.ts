@@ -1,5 +1,5 @@
 import { mkdirSync, watch } from 'node:fs';
-import { basename, dirname } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { isSessionId } from '../../sessions/record/id.js';
 import { RECORD_FILE } from '../../sessions/record/store.js';
 
@@ -60,4 +60,18 @@ export function watchRowFiles(
   return () => {
     for (const watcher of watchers) watcher.close();
   };
+}
+
+/**
+ * Calls `changed` each time session `id`'s output log in `dir` is written, until the returned
+ * stop. A watch on the file itself: macOS reports no writes to a file another process holds open
+ * (the window's `cat >>`) on a watch of its folder. A log not made yet is not watched.
+ */
+export function watchOutputLog(dir: string, id: string, changed: () => void): () => void {
+  try {
+    const watcher = watch(join(dir, `${id}.log`), changed).on('error', () => undefined);
+    return () => watcher.close();
+  } catch {
+    return () => undefined;
+  }
 }
