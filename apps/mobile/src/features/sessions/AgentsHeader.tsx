@@ -28,9 +28,7 @@ export function AgentsHeader({
       title="Agents"
       below={
         searching ? (
-          // No line height: iOS sets a one-line field's text low and clips its descenders.
           <Input
-            className="h-11 py-0 text-[16px]"
             autoFocus
             value={query}
             onChangeText={onQuery}
