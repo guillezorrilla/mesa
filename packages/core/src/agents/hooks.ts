@@ -15,10 +15,15 @@ type Settings = { hooks?: Record<string, Group[]> } & Record<string, unknown>;
 const GUARD = `[ -z "$${SESSION_ID_VAR}" ] || `;
 /**
  * The events whose stdout reaches the agent's context: SessionStart's pointer (ADR-0010),
- * UserPromptSubmit's decision advice as `additionalContext` (ADR-0019, #463), and Stop's child
- * reports as a block that continues the turn (#888).
+ * UserPromptSubmit's decision advice as `additionalContext` (ADR-0019, #463), Stop's child
+ * reports as a block that continues the turn (#888), and PreToolUse's Explore model (exploreOnHaiku).
  */
-export const SPEAKING_EVENTS: readonly string[] = ['SessionStart', 'UserPromptSubmit', 'Stop'];
+export const SPEAKING_EVENTS: readonly string[] = [
+  'SessionStart',
+  'UserPromptSubmit',
+  'Stop',
+  'PreToolUse',
+];
 /**
  * Stop's command says `--continues`: its stdout reaches the agent, so Mesa may continue the turn.
  * A Stop entry an older mesa wrote drops stdout and lacks it, so nothing is claimed for nothing.

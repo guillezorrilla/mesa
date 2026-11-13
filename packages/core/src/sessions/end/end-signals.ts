@@ -1,5 +1,6 @@
 import { AGENTS } from '../../agents/agents.js';
 import { antigravitySessionId } from '../../agents/antigravity/log.js';
+import { exploreOnHaiku } from '../../agents/claude/explore-model.js';
 import {
   promptContext,
   STOP_CONTINUED,
@@ -205,6 +206,7 @@ export function endSignals(
      * a SessionEnd (not a /clear or a /resume, which keep the agent running) starts what was
      * queued after it. A SessionStart answers with the pointer, and a UserPromptSubmit with the
      * prompt's decision advice as `additionalContext`, when there is any within Mesa's deadline (DecisionAssistance.advise).
+     * A Claude PreToolUse of an Explore subagent with no model answers with that model set to Haiku.
      */
     hookEvent: async (agent: string, payload: string, opts: { continues?: boolean } = {}) => {
       // When the hook fired: an async hook's node may write after a later event's (#894).
@@ -243,6 +245,11 @@ export function endSignals(
       // A sleep's quit ends the agent, not the session: nothing queued after it starts.
       if (event?.event === 'SessionEnd' && id && state && !store.find(id)?.sleeping)
         await startAfter(id);
+      // An Explore subagent the agent starts without a model runs on Haiku (exploreOnHaiku).
+      if (event?.event === 'PreToolUse' && event.agent === 'claude') {
+        const cheaper = exploreOnHaiku(payload);
+        return cheaper ? { ...event, instruction: cheaper } : event;
+      }
       if (event?.event === 'UserPromptSubmit') {
         const asking = owner(event);
         const advice = asking && (await advise(asking, promptOf(payload)));
