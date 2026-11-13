@@ -13,6 +13,7 @@ export function InboxScreen() {
         refreshing={inbox.refreshing}
         onRefresh={inbox.pull}
         onOpen={inbox.open}
+        onMarkRead={inbox.markRead}
       />
     </Suspense>
   );

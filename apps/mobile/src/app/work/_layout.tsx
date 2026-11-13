@@ -2,7 +2,7 @@ import { Redirect, Stack } from 'expo-router';
 import { usePairing } from '@/features/pairing/usePairing';
 import { headerTitleStyle } from '@/lib/headerStyle';
 
-/** The Work tab: a project's followed tickets, and one ticket pushed over them. */
+/** The Work tab: pull requests and followed tickets, and one of them pushed over the list. */
 export default function WorkLayout() {
   const { pairing } = usePairing();
   if (!pairing) return <Redirect href="/" />;
@@ -10,6 +10,9 @@ export default function WorkLayout() {
     <Stack screenOptions={{ headerTitleStyle }}>
       <Stack.Screen name="index" options={{ title: 'Work', headerLargeTitle: true }} />
       <Stack.Screen name="ticket" options={{ title: '' }} />
+      <Stack.Screen name="pr" options={{ title: '' }} />
+      <Stack.Screen name="pr-files" options={{ title: 'Files changed' }} />
+      <Stack.Screen name="pr-diff" options={{ title: '' }} />
     </Stack>
   );
 }

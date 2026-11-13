@@ -3,11 +3,8 @@ import type { Runner } from '../lib/process.js';
 import { type JsonRead, runText } from '../lib/run-json.js';
 import { ghGraphql, repoVars } from './github-graphql.js';
 import { checksOf } from './github-pr.js';
+import type { MergeMethod } from './merge-methods.js';
 import type { PrRead } from './reader.js';
-
-/** How a pull request is merged, as `gh pr merge` names it; squash is Mesa's default. */
-export const MERGE_METHODS = ['squash', 'merge', 'rebase'] as const;
-export type MergeMethod = (typeof MERGE_METHODS)[number];
 
 /** What a merge is decided on: the PR's state, whether it merges cleanly, its checks, its head. */
 export type MergeState = {

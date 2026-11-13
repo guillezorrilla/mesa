@@ -1,7 +1,9 @@
 import type { PhoneGate, PhoneRow } from '@mesa/core/phone';
 import { router } from 'expo-router';
+import SquareStack from 'lucide-react-native/icons/square-stack';
 import { use } from 'react';
 import { RefreshControl, SectionList, View } from 'react-native';
+import { EmptyState } from '@/components/EmptyState';
 import { SessionRow } from '@/components/SessionRow';
 import { SwipeRow } from '@/components/SwipeRow';
 import { Text } from '@/components/ui/text';
@@ -20,6 +22,7 @@ import {
   projectsOf,
   type RowFilter,
 } from './agentRows';
+import { agentsEmpty } from './agentsEmpty';
 import { OfflineNote } from './OfflineNote';
 import { stateColor, stateWords } from './sessionState';
 
@@ -83,9 +86,7 @@ export function AgentList({
         </View>
       }
       ListEmptyComponent={
-        <Text className="px-4 py-8 text-center text-muted-foreground">
-          {rows.length ? 'No session matches.' : `No sessions on your ${several ? 'Macs' : 'Mac'}.`}
-        </Text>
+        <EmptyState icon={SquareStack} {...agentsEmpty(rows.length, filter.query, several)} />
       }
       renderSectionHeader={({ section }) => (
         <Text

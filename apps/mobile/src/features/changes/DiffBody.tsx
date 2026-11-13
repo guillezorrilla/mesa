@@ -13,8 +13,8 @@ import { noteLabel } from './noteLabel';
 import type { DiffRead } from './useDiffPages';
 
 /**
- * One file's diff, read on as it scrolls; tapping lines selects them, and a note on them goes to
- * the session's agent.
+ * One file's diff, read on as it scrolls; with `onNote` (a session's), tapping lines selects them
+ * and a note on them goes to the session's agent.
  */
 export function DiffBody({
   path,
@@ -30,15 +30,15 @@ export function DiffBody({
   more?: DiffRead;
   onEnd: (shown: DiffRead) => void;
   selection?: LineSelection;
-  onTap: (at: number) => void;
-  onNote: (lines: { line: number; end: number }, text: string) => Promise<MacRead<NoteDelivery>>;
+  onTap?: (at: number) => void;
+  onNote?: (lines: { line: number; end: number }, text: string) => Promise<MacRead<NoteDelivery>>;
 }) {
   const shown = more ?? use(first);
   const lines = selection ? noteLines(shown.rows, selection.start, selection.end) : undefined;
   return (
     <KeyboardScreen
       bar={
-        lines ? (
+        lines && onNote ? (
           <CommentForm label={noteLabel(path, lines)} send={(text) => onNote(lines, text)} />
         ) : null
       }
@@ -54,7 +54,9 @@ export function DiffBody({
         ListHeaderComponent={
           <View className="gap-2 p-4">
             {shown.error ? <ErrorNote text={shown.error} /> : null}
-            <Text variant="muted">Tap a line, then another, to note them for the agent.</Text>
+            {onNote ? (
+              <Text variant="muted">Tap a line, then another, to note them for the agent.</Text>
+            ) : null}
           </View>
         }
         ListFooterComponent={
@@ -68,7 +70,7 @@ export function DiffBody({
           <DiffLineRow
             row={item}
             selected={isSelected(selection, index)}
-            onPress={() => onTap(index)}
+            onPress={onTap ? () => onTap(index) : undefined}
           />
         )}
       />

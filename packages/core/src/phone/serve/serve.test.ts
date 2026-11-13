@@ -270,7 +270,9 @@ test('the Inbox, usage and push settings answer the phone through core', async (
   ]);
   // Ended, it leaves the Agents tab as it leaves the sidebar, and Usage still counts it.
   testStore(home).update(session.id, { endedAt: '2026-09-24T12:30:00.000Z' });
-  expect((await calls.call({ method: 'sessions' })).rows).toEqual([]);
+  // The listener looks again once its file watch hears the record change.
+  const listed = async () => (await calls.call({ method: 'sessions' })).rows.length === 0;
+  expect(await untilTrue(listed)).toBe(true);
   expect((await calls.call({ method: 'usage' })).sessions.map((s) => s.id)).toEqual([session.id]);
 
   expect(await calls.call({ method: 'pushes', set: { push: 'always', finished: false } })).toEqual({

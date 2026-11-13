@@ -57,7 +57,9 @@ function Tabs() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="usage" hidden={!pairing}>
         <NativeTabs.Trigger.Label>Usage</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'gauge.with.needle', selected: 'gauge.with.needle.fill' }} />
+        <NativeTabs.Trigger.Icon
+          sf={{ default: 'gauge.with.needle', selected: 'gauge.with.needle.fill' }}
+        />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="(home)">
         <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>

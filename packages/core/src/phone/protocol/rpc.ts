@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { changesCalls, changesResults } from './changes.js';
 import { crewCalls, crewResults } from './crew.js';
 import { inboxCalls, inboxResults } from './inbox.js';
+import { prsCalls, prsResults } from './prs.js';
 import { pushesCalls, pushesResults } from './pushes.js';
 import { startCalls, startResults } from './start.js';
 import { queuedMessage, steerCalls, steerResults } from './steer.js';
@@ -87,7 +88,7 @@ export type PhonePrompt = z.infer<typeof phonePrompt>;
  * The calls the Mac answers: the board, one session, marking one read or unread, its pending
  * prompt, answering that prompt (`prompt` is its id, so an answer to an older one is stale), a
  * crew's, steering one (steer.ts), reviewing a session's changes (changes.ts), the Inbox,
- * usage and push settings, and starting work (start.ts).
+ * usage and push settings, starting work (start.ts), and pull requests (prs.ts).
  */
 export const phoneCall = z.discriminatedUnion('method', [
   z.object({ method: z.literal('sessions') }),
@@ -112,6 +113,7 @@ export const phoneCall = z.discriminatedUnion('method', [
   ...pushesCalls,
   ...steerCalls,
   ...changesCalls,
+  ...prsCalls,
   ...terminalCalls,
   ...startCalls,
 ]);
@@ -131,6 +133,7 @@ export const callResults = {
   ...pushesResults,
   ...steerResults,
   ...changesResults,
+  ...prsResults,
   ...terminalResults,
   ...startResults,
 };

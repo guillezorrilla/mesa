@@ -82,18 +82,23 @@ test("updates change rows, drop gone ones, add new ones, and take the Mac's orde
   ]);
 });
 
-test('the filter matches title or project, one project, and unread only', () => {
+test('the filter matches title, project or ask, one project, and unread only', () => {
   const rows = [
     row('a', 'idle', { title: 'Login fix', unread: true }),
     row('b', 'idle', { project: 'cinder' }),
+    row('w', 'waiting-question', { ask: 'Which harbour chart?' }),
   ];
+  expect(filterRows(rows, { query: 'harbour', unreadOnly: false }).map((r) => r.id)).toEqual(['w']);
   expect(filterRows(rows, { query: 'login', unreadOnly: false }).map((r) => r.id)).toEqual(['a']);
   expect(filterRows(rows, { query: 'CINDER', unreadOnly: false }).map((r) => r.id)).toEqual(['b']);
   expect(
     filterRows(rows, { query: '', project: 'cinder', unreadOnly: false }).map((r) => r.id),
   ).toEqual(['b']);
   expect(filterRows(rows, { query: '', unreadOnly: true }).map((r) => r.id)).toEqual(['a']);
-  expect(projectsOf([...rows, row('c', 'idle', { project: null })])).toEqual(['cinder', 'mesa']);
+  expect(projectsOf([...rows.slice(0, 2), row('c', 'idle', { project: null })])).toEqual([
+    'cinder',
+    'mesa',
+  ]);
 });
 
 test("several Macs' rows merge in pairing order, each with its own updates, and the Mac filter keeps one", () => {

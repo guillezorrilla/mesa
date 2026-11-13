@@ -7,16 +7,19 @@ import { NoticeIcon } from './NoticeIcon';
 
 /**
  * One notice: its kind's mark, its title (bold while unread), the session it names or its detail,
- * and when. A press marks it read and opens what it names.
+ * and when. A press marks it read and opens what it names; `onMarkRead`, for an unread one, is
+ * VoiceOver's way to the swipe's Mark read.
  */
 export function NoticeRow({
   notice,
   now,
   onOpen,
+  onMarkRead,
 }: {
   notice: PhoneNotice;
   now: number;
   onOpen: () => void;
+  onMarkRead?: () => void;
 }) {
   const about = notice.session?.title ?? notice.detail;
   return (
@@ -24,6 +27,8 @@ export function NoticeRow({
       accessibilityRole="button"
       accessibilityLabel={`${notice.title}${about ? `, ${about}` : ''}${notice.read ? '' : ', unread'}`}
       onPress={onOpen}
+      accessibilityActions={onMarkRead ? [{ name: 'markRead', label: 'Mark read' }] : []}
+      onAccessibilityAction={onMarkRead}
       className="min-h-16 flex-row items-start gap-3 bg-background px-4 py-3 active:bg-accent"
     >
       <NoticeIcon kind={notice.kind} />

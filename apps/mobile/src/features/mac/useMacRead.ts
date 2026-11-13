@@ -16,7 +16,13 @@ export function useMacRead<M extends PhoneCall['method']>(
 ) {
   const link = useMac();
   const read = async (last?: Promise<MacRead<CallResult<M>>>) =>
-    keepLast(await tryCall(link, () => link.call(call, timeoutMs)), last);
+    keepLast(
+      await tryCall(link, () =>
+        // A long read (a large diff) is not asked twice: its wait is already long.
+        timeoutMs === undefined ? link.read(call) : link.call(call, timeoutMs),
+      ),
+      last,
+    );
   const [answer, setAnswer] = useState(() => read());
   const [refreshing, startPull] = useTransition();
   // The promise is made here, not in an updater, which React may run again while it suspends.

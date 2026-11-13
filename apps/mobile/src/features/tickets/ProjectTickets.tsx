@@ -1,7 +1,5 @@
 import { type ReactNode, Suspense } from 'react';
-import { View } from 'react-native';
-import { BusyLine } from '@/components/BusyLine';
-import { Screen } from '@/components/Screen';
+import { BusyScreen } from '@/components/BusyScreen';
 import { useMacRead } from '../mac/useMacRead';
 import { TicketList } from './TicketList';
 
@@ -9,16 +7,7 @@ import { TicketList } from './TicketList';
 export function ProjectTickets({ project, header }: { project: string; header: ReactNode }) {
   const { answer, pull, refreshing } = useMacRead({ method: 'tickets', project });
   return (
-    <Suspense
-      fallback={
-        <Screen className="px-0">
-          {header}
-          <View className="px-4">
-            <BusyLine label="Reading its tickets..." />
-          </View>
-        </Screen>
-      }
-    >
+    <Suspense fallback={<BusyScreen label="Reading its tickets..." header={header} />}>
       <TicketList
         project={project}
         tickets={answer}

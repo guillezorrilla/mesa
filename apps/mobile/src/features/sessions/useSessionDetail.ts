@@ -20,7 +20,7 @@ const read = async (
   replies: number,
   last?: Promise<DetailRead>,
 ): Promise<DetailRead> => {
-  const next = await tryCall(link, () => link.call({ method: 'session', id, replies }));
+  const next = await tryCall(link, () => link.read({ method: 'session', id, replies }));
   return keepLast(next.error ? { error: next.error } : { detail: next.result }, last);
 };
 

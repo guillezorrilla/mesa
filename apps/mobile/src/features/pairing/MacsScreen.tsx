@@ -1,5 +1,7 @@
 import { router } from 'expo-router';
+import Info from 'lucide-react-native/icons/info';
 import Plus from 'lucide-react-native/icons/plus';
+import { LinkRow } from '@/components/LinkRow';
 import { Screen } from '@/components/Screen';
 import { Section } from '@/components/Section';
 import { Button } from '@/components/ui/button';
@@ -9,7 +11,7 @@ import { PushesSection } from '../pushes/PushesSection';
 import { MacCard } from './MacCard';
 import { usePairing } from './usePairing';
 
-/** The Mac tab once paired: each paired Mac, pairing another, usage, and this phone's settings. */
+/** The Settings tab once paired: each paired Mac, pairing another, this phone's settings, About. */
 export function MacsScreen() {
   const { pairings } = usePairing();
   return (
@@ -27,6 +29,7 @@ export function MacsScreen() {
       <Section title="Appearance">
         <Text variant="muted">Light or dark follows your iPhone's setting.</Text>
       </Section>
+      <LinkRow icon={Info} title="About" line="Version, build and update" href="/about" />
     </Screen>
   );
 }

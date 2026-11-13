@@ -16,7 +16,7 @@ const fresh = (update: MacUpdate) => Date.now() - update.at < KEEP_MS;
 
 /** One Mac's rows, its sessions remembered as its own; the last rows kept when it does not answer. */
 const list = (mac: Mac, last?: Listing): Promise<Listing> =>
-  mac.link.call({ method: 'sessions' }).then(
+  mac.link.read({ method: 'sessions' }).then(
     ({ rows }) => {
       rememberMac(
         mac.id,

@@ -52,7 +52,10 @@ export function mergeListings(listings: readonly Listing[], updates: readonly Ma
   );
 }
 
-/** The rows a filter keeps: the query in the title or project, the project, the Mac, unread only. */
+/**
+ * The rows a filter keeps: the query in the title, the project or what a waiting one asks, the
+ * project, the Mac, unread only.
+ */
 export function filterRows<R extends PhoneRow & { mac?: string }>(
   rows: readonly R[],
   filter: RowFilter,
@@ -60,7 +63,8 @@ export function filterRows<R extends PhoneRow & { mac?: string }>(
   const query = filter.query.trim().toLowerCase();
   return rows.filter(
     (row) =>
-      (!query || `${row.title} ${row.project ?? ''}`.toLowerCase().includes(query)) &&
+      (!query ||
+        `${row.title} ${row.project ?? ''} ${row.ask ?? ''}`.toLowerCase().includes(query)) &&
       (!filter.project || row.project === filter.project) &&
       (!filter.mac || row.mac === filter.mac) &&
       (!filter.unreadOnly || row.unread),

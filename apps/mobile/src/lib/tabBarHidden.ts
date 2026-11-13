@@ -1,10 +1,5 @@
 /** The screens with a bar pinned where the floating tab bar would sit, by route. */
-const BAR_SCREENS = new Set([
-  'agents/[id]',
-  'agents/diff',
-  'agents/quote',
-  'agents/start',
-]);
+const BAR_SCREENS = new Set(['agents/[id]', 'agents/diff', 'agents/quote', 'agents/start']);
 
 /**
  * Whether the tab bar hides for the route `segments` (expo-router's useSegments): on a session's

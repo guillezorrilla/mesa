@@ -57,6 +57,8 @@ Each smell reads *what it is* → *how to fix*; match it against the diff:
 
 ### 4. Spawn both sub-agents in parallel
 
+Start each with `model: "sonnet"`: a review reads a diff against a short brief, and without a model it runs on the session's own, usually Opus.
+
 **Standards sub-agent prompt** should include:
 
 - The full diff command and commit list.
