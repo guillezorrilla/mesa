@@ -89,6 +89,7 @@ export function phoneService(
         {
           ...deps,
           connect: ctx.connect,
+          ...(ctx.listenDirect ? { direct: ctx.listenDirect } : {}),
           sleep: ctx.sleep,
           answers: {
             ...answers,

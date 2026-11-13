@@ -10,6 +10,7 @@ import { type ConnectSocket, mailbox } from '../protocol/mailbox.js';
 import { isWatchCall, type PhoneCall, type PhoneRow, WATCH_MS } from '../protocol/rpc.js';
 import { type AnswerDeps, answerCall, boardRows, type ListenerAnswers } from './answer.js';
 import { deliverQueued } from './deliver.js';
+import type { DirectListen, DirectServer } from './direct-socket.js';
 import { keptDiffs } from './kept-diffs.js';
 import { watchRowFiles } from './row-files.js';
 import { keptAsks, phoneRows, rowChanges } from './rows.js';
@@ -19,6 +20,8 @@ export type ServeDeps = {
   store: MacPairingStore;
   client: (broker: string) => PairingClient;
   connect: ConnectSocket;
+  /** The Mac's own socket, which a phone on the same network or tailnet dials (#1129). */
+  direct?: DirectListen;
   clock: Clock;
   sleep: (ms: number) => Promise<void>;
   answers: AnswerDeps;
@@ -203,6 +206,12 @@ async function listen(
     {
       message: (message) => {
         if (message.kind === 'request') void respond(message);
+        // The phone asks where the direct socket is; the answer goes back the way it asked.
+        if (message.kind === 'direct')
+          box.send({
+            kind: 'direct',
+            ...(direct ? { port: direct.port, hosts: direct.hosts() } : {}),
+          });
       },
       ready: () => {
         open = true;
@@ -228,6 +237,9 @@ async function listen(
           return false;
         },
       );
+  // ponytail: a direct socket that fails to start leaves the phone on the relay, unretried until
+  // the listener restarts.
+  const direct: DirectServer | undefined = await deps.direct?.(box.accept).catch(() => undefined);
   const watch = async () => {
     if (!listed || now() > watchUntil) return;
     const rows = await boardRows(answers);
@@ -294,6 +306,7 @@ async function listen(
     return { pairingId, ended: 'stopped' };
   } finally {
     unwatch();
+    direct?.close();
     box.close();
     await saving;
   }

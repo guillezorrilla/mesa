@@ -609,6 +609,10 @@ Not: device, connection (a Source's), account.
 A Pairing's queue of sealed messages between the Mac and the Phone, relayed at once to a connected side and kept up to 7 days for one that is not. The Mac reads it through its Phone listener; a message over one box travels as numbered parts.
 Not: inbox (the Mac's notices), queue.
 
+## Direct path
+
+The way the Phone reaches its Mac without the Broker: a socket of the Phone listener's own, on the Mac's LAN or Tailscale address, which the phone dials when the Mac tells it where (sealed, over the relay) and uses while it answers; elsewhere the boxes go by the relay. The same sealed boxes travel either way. Settings shows Direct or Relay per Mac. ADR-0028.
+
 ## Phone push
 
 A push to the paired Phone when a session's Inbox notice is a question, a permission request or a finished turn, by `phone.push`: `away` (the default) while the Mac has had no keyboard or pointer input for `phone.awayAfter` minutes (5) or its screen is locked, `always`, or `never`. The Mac seals the notice (the session's title, its project and what happened) for the phone and the Broker sends APNs a fixed alert with the ciphertext, which the phone's Notification Service Extension opens. Each notice is pushed at most once, tracked beside its delivery state (`pushed` in `notifications.json`): one that comes while the person is at the desk waits and goes once they are away, if still unread and under `phone.awayAfter` plus 10 minutes old; a failed push is not tried again, and the notice stays in the Inbox either way. The app asks on every hook event and the profile scheduler on each tick, so pushes go with the app closed while the scheduler is installed; `mesa phone push` does the same, and `mesa phone push-test` (or Send test push in Settings > Phone) sends a test push now.
