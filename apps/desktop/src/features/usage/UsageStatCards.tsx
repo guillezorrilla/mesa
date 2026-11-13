@@ -29,11 +29,9 @@ export function UsageStatCards(props: { report: UsageReport }) {
               totals={props.report.periods[period]}
               className="mt-0.5 block text-2xl font-semibold tracking-tight"
             />
-            {props.report.periods[period].excluded > 0 && (
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {excludedNote(props.report.periods[period].excluded)}
-              </p>
-            )}
+            <p className="mt-0.5 text-xs text-muted-foreground empty:hidden">
+              {excludedNote(props.report.periods[period].excluded)}
+            </p>
           </div>
         ))}
       </div>

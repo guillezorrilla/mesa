@@ -15,7 +15,7 @@ export function Cost(props: {
     return (
       <span
         className={cn('font-normal text-muted-foreground', props.className)}
-        title="No list price"
+        title="Not priced: no list price, or usage not read"
       >
         n/a
       </span>
