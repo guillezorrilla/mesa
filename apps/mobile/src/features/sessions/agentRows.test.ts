@@ -23,7 +23,7 @@ const row = (id: string, state: string, more: Partial<PhoneRow> = {}): PhoneRow 
   ...more,
 });
 
-test('rows group as Needs you, Working, Done, keeping the Mac order inside each', () => {
+test('rows group as Needs you, Working, Done, ties in id order inside each', () => {
   const rows = [
     row('a', 'idle'),
     row('b', 'waiting-question'),
@@ -38,6 +38,39 @@ test('rows group as Needs you, Working, Done, keeping the Mac order inside each'
   expect(groupRows([row('a', 'done')]).map((s) => s.key)).toEqual(['done']);
   expect(groupOf('queued')).toBe('working');
   expect(groupOf('some-new-state')).toBe('done');
+});
+
+const at = (minutesAgo: number) =>
+  new Date(Date.UTC(2026, 10, 11, 12) - minutesAgo * 60_000).toISOString();
+
+test('each group lists the newest first, by the time its row shows, ties by id', () => {
+  const rows = [
+    row('d1', 'done', { since: at(3 * 24 * 60) }),
+    row('d2', 'done', { since: at(3 * 60) }),
+    row('w1', 'working', { since: at(9) }),
+    row('d3', 'idle', { since: at(1), project: 'cinder', unread: true }),
+    row('w2', 'working', { since: at(0) }),
+    row('n1', 'waiting-question', { since: at(5) }),
+    row('d5', 'done', { since: at(1), project: 'cinder' }),
+    row('d4', 'done', { since: at(1), unread: true }),
+  ];
+  const ids = (shown: readonly PhoneRow[]) =>
+    groupRows(shown).map((s) => [s.key, s.data.map((r) => r.id)]);
+  expect(ids(rows)).toEqual([
+    ['needs-you', ['n1']],
+    ['working', ['w2', 'w1']],
+    ['done', ['d3', 'd4', 'd5', 'd2', 'd1']],
+  ]);
+  // The order holds through the Unread and project filters.
+  expect(ids(filterRows(rows, { query: '', unreadOnly: true }))).toEqual([['done', ['d3', 'd4']]]);
+  expect(ids(filterRows(rows, { query: '', project: 'cinder', unreadOnly: false }))).toEqual([
+    ['done', ['d3', 'd5']],
+  ]);
+  // A session that just replied moves to the top of its group, whatever order the Mac gives.
+  const replied = applyUpdates(rows, [
+    { kind: 'update', rows: [row('d1', 'idle', { since: at(0) })], gone: [], order: [] },
+  ]);
+  expect(ids(replied).at(-1)).toEqual(['done', ['d1', 'd3', 'd4', 'd5', 'd2']]);
 });
 
 test('open decision gates come first in Needs you, even with no session waiting', () => {
