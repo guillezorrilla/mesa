@@ -61,7 +61,7 @@ export function InboxList({
       renderItem={({ item }) => {
         if (item.read) return <NoticeRow notice={item} now={now} onOpen={() => onOpen(item)} />;
         return (
-          <SwipeRow action="Mark read" onAction={() => onMarkRead(item)}>
+          <SwipeRow actions={[{ label: 'Mark read', run: () => onMarkRead(item) }]}>
             <NoticeRow
               notice={item}
               now={now}

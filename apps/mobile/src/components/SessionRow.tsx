@@ -3,6 +3,7 @@ import { Pressable, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 import { StateDot } from './StateDot';
+import type { RowAction } from './SwipeRow';
 
 /**
  * One session in a list: its state dot, title (bold while unread), project and state words, how
@@ -23,7 +24,7 @@ export function SessionRow({
   now: number;
   onPress: () => void;
   /** VoiceOver's actions for the row, as the swipe offers them. */
-  actions: { name: string; label: string; run: () => void }[];
+  actions: (RowAction & { name: string })[];
 }) {
   const detail = [row.project, stateWords].filter(Boolean).join(' · ');
   return (
