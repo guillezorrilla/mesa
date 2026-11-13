@@ -2,6 +2,7 @@ import type { PhoneToday } from '@mesa/core/phone';
 import { View } from 'react-native';
 import { Section } from '@/components/Section';
 import { Text } from '@/components/ui/text';
+import { plainText } from './noteBlocks';
 import { VaultList } from './VaultList';
 import { costText, kindWord } from './vaultText';
 
@@ -20,7 +21,7 @@ export function RewindSection({ rewind }: { rewind: PhoneToday['rewind'] }) {
       <VaultList
         items={rewind.notes.map((note) => ({
           key: note.path,
-          title: note.summary,
+          title: plainText(note.summary),
           stamp: kindWord(note.kind),
           path: note.path,
         }))}

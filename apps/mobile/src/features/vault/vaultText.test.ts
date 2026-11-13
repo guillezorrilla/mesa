@@ -22,7 +22,7 @@ test('the cost says when it is unknown, and kinds read as words', () => {
   expect(costText(null)).toBe('Cost unknown');
   expect(costText(1.234)).toBe('$1.23 estimated');
   expect(kindWord('vault-change')).toBe('Vault change');
-  expect(kindWord('brief')).toBe('brief');
+  expect(kindWord('phone')).toBe('Phone');
 });
 
 test('a saved decision says whether it added anything; a draft needs every field', () => {

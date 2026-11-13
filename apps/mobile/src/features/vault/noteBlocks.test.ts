@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { noteBlocks, spansOf } from './noteBlocks';
+import { noteBlocks, plainText, spansOf } from './noteBlocks';
 
 const links = [
   { text: '[[tide-tables|the tables]]', path: 'wiki/notes/tide-tables.md' },
@@ -79,4 +79,13 @@ test('a note reads as headings, paragraphs joined, lists and tasks, quotes, code
 
 test('an unclosed fence keeps its code to the end', () => {
   expect(noteBlocks('```\nopen', [])).toEqual([{ kind: 'code', text: 'open' }]);
+});
+
+test("an HTML comment is hidden, and a summary reads without its links' markup", () => {
+  expect(noteBlocks('<!-- mesa:daily:start -->\n## Log\n<!-- mesa:daily:end -->', [])).toEqual([
+    { kind: 'heading', level: 2, spans: [{ text: 'Log' }] },
+  ]);
+  expect(plainText('Saved decision Tides in [[wiki/decisions/tides|tides]] **now**')).toBe(
+    'Saved decision Tides in tides now',
+  );
 });

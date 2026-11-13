@@ -45,8 +45,9 @@ const KINDS: Record<string, string> = {
   capture: 'Capture',
 };
 
-/** A receipt kind in words: "Vault change"; any other as it is. */
-export const kindWord = (kind: string) => KINDS[kind] ?? kind;
+/** A receipt kind in words: "Vault change"; any other capitalised, "Phone". */
+export const kindWord = (kind: string) =>
+  KINDS[kind] ?? kind.charAt(0).toUpperCase() + kind.slice(1);
 
 /** What saving a decision did: kept, or the same one already there, which adds nothing. */
 export const savedText = (saved: PhoneSaved) =>

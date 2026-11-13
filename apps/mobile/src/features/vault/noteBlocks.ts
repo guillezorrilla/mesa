@@ -69,7 +69,15 @@ export function spansOf(text: string, paths: ReadonlyMap<string, string>): Span[
   return spans;
 }
 
-/** `body`'s blocks in order; `links` are the note's resolved links. */
+/** A line's words as they read, its link and emphasis markup gone: for a one-line summary. */
+export const plainText = (text: string) =>
+  spansOf(text, new Map())
+    .map((span) => span.text)
+    .join('');
+
+const COMMENT = /<!--[\s\S]*?-->/g;
+
+/** `body`'s blocks in order, its HTML comments hidden as Obsidian hides them; `links` are its resolved links. */
 export function noteBlocks(body: string, links: readonly Link[]): Block[] {
   const paths = new Map(links.map((link) => [link.text, link.path]));
   const blocks: Block[] = [];
@@ -97,7 +105,7 @@ export function noteBlocks(body: string, links: readonly Link[]): Block[] {
     item = undefined;
   };
 
-  for (const line of body.split('\n')) {
+  for (const line of body.replace(COMMENT, '').split('\n')) {
     if (code) {
       if (line.trim().startsWith(code.fence)) {
         blocks.push({ kind: 'code', text: code.lines.join('\n') });
