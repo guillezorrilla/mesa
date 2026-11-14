@@ -1,5 +1,5 @@
 import { Archive } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -9,14 +9,14 @@ import {
 import { MarkUnreadItem } from './MarkUnreadItem';
 
 /**
- * A session card's right-click menu, which archives the selected sessions together, and marks a
- * Mesa session's card (with the selected ones) unread or read.
+ * A session card's or worker row's right-click menu, which archives the selected sessions together,
+ * and marks a Mesa session (with the selected ones) unread or read.
  */
 export function SessionsMenu(props: {
   /** How many sessions are selected once the right-click has chosen. */
   count: number;
   /** The right-click, before the menu opens: it may change the selection. */
-  onOpen: () => void;
+  onOpen: (event: MouseEvent) => void;
   onArchive: () => void;
   /** Whether the card shows unread. */
   unread: boolean;

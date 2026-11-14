@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import type { CrewReport, TreeRow } from '@mesa/core';
+import { act } from 'react';
 import { expect, test } from 'vitest';
 import { click, fakeBridge, managedRow, PROJECTS, renderWithMesa } from '@/lib/testing';
 import type { WorkspaceView } from '@/lib/workspaceView';
@@ -69,6 +70,7 @@ const UNREAD = {
 
 async function sidebar(sessions = SESSIONS) {
   const views: WorkspaceView[] = [];
+  const archived: string[] = [];
   const groups = sidebarGroups(PROJECTS, sessions);
   const byTestId = await renderWithMesa(
     <UnreadContext.Provider value={UNREAD}>
@@ -84,11 +86,13 @@ async function sidebar(sessions = SESSIONS) {
         onToggleCompact={() => {}}
         chosen={[]}
         onSelection={() => {}}
+        onArchiveSession={(id) => archived.push(id)}
+        onArchiveSessions={(ids) => archived.push(...ids.map((id) => `card:${id}`))}
       />
     </UnreadContext.Provider>,
     fakeBridge().bridge,
   );
-  return { byTestId, views, groups };
+  return { byTestId, views, groups, archived };
 }
 
 test("a coordinator's card holds a row per worker it can open; Setup sessions and Skill runs are neither", async () => {
@@ -183,4 +187,22 @@ test("a child's row is filled while its reply is unread, as a card is", async ()
   expect(rows.map((row) => row.dataset.unread)).toEqual([undefined, 'true']);
   expect(rows[1]?.title).toBe('Open news, unread');
   expect(rows[1]?.className).toContain('bg-state-unread/25');
+});
+
+test("a worker row archives its own session from its hover X and its right-click menu, not its card's", async () => {
+  const { byTestId, archived } = await sidebar();
+  await click(
+    document.querySelector<HTMLElement>('[aria-label="Archive tides (tides001)"]') ?? undefined,
+  );
+  const row = byTestId('sidebar-worker').find((each) => each.dataset.sessionId === 'buoys001');
+  await act(async () => {
+    row?.dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 80 }),
+    );
+  });
+  const items = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+  // One menu, the worker's own: its card's stays shut.
+  expect(items.map((item) => item.textContent)).toEqual(['Archive session', 'Mark as unread']);
+  await click(items[0]);
+  expect(archived).toEqual(['tides001', 'buoys001']);
 });
