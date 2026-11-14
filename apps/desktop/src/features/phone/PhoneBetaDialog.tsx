@@ -87,6 +87,7 @@ function PhoneBetaDialog(props: { onClose: () => void; onPhoneSettings: () => vo
                 title="Request an invite"
                 line="Send your email and TestFlight invites you to the beta."
               >
+                {/* An empty className drops the link's underline, so the Button's look applies. */}
                 <Button asChild size="sm">
                   <ExternalLink href={PHONE_BETA_URL} className="">
                     Request TestFlight access

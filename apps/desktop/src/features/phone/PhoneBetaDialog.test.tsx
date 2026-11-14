@@ -8,7 +8,7 @@ import { click, envelope, fakeBridge, PROJECTS, renderWithMesa } from '@/lib/tes
 const SAVED = ['--json', 'config', 'set', '--', 'onboarding.phoneBeta', '"dismissed"'];
 
 /** The App with the offer `phoneBeta` and a phone paired or not, the offer saved as set. */
-async function render(phoneBeta: 'pending' | 'dismissed', paired = false) {
+async function render(phoneBeta: 'pending' | 'dismissed', paired = false, projects = PROJECTS) {
   const base = ((await fakeBridge().bridge(['--json', 'config'])) as { data: Config }).data;
   const state = { phoneBeta };
   const { bridge, calls } = fakeBridge({
@@ -19,7 +19,7 @@ async function render(phoneBeta: 'pending' | 'dismissed', paired = false) {
       return envelope({});
     },
     'phone status': () => envelope({ paired }),
-    projects: () => envelope(PROJECTS),
+    projects: () => envelope(projects),
   });
   await renderWithMesa(<App />, bridge);
   const dialog = () =>
@@ -66,5 +66,17 @@ test('Maybe later saves the offer as dismissed, and a dismissed offer stays gone
 test('a profile already paired with a phone is not offered the beta', async () => {
   const { dialog, calls } = await render('pending', true);
   expect(calls.some((args) => args[1] === 'phone' && args[2] === 'status')).toBe(true);
+  expect(dialog()).toBeUndefined();
+});
+
+test('the close button saves the offer as dismissed too', async () => {
+  const { dialog, calls } = await render('pending');
+  await click(button(dialog(), 'Close'));
+  expect(dialog()).toBeUndefined();
+  expect(calls).toContainEqual(SAVED);
+});
+
+test('a profile with no projects is not offered the beta yet', async () => {
+  const { dialog } = await render('pending', false, []);
   expect(dialog()).toBeUndefined();
 });
