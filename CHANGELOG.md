@@ -2,6 +2,16 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.5.3 - 2026-11-14
+
+### Added
+
+- Archive a child session from its row in the sidebar: hovering a worker row under its orchestrator shows an X that archives it, and its right-click menu archives or marks that child, not the orchestrator. (#1158)
+
+### Fixed
+
+- The phone's output terminal fits the phone again: opening it holds the session's window at the phone's size, and the Mac's terminal shows Your phone is in control with Take back to size it to the Mac again. (#1159)
+
 ## 0.5.2 - 2026-11-13
 
 ### Added
