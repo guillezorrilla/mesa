@@ -6,6 +6,7 @@ import { act } from 'react';
 import { expect, test, vi } from 'vitest';
 import {
   attached,
+  envelope,
   fakeBridge,
   fakeFileDrops,
   fakePlatform,
@@ -109,4 +110,22 @@ test('a file dropped on the terminal types its escaped path, as a terminal app d
   expect(writes()).toEqual([]);
   await act(async () => drops.push({ paths: ['/Users/me/Screen Shot.png'], x: 200, y: 100 }));
   expect(writes()).toEqual(['/Users/me/Screen\\ Shot.png ']);
+});
+
+test('a window a phone holds keeps its size until Take back sizes it to this view', async () => {
+  const terminals = fakeTerminals();
+  const platform = fakePlatform({ terminal: terminals.host });
+  const { bridge, calls } = fakeBridge({ resize: () => envelope({}) });
+  const resized = () => calls.some((args) => args.includes('resize'));
+  await renderWithMesa(<Terminal sessionId="aaaaaaaa" held />, bridge, platform);
+  await attached();
+  expect(terminals.calls.some((call) => call[0] === 'resize')).toBe(true);
+  expect(resized()).toBe(false);
+  const takeBack = [...document.querySelectorAll('button')].find(
+    (button) => button.textContent === 'Take back',
+  );
+  await act(async () => takeBack?.click());
+  await attached();
+  expect(resized()).toBe(true);
+  expect(document.body.textContent).not.toContain('Your phone is in control');
 });

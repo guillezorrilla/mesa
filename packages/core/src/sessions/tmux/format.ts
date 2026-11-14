@@ -16,6 +16,8 @@ export type TmuxWindow = WindowTarget & {
   /** How it exited, once dead: its exit status, or the signal that killed it (`kill`). */
   deadStatus?: number;
   deadSignal?: string;
+  /** Held at a phone's size (holdWindow), its `window-size` manual, until the Mac takes it back. */
+  held: boolean;
 };
 
 /** How a dead pane's process exited, as a record's `exited` event keeps it; none while it lives. */
@@ -39,6 +41,8 @@ export const FORMAT = [
   'pane_dead',
   'pane_dead_status',
   'pane_dead_signal',
+  // An option, which a format reads by name: `manual` once resize-window pinned the size.
+  'window-size',
 ]
   .map((f) => `#{${f}}`)
   .join('\t');
@@ -62,8 +66,19 @@ export const sessionTarget = (project: string) => `=${project}:`;
 export const targetLabel = ({ project, window }: WindowTarget) => `${project}:${window}`;
 
 export function parseWindow(line: string): TmuxWindow {
-  const [project = '', index, window = '', pid, command = '', path = '', activity, dead, st, sig] =
-    line.split('\t');
+  const [
+    project = '',
+    index,
+    window = '',
+    pid,
+    command = '',
+    path = '',
+    activity,
+    dead,
+    st,
+    sig,
+    size,
+  ] = line.split('\t');
   // Empty while the pane lives; once dead, tmux prints the status or the signal's name.
   const status = st && /^\d+$/.test(st) ? Number(st) : undefined;
   const signal = sig || undefined;
@@ -76,6 +91,7 @@ export function parseWindow(line: string): TmuxWindow {
     path,
     activity: new Date(Number(activity) * 1000).toISOString(),
     dead: dead === '1',
+    held: size === 'manual',
     ...(status === undefined ? {} : { deadStatus: status }),
     ...(signal === undefined ? {} : { deadSignal: signal }),
   };

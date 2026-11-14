@@ -513,6 +513,7 @@ test('every call goes to the profile socket without the user tmux.conf', async (
       path: '/src/lantern',
       activity: '2026-09-25T17:59:38.000Z',
       dead: false,
+      held: false,
     },
   ]);
   expect(calls[0]?.args.slice(0, 7)).toEqual([

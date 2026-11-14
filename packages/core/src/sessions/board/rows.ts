@@ -61,6 +61,8 @@ export type ManagedRow = { hasOutputLog?: boolean } & SessionRecord &
     asking?: true;
     /** A Setup session's: its setup command failed (a SetupFailed hook event). */
     setupFailed?: true;
+    /** A phone holds its window at the phone's size (holdWindow), until the app takes it back. */
+    held?: true;
   };
 
 /**

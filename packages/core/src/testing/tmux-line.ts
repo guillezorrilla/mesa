@@ -12,6 +12,7 @@ export function tmuxLine(w: {
   dead?: boolean;
   status?: number;
   signal?: string;
+  held?: boolean;
 }): string {
   return [
     w.project,
@@ -24,5 +25,6 @@ export function tmuxLine(w: {
     w.dead ? 1 : 0,
     w.status ?? '',
     w.signal ?? '',
+    w.held ? 'manual' : 'latest',
   ].join('\t');
 }

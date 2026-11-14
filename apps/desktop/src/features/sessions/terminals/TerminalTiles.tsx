@@ -83,6 +83,7 @@ export function TerminalTiles({
         grid={gridMode}
         selected={Boolean(selectedSession)}
         focus={id === selectedSession}
+        held={rows?.some((row) => row.id === id && row.managed && row.held)}
         zoomed={zoomed === id}
         onZoom={() => panels.toggleZoom(id)}
         onReviewResponse={

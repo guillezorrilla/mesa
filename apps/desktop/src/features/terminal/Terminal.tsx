@@ -7,12 +7,13 @@ import {
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal as Xterm } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { fromBase64 } from '@/lib/bytes';
 import { usePlatform } from '@/lib/MesaRoot';
 import { oneAtATime } from '@/lib/oneAtATime';
 import { useRun } from '@/lib/useCommand';
 import { useInterfaceDark } from '@/lib/useInterfaceDark';
+import { PhoneHoldChip } from './PhoneHoldChip';
 import { droppedPaths, terminalInputForKey } from './terminalInput';
 import { wheelForwarder } from './terminalWheel';
 import { useFocusOnEmptyClick } from './useFocusOnEmptyClick';
@@ -36,7 +37,8 @@ const osc52Text = (data: string) => {
  * its box, and after each fit the window takes the size (`mesa resize`). A copy in tmux (a mouse
  * drag, with `mouse on`) arrives as OSC 52 and goes to the pasteboard; Cmd+V is the webview's
  * own paste. A file dropped on it types its path, which Claude Code attaches when it is an image.
- * Unmounting closes only the tmux client.
+ * While a phone holds the window at its size (`held`), the view leaves the size alone until Take
+ * back, as orca's phone fit. Unmounting closes only the tmux client.
  */
 export function Terminal(props: {
   sessionId: string;
@@ -44,12 +46,22 @@ export function Terminal(props: {
   fill?: boolean;
   /** Takes the keyboard once attached, and again whenever it turns true: the session in view. */
   focus?: boolean;
+  /** A phone holds its window at the phone's size (the row's `held`). */
+  held?: boolean;
   onFileLink?: (session: string, target: string) => void;
   onWebLink?: (session: string, url: string) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const xterm = useRef<Xterm | null>(null);
   const refit = useRef<(() => void) | null>(null);
+  const takeBack = useRef<(() => void) | null>(null);
+  // Taken back here, until the board's next answer says whether a phone holds it again.
+  const [taken, setTaken] = useState(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new `held` from the board decides again.
+  useEffect(() => setTaken(false), [props.held]);
+  const held = Boolean(props.held) && !taken;
+  const heldRef = useRef(held);
+  heldRef.current = held;
   const onFileLink = useRef(props.onFileLink);
   onFileLink.current = props.onFileLink;
   const onWebLink = useRef(props.onWebLink);
@@ -123,12 +135,19 @@ export function Terminal(props: {
       if (closed) return;
       fit.fit();
       const { cols, rows } = term;
-      if (!termId || `${cols}x${rows}` === sent) return;
-      sent = `${cols}x${rows}`;
+      const at = `${cols}x${rows}`;
+      if (!termId || at === sent) return;
       await terminal.resize(termId, cols, rows);
+      // While a phone holds the window, only Take back sizes it.
+      if (heldRef.current) return;
+      sent = at;
       await run('sessions.resize', { id: props.sessionId, cols, rows });
     });
     refit.current = () => void size();
+    takeBack.current = () => {
+      sent = '';
+      size().catch(() => {});
+    };
     term.parser.registerOscHandler(52, (data) => {
       const text = osc52Text(data);
       if (text !== null) clipboard.write(text).catch(() => {});
@@ -222,6 +241,7 @@ export function Terminal(props: {
       term.dispose();
       xterm.current = null;
       refit.current = null;
+      takeBack.current = null;
     };
   }, [platform, run, props.sessionId]);
   // Selecting another session (or opening a new one) puts the cursor in its agent.
@@ -251,13 +271,24 @@ export function Terminal(props: {
     preferences.scrollSpeed,
   ]);
   return (
-    <div
-      ref={host}
-      className={
-        props.fill ? 'terminal-host min-h-[240px] flex-1 p-1' : 'terminal-host h-[420px] p-1'
-      }
-      style={{ background: palette.background }}
-      data-testid={`terminal-${props.sessionId}`}
-    />
+    <div className={props.fill ? 'relative flex min-h-0 flex-1 flex-col' : 'relative'}>
+      <div
+        ref={host}
+        className={
+          props.fill ? 'terminal-host min-h-[240px] flex-1 p-1' : 'terminal-host h-[420px] p-1'
+        }
+        style={{ background: palette.background }}
+        data-testid={`terminal-${props.sessionId}`}
+      />
+      {held ? (
+        <PhoneHoldChip
+          onTakeBack={() => {
+            heldRef.current = false;
+            setTaken(true);
+            takeBack.current?.();
+          }}
+        />
+      ) : null}
+    </div>
   );
 }
