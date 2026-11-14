@@ -2,6 +2,13 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.6.0 - 2026-11-14
+
+### Added
+
+- Mesa for iPhone is in private beta on TestFlight: after this update Mesa shows a one-time dialog with the invite form and its QR code, and `mesa phone beta` prints them. Request an invite with your email, then on your Mac open Settings > Phone, press Pair phone and scan the QR code with the app. (#1163)
+- Move to In Progress, auto-merge and hunk staging: starting a session from a Linear, Jira or ClickUp ticket can move it to In Progress (a switch in the start Options), a GitHub pull request can be set to merge itself once its checks pass, and the Git tab stages or unstages one hunk at a time. (#1160)
+
 ## 0.5.3 - 2026-11-14
 
 ### Added
