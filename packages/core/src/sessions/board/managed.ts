@@ -135,6 +135,7 @@ export async function managedRow(
       ...(found.parent && deps.events(found.id).some((e) => e.event === SETUP_FAILED)
         ? { setupFailed: true as const }
         : {}),
+      ...(window?.held ? { held: true as const } : {}),
       supervision: { source: 'rules' },
     };
   }
@@ -233,6 +234,7 @@ export async function managedRow(
     ...(lastOutput ? { lastOutput } : {}),
     // The whole log: a conversation before a sleep is still the session's.
     ...(hasConversation(record, logged) ? { conversation: true as const } : {}),
+    ...(window?.held ? { held: true as const } : {}),
     supervision: supervisionOf(classified.lastState, reply, want !== undefined && !reply),
   };
 }

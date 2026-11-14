@@ -291,6 +291,14 @@ export function tmuxBackend({
         'window-size',
       );
     },
+    /**
+     * Sizes the window to a phone's cols and rows and holds it there, as orca's phone fit: its
+     * `window-size` stays manual, so the Mac's attached views no longer size it, until
+     * resizeWindow hands sizing back (the app's Take back).
+     */
+    holdWindow: async (target: WindowTarget, cols: number, rows: number) => {
+      await onWindow(target, 'resize-window', '-x', String(cols), '-y', String(rows));
+    },
     killWindow: async (target: WindowTarget) => {
       await onWindow(target, 'kill-window');
     },

@@ -104,7 +104,7 @@ export function fakeTmux(
     return windows.find((w) => w.project === project && w.window === window);
   };
   const line = (w: FakeWindow, i: number) =>
-    tmuxLine({ ...w, index: i, command: w.dead ? '' : w.running });
+    tmuxLine({ ...w, index: i, command: w.dead ? '' : w.running, held: w.size?.pinned });
   /** Paste buffers by name, as `load-buffer` filled them. */
   const buffers = new Map<string, string>();
   const one = (args: string[], input?: string): RunResult => {
