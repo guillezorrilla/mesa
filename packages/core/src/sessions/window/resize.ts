@@ -8,14 +8,16 @@ import { windowOf } from './window-name.js';
 const MAX_CELLS = 10_000;
 
 /**
- * Sizes a session's window to a view (the app's terminal) now; tmux then follows its latest
- * client. `cols` and `rows` are whole numbers from 1 to 10000, else usage.
+ * Sizes a session's window to a view now: the app's terminal, after which tmux follows its latest
+ * client (which takes back a phone's hold), or a phone's (`hold`), held there until then.
+ * `cols` and `rows` are whole numbers from 1 to 10000, else usage.
  */
 export async function resizeSession(
-  deps: { store: SessionStore; tmux: Pick<TmuxBackend, 'resizeWindow'> },
+  deps: { store: SessionStore; tmux: Pick<TmuxBackend, 'resizeWindow' | 'holdWindow'> },
   id: string,
   cols: number,
   rows: number,
+  hold = false,
 ) {
   for (const [name, n] of [
     ['cols', cols],
@@ -26,6 +28,6 @@ export async function resizeSession(
     }
   }
   const target = windowOf(deps.store.get(id));
-  await deps.tmux.resizeWindow(target, cols, rows);
+  await (hold ? deps.tmux.holdWindow : deps.tmux.resizeWindow)(target, cols, rows);
   return { session: id, target: targetLabel(target), cols, rows };
 }

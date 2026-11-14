@@ -66,7 +66,7 @@ test('the live output is the log tail, and an unknown key never reaches the Mac'
   await at.end();
 });
 
-test('the screen sizes the window to the phone and draws its pane with the cursor where it is', async () => {
+test('the screen holds the window at the phone size and draws its pane with the cursor where it is', async () => {
   const at = await terminal();
   plantOutputLog(at.home, at.id, '$ ls\n');
   at.window.screen = '\x1b[34m$ ls\x1b[0m\nREADME.md\n\n';
@@ -75,8 +75,14 @@ test('the screen sizes the window to the phone and draws its pane with the curso
     text: '\x1b[34m$ ls\x1b[0m\r\nREADME.md\r\n\x1b[3;3H',
     at: 5,
   });
-  // Sized for the phone now, and back to tmux's own policy, so the Mac's view takes it back.
-  expect(at.window.size).toEqual({ cols: 44, rows: 30, pinned: false });
+  // Held at the phone's size, as orca's phone fit: the Mac's attached views would undo it at once.
+  expect(at.window.size).toEqual({ cols: 44, rows: 30, pinned: true });
+  const held = async () => (await at.mesa.sessions.list()).find((row) => row.id === at.id);
+  expect(await held()).toMatchObject({ held: true });
+  // The app's Take back: its own size, then tmux's policy again.
+  await at.mesa.sessions.resize(at.id, 120, 40);
+  expect(at.window.size).toEqual({ cols: 120, rows: 40, pinned: false });
+  expect(await held()).not.toHaveProperty('held');
   await at.end();
 });
 

@@ -109,6 +109,7 @@ test('the Doctor screen lists the windows on the Mesa tmux server', async () => 
     path: '/src/lantern-cove',
     activity: '2026-09-25T12:00:00.000Z',
     dead,
+    held: false,
   });
   const { bridge } = fakeBridge({
     windows: () => envelope([window('claude-aaaaaa', false), window('claude-bbbbbb', true)]),
