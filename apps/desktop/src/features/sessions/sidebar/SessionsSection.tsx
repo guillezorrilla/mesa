@@ -116,6 +116,7 @@ export function SessionsSection(props: {
                 failedSetupsOf={failedSetupsOf}
                 selected={view.kind === 'session' ? view.id : undefined}
                 onOpen={open}
+                onArchive={props.onArchiveSession}
               />
             )
           }
