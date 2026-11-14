@@ -6,6 +6,7 @@ import { act } from 'react';
 import { expect, test, vi } from 'vitest';
 import {
   attached,
+  envelope,
   fakeBridge,
   fakeFileDrops,
   fakePlatform,
@@ -114,7 +115,7 @@ test('a file dropped on the terminal types its escaped path, as a terminal app d
 test('a window a phone holds keeps its size until Take back sizes it to this view', async () => {
   const terminals = fakeTerminals();
   const platform = fakePlatform({ terminal: terminals.host });
-  const { bridge, calls } = fakeBridge({ resize: () => ({}) });
+  const { bridge, calls } = fakeBridge({ resize: () => envelope({}) });
   const resized = () => calls.some((args) => args.includes('resize'));
   await renderWithMesa(<Terminal sessionId="aaaaaaaa" held />, bridge, platform);
   await attached();

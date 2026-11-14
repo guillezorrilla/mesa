@@ -146,7 +146,7 @@ export function Terminal(props: {
     refit.current = () => void size();
     takeBack.current = () => {
       sent = '';
-      void size();
+      size().catch(() => {});
     };
     term.parser.registerOscHandler(52, (data) => {
       const text = osc52Text(data);
