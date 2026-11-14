@@ -319,6 +319,8 @@ function AppShell() {
           navigate={navigate}
           screen={view.kind}
           onReplayTour={startOnboarding}
+          offerPhoneBeta={ready && !onboarding && !!projects.data?.length}
+          openSettings={workspace.openSettings}
         />
         {cloneLink && (
           <CloneProjectDialog

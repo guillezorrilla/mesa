@@ -42,7 +42,9 @@ export { localClock, localDay, validLocalDay } from './lib/time.js';
 export { mapSession } from './map/map.js';
 export { FINISHED_HOLD_MS } from './notifications/finished-hold.js';
 export { PHONE_PUSH_LABELS, PHONE_PUSH_MODES, type PhonePushMode } from './phone/away.js';
+export { PHONE_BETA_URL } from './phone/beta.js';
 export * from './phone/protocol/index.js';
+export { linkQr } from './phone/qr.js';
 export {
   COLOR_VISION_MODES,
   DEFAULT_APPEARANCE,

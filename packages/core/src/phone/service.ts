@@ -2,12 +2,13 @@ import { join } from 'node:path';
 import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
 import { brokerUrl } from '../sources/broker.js';
+import { PHONE_BETA_URL } from './beta.js';
 import { phoneListener } from './listener.js';
 import { macPairingStore } from './mac-pairing.js';
 import { type PairingDeps, pairingStatus, startPairing, unpair } from './pair.js';
 import { pairingClient } from './protocol/client.js';
 import { type PushDeps, pushPending, pushTest } from './push.js';
-import { pairingQr } from './qr.js';
+import { linkQr } from './qr.js';
 import type { AnswerDeps } from './serve/answer.js';
 import type { SessionSteer } from './serve/answer-steer.js';
 import { servePhone } from './serve/listen.js';
@@ -57,7 +58,7 @@ export function phoneService(
         },
         async () => {
           const started = await startPairing(deps, brokerUrl(ctx.env));
-          return { ...started, ...pairingQr(started.qr) };
+          return { ...started, ...linkQr(started.qr) };
         },
       );
     },
@@ -65,6 +66,8 @@ export function phoneService(
       ctx.open();
       return pairingStatus(deps);
     },
+    /** The iPhone beta's invite form, with its QR for a phone's camera. */
+    beta: () => ({ url: PHONE_BETA_URL, ...linkQr(PHONE_BETA_URL) }),
     /** Pushes the new session notices to the phone when `phone.push` allows it now (#1016). */
     push: () =>
       pushPending({

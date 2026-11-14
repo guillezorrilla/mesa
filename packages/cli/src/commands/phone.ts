@@ -33,6 +33,22 @@ export const phoneStatus = defineCommand({
   },
 });
 
+export const phoneBeta = defineCommand({
+  name: 'phone beta',
+  summary: "Show the form that invites you to the iPhone app's TestFlight beta, with its QR",
+  example: 'mesa phone beta',
+  run: async ({ mesa }) => {
+    const { text, ...data } = mesa.phone.beta();
+    return {
+      data,
+      text: [
+        text,
+        `Request an invite at ${data.url}, then pair with mesa phone pair or Settings > Phone > Pair phone.`,
+      ].join('\n'),
+    };
+  },
+});
+
 export const phoneServe = defineCommand({
   name: 'phone serve',
   summary:

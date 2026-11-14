@@ -106,3 +106,16 @@ test('phone serve says so and stops when the profile is not paired', async () =>
   expect(served.json.data).toEqual({ ended: 'not-paired' });
   expect((await cli.mesa('phone', 'serve')).stdout).toMatch(/^not paired; mesa phone pair first/);
 });
+
+test('phone beta gives the invite form and its QR as JSON, and draws the QR in a terminal', async () => {
+  await cli.withProject();
+  const json = await cli.mesa('phone', 'beta', '--json');
+  expect(json.code).toBe(0);
+  expect(json.json.data).toEqual({
+    url: expect.stringMatching(/^https:\/\/forms\.gle\//),
+    svg: expect.stringContaining('<svg'),
+  });
+  const out = await cli.mesa('phone', 'beta');
+  expect(out.stdout).toMatch(/[▀▄█]/);
+  expect(out.stdout).toContain(`Request an invite at ${json.json.data.url}, then pair`);
+});
