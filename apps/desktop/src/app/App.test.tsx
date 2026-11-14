@@ -959,11 +959,11 @@ test('project Git tab reads selected checkout status through the CLI bridge', as
   expect(document.querySelector('[aria-label="Changed files"]')?.textContent).toContain(
     'changed.txt',
   );
-  // The first change opens on its own, side by side, against the whole file.
-  expect(byTestId('git-side-diff')[0]?.textContent).toBe('1old1new');
+  // The first change opens on its own, side by side, against the whole file, its hunk band first.
+  expect(byTestId('git-side-diff')[0]?.textContent).toBe('@@ -1,1 +1,1 @@Stage hunk1old1new');
   expect(calls.some((args) => args.includes('diff') && args.includes('--full'))).toBe(true);
   await click(document.querySelector<HTMLButtonElement>('[aria-label="Inline diff"]') ?? undefined);
-  expect(byTestId('git-inline-diff')[0]?.textContent).toBe('1-old1+new');
+  expect(byTestId('git-inline-diff')[0]?.textContent).toBe('@@ -1,1 +1,1 @@Stage hunk1-old1+new');
   expect(calls.some((args) => args.includes('status') && args.includes('lantern-cove'))).toBe(true);
   const checkout = document.querySelector<HTMLSelectElement>('[aria-label="Checkout"]');
   expect(checkout?.options).toHaveLength(2);
