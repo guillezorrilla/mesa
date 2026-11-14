@@ -165,6 +165,8 @@ const ConfigShape = z.strictObject({
       discovery: z.enum(['pending', 'started', 'complete', 'dismissed']).default('pending'),
       // The workspace tip that offers a Decision model, until it is closed or a model is chosen.
       decisionTip: z.enum(['pending', 'dismissed']).default('pending'),
+      // The one-time dialog that offers the iPhone beta, until it is closed; a paired phone hides it.
+      phoneBeta: z.enum(['pending', 'dismissed']).default('pending'),
     })
     .prefault({}),
   appearance: z

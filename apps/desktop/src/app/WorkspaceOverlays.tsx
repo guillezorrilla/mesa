@@ -1,6 +1,7 @@
 import type { Config, DoctorReport } from '@mesa/core';
 import { FeedbackDialog } from '@/features/feedback/FeedbackDialog';
 import { KeyboardShortcutsDialog } from '@/features/help/KeyboardShortcutsDialog';
+import { PhoneBetaOffer } from '@/features/phone/PhoneBetaDialog';
 import type { SettingsCategory } from '@/features/settings/categories';
 import { SettingsDialog } from '@/features/settings/SettingsDialog';
 import { UsageDialog } from '@/features/usage/UsageDialog';
@@ -8,7 +9,10 @@ import type { CommandState } from '@/lib/useCommand';
 import type { WorkspaceView } from '@/lib/workspaceView';
 import type { Overlay } from './navigation';
 
-/** The dialogs that open over the current view: Keyboard shortcuts, Settings, Usage, and Feedback. */
+/**
+ * The dialogs that open over the current view: Keyboard shortcuts, Settings, Usage, Feedback, and
+ * the one-time iPhone beta offer.
+ */
 export function WorkspaceOverlays(props: {
   overlay: Overlay | undefined;
   onOverlay: (overlay: Overlay | undefined) => void;
@@ -21,6 +25,9 @@ export function WorkspaceOverlays(props: {
   /** The screen in view, which feedback says it was written from. */
   screen: WorkspaceView['kind'];
   onReplayTour: () => void;
+  /** Whether the workspace is settled enough to offer the iPhone beta: loaded, past onboarding. */
+  offerPhoneBeta: boolean;
+  openSettings: (category: SettingsCategory) => void;
 }) {
   const { overlay, onOverlay, config, doctor, navigate } = props;
   return (
@@ -54,6 +61,12 @@ export function WorkspaceOverlays(props: {
       {overlay === 'feedback' && (
         <FeedbackDialog from={props.screen} onClose={() => onOverlay(undefined)} />
       )}
+      <PhoneBetaOffer
+        config={config.data}
+        allowed={props.offerPhoneBeta && !overlay}
+        onChanged={() => void config.refresh()}
+        onPhoneSettings={() => props.openSettings('phone')}
+      />
     </>
   );
 }

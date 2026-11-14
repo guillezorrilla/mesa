@@ -61,6 +61,7 @@ import {
 import { obsidianManager, obsidianVaults } from './obsidian.js';
 import { open } from './open.js';
 import {
+  phoneBeta,
   phonePair,
   phonePush,
   phonePushTest,
@@ -174,6 +175,7 @@ export const COMMANDS: Command[] = [
   obsidianManager,
   obsidianVaults,
   feedback,
+  phoneBeta,
   phonePair,
   phonePush,
   phonePushTest,
