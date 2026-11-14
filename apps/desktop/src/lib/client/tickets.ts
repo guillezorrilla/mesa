@@ -123,6 +123,11 @@ export const ticketsCommands = {
   'tickets.assign': commandWith<{ id: string }, Recorded<{ key: string; assignee: string }>>(
     ({ id }) => ['tickets', 'assign', '--', id],
   ),
+  /** Moves a ticket still to do to its tracker's first in-progress status. */
+  'tickets.progress': commandWith<
+    { id: string },
+    Recorded<{ key: string; moved: boolean; status?: string }>
+  >(({ id }) => ['tickets', 'progress', '--', id]),
   /** Shows, or with `tracker` sets, where a project tracks work; its other views stay, unlisted. */
   'tickets.tracker': commandWith<
     { project: string; tracker?: ProviderId },
@@ -166,6 +171,7 @@ export const ticketsCommands = {
     'defaults',
     ...(change.notes === undefined ? [] : ['--notes', change.notes ? 'on' : 'off']),
     ...(change.assign === undefined ? [] : ['--assign', change.assign ? 'on' : 'off']),
+    ...(change.progress === undefined ? [] : ['--progress', change.progress ? 'on' : 'off']),
     ...(change.start ? ['--start', change.start] : []),
     '--',
     project,

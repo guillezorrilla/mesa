@@ -40,7 +40,7 @@ export const ticketsShow = defineCommand({
 
 export const ticketsAssign = defineCommand({
   name: 'tickets assign',
-  summary: 'Assign a ticket to you, by id or Jira key: the one change Mesa makes in its tracker',
+  summary: 'Assign a ticket to you, by id or Jira key',
   args: ['key'],
   flags: { site },
   example: 'mesa tickets assign LC-12',
@@ -50,6 +50,23 @@ export const ticketsAssign = defineCommand({
     return recordedOutput(recorded, {
       data: recorded.result,
       text: `Assigned ${key} to ${assignee}`,
+    });
+  },
+});
+
+export const ticketsProgress = defineCommand({
+  name: 'tickets progress',
+  summary:
+    "Move a ticket still to do to its tracker's first in-progress status, by id or Jira key; one already started or done, or a GitHub issue, stays",
+  args: ['key'],
+  flags: { site },
+  example: 'mesa tickets progress linear:HAR-12',
+  run: async ({ mesa, args, flags }) => {
+    const recorded = await mesa.tickets.progress(args.key, flags.site);
+    const { key, moved, status } = recorded.result;
+    return recordedOutput(recorded, {
+      data: recorded.result,
+      text: moved ? `Moved ${key} to ${status}` : `${key} stays${status ? ` in ${status}` : ''}`,
     });
   },
 });
@@ -64,6 +81,10 @@ export const ticketsDefaults = defineCommand({
       type: 'string',
       description: "Assign the ticket to you when it isn't yours: on or off",
     },
+    progress: {
+      type: 'string',
+      description: 'Move the ticket, while still to do, to its first in-progress status: on or off',
+    },
     start: {
       type: 'string',
       description: 'worktree (a new one, on a branch named after the ticket) or checkout',
@@ -75,15 +96,17 @@ export const ticketsDefaults = defineCommand({
       throw new MesaError('usage', '--start is worktree or checkout');
     const notes = onOff('notes', flags.notes);
     const assign = onOff('assign', flags.assign);
+    const progress = onOff('progress', flags.progress);
     const change = {
       ...(notes === undefined ? {} : { notes }),
       ...(assign === undefined ? {} : { assign }),
+      ...(progress === undefined ? {} : { progress }),
       ...(flags.start ? { start: flags.start as 'worktree' | 'checkout' } : {}),
     };
     const data = Object.keys(change).length
       ? mesa.tickets.setDefaults(args.project, change)
       : mesa.tickets.defaults(args.project);
-    const text = `notes ${data.notes ? 'on' : 'off'}, assign ${data.assign ? 'on' : 'off'}, start in ${data.start === 'worktree' ? 'a new worktree' : 'the main checkout'}`;
+    const text = `notes ${data.notes ? 'on' : 'off'}, assign ${data.assign ? 'on' : 'off'}, progress ${data.progress ? 'on' : 'off'}, start in ${data.start === 'worktree' ? 'a new worktree' : 'the main checkout'}`;
     return { data, text };
   },
 });

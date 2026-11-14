@@ -219,6 +219,8 @@ export function githubProvider(deps: ProviderDeps) {
         );
       return { assignee: name || login };
     },
+    /** GitHub Issues has no in-progress status: an issue is open or closed, so it stays. */
+    progress: async () => ({ moved: false }),
   };
 
   return {

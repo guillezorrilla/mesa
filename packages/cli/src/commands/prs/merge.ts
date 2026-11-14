@@ -6,13 +6,18 @@ import { prOrUrl } from './target.js';
 export const prsMerge = defineCommand({
   name: 'prs merge',
   summary:
-    'Merge a pull request through gh, squash by default, never with --admin; refused when it conflicts or a check fails unless --yes; the PR is a GitHub URL, <project> <number>, or in a session the number alone',
+    'Merge a pull request through gh, squash by default, never with --admin; refused when it conflicts or a check fails unless --yes; --auto turns on GitHub auto-merge instead (it merges once checks pass) and --disable-auto turns it off; the PR is a GitHub URL, <project> <number>, or in a session the number alone',
   args: ['pr', 'number?'],
   flags: {
     squash: { type: 'boolean', description: 'Squash its commits into one (the default)' },
     merge: { type: 'boolean', description: 'Keep its commits under a merge commit' },
     rebase: { type: 'boolean', description: 'Rebase its commits onto the base' },
     yes: { type: 'boolean', description: 'Merge even when it conflicts or a check fails' },
+    auto: {
+      type: 'boolean',
+      description: 'Turn on GitHub auto-merge: GitHub merges with the method once checks pass',
+    },
+    'disable-auto': { type: 'boolean', description: 'Turn GitHub auto-merge off' },
     caller: {
       type: 'string',
       description: `Who asked, as the receipt names them outside a session: ${MERGE_CALLERS.join(', ')} (default cli)`,
@@ -23,6 +28,11 @@ export const prsMerge = defineCommand({
     const methods = MERGE_METHODS.filter((m) => flags[m]);
     if (methods.length > 1)
       throw new MesaError('usage', 'pass one of --squash, --merge and --rebase');
+    if (flags.auto && flags['disable-auto'])
+      throw new MesaError('usage', 'pass one of --auto and --disable-auto');
+    if (flags['disable-auto'] && methods.length)
+      throw new MesaError('usage', '--disable-auto takes no merge method');
+    const auto = flags.auto ? 'on' : flags['disable-auto'] ? 'off' : undefined;
     if (flags.caller && !MERGE_CALLERS.includes(flags.caller as MergeCaller))
       throw new MesaError('usage', `--caller must be one of ${MERGE_CALLERS.join(', ')}`);
     const pr = prOrUrl(mesa, { project: args.pr, number: args.number });
@@ -30,11 +40,18 @@ export const prsMerge = defineCommand({
       ...(methods[0] ? { method: methods[0] } : {}),
       ...(flags.yes ? { confirm: true } : {}),
       ...(flags.caller ? { caller: flags.caller as MergeCaller } : {}),
+      ...(auto ? { auto } : {}),
     });
     const r = recorded.result;
+    const name = `${r.project} #${r.number}`;
     return recordedOutput(recorded, {
       data: r,
-      text: `Merged ${r.project} #${r.number} (${r.method}) at ${r.head.slice(0, 7)}`,
+      text:
+        auto === 'on'
+          ? `Auto-merge on for ${name} (${r.method}): GitHub merges it once checks pass`
+          : auto === 'off'
+            ? `Auto-merge off for ${name}`
+            : `Merged ${name} (${r.method}) at ${r.head.slice(0, 7)}`,
     });
   },
 });

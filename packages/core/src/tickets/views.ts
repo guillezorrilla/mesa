@@ -28,6 +28,8 @@ const TicketDefaultsSchema = z
     notes: z.boolean().optional(),
     /** Assign the ticket to the person when it is someone else's or no one's. */
     assign: z.boolean().optional(),
+    /** Move the ticket, while still to do, to its tracker's first in-progress status. */
+    progress: z.boolean().optional(),
     /** Start in a new worktree on a branch named after the ticket, or in the main checkout. */
     start: z.enum(['worktree', 'checkout']).optional(),
     /** Files written before the Ticket starts may hold it: read, then dropped. */

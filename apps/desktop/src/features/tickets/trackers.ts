@@ -50,6 +50,8 @@ type Tracker<K extends ProviderId> = {
   mark: boolean;
   /** A ticket takes several assignees, so Assign to me adds the person beside them. */
   several: boolean;
+  /** Its tickets have an in-progress status a start can move them to (not GitHub's open or closed). */
+  progress: boolean;
   /** The panel's name for the status row, and how it shows a ticket's status. */
   statusName: string;
   Status: ComponentType<{ ticket: Ticket }>;
@@ -84,6 +86,7 @@ export const TRACKERS: { [K in ProviderId]: Tracker<K> } = {
     shortKey: (key) => key,
     mark: false,
     several: false,
+    progress: true,
     statusName: 'Status',
     Status: CategoryStatus,
     Setup: JiraSetupPanel,
@@ -104,6 +107,7 @@ export const TRACKERS: { [K in ProviderId]: Tracker<K> } = {
     shortKey: (key) => key.slice(key.lastIndexOf('#')),
     mark: true,
     several: true,
+    progress: false,
     statusName: 'State',
     Status: GithubState,
     Setup: GithubSetupPanel,
@@ -126,6 +130,7 @@ export const TRACKERS: { [K in ProviderId]: Tracker<K> } = {
     shortKey: (key) => key,
     mark: true,
     several: true,
+    progress: true,
     statusName: 'Status',
     Status: ClickupStatus,
     Setup: ClickupSetupPanel,
@@ -146,6 +151,7 @@ export const TRACKERS: { [K in ProviderId]: Tracker<K> } = {
     shortKey: (key) => key,
     mark: true,
     several: false,
+    progress: true,
     statusName: 'Status',
     Status: CategoryStatus,
     Setup: LinearSetupPanel,

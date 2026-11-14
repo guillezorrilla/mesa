@@ -6,7 +6,7 @@ import { allComments, COMMENTS, commentsSchema } from './linear-item.js';
 import { CYCLE, cycleSchema, toCycle } from './linear-teams.js';
 
 // The Linear issues a project's Tickets tab reads (CONTEXT.md, Ticket view): those a filter or a
-// custom view finds, one issue whole, and setting an issue's assignee, Mesa's one write to Linear.
+// custom view finds, one issue whole, and Mesa's two writes to Linear: an issue's assignee and state.
 
 /** How many issues one query asks for. */
 const ISSUES_PAGE = 50;
@@ -96,7 +96,7 @@ export async function linearIssue(get: Http, id: string) {
   return { ...issue, cycle: issue.cycle ? toCycle(issue.cycle) : undefined, comments };
 }
 
-/** Sets issue `id`'s assignee to user `assignee`: Mesa's one write to Linear (the write scope). */
+/** Sets issue `id`'s assignee to user `assignee`, with the write scope. */
 export async function assignLinearIssue(get: Http, id: string, assignee: string) {
   const { issueUpdate } = await linearCall(
     get,
@@ -113,4 +113,48 @@ export async function assignLinearIssue(get: Http, id: string, assignee: string)
   if (!issueUpdate.success || issueUpdate.issue?.assignee?.id !== assignee)
     throw new MesaError('internal', `Linear did not assign ${id} to you`);
   return issueUpdate.issue.assignee;
+}
+
+/** Linear's workflow state types a person has not started: the ones a start moves on. */
+const TO_DO = ['triage', 'backlog', 'unstarted'];
+const workflowSchema = z.object({
+  issue: z.object({
+    state: stateSchema,
+    team: z.object({
+      states: z.object({
+        nodes: z.array(
+          z.object({ id: z.string(), name: z.string(), type: z.string(), position: z.number() }),
+        ),
+      }),
+    }),
+  }),
+});
+
+/**
+ * Moves issue `id`, while to do, to its team's first workflow state of type started (by
+ * position), with the write scope; one already started or done stays where it is.
+ */
+export async function startLinearIssue(get: Http, id: string) {
+  const { issue } = await linearCall(
+    get,
+    'query TicketWorkflow($id: String!) { issue(id: $id) { state { name type } team { states { nodes { id name type position } } } } }',
+    { id },
+    workflowSchema,
+    `Linear issue ${id}`,
+  );
+  const started = issue.team.states.nodes
+    .filter((s) => s.type === 'started')
+    .sort((a, b) => a.position - b.position)[0];
+  if (!TO_DO.includes(issue.state.type) || !started)
+    return { moved: false, status: issue.state.name };
+  const { issueUpdate } = await linearCall(
+    get,
+    'mutation TicketProgress($id: String!, $state: String!) { issueUpdate(id: $id, input: { stateId: $state }) { success } }',
+    { id, state: started.id },
+    z.object({ issueUpdate: z.object({ success: z.boolean() }) }),
+    `Moving ${id} to ${started.name}`,
+  );
+  if (!issueUpdate.success)
+    throw new MesaError('internal', `Linear did not move ${id} to ${started.name}`);
+  return { moved: true, status: started.name };
 }

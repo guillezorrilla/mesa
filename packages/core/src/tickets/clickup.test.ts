@@ -206,6 +206,37 @@ test('a ClickUp view follows a List: its tasks and subtasks listed by status typ
   );
 });
 
+test("progress moves an open task to its List's first custom status, and leaves a started one", async () => {
+  const { world, mesa } = await setUp();
+  world.serveTaskObject(clickupTaskObject('86a2', 'Get two quotes', { custom: 'DOCK-116' }));
+  world.serve(`${TEST_CLICKUP}/v2/list/l1`, {
+    statuses: [
+      { status: 'to do', type: 'open', orderindex: 0 },
+      { status: 'review', type: 'custom', orderindex: 2 },
+      { status: 'in progress', type: 'custom', orderindex: 1 },
+      { status: 'complete', type: 'closed', orderindex: 3 },
+    ],
+  });
+  const sent: unknown[] = [];
+  world.servePut(`${TEST_CLICKUP}/v2/task/DOCK-116?custom_task_ids=true&team_id=ws-1`, (body) => {
+    sent.push(body);
+    return clickupTaskObject('86a2', 'Get two quotes', { custom: 'DOCK-116', type: 'custom' });
+  });
+  const moved = await mesa.tickets.progress('clickup:DOCK-116');
+  expect(sent).toEqual([{ status: 'in progress' }]);
+  expect(moved.result).toEqual({ key: 'DOCK-116', moved: true, status: 'in progress' });
+
+  world.serveTaskObject(
+    clickupTaskObject('86a2', 'Get two quotes', { custom: 'DOCK-116', type: 'custom' }),
+  );
+  expect((await mesa.tickets.progress('clickup:DOCK-116')).result).toEqual({
+    key: 'DOCK-116',
+    moved: false,
+    status: 'in progress',
+  });
+  expect(sent).toHaveLength(1);
+});
+
 test('a saved view lists its own tasks, narrowed here to the person and open ones, and pages up to a cap', async () => {
   const { world, mesa } = await setUp();
   const view = await mesa.tickets.addView({ provider: 'clickup', name: 'Board', view: 'v-board' });

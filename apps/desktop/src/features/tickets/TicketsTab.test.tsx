@@ -30,7 +30,7 @@ const listOf = (views: FollowedView[], tickets: Ticket[]) =>
     tracker: 'jira',
     prompt: 'Ticket flow',
     projectPrompt: null,
-    defaults: { notes: false, assign: true, start: 'worktree' },
+    defaults: { notes: false, assign: true, progress: false, start: 'worktree' },
     views,
     tickets,
   });
@@ -184,6 +184,30 @@ test('a start whose step fails opens nothing and offers Back', async () => {
   await click(byTestId('start-goal')[0]);
   expect(byTestId('start-progress')[0]?.textContent).toContain('Back');
   expect(opened).toEqual([]);
+});
+
+test('Move to In Progress, switched on in Options, moves the ticket after assigning; a failed move still starts', async () => {
+  const { byTestId, calls, opened } = await startable({
+    'tickets defaults': () =>
+      envelope({ notes: false, assign: true, progress: true, start: 'worktree' }),
+    'tickets progress': () => failure('Jira needs reconnecting to allow this', 'invalid_config'),
+  });
+  await click(byTestId('start-options')[0]);
+  const progress = document.getElementById('start-progress');
+  expect(progress?.closest('div')?.textContent).toContain('Move to In Progress');
+  expect(progress?.getAttribute('aria-checked')).toBe('false');
+  await click(progress ?? undefined);
+  expect(words(calls)).toContain('tickets defaults --progress on -- lantern-cove');
+  await click(byTestId('start-goal')[0]);
+  const steps = words(calls).filter((w) => /^(tickets (assign|progress)|import --|open)/.test(w));
+  expect(steps).toEqual([
+    'tickets assign -- jira:LC-2',
+    'tickets progress -- jira:LC-2',
+    'import --project lantern-cove --no-notes -- https://lantern-cove.atlassian.net/browse/LC-2',
+    'open --from=LC-2 --exact-goal --no-parent --goal=/goal Fix it fast.\n\nWork on LC-2 --worktree -- lantern-cove',
+  ]);
+  expect(document.body.textContent).toContain('Jira needs reconnecting to allow this');
+  expect(opened).toEqual(['bbbbbbbb']);
 });
 
 test('Start session and Investigate each build their own goal', async () => {
@@ -477,7 +501,7 @@ test('the ticket picked stays picked when the person leaves the tab and comes ba
 });
 
 test('an option changed on one ticket is where the next ticket starts', async () => {
-  let defaults = { notes: false, assign: true, start: 'worktree' };
+  let defaults = { notes: false, assign: true, progress: false, start: 'worktree' };
   const { bridge, calls } = fakeBridge({
     tickets: () => {
       const list = listOf(
@@ -555,7 +579,7 @@ test('with Atlassian not connected, one banner offers Connect for every view', a
         connect: 'atlassian',
         prompt: null,
         projectPrompt: null,
-        defaults: { notes: false, assign: true, start: 'worktree' },
+        defaults: { notes: false, assign: true, progress: false, start: 'worktree' },
         views,
         tickets: [],
       }),

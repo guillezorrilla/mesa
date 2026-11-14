@@ -8,8 +8,15 @@ export async function gitCommand(
   args: string[],
   timeoutMs = 5_000,
   missingMessage = 'git not found on PATH',
+  /** Written to git's stdin, as `git apply -` reads a patch. */
+  input?: string,
 ) {
-  const result = await run('git', ['-C', cwd, ...args], timeoutMs);
+  const result = await run(
+    'git',
+    ['-C', cwd, ...args],
+    timeoutMs,
+    ...(input === undefined ? [] : [{ input }]),
+  );
   if (result.ok || result.reason === 'failed') return result;
   throw new MesaError(
     'internal',

@@ -96,6 +96,7 @@
         "baseRefName": "main",
         "additions": 120,
         "deletions": 14,
+        "autoMergeRequest": null,
         "files": {
           "nodes": [
             { "path": "src/edge/cache.ts", "additions": 90, "deletions": 10 },

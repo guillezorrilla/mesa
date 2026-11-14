@@ -180,7 +180,7 @@ test('mesa tickets show, assign, preview and defaults, and import goal --prompt'
   expect((await cli.mesa('tickets', 'preview', '--board', 'x')).code).toBe(2);
 
   expect((await cli.mesa('tickets', 'defaults', 'lantern-cove')).stdout).toContain(
-    'notes off, assign on, start in a new worktree',
+    'notes off, assign on, progress off, start in a new worktree',
   );
   const changed = await cli.mesa(
     'tickets',
@@ -190,14 +190,32 @@ test('mesa tickets show, assign, preview and defaults, and import goal --prompt'
     'checkout',
     '--notes',
     'on',
+    '--progress',
+    'on',
     '--json',
   );
   expect(changed.json.data).toEqual({
     notes: true,
     assign: true,
+    progress: true,
     start: 'checkout',
   });
   expect((await cli.mesa('tickets', 'defaults', 'lantern-cove', '--notes', 'maybe')).code).toBe(2);
+  expect((await cli.mesa('tickets', 'defaults', 'lantern-cove', '--progress', 'x')).code).toBe(2);
+
+  // Progress moves a to-do ticket through its first In Progress transition.
+  world.serve(`${TEST_JIRA}/issue/LC-12?fields=status`, {
+    fields: { status: { name: 'To Do', statusCategory: { key: 'new' } } },
+  });
+  world.serve(`${TEST_JIRA}/issue/LC-12/transitions`, {
+    transitions: [
+      { id: '21', to: { name: 'In Progress', statusCategory: { key: 'indeterminate' } } },
+    ],
+  });
+  world.servePost(`${TEST_JIRA}/issue/LC-12/transitions`, () => ({}));
+  expect((await cli.mesa('tickets', 'progress', 'LC-12')).stdout).toContain(
+    'Moved LC-12 to In Progress',
+  );
 
   world.serveIssue('LC-12', { summary: 'Fix the tide alarm', description: '<p>Late.</p>' });
   await cli.mesa('import', 'LC-12', '--project', 'lantern-cove', '--no-notes');

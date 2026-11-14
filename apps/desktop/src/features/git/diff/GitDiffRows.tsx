@@ -2,6 +2,8 @@ import type { DiffRow } from '@mesa/core';
 import { ChevronDown, ChevronsUpDown, ChevronUp } from 'lucide-react';
 import { Fragment, memo, type ReactNode, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { type HunkAction, HunkBar } from './HunkBar';
+import { hunkStarts } from './hunkStarts';
 
 /** Unchanged lines kept open on each side of a change; longer runs fold. */
 const CONTEXT = 3;
@@ -89,6 +91,8 @@ export const GitDiffRows = memo(function GitDiffRows(props: {
   /** The profile's diff text size in px. */
   fontSize: number;
   slots?: LineSlots;
+  /** A diff of the index: a band above each hunk that stages or unstages it alone. */
+  hunks?: HunkAction;
 }) {
   const [open, setOpen] = useState<Set<number>>(new Set());
   const lines = props.rows.filter((row): row is Line => row.kind !== 'meta');
@@ -97,7 +101,8 @@ export const GitDiffRows = memo(function GitDiffRows(props: {
   );
   const side = props.layout === 'side-by-side';
   const shown = pieces(side ? lines : unified(lines), props.slots?.held);
-  const { slots } = props;
+  const { slots, hunks } = props;
+  const starts = hunks && hunkStarts(shown);
   return (
     <div
       data-testid={side ? 'git-side-diff' : 'git-inline-diff'}
@@ -116,8 +121,17 @@ export const GitDiffRows = memo(function GitDiffRows(props: {
         </p>
       ))}
       {shown.map((piece, index) => {
-        if ('line' in piece)
-          return <Rows key={keyOf(piece.line)} line={piece.line} side={side} slots={slots} />;
+        if ('line' in piece) {
+          const hunk = starts?.get(index);
+          const rows = <Rows key={keyOf(piece.line)} line={piece.line} side={side} slots={slots} />;
+          if (!hunk || !hunks) return rows;
+          return (
+            <Fragment key={keyOf(piece.line)}>
+              <HunkBar hunk={hunk} action={hunks} />
+              {rows}
+            </Fragment>
+          );
+        }
         if ('gap' in piece)
           return (
             <p

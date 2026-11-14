@@ -16,6 +16,7 @@ import {
   type LinearListed,
   linearIssue,
   linearIssues,
+  startLinearIssue,
 } from '../sources/linear-tickets.js';
 import { type LinearView, type LinearViewInput, LinearViewSchema } from './linear-view.js';
 import {
@@ -187,12 +188,13 @@ export function linearProvider(deps: ProviderDeps) {
     },
     me,
     place: async () => (await deps.sites('linear'))?.[0]?.name ?? 'Linear',
-    /** Mesa's one write to Linear: the issue's assignee becomes the person. */
+    /** The issue's assignee becomes the person. */
     assign: async (key) => {
       const user = await me();
       const assignee = await assignLinearIssue(get(), key, user.id);
       return { assignee: assignee.name };
     },
+    progress: (key) => startLinearIssue(get(), key),
   };
 
   return {

@@ -18,7 +18,7 @@ export { PROVIDER_IDS, type ProviderId, ticketId, ticketRef } from './provider-i
 
 /**
  * The ticket providers (CONTEXT.md, Ticket view), keyed by id: each row's name, the source whose
- * connection it reads, a line describing one of its views, and its reads and its one write
+ * connection it reads, a line describing one of its views, and its reads and its writes
  * (TicketProvider). A new tracker is one row here, its view in TicketViewSchema, and its files.
  */
 export const PROVIDERS = {

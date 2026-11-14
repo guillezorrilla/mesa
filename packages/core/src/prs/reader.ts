@@ -1,6 +1,7 @@
 import type { Runner } from '../lib/process.js';
 import type { JsonRead } from '../lib/run-json.js';
 import type { PrFacts } from './buckets.js';
+import type { MergeMethod } from './merge-methods.js';
 
 /** What a list row names about a PR, besides its bucket. */
 export type PrHead = {
@@ -67,6 +68,8 @@ export type PrRead = {
   checks: 'passing' | 'failing' | 'pending' | null;
   /** Each of the head commit's checks, the ones failing first. */
   checkList: PrCheck[];
+  /** GitHub auto-merge's method while it is on, else null (always null on Bitbucket). */
+  autoMerge: MergeMethod | null;
   threads: PrThread[];
   drafts: PrDraft[];
   files: PrFile[];

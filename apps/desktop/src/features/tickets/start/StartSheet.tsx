@@ -44,7 +44,8 @@ function Field(props: { label: string; htmlFor?: string; hint: string; children:
 
 /**
  * The options every Ticket start uses, to change before pressing one: where it runs, Your rules (a
- * Saved prompt, or a new one written here), assigning, and Write notes; with the preview, and the
+ * Saved prompt, or a new one written here), assigning, moving it to In Progress, and Write notes;
+ * with the preview, and the
  * start buttons over a line saying what the one pointed at does.
  */
 export function StartSheet(props: {
@@ -107,6 +108,15 @@ export function StartSheet(props: {
             }
             checked={options.assign}
             onChange={(assign) => set({ assign })}
+          />
+        )}
+        {ticket.progresses && (
+          <Toggle
+            id="start-progress"
+            label="Move to In Progress"
+            hint={`When it is still to do in ${ticket.trackerName}, so the board shows it started`}
+            checked={options.progress}
+            onChange={(progress) => set({ progress })}
           />
         )}
         <Toggle

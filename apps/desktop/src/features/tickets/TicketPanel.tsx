@@ -190,6 +190,7 @@ export function TicketPanel(props: {
           label: tracker.shortKey(ticket.key),
           provider: ticket.provider,
           several: tracker.several,
+          progresses: tracker.progress,
           trackerName: tracker.short,
           url: ticket.url,
           summary: ticket.summary,

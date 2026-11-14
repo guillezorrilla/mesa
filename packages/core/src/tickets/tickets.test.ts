@@ -149,7 +149,7 @@ test('filter and JQL views narrow as told, keep their own order, and a ticket in
     tracker: null,
     prompt: null,
     projectPrompt: null,
-    defaults: { notes: false, assign: true, start: 'worktree' },
+    defaults: { notes: false, assign: true, progress: false, start: 'worktree' },
     views: [],
     tickets: [],
   });

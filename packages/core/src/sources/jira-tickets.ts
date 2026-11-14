@@ -209,7 +209,7 @@ export async function searchTickets(get: Http, site: Site, jql: string): Promise
 }
 
 /**
- * Assigns issue `key` to account `accountId`: Mesa's one write to Jira, which needs the
+ * Assigns issue `key` to account `accountId`: one of Mesa's two writes to Jira, which need the
  * write:jira-work scope (a token without it gets the reconnect error, authorizedFetch).
  */
 export async function assignIssue(get: Http, site: Site, key: string, accountId: string) {
@@ -220,4 +220,39 @@ export async function assignIssue(get: Http, site: Site, key: string, accountId:
   });
   if (response.ok) return;
   await jiraJson(response, z.unknown(), `Assigning ${key}`);
+}
+
+const statusSchema = z.object({
+  name: z.string(),
+  statusCategory: z.object({ key: z.string() }).optional(),
+});
+
+/**
+ * Moves issue `key`, while to do (status category new), through the first transition open to it
+ * whose status is in the In Progress category (indeterminate), with the write:jira-work scope; one
+ * already started or done, or with no such transition, stays where it is.
+ */
+export async function startIssue(get: Http, site: Site, key: string) {
+  const path = `${jiraApi(site.id)}/issue/${encodeURIComponent(key)}`;
+  const { fields } = await jiraJson(
+    await get(`${path}?fields=status`),
+    z.object({ fields: z.object({ status: statusSchema }) }),
+    `Jira issue ${key}`,
+  );
+  if ((fields.status.statusCategory?.key ?? 'new') !== 'new')
+    return { moved: false, status: fields.status.name };
+  const { transitions } = await jiraJson(
+    await get(`${path}/transitions`),
+    z.object({ transitions: z.array(z.object({ id: z.string(), to: statusSchema })) }),
+    `Transitions of ${key}`,
+  );
+  const next = transitions.find((t) => t.to.statusCategory?.key === 'indeterminate');
+  if (!next) return { moved: false, status: fields.status.name };
+  const response = await get(`${path}/transitions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ transition: { id: next.id } }),
+  });
+  if (!response.ok) await jiraJson(response, z.unknown(), `Moving ${key} to ${next.to.name}`);
+  return { moved: true, status: next.to.name };
 }

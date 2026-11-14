@@ -1,5 +1,6 @@
+import { type HunkPick, MesaError } from '@mesa/core';
 import { defineCommand } from '../../command.js';
-import { CHECKOUT_FLAG } from '../../input/flags.js';
+import { CHECKOUT_FLAG, wholeNumber } from '../../input/flags.js';
 import { columns } from '../../output/columns.js';
 import { recordedOutput } from '../../output/recorded.js';
 
@@ -45,27 +46,60 @@ export const gitDiff = defineCommand({
   },
 });
 
+/** One hunk of a path's diff instead of the whole path (core git/hunk.ts). */
+const HUNK_FLAGS = {
+  hunk: { type: 'string', description: 'Only this hunk, 0-based in `mesa git diff` order' },
+  expect: {
+    type: 'string',
+    description:
+      'With --hunk, the range it was read with, `--expect=-<old>,<count> +<new>,<count>`; refused when it changed',
+  },
+} as const;
+
+function hunkOf(flags: { hunk?: string; expect?: string }): HunkPick | undefined {
+  if (flags.hunk === undefined) {
+    if (flags.expect !== undefined) throw new MesaError('usage', '--expect needs --hunk');
+    return undefined;
+  }
+  return {
+    index: wholeNumber(flags.hunk, '--hunk'),
+    ...(flags.expect === undefined ? {} : { expect: flags.expect }),
+  };
+}
+
+const what = (path: string, hunk: HunkPick | undefined) =>
+  hunk ? `hunk ${hunk.index} of ${path}` : path;
+
 export const gitStage = defineCommand({
   name: 'git stage',
-  summary: 'Stage one literal path in a project checkout',
+  summary: 'Stage one literal path, or one hunk of its unstaged diff, in a project checkout',
   args: ['project', 'path'],
-  flags: { checkout: CHECKOUT_FLAG },
-  example: 'mesa git stage lantern-cove README.md',
+  flags: { checkout: CHECKOUT_FLAG, ...HUNK_FLAGS },
+  example: 'mesa git stage lantern-cove README.md --hunk 1',
   run: async ({ mesa, args, flags }) => {
-    const recorded = await mesa.git.stage(args.project, args.path, flags.checkout);
-    return recordedOutput(recorded, { data: recorded.result, text: `staged ${args.path}` });
+    const hunk = hunkOf(flags);
+    const recorded = await mesa.git.stage(args.project, args.path, flags.checkout, hunk);
+    return recordedOutput(recorded, {
+      data: recorded.result,
+      text: `staged ${what(args.path, hunk)}`,
+    });
   },
 });
 
 export const gitUnstage = defineCommand({
   name: 'git unstage',
-  summary: 'Unstage one literal path without changing the working file',
+  summary:
+    'Unstage one literal path, or one hunk of its staged diff, without changing the working file',
   args: ['project', 'path'],
-  flags: { checkout: CHECKOUT_FLAG },
-  example: 'mesa git unstage lantern-cove README.md',
+  flags: { checkout: CHECKOUT_FLAG, ...HUNK_FLAGS },
+  example: 'mesa git unstage lantern-cove README.md --hunk 0',
   run: async ({ mesa, args, flags }) => {
-    const recorded = await mesa.git.unstage(args.project, args.path, flags.checkout);
-    return recordedOutput(recorded, { data: recorded.result, text: `unstaged ${args.path}` });
+    const hunk = hunkOf(flags);
+    const recorded = await mesa.git.unstage(args.project, args.path, flags.checkout, hunk);
+    return recordedOutput(recorded, {
+      data: recorded.result,
+      text: `unstaged ${what(args.path, hunk)}`,
+    });
   },
 });
 
