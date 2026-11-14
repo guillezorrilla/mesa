@@ -37,6 +37,7 @@ const detail = (over: Partial<PrDetail> = {}): PrDetail => ({
   deletions: 61,
   checks: 'passing',
   checkList: [],
+  autoMerge: null,
   body: '',
   threads: [
     {
@@ -296,6 +297,44 @@ test('with failing checks the confirm is Merge anyway, which passes --yes', asyn
   expect(byTestId('merge-pr-dialog')[0]?.textContent).toContain('Its checks are failing.');
   await click(button('Merge anyway'));
   expect(calls.find((c) => c[2] === 'merge')).toContain('--yes');
+});
+
+test('Merge when checks pass turns on auto-merge, then the PR offers Cancel auto-merge', async () => {
+  let autoMerge: PrDetail['autoMerge'] = null;
+  const { bridge, calls } = fakeBridge({
+    'prs show': () => envelope(detail({ checks: 'pending', autoMerge })),
+    'prs merge': (args) => {
+      autoMerge = args.includes('--auto') ? 'rebase' : null;
+      return envelope({ receipt: null });
+    },
+  });
+  const byTestId = await renderWithMesa(<PrScreen project="storefront" number={477} />, bridge);
+  const merges = () => calls.filter((c) => c[2] === 'merge').map((c) => c.slice(3));
+  await click(
+    document.querySelector<HTMLButtonElement>('[data-testid="merge-method"]') ?? undefined,
+  );
+  await click(
+    document.querySelector<HTMLElement>('[data-testid="merge-method-rebase"]') ?? undefined,
+  );
+  await click(
+    document.querySelector<HTMLButtonElement>('[data-testid="merge-method"]') ?? undefined,
+  );
+  await click(document.querySelector<HTMLElement>('[data-testid="merge-when-ready"]') ?? undefined);
+  await click(button('Merge when checks pass'));
+  expect(byTestId('merge-pr-dialog')[0]?.textContent).toContain(
+    'GitHub merges it (Rebase and merge) once its required checks and reviews pass.',
+  );
+  await click(
+    document.querySelector<HTMLButtonElement>('[data-testid="confirm-merge-pr"]') ?? undefined,
+  );
+  expect(merges()).toEqual([['--caller', 'app', '--auto', '--rebase', '--', 'storefront', '477']]);
+  // Read again, auto-merge is on: no Merge, but the method and Cancel auto-merge.
+  expect(byTestId('merge-pr')).toHaveLength(0);
+  expect(byTestId('auto-merge-on')[0]?.textContent).toContain('Rebase and merge');
+  await click(button('Cancel auto-merge'));
+  expect(merges()[1]).toEqual(['--caller', 'app', '--disable-auto', '--', 'storefront', '477']);
+  expect(byTestId('auto-merge-on')).toHaveLength(0);
+  expect(byTestId('merge-pr')).toHaveLength(1);
 });
 
 test('only an open GitHub PR offers Merge', async () => {

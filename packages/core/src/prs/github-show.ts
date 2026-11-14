@@ -15,6 +15,7 @@ import {
   toCheck,
   toPr,
 } from './github-pr.js';
+import type { MergeMethod } from './merge-methods.js';
 import type { PrDraft, PrProviderApi, PrThread } from './reader.js';
 
 // One PR in full: the list's facts, plus its threads, my pending review and its files. Fields named
@@ -26,6 +27,7 @@ const QUERY = `query($owner: String!, $name: String!, $number: Int!) {
     pullRequest(number: $number) {
       ...PrFacts
       body baseRefName additions deletions
+      autoMergeRequest { mergeMethod }
       files(first: 100) { nodes { path additions deletions } }
       head: commits(last: 1) { nodes { commit { statusCheckRollup { state ${CHECK_CONTEXTS} } } } }
       reviewThreads(first: 100) {
@@ -55,6 +57,9 @@ const Response = z.object({
         baseRefName: z.string(),
         additions: z.number().int(),
         deletions: z.number().int(),
+        autoMergeRequest: z
+          .object({ mergeMethod: z.enum(['MERGE', 'SQUASH', 'REBASE']) })
+          .nullable(),
         files: Nodes(
           z.object({ path: z.string(), additions: z.number().int(), deletions: z.number().int() }),
         ).nullable(),
@@ -87,6 +92,10 @@ const Response = z.object({
     }),
   }),
 });
+
+/** GitHub's merge method enum as Mesa names it (`MergeMethod`). */
+const autoMergeOf = (method?: 'MERGE' | 'SQUASH' | 'REBASE') =>
+  method ? (method.toLowerCase() as MergeMethod) : null;
 
 /** One GitHub PR in full through one `gh api graphql` call. */
 export const showGithub: PrProviderApi['show'] = async (run, repo, number) => {
@@ -143,6 +152,7 @@ export const showGithub: PrProviderApi['show'] = async (run, repo, number) => {
       deletions: pr.deletions,
       checks: checksOf(rollup?.state),
       checkList: orderChecks(rollup?.contexts.nodes.map(toCheck) ?? []),
+      autoMerge: autoMergeOf(pr.autoMergeRequest?.mergeMethod),
       threads,
       drafts,
       files: pr.files?.nodes ?? [],

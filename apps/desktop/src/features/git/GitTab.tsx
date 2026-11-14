@@ -285,6 +285,7 @@ export function GitTab(props: {
                       path={current.change.path}
                       staged={current.staged}
                       untracked={current.code === '?'}
+                      onChanged={() => void changed()}
                       layout={layout}
                       fontSize={appearance.diffFontSize}
                     />

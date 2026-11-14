@@ -29,7 +29,7 @@ const listOf = (tickets: Ticket[]) =>
     tracker: 'github',
     prompt: null,
     projectPrompt: null,
-    defaults: { notes: false, assign: true, start: 'worktree' },
+    defaults: { notes: false, assign: true, progress: false, start: 'worktree' },
     views: [harborApi],
     tickets,
   });
@@ -115,6 +115,10 @@ test('a GitHub project lists issues as Open and Closed, and the panel shows stat
   expect(byTestId('start-summary')[0]?.textContent).toBe(
     'Runs in a new worktree on issue-412-tide-chart-shows-utc',
   );
+  // An issue is open or closed, with no In Progress to move it to: Options has no such switch.
+  await click(byTestId('start-options')[0]);
+  expect(byTestId('start-sheet')[0]?.textContent).toContain('Write notes first');
+  expect(document.getElementById('start-progress')).toBeNull();
 });
 
 test("Follow a repo picks this project's remote, narrows by label and milestone with a live count, and gives Mesa access to a new repo", async () => {

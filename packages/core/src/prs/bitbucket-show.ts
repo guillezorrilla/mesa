@@ -103,6 +103,7 @@ export async function showBitbucket(
       deletions: files.reduce((n, f) => n + f.deletions, 0),
       checks: rollUp(checkList),
       checkList,
+      autoMerge: null,
       threads: threadsOf(pr),
       drafts: myDrafts(pr, me),
       files,

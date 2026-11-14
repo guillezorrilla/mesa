@@ -11,6 +11,7 @@ import {
   jiraFields,
   searchTickets,
   sprints,
+  startIssue,
   TICKETS,
 } from '../sources/jira-tickets.js';
 import { jiraAccess } from './jira-access.js';
@@ -112,13 +113,14 @@ export function jiraProvider(deps: ProviderDeps) {
     },
     me: jira.me,
     place: async (siteName) => (await jira.siteOf(siteName)).name,
-    /** Mesa's one write to Jira, which needs the write:jira-work scope. */
+    /** Needs the write:jira-work scope, as progress does. */
     assign: async (key, siteName) => {
       const site = await jira.siteOf(siteName);
       const me = await jira.me();
       await assignIssue(get(), site, key, me.id);
       return { assignee: me.name };
     },
+    progress: async (key, siteName) => startIssue(get(), await jira.siteOf(siteName), key),
   };
 
   /** `site` as the reads that list from it name it. */

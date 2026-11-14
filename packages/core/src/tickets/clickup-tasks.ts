@@ -37,7 +37,7 @@ export const clickupTaskSchema = z.object({
   tags: z.array(z.object({ name: z.string(), tag_bg: z.string().nullish() })).nullish(),
   due_date: clickupMillis,
   markdown_description: z.string().nullish(),
-  list: z.object({ name: z.string() }).nullish(),
+  list: z.object({ id: z.string().optional(), name: z.string() }).nullish(),
   folder: z.object({ name: z.string().nullish(), hidden: z.boolean().nullish() }).nullish(),
   space: z.object({ id: z.string() }).nullish(),
 });

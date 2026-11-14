@@ -140,4 +140,6 @@ test('the check list names each status, failing first, with its HTTPS link', asy
     { name: 'lint', state: 'failing' },
     { name: 'build', state: 'passing', url: 'https://ci.example.com/1' },
   ]);
+  // Bitbucket has no auto-merge.
+  expect(read.value.autoMerge).toBeNull();
 });

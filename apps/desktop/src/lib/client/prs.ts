@@ -89,20 +89,23 @@ export const prsCommands = {
   /**
    * Merges the PR through gh with `method` (squash by default), never with --admin; `yes` is the
    * person's confirm to merge when a check fails or it conflicts, which core refuses otherwise.
+   * `auto` turns GitHub auto-merge on (with `method`) or off instead of merging now.
    */
-  'prs.merge': commandWith<PrRef & { method?: MergeMethod; yes?: boolean }, PrMerged>(
-    ({ project, number, method, yes }) => [
-      'prs',
-      'merge',
-      '--caller',
-      'app',
-      ...(method ? [`--${method}`] : []),
-      ...(yes ? ['--yes'] : []),
-      '--',
-      project,
-      String(number),
-    ],
-  ),
+  'prs.merge': commandWith<
+    PrRef & { method?: MergeMethod; yes?: boolean; auto?: 'on' | 'off' },
+    PrMerged
+  >(({ project, number, method, yes, auto }) => [
+    'prs',
+    'merge',
+    '--caller',
+    'app',
+    ...(auto === 'on' ? ['--auto'] : auto === 'off' ? ['--disable-auto'] : []),
+    ...(method ? [`--${method}`] : []),
+    ...(yes ? ['--yes'] : []),
+    '--',
+    project,
+    String(number),
+  ]),
   /** The profile's Review voice: the file review sessions write comments in, and its text when set. */
   'prs.voice': command<ReviewVoice>('prs', 'voice'),
 };

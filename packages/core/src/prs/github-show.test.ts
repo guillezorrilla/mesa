@@ -106,6 +106,26 @@ test('show maps every check rollup, and none as null', async () => {
   }
 });
 
+test('show reads GitHub auto-merge as its method while it is on, else null', async () => {
+  const pr = (mergeMethod: string | null) => {
+    const json = JSON.parse(FIXTURE);
+    json.data.repository.pullRequest.autoMergeRequest = mergeMethod ? { mergeMethod } : null;
+    return JSON.stringify(json);
+  };
+  for (const [method, autoMerge] of [
+    ['SQUASH', 'squash'],
+    ['REBASE', 'rebase'],
+    [null, null],
+  ] as const) {
+    const read = await githubApi.show(
+      scriptedRunner({ gh: pr(method) }).run,
+      'acme/storefront',
+      477,
+    );
+    expect(read).toMatchObject({ ok: true, value: { autoMerge } });
+  }
+});
+
 test('a failing gh and an unexpected shape are reported, never thrown', async () => {
   const failing = scriptedRunner({}, { failing: ['gh'] });
   expect(await githubApi.show(failing.run, 'acme/storefront', 477)).toMatchObject({

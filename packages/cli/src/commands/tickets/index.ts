@@ -5,7 +5,7 @@ import { ticketsRepo, ticketsRepos } from './github.js';
 import { ticketsBoards, ticketsFilters } from './jira.js';
 import { ticketsTeam, ticketsTeams } from './linear.js';
 import { tickets } from './list.js';
-import { ticketsAssign, ticketsDefaults, ticketsShow } from './ticket.js';
+import { ticketsAssign, ticketsDefaults, ticketsProgress, ticketsShow } from './ticket.js';
 import {
   ticketsFollow,
   ticketsPreview,
@@ -23,6 +23,7 @@ export const TICKETS_COMMANDS: Command[] = [
   tickets,
   ticketsShow,
   ticketsAssign,
+  ticketsProgress,
   ticketsViews,
   ticketsViewsAdd,
   ticketsViewsRename,

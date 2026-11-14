@@ -5,7 +5,13 @@ import { type Checkout, resolveCheckout } from '../projects/checkout.js';
 import { gitCommand } from './command.js';
 import { literalPath } from './path.js';
 
-export type GitPathAction = { checkout: Checkout; path: string; action: 'stage' | 'unstage' };
+export type GitPathAction = {
+  checkout: Checkout;
+  path: string;
+  action: 'stage' | 'unstage';
+  /** The one hunk changed (git/hunk.ts); none: the whole path. */
+  hunk?: number;
+};
 export type GitCommit = { checkout: Checkout; oid: string; summary: string };
 
 /** Change only the named literal path in the index. */

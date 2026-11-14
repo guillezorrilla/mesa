@@ -19,6 +19,7 @@ import type { PrRef } from '@/lib/client/prs';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { useNavigate } from '@/lib/useNavigate';
 import { cn } from '@/lib/utils';
+import { AutoMergeLine } from './AutoMergeLine';
 import { MergeButton } from './MergeButton';
 import { PrDetailPanel } from './PrDetailPanel';
 import { PrStatusPanel } from './PrStatusPanel';
@@ -101,15 +102,32 @@ export function PrScreen(
     />
   );
   // Merging goes through gh, so only an open GitHub PR offers it; the merged PR is read again.
-  const merge = pr.state === 'open' && pr.provider === 'github' && (
-    <MergeButton
-      pr={pr}
-      onMerge={async (method, yes) => {
-        const ref = { project: pr.project, number: pr.number, method };
-        if (await run('prs.merge', yes ? { ...ref, yes } : ref)) await show.refresh();
-      }}
-    />
-  );
+  // While GitHub auto-merge is on, the PR offers Cancel auto-merge instead.
+  const merge =
+    pr.state === 'open' &&
+    pr.provider === 'github' &&
+    (pr.autoMerge ? (
+      <AutoMergeLine
+        method={pr.autoMerge}
+        onCancel={async () => {
+          const ref = { project: pr.project, number: pr.number, auto: 'off' as const };
+          if (await run('prs.merge', ref)) await show.refresh();
+        }}
+      />
+    ) : (
+      <MergeButton
+        pr={pr}
+        onMerge={async (method, yes, auto) => {
+          const ref = {
+            project: pr.project,
+            number: pr.number,
+            method,
+            ...(auto ? { auto: 'on' as const } : {}),
+          };
+          if (await run('prs.merge', yes ? { ...ref, yes } : ref)) await show.refresh();
+        }}
+      />
+    ));
   const last = reviews.all.at(-1);
   return (
     <div data-testid="pr-screen" className="space-y-5">

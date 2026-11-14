@@ -40,7 +40,8 @@ function world(
   const { mesa } = projectProfile(run, over);
   const merges = () => calls.filter((c) => c.file === 'gh' && c.args[1] === 'merge');
   const receipt = () => mesa.receipts.list({})[0]?.receipt;
-  return { mesa, calls, merges, receipt };
+  const summary = () => mesa.receipts.list({})[0]?.summary;
+  return { mesa, calls, merges, receipt, summary };
 }
 
 const PR = { project: 'lantern-cove', number: 7 };
@@ -50,7 +51,13 @@ test.each(['squash', 'merge', 'rebase'] as const)(
   async (method) => {
     const { mesa, calls, merges, receipt } = world();
     const done = await mesa.prs.merge(PR, { method, caller: 'app' });
-    expect(done.result).toEqual({ ...PR, method, head: 'c0ffee1', checks: 'passing' });
+    expect(done.result).toEqual({
+      ...PR,
+      method,
+      head: 'c0ffee1',
+      checks: 'passing',
+      autoMerge: null,
+    });
     expect(merges().map((c) => c.args)).toEqual([
       [
         'pr',
@@ -153,4 +160,68 @@ test('a review session may never merge: it reads untrusted PR text', async () =>
     message: `review session ${id} cannot merge; a person merges`,
   });
   expect(calls.filter((c) => c.file === 'gh')).toEqual([]);
+});
+
+test('auto-merge on asks gh to merge with the method once checks pass, at the head it read', async () => {
+  const { mesa, merges, receipt, summary } = world({ checks: 'PENDING' });
+  const done = await mesa.prs.merge(PR, { method: 'rebase', auto: 'on', caller: 'app' });
+  expect(done.result).toMatchObject({ ...PR, method: 'rebase', autoMerge: 'rebase' });
+  expect(merges().map((c) => c.args)).toEqual([
+    [
+      'pr',
+      'merge',
+      '7',
+      '--repo',
+      'acme/lantern-cove',
+      '--auto',
+      '--rebase',
+      '--match-head-commit',
+      'c0ffee1',
+    ],
+  ]);
+  expect(receipt()).toMatchObject({
+    kind: 'merge',
+    inputs: { ...PR, method: 'rebase', caller: 'app', auto: 'on' },
+  });
+  expect(summary()).toBe('Turned on auto-merge for lantern-cove #7 (rebase)');
+});
+
+test('auto-merge on keeps the refusals, as the PR merges later', async () => {
+  const { mesa, merges } = world({ checks: 'FAILURE' });
+  await expect(mesa.prs.merge(PR, { auto: 'on' })).rejects.toMatchObject({
+    details: { refused: 'checks-failing' },
+  });
+  expect(merges()).toEqual([]);
+});
+
+test('auto-merge off disables it, refusing nothing, as it merges nothing', async () => {
+  const { mesa, merges, summary } = world({ checks: 'FAILURE', mergeable: 'CONFLICTING' });
+  const done = await mesa.prs.merge(PR, { auto: 'off' });
+  expect(done.result.autoMerge).toBeNull();
+  expect(merges().map((c) => c.args)).toEqual([
+    ['pr', 'merge', '7', '--repo', 'acme/lantern-cove', '--disable-auto'],
+  ]);
+  expect(summary()).toBe('Turned off auto-merge for lantern-cove #7');
+});
+
+test('a repo that does not allow auto-merge names the setting', async () => {
+  const { mesa } = world({
+    mergeFails:
+      'GraphQL: Pull request Auto merge is not allowed for this repository (enablePullRequestAutoMerge)',
+  });
+  await expect(mesa.prs.merge(PR, { auto: 'on' })).rejects.toMatchObject({
+    code: 'usage',
+    message:
+      'acme/lantern-cove does not allow auto-merge; turn on "Allow auto-merge" in its GitHub Settings > General',
+  });
+});
+
+test('auto-merge on a Bitbucket project is refused before any gh call', async () => {
+  const { mesa, merges } = world({}, 'https://bitbucket.org/acme/lantern-cove.git');
+  for (const auto of ['on', 'off'] as const)
+    await expect(mesa.prs.merge(PR, { auto })).rejects.toMatchObject({
+      code: 'usage',
+      message: expect.stringContaining('merges through gh only'),
+    });
+  expect(merges()).toEqual([]);
 });

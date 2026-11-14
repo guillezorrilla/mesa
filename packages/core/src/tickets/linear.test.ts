@@ -275,6 +275,64 @@ test('a Linear connection without the write scope asks to reconnect to assign, a
   );
 });
 
+test("progress moves a to-do issue to its team's first started state, and leaves a started one", async () => {
+  const { world, mesa } = await setUp();
+  let state = { name: 'Todo', type: 'unstarted' };
+  world.answer('TicketWorkflow', () => ({
+    issue: {
+      state,
+      team: {
+        states: {
+          nodes: [
+            { id: 's-review', name: 'In Review', type: 'started', position: 3 },
+            { id: 's-todo', name: 'Todo', type: 'unstarted', position: 1 },
+            { id: 's-doing', name: 'In Progress', type: 'started', position: 2 },
+          ],
+        },
+      },
+    },
+  }));
+  world.answer('TicketProgress', () => ({ issueUpdate: { success: true } }));
+  const moved = await mesa.tickets.progress('linear:HAR-12');
+  expect(world.queries.at(-1)).toEqual({
+    operation: 'TicketProgress',
+    variables: { id: 'HAR-12', state: 's-doing' },
+  });
+  expect(moved.result).toEqual({ key: 'HAR-12', moved: true, status: 'In Progress' });
+  expect(moved.receipt).toBeDefined();
+
+  state = { name: 'In Review', type: 'started' };
+  expect((await mesa.tickets.progress('linear:HAR-12')).result).toEqual({
+    key: 'HAR-12',
+    moved: false,
+    status: 'In Review',
+  });
+  expect(world.queries.at(-1)?.operation).toBe('TicketWorkflow');
+});
+
+test('progress without the write scope asks to reconnect', async () => {
+  const { world, mesa } = await setUp();
+  world.servePost('https://api.linear.app/graphql', (body) =>
+    /TicketWorkflow/.test(String(body.query))
+      ? {
+          data: {
+            issue: {
+              state: { name: 'Todo', type: 'unstarted' },
+              team: {
+                states: { nodes: [{ id: 's', name: 'Doing', type: 'started', position: 1 }] },
+              },
+            },
+          },
+        }
+      : /TicketProgress/.test(String(body.query))
+        ? { data: null, errors: [{ message: 'Invalid scope: `write` required' }] }
+        : { data: { viewer: { id: 'user-1', name: 'Rowan Tide' } } },
+  );
+  await expect(mesa.tickets.progress('linear:HAR-12')).rejects.toThrow(
+    'Linear needs reconnecting to allow this',
+  );
+});
+
 test('a rate limit Linear answers without its HTTP 400 says to try again', async () => {
   const { world, mesa } = await setUp();
   world.servePost('https://api.linear.app/graphql', () => ({

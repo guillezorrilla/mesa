@@ -27,6 +27,7 @@ export { DECISION_SITES, type DecisionSite } from './decisions/sites.js';
 export { SYSTEM_ONE_PROVIDERS, type SystemOneProvider } from './decisions/systemone.js';
 export { FEEDBACK_MAX } from './feedback/send.js';
 export { parseFileTarget } from './files/file-target.js';
+export { hunkRange } from './git/hunk-range.js';
 export {
   answeredBy,
   EMPTY_IMPACT,

@@ -6,7 +6,7 @@ import { TicketsTab } from './TicketsTab';
 
 const INSTALL = 'https://github.com/apps/mesa-for-tickets/installations/new';
 const REPO = 'harbor-co/harbor-api';
-const DEFAULTS = { notes: false, assign: true, start: 'worktree' };
+const DEFAULTS = { notes: false, assign: true, progress: false, start: 'worktree' };
 
 /** The list of a project tracking `tracker`, following `views`, its source connected or not. */
 const listOf = (tracker: string | null, views: object[] = [], connect?: string) =>

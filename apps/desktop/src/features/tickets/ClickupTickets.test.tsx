@@ -28,7 +28,7 @@ const listOf = (tickets: Ticket[]) =>
     tracker: 'clickup',
     prompt: null,
     projectPrompt: null,
-    defaults: { notes: false, assign: true, start: 'worktree' },
+    defaults: { notes: false, assign: true, progress: false, start: 'worktree' },
     views: [sprint],
     tickets,
   });

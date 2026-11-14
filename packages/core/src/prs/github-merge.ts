@@ -81,3 +81,35 @@ export const mergeGithub = (
     ['pr', 'merge', String(number), '--repo', repo, `--${method}`, '--match-head-commit', head],
     60_000,
   );
+
+/**
+ * GitHub auto-merge on: `gh pr merge --auto`, so GitHub merges with the method once its required
+ * checks and reviews pass, still only at the head the decision read.
+ */
+export const autoMergeGithub = (
+  run: Runner,
+  repo: string,
+  number: number,
+  method: MergeMethod,
+  head: string,
+) =>
+  runText(
+    run,
+    'gh',
+    [
+      'pr',
+      'merge',
+      String(number),
+      '--repo',
+      repo,
+      '--auto',
+      `--${method}`,
+      '--match-head-commit',
+      head,
+    ],
+    60_000,
+  );
+
+/** GitHub auto-merge off: `gh pr merge --disable-auto`; the PR stays open. */
+export const disableAutoMergeGithub = (run: Runner, repo: string, number: number) =>
+  runText(run, 'gh', ['pr', 'merge', String(number), '--repo', repo, '--disable-auto'], 60_000);

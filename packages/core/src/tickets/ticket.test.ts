@@ -113,6 +113,38 @@ test('assign puts the ticket on the signed-in account, once, with a receipt', as
   expect(assigned).toEqual([{ accountId: 'acc-1' }]);
 });
 
+test('progress takes the first transition into In Progress, once, and leaves a started one', async () => {
+  const { mesa, world } = await setUp();
+  const status = (name: string, key: string) => ({
+    fields: { status: { name, statusCategory: { key } } },
+  });
+  world.serve(`${TEST_JIRA}/issue/LC-12?fields=status`, status('To Do', 'new'));
+  world.serve(`${TEST_JIRA}/issue/LC-12/transitions`, {
+    transitions: [
+      { id: '31', to: { name: 'Done', statusCategory: { key: 'done' } } },
+      { id: '21', to: { name: 'In Progress', statusCategory: { key: 'indeterminate' } } },
+      { id: '22', to: { name: 'In Review', statusCategory: { key: 'indeterminate' } } },
+    ],
+  });
+  const moves: unknown[] = [];
+  world.servePost(`${TEST_JIRA}/issue/LC-12/transitions`, (body) => {
+    moves.push(body);
+    return {};
+  });
+  expect(await mesa.tickets.progress('jira:LC-12')).toMatchObject({
+    result: { key: 'LC-12', moved: true, status: 'In Progress' },
+    receipt: { id: expect.any(String) },
+  });
+  expect(moves).toEqual([{ transition: { id: '21' } }]);
+
+  // Already started: it stays, with no move and no receipt.
+  world.serve(`${TEST_JIRA}/issue/LC-12?fields=status`, status('In Review', 'indeterminate'));
+  expect(await mesa.tickets.progress('LC-12')).toMatchObject({
+    result: { key: 'LC-12', moved: false, status: 'In Review' },
+  });
+  expect(moves).toHaveLength(1);
+});
+
 test('a token without the write scope fails assign alone and keeps the connection', async () => {
   const { mesa, world } = await setUp();
   world.routes[`PUT ${TEST_JIRA}/issue/LC-12/assignee`] = {
@@ -153,11 +185,15 @@ test('each project keeps its own defaults, and a goal takes a prompt by name, no
   expect(mesa.tickets.defaults('lantern-cove')).toEqual({
     notes: false,
     assign: true,
+    progress: false,
     start: 'worktree',
   });
-  expect(mesa.tickets.setDefaults('lantern-cove', { start: 'checkout', notes: true })).toEqual({
+  expect(
+    mesa.tickets.setDefaults('lantern-cove', { start: 'checkout', notes: true, progress: true }),
+  ).toEqual({
     notes: true,
     assign: true,
+    progress: true,
     start: 'checkout',
   });
   expect(mesa.tickets.defaults('lantern-cove').start).toBe('checkout');
@@ -214,6 +250,7 @@ test('defaults written before the Ticket starts load, and the next change drops 
   expect(mesa.tickets.defaults('lantern-cove')).toEqual({
     notes: false,
     assign: true,
+    progress: false,
     start: 'worktree',
   });
   mesa.tickets.setDefaults('lantern-cove', { assign: false });

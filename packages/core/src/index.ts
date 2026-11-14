@@ -53,6 +53,7 @@ export type { DiscardedFile, GitDiscard } from './git/discard.js';
 export type { GhState } from './git/gh.js';
 export type { GitComparison, GitGraph, GitGraphCommit, GitGraphRow } from './git/history.js';
 export type { GitFix } from './git/hook-fix.js';
+export type { HunkPick } from './git/hunk.js';
 export type { RepositoryInsight } from './git/insight.js';
 export type { GitMessage, GitPullRequestText, GitTextRunInfo } from './git/message.js';
 export type { ConflictHandoff } from './git/resolve.js';

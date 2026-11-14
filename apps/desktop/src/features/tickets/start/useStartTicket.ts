@@ -6,8 +6,8 @@ import { placeOf, type StartOptions, type StartTicket } from './startOptions';
 import { STARTS } from './starts';
 
 /**
- * Starts a session from a ticket in `project`, one step after another: assign it (when asked),
- * import it (with notes when asked), then open the session from it with the goal its `kind` of
+ * Starts a session from a ticket in `project`, one step after another: assign it and move it to
+ * In Progress (each when asked; a failed move does not stop the start), import it (with notes when asked), then open the session from it with the goal its `kind` of
  * Ticket start builds, in a new worktree on the ticket's branch or in the main checkout. `steps`
  * is the progress StartProgress shows; a failed step stops there, its error already toasted.
  */
@@ -21,6 +21,15 @@ export function useStartTicket(project: string) {
       plan.push({
         label: ticket.several ? `Add you to ${ticket.label}` : `Assign ${ticket.label} to you`,
         run: () => run('tickets.assign', { id: ticket.id }),
+      });
+    if (options.progress)
+      plan.push({
+        label: `Move ${ticket.label} to In Progress`,
+        // A failed move is toasted and the start goes on: the session matters more than the board.
+        run: async () => {
+          await run('tickets.progress', { id: ticket.id });
+          return true;
+        },
       });
     plan.push({
       label: options.notes ? 'Import the ticket and write its notes' : 'Import the ticket',

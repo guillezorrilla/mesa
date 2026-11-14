@@ -15,12 +15,17 @@ import type {
   GitStatus,
   GitSync,
   GitTracking,
+  HunkPick,
   RepositoryInsight,
   StashAction,
   StashCreated,
   StashEntry,
 } from '@mesa/core';
 import { commandWith, type Recorded } from './spec';
+
+/** One hunk instead of the whole path; `--expect=` keeps a range that starts with `-` a value. */
+const hunkArgs = (hunk?: HunkPick) =>
+  hunk ? ['--hunk', String(hunk.index), ...(hunk.expect ? [`--expect=${hunk.expect}`] : [])] : [];
 
 /** Git commands over a project's checkout. */
 export const gitCommands = {
@@ -56,23 +61,25 @@ export const gitCommands = {
     ...(path ? [path] : []),
   ]),
   'git.stage': commandWith<
-    { project: string; checkout?: string; path: string },
+    { project: string; checkout?: string; path: string; hunk?: HunkPick },
     Recorded<GitPathAction>
-  >(({ project, checkout, path }) => [
+  >(({ project, checkout, path, hunk }) => [
     'git',
     'stage',
     ...(checkout ? ['--checkout', checkout] : []),
+    ...hunkArgs(hunk),
     '--',
     project,
     path,
   ]),
   'git.unstage': commandWith<
-    { project: string; checkout?: string; path: string },
+    { project: string; checkout?: string; path: string; hunk?: HunkPick },
     Recorded<GitPathAction>
-  >(({ project, checkout, path }) => [
+  >(({ project, checkout, path, hunk }) => [
     'git',
     'unstage',
     ...(checkout ? ['--checkout', checkout] : []),
+    ...hunkArgs(hunk),
     '--',
     project,
     path,

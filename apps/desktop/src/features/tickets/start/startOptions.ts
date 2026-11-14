@@ -12,6 +12,8 @@ export type StartTicket = {
   provider: ProviderId;
   /** Its tracker takes several assignees, so assigning adds the person beside them. */
   several: boolean;
+  /** Its tracker has an in-progress status a start can move it to. */
+  progresses: boolean;
   /** Its tracker's name in a sentence. */
   trackerName: string;
   url: string;
@@ -24,6 +26,8 @@ export type StartTicket = {
 /** How a session on a ticket starts, whichever Ticket start: the sheet's choices. */
 export type StartOptions = {
   assign: boolean;
+  /** Move it, while still to do, to its tracker's first in-progress status. */
+  progress: boolean;
   /** Your rules: a Saved prompt's name every start follows, or null for none. */
   prompt: string | null;
   notes: boolean;
@@ -37,6 +41,7 @@ export const initialOptions = (
   prompt: string | null,
 ): StartOptions => ({
   assign: defaults.assign && !ticket.mine,
+  progress: defaults.progress && ticket.progresses,
   prompt,
   notes: defaults.notes,
   start: defaults.start,
@@ -59,6 +64,7 @@ export const placeOf = (ticket: StartTicket, start: StartOptions['start']) =>
 export const describeOptions = (ticket: StartTicket, options: StartOptions) =>
   [
     `Runs in ${placeOf(ticket, options.start)}`,
+    options.progress && 'moves to In Progress',
     options.notes && 'notes first',
     options.prompt && `your rules: ${options.prompt}`,
   ]

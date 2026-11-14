@@ -8,6 +8,7 @@ import { readGitDiff } from './diff.js';
 import { type DiscardTarget, discardGitChanges } from './discard.js';
 import { compareGitRefs, readGitGraph } from './history.js';
 import { fixPreCommit } from './hook-fix.js';
+import { changeGitHunk, type HunkPick } from './hunk.js';
 import { readRepositoryInsight, type WorktreeCount } from './insight.js';
 import { type GitTextRunner, writeCommitMessage, writePullRequestText } from './message.js';
 import { resolveConflicts } from './resolve.js';
@@ -141,24 +142,23 @@ export function gitService(
     checkout: string | undefined,
     path: string,
     action: 'stage' | 'unstage',
-  ) =>
-    ctx.record(
+    hunk?: HunkPick,
+  ) => {
+    const what = hunk ? `hunk ${hunk.index} of ${path}` : path;
+    const selected = checkout && ctx.absolute(checkout);
+    return ctx.record(
       {
-        summary: () => `${action === 'stage' ? 'Staged' : 'Unstaged'} ${path} in ${project}`,
-        failure: `Could not ${action} ${path} in ${project}`,
+        summary: () => `${action === 'stage' ? 'Staged' : 'Unstaged'} ${what} in ${project}`,
+        failure: `Could not ${action} ${what} in ${project}`,
         project: () => project,
-        inputs: { project, checkout, path, action },
+        inputs: { project, checkout, path, action, ...(hunk ? { hunk } : {}) },
       },
       () =>
-        changeGitIndex(
-          ctx.open(),
-          ctx.run,
-          project,
-          checkout && ctx.absolute(checkout),
-          path,
-          action,
-        ),
+        hunk
+          ? changeGitHunk(ctx.open(), ctx.run, project, selected, path, hunk, action)
+          : changeGitIndex(ctx.open(), ctx.run, project, selected, path, action),
     );
+  };
   return {
     insight: (project: string, checkout?: string) =>
       readRepositoryInsight(
@@ -224,10 +224,12 @@ export function gitService(
         input.staged,
         input.full,
       ),
-    stage: (project: string, path: string, checkout?: string) =>
-      changeIndex(project, checkout, path, 'stage'),
-    unstage: (project: string, path: string, checkout?: string) =>
-      changeIndex(project, checkout, path, 'unstage'),
+    /** Stages the path, or with `hunk` one hunk of its unstaged diff (git/hunk.ts). */
+    stage: (project: string, path: string, checkout?: string, hunk?: HunkPick) =>
+      changeIndex(project, checkout, path, 'stage', hunk),
+    /** Unstages the path, or with `hunk` one hunk of its staged diff. */
+    unstage: (project: string, path: string, checkout?: string, hunk?: HunkPick) =>
+      changeIndex(project, checkout, path, 'unstage', hunk),
     /** A commit message for the staged changes, written by an agent; commits nothing. */
     message: (project: string, opts: { checkout?: string; agent?: string } = {}) =>
       writeCommitMessage(ctx.open(), ctx.run, runText, project, {

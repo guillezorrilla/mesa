@@ -67,6 +67,11 @@ const listSchema = z.object({
   space: named.nullish(),
 });
 const folderSchema = z.object({ name: z.string(), space: named.nullish() });
+const statusesSchema = z.object({
+  statuses: z.array(
+    z.object({ status: z.string(), type: z.string(), orderindex: z.coerce.number() }),
+  ),
+});
 const viewSchema = z.object({ view: z.object({ name: z.string(), type: z.string() }) });
 
 /** A ClickUp key: a task id, or a custom id (with a dash) in its Workspace. */
@@ -248,7 +253,7 @@ export function clickupProvider(deps: ProviderDeps) {
       const sites = await workspaces();
       return (sites.find((s) => s.id === where) ?? sites[0])?.name ?? 'ClickUp';
     },
-    /** Mesa's one write to ClickUp: adds the person beside the task's other assignees. */
+    /** Adds the person beside the task's other assignees. */
     assign: async (key, where) => {
       const links = await linksOf(key, where);
       const link = links.length === 1 && links[0] ? links[0] : (await task(key, where)).link;
@@ -265,6 +270,31 @@ export function clickupProvider(deps: ProviderDeps) {
       if (!peopleOf(after).some((a) => a.accountId === user.id))
         throw new MesaError('usage', `ClickUp did not add you to ${key}`);
       return { assignee: user.name };
+    },
+    /** Moves a task still open to its List's first custom status, in ClickUp's order. */
+    progress: async (key, where) => {
+      const found = await task(key, where);
+      const now = found.task.status;
+      const list = found.task.list?.id;
+      if (categoryOfType(now.type) !== 'new' || !list) return { moved: false, status: now.status };
+      const { statuses } = await clickupCall(
+        get(),
+        `/v2/list/${list}`,
+        statusesSchema,
+        `The List of ${key}`,
+      );
+      const next = statuses
+        .filter((s) => s.type === 'custom')
+        .sort((a, b) => a.orderindex - b.orderindex)[0];
+      if (!next) return { moved: false, status: now.status };
+      const after = await clickupCall(
+        get(),
+        taskPath(found.link),
+        clickupTaskSchema,
+        `Moving ${key} to ${next.status}`,
+        { status: next.status },
+      );
+      return { moved: true, status: after.status.status };
     },
   };
 

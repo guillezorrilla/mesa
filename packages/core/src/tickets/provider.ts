@@ -65,7 +65,7 @@ export type ProviderDeps = {
 };
 
 /**
- * One provider's reads and its one write, over views of type `View` and panels of type `Detail`.
+ * One provider's reads and its writes, over views of type `View` and panels of type `Detail`.
  * `where` names the provider's place a key is on when a connection reaches several (Jira's site).
  * Its reads are methods, so each row may take only its own provider's inputs and views while
  * every row has the same type over all of them: the service gives a row only its own (a view's
@@ -85,7 +85,15 @@ export type TicketProvider<Input, View, Detail> = {
   place: (where?: string) => Promise<string>;
   /** Assigns ticket `key` to the signed-in person, beside any others where a provider allows several, and names them. */
   assign: (key: string, where?: string) => Promise<{ assignee: string }>;
+  /** Moves ticket `key`, while still to do, to its tracker's first in-progress status. */
+  progress: (key: string, where?: string) => Promise<Progress>;
 };
+
+/**
+ * What moving a ticket to in progress did: `moved` false when it had started or was done, its
+ * tracker has no in-progress status for it, or (GitHub Issues) has no statuses at all.
+ */
+export type Progress = { moved: boolean; status?: string };
 
 /** `input` parsed by `schema`, or a usage error naming what is wrong with it. */
 export function parseWith<T>(schema: z.ZodType<T>, input: unknown): T {

@@ -189,6 +189,13 @@ test('a GitHub view follows a repo: its issues listed without pull requests, one
   await expect(mesa.tickets.assign(`github:${REPO}#412`)).rejects.toThrow(
     `GitHub did not add you to ${REPO}#412`,
   );
+  // GitHub Issues has no in-progress status: progress leaves the issue, with no call and no receipt.
+  const before = world.requests.length;
+  expect(await mesa.tickets.progress(`github:${REPO}#412`)).toMatchObject({
+    result: { key: `${REPO}#412`, moved: false },
+    receipt: null,
+  });
+  expect(world.requests.length).toBe(before);
   await expect(mesa.tickets.show('github:harbor-api#412')).rejects.toThrow(
     'harbor-api#412 is not a GitHub issue key, owner/repo#123',
   );
