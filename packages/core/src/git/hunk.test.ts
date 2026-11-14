@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { chmodSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { gitRepo, projectProfile, scriptedRunner, testGit, withRealGit } from '../testing/index.js';
@@ -59,4 +59,14 @@ test('a stale hunk is refused and the index is left as it was', async () => {
     mesa.git.stage('lantern-cove', 'tide.md', undefined, { index: 0, expect: '-1,5 +1,5' }),
   ).rejects.toThrow(/is now -1,5 \+1,6, not -1,5 \+1,5/);
   expect(diff(true)).toBe('');
+});
+
+test('a hunk staged alone leaves a mode change unstaged', async () => {
+  const { mesa, dir, diff } = setUp();
+  chmodSync(join(dir, 'tide.md'), 0o755);
+  expect(diff()).toContain('new mode 100755');
+  await mesa.git.stage('lantern-cove', 'tide.md', undefined, { index: 0 });
+  expect(diff(true)).toContain('+high water');
+  expect(diff(true)).not.toContain('mode');
+  expect(diff()).toContain('new mode 100755');
 });

@@ -14,7 +14,7 @@ export function AutoMergeLine(props: { method: MergeMethod; onCancel: () => Prom
   };
   return (
     <div data-testid="auto-merge-on" className="flex items-center gap-2">
-      <span className="inline-flex items-center gap-1.5 text-muted-foreground text-xs">
+      <span className="inline-flex items-center gap-1.5 text-foreground text-sm">
         <Clock aria-hidden className="size-3.5 text-primary" />
         Merges when checks pass · {MERGE_LABELS[props.method]}
       </span>

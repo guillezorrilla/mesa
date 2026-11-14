@@ -239,7 +239,8 @@ export async function startIssue(get: Http, site: Site, key: string) {
     z.object({ fields: z.object({ status: statusSchema }) }),
     `Jira issue ${key}`,
   );
-  if ((fields.status.statusCategory?.key ?? 'new') !== 'new')
+  // A status with no category is not known to be To Do, so it stays.
+  if (fields.status.statusCategory?.key !== 'new')
     return { moved: false, status: fields.status.name };
   const { transitions } = await jiraJson(
     await get(`${path}/transitions`),

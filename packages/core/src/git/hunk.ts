@@ -22,7 +22,9 @@ export function patchHunks(patch: string): { header: string[]; hunks: string[][]
     if (line.startsWith('@@')) hunks.push([line]);
     else hunks.at(-1)?.push(line);
   }
-  return { header: lines.slice(0, first), hunks };
+  // A mode change is its own change: a hunk staged alone must not bring it along.
+  const header = lines.slice(0, first).filter((l) => !/^(old|new) mode /.test(l));
+  return { header, hunks };
 }
 
 /** A hunk's lines on each side, as hunkRange names them. */
