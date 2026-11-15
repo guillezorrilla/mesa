@@ -13,7 +13,7 @@ export const PROJECT_SORTS = [
 ] as const;
 /**
  * How a session shows in the app: its terminal, a chat over that terminal's transcript, or
- * Structured (ADR-0029), where a new Claude Code session runs under `mesa host` and shows as Chat.
+ * Structured (ADR-0029), where a new Claude Code or Codex session runs under `mesa host` and shows as Chat.
  */
 export const SESSION_VIEWS = ['terminal', 'chat', 'structured'] as const;
 export const TERMINAL_APPS = ['Terminal', 'iTerm', 'Ghostty', 'WezTerm'] as const;

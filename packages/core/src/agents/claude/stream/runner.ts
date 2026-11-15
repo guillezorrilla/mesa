@@ -2,7 +2,7 @@ import { lineSplitter } from '../../../lib/lines.js';
 import type { Env } from '../../../lib/process.js';
 import type { SpawnExit, Spawner } from '../../../lib/spawn.js';
 import type { CLAUDE_PERMISSION_MODES } from '../../names.js';
-import type { AgentRunner } from '../../runner.js';
+import type { AgentRunner, RunnerSignal, StartHostRunner } from '../../runner.js';
 import { parseStreamLine, type StreamEvent } from './events.js';
 
 // Claude Code in stream-json mode for one session: one long-lived process, JSON lines in and out
@@ -93,3 +93,37 @@ export function startClaudeRunner(
     exited,
   };
 }
+
+/** What `mesa host` shows of a stream event. */
+export function claudeSignal(event: StreamEvent): RunnerSignal | undefined {
+  switch (event.type) {
+    case 'init':
+      return event.model ? { model: event.model } : undefined;
+    case 'permission_request':
+      return { doing: `waiting for permission: ${event.toolName}` };
+    case 'result':
+      // The process's running total (measured: it grows turn by turn).
+      return {
+        doing: 'idle',
+        turnEnded: true,
+        ...(event.costUsd === undefined ? {} : { cost: event.costUsd }),
+      };
+    case 'delta':
+    case 'assistant':
+      return { doing: 'working' };
+    default:
+      return undefined;
+  }
+}
+
+/** Claude's runner for `mesa host`: a new conversation under the id Mesa picked, or resumed. */
+export const startClaudeHost: StartHostRunner = (deps, launch, onLine) =>
+  startClaudeRunner(
+    deps,
+    {
+      cwd: launch.cwd,
+      ...(launch.resume ? { resume: launch.sessionId } : { sessionId: launch.sessionId }),
+      args: launch.args,
+    },
+    (event, line) => onLine(line, claudeSignal(event)),
+  );

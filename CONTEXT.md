@@ -304,7 +304,7 @@ Not: Chat mode, a second session backend, a chat the app holds itself. Its contr
 
 ## Terminal view
 
-The agent's own TUI in the session's tmux window, the way every session ran before Structured view. It is the same agent session id as Structured view, resumed (`claude --resume <id>`), so switching keeps the conversation. `mesa attach` shows only this view; in a Structured session it offers to Switch.
+The agent's own TUI in the session's tmux window, the way every session ran before Structured view. It is the same agent session id as Structured view, resumed (`claude --resume <id>`, or Codex's `codex -c mesa.embedded=true resume <id>`, never a plain `codex resume`, which starts a self-updating daemon), so switching keeps the conversation. `mesa attach` shows only this view; in a Structured session it offers to Switch.
 Not: a plain terminal session (a login shell with no agent).
 
 ## Host
