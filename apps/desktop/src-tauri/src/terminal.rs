@@ -14,6 +14,7 @@ use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::bridge;
+use crate::gate::Gate;
 
 /// What the renderer asks of a pty: applied in order by its one writer thread.
 enum Op {
@@ -95,16 +96,9 @@ pub fn spawn(
     Ok(Term { ops, child: Arc::new(Mutex::new(child)) })
 }
 
-/// Output held until the renderer listens (Tauri events are not buffered), then passed on; an
-/// attach that ended before that is reported then too.
-#[derive(Default)]
-struct Gate {
-    ready: bool,
-    exited: bool,
-    held: Vec<u8>,
-}
-
-type Entry = (Arc<Term>, Arc<Mutex<Gate>>);
+/// A terminal's output chunks held until the renderer listens (gate.rs); an attach that ended
+/// before that is reported then too.
+type Entry = (Arc<Term>, Arc<Mutex<Gate<Vec<u8>>>>);
 
 /// Every open terminal, by id.
 #[derive(Default)]
@@ -163,26 +157,19 @@ pub async fn term_open(
         .await
         .map_err(|e| e.to_string())??;
     let id = format!("t{}", terms.next.fetch_add(1, Ordering::Relaxed) + 1);
-    let gate = Arc::new(Mutex::new(Gate::default()));
+    let gate = Arc::new(Mutex::new(Gate::<Vec<u8>>::default()));
     let (data, exit) = (format!("term://data/{id}"), format!("term://exit/{id}"));
     let (out, done, held, ended, gone) = (app.clone(), app, gate.clone(), gate.clone(), id.clone());
     let term = spawn(
         &argv,
         cols,
         rows,
-        move |chunk| {
-            let mut gate = held.lock().unwrap();
-            if !gate.ready {
-                gate.held.extend_from_slice(chunk);
-                return true;
-            }
-            out.emit(&data, B64.encode(chunk)).is_ok()
-        },
+        move |chunk| held.lock().unwrap().pass(chunk.to_vec(), |c| out.emit(&data, B64.encode(c)).is_ok()),
         move || {
             // The attach ended on its own (detached, killed). Before term_ready, that waits for it.
             let mut gate = ended.lock().unwrap();
             gate.exited = true;
-            if gate.ready {
+            if gate.is_ready() {
                 let _ = done.emit(&exit, ());
                 drop(gate);
                 done.state::<Terms>().finish(&gone);
@@ -201,11 +188,10 @@ pub async fn term_ready(app: AppHandle, terms: State<'_, Terms>, term_id: String
     let (_, gate) = terms.get(&term_id)?;
     let exited = {
         let mut gate = gate.lock().unwrap();
-        if !gate.held.is_empty() {
-            let held = std::mem::take(&mut gate.held);
+        let held = gate.open().concat();
+        if !held.is_empty() {
             let _ = app.emit(&format!("term://data/{term_id}"), B64.encode(held));
         }
-        gate.ready = true;
         gate.exited
     };
     if exited {

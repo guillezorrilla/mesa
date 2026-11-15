@@ -18,7 +18,7 @@ import { MessageTime } from './MessageTime';
 import { SessionControlsPanel } from './SessionControlsPanel';
 import { StepRun } from './StepRun';
 import { turnEdits } from './turnEdits';
-import { useChat } from './useChat';
+import { type ChatRead, useChat } from './useChat';
 import { useFollowedChat } from './useFollowedChat';
 
 /** How near an end of the list counts as at it, in pixels. */
@@ -74,7 +74,7 @@ function TranscriptChat(props: ChatPanelProps) {
 /** Whether `prompt` is a slash command, which shows with its output rather than as a bubble. */
 const isCommand = (prompt: string) => /^\/\S/.test(prompt.trimStart());
 
-function ChatView({ read, ...props }: ChatPanelProps & { read: ReturnType<typeof useChat> }) {
+function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead }) {
   const { chat, error, sending, loadingOlder, older } = read;
   const platform = usePlatform();
   const { act } = useAct();
@@ -210,7 +210,7 @@ const REPLY =
 
 /**
  * One row: the person's message as a plain bubble on the right, the agent's as Markdown, a run of
- * steps as its list, a slash command as its card. A message shows its time on hover.
+ * steps as its list, a slash command with its output. A message shows its time on hover.
  */
 function ChatRow(props: {
   message: ChatItem;

@@ -22,6 +22,8 @@ export type ChatFollowHost = {
   open: (sessionId: string, count: number) => Promise<string>;
   /** Each line it prints (`ChatFollowLine` as JSON); returns the unsubscribe. */
   onLine: (followId: string, listener: (line: string) => void) => Promise<() => void>;
+  /** It ended for good: its host stopped, or mesa could not start. Returns the unsubscribe. */
+  onExit: (followId: string, listener: () => void) => Promise<() => void>;
   /** The renderer listens now: lines held until then come out. */
   ready: (followId: string) => Promise<void>;
   /** Kills its process; nothing starts it again. */

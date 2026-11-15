@@ -1,6 +1,6 @@
 import type { ChatItem, SessionChat } from '@mesa/core';
 import { useEffect, useRef, useState } from 'react';
-import { useCommand } from '@/lib/useCommand';
+import { type CommandError, useCommand } from '@/lib/useCommand';
 import { useSessionEvents } from '@/lib/useSessionEvents';
 import type { SentPrompt } from '../selected/useSessionPrompt';
 
@@ -30,7 +30,17 @@ export const transcriptHolds = (messages: readonly ChatItem[], sent: SentPrompt)
  * fallback poll, and further back on `older`; the prompt `sent` to it while its transcript does
  * not hold it yet. A Structured session's comes from its live stream instead (useFollowedChat).
  */
-export function useChat(sessionId: string, sent?: SentPrompt) {
+/** What a chat view reads, from the transcript (useChat) or the live stream (useFollowedChat). */
+export type ChatRead = {
+  chat: SessionChat | undefined;
+  error: CommandError | undefined;
+  sending: SentPrompt | undefined;
+  /** Whether a look further back is still reading. */
+  loadingOlder: boolean;
+  older: () => void;
+};
+
+export function useChat(sessionId: string, sent?: SentPrompt): ChatRead {
   const [count, setCount] = useState(CHAT_PAGE);
   const read = useCommand('sessions.chat', { id: sessionId, count });
   // A look further back reads anew: keep the shorter chat in view until it answers.

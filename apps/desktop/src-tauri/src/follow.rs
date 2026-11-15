@@ -11,9 +11,13 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::bridge;
+use crate::gate::Gate;
+
+/// How many starts in a row may fail (mesa missing, say) before a follow gives up.
+const MAX_FAILED_STARTS: u32 = 5;
 
 /// The first wait before a follow that ended starts again, doubled each time up to MAX_BACKOFF,
 /// and back to the first once a follow has run for STEADY.
@@ -21,19 +25,13 @@ const FIRST_BACKOFF: Duration = Duration::from_millis(500);
 const MAX_BACKOFF: Duration = Duration::from_secs(10);
 const STEADY: Duration = Duration::from_secs(30);
 
-/// Lines held until the renderer listens (Tauri events are not buffered), then passed on.
-#[derive(Default)]
-struct Gate {
-    ready: bool,
-    held: Vec<String>,
-}
-
 /// One open chat's follow: its current process, and whether the chat closed.
 #[derive(Default)]
 pub struct Follow {
     closed: AtomicBool,
     child: Mutex<Option<Child>>,
-    gate: Mutex<Gate>,
+    /// Its lines, held until the renderer listens (gate.rs).
+    gate: Mutex<Gate<String>>,
 }
 
 impl Follow {
@@ -122,11 +120,21 @@ fn keep_following(
     sleep: impl Fn(Duration),
 ) {
     let mut backoff = FIRST_BACKOFF;
+    let mut failed = 0;
     while !follow.closed.load(Ordering::SeqCst) {
         let started = Instant::now();
-        let ended = command()
-            .and_then(|c| run_once(follow, c, &mut on_line))
-            .unwrap_or(false);
+        let ended = match command().and_then(|c| run_once(follow, c, &mut on_line)) {
+            Ok(ended) => {
+                failed = 0;
+                ended
+            }
+            // One that cannot start at all is given up after a few tries, not retried forever.
+            Err(_) if failed + 1 >= MAX_FAILED_STARTS => return,
+            Err(_) => {
+                failed += 1;
+                false
+            }
+        };
         if ended || follow.closed.load(Ordering::SeqCst) {
             return;
         }
@@ -156,6 +164,7 @@ pub fn follow_open(
         .unwrap()
         .insert(id.clone(), follow.clone());
     let (line_event, exit_event) = (format!("follow://line/{id}"), format!("follow://exit/{id}"));
+    let gone = id.clone();
     std::thread::spawn(move || {
         let args = [
             "chat",
@@ -176,15 +185,16 @@ pub fn follow_open(
                 Ok(cmd)
             },
             move |line| {
-                let mut gate = gated.gate.lock().unwrap();
-                if gate.ready {
-                    let _ = emitter.emit(&line_event, line);
-                } else {
-                    gate.held.push(line);
-                }
+                gated
+                    .gate
+                    .lock()
+                    .unwrap()
+                    .pass(line, |l| emitter.emit(&line_event, l).is_ok());
             },
             std::thread::sleep,
         );
+        // Ended for good (its `end`, or it could not start): the renderer may open another.
+        app.state::<Follows>().open.lock().unwrap().remove(&gone);
         let _ = app.emit(&exit_event, ());
     });
     Ok(id)
@@ -204,11 +214,9 @@ pub fn follow_ready(
         .get(&follow_id)
         .cloned()
         .ok_or("no such follow")?;
-    let mut gate = follow.gate.lock().unwrap();
-    for line in std::mem::take(&mut gate.held) {
+    for line in follow.gate.lock().unwrap().open() {
         let _ = app.emit(&format!("follow://line/{follow_id}"), line);
     }
-    gate.ready = true;
     Ok(())
 }
 
@@ -268,6 +276,22 @@ mod tests {
         );
         assert_eq!(runs.load(Ordering::SeqCst), 3);
         assert_eq!(*waits.lock().unwrap(), [FIRST_BACKOFF, FIRST_BACKOFF * 2]);
+    }
+
+    #[test]
+    fn a_follow_that_cannot_start_gives_up_after_a_few_tries() {
+        let follow = Follow::default();
+        let tries = AtomicU32::new(0);
+        keep_following(
+            &follow,
+            || {
+                tries.fetch_add(1, Ordering::SeqCst);
+                Err("cannot start mesa".to_string())
+            },
+            |_| {},
+            |_| {},
+        );
+        assert_eq!(tries.load(Ordering::SeqCst), MAX_FAILED_STARTS);
     }
 
     #[test]

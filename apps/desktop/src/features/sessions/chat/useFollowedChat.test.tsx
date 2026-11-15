@@ -7,6 +7,7 @@ import {
   fakeBridge,
   fakeFollows,
   fakePlatform,
+  fakeSessionEvents,
   managedRow,
   renderWithMesa,
 } from '@/lib/testing';
@@ -69,4 +70,25 @@ test("a Structured session's chat reads its live stream: no chat call, the reply
   expect(calls.some((c) => c[1] === 'chat')).toBe(false);
   await renderWithMesa(<div />, bridge);
   expect(follows.calls.at(-1)).toEqual(['close', 'f1']);
+});
+
+test('a follow that ended, its host stopped, opens again on the next session change', async () => {
+  const follows = fakeFollows();
+  const events = fakeSessionEvents();
+  const { bridge } = fakeBridge({
+    'sessions controls': () =>
+      envelope({ session: 'dddddddd', agent: 'claude', models: [], efforts: [], modes: [] }),
+  });
+  await renderWithMesa(
+    <ChatPanel sessionId="dddddddd" row={structured} acting={false} onSend={() => {}} />,
+    bridge,
+    fakePlatform({ follow: follows.host, sessions: events.host }),
+  );
+  const opens = () => follows.calls.filter((c) => c[0] === 'open').length;
+  expect(opens()).toBe(1);
+  await act(async () => events.push());
+  expect(opens()).toBe(1);
+  await act(async () => follows.exit());
+  await act(async () => events.push());
+  expect(opens()).toBe(2);
 });

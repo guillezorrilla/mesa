@@ -73,6 +73,7 @@ export function fakeTerminals() {
 export function fakeFollows() {
   const calls: (string | number)[][] = [];
   const lines = new Map<string, (line: string) => void>();
+  const exits = new Map<string, () => void>();
   let next = 0;
   const host: ChatFollowHost = {
     open: async (sessionId, count) => {
@@ -84,13 +85,21 @@ export function fakeFollows() {
       lines.set(followId, listener);
       return () => lines.delete(followId);
     },
+    onExit: async (followId, listener) => {
+      exits.set(followId, listener);
+      return () => exits.delete(followId);
+    },
     ready: async (followId) => void calls.push(['ready', followId]),
     close: async (followId) => void calls.push(['close', followId]),
+  };
+  /** The open follow ends for good, as a stopped host's does. */
+  const exit = () => {
+    for (const listener of exits.values()) listener();
   };
   const push = (line: object) => {
     for (const listener of lines.values()) listener(JSON.stringify(line));
   };
-  return { host, calls, push };
+  return { host, calls, push, exit };
 }
 
 /** The Rust watcher on `sessions/events/`: `push` plays one debounced change. */

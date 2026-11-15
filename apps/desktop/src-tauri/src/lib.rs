@@ -3,6 +3,7 @@ mod bridge;
 mod browser;
 mod events;
 mod follow;
+mod gate;
 mod install_location;
 mod menu;
 mod notifications;

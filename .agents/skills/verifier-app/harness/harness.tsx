@@ -42,6 +42,7 @@ const follow: Platform['follow'] = {
     follows.get(id)?.listeners.add(listener);
     return () => follows.get(id)?.listeners.delete(listener);
   },
+  onExit: async () => () => {},
   ready: async () => {},
   close: async (id) => {
     follows.get(id)?.abort.abort();
