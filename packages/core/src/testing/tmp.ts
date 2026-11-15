@@ -6,6 +6,12 @@ import { join } from 'node:path';
 export const tempDir = (prefix = 'mesa-') => realpathSync(mkdtempSync(join(tmpdir(), prefix)));
 
 /**
+ * A temp dir under /tmp, for a home whose profile holds a unix socket (a host's): its path is
+ * capped near 104 bytes, and the system temp folder is long on macOS.
+ */
+export const shortTempDir = () => realpathSync(mkdtempSync('/tmp/mesa-'));
+
+/**
  * Every path under `dir`, the root included, with its mtime and, for files, its bytes: two equal
  * snapshots mean nothing in it was written.
  */

@@ -1,3 +1,4 @@
+import type { Stdio } from '@mesa/core';
 import { plantTranscript } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
@@ -66,4 +67,19 @@ test('chat lists the tools the agent ran between replies as one Steps run', asyn
   const chat = (await cli.mesa('chat', opened.id)).stdout;
   expect(chat).toContain('Steps:\nRan 2 commands');
   expect(chat).not.toContain('Agent:\nRan');
+});
+
+test('chat --follow prints a Terminal session chat as one JSON line, then ends', async () => {
+  cli.withTmux();
+  await cli.withProject();
+  const plain = (await cli.mesa('open', 'lantern-cove', '--json')).json.data;
+  const started = await cli.mesa('chat', plain.id, '--follow');
+  expect([started.code, started.stdout, started.stderr]).toEqual([0, '', '']);
+  const written: string[] = [];
+  await (started.serve as (io: Stdio) => Promise<void>)({
+    lines: (async function* () {})(),
+    write: (text) => written.push(text),
+    log: () => undefined,
+  });
+  expect(written.map((line) => JSON.parse(line).type)).toEqual(['chat']);
 });

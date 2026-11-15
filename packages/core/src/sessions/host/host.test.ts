@@ -1,4 +1,3 @@
-import { mkdtempSync, realpathSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { AGENTS } from '../../agents/agents.js';
 import type { Spawner } from '../../lib/spawn.js';
@@ -13,14 +12,12 @@ import {
   replaySpawner,
   scriptedRunner,
   scriptedSpawner,
+  shortTempDir,
   testDeps,
   testStore,
 } from '../../testing/index.js';
 import { readJournal } from './journal.js';
 import { askHost, hostSocket } from './socket.js';
-
-// A unix socket path is capped near 104 bytes, and the system temp folder is long on macOS.
-const shortHome = () => realpathSync(mkdtempSync('/tmp/mh-'));
 
 /** A profile with lantern-cove, agents and tmux in memory, and claude's process from `fake`. */
 function world<F extends { spawn: Spawner }>(
@@ -28,7 +25,7 @@ function world<F extends { spawn: Spawner }>(
 ) {
   const agents = agentWorld();
   const { home, mesa } = projectProfile(agents.run, {
-    home: shortHome(),
+    home: shortTempDir(),
     spawn: fake.spawn,
   });
   return { home, mesa, agents, fake, paths: profilePaths(home, 'default') };
