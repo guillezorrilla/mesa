@@ -9,6 +9,7 @@ import { keptReport, latestReports } from '../../reports/report-delivery.js';
 import type { SessionScope } from '../board/board.js';
 import { crewOf } from '../board/crew.js';
 import { sessionTree } from '../board/tree.js';
+import { journalFile, readJournal } from '../host/journal.js';
 import { autoName } from '../native/auto-name.js';
 import { decisionStatus } from '../native/decision-status.js';
 import { discoverNative } from '../native/discovery.js';
@@ -26,7 +27,7 @@ import { readHookEvents } from '../signals/hook-events.js';
 import { refreshReadings, workingFolder } from '../signals/readings.js';
 import { sessionGoal } from '../start/goal.js';
 import { advertisedUrls } from '../window/advertised-urls.js';
-import { sessionLog } from '../window/output-log.js';
+import { type SessionLog, sessionLog } from '../window/output-log.js';
 import type { continueActions } from './continue.js';
 import type { SessionDeps } from './deps.js';
 import type { lifecycleActions } from './lifecycle.js';
@@ -111,8 +112,16 @@ export function inspectActions(
      * A session's output as plain text, its last `tail` lines when given (sessionLog); not_found
      * for an unknown id.
      */
-    logs: (id: string, tail?: number) => {
-      store.get(id);
+    logs: (id: string, tail?: number): SessionLog => {
+      // A Structured session's record is its journal (ADR-0029), not its window's output.
+      if (store.get(id).view === 'structured') {
+        const lines = readJournal(paths.journals, id, tail);
+        return {
+          session: id,
+          path: lines ? journalFile(paths.journals, id) : null,
+          lines: lines ?? [],
+        };
+      }
       return sessionLog(ctx, paths.logs, id, tail);
     },
     /**

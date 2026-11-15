@@ -81,6 +81,7 @@ export async function resumeSession(
       model: old.model,
       effort: old.effort,
       background: old.background,
+      view: old.view,
       backgroundId: old.backgroundId,
       agentSessionId: old.agentSessionId,
       // The same conversation, so the same goal; it is not typed in again.

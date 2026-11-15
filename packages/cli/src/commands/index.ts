@@ -41,6 +41,7 @@ import { help } from './help.js';
 import { history, historySearch } from './history.js';
 import { hook, hookTmux } from './hook.js';
 import { hooksInstall, hooksStatus, hooksUninstall } from './hooks.js';
+import { host } from './host.js';
 import { imagePreview, imageSend } from './image.js';
 import { impact, impactMark } from './impact.js';
 import { importGoal, importLinks, importList, importRefresh, importStatus } from './import.js';
@@ -203,6 +204,7 @@ export const COMMANDS: Command[] = [
   help,
   hook,
   hookTmux,
+  host,
   hooksInstall,
   hooksStatus,
   hooksUninstall,

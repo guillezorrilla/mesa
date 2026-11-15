@@ -5,7 +5,7 @@ import { parseStreamLine, type StreamEvent } from './events.js';
 import { claudeStreamArgs, startClaudeRunner } from './runner.js';
 
 async function run(chunks?: number, stream?: string[]) {
-  const fake = replaySpawner(stream, chunks);
+  const fake = replaySpawner(stream, { chunks });
   const events: StreamEvent[] = [];
   const runner = startClaudeRunner(
     { spawn: fake.spawn, env: { PATH: '/bin' } },

@@ -1,4 +1,5 @@
 import type { MesaContext } from '../../context.js';
+import { hostSession } from '../host/host.js';
 import { attachSession } from '../window/attach.js';
 import { outputSince } from '../window/output-log.js';
 import { sessionPanel } from '../window/panel.js';
@@ -12,6 +13,14 @@ export function windowActions(ctx: MesaContext, deps: SessionDeps) {
   const { open, store, tmux } = ctx;
   const { terminal, terminalApp, ensureBackgroundView } = deps;
   return {
+    /**
+     * Runs a Structured session's agent in this process, its window's (ADR-0029), writing its
+     * status line to `write`; the host returned settles when the agent ends.
+     */
+    host: (id: string, write: (text: string) => void) => {
+      const launch = deps.openDeps();
+      return hostSession({ ...launch, spawn: ctx.spawn, cwd: ctx.cwd }, id, write);
+    },
     /** Sizes a session's window to a view now (the app's terminal, after each fit). */
     resize: (id: string, cols: number, rows: number) =>
       resizeSession({ store, tmux }, id, cols, rows),

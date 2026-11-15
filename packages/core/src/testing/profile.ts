@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type { Runner } from '../lib/process.js';
 import { createMesa, type MesaDeps } from '../mesa.js';
 import { profilePaths } from '../profile/paths.js';
+import { replaySpawner } from './claude-stream.js';
 import { fixedClock } from './clock.js';
 import { fakeHttp } from './http.js';
 import { sequentialIds, sequentialUuids } from './ids.js';
@@ -24,6 +25,7 @@ export const testDeps = (home: string, overrides: Partial<MesaDeps> = {}): MesaD
   self: ['/usr/local/bin/mesa'],
   env: {},
   run: scriptedRunner().run,
+  spawn: replaySpawner().spawn,
   // No network and an empty Keychain: a test that signs in passes atlassianWorld().deps.
   http: fakeHttp().http,
   listen: async () => {

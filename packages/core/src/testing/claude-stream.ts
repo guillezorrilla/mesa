@@ -100,9 +100,13 @@ export const RECORDED_CLAUDE_STREAM: string[] = [
 /**
  * A spawner whose process replays `stream` on stdout when the first message is written, then
  * exits, and records the spawns and every line written to stdin as parsed JSON. `chunks` splits the
- * replayed text into reads of that many characters, to show a line cut across reads.
+ * replayed text into reads of that many characters, to show a line cut across reads; `stay` keeps
+ * the process up after the replay until it is killed, as claude waits for its next message.
  */
-export function replaySpawner(stream: string[] = RECORDED_CLAUDE_STREAM, chunks?: number) {
+export function replaySpawner(
+  stream: string[] = RECORDED_CLAUDE_STREAM,
+  { chunks, stay = false }: { chunks?: number; stay?: boolean } = {},
+) {
   const spawns: { file: string; args: string[]; cwd?: string; env?: Env }[] = [];
   const sent: Record<string, unknown>[] = [];
   let killed = false;
@@ -111,7 +115,12 @@ export function replaySpawner(stream: string[] = RECORDED_CLAUDE_STREAM, chunks?
     let stdout: (chunk: string) => void = () => undefined;
     let exit: (exit: SpawnExit) => void = () => undefined;
     let replayed = false;
-    const end = (code: number | undefined) => queueMicrotask(() => exit({ code }));
+    let ended = false;
+    const end = (code: number | undefined) => {
+      if (ended) return;
+      ended = true;
+      queueMicrotask(() => exit({ code }));
+    };
     return {
       write(text) {
         for (const line of text.split('\n')) if (line.trim()) sent.push(JSON.parse(line));
@@ -120,7 +129,7 @@ export function replaySpawner(stream: string[] = RECORDED_CLAUDE_STREAM, chunks?
         const all = `${stream.join('\n')}\n`;
         for (let i = 0; i < all.length; i += chunks ?? all.length)
           stdout(all.slice(i, i + (chunks ?? all.length)));
-        end(0);
+        if (!stay) end(0);
       },
       onStdout(listener) {
         stdout = listener;

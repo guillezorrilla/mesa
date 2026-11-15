@@ -55,6 +55,11 @@ const SessionRecordFields = z.strictObject({
   background: z.literal(true).optional(),
   /** Claude Code's session UUID, or Codex's thread id. */
   agentSessionId: z.string().optional(),
+  /**
+   * How its agent runs (ADR-0029): `structured`, under `mesa host` in its window; absent or
+   * `terminal`, the agent's own TUI.
+   */
+  view: z.enum(['terminal', 'structured']).optional(),
   /** The first prompt the agent was started with (CONTEXT.md, Goal). */
   goal: z.string().optional(),
   /** The goal ends with the worker brief (CONTEXT.md, Worker brief). */

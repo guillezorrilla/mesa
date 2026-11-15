@@ -8,6 +8,7 @@ import type { IdSource } from './lib/ids.js';
 import type { Env, Runner } from './lib/process.js';
 import { redactWhole } from './lib/redact.js';
 import type { SecretStore } from './lib/secret-store.js';
+import type { Spawner } from './lib/spawn.js';
 import type { ConnectSocket } from './phone/protocol/mailbox.js';
 import type { DirectListen } from './phone/serve/direct-socket.js';
 import { type Config, resolveKey } from './profile/config.js';
@@ -37,6 +38,8 @@ export type MesaDeps = {
   /** For `env:VAR` key values, so a receipt can redact them too. */
   env: Env;
   run: Runner;
+  /** Long-lived processes read line by line: a Structured session's agent (sessions/host). */
+  spawn: Spawner;
   /** HTTP to the broker and the sources' APIs (ADR-0014). */
   http: Http;
   /** The broker's WebSocket, which the phone listener holds (ADR-0027). */

@@ -49,6 +49,8 @@ export type OpenInput = {
    * `branch`, which the caller names when none is asked for.
    */
   with?: readonly string[];
+  /** How its agent runs (ADR-0029); none: the profile's default, `terminal.sessionView`. */
+  view?: 'terminal' | 'structured';
 } & SessionModel; // its own model and effort over the profile's defaults (Claude Code, Codex)
 
 /** The flags as asked, before Mesa names a branch or checks out a worktree. */
@@ -119,6 +121,10 @@ export function validateOpenInput(input: OpenFlags): void {
     );
   }
   if (input.run !== undefined && !input.terminal) refuse('--run needs --terminal');
+  if (input.view !== undefined && input.view !== 'terminal' && input.view !== 'structured')
+    refuse(`unknown view ${input.view}; use terminal or structured`);
+  if (input.view === 'structured' && (input.terminal || input.background))
+    refuse('--view structured cannot use --terminal or --background');
   if (
     input.cwd !== undefined &&
     (input.general ||

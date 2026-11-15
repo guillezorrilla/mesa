@@ -47,6 +47,18 @@ export const MODEL_FLAGS = {
   },
 } as const;
 
+/** How a new session's agent runs (ADR-0029); default: the profile's `terminal.sessionView`. */
+export const SESSION_VIEW_FLAG = {
+  view: {
+    type: 'string',
+    description: 'terminal (its TUI) or structured (mesa host, Claude Code); default: the profile',
+  },
+} as const;
+
+/** The view `--view` names, as core takes it; core refuses another word (validateOpenInput). */
+export const sessionViewOf = (view: string | undefined) =>
+  view as 'terminal' | 'structured' | undefined;
+
 /** What a command about one Mesa session's decision assistance takes to name it. */
 export const SESSION_FLAG = {
   type: 'string',
