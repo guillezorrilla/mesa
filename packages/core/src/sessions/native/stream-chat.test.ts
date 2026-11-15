@@ -137,6 +137,35 @@ describe('mergeChat', () => {
     expect(mergeChat(history, live).map((i) => i.id)).toEqual(['h1', 'h2', 'h3']);
   });
 
+  it('leaves out live items older than the transcript window, with no repeats', () => {
+    const turn = (n: number, side: 'h' | 's') => [
+      msg('you', `p${n}`, `${side}p${n}`),
+      msg('agent', `r${n}`, `${side}r${n}`),
+    ];
+    const history = [...turn(3, 'h'), ...turn(4, 'h')];
+    const live = [
+      ...turn(1, 's'),
+      ...turn(2, 's'),
+      ...turn(3, 's'),
+      ...turn(4, 's'),
+      ...turn(5, 's'),
+    ];
+    expect(mergeChat(history, live).map((i) => i.id)).toEqual([
+      'hp3',
+      'hr3',
+      'hp4',
+      'hr4',
+      'sp5',
+      'sr5',
+    ]);
+    expect(mergeChat(history, live.slice(0, 6)).map((i) => i.id)).toEqual([
+      'hp3',
+      'hr3',
+      'hp4',
+      'hr4',
+    ]);
+  });
+
   it('matches a run that began with a thought by a step it shares', () => {
     const steps = (id: string) => ({ id, line: id, status: 'done' });
     const a = { ...run('x'), id: 'steps:stream:0:0', steps: [steps('stream:0:0'), steps('t1')] };

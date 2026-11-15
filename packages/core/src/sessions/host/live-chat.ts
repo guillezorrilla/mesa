@@ -40,6 +40,8 @@ export type LiveChatDeps = {
   record: (id: string) => SessionRecord;
   /** The folder a session's agent works in, which its steps name files against. */
   folder: (record: SessionRecord) => string;
+  /** Whether its window still runs a process: a host that never came up ends a follow too. */
+  windowAlive: (record: SessionRecord) => Promise<boolean>;
   journals: string;
   hosts: string;
   sleep: (ms: number) => Promise<void>;
@@ -101,7 +103,7 @@ export async function followChat(
       }
     }
     if (await askHost(socket, { type: 'ping' })) hosted = true;
-    else if (hosted || deps.record(id).endedAt) break;
+    else if (hosted || deps.record(id).endedAt || !(await deps.windowAlive(record))) break;
   }
   emit({ type: 'end' });
 }

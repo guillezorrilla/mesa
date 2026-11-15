@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, realpathSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   agentWorld,
@@ -6,18 +6,16 @@ import {
   projectProfile,
   RECORDED_CLAUDE_STREAM,
   replaySpawner,
+  shortTempDir,
   testStore,
 } from '../../testing/index.js';
 import { recordHookEvent } from '../signals/hook-events.js';
 import type { ChatFollowLine } from './live-chat.js';
 
-// A unix socket path is capped near 104 bytes, and the system temp folder is long on macOS.
-const shortHome = () => realpathSync(mkdtempSync('/tmp/ms-'));
-
 async function hosted(stream = RECORDED_CLAUDE_STREAM) {
   const fake = replaySpawner(stream, { stay: true });
   const agents = agentWorld();
-  const { home, mesa } = projectProfile(agents.run, { home: shortHome(), spawn: fake.spawn });
+  const { home, mesa } = projectProfile(agents.run, { home: shortTempDir(), spawn: fake.spawn });
   const { result: record } = await mesa.sessions.open('lantern-cove', {
     view: 'structured',
     goal: 'make a file',
@@ -123,6 +121,21 @@ describe('mesa chat --follow', () => {
     const items = lines.filter((l) => l.type === 'item');
     expect(items.map((l) => (l as { item: { text: string } }).item.text)).toContain('and one more');
     expect(lines.at(-1)).toEqual({ type: 'end' });
+  });
+
+  it('ends when the window runs no host', async () => {
+    const w = await hosted();
+    w.host.stop();
+    await w.host.done;
+    const window = w.agents.tmux.opened[0];
+    if (window) window.dead = true;
+    const lines: ChatFollowLine[] = [];
+    await w.mesa.sessions.chatFollow(
+      w.record.id,
+      (line) => lines.push(line),
+      () => true,
+    );
+    expect(lines.map((l) => l.type)).toEqual(['chat', 'end']);
   });
 
   it('prints a Terminal session chat once, and stops when the reader leaves', async () => {

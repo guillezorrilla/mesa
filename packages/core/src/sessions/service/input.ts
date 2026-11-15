@@ -31,12 +31,13 @@ import { sendReview } from '../input/reviews.js';
 import { sendPrompt } from '../input/send.js';
 import { sessionChat } from '../native/chat.js';
 import { previewResponseReview, sessionResponses, sessionTranscript } from '../native/responses.js';
-import { sessionFolder } from '../record/folder.js';
 import { projectScope } from '../record/general.js';
 import { sessionLabel } from '../record/labels.js';
 import { recordAgent, type SessionRecord } from '../record/record.js';
 import { workingFolder } from '../signals/readings.js';
+import { folderOf } from '../start/launch.js';
 import { agentStarted, WAKE_WAIT_MS, wakeSession } from '../start/wake.js';
+import { windowOf } from '../window/window-name.js';
 import type { SessionDeps } from './deps.js';
 import type { lifecycleActions } from './lifecycle.js';
 
@@ -173,7 +174,11 @@ export function inputActions(
     record: (id: string) => store.get(id),
     folder: (r: SessionRecord) => {
       const project = projectScope(r.project);
-      return sessionFolder(r) ?? (project ? findProject(ctx.open(), project).path : ctx.home);
+      return folderOf(r, project ? findProject(ctx.open(), project) : null);
+    },
+    windowAlive: async (r: SessionRecord) => {
+      const pane = await tmux.findWindow(windowOf(r));
+      return Boolean(pane && !pane.dead);
     },
     journals: ctx.paths.journals,
     hosts: ctx.paths.hosts,

@@ -142,7 +142,16 @@ export async function sendPrompt(
     // A Structured session's agent reads its host's socket, not the window (ADR-0029).
     const reply = await askHost(hostSocket(deps.hosts, id), { type: 'send', text });
     if (!reply) throw sessionEnded();
-    if (!reply.ok) throw new MesaError('agent_unavailable', `session ${id}: ${reply.error}`);
+    // Refused by the host: nothing reached the agent, so a report can go again (typedNothing).
+    if (!reply.ok && !reply.unsure)
+      throw new MesaError('not_found', `session ${id}: ${reply.error}; send again`, {
+        safeNoSend: true,
+      });
+    if (!reply.ok)
+      throw new MesaError(
+        'agent_unavailable',
+        `session ${id}: ${reply.error}; it may have been sent`,
+      );
     queued = reply.queued === true;
   } else
     try {
