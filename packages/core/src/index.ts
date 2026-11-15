@@ -209,6 +209,7 @@ export {
   type NativeLive,
   type NativeProject,
 } from './sessions/native/discovery.js';
+export type { ChatFileEdit } from './sessions/native/file-edits.js';
 export type { NativeHistory, NativeHistoryRow } from './sessions/native/history.js';
 export type { InstructionStatus } from './sessions/native/instructions.js';
 export type {

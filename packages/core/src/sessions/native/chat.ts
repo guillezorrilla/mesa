@@ -2,6 +2,7 @@ import { runSentence } from '../../agents/step-words.js';
 import { firstLine } from '../../agents/steps.js';
 import { clip } from '../../lib/clip.js';
 import { MesaError } from '../../lib/result.js';
+import { type ChatFileEdit, sumFileEdits } from './file-edits.js';
 import {
   type NativeCommand,
   type NativePrompt,
@@ -38,7 +39,13 @@ export type ChatRun = {
   text: string;
   from: 'steps';
   steps: ChatStepLine[];
+  /** The files the run's edits changed, each once with its lines summed, in first-edit order; none when it edited none. */
+  edits?: ChatFileEdit[];
 };
+
+/** `steps`' edits, one per file. */
+const fileEdits = (steps: NativeStep[]) =>
+  sumFileEdits(steps.flatMap((step) => (step.type === 'edit' ? [step] : [])));
 
 /** A message or a run of steps, as the chat lists them. */
 export type ChatItem = ChatMessage | ChatRun;
@@ -117,6 +124,7 @@ export function chatMessages(
   const runBefore = (newer: number, at?: string): ChatRun[] => {
     const run = steps.filter((step) => step.newer === newer).reverse();
     const first = run[0];
+    const edits = fileEdits(run);
     return first
       ? [
           {
@@ -125,6 +133,7 @@ export function chatMessages(
             text: runSentence(run),
             from: 'steps',
             steps: run.map(stepLine),
+            ...(edits.length ? { edits } : {}),
           },
         ]
       : [];

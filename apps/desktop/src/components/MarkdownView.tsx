@@ -1,10 +1,19 @@
 import { Copy } from 'lucide-react';
 import type { ReactNode } from 'react';
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { IconButton } from './IconButton';
 
-// Block and inline elements only: no HTML, no images, so nothing remote ever loads.
+// Block and inline elements only: no HTML, no images, so nothing remote ever loads. Any other
+// element GitHub's Markdown makes (a task box, a footnote) shows as its text.
 const ALLOWED = [
+  'table',
+  'thead',
+  'tbody',
+  'tr',
+  'th',
+  'td',
+  'del',
   'h1',
   'h2',
   'h3',
@@ -31,7 +40,7 @@ const textOf = (node: Node | undefined): string =>
   node?.value ?? (node?.children ?? []).map(textOf).join('');
 
 /**
- * Markdown as inert React elements. A link is underlined text, unless `link` renders it from its
+ * Markdown, with GitHub's tables and strikethrough, as inert React elements. A link is underlined text, unless `link` renders it from its
  * href; `link` returns undefined for one it leaves as text. With `onCopyCode`, each code block has
  * a Copy button that hands it its text.
  */
@@ -44,8 +53,16 @@ export function MarkdownView(props: {
   return (
     <Markdown
       skipHtml
+      remarkPlugins={[remarkGfm]}
       allowedElements={ALLOWED}
+      unwrapDisallowed
       components={{
+        // A wide table scrolls sideways on its own, the text around it stays put.
+        table: ({ children }) => (
+          <div className="overflow-x-auto">
+            <table>{children}</table>
+          </div>
+        ),
         a: ({ href, children }) =>
           (href === undefined ? undefined : props.link?.(href, children)) ?? (
             <span className="underline">{children}</span>

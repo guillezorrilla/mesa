@@ -10,8 +10,14 @@ export const awaitsAnswer = (row?: TreeRow) =>
  * The selected session's pending prompt while it waits on a person (CONTEXT.md, Pending prompt);
  * read again for each new one, whose hook moves the state's time.
  */
-export function PromptCard(props: { row?: TreeRow }) {
+export function PromptCard(props: { row?: TreeRow; className?: string }) {
   const { row } = props;
   if (!row || !awaitsAnswer(row)) return null;
-  return <PendingPromptCard key={`${row.id}:${row.lastState.at}`} session={row.id} />;
+  return (
+    <PendingPromptCard
+      key={`${row.id}:${row.lastState.at}`}
+      session={row.id}
+      className={props.className}
+    />
+  );
 }

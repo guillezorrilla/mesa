@@ -35,6 +35,12 @@ test('chat shows the prompts as plain bubbles and the replies as Markdown, oldes
   );
   expect(calls).toContainEqual(['--json', 'chat', '--count', '20', '--', 'a1b2c3d4']);
   const list = byTestId('chat-messages')[0];
+  // Each message's time shows on hover.
+  expect([...(list?.querySelectorAll('time') ?? [])].map((time) => time.dateTime)).toEqual([
+    at,
+    at,
+  ]);
+  for (const time of list?.querySelectorAll('time') ?? []) time.remove();
   const rows = [...(list?.querySelectorAll('li') ?? [])].map((row) =>
     row.textContent?.replace(/\s+/g, ' ').trim(),
   );
@@ -56,7 +62,7 @@ test('Enter sends what is typed, Shift+Enter does not', async () => {
   await press(field, 'Enter', { shiftKey: true });
   expect(onSend).not.toHaveBeenCalled();
   await press(field, 'Enter');
-  expect(onSend).toHaveBeenCalledWith('Chart the tide', field.form);
+  expect(onSend).toHaveBeenCalledWith('Chart the tide', field.form, undefined);
 });
 
 test('a sent prompt shows as Sending until the transcript holds it', async () => {
@@ -206,4 +212,53 @@ test('a session waiting on a permission shows its answer card and the composer s
   const field = document.querySelector<HTMLTextAreaElement>('[aria-label="Message a1b2c3d4"]');
   expect(field?.disabled).toBe(true);
   expect(field?.placeholder).toBe('Answer above');
+});
+
+test("a reply's table renders as a table that scrolls sideways on its own", async () => {
+  const table = '| Port | Tide |\n| --- | --- |\n| Lisbon | 06:12 |';
+  const { bridge } = fakeBridge({ chat: () => envelope(chatOf([said('agent', table)])) });
+  const byTestId = await renderWithMesa(
+    <ChatPanel sessionId="a1b2c3d4" acting={false} onOpenTerminal={() => {}} onSend={() => {}} />,
+    bridge,
+  );
+  const cells = byTestId('chat-messages')[0]?.querySelectorAll('td');
+  expect([...(cells ?? [])].map((cell) => cell.textContent)).toEqual(['Lisbon', '06:12']);
+  expect(byTestId('chat-messages')[0]?.querySelector('table')?.parentElement?.className).toContain(
+    'overflow-x-auto',
+  );
+});
+
+test('a turn that edited files closes with their card, and See all opens the diff', async () => {
+  const run: ChatRun = {
+    id: 'steps:e1',
+    at,
+    from: 'steps',
+    text: 'Edited 2 files',
+    steps: [],
+    edits: [
+      { path: '/work/harbour/src/tides.ts', added: 5, removed: 1 },
+      { path: '/work/harbour/src/moon.ts', added: 1, removed: 2 },
+    ],
+  };
+  const { bridge } = fakeBridge({
+    chat: () => envelope(chatOf([said('you', 'Fix it'), run, said('agent', 'Fixed.')])),
+  });
+  const onOpenDiff = vi.fn();
+  await renderWithMesa(
+    <ChatPanel
+      sessionId="a1b2c3d4"
+      acting={false}
+      onOpenTerminal={() => {}}
+      onSend={() => {}}
+      onOpenDiff={onOpenDiff}
+    />,
+    bridge,
+  );
+  const card = document.querySelector('[aria-label="Edited 2 files"]');
+  expect(card?.textContent).toContain('tides.tsharbour/src+5 -1');
+  expect(card?.textContent).toContain('+6 -3');
+  await click(
+    [...(card?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'See all'),
+  );
+  expect(onOpenDiff).toHaveBeenCalled();
 });
