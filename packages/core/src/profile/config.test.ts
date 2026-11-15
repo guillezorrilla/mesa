@@ -413,3 +413,13 @@ test('vault capture is on by default, and vault.capture on|off sets it beside th
     code: 'invalid_config',
   });
 });
+
+test('new sessions open in Terminal until the profile sets Chat; nothing else is taken', () => {
+  writeFileSync(file, 'vault: /tmp/v\n');
+  expect(loadConfig(file).terminal.sessionView).toBe('terminal');
+  expect(setConfigValue(file, 'terminal.sessionView', 'chat', lockDeps()).value).toBe('chat');
+  expect(loadConfig(file).terminal.sessionView).toBe('chat');
+  expect(
+    thrown(() => setConfigValue(file, 'terminal.sessionView', 'sideways', lockDeps())).code,
+  ).toBe('invalid_config');
+});

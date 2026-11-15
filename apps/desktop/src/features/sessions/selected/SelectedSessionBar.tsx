@@ -58,7 +58,7 @@ export function SelectedSessionBar({
   onDialog: (dialog: OpenDialog) => void;
   /** How the session shows, none when it can only show its terminal. */
   view?: SessionView;
-  onView?: (view: SessionView) => void;
+  onView: (view: SessionView) => void;
   children?: ReactNode;
 }) {
   // A session that coordinates tasks has a Crew too, before it has any worker; read again as its
@@ -99,7 +99,7 @@ export function SelectedSessionBar({
           label="Session view"
           options={VIEWS}
           value={view}
-          onChange={(next) => onView?.(next)}
+          onChange={onView}
         />
       )}
       {row?.managed && row.kind === 'interactive' && row.agent !== 'terminal' && !row.background ? (
