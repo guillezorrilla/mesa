@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import type { Clock } from '../lib/clock.js';
+import type { Spawner } from '../lib/spawn.js';
 import type { MacPath } from '../phone/protocol/direct.js';
 import type { PhoneMessage } from '../phone/protocol/envelope.js';
 import { phoneKeys } from '../phone/protocol/join.js';
@@ -37,6 +38,9 @@ export async function servingPhone(
     tmux?: (command: string[]) => void;
     direct?: ReturnType<typeof fakeDirectSocket>;
     timers?: ReturnType<typeof manualTimers>;
+    /** A home short enough for a host's socket, and claude's process, for a Structured session. */
+    home?: string;
+    spawn?: Spawner;
   } = {},
 ) {
   const broker = fakePairingBroker('https://broker.test', () => NOW);
@@ -50,6 +54,8 @@ export async function servingPhone(
   const { mesa, home } = projectProfile(runner.run, {
     ...(mesaYaml === undefined ? {} : { mesaYaml }),
     ...(opts.clock ? { clock: opts.clock } : {}),
+    ...(opts.home ? { home: opts.home } : {}),
+    ...(opts.spawn ? { spawn: opts.spawn } : {}),
     http: broker.http,
     connect: (url, on) => {
       dials += 1;
