@@ -27,6 +27,7 @@ import {
 } from '../input/review-notes.js';
 import { sendReview } from '../input/reviews.js';
 import { sendPrompt } from '../input/send.js';
+import { sessionChat } from '../native/chat.js';
 import { previewResponseReview, sessionResponses, sessionTranscript } from '../native/responses.js';
 import { projectScope } from '../record/general.js';
 import { sessionLabel } from '../record/labels.js';
@@ -174,6 +175,9 @@ export function inputActions(
       ) =>
         sessionImagePrompt({ profile, store, absolute }, id, path, revision, expectedProfile, note),
     },
+    /** A session's chat: the person's prompts and its agent's replies, oldest first (sessionChat). */
+    chat: (id: string, count?: number) =>
+      sessionChat({ profile, store, home: ctx.home, env: ctx.env }, id, count),
     responses: {
       list: (id: string) => sessionResponses({ profile, store, home: ctx.home, env: ctx.env }, id),
       file: (id: string) => sessionTranscript({ store, home: ctx.home, env: ctx.env }, id),

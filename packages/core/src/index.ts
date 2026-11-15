@@ -189,6 +189,7 @@ export type {
 } from './sessions/input/review-notes.js';
 export type { ReviewDelivery, SavedReview } from './sessions/input/reviews.js';
 export type { Sent } from './sessions/input/send.js';
+export type { ChatMessage, SessionChat } from './sessions/native/chat.js';
 export type {
   DecisionDeliveryStatus,
   DeliveryStatus,

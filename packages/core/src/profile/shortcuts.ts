@@ -20,6 +20,8 @@ export const FIXED_SHORTCUTS = {
   findInFiles: 'Mod+Shift+F',
   startSession: 'Mod+Enter',
   sendFeedback: 'Mod+Enter',
+  // orca's chat toggle key (terminal.toggleNativeChat).
+  toggleChat: 'Mod+Shift+J',
 } as const;
 
 const RESERVED = new Set(['Mod+Q', 'Mod+W', 'Mod+R', 'Mod+H', 'Mod+M']);

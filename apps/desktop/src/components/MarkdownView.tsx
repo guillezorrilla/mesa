@@ -1,5 +1,7 @@
+import { Copy } from 'lucide-react';
 import type { ReactNode } from 'react';
 import Markdown from 'react-markdown';
+import { IconButton } from './IconButton';
 
 // Block and inline elements only: no HTML, no images, so nothing remote ever loads.
 const ALLOWED = [
@@ -23,14 +25,22 @@ const ALLOWED = [
   'a',
 ];
 
+type Node = { value?: string; children?: Node[] };
+/** The text a parsed element holds, its children's joined. */
+const textOf = (node: Node | undefined): string =>
+  node?.value ?? (node?.children ?? []).map(textOf).join('');
+
 /**
  * Markdown as inert React elements. A link is underlined text, unless `link` renders it from its
- * href; `link` returns undefined for one it leaves as text.
+ * href; `link` returns undefined for one it leaves as text. With `onCopyCode`, each code block has
+ * a Copy button that hands it its text.
  */
 export function MarkdownView(props: {
   text: string;
   link?: (href: string, children: ReactNode) => ReactNode;
+  onCopyCode?: (code: string) => void;
 }) {
+  const copy = props.onCopyCode;
   return (
     <Markdown
       skipHtml
@@ -40,6 +50,19 @@ export function MarkdownView(props: {
           (href === undefined ? undefined : props.link?.(href, children)) ?? (
             <span className="underline">{children}</span>
           ),
+        ...(copy && {
+          pre: ({ node, children }) => (
+            <div className="group/code relative">
+              <pre>{children}</pre>
+              <IconButton
+                label="Copy code"
+                icon={Copy}
+                className="absolute top-1 right-1 opacity-0 group-hover/code:opacity-100 focus-visible:opacity-100"
+                onClick={() => copy(textOf(node as Node).replace(/\n$/, ''))}
+              />
+            </div>
+          ),
+        }),
       }}
     >
       {props.text}

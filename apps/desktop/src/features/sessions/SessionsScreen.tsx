@@ -7,6 +7,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { PromptCard } from './answer/PromptCard';
+import { ChatPanel } from './chat/ChatPanel';
+import { useSessionView } from './chat/useSessionView';
 import { type OpenDialog, SessionDialogs } from './dialogs/SessionDialogs';
 import { useDialogRequest } from './dialogs/useDialogRequest';
 import { GridToolbar } from './grid/GridToolbar';
@@ -78,6 +80,8 @@ export function SessionsScreen(
     closeDialog: close,
   });
   const side = useSidePanel(props.selectedSession);
+  const view = useSessionView(selected, props.terminalPreferences?.sessionView ?? 'terminal');
+  const chat = Boolean(props.selectedSession) && view.view === 'chat';
   const commands = useSessionCommands({
     act,
     once,
@@ -120,6 +124,8 @@ export function SessionsScreen(
           onSwap={commands.swap}
           onTogglePanel={side.toggle}
           onDialog={setDialog}
+          view={view.available ? view.view : undefined}
+          onView={view.choose}
         >
           {selected && (
             <SessionActionsMenu
@@ -194,10 +200,20 @@ export function SessionsScreen(
               : 'space-y-4'
         }
       >
+        {chat && props.selectedSession && (
+          <ChatPanel
+            key={props.selectedSession}
+            sessionId={props.selectedSession}
+            acting={acting}
+            sent={prompt.sent}
+            onSend={(text, form) => prompt.send(props.selectedSession ?? '', text, form)}
+          />
+        )}
         <TerminalTiles
           rows={data}
           panels={panels}
           selectedSession={props.selectedSession}
+          covered={chat}
           gridMode={props.gridMode}
           gridProject={grid.project}
           terminalPreferences={props.terminalPreferences}

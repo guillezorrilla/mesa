@@ -31,6 +31,7 @@ import {
   INTERFACE_FONTS,
   INTERFACE_THEMES,
   PROJECT_SORTS,
+  SESSION_VIEWS,
   TERMINAL_APPS,
 } from './preferences.js';
 import { DEFAULT_SHORTCUTS, unbindTakenDefaults, validBinding } from './shortcuts.js';
@@ -213,6 +214,8 @@ const ConfigShape = z.strictObject({
       wezTermNewTab: z.boolean().default(DEFAULT_TERMINAL_PREFERENCES.wezTermNewTab),
       // Copy and Replies over a session terminal on hover, for the agent's latest reply.
       messageActions: z.boolean().default(DEFAULT_TERMINAL_PREFERENCES.messageActions),
+      // How a session with no choice of its own opens: Terminal, or Chat over its transcript.
+      sessionView: z.enum(SESSION_VIEWS).default(DEFAULT_TERMINAL_PREFERENCES.sessionView),
       // The `custom` palette (terminal-palettes.ts), which needs all 20.
       colors: z
         .strictObject(

@@ -1,16 +1,19 @@
-import { TERMINAL_APPS } from '@mesa/core/browser';
+import { SESSION_VIEWS, TERMINAL_APPS } from '@mesa/core/browser';
 import {
   AppWindow,
   Gauge,
   Keyboard,
+  MessageSquare,
   MessageSquareQuote,
   MousePointer2,
   PanelTop,
   SquareTerminal,
   TextCursorInput,
 } from 'lucide-react';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { Button } from '@/components/ui/button';
 import { ChoiceField } from './controls/ChoiceField';
+import { options } from './controls/options';
 import { RangeField } from './controls/RangeField';
 import { TextField } from './controls/TextField';
 import { ToggleField } from './controls/ToggleField';
@@ -64,6 +67,19 @@ export function TerminalEditorSettingsPanel(props: { onShortcuts: () => void }) 
               id="natural-selection"
               path="terminal.naturalSelection"
               checked={terminal.naturalSelection}
+            />
+          }
+        />
+        <SettingRow
+          icon={MessageSquare}
+          title="New sessions open in"
+          description="Terminal, or Chat over the agent's transcript (Claude Code and Codex). Each session keeps its own choice."
+          control={
+            <SegmentedControl
+              label="New sessions open in"
+              value={terminal.sessionView}
+              options={options(SESSION_VIEWS)}
+              onChange={(view) => save('terminal.sessionView', view)}
             />
           }
         />
