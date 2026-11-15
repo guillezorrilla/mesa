@@ -35,6 +35,10 @@ const WorktreeSchema = z.strictObject({
   base: z.string().optional(),
 });
 
+/** How a session's agent runs (ADR-0029): its own TUI, or under `mesa host` in its window. */
+export const VIEWS = ['terminal', 'structured'] as const;
+export type View = (typeof VIEWS)[number];
+
 const SessionRecordFields = z.strictObject({
   /** Short: typed in `mesa stop <id>`. */
   id: z.string().regex(SHORT_ID),
@@ -59,7 +63,7 @@ const SessionRecordFields = z.strictObject({
    * How its agent runs (ADR-0029): `structured`, under `mesa host` in its window; absent or
    * `terminal`, the agent's own TUI.
    */
-  view: z.enum(['terminal', 'structured']).optional(),
+  view: z.enum(VIEWS).optional(),
   /** The first prompt the agent was started with (CONTEXT.md, Goal). */
   goal: z.string().optional(),
   /** The goal ends with the worker brief (CONTEXT.md, Worker brief). */
@@ -282,7 +286,7 @@ const SessionRecordFields = z.strictObject({
       z.strictObject({
         type: z.literal('switched'),
         at: z.iso.datetime(),
-        to: z.enum(['terminal', 'structured']),
+        to: z.enum(VIEWS),
       }),
       /** Handed off (mesa handoff): to its successor, or, on the successor, from the session. */
       z.strictObject({
@@ -372,6 +376,10 @@ export const StoredRecordSchema = SessionRecordFields.loose().refine(
 ) as unknown as z.ZodType<SessionRecord>;
 export type SessionRecord = z.infer<typeof SessionRecordFields>;
 /** A plain terminal has no coding agent or provider conversation. */
+/** Its agent quits on purpose now (a sleep, a view switch): its SessionEnd and pane death are no exit. */
+export const quitting = (r: Pick<SessionRecord, 'sleeping' | 'switching'>) =>
+  Boolean(r.sleeping || r.switching);
+
 export const recordAgent = (record: Pick<SessionRecord, 'agent'>): Agent | undefined =>
   record.agent === 'terminal' ? undefined : record.agent;
 export type NewSession = Omit<SessionRecord, 'id' | 'events'>;

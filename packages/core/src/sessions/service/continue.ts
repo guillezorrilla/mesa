@@ -5,7 +5,7 @@ import { joinWarnings } from '../../receipts/recorder.js';
 import { applyEach } from '../record/each.js';
 import { projectLabel, projectScope } from '../record/general.js';
 import { interrupted, isOver, recoverable, resumable } from '../record/lifecycle.js';
-import { recordAgent } from '../record/record.js';
+import { recordAgent, type View } from '../record/record.js';
 import {
   launchGuardrail,
   markEnded,
@@ -20,7 +20,7 @@ import { handoffSession, stopHandedOff } from '../start/handoff.js';
 import { startQueued } from '../start/queue.js';
 import { resumeSession } from '../start/resume.js';
 import { swapAgent } from '../start/swap.js';
-import { switchView, type View } from '../start/switch-view.js';
+import { switchView } from '../start/switch-view.js';
 import type { SessionDeps } from './deps.js';
 import type { lifecycleActions } from './lifecycle.js';
 

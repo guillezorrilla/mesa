@@ -14,7 +14,8 @@ import { useRun } from '@/lib/useCommand';
 import type { SessionAct } from '../useSessionAct';
 
 type SessionView = (typeof SESSION_VIEWS)[number];
-type Shown = 'terminal' | 'chat';
+/** What the view control shows: Chat is Structured view for a session that switches. */
+export type ShownView = 'terminal' | 'chat';
 
 /**
  * How the selected session shows, Terminal or Chat. A live Claude Code session's view is its own
@@ -28,27 +29,27 @@ export function useSessionView(row: TreeRow | undefined, fallback: SessionView, 
   const switches = Boolean(row && switchable(row));
   const available = Boolean(row && chattable(row));
   const [kept, keep] = useKept(row ? `mesa.sessionView.${row.id}` : undefined);
-  const [switching, setSwitching] = useState<Shown>();
-  const [asking, setAsking] = useState<Shown>();
+  const [switching, setSwitching] = useState<ShownView>();
+  const [asking, setAsking] = useState<ShownView>();
   const chosen = kept ?? fallback;
-  const view: Shown = switches
+  const view: ShownView = switches
     ? row?.managed && row.view === 'structured'
       ? 'chat'
       : 'terminal'
     : available && (chosen === 'chat' || chosen === 'structured')
       ? 'chat'
       : 'terminal';
-  const switchTo = (next: Shown, interrupt = false) => {
+  const switchTo = (next: ShownView, interrupt = false) => {
     if (!row) return;
     setAsking(undefined);
     setSwitching(next);
-    const view = next === 'chat' ? 'structured' : 'terminal';
+    const to = next === 'chat' ? 'structured' : 'terminal';
     // Cleared once the look after it ends, so the control never shows the old view in between.
     void act(async () =>
-      warningOf(await run('sessions.view', { id: row.id, view, interrupt })),
+      warningOf(await run('sessions.view', { id: row.id, view: to, interrupt })),
     ).finally(() => setSwitching(undefined));
   };
-  const choose = (next: Shown) => {
+  const choose = (next: ShownView) => {
     if (!switches) return keep(next);
     if (next === view || switching) return;
     if (row && inTurn(row)) setAsking(next);

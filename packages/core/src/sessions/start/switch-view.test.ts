@@ -143,6 +143,27 @@ describe('switching a session between Structured and Terminal', () => {
     expect(after.switching).toBeUndefined();
   });
 
+  it('records the exit when the new process fails to start after the old one stopped', async () => {
+    const w = world();
+    const { result: plain } = await w.mesa.sessions.open('lantern-cove');
+    w.agents.tmux.failing.push('new-window', 'new-session');
+    await expect(w.mesa.sessions.switchView(plain.id, 'structured')).rejects.toThrow(
+      /could not open/,
+    );
+    const after = testStore(w.home).get(plain.id);
+    expect(after.switching).toBeUndefined();
+    expect(after.lastState.state).toBe('failed');
+    expect(after.events.at(-1)).toMatchObject({ type: 'exited' });
+  });
+
+  it("takes over a crashed switch's marker once it is stale", async () => {
+    const w = world();
+    const { result: plain } = await w.mesa.sessions.open('lantern-cove');
+    testStore(w.home).update(plain.id, { switching: { at: '2026-09-24T11:00:00.000Z' } });
+    const { result } = await w.mesa.sessions.switchView(plain.id, 'structured');
+    expect(result).toMatchObject({ switched: true, record: { view: 'structured' } });
+  });
+
   it('refuses a switch while another runs, and a Codex session', async () => {
     const w = world();
     const { result: plain } = await w.mesa.sessions.open('lantern-cove');

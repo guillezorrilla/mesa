@@ -8,7 +8,7 @@ import { supervisionKey, supervisionState } from '../../decisions/supervision.js
 import type { SystemOneProvider } from '../../decisions/systemone.js';
 import { MesaError } from '../../lib/result.js';
 import { hasConversation } from '../native/conversation.js';
-import type { SessionRecord } from '../record/record.js';
+import { quitting, type SessionRecord } from '../record/record.js';
 import { FINAL_STATES, isAgentState } from '../record/states.js';
 import type { SessionStore } from '../record/store.js';
 import { unreadOn } from '../record/unread.js';
@@ -154,7 +154,7 @@ export async function managedRow(
     background: found.background,
     last: found.lastState,
     // A sleeping session's state stands, as a stopped one's does, until it wakes.
-    ended: Boolean(found.endedAt || found.sleeping || found.switching),
+    ended: Boolean(found.endedAt) || quitting(found),
     ...(event ? { event } : {}),
     ...(listed ? { listed } : {}),
     window: window

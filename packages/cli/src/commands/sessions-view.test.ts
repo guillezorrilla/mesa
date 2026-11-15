@@ -27,6 +27,6 @@ test('sessions view refuses an unknown view', async () => {
   const opened = (await mesa('open', 'lantern-cove', '--no-parent', '--json')).json.data;
   expect(await mesa('sessions', 'view', opened.id, 'sideways')).toMatchObject({
     code: 2,
-    stderr: 'view must be structured or terminal\n',
+    stderr: 'view must be terminal or structured\n',
   });
 });

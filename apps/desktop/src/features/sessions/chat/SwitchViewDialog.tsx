@@ -1,8 +1,9 @@
 import { ActionDialog } from '@/components/ActionDialog';
+import type { ShownView } from './useSessionView';
 
 /** Asks before a view switch cuts the agent's turn: Interrupt and switch, or Cancel. */
 export function SwitchViewDialog(props: {
-  to: 'terminal' | 'chat';
+  to: ShownView;
   disabled: boolean;
   onConfirm: () => void;
   onCancel: () => void;

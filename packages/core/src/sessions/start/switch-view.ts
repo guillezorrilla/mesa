@@ -8,7 +8,8 @@ import { quitAgent, type StopDeps } from '../end/stop.js';
 import { askHost, hostSocket } from '../host/socket.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import { inTurn } from '../record/lifecycle.js';
-import type { SessionRecord } from '../record/record.js';
+import type { SessionRecord, View } from '../record/record.js';
+import { PROCESS } from '../signals/state.js';
 import { windowOf } from '../window/window-name.js';
 import { folderOf, type LaunchDeps, startSession } from './launch.js';
 import { resumeCommand } from './resume.js';
@@ -16,11 +17,10 @@ import { resumeCommand } from './resume.js';
 // Switching a session between Structured and Terminal view (ADR-0029): the same conversation, one
 // process stopped and the other resumed in the session's window, never two at once.
 
-export const VIEWS = ['structured', 'terminal'] as const;
-export type View = (typeof VIEWS)[number];
-
 export type Switched = { record: SessionRecord; switched: boolean; warning?: string };
 
+/** A switch marker older than this is a crashed switch's, and a new switch takes it over. */
+const STALE_SWITCH_MS = 2 * 60_000;
 /** How long the stopped process has to leave claude's listing before the switch gives up. */
 const GONE_WAIT_MS = 5000;
 const POLL_MS = 250;
@@ -54,8 +54,6 @@ export async function switchView(
     throw refuse('has no conversation yet; send it a message first');
   const pane = await deps.tmux.findWindow(windowOf(found));
   if (!pane || pane.dead) throw refuse(`is not running; mesa resume ${id} first`);
-  if (inTurn(found) && !interrupt)
-    throw refuse('is mid-turn: wait for it to finish, or interrupt and switch (--interrupt)');
   const project =
     found.project === GENERAL_PROJECT ? null : findProject(deps.profile, found.project);
   const folder = folderOf(found, project);
@@ -63,17 +61,26 @@ export async function switchView(
     throw new MesaError('not_found', `session ${id}'s folder ${folder} is gone`);
 
   const at = deps.clock().toISOString();
-  let claimed = false;
+  const midTurn = 'is mid-turn: wait for it to finish, or interrupt and switch (--interrupt)';
+  if (inTurn(found) && !interrupt) throw refuse(midTurn);
+  let refused: string | undefined;
   deps.store.update(id, (current) => {
-    if (current.switching) return {};
-    claimed = true;
+    const since = current.switching ? Date.parse(at) - Date.parse(current.switching.at) : Infinity;
+    if (since < STALE_SWITCH_MS) refused = 'is switching already';
+    // Decided on `found`: what changed since, another switch or a new turn, is checked again here.
+    else if (current.view !== found.view)
+      refused = 'changed view while the switch began; try again';
+    else if (inTurn(current) && !interrupt) refused = midTurn;
+    if (refused) return {};
     return { switching: { at } };
   });
-  if (!claimed) throw refuse('is switching already');
+  if (refused) throw refuse(refused);
   const release = () =>
     deps.store.update(id, (current) =>
       current.switching?.at === at ? { switching: undefined } : {},
     );
+  // Set once the old process is gone: a failure after it leaves the session exited, not idle.
+  let gone = false;
   try {
     if (found.view === 'structured') {
       const socket = hostSocket(deps.profile.paths.hosts, id);
@@ -91,6 +98,7 @@ export async function switchView(
         );
       await deps.sleep(POLL_MS);
     }
+    gone = true;
     // Stamped once the old process is gone, so its SessionEnd, which lands after the switch
     // began, falls before it and no longer speaks for the session (measured live).
     const stopped = deps.clock().toISOString();
@@ -112,6 +120,19 @@ export async function switchView(
   } catch (error) {
     try {
       release();
+      // Its pane-died and SessionEnd were the switch's, so the exit is recorded here; Resume reopens it.
+      if (gone) {
+        const now = deps.clock().toISOString();
+        deps.store.update(id, (current) => ({
+          lastState: {
+            state: 'failed' as const,
+            confidence: PROCESS,
+            at: now,
+            source: 'tmux' as const,
+          },
+          events: [...current.events, { type: 'exited' as const, at: now }],
+        }));
+      }
     } catch {
       // The switch's own error says more.
     }

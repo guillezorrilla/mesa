@@ -13,6 +13,7 @@ import { SegmentedControl } from '@/components/SegmentedControl';
 import { Button } from '@/components/ui/button';
 import { AutomationBanner } from '@/features/automations/AutomationBanner';
 import { useCommand } from '@/lib/useCommand';
+import type { ShownView } from '../chat/useSessionView';
 import type { OpenDialog } from '../dialogs/SessionDialogs';
 import { AgentSwitcher } from './AgentSwitcher';
 import { SelectedSessionDetails } from './SelectedSessionDetails';
@@ -57,10 +58,10 @@ export function SelectedSessionBar({
   onTogglePanel: (panel: SidePanel) => void;
   onDialog: (dialog: OpenDialog) => void;
   /** How the session shows, none when it can only show its terminal. */
-  view?: 'terminal' | 'chat';
+  view?: ShownView;
   /** A view switch runs (ADR-0029): the control shows where it goes, and waits. */
   switching?: boolean;
-  onView: (view: 'terminal' | 'chat') => void;
+  onView: (view: ShownView) => void;
   children?: ReactNode;
 }) {
   // A session that coordinates tasks has a Crew too, before it has any worker; read again as its

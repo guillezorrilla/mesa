@@ -1,5 +1,5 @@
 import type { Clock } from '../../lib/clock.js';
-import type { SessionRecord } from '../record/record.js';
+import { quitting, type SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
 import { unreadOn } from '../record/unread.js';
 import { exitState, PROCESS } from '../signals/state.js';
@@ -33,7 +33,7 @@ export async function recordPaneDied(
   const shown = project === found?.tmux.session || project.startsWith(VIEW_PREFIX);
   // A sleeping or switching session's agent quit on purpose: it is not an exit (sleep.ts).
   const recorded = (r: SessionRecord) =>
-    Boolean(r.endedAt || r.sleeping || r.switching) || r.events.some((e) => e.type === 'exited');
+    Boolean(r.endedAt) || quitting(r) || r.events.some((e) => e.type === 'exited');
   if (!found || !ours || !shown || recorded(found)) return undefined;
   // The pane is only a view: Claude's background process may still be running.
   if (found.backgroundId) return undefined;
