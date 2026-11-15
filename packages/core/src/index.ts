@@ -192,6 +192,7 @@ export type {
 export type { ReviewDelivery, SavedReview } from './sessions/input/reviews.js';
 export type { Sent } from './sessions/input/send.js';
 export type {
+  ChatFileEdit,
   ChatItem,
   ChatMessage,
   ChatRun,

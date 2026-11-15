@@ -1,5 +1,5 @@
 import type { Config, GridGroup, ProjectRow, SavedPrompt, TreeRow } from '@mesa/core';
-import { setupSessionsOf } from '@mesa/core/browser';
+import { diffable, setupSessionsOf } from '@mesa/core/browser';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
@@ -209,7 +209,17 @@ export function SessionsScreen(
             acting={acting}
             sent={prompt.sent}
             refused={prompt.refused?.id === props.selectedSession ? prompt.refused.text : undefined}
-            onSend={(text, form) => prompt.send(props.selectedSession ?? '', text, form)}
+            onSend={(text, form, image) =>
+              prompt.send(props.selectedSession ?? '', text, form, false, image)
+            }
+            image={prompt.image}
+            onPickImage={() => prompt.pickImage(props.selectedSession ?? '')}
+            onClearImage={prompt.clearImage}
+            onOpenDiff={
+              selected && diffable(selected)
+                ? () => side.open !== 'diff' && side.toggle('diff')
+                : undefined
+            }
             onOpenTerminal={() => view.choose('terminal')}
             terminal={props.terminalPreferences}
           />

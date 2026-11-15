@@ -1,6 +1,7 @@
 import { promptTitle } from '@mesa/core/browser';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { PromptTextField } from './PromptTextField';
 import { usePendingPrompt } from './usePendingPrompt';
 
@@ -8,12 +9,12 @@ import { usePendingPrompt } from './usePendingPrompt';
  * The prompt a waiting session asks, as a card: what it is about and its options as buttons, a
  * typed answer where it takes one, or why Mesa cannot answer it.
  */
-export function PendingPromptCard(props: { session: string }) {
+export function PendingPromptCard(props: { session: string; className?: string }) {
   const { prompt, acting, answer } = usePendingPrompt(props.session);
   if (!prompt) return null;
   if (prompt.status === 'unsupported') {
     return (
-      <Muted data-testid="session-prompt" className="mx-4 mt-3">
+      <Muted data-testid="session-prompt" className={cn('mx-4 mt-3', props.className)}>
         {prompt.reason}
       </Muted>
     );
@@ -22,7 +23,7 @@ export function PendingPromptCard(props: { session: string }) {
     <section
       data-testid="session-prompt"
       aria-label={promptTitle(prompt)}
-      className="mx-4 mt-3 grid gap-2 rounded-lg border bg-card p-3 text-sm"
+      className={cn('mx-4 mt-3 grid gap-2 rounded-xl bg-muted p-4 text-sm', props.className)}
     >
       <p className="font-medium">{promptTitle(prompt)}</p>
       <p className="whitespace-pre-wrap break-all font-mono text-xs">{prompt.summary}</p>

@@ -38,6 +38,24 @@ export type ChatRun = {
   text: string;
   from: 'steps';
   steps: ChatStepLine[];
+  /** The files the run's edits changed, each once with its lines summed, in first-edit order; none when it edited none. */
+  edits?: ChatFileEdit[];
+};
+
+/** One file a run edited: its path as the agent wrote it, and the lines it added and removed. */
+export type ChatFileEdit = { path: string; added: number; removed: number };
+
+/** `steps`' edits, one per file. */
+const fileEdits = (steps: NativeStep[]): ChatFileEdit[] => {
+  const files = new Map<string, ChatFileEdit>();
+  for (const step of steps) {
+    if (step.type !== 'edit') continue;
+    const file = files.get(step.path) ?? { path: step.path, added: 0, removed: 0 };
+    file.added += step.added;
+    file.removed += step.removed;
+    files.set(step.path, file);
+  }
+  return [...files.values()];
 };
 
 /** A message or a run of steps, as the chat lists them. */
@@ -117,6 +135,7 @@ export function chatMessages(
   const runBefore = (newer: number, at?: string): ChatRun[] => {
     const run = steps.filter((step) => step.newer === newer).reverse();
     const first = run[0];
+    const edits = fileEdits(run);
     return first
       ? [
           {
@@ -125,6 +144,7 @@ export function chatMessages(
             text: runSentence(run),
             from: 'steps',
             steps: run.map(stepLine),
+            ...(edits.length ? { edits } : {}),
           },
         ]
       : [];

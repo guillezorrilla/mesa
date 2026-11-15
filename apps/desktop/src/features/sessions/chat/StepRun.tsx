@@ -9,13 +9,16 @@ import { cn } from '@/lib/utils';
 export function StepRun(props: { run: ChatRun }) {
   const { run } = props;
   return (
-    <li className="text-muted-foreground text-xs">
+    <li className="text-[13px] text-muted-foreground">
       <details className="group">
-        <summary className="flex cursor-pointer list-none items-center gap-1 [&::-webkit-details-marker]:hidden">
-          <ChevronRight aria-hidden className="size-3 transition-transform group-open:rotate-90" />
+        <summary className="-mx-1.5 inline-flex cursor-pointer list-none items-center gap-1.5 rounded-md px-1.5 py-0.5 hover:bg-muted hover:text-foreground [&::-webkit-details-marker]:hidden">
+          <ChevronRight
+            aria-hidden
+            className="size-3.5 transition-transform group-open:rotate-90"
+          />
           {run.text}
         </summary>
-        <ol className="mt-1 ml-4 grid gap-0.5 font-mono">
+        <ol className="mt-1.5 ml-5 grid gap-1 font-mono text-xs">
           {run.steps.map((step) => (
             <li
               key={step.id}

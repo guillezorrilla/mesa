@@ -1,6 +1,6 @@
-import type { Config, TreeRow } from '@mesa/core';
+import type { Config, SessionImage, TreeRow } from '@mesa/core';
 import { ArrowDown } from 'lucide-react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useLayoutEffect, useRef, useState } from 'react';
 import { MarkdownView } from '@/components/MarkdownView';
 import { Muted } from '@/components/Muted';
 import { said } from '@/components/Toast';
@@ -15,19 +15,26 @@ import type { SentPrompt } from '../selected/useSessionPrompt';
 import { ChatComposer } from './ChatComposer';
 import { CommandCard } from './CommandCard';
 import { type ChatEntry, chatItems, isCommand } from './commandMarkers';
+import { EditedFiles } from './EditedFiles';
 import { StepRun } from './StepRun';
+import { turnEdits } from './turnEdits';
 import { useChat } from './useChat';
 import { useCommandMarkers } from './useCommandMarkers';
 
 /** How near an end of the list counts as at it, in pixels. */
 const NEAR = 40;
+/**
+ * The one column every part of the chat shares, messages to composer: the pane's width with even
+ * gutters, up to a width a reply still reads at.
+ */
+const COLUMN = 'mx-auto w-full max-w-5xl px-6';
 
 /**
  * The selected session as a chat over its terminal: the person's prompts and its agent's replies
  * from its transcript, oldest at the top, and a composer that types into the same terminal. It
  * opens at the bottom and follows new replies while there; scrolled up, it holds still and offers
  * New; at the top it reads further back. A slash command shows as a command card, live with its
- * panel while it is the last one sent.
+ * panel while it is the last one sent. A turn that changed files closes with their card.
  */
 export function ChatPanel(props: {
   sessionId: string;
@@ -37,7 +44,13 @@ export function ChatPanel(props: {
   sent?: SentPrompt;
   /** Why the last prompt was not sent: a guardrail's block, or the send's failure. */
   refused?: string;
-  onSend: (prompt: string, form: HTMLFormElement) => void;
+  onSend: (prompt: string, form: HTMLFormElement, image?: SessionImage) => void;
+  /** The image picked to send with the next prompt, and picking or dropping it. */
+  image?: SessionImage;
+  onPickImage?: () => void;
+  onClearImage?: () => void;
+  /** Opens the session's diff, for an Edited card's See all; none when it has no diff. */
+  onOpenDiff?: () => void;
   onOpenTerminal: () => void;
   /** The profile's terminal settings, whose colours command cards draw in. */
   terminal?: Config['terminal'];
@@ -61,6 +74,7 @@ export function ChatPanel(props: {
   const [fresh, setFresh] = useState(false);
   const messages = chat?.messages ?? [];
   const items = chatItems(messages, markers.list);
+  const edited = turnEdits(messages);
   const newest = `${messages.length}:${messages.at(-1)?.id}:${sending?.at}:${markers.frames}`;
   const seen = useRef(newest);
   useLayoutEffect(() => {
@@ -107,7 +121,7 @@ export function ChatPanel(props: {
           if (view.scrollTop < NEAR) readOlder();
         }}
       >
-        <ol className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4">
+        <ol className={cn(COLUMN, 'flex flex-col gap-6 pt-6 pb-8')}>
           {chat?.more && (
             <li className="self-center">
               <Button variant="ghost" size="sm" disabled={loadingOlder} onClick={readOlder}>
@@ -115,19 +129,28 @@ export function ChatPanel(props: {
               </Button>
             </li>
           )}
-          {items.map((item, index) => (
-            // Two prompts with the same words share an id: the place tells them apart.
-            <ChatRow
+          {items.map((item, index) => {
+            const files = item.message && edited.get(item.message);
+            return (
+              // Two prompts with the same words share an id: the place tells them apart.
               // biome-ignore lint/suspicious/noArrayIndexKey: messages are stateless and only prepend.
-              key={`${index}:${item.message?.id ?? item.marker?.sentAt}`}
-              item={item}
-              live={item.marker !== undefined && item.marker === markers.live}
-              onCopyCode={copy}
-              onKey={(key) => void pressKey(key)}
-              onOpenTerminal={props.onOpenTerminal}
-              terminal={props.terminal}
-            />
-          ))}
+              <Fragment key={`${index}:${item.message?.id ?? item.marker?.sentAt}`}>
+                <ChatRow
+                  item={item}
+                  live={item.marker !== undefined && item.marker === markers.live}
+                  onCopyCode={copy}
+                  onKey={(key) => void pressKey(key)}
+                  onOpenTerminal={props.onOpenTerminal}
+                  terminal={props.terminal}
+                />
+                {files && (
+                  <li>
+                    <EditedFiles files={files} onSeeAll={props.onOpenDiff} />
+                  </li>
+                )}
+              </Fragment>
+            );
+          })}
           {sending && !isCommand(sending.prompt) && (
             <li className="flex flex-col items-end gap-1 opacity-60">
               <div className={YOU}>{sending.prompt}</div>
@@ -140,39 +163,50 @@ export function ChatPanel(props: {
         )}
         {error && !chat && <Muted className="p-6 text-center">{error.message}</Muted>}
       </div>
-      {fresh && (
-        <Button
-          size="sm"
-          variant="secondary"
-          className="-translate-x-1/2 absolute bottom-24 left-1/2 shadow-sm"
-          onClick={toBottom}
-        >
-          <ArrowDown aria-hidden /> New
-        </Button>
-      )}
-      <div className="mx-auto w-full max-w-3xl">
-        <PromptCard row={props.row} />
+      <div className={cn(COLUMN, 'relative grid gap-2 pb-4')}>
+        {fresh && (
+          <Button
+            size="sm"
+            variant="secondary"
+            className="-translate-x-1/2 absolute bottom-full left-1/2 mb-3 rounded-full shadow-sm"
+            onClick={toBottom}
+          >
+            <ArrowDown aria-hidden /> New
+          </Button>
+        )}
+        <PromptCard row={props.row} className="mx-0 mt-0" />
+        {props.refused && (
+          <p role="alert" className="px-2 text-destructive text-xs">
+            {props.refused}
+          </p>
+        )}
+        <ChatComposer
+          sessionId={props.sessionId}
+          acting={props.acting}
+          answerAbove={awaitsAnswer(props.row)}
+          image={props.image}
+          onPickImage={props.onPickImage}
+          onClearImage={props.onClearImage}
+          onSend={props.onSend}
+        />
       </div>
-      {props.refused && (
-        <p role="alert" className="mx-auto w-full max-w-3xl px-4 text-destructive text-xs">
-          {props.refused}
-        </p>
-      )}
-      <ChatComposer
-        sessionId={props.sessionId}
-        acting={props.acting}
-        answerAbove={awaitsAnswer(props.row)}
-        onSend={props.onSend}
-      />
     </section>
   );
 }
 
-const YOU = 'max-w-[80%] whitespace-pre-wrap break-words rounded-lg bg-accent px-3 py-2 text-sm';
+const YOU =
+  'max-w-[min(85%,48rem)] whitespace-pre-wrap break-words rounded-2xl bg-muted px-4 py-2.5 text-[15px] leading-6';
+/** The agent's replies: the vault's prose a step larger, for reading at length. */
+const REPLY =
+  'w-full text-[15px] leading-7 [&_pre_code]:text-[13px] [&_h1]:mt-6 [&_h2]:mt-6 [&_h3]:mt-5 [&_li]:mt-1';
+
+/** When a message was written, as the hour and minute shown on hovering it. */
+const clock = (at: string | null) =>
+  at ? new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined;
 
 /**
  * One row: the person's message as a plain bubble on the right, the agent's as Markdown, a run of
- * steps as its list, a slash command as its card.
+ * steps as its list, a slash command as its card. A message shows its time on hover.
  */
 function ChatRow(props: {
   item: ChatEntry;
@@ -200,12 +234,24 @@ function ChatRow(props: {
         />
       </li>
     );
+  const time = clock(message.at);
   return (
-    <li className={cn('flex', message.from === 'you' && 'justify-end')}>
+    <li className={cn('group relative flex', message.from === 'you' && 'justify-end')}>
+      {time && (
+        <time
+          dateTime={message.at ?? undefined}
+          className={cn(
+            '-top-5 absolute text-muted-foreground text-xs opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100',
+            message.from === 'you' ? 'right-1' : 'left-0',
+          )}
+        >
+          {time}
+        </time>
+      )}
       {message.from === 'you' ? (
         <div className={YOU}>{message.text}</div>
       ) : (
-        <div className={cn(PROSE, 'w-full')}>
+        <div className={cn(PROSE, REPLY)}>
           <MarkdownView text={message.text} onCopyCode={props.onCopyCode} />
         </div>
       )}

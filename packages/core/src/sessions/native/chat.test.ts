@@ -154,3 +154,36 @@ test("a gap's steps show as one run between the replies, after the prompt that s
     'Read s2.ts',
   ]);
 });
+
+const edit = (id: string, path: string, added: number, removed: number): NativeStep => ({
+  type: 'edit',
+  id,
+  path,
+  added,
+  removed,
+  hunk: [],
+  status: 'done',
+  newer: 0,
+});
+
+test('a run lists the files its edits changed, each once with its lines summed', () => {
+  const { messages } = chatMessages(
+    { rows: [row('a')], prompts: [] },
+    1,
+    true,
+    // Newest first.
+    [
+      edit('e3', 'src/tide.ts', 2, 0),
+      tool('s1', 'read', 0),
+      edit('e2', 'src/moon.ts', 1, 1),
+      edit('e1', 'src/tide.ts', 3, 1),
+    ],
+  );
+  const run = messages[0];
+  expect(run?.from === 'steps' && run.edits).toEqual([
+    { path: 'src/tide.ts', added: 5, removed: 1 },
+    { path: 'src/moon.ts', added: 1, removed: 1 },
+  ]);
+  const quiet = chatMessages({ rows: [row('a')], prompts: [] }, 1, true, [tool('s1', 'read', 0)]);
+  expect(quiet.messages[0]).not.toHaveProperty('edits');
+});
