@@ -128,7 +128,8 @@ export async function followChat(
         emit({ type: 'item', item });
       }
     }
-    if ((pinged += FOLLOW_MS) < PING_MS) continue;
+    pinged += FOLLOW_MS;
+    if (pinged < PING_MS) continue;
     pinged = 0;
     if (await askHost(socket, { type: 'ping' })) hosted = true;
     else if (hosted || deps.record(id).endedAt || !(await deps.windowAlive(record))) break;
