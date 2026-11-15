@@ -1,7 +1,9 @@
+import { clip } from '../../../lib/clip.js';
 import { lineSplitter } from '../../../lib/lines.js';
 import type { Env } from '../../../lib/process.js';
 import type { SpawnExit, Spawner } from '../../../lib/spawn.js';
-import type { AgentRunner } from '../../runner.js';
+import type { AgentRunner, RunnerSignal, StartHostRunner } from '../../runner.js';
+import { firstLine } from '../../steps.js';
 import { type AppServerEvent, parseAppServerLine } from './events.js';
 
 // Codex on `codex app-server` for one session: one long-lived process speaking JSON-RPC over
@@ -155,3 +157,43 @@ export function startCodexRunner(
     exited,
   };
 }
+
+/** What `mesa host` shows of an app-server event. */
+export function codexSignal(event: AppServerEvent): RunnerSignal | undefined {
+  switch (event.type) {
+    case 'thread':
+      return { sessionId: event.threadId, ...(event.model ? { model: event.model } : {}) };
+    case 'approval': {
+      // One line, short: the status is redrawn in place on the window's last line.
+      const what =
+        event.kind === 'command' ? firstLine(event.command ?? '') || 'a command' : 'a file change';
+      return { doing: `waiting for permission: ${clip(what, 60)}` };
+    }
+    case 'turn_completed':
+      return { doing: 'idle', turnEnded: true };
+    case 'response':
+      // A turn Codex refused never completes.
+      return !event.ok && (event.method === 'turn/start' || event.method === 'thread/compact/start')
+        ? { doing: 'idle', turnEnded: true }
+        : undefined;
+    case 'turn_started':
+    case 'resolved':
+    case 'delta':
+    case 'item_started':
+      return { doing: 'working' };
+    default:
+      return undefined;
+  }
+}
+
+/** Codex's runner for `mesa host`: a new thread (Codex picks its id), or the one resumed. */
+export const startCodexHost: StartHostRunner = (deps, launch, onLine) =>
+  startCodexRunner(
+    deps,
+    {
+      cwd: launch.cwd,
+      ...(launch.resume && launch.sessionId ? { resume: launch.sessionId } : {}),
+      args: launch.args,
+    },
+    (event, line) => onLine(line, codexSignal(event)),
+  );

@@ -51,7 +51,8 @@ export const MODEL_FLAGS = {
 export const SESSION_VIEW_FLAG = {
   view: {
     type: 'string',
-    description: 'terminal (its TUI) or structured (mesa host, Claude Code); default: the profile',
+    description:
+      'terminal (its TUI) or structured (mesa host, Claude Code or Codex); default: the profile',
   },
 } as const;
 

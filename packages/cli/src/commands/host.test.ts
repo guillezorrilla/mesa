@@ -15,7 +15,7 @@ test('open --view structured runs mesa host in the window; host refuses a Termin
   const plain = (await mesa('open', 'lantern-cove', '--json')).json.data;
   expect(await mesa('host', plain.id)).toMatchObject({
     code: 2,
-    stderr: `session ${plain.id} is not a Structured Claude Code session\n`,
+    stderr: `session ${plain.id} is not a Structured Claude Code or Codex session\n`,
   });
   expect(await mesa('open', 'lantern-cove', '--view', 'sideways')).toMatchObject({
     code: 2,

@@ -40,9 +40,9 @@ export const reviewable = (s: SessionRow): s is ManagedRow =>
  */
 export const chattable = (s: SessionRow): s is ManagedRow =>
   reviewable(s) && (s.agent === 'claude' || s.agent === 'codex');
-/** A live Claude Code session in a window: one that switches Structured and Terminal (ADR-0029). */
+/** A live Claude Code or Codex session in a window: one that switches Structured and Terminal (ADR-0029). */
 export const switchable = (s: SessionRow): s is ManagedRow =>
-  liveAgent(s) && s.agent === 'claude' && !s.background;
+  liveAgent(s) && (s.agent === 'claude' || s.agent === 'codex') && !s.background;
 /** A live Mesa session with an interactive agent: one Mesa can type a prompt into. */
 export const liveAgent = (s: SessionRow): s is ManagedRow => reviewable(s) && s.alive && !s.endedAt;
 /** A Mesa session in a registered project, whose checkout the Diff panel compares with its base. */

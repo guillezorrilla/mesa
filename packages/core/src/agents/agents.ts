@@ -12,8 +12,10 @@ import { claudeListedState, listClaudeProcesses } from './claude/listing.js';
 import { claudePrompt } from './claude/prompt.js';
 import { readClaudeResult } from './claude/result.js';
 import { claudeLastOutputLine, claudeScreenState } from './claude/screen.js';
+import { startClaudeHost } from './claude/stream/runner.js';
 import { claudeTranscriptReader } from './claude/transcripts.js';
 import { claudeReading, claudeUsage, claudeUsageFiles } from './claude/usage.js';
+import { startCodexHost } from './codex/appserver/runner.js';
 import { codexContext } from './codex/context-use.js';
 import { codexHookState } from './codex/hook-state.js';
 import { listCodexSessions } from './codex/listing.js';
@@ -25,6 +27,7 @@ import { codexTranscriptReader } from './codex/transcripts.js';
 import { codexUsage } from './codex/usage.js';
 import {
   addDirArgs,
+  codexServerOverrides,
   type LaunchDefaults,
   launchFlags,
   type SessionLaunch,
@@ -171,6 +174,8 @@ export const AGENTS = {
       ...claudeMountArgs(mounts),
       ...addDirArgs('claude', dirs),
     ],
+    /** Its runner under `mesa host`, given hostArgs (agents/runner.ts). */
+    host: startClaudeHost,
     fork: (
       sessionId: string,
       _folder: string,
@@ -278,6 +283,22 @@ export const AGENTS = {
       dirs: readonly string[] = [],
     ) =>
       `codex ${CODEX_EMBEDDED}${flags('codex', defaults, undefined, dirs)} ${codexMount(mounts)} resume ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs('codex', dirs)}`,
+    /**
+     * The arguments `mesa host` gives `codex app-server` (ADR-0029, agents/codex/appserver) after
+     * the subcommand: what start and resume give, as `-c` overrides, the only flags it takes.
+     */
+    hostArgs: (
+      mounts: Mounts,
+      defaults: SessionLaunch,
+      _mode?: 'plan',
+      dirs: readonly string[] = [],
+      _disallowed: readonly string[] = [],
+    ) =>
+      [...codexServerOverrides(defaults, dirs), ...codexMountOverrides(mounts)].flatMap((o) => [
+        '-c',
+        o,
+      ]),
+    host: startCodexHost,
     fork: (
       sessionId: string,
       folder: string,

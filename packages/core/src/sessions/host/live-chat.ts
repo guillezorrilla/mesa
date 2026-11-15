@@ -1,5 +1,7 @@
 import { parseStreamLine } from '../../agents/claude/stream/events.js';
+import { parseAppServerLine } from '../../agents/codex/appserver/events.js';
 import type { ChatItem, SessionChat } from '../native/chat.js';
+import { foldCodexEvent } from '../native/codex-stream-chat.js';
 import { mergeChat } from '../native/merge-chat.js';
 import {
   foldStreamEvent,
@@ -15,8 +17,23 @@ import { askHost, hostSocket } from './socket.js';
 // A Structured session's chat (ADR-0029): its transcript's history with its journal folded in
 // (stream-chat.ts), so a reply shows while it streams; and the same chat followed as it changes.
 
-/** A journal's lines (readJournal) folded into chat items, oldest first. */
-export function journalItems(lines: readonly string[], cwd: string): ChatItem[] {
+/** Folds one journalled event of `agent`'s runner (Claude's stream-json, Codex's app-server). */
+const foldJournalled = (
+  agent: SessionRecord['agent'],
+  state: StreamChat,
+  line: string,
+  at: string,
+) =>
+  agent === 'codex'
+    ? foldCodexEvent(state, parseAppServerLine(line), at)
+    : foldStreamEvent(state, parseStreamLine(line), at);
+
+/** A journal's lines (readJournal) of `agent`'s session folded into chat items, oldest first. */
+export function journalItems(
+  lines: readonly string[],
+  cwd: string,
+  agent: SessionRecord['agent'],
+): ChatItem[] {
   let state: StreamChat = newStreamChat(cwd);
   for (const line of lines) {
     let entry: { at?: string; sent?: { type?: string; text?: string }; event?: unknown };
@@ -29,7 +46,7 @@ export function journalItems(lines: readonly string[], cwd: string): ChatItem[] 
     if (entry.sent?.type === 'user' && entry.sent.text)
       state = streamChatSent(state, entry.sent.text, at);
     else if (entry.event !== undefined)
-      state = foldStreamEvent(state, parseStreamLine(JSON.stringify(entry.event)), at);
+      state = foldJournalled(agent, state, JSON.stringify(entry.event), at);
   }
   return streamChatItems(state);
 }
@@ -53,7 +70,7 @@ export function liveChat(deps: LiveChatDeps, id: string, count?: number): Sessio
   const record = deps.record(id);
   if (record.view !== 'structured') return chat;
   const lines = readJournal(deps.journals, id) ?? [];
-  const messages = mergeChat(chat.messages, journalItems(lines, deps.folder(record)));
+  const messages = mergeChat(chat.messages, journalItems(lines, deps.folder(record), record.agent));
   return { ...chat, messages, count: messages.length };
 }
 
@@ -94,7 +111,10 @@ export async function followChat(
     const lines = readJournal(deps.journals, id) ?? [];
     if (lines.length !== read) {
       read = lines.length;
-      const items = mergeChat(history.messages, journalItems(lines, deps.folder(record)));
+      const items = mergeChat(
+        history.messages,
+        journalItems(lines, deps.folder(record), record.agent),
+      );
       for (const item of items) {
         const text = JSON.stringify(item);
         if (shown.get(item.id) === text) continue;

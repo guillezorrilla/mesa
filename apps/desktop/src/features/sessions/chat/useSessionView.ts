@@ -18,7 +18,7 @@ type SessionView = (typeof SESSION_VIEWS)[number];
 export type ShownView = 'terminal' | 'chat';
 
 /**
- * How the selected session shows, Terminal or Chat. A live Claude Code session's view is its own
+ * How the selected session shows, Terminal or Chat. A live Claude Code or Codex session's view is its own
  * (ADR-0029): choosing switches its agent between Terminal and Structured (shown as Chat), with
  * `switching` set meanwhile, and mid-turn it asks first (`asking`, then `confirm` or `cancel`).
  * Another session keeps a choice per session on this machine, else the profile's `fallback`; one

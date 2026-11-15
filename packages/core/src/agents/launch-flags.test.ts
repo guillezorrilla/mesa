@@ -1,7 +1,12 @@
-import { expect, test } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import { CLAUDE_MOUNT, CODEX_MOUNT, NATIVE_LAUNCH, tempDir } from '../testing/index.js';
 import { AGENTS, startCommand } from './agents.js';
-import { dangerousFlags, type LaunchDefaults, launchFlags } from './launch-flags.js';
+import {
+  codexServerOverrides,
+  dangerousFlags,
+  type LaunchDefaults,
+  launchFlags,
+} from './launch-flags.js';
 import { launchMounts } from './mesa-mount.js';
 
 // The profile's launch defaults on the commands every start, resume, and fork runs, in each
@@ -142,4 +147,31 @@ test('the dangerous flags are the ones that turn off permission checks or the sa
   expect(dangerousFlags('antigravity', set({ antigravity: { skipPermissions: true } }))).toEqual([
     '--dangerously-skip-permissions',
   ]);
+});
+
+describe('codexServerOverrides', () => {
+  const native = NATIVE_LAUNCH;
+  it("gives codex app-server the TUI's policy, sandbox, model and effort as -c values", () => {
+    expect(codexServerOverrides(native)).toEqual([]);
+    expect(
+      codexServerOverrides(
+        {
+          ...native,
+          codex: { approvalPolicy: 'on-request', sandbox: 'read-only' },
+          model: 'gpt-x',
+          effort: 'low',
+        },
+        ['/w/other'],
+      ),
+    ).toEqual([
+      'approval_policy="on-request"',
+      'sandbox_mode="workspace-write"',
+      'sandbox_workspace_write.writable_roots=["/w/other"]',
+      'model="gpt-x"',
+      'model_reasoning_effort="low"',
+    ]);
+    expect(
+      codexServerOverrides({ ...native, codex: { bypass: true, approvalPolicy: 'on-request' } }),
+    ).toEqual(['approval_policy="never"', 'sandbox_mode="danger-full-access"']);
+  });
 });

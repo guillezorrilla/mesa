@@ -112,7 +112,7 @@ export const sessions = defineCommand({
 export const sessionsView = defineCommand({
   name: 'sessions view',
   summary:
-    'Switch a Claude Code session between Structured and Terminal view: its agent stops and the conversation resumes in the same window; mid-turn it is refused unless --interrupt',
+    'Switch a Claude Code or Codex session between Structured and Terminal view: its agent stops and the conversation resumes in the same window; mid-turn it is refused unless --interrupt',
   args: ['session', 'view'],
   flags: {
     interrupt: { type: 'boolean', description: 'Mid-turn, interrupt the agent and switch' },

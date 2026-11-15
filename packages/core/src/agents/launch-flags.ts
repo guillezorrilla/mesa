@@ -126,6 +126,25 @@ function defaultFlags(
   ];
 }
 
+/**
+ * launchFlags for `codex app-server` (ADR-0029), which takes only `-c` overrides: the same
+ * approval policy, sandbox, model and effort, and the extra folders `dirs` as writable roots
+ * (the TUI's --add-dir).
+ */
+export function codexServerOverrides(defaults: SessionLaunch, dirs: readonly string[] = []) {
+  const { approvalPolicy, bypass } = defaults.codex;
+  const sandbox = bypass ? 'danger-full-access' : codexSandbox(defaults.codex, dirs);
+  const policy = bypass ? 'never' : approvalPolicy;
+  const toml = JSON.stringify;
+  return [
+    ...(policy ? [`approval_policy=${toml(policy)}`] : []),
+    ...(sandbox ? [`sandbox_mode=${toml(sandbox)}`] : []),
+    ...(dirs.length ? [`sandbox_workspace_write.writable_roots=${toml(dirs)}`] : []),
+    ...(defaults.model ? [`model=${toml(defaults.model)}`] : []),
+    ...(defaults.effort ? [`model_reasoning_effort=${toml(defaults.effort)}`] : []),
+  ];
+}
+
 /** The launch flags of `agent` that turn off its permission checks or sandbox, for its receipt. */
 export const dangerousFlags = (agent: Agent, defaults: LaunchDefaults, mode?: 'plan') =>
   launchFlags(agent, defaults, mode).filter((flag) => DANGEROUS.has(flag));

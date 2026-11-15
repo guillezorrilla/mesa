@@ -73,7 +73,7 @@ export function TerminalEditorSettingsPanel(props: { onShortcuts: () => void }) 
         <SettingRow
           icon={MessageSquare}
           title="New sessions open in"
-          description="Terminal, Chat over the agent's transcript (Claude Code and Codex), or Structured: a new Claude Code session runs under Mesa and shows as Chat. Each session keeps its own choice."
+          description="Terminal, Chat over the agent's transcript (Claude Code and Codex), or Structured: a new Claude Code or Codex session runs under Mesa and shows as Chat. Each session keeps its own choice."
           control={
             <SegmentedControl
               label="New sessions open in"

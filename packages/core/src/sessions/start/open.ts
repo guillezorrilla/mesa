@@ -163,14 +163,15 @@ export async function openSession(
       ? plannedAdditional(deps.profile, additional, input.branch)
       : undefined;
 
-  // Structured only for Claude Code (ADR-0029); the profile's default leaves another agent as is.
+  // Structured for Claude Code and Codex (ADR-0029); the profile's default leaves another agent as is.
+  const hosted = agent === 'claude' || agent === 'codex';
   const structured =
     input.view === 'structured' ||
     (input.view === undefined &&
       !input.background &&
-      agent === 'claude' &&
+      hosted &&
       deps.profile.config.terminal.sessionView === 'structured');
-  if (structured && agent !== 'claude')
+  if (structured && !hosted)
     throw new MesaError('usage', `${agent} has no Structured view yet; use --view terminal`);
   const agentSessionId = input.background ? undefined : newSessionId(agent, deps.newUuid);
   const command = (

@@ -1,21 +1,29 @@
 import { describe, expect, it } from 'vitest';
+import { AGENTS } from '../../agents/agents.js';
+import { launchMounts } from '../../agents/mesa-mount.js';
+import type { Spawner } from '../../lib/spawn.js';
 import { createMesa } from '../../mesa.js';
 import {
   agentWorld,
+  NATIVE_LAUNCH,
   plantTranscript,
   profilePaths,
   projectProfile,
   RECORDED_CLAUDE_STREAM,
   replaySpawner,
   scriptedRunner,
+  scriptedSpawner,
   shortTempDir,
   testDeps,
+  testStore,
 } from '../../testing/index.js';
 import { readJournal } from './journal.js';
 import { askHost, hostSocket } from './socket.js';
 
 /** A profile with lantern-cove, agents and tmux in memory, and claude's process from `fake`. */
-function world(fake = replaySpawner(RECORDED_CLAUDE_STREAM, { stay: true })) {
+function world<F extends { spawn: Spawner } = ReturnType<typeof replaySpawner>>(
+  fake: F = replaySpawner(RECORDED_CLAUDE_STREAM, { stay: true }) as unknown as F,
+) {
   const agents = agentWorld();
   const { home, mesa } = projectProfile(agents.run, {
     home: shortTempDir(),
@@ -24,8 +32,16 @@ function world(fake = replaySpawner(RECORDED_CLAUDE_STREAM, { stay: true })) {
   return { home, mesa, agents, fake, paths: profilePaths(home, 'default') };
 }
 
-async function openStructured(w: ReturnType<typeof world>, goal = 'make a file') {
-  const { result } = await w.mesa.sessions.open('lantern-cove', { view: 'structured', goal });
+async function openStructured(
+  w: { mesa: ReturnType<typeof world>['mesa'] },
+  goal = 'make a file',
+  agent?: 'codex',
+) {
+  const { result } = await w.mesa.sessions.open('lantern-cove', {
+    view: 'structured',
+    goal,
+    ...(agent ? { agent } : {}),
+  });
   return result;
 }
 
@@ -51,7 +67,7 @@ describe('opening a Structured session', () => {
   it('refuses Structured for an agent without it, and with --background', async () => {
     const w = world();
     await expect(
-      w.mesa.sessions.open('lantern-cove', { view: 'structured', agent: 'codex' }),
+      w.mesa.sessions.open('lantern-cove', { view: 'structured', agent: 'antigravity' }),
     ).rejects.toThrow(/no Structured view/);
     await expect(
       w.mesa.sessions.open('lantern-cove', { view: 'structured', background: true }),
@@ -166,7 +182,7 @@ describe('mesa host', () => {
     const w = world();
     const { result } = await w.mesa.sessions.open('lantern-cove');
     await expect(w.mesa.sessions.host(result.id, () => undefined)).rejects.toThrow(
-      /not a Structured Claude Code session/,
+      /not a Structured Claude Code or Codex session/,
     );
   });
 
@@ -178,5 +194,130 @@ describe('mesa host', () => {
     const log = w.mesa.sessions.logs(record.id, 1);
     expect(log.path).toMatch(/journals/);
     expect(JSON.parse(log.lines[0] ?? '')).toMatchObject({ event: { type: 'result' } });
+  });
+});
+
+describe('mesa host for Codex', () => {
+  const THREAD = 'th-0000-invented';
+  const open = (fake: ReturnType<typeof scriptedSpawner>) =>
+    fake.push(
+      { id: 'initialize#1', result: {} },
+      { id: 'thread/start#2', result: { thread: { id: THREAD }, model: 'gpt-invented-codex' } },
+    );
+
+  it('opens a Structured Codex session with no thread id yet, its window running mesa host', async () => {
+    const w = world(scriptedSpawner());
+    const record = await openStructured(w, 'make a file', 'codex');
+    expect(record).toMatchObject({ agent: 'codex', view: 'structured' });
+    expect(record.agentSessionId).toBeUndefined();
+    expect(w.agents.tmux.opened[0]?.launch).toContain(`host ${record.id}`);
+  });
+
+  it('starts codex app-server, keeps the thread id on the record, sends the goal and goes idle', async () => {
+    const w = world(scriptedSpawner());
+    w.mesa.config.set('agents.codex.approvalPolicy', 'on-request');
+    const record = await openStructured(w, 'make a file', 'codex');
+    const written: string[] = [];
+    const host = await w.mesa.sessions.host(record.id, (t) => written.push(t));
+    expect(w.fake.spawns[0]?.file).toBe('codex');
+    expect(w.fake.spawns[0]?.args.slice(0, 3)).toEqual([
+      'app-server',
+      '-c',
+      'approval_policy="on-request"',
+    ]);
+    expect(w.fake.spawns[0]?.args).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^mcp_servers\./)]),
+    );
+    open(w.fake);
+    expect(testStore(w.home).get(record.id).agentSessionId).toBe(THREAD);
+    expect(w.fake.sent.find((m) => m.method === 'turn/start')).toMatchObject({
+      params: { threadId: THREAD, input: [{ text: 'make a file' }] },
+    });
+    w.fake.push(
+      {
+        method: 'turn/started',
+        params: { threadId: THREAD, turn: { id: 't1', status: 'inProgress', items: [] } },
+      },
+      {
+        method: 'turn/completed',
+        params: { threadId: THREAD, turn: { id: 't1', status: 'completed', items: [] } },
+      },
+    );
+    expect(written.at(-1)).toContain('Structured view - gpt-invented-codex - idle');
+    const socket = hostSocket(w.paths.hosts, record.id);
+    expect(await askHost(socket, { type: 'mode', mode: 'plan' })).toEqual({
+      ok: false,
+      error: 'codex has no permission modes to set',
+    });
+    w.fake.push({
+      id: 0,
+      method: 'item/commandExecution/requestApproval',
+      params: {
+        threadId: THREAD,
+        turnId: 't2',
+        itemId: 'c-1',
+        command: `echo ${'x'.repeat(80)}\nmore`,
+        startedAtMs: 1,
+      },
+    });
+    expect(written.at(-1)).toMatch(/waiting for permission: echo x+\S*$/);
+    expect(written.at(-1)?.length).toBeLessThan(140);
+    const journal = (readJournal(w.paths.journals, record.id) ?? []).map((l) => JSON.parse(l));
+    expect(journal.filter((e) => 'event' in e).map((e) => e.event.id ?? e.event.method)).toEqual([
+      'initialize#1',
+      'thread/start#2',
+      'turn/started',
+      'turn/completed',
+      0,
+    ]);
+    // A refused request is not journalled as sent.
+    expect(journal.filter((e) => 'sent' in e).map((e) => e.sent.type)).toEqual(['user']);
+    host.stop();
+    await host.done;
+    // Terminal view resumes the same thread with Mesa's embedded codex, never a plain `codex resume`.
+    const terminal = AGENTS.codex.resume(
+      THREAD,
+      w.home,
+      launchMounts(['mesa'], { decisions: false }),
+      NATIVE_LAUNCH,
+    );
+    expect(terminal).toMatch(/^codex -c mesa\.embedded=true /);
+    expect(terminal).toContain(THREAD);
+  });
+
+  it("goes idle when Codex refuses the goal's turn, so the next message starts a turn", async () => {
+    const w = world(scriptedSpawner());
+    const record = await openStructured(w, 'make a file', 'codex');
+    const written: string[] = [];
+    const host = await w.mesa.sessions.host(record.id, (t) => written.push(t));
+    open(w.fake);
+    const start = w.fake.sent.find((m) => m.method === 'turn/start');
+    w.fake.push({ id: start?.id, error: { message: 'usage limit reached' } });
+    expect(written.at(-1)).toContain(' - idle');
+    expect(
+      await askHost(hostSocket(w.paths.hosts, record.id), { type: 'send', text: 'again' }),
+    ).toEqual({
+      ok: true,
+      queued: false,
+    });
+    host.stop();
+    await host.done;
+  });
+
+  it('resumes the recorded thread and sends no goal', async () => {
+    const w = world(scriptedSpawner());
+    const record = await openStructured(w, 'make a file', 'codex');
+    testStore(w.home).update(record.id, { agentSessionId: THREAD });
+    const host = await w.mesa.sessions.host(record.id, () => undefined);
+    w.fake.push(
+      { id: 'initialize#1', result: {} },
+      { id: 'thread/resume#2', result: { thread: { id: THREAD } } },
+    );
+    expect(w.fake.sent.find((m) => m.method === 'thread/resume')).toMatchObject({
+      params: { threadId: THREAD },
+    });
+    expect(w.fake.sent.some((m) => m.method === 'turn/start')).toBe(false);
+    host.stop();
+    await host.done;
   });
 });

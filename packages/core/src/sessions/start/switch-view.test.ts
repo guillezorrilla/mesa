@@ -164,7 +164,7 @@ describe('switching a session between Structured and Terminal', () => {
     expect(result).toMatchObject({ switched: true, record: { view: 'structured' } });
   });
 
-  it('refuses a switch while another runs, and a Codex session', async () => {
+  it('refuses a switch while another runs, and a Codex session with no thread yet', async () => {
     const w = world();
     const { result: plain } = await w.mesa.sessions.open('lantern-cove');
     testStore(w.home).update(plain.id, { switching: { at: new Date().toISOString() } });
@@ -173,7 +173,27 @@ describe('switching a session between Structured and Terminal', () => {
     );
     const { result: codex } = await w.mesa.sessions.open('lantern-cove', { agent: 'codex' });
     await expect(w.mesa.sessions.switchView(codex.id, 'structured')).rejects.toThrow(
-      /not a Claude Code session/,
+      /has no conversation yet/,
     );
+  });
+
+  it("switches a Codex session both ways on its thread: Mesa's embedded codex resume, then the host", async () => {
+    const w = world();
+    const thread = 'th-0000-invented';
+    const { result: opened } = await w.mesa.sessions.open('lantern-cove', {
+      agent: 'codex',
+      view: 'structured',
+    });
+    testStore(w.home).update(opened.id, { agentSessionId: thread });
+    const host = await w.mesa.sessions.host(opened.id, () => undefined);
+    const { result: toTerminal } = await w.mesa.sessions.switchView(opened.id, 'terminal');
+    await host.done;
+    expect(toTerminal.record.view).toBe('terminal');
+    const tui = w.agents.tmux.opened.at(-1)?.launch ?? '';
+    expect(tui).toContain('codex -c mesa.embedded=true');
+    expect(tui).toContain(`resume '${thread}'`);
+    const { result: back } = await w.mesa.sessions.switchView(opened.id, 'structured');
+    expect(back.record.view).toBe('structured');
+    expect(w.agents.tmux.opened.at(-1)?.launch).toContain(`host ${opened.id}`);
   });
 });

@@ -31,7 +31,8 @@ const POLL_MS = 250;
  * the other view, the record's `view` changed. Already in `to`, nothing happens. Mid-turn, it is
  * refused unless `interrupt`, which stops the turn first. Refused while claude still runs the
  * conversation after the stop, and while another switch runs. Only a live, interactive Claude Code
- * session with a conversation switches.
+ * or Codex session with a conversation switches; Codex's Terminal view is Mesa's embedded
+ * `codex resume` (resumeCommand), never a plain one, which starts a self-updating daemon.
  */
 export async function switchView(
   deps: LaunchDeps & StopDeps,
@@ -41,16 +42,27 @@ export async function switchView(
 ): Promise<Switched> {
   const found = deps.store.get(id);
   const refuse = (why: string) => new MesaError('usage', `session ${id} ${why}`);
-  if (found.kind !== 'interactive' || found.agent !== 'claude')
-    throw refuse('is not a Claude Code session; only Claude Code has Structured view yet');
+  const { agent } = found;
+  if (found.kind !== 'interactive' || (agent !== 'claude' && agent !== 'codex'))
+    throw refuse('is not a Claude Code or Codex session; only they have Structured view');
   if ((found.view ?? 'terminal') === to) return { record: found, switched: false };
   if (found.endedAt || found.sleeping || found.lastState.state === 'queued')
     throw refuse(`is not running; mesa resume or mesa wake ${id} first`);
   if (found.background) throw refuse("runs in Claude's background mode, which has no views");
   const sessionId = found.agentSessionId;
-  if (!sessionId) throw refuse('has no Claude session id to resume');
+  // A Structured Codex session has its thread id once app-server opened the thread.
+  if (!sessionId)
+    throw refuse(
+      agent === 'codex'
+        ? 'has no conversation yet; send it a message first'
+        : 'has no Claude session id to resume',
+    );
   // `claude --resume` needs a transcript; the host starts a new conversation without one.
-  if (to === 'terminal' && !transcriptFile(claudeTranscripts(deps.home, deps.env), sessionId))
+  if (
+    to === 'terminal' &&
+    agent === 'claude' &&
+    !transcriptFile(claudeTranscripts(deps.home, deps.env), sessionId)
+  )
     throw refuse('has no conversation yet; send it a message first');
   const pane = await deps.tmux.findWindow(windowOf(found));
   if (!pane || pane.dead) throw refuse(`is not running; mesa resume ${id} first`);
@@ -89,7 +101,9 @@ export async function switchView(
     }
     // A Terminal agent gets Escape (its interrupt) and /exit; a host that stopped is a dead pane.
     await quitAgent(deps, found, { force: found.view === 'structured' });
-    for (let waited = 0; ; waited += POLL_MS) {
+    // shortcut: Codex lists no processes, so its stop is the window's: quitAgent kills it, and
+    // codex (the TUI, or the host's app-server child) goes with it.
+    for (let waited = 0; agent === 'claude'; waited += POLL_MS) {
       const running = await runningConversation(deps, sessionId);
       if (!running) break;
       if (waited >= GONE_WAIT_MS)

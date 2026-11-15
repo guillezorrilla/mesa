@@ -41,5 +41,5 @@ docs/spikes/structured-chat.md (#1185, merged), measured 2026-11-14 on macOS, tm
 - A host crash loses the process, not the session: resume should start it again (the spike resumed after killing the process mid-turn, but did not crash a host). The journal keeps what was streamed.
 - The merged chat renderer carries over; its source changes from the pane and the transcript to the stream, with the transcript still the history and reload source.
 - Command cards for Structured sessions come from message output, not pane diffs; the marker path goes once the app is on the stream.
-- Codex's Structured view waits on a live measurement of `codex app-server`.
+- Codex's Structured view waited on a live measurement of `codex app-server`. It was measured on 2026-11-14 (spike section 3, #1206), and `mesa host` has run Codex through it since #1202, behind the same runner seam (`agents/runner.ts`).
 - ADR-0001 and ADR-0003 carry a note pointing here.

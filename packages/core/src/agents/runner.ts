@@ -1,4 +1,6 @@
-import type { SpawnExit } from '../lib/spawn.js';
+import type { Env } from '../lib/process.js';
+import type { SpawnExit, Spawner } from '../lib/spawn.js';
+import type { CLAUDE_PERMISSION_MODES } from './names.js';
 
 /**
  * A Structured session's agent process (ADR-0029): the seam `mesa host` runs each agent through,
@@ -18,3 +20,34 @@ export interface AgentRunner {
   /** Settles when the process ends, after its last event. */
   exited: Promise<SpawnExit>;
 }
+
+/** What `mesa host` shows of one event: the model, what the agent is doing, its cost, its id. */
+export type RunnerSignal = {
+  model?: string;
+  doing?: string;
+  /** The turn is over; a message now starts the next one. */
+  turnEnded?: true;
+  /** The process's running list price, when the agent says one. */
+  cost?: number;
+  /** The conversation's id, when the agent picks it (Codex's thread). */
+  sessionId?: string;
+};
+
+/** What the host starts an agent with: its folder, conversation, and its own arguments. */
+export type HostLaunch = {
+  cwd: string;
+  sessionId: string | undefined;
+  /** Continue `sessionId`'s conversation rather than start one. */
+  resume: boolean;
+  args: readonly string[];
+};
+
+/** One agent's runner as `mesa host` starts it, each line read with what it signals. */
+export type StartHostRunner = (
+  deps: { spawn: Spawner; env: Env },
+  launch: HostLaunch,
+  onLine: (line: string, signal: RunnerSignal | undefined) => void,
+) => AgentRunner & {
+  /** Claude Code's alone: Codex has no permission mode to set mid-session. */
+  setPermissionMode?: (mode: (typeof CLAUDE_PERMISSION_MODES)[number]) => void;
+};
