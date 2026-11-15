@@ -55,10 +55,6 @@ export const SESSION_VIEW_FLAG = {
   },
 } as const;
 
-/** The view `--view` names, as core takes it; core refuses another word (validateOpenInput). */
-export const sessionViewOf = (view: string | undefined) =>
-  view as 'terminal' | 'structured' | undefined;
-
 /** What a command about one Mesa session's decision assistance takes to name it. */
 export const SESSION_FLAG = {
   type: 'string',

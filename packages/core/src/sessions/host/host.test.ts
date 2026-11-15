@@ -104,6 +104,10 @@ describe('mesa host', () => {
       'control_request',
       'control_response',
     ]);
+    const sent = (readJournal(w.paths.journals, record.id) ?? [])
+      .map((l) => JSON.parse(l))
+      .filter((e) => e.sent);
+    expect(sent.map((e) => e.sent.type)).toEqual(['user', 'user', 'interrupt', 'allow']);
     expect(await askHost(socket, { type: 'stop' })).toEqual({ ok: true });
     await host.done;
     expect(await askHost(socket, { type: 'ping' })).toBeUndefined();
@@ -143,6 +147,8 @@ describe('mesa host', () => {
     await expect(w.mesa.sessions.host(record.id, () => undefined)).rejects.toThrow(
       /a host already runs/,
     );
+    // Refused before it started a claude of its own.
+    expect(w.fake.spawns).toHaveLength(1);
     first.stop();
     await first.done;
 

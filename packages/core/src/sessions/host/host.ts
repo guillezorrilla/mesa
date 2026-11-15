@@ -1,9 +1,9 @@
+import { AGENTS } from '../../agents/agents.js';
 import { listClaudeProcesses } from '../../agents/claude/listing.js';
 import { claudeTranscripts } from '../../agents/claude/paths.js';
-import { startClaudeRunner } from '../../agents/claude/stream/runner.js';
+import { type ClaudeRunner, startClaudeRunner } from '../../agents/claude/stream/runner.js';
 import { transcriptFile } from '../../agents/claude/transcripts.js';
-import { addDirArgs, launchFlags } from '../../agents/launch-flags.js';
-import { claudeMountArgs, type Mounts } from '../../agents/mesa-mount.js';
+import type { Mounts } from '../../agents/mesa-mount.js';
 import type { Clock } from '../../lib/clock.js';
 import { usd } from '../../lib/format.js';
 import type { Env, Runner } from '../../lib/process.js';
@@ -15,7 +15,7 @@ import type { SessionStore } from '../record/store.js';
 import { additionalDirs } from '../start/additional.js';
 import { notedGoal } from '../start/setup-session.js';
 import { appendJournal } from './journal.js';
-import { type HostReply, hostSocket, serveHost } from './socket.js';
+import { type HostReply, type HostRequest, hostSocket, serveHost } from './socket.js';
 
 // `mesa host <session>` (ADR-0029): a Structured session's agent, run in its tmux window in
 // stream-json mode (agents/claude/stream), every line journalled, its socket open to Mesa, and a
@@ -81,22 +81,46 @@ export async function hostSession(
   let busy = false;
 
   const deny = record.review ? reviewDeny('claude', record.review) : [];
-  const runner = startClaudeRunner(
+  let runner: ClaudeRunner | undefined;
+  const send = (agent: ClaudeRunner, text: string) => {
+    const queued = busy;
+    busy = true;
+    journal({ sent: { type: 'user', text } });
+    agent.send(text);
+    status.doing = 'working';
+    return queued;
+  };
+  const handle = (request: HostRequest): HostReply => {
+    if (request.type === 'ping') return { ok: true };
+    if (!runner) return { ok: false, error: 'the agent is still starting' };
+    let reply: HostReply = { ok: true };
+    if (request.type === 'send') reply = { ok: true, queued: send(runner, request.text) };
+    else {
+      journal({ sent: request });
+      if (request.type === 'allow') runner.allow(request.requestId, request.input);
+      else if (request.type === 'deny') runner.deny(request.requestId, request.message);
+      else if (request.type === 'interrupt') runner.interrupt();
+      else if (request.type === 'mode') runner.setPermissionMode(request.mode);
+      else runner.stop();
+      status.doing = busy ? 'working' : 'idle';
+    }
+    show();
+    return reply;
+  };
+  // The socket first: a second host is refused before it starts a claude on the conversation.
+  const server = await serveHost(hostSocket(paths.hosts, id), handle);
+  const agent = startClaudeRunner(
     deps,
     {
       cwd: deps.cwd,
       ...(resume ? { resume: sessionId } : { sessionId }),
-      ...(record.mode === 'plan' ? { permissionMode: 'plan' as const } : {}),
-      args: [
-        ...launchFlags(
-          'claude',
-          { ...config.agents, model: record.model, effort: record.effort },
-          record.mode,
-        ),
-        ...claudeMountArgs(deps.mounts),
-        ...addDirArgs('claude', additionalDirs(record)),
-        ...(deny.length ? [`--disallowedTools=${deny.join(',')}`] : []),
-      ],
+      args: AGENTS.claude.hostArgs(
+        deps.mounts,
+        { ...config.agents, model: record.model, effort: record.effort },
+        record.mode,
+        additionalDirs(record),
+        deny,
+      ),
     },
     (event, line) => {
       let raw: unknown = line;
@@ -112,68 +136,24 @@ export async function hostSession(
       else if (event.type === 'result') {
         busy = false;
         status.doing = 'idle';
-        status.cost += event.costUsd ?? 0;
+        // The process's running total (measured: it grows turn by turn).
+        status.cost = event.costUsd ?? status.cost;
       } else if (event.type === 'delta' || event.type === 'assistant') status.doing = 'working';
       else return;
       show();
     },
   );
-  const send = (text: string) => {
-    const queued = busy;
-    busy = true;
-    journal({ sent: { type: 'user', text } });
-    runner.send(text);
-    status.doing = 'working';
-    show();
-    return queued;
-  };
-  const handle = (request: Parameters<Parameters<typeof serveHost>[1]>[0]): HostReply => {
-    if (request.type !== 'ping') journal({ sent: request });
-    switch (request.type) {
-      case 'ping':
-        return { ok: true };
-      case 'send':
-        return { ok: true, queued: send(request.text) };
-      case 'allow':
-        runner.allow(request.requestId, request.input);
-        break;
-      case 'deny':
-        runner.deny(request.requestId, request.message);
-        break;
-      case 'interrupt':
-        runner.interrupt();
-        break;
-      case 'mode':
-        runner.setPermissionMode(request.mode);
-        break;
-      case 'stop':
-        runner.stop();
-        break;
-    }
-    status.doing = busy ? 'working' : 'idle';
-    return { ok: true };
-  };
-
-  let server: Awaited<ReturnType<typeof serveHost>>;
-  try {
-    server = await serveHost(hostSocket(paths.hosts, id), handle);
-  } catch (error) {
-    runner.stop();
-    await runner.exited;
-    throw error;
-  }
+  runner = agent;
   const goal = resume ? undefined : notedGoal(record.goal, record.setupSession);
-  if (goal) send(goal);
-  else {
-    status.doing = 'idle';
-    show();
-  }
-  const done = runner.exited.then(async (exit) => {
+  if (goal) send(agent, goal);
+  else status.doing = 'idle';
+  show();
+  const done = agent.exited.then(async (exit) => {
     await server.close();
     status.doing = exit.code ? `ended (exit ${exit.code})` : 'ended';
     show();
     write('\n');
     return exit;
   });
-  return { stop: () => runner.stop(), done };
+  return { stop: () => agent.stop(), done };
 }

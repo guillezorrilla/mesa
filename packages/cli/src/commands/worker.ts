@@ -1,6 +1,6 @@
 import { agentRecord, MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
-import { MODEL_FLAGS, SESSION_VIEW_FLAG, sessionViewOf } from '../input/flags.js';
+import { MODEL_FLAGS, SESSION_VIEW_FLAG } from '../input/flags.js';
 import { recordedOutput } from '../output/recorded.js';
 
 /** A coordinating agent's one command for a worker: a briefed child in its own worktree. */
@@ -40,7 +40,7 @@ export const worker = defineCommand({
       parent: flags.parent,
       model: flags.model,
       effort: flags.effort,
-      view: sessionViewOf(flags.view),
+      view: flags.view,
     };
     if (flags.task !== undefined) {
       if (args.task !== undefined)

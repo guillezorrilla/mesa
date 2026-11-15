@@ -50,7 +50,7 @@ export type OpenInput = {
    */
   with?: readonly string[];
   /** How its agent runs (ADR-0029); none: the profile's default, `terminal.sessionView`. */
-  view?: 'terminal' | 'structured';
+  view?: string;
 } & SessionModel; // its own model and effort over the profile's defaults (Claude Code, Codex)
 
 /** The flags as asked, before Mesa names a branch or checks out a worktree. */

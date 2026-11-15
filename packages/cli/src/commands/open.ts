@@ -6,7 +6,6 @@ import {
   MODEL_FLAGS,
   requireTty,
   SESSION_VIEW_FLAG,
-  sessionViewOf,
   ticketStartOf,
 } from '../input/flags.js';
 import { recordedOutput } from '../output/recorded.js';
@@ -98,7 +97,7 @@ export const open = defineCommand({
       model: flags.model,
       effort: flags.effort,
       background: flags.background,
-      view: sessionViewOf(flags.view),
+      view: flags.view,
       goal: flags.goal,
       goalFile: flags['goal-file'],
       parent: flags.parent,
