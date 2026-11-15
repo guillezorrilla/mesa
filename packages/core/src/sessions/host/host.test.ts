@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AGENTS } from '../../agents/agents.js';
+import { launchMounts } from '../../agents/mesa-mount.js';
 import type { Spawner } from '../../lib/spawn.js';
 import { createMesa } from '../../mesa.js';
 import {
@@ -20,7 +21,7 @@ import { readJournal } from './journal.js';
 import { askHost, hostSocket } from './socket.js';
 
 /** A profile with lantern-cove, agents and tmux in memory, and claude's process from `fake`. */
-function world<F extends { spawn: Spawner }>(
+function world<F extends { spawn: Spawner } = ReturnType<typeof replaySpawner>>(
   fake: F = replaySpawner(RECORDED_CLAUDE_STREAM, { stay: true }) as unknown as F,
 ) {
   const agents = agentWorld();
@@ -274,7 +275,12 @@ describe('mesa host for Codex', () => {
     host.stop();
     await host.done;
     // Terminal view resumes the same thread with Mesa's embedded codex, never a plain `codex resume`.
-    const terminal = AGENTS.codex.resume(THREAD, w.home, {}, NATIVE_LAUNCH);
+    const terminal = AGENTS.codex.resume(
+      THREAD,
+      w.home,
+      launchMounts(['mesa'], { decisions: false }),
+      NATIVE_LAUNCH,
+    );
     expect(terminal).toMatch(/^codex -c mesa\.embedded=true /);
     expect(terminal).toContain(THREAD);
   });
