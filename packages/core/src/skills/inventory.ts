@@ -10,10 +10,10 @@ import {
 import {
   CLAUDE_PROJECT_SKILLS,
   claudeHome,
-  claudeInstalledPlugins,
   claudeSettings,
   claudeSkills,
 } from '../agents/claude/paths.js';
+import { installedPlugins } from '../agents/claude/plugins.js';
 import { CODEX_SKILLS } from '../agents/codex/paths.js';
 import type { Agent } from '../agents/names.js';
 import type { Env } from '../lib/process.js';
@@ -111,47 +111,13 @@ function nativeRoots(
       });
     }
   }
-  const installed = claudeInstalledPlugins(claudeDir);
-  if (existsSync(installed)) {
-    let metadata: unknown;
-    try {
-      metadata = JSON.parse(readFileSync(installed, 'utf8'));
-    } catch {
-      metadata = undefined;
-    }
-    const plugins =
-      metadata && typeof metadata === 'object' && 'plugins' in metadata
-        ? metadata.plugins
-        : undefined;
-    if (plugins && typeof plugins === 'object') {
-      for (const [name, installs] of Object.entries(plugins)) {
-        if (!Array.isArray(installs)) continue;
-        for (const install of installs) {
-          if (!install || typeof install !== 'object') continue;
-          const { scope, projectPath, installPath } = install as {
-            scope?: unknown;
-            projectPath?: unknown;
-            installPath?: unknown;
-          };
-          if (
-            typeof installPath === 'string' &&
-            isAbsolute(installPath) &&
-            (scope === 'user' ||
-              ((scope === 'project' || scope === 'local') &&
-                projectDir &&
-                typeof projectPath === 'string' &&
-                resolve(projectPath) === resolve(projectDir)))
-          ) {
-            roots.push({
-              path: join(installPath, 'skills'),
-              scope: 'plugin',
-              providers: ['claude'],
-              disabled: enabledPlugins?.[name] === false,
-            });
-          }
-        }
-      }
-    }
+  for (const { name, installPath } of installedPlugins(claudeDir, projectDir)) {
+    roots.push({
+      path: join(installPath, 'skills'),
+      scope: 'plugin',
+      providers: ['claude'],
+      disabled: enabledPlugins?.[name] === false,
+    });
   }
   return roots;
 }
