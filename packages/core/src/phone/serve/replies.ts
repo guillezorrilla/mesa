@@ -1,5 +1,5 @@
 import { closesFence, opensFence } from '../../lib/code-fence.js';
-import { chatMessages } from '../../sessions/native/chat.js';
+import { type ChatItem, chatMessages, type SessionChat } from '../../sessions/native/chat.js';
 import type { NativePrompt, NativeResponse } from '../../sessions/native/responses.js';
 import type { ReplySegment } from '../protocol/rpc.js';
 
@@ -29,6 +29,24 @@ export function replySegments(text: string): ReplySegment[] {
   return segments;
 }
 
+/** Chat items as the phone's replies, each cut into segments; it shows neither steps nor command rows: its protocol has none. */
+const toReplies = (messages: readonly ChatItem[]) =>
+  messages.flatMap((message) =>
+    message.from === 'steps' || message.from === 'command'
+      ? []
+      : [
+          {
+            id: message.id,
+            at: message.at,
+            from: message.from,
+            segments:
+              message.from === 'you'
+                ? [{ code: false, text: message.text }]
+                : replySegments(message.text),
+          },
+        ],
+  );
+
 /**
  * The session screen's conversation, newest first (chatMessages), each message cut into
  * segments. An older phone does not ask for prompts, which it would show as the agent's.
@@ -38,29 +56,21 @@ export function phoneReplies(
   count: number,
   withPrompts: boolean,
 ) {
-  // The phone shows no command rows: its protocol has none.
   const { messages, more } = chatMessages(
     { rows: read.rows, prompts: read.prompts },
     count,
     withPrompts,
   );
-  return {
-    // The phone shows neither steps nor command rows: its protocol has none.
-    replies: messages.flatMap((message) =>
-      message.from === 'steps' || message.from === 'command'
-        ? []
-        : [
-            {
-              id: message.id,
-              at: message.at,
-              from: message.from,
-              segments:
-                message.from === 'you'
-                  ? [{ code: false, text: message.text }]
-                  : replySegments(message.text),
-            },
-          ],
-    ),
-    more,
-  };
+  return { replies: toReplies(messages), more };
+}
+
+/**
+ * A Structured session's conversation for the phone (ADR-0029): the chat items the app shows
+ * (liveChat: the transcript with the journal folded in, a reply still streaming included), newest
+ * first, prompts only for a phone that asks for them.
+ */
+export function phoneChatReplies(chat: SessionChat, withPrompts: boolean) {
+  const newestFirst = [...chat.messages].reverse();
+  const shown = withPrompts ? newestFirst : newestFirst.filter((m) => m.from !== 'you');
+  return { replies: toReplies(shown), more: chat.more };
 }

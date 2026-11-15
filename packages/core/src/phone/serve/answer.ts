@@ -2,6 +2,7 @@ import { MesaError } from '../../lib/result.js';
 import { type AnswerChoice, isStale } from '../../sessions/answer/answer.js';
 import type { PendingPrompt } from '../../sessions/answer/pending.js';
 import type { SessionRow } from '../../sessions/board/rows.js';
+import type { SessionChat } from '../../sessions/native/chat.js';
 import type { SessionResponses } from '../../sessions/native/responses.js';
 import type { UsageReport } from '../../usage/records.js';
 import { isChangesCall } from '../protocol/changes.js';
@@ -20,7 +21,7 @@ import { answerCrewCall, type CrewDeps, isCrewCall } from './crew.js';
 import { answerInboxCall, type InboxDeps, isInboxCall } from './inbox.js';
 import { answerPrs, type PrsDeps } from './prs.js';
 import { answerPushes, type PushesDeps } from './pushes.js';
-import { phoneReplies } from './replies.js';
+import { phoneChatReplies, phoneReplies } from './replies.js';
 import { managedRows, phoneRows, queuedRows, toPhoneRow } from './rows.js';
 import { answerStartCall, isStartCall, type StartDeps } from './start.js';
 import { phoneSteps, stepText } from './steps.js';
@@ -30,8 +31,13 @@ import { phoneUsage } from './usage.js';
 export type AnswerDeps = {
   board: () => Promise<SessionRow[]>;
   responses: (id: string) => SessionResponses;
-  /** The file `responses` reads session `id`'s from, none while it has none. */
-  transcript: (id: string) => string | undefined;
+  /** A session's chat as the app shows it, its newest `count` replies (sessions.chat, liveChat). */
+  chat: (id: string, count?: number) => SessionChat;
+  /**
+   * The file whose writes change session `id`'s chat, which a watch follows: its transcript, or a
+   * Structured session's journal, where a reply streams (ADR-0029); none while it has none.
+   */
+  chatFile: (id: string) => string | undefined;
   logs: (id: string, tail: number) => { lines: string[] };
   /** A session's window sized to the phone, as its terminal draws it. */
   screen: (id: string, cols: number, rows: number) => Promise<{ text: string; at: number }>;
@@ -149,10 +155,14 @@ export async function answerCall(
   return {
     row: toPhoneRow(row),
     goal: row.goal ?? null,
-    ...phoneReplies(read, count, newerPhone),
+    // A Structured session's chat is the app's, the stream folded in (#1201); another's, its transcript.
+    ...(row.view === 'structured'
+      ? phoneChatReplies(deps.chat(call.id, count), newerPhone)
+      : phoneReplies(read, count, newerPhone)),
     ...(newerPhone ? { steps: phoneSteps(read.steps, count) } : {}),
     ...(newerPhone && read.current ? { current: read.current } : {}),
-    tail: deps.logs(call.id, TAIL).lines,
+    // A Structured session's log is its journal, JSON for Mesa, not lines for a person.
+    tail: row.view === 'structured' ? [] : deps.logs(call.id, TAIL).lines,
     queued: deps.steer.queue.of(call.id),
     archived: Boolean(row.archivedAt),
   } satisfies CallResult<'session'>;

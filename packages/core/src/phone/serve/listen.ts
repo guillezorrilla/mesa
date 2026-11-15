@@ -180,10 +180,10 @@ async function listen(
       readWatched({ ...answers, board: () => looked?.rows ?? board() }, id, replies, stream),
     since: answers.since,
     follow: (id, changed) => watchOutputLog(deps.rowFiles.logs, id, changed),
-    // A watch may name a session gone from the store: it has no transcript to watch.
+    // A watch may name a session gone from the store: it has no chat file to watch.
     transcript: (id, changed) => {
       try {
-        return watchFile(deps.answers.transcript(id), changed);
+        return watchFile(deps.answers.chatFile(id), changed);
       } catch {
         return undefined;
       }

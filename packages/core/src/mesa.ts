@@ -32,6 +32,7 @@ import { prsService } from './prs/service.js';
 import { receiptsService } from './receipts/service.js';
 import { whatsNew } from './release/notes.js';
 import { reportsService } from './reports/report-delivery.js';
+import { journalFile } from './sessions/host/journal.js';
 import { sessionsService } from './sessions/service/index.js';
 import { workingFolder } from './sessions/signals/readings.js';
 import { skillsService } from './skills/service.js';
@@ -119,7 +120,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
     {
       board: () => sessions.sessions.list(),
       responses: (id) => sessions.sessions.responses.list(id),
-      transcript: (id) => sessions.sessions.responses.file(id),
+      chat: (id, count) => sessions.sessions.chat(id, count),
+      chatFile: (id) =>
+        ctx.store.get(id).view === 'structured'
+          ? journalFile(ctx.paths.journals, id)
+          : sessions.sessions.responses.file(id),
       logs: (id, tail) => sessions.sessions.logs(id, tail),
       screen: sessions.sessions.screen,
       since: sessions.sessions.since,
