@@ -1,6 +1,6 @@
 # Spike: structured chat
 
-Issue: #1184. Date: 2026-11-14. macOS, tmux 3.7c, `claude` 2.1.325 (Sonnet 5.5, subscription login, no API key), `codex-cli` 0.162.1.
+Issue: #1184. Date: 2026-11-14. macOS, tmux 3.7c, `claude` 2.1.325 (Sonnet 5.5, subscription login, no API key), `codex-cli` 0.162.1 (section 3 also ran on 0.169.0).
 
 Question: the owner decided Mesa gets two views, Structured and Terminal, and retires the terminal-backed chat. How do we build it, what of the merged chat carries over, and what are the issues?
 
@@ -8,7 +8,7 @@ Method: a throwaway git folder with a project `.claude/settings.json` (logging h
 
 ## Recommendation
 
-Structured becomes chat's engine: Mesa hosts `claude -p --input-format stream-json --output-format stream-json --include-partial-messages --permission-prompt-tool stdio` inside a tmux window (a small `mesa host` wrapper that also serves a unix socket), and Terminal is the same session id resumed with the TUI in that window. Everything that works on a tmux window today (list, kill, hooks, `mesa report`, the phone) keeps working because the process still lives in tmux and still gets `MESA_SESSION_ID`. The merged chat renderer carries over almost whole; only its source changes from the pane to the stream. Codex follows the same shape through `codex app-server`, but that half is read from the protocol schema and not yet measured live.
+Structured becomes chat's engine: Mesa hosts `claude -p --input-format stream-json --output-format stream-json --include-partial-messages --permission-prompt-tool stdio` inside a tmux window (a small `mesa host` wrapper that also serves a unix socket), and Terminal is the same session id resumed with the TUI in that window. Everything that works on a tmux window today (list, kill, hooks, `mesa report`, the phone) keeps working because the process still lives in tmux and still gets `MESA_SESSION_ID`. The merged chat renderer carries over almost whole; only its source changes from the pane to the stream. Codex follows the same shape through `codex app-server`, measured live in section 3.
 
 ## 1. Claude Code, structured mode (measured)
 
@@ -48,17 +48,41 @@ Cost and auth: subscription login worked headless (`apiKeySource: none`, `/usage
 - Mid-turn: killing the structured process (SIGTERM) after 15 deltas, then resuming, left the conversation intact and the next answer correct. Whether the half-written reply is kept in the transcript was not checked. Two processes on one session id at once was not tried and should be forbidden.
 - Dialog when the agent is mid-turn: "The agent is working. Wait for it to finish, or interrupt and switch." Interrupt is the 20 ms control request above, then stop the process, then resume.
 
-## 3. Codex (schema only, not measured live)
+## 3. Codex on `codex app-server` (measured, #1187)
 
-A live `codex app-server` run was started and stopped before it ran (it needed a copy of the owner's `auth.json` in a throwaway `CODEX_HOME`), so none of this is timed. The driver is `codex_appserver.py`; run it with a throwaway `CODEX_HOME` to finish the measurement. From `codex app-server generate-json-schema` (0.162.1) and `docs/spikes/codex.md`:
+Measured 2026-11-14 under #1202 with a throwaway `CODEX_HOME` (`/tmp/cxh`, a copy of `auth.json` and a one-line `config.toml` with `model_reasoning_effort = "low"`, deleted afterwards) and a throwaway git folder, invented prompts. The app-server probes ran on `codex-cli` 0.162.1; the owner's install updated itself to 0.169.0 during the run, so the `codex resume` rows and the way back ran on 0.169.0. Commands assume `export CODEX_HOME=<throwaway>`; `D=docs/spikes/structured-chat`.
 
-- Protocol: JSON-RPC over stdio (`codex app-server`). Requests include `thread/start`, `thread/resume`, `thread/fork`, `turn/start`, `turn/steer`, `turn/interrupt`, `thread/compact/start`, `thread/read`, `skills/list`, `model/list`, `account/usage/read`, `account/rateLimits/read`, `review/start`.
-- Notifications: `item/agentMessage/delta`, `item/commandExecution/outputDelta`, `item/fileChange/patchUpdated`, `turn/diff/updated`, `turn/plan/updated`, `thread/tokenUsage/updated`, `hook/started`, `hook/completed`.
-- Approvals and questions are server requests: `item/commandExecution/requestApproval`, `item/fileChange/requestApproval`, `item/permissions/requestApproval`, `item/tool/requestUserInput`. This is a better fit than Claude's, with `turn/steer` for a message mid-turn.
-- Slash command replacements exist as methods (model, usage, compact, skills, review). ACP was not looked for in 0.162.1 (no `acp` subcommand in `codex --help`); Claude has no ACP of its own.
-- `codex exec --json` stays the headless Faro adapter (`docs/spikes/codex.md`), not the chat engine: one turn, no approvals.
-- Switch to its TUI: `codex resume <thread id>` exists; not timed. Hooks in app-server mode are announced (`hook/started`) but not checked.
-- Throwaway-profile warning from the earlier spike applies: an app-server daemon on the owner's `CODEX_HOME` changes how a plain `codex` attaches.
+| Probe | Command | Result |
+| --- | --- | --- |
+| Start | any scenario | `initialize` answered 0.02 to 0.13 s after spawn; `thread/start` 0.48 s. |
+| First delta | `RUNS=8 python3 $D/codex_appserver.py <dir> latency` | `turn/start` to the first `item/agentMessage/delta` on a new thread: p50 3.2 s, p95 3.7 s (n=8). |
+| Approval, allow | `DECISION=accept python3 $D/codex_appserver.py <dir> approval` | `approvalPolicy: "untrusted"`: one server request `item/commandExecution/requestApproval` (`threadId`, `turnId`, `itemId`, the command); answering `{"decision": "accept"}` ran it, `made.txt` was written, then `serverRequest/resolved`. With `on-request` and `workspace-write`, a write inside the folder ran with no request at all. |
+| Approval, deny | `DECISION=decline ... approval` | Same request; `{"decision": "decline"}` left no file, and the agent said "The command was rejected" and did not retry. |
+| Interrupt | `python3 $D/codex_appserver.py <dir> start` (turn 3) | `turn/interrupt` mid-stream: `turn/completed` with `status: "interrupted"` 5, 7 and 167 ms later (n=3, too few for p95); the next `turn/start` on the same process answered normally. |
+| Steer | `... steer` | `turn/steer` (`expectedTurnId` from `turn/started`) 3 s into a counting turn was acknowledged in 5 ms with the same `turnId`; the same turn ended `1 2 3 4 5 STEERED`. A message mid-turn needs no interrupt. |
+| `model/list` | `... start` | 0.00 s, `data` and `nextCursor`. |
+| `skills/list` | `... start` | 0.01 s, `data` per cwd. |
+| `account/usage/read` | `... start` | 0.36 s: `summary`, `dailyUsageBuckets`, `threadUsage` (values not kept). `account/rateLimits/read` 0.24 s. |
+| Compact | `... compact` | `thread/compact/start` answers `{}` at once and runs as a turn: `turn/started`, one item, `turn/completed` 12.7 and 19.6 s later (n=2: the `compact` and `start` scenarios). No `thread/compacted` arrived (the first driver waited for it and timed out). The code word was recalled after it. |
+| Hooks | `... hooks`, then `TRUST=1 ... hooks` | The scenario writes `$CODEX_HOME/hooks.json` (Claude's JSON shape, one logging hook per event) when it is missing. These hooks are `untrusted` at first and do not run in app-server mode: no notification, no warning. `hooks/list` returns each with `key` (`<file>:<event>:0:0`), `currentHash`, `trustStatus`; one `config/batchWrite` of `hooks.state.<key>.trusted_hash = currentHash` with `reloadUserConfig` trusted them, and then SessionStart, UserPromptSubmit, PermissionRequest and Stop each fired with the thread id as `session_id`, each wrapped in `hook/started` and `hook/completed` notifications. Same result rerun on 0.169.0. The throwaway `config.toml` also held `trust_level = "trusted"` for the folder afterwards, with no prompt. |
+| To the TUI | `bash $D/codex_tui_resume.sh <dir> <thread id> 10` | `codex -c mesa.embedded=true resume <id>` (Mesa's embedded override, without its `-C` and mount flags) in a private tmux server: prompt ready p50 0.38 s, p95 0.99 s (n=10); the TUI showed the app-server turns (the interrupt, the compact) and answered `HARBOR_44`. |
+| Back to app-server | `python3 $D/codex_appserver.py <dir> resume <id>` (x5) | `thread/resume` 0.03 to 0.04 s, then the code word right every time (after the TUI turn), first delta p50 3.3 s, p95 4.6 s (n=5). A `thread/goal/cleared` notification came with each resume. |
+
+Other shapes worth keeping: `item/completed` for an `agentMessage` carries `phase` (`commentary` or `final_answer`); a `commandExecution` item carries the command and cwd. Around a turn, `thread/status/changed`, `mcpServer/startupStatus/updated`, `turn/moderationMetadata`, `thread/tokenUsage/updated` and `account/rateLimits/updated` arrive and are not chat items.
+
+A plain `codex resume` (no `-c`) on the throwaway home started an app-server daemon inside it (`$CODEX_HOME/packages/app-server-daemon/`), which outlived the TUI and whose updater moved it from 0.162.1 to 0.169.0 on its own. `codex app-server daemon stop` stopped the daemon but left the updater running; it was killed by hand. With `-c mesa.embedded=true` no daemon process was left.
+
+`codex exec --json` stays the headless Faro adapter (`docs/spikes/codex.md`), not the chat engine. ACP was not looked for.
+
+### For the runner (#1202, was #1197)
+
+1. Start every thread with `approvalPolicy: "untrusted"` (or a policy Mesa maps from its mode picker) when the person wants approval cards; `on-request` with `workspace-write` writes inside the folder without asking. Answer `{"decision": "accept" | "decline"}` and clear the card on `serverRequest/resolved`, since another client may answer first.
+2. Treat `thread/compact/start` as a turn: show it as running until `turn/completed`; do not wait for `thread/compacted`.
+3. Keep `turn/started`'s `turn.id` per thread; `turn/steer` and `turn/interrupt` need it. A send while a turn runs is a steer, not a queued prompt.
+4. Fold only `item/*` and `turn/*` into chat items; `agentMessage` `phase: "commentary"` is a step line, `final_answer` the reply. Token usage and rate limits feed the footer.
+5. Hook trust is an app-server call: after `mesa hooks` writes `$CODEX_HOME/hooks.json`, read `hooks/list` and trust Mesa's own entries by `currentHash` with `config/batchWrite`, never other hooks. `mesa doctor` should report any Mesa hook whose `trustStatus` is not trusted, since untrusted hooks fail silently.
+6. Terminal view keeps Mesa's `codex -c mesa.embedded=true resume <id>`; a plain `codex resume` starts a self-updating daemon. Stop the app-server process before the TUI resumes and back (two processes on one thread was not tried and should be forbidden, as for Claude).
+7. Codex updates itself under Mesa (0.162.1 to 0.169.0 here, mid-run); pin nothing to a version, read `initialize`'s answer and fall back when a method is missing.
 
 ## 4. Mesa fit
 
@@ -101,13 +125,13 @@ Order: 1, 2, 3, then 4 and 8 in parallel, then 5, 6, 7, 9, 10, 11. Sizes in agen
 7. `sessions: switch between Structured and Terminal` (M). Resume both ways, mid-turn dialog, forbid two processes on one id.
 8. `app: chat on the live stream, retire pane-scraped command output` (M). Wire `ChatPanel` to item 2; remove the `CommandCard` marker path.
 9. `phone: chat from the host stream` (S).
-10. `sessions: Codex structured runner on app-server` (M). Preceded by one S measurement issue that finishes section 3 live.
+10. `sessions: Codex structured runner on app-server` (M). Section 3 lists what it must change.
 11. `docs: ADR and CONTEXT terms for Structured and Terminal views` (S). Amends ADR-0001 and ADR-0003 notes; defines Structured, Terminal, host.
 
 ## Not measured
 
-Codex live (section 3); `/clear` session id; the half-written reply after a kill; PermissionRequest and Notification hooks in structured mode; Agent SDK differences and API-key cost; two processes on one session id; startup time with the owner's full plugin and MCP set.
+`/clear` session id; the half-written reply after a kill; PermissionRequest and Notification hooks in structured mode; Agent SDK differences and API-key cost; two processes on one session id; startup time with the owner's full plugin and MCP set.
 
 ## Reproduce
 
-`python3 docs/spikes/structured-chat/claude_stream.py <dir> slash|perm|interrupt|resume [session id]`, `init_time.py <dir> <session id> <runs>`, `tui_resume.sh <dir> <session id> <runs>` (private tmux server `-L spikechat`), `codex_appserver.py <dir> start|resume` with a throwaway `CODEX_HOME`.
+`python3 docs/spikes/structured-chat/claude_stream.py <dir> slash|perm|interrupt|resume [session id]`, `init_time.py <dir> <session id> <runs>`, `tui_resume.sh <dir> <session id> <runs>` (private tmux server `-L spikechat`), `codex_appserver.py <dir> start|approval|steer|latency|compact|hooks|resume [thread id]` and `codex_tui_resume.sh <dir> <thread id> <runs>` (private tmux server `-L spikecodex`), both with a throwaway `CODEX_HOME`.
