@@ -210,6 +210,8 @@ export function SessionsScreen(
             sent={prompt.sent}
             refused={prompt.refused?.id === props.selectedSession ? prompt.refused.text : undefined}
             onSend={(text, form) => prompt.send(props.selectedSession ?? '', text, form)}
+            onOpenTerminal={() => view.choose('terminal')}
+            terminal={props.terminalPreferences}
           />
         )}
         <TerminalTiles

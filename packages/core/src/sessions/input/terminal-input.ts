@@ -24,15 +24,16 @@ export type TypedLine = {
 };
 
 /**
- * A live plain terminal session's window, which only a person types into: any Mesa window is an
- * agent's (ADR-0003), and an agent session takes `mesa send` instead, so a review or a note is
- * never typed into a shell.
+ * A live session's window, which only a person types into: any Mesa window is an agent's
+ * (ADR-0003). A line goes only to a plain terminal session, as an agent session takes `mesa send`
+ * instead, so a review or a note is never typed into a shell; keys (`{ keys: true }`) go to either, as
+ * an agent's panel or picker is driven with them (a chat's command card).
  */
-async function terminalWindow(deps: TerminalDeps, id: string) {
+async function terminalWindow(deps: TerminalDeps, id: string, { keys = false } = {}) {
   if (deps.caller().inMesaWindow)
     throw new MesaError('usage', `only a person types into a terminal (mesa attach ${id})`);
   const record = deps.store.get(id);
-  if (record.agent !== 'terminal')
+  if (record.agent !== 'terminal' && !keys)
     throw new MesaError('usage', `session ${id} runs an agent; mesa send types into it`);
   const target = windowOf(record);
   const pane = await deps.tmux.findWindow(target);
@@ -69,8 +70,8 @@ export async function typeLine(
 }
 
 /**
- * Presses `keys` in plain terminal session `id`, in order, each by its tmux name (terminal-keys):
- * they carry no text, so the guardrail has nothing to read.
+ * Presses `keys` in session `id`, a plain terminal or an agent's, in order, each by its tmux name
+ * (terminal-keys): they carry no text, so the guardrail has nothing to read.
  */
 export async function pressKeys(deps: TerminalDeps, id: string, keys: readonly string[]) {
   const bad = keys.filter((key) => !isTerminalKey(key));
@@ -79,7 +80,7 @@ export async function pressKeys(deps: TerminalDeps, id: string, keys: readonly s
       'usage',
       `${bad.length ? `unknown keys ${bad.join(', ')}` : 'no keys'}: pass Escape, Tab, Enter, Up, Down, Left, Right or C-<letter>`,
     );
-  const { target } = await terminalWindow(deps, id);
+  const { target } = await terminalWindow(deps, id, { keys: true });
   for (const key of keys) await deps.tmux.pressKey(target, key);
   return { session: id, keys: [...keys] };
 }

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { withoutChrome } from './screenChrome';
+import { withoutChrome } from './screen-chrome.js';
 
 const said = ['⏺ Tests pass. Opened PR #12.', '  ⎿  2 files changed', '✻ Worked for 3m 12s'];
 
@@ -39,4 +39,9 @@ test("a prompt with words, a dialog's choice and the agent's own lines stay", ()
 test('a line after a rule stays unless a chrome line follows it', () => {
   const kept = ['──────', 'Summary of the run', 'All green.'];
   expect(withoutChrome(kept)).toEqual(['Summary of the run', 'All green.']);
+});
+
+test('a coloured line is matched by its text, its colours kept on what stays', () => {
+  const reply = '\x1b[1m⏺\x1b[0m Done.';
+  expect(withoutChrome([reply, '\x1b[2m────────\x1b[0m', '\x1b[2m❯\x1b[0m'])).toEqual([reply]);
 });

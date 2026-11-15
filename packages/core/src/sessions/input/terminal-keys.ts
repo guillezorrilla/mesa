@@ -1,5 +1,5 @@
-// The keys a person presses in a plain terminal session, by tmux's names: the phone's key row and
-// `mesa keys` send these, and nothing else is pressed as a key. Free of Node, so the phone's
+// The keys a person presses in a session's terminal, by tmux's names: the phone's key row, the
+// app's command cards and `mesa keys` send these, and nothing else is pressed as a key. Free of Node, so the phone's
 // protocol checks them too.
 
 /** The named keys: Escape, Tab, Enter and the arrows. */

@@ -12,12 +12,16 @@ const SENDING_POLL_FOR_MS = 120_000;
 /** How far a transcript's clock may run behind the app's when a prompt is sent. */
 const SKEW_MS = 5_000;
 
-/** Whether `messages` hold prompt `sent`: one of the person's, with its text, written since. */
+/**
+ * Whether `messages` hold prompt `sent`: one of the person's with its text, or the command row of
+ * a slash command, written since.
+ */
 export const transcriptHolds = (messages: readonly ChatItem[], sent: SentPrompt) =>
   messages.some(
     (message) =>
-      message.from === 'you' &&
-      message.text.includes(sent.prompt.trim()) &&
+      (message.from === 'command'
+        ? message.text === sent.prompt.trim()
+        : message.from === 'you' && message.text.includes(sent.prompt.trim())) &&
       (message.at === null || Date.parse(message.at) >= sent.at - SKEW_MS),
   );
 

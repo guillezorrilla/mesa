@@ -261,9 +261,11 @@ function claudeFolder(file: string): { path: string; back: boolean } | undefined
 /** One transcript line, parsed: the fields its prompt and messages are read from. */
 type Line = {
   type?: unknown;
+  subtype?: unknown;
   isSidechain?: unknown;
   isMeta?: unknown;
   timestamp?: unknown;
+  content?: unknown;
   message?: { role?: unknown; content?: unknown };
 };
 
@@ -280,10 +282,14 @@ function userText(line: Line): unknown[] {
 
 /**
  * The message a user or assistant line holds, excluding sidechains and meta lines: Claude Code
- * writes loaded skill bodies and reminders as meta user lines, not the person's.
+ * writes loaded skill bodies and reminders as meta user lines, not the person's. A slash command
+ * and what it printed (`system` `local_command` lines since 2.1, user lines before) read as the
+ * person's, for transcript-commands to find.
  */
 function messageIn(line: string) {
   const entry = parsedLine<Line>(line);
+  if (entry?.type === 'system' && entry.subtype === 'local_command')
+    return messageOf({ role: 'user', content: entry.content }, entry.timestamp, line);
   if (
     !entry ||
     (entry.type !== 'user' && entry.type !== 'assistant') ||

@@ -3,6 +3,7 @@ import { firstLine } from '../../agents/steps.js';
 import { clip } from '../../lib/clip.js';
 import { MesaError } from '../../lib/result.js';
 import {
+  type NativeCommand,
   type NativePrompt,
   type NativeResponse,
   type NativeStep,
@@ -10,8 +11,19 @@ import {
   sessionResponses,
 } from './responses.js';
 
-/** One message of a session's chat: the agent's reply or the person's prompt, its text's revision as its id. */
-export type ChatMessage = { id: string; at: string | null; text: string; from: 'agent' | 'you' };
+/**
+ * One message of a session's chat: the agent's reply, the person's prompt, or a slash command the
+ * person ran (`text` the command as typed, `output` what it printed, colours kept, `error` when to
+ * stderr); its revision as its id.
+ */
+export type ChatMessage = {
+  id: string;
+  at: string | null;
+  text: string;
+  from: 'agent' | 'you' | 'command';
+  output?: string;
+  error?: true;
+};
 
 /** One step of a run as its list shows it: a line, and whether it is still going or failed. */
 export type ChatStepLine = { id: string; line: string; status: string };
@@ -60,13 +72,17 @@ export type SessionChat = {
 export const CHAT_COUNT = 20;
 
 /**
- * The agent's newest `count` replies with, when `withPrompts`, the person's prompts placed among
- * them, newest first, and whether older replies exist. `read` is sessionResponses', which leaves
- * out tool results and injected text. With `steps` (newest first, as sessionResponses reads them),
- * each gap's steps follow the prompts that started it as one run.
+ * The agent's newest `count` replies with, when `withPrompts`, the person's prompts and commands
+ * placed among them, newest first, and whether older replies exist. `read` is sessionResponses',
+ * which leaves out tool results and injected text. With `steps` (newest first, as sessionResponses
+ * reads them), each gap's steps follow the prompts that started it as one run.
  */
 export function chatMessages(
-  read: { rows: Pick<NativeResponse, 'revision' | 'text' | 'at'>[]; prompts: NativePrompt[] },
+  read: {
+    rows: Pick<NativeResponse, 'revision' | 'text' | 'at'>[];
+    prompts: NativePrompt[];
+    commands?: NativeCommand[];
+  },
   count: number,
   withPrompts = true,
   steps: NativeStep[] = [],
@@ -76,17 +92,26 @@ export function chatMessages(
     at: string | undefined,
     text: string,
     from: ChatMessage['from'],
-  ) => ({
+  ): ChatMessage => ({
     id,
     at: at ?? null,
     text,
     from,
   });
+  const ran = (command: NativeCommand): ChatMessage => ({
+    ...message(command.revision, command.at, command.command, 'command'),
+    ...(command.output !== undefined ? { output: command.output } : {}),
+    ...(command.error ? { error: true as const } : {}),
+  });
+  // Newest first, as both lists are; one with no time goes oldest.
   const promptsBefore = (newer: number) =>
     withPrompts
-      ? read.prompts
-          .filter((prompt) => prompt.newer === newer)
-          .map((prompt) => message(prompt.revision, prompt.at, prompt.text, 'you'))
+      ? [
+          ...read.prompts
+            .filter((prompt) => prompt.newer === newer)
+            .map((prompt) => message(prompt.revision, prompt.at, prompt.text, 'you')),
+          ...(read.commands ?? []).filter((command) => command.newer === newer).map(ran),
+        ].sort((a, b) => (b.at ?? '').localeCompare(a.at ?? ''))
       : [];
   // Newest first, so a gap's run comes before its prompts: the prompt came first.
   const runBefore = (newer: number, at?: string): ChatRun[] => {

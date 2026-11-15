@@ -1,5 +1,5 @@
 import { closesFence, opensFence } from '../../lib/code-fence.js';
-import { type ChatMessage, chatMessages } from '../../sessions/native/chat.js';
+import { chatMessages } from '../../sessions/native/chat.js';
 import type { NativePrompt, NativeResponse } from '../../sessions/native/responses.js';
 import type { ReplySegment } from '../protocol/rpc.js';
 
@@ -38,14 +38,29 @@ export function phoneReplies(
   count: number,
   withPrompts: boolean,
 ) {
-  const { messages, more } = chatMessages(read, count, withPrompts);
+  // The phone shows no command rows: its protocol has none.
+  const { messages, more } = chatMessages(
+    { rows: read.rows, prompts: read.prompts },
+    count,
+    withPrompts,
+  );
   return {
-    replies: messages
-      .filter((message): message is ChatMessage => message.from !== 'steps')
-      .map(({ text, ...message }) => ({
-        ...message,
-        segments: message.from === 'you' ? [{ code: false, text }] : replySegments(text),
-      })),
+    // The phone shows neither steps nor command rows: its protocol has none.
+    replies: messages.flatMap((message) =>
+      message.from === 'steps' || message.from === 'command'
+        ? []
+        : [
+            {
+              id: message.id,
+              at: message.at,
+              from: message.from,
+              segments:
+                message.from === 'you'
+                  ? [{ code: false, text: message.text }]
+                  : replySegments(message.text),
+            },
+          ],
+    ),
     more,
   };
 }

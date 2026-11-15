@@ -1,6 +1,6 @@
 // The pairing protocol (`@mesa/core/phone`): what the phone app bundles from core, and nothing else
-// but the pure words, clip, local day, session state sets, prompt title, diff lines, push modes and agent
-// names its screens share with the desktop.
+// but the pure words, clip, local day, session state sets, prompt title, diff lines, push modes, agent
+// names, and the screen chrome filter its screens share with the desktop.
 export { AGENT_LABELS, AGENT_NAMES, agentLabel } from '../../agents/names.js';
 export { runSentence } from '../../agents/step-words.js';
 export {
@@ -21,6 +21,7 @@ export { MERGE_LABELS, MERGE_METHODS, type MergeMethod } from '../../prs/merge-m
 export { promptTitle } from '../../sessions/answer/title.js';
 export { NAMED_KEYS } from '../../sessions/input/terminal-keys.js';
 export { BUSY_STATES, FINAL_STATES, WAITING_STATES } from '../../sessions/record/states.js';
+export { withoutChrome } from '../../sessions/window/screen-chrome.js';
 export { groupByStatus, type StatusGroup } from '../../tickets/status-groups.js';
 export { PHONE_PUSH_LABELS, PHONE_PUSH_MODES, type PhonePushMode } from '../away.js';
 export type { ChangedFile, NoteDelivery, StatusFile } from './changes.js';
