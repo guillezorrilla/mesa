@@ -89,6 +89,17 @@ describe('foldStreamEvent', () => {
   });
 });
 
+describe('subagents', () => {
+  it('leaves a subagent stream out of the main chat', () => {
+    const state = foldStreamEvent(
+      newStreamChat('/p'),
+      { type: 'delta', kind: 'text', text: 'inner', index: 0, sidechain: true },
+      AT,
+    );
+    expect(streamChatItems(state)).toEqual([]);
+  });
+});
+
 describe('mergeChat', () => {
   const msg = (from: 'you' | 'agent', text: string, id = text): ChatItem => ({
     id,
@@ -115,13 +126,17 @@ describe('mergeChat', () => {
     expect(mergeChat(history, live).map((i) => i.id)).toEqual(['h1', 'h2', 'steps:t1', 's2']);
   });
 
-  it('keeps a repeated prompt that the transcript has older than the stream', () => {
-    const history = [msg('you', 'go', 'h1'), msg('agent', 'ok', 'h2')];
-    expect(mergeChat(history, [msg('you', 'go', 's1')]).map((i) => i.id)).toEqual([
-      'h1',
-      'h2',
-      's1',
-    ]);
+  it('adds nothing when the transcript is already past the stream, as after a resume', () => {
+    const history = [msg('you', 'a', 'h1'), msg('agent', 'b', 'h2'), msg('agent', 'c', 'h3')];
+    const live = [msg('you', 'a', 's1'), msg('agent', 'b', 's2')];
+    expect(mergeChat(history, live).map((i) => i.id)).toEqual(['h1', 'h2', 'h3']);
+  });
+
+  it('matches a run that began with a thought by a step it shares', () => {
+    const steps = (id: string) => ({ id, line: id, status: 'done' });
+    const a = { ...run('x'), id: 'steps:stream:0:0', steps: [steps('stream:0:0'), steps('t1')] };
+    const b = { ...run('x'), id: 'steps:uuid:0', steps: [steps('uuid:0'), steps('t1')] };
+    expect(mergeChat([b], [a])).toEqual([b]);
   });
 
   it('is the live items alone with no history, and the history alone with no live items', () => {

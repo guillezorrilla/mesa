@@ -42,9 +42,9 @@ describe('parseStreamLine', () => {
       permissionMode: 'default',
     });
     expect(events.slice(2, 5)).toEqual([
-      { type: 'delta', kind: 'text', text: 'Sure, ', index: 0 },
-      { type: 'delta', kind: 'thinking', text: 'a file', index: 0 },
-      { type: 'delta', kind: 'input_json', text: '{"file_path":', index: 1 },
+      { type: 'delta', kind: 'text', text: 'Sure, ', index: 0, sidechain: false },
+      { type: 'delta', kind: 'thinking', text: 'a file', index: 0, sidechain: false },
+      { type: 'delta', kind: 'input_json', text: '{"file_path":', index: 1, sidechain: false },
     ]);
     expect(events[5]).toEqual({
       type: 'permission_request',
@@ -61,6 +61,7 @@ describe('parseStreamLine', () => {
       content: [
         { type: 'tool_result', toolUseId: 'toolu_1', content: 'File created', isError: false },
       ],
+      sidechain: false,
     });
     expect(events[8]).toEqual({
       type: 'control_request',
@@ -109,10 +110,12 @@ describe('parseStreamLine', () => {
     expect(e).toEqual({
       type: 'user',
       content: [{ type: 'tool_result', toolUseId: 't', content: 'no', isError: true }],
+      sidechain: false,
     });
     expect(parseStreamLine('{"type":"user","message":{"content":"hi"}}')).toEqual({
       type: 'user',
       content: [{ type: 'text', text: 'hi' }],
+      sidechain: false,
     });
   });
 });

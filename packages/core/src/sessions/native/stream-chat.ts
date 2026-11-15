@@ -110,6 +110,8 @@ export function endStreamChatTurn(
 
 /** `state` after one stream event, at time `at` (ISO). */
 export function foldStreamEvent(state: StreamChat, event: StreamEvent, at: string): StreamChat {
+  // A subagent's work is its own, as in the transcript (agents/claude/steps.ts).
+  if ('sidechain' in event && event.sidechain) return state;
   switch (event.type) {
     case 'delta':
       return event.kind === 'text' ? { ...state, live: state.live + event.text } : state;
@@ -131,7 +133,8 @@ export function foldStreamEvent(state: StreamChat, event: StreamEvent, at: strin
         for (const started of events)
           if ('start' in started) next = { ...next, run: [...next.run, started.start] };
       });
-      return next;
+      // Two assistant events in a turn each name their thoughts from block 0.
+      return { ...next, seq: next.seq + 1 };
     }
     case 'user': {
       const run = state.run.map((step) => ({ ...step }));

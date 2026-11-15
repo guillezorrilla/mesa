@@ -28,13 +28,19 @@ export type StreamEvent =
       tools: string[];
     }
   /** A streamed piece of the reply being written: text, thinking, or a tool call's input. */
-  | { type: 'delta'; kind: 'text' | 'thinking' | 'input_json'; text: string; index: number }
+  | {
+      type: 'delta';
+      kind: 'text' | 'thinking' | 'input_json';
+      text: string;
+      index: number;
+      sidechain: boolean;
+    }
   /** Any other `stream_event` (message and block starts and stops), by its own type name. */
   | { type: 'stream'; event: string }
   /** `synthetic`: Claude Code wrote it itself (a slash command's output), not the model. */
-  | { type: 'assistant'; content: ContentBlock[]; synthetic: boolean }
+  | { type: 'assistant'; content: ContentBlock[]; synthetic: boolean; sidechain: boolean }
   /** A user turn: Claude's tool results come back as these. */
-  | { type: 'user'; content: ContentBlock[] }
+  | { type: 'user'; content: ContentBlock[]; sidechain: boolean }
   | {
       type: 'result';
       sessionId: string;
@@ -102,6 +108,9 @@ function block(raw: unknown): ContentBlock {
   }
 }
 
+/** A subagent's events carry the id of the tool call that started it. */
+const sidechain = (d: Obj) => typeof d.parent_tool_use_id === 'string';
+
 /** A message's content: a bare string is one text block. */
 const blocks = (message: unknown): ContentBlock[] => {
   const content = isObj(message) ? message.content : undefined;
@@ -159,6 +168,7 @@ function fromObject(d: Obj, line: string): StreamEvent {
           kind: kind.kind,
           text: str(delta[kind.field]),
           index: num(d.event.index) ?? 0,
+          sidechain: sidechain(d),
         };
       return { type: 'stream', event: d.event.type };
     }
@@ -167,9 +177,10 @@ function fromObject(d: Obj, line: string): StreamEvent {
         type: 'assistant',
         content: blocks(d.message),
         synthetic: isObj(d.message) && d.message.model === '<synthetic>',
+        sidechain: sidechain(d),
       };
     case 'user':
-      return { type: 'user', content: blocks(d.message) };
+      return { type: 'user', content: blocks(d.message), sidechain: sidechain(d) };
     case 'result':
       return {
         type: 'result',
