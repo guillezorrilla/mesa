@@ -22,7 +22,7 @@ type Line = {
   message?: { content?: unknown };
 };
 type Input = Record<string, unknown>;
-type ContentBlock = {
+export type ContentBlock = {
   type?: unknown;
   id?: unknown;
   name?: unknown;
@@ -104,12 +104,18 @@ function toolOf(block: ContentBlock, cwd: string): TranscriptStep | undefined {
   };
 }
 
-/** The steps one Claude Code transcript line starts or finishes; sidechains are a subagent's. */
-export function claudeStepEvents(line: string): StepEvent[] {
-  const entry = parsedLine<Line>(line);
-  if (!entry || entry.isSidechain === true || !Array.isArray(entry.message?.content)) return [];
-  const blocks = entry.message.content as ContentBlock[];
-  if (entry.type === 'user')
+/**
+ * The steps a Claude Code message's blocks start or finish: a user message's tool_result blocks
+ * finish tool calls, an assistant message's tool_use and thinking blocks start steps. `idPrefix`
+ * names a thought (`<prefix>:<block>`); the transcript uses the line's uuid.
+ */
+export function claudeBlockEvents(
+  role: unknown,
+  blocks: ContentBlock[],
+  cwd: string,
+  idPrefix: string,
+): StepEvent[] {
+  if (role === 'user')
     return blocks.flatMap((block) =>
       block?.type === 'tool_result' && typeof block.tool_use_id === 'string'
         ? [
@@ -123,22 +129,30 @@ export function claudeStepEvents(line: string): StepEvent[] {
           ]
         : [],
     );
-  if (entry.type !== 'assistant') return [];
+  if (role !== 'assistant') return [];
   return blocks.flatMap((block, at): StepEvent[] => {
     if (block?.type === 'tool_use') {
-      const step = toolOf(block, text(entry.cwd));
+      const step = toolOf(block, cwd);
       return step ? [{ start: step }] : [];
     }
     if (block?.type === 'thinking' && text(block.thinking).trim())
       return [
         {
-          start: {
-            type: 'thought',
-            id: `${text(entry.uuid)}:${at}`,
-            text: keep(text(block.thinking)),
-          },
+          start: { type: 'thought', id: `${idPrefix}:${at}`, text: keep(text(block.thinking)) },
         },
       ];
     return [];
   });
+}
+
+/** The steps one Claude Code transcript line starts or finishes; sidechains are a subagent's. */
+export function claudeStepEvents(line: string): StepEvent[] {
+  const entry = parsedLine<Line>(line);
+  if (!entry || entry.isSidechain === true || !Array.isArray(entry.message?.content)) return [];
+  return claudeBlockEvents(
+    entry.type,
+    entry.message.content as ContentBlock[],
+    text(entry.cwd),
+    text(entry.uuid),
+  );
 }

@@ -111,18 +111,25 @@ export function readTurns(
         steps.push({ step: event.start, before: messages.length });
         continue;
       }
-      // One call's result finishes each step it started (a patch's edits are `<id>:<n>`).
-      const { id } = event.result;
-      for (const [key, step] of byId) {
-        if ((key !== id && !key.startsWith(`${id}:`)) || step.type === 'thought') continue;
-        step.status = event.result.failed ? 'failed' : 'done';
-        if (step.type === 'tool') step.output = keep(event.result.output);
-      }
+      finishSteps(byId.values(), event.result);
     }
     const message = messageIn(line, index);
     if (message) messages.push(message);
   });
   return { messages, steps };
+}
+
+/** One call's result finishes each step it started (a patch's edits are `<id>:<n>`). */
+export function finishSteps(
+  steps: Iterable<TranscriptStep>,
+  result: { id: string; failed: boolean; output: string },
+) {
+  for (const step of steps) {
+    if ((step.id !== result.id && !step.id.startsWith(`${result.id}:`)) || step.type === 'thought')
+      continue;
+    step.status = result.failed ? 'failed' : 'done';
+    if (step.type === 'tool') step.output = keep(result.output);
+  }
 }
 
 /**

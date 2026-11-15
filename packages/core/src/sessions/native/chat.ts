@@ -1,4 +1,5 @@
 import { runSentence } from '../../agents/step-words.js';
+import type { TranscriptStep } from '../../agents/steps.js';
 import { firstLine } from '../../agents/steps.js';
 import { clip } from '../../lib/clip.js';
 import { MesaError } from '../../lib/result.js';
@@ -44,7 +45,7 @@ export type ChatRun = {
 };
 
 /** `steps`' edits, one per file. */
-const fileEdits = (steps: NativeStep[]) =>
+const fileEdits = (steps: TranscriptStep[]) =>
   sumFileEdits(steps.flatMap((step) => (step.type === 'edit' ? [step] : [])));
 
 /** A message or a run of steps, as the chat lists them. */
@@ -53,7 +54,7 @@ export type ChatItem = ChatMessage | ChatRun;
 /** How long a step's line may be. */
 const LINE = 160;
 
-const stepLine = (step: NativeStep): ChatStepLine => ({
+const stepLine = (step: TranscriptStep): ChatStepLine => ({
   id: step.id,
   status: step.type === 'thought' ? 'done' : step.status,
   line: clip(
@@ -65,6 +66,21 @@ const stepLine = (step: NativeStep): ChatStepLine => ({
     LINE,
   ),
 });
+
+/** The run of `steps` (time order) as a chat item, none when there are none. */
+export function chatRun(steps: TranscriptStep[], at: string | null): ChatRun | undefined {
+  const first = steps[0];
+  if (!first) return undefined;
+  const edits = fileEdits(steps);
+  return {
+    id: `steps:${first.id}`,
+    at,
+    text: runSentence(steps),
+    from: 'steps',
+    steps: steps.map(stepLine),
+    ...(edits.length ? { edits } : {}),
+  };
+}
 
 /** A session's chat as `mesa chat` prints it: oldest first, how many, and whether older replies exist. */
 export type SessionChat = {
@@ -122,21 +138,8 @@ export function chatMessages(
       : [];
   // Newest first, so a gap's run comes before its prompts: the prompt came first.
   const runBefore = (newer: number, at?: string): ChatRun[] => {
-    const run = steps.filter((step) => step.newer === newer).reverse();
-    const first = run[0];
-    const edits = fileEdits(run);
-    return first
-      ? [
-          {
-            id: `steps:${first.id}`,
-            at: at ?? null,
-            text: runSentence(run),
-            from: 'steps',
-            steps: run.map(stepLine),
-            ...(edits.length ? { edits } : {}),
-          },
-        ]
-      : [];
+    const run = chatRun(steps.filter((step) => step.newer === newer).reverse(), at ?? null);
+    return run ? [run] : [];
   };
   return {
     messages: [

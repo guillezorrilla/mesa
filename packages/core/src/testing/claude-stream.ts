@@ -136,3 +136,56 @@ export function replaySpawner(stream: string[] = RECORDED_CLAUDE_STREAM, chunks?
   };
   return { spawn, spawns, sent, wasKilled: () => killed };
 }
+
+const line = (event: object) => JSON.stringify(event);
+const delta = (text: string) =>
+  line({
+    type: 'stream_event',
+    event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text } },
+  });
+const INIT = line({
+  type: 'system',
+  subtype: 'init',
+  session_id: 'c0ffee00-0000-4000-8000-000000000001',
+});
+
+/** A slash command Claude Code answers itself: a synthetic assistant message and a no-turn result. */
+export const RECORDED_COMMAND_STREAM: string[] = [
+  INIT,
+  line({
+    type: 'assistant',
+    message: {
+      role: 'assistant',
+      model: '<synthetic>',
+      content: [{ type: 'text', text: 'Model: haiku' }],
+    },
+  }),
+  line({
+    type: 'result',
+    subtype: 'success',
+    is_error: false,
+    result: 'Model: haiku',
+    num_turns: 0,
+  }),
+];
+
+/** A reply cut off mid-delta by an interrupt, with a tool call that never got its result. */
+export const INTERRUPTED_CLAUDE_STREAM: string[] = [
+  INIT,
+  line({
+    type: 'assistant',
+    message: {
+      role: 'assistant',
+      content: [{ type: 'tool_use', id: 'toolu_9', name: 'Bash', input: { command: 'sleep 60' } }],
+    },
+  }),
+  delta('The lighthouse '),
+  delta('keeper climbed'),
+  line({
+    type: 'result',
+    subtype: 'error_during_execution',
+    is_error: true,
+    result: '',
+    num_turns: 1,
+  }),
+];

@@ -31,7 +31,8 @@ export type StreamEvent =
   | { type: 'delta'; kind: 'text' | 'thinking' | 'input_json'; text: string; index: number }
   /** Any other `stream_event` (message and block starts and stops), by its own type name. */
   | { type: 'stream'; event: string }
-  | { type: 'assistant'; content: ContentBlock[] }
+  /** `synthetic`: Claude Code wrote it itself (a slash command's output), not the model. */
+  | { type: 'assistant'; content: ContentBlock[]; synthetic: boolean }
   /** A user turn: Claude's tool results come back as these. */
   | { type: 'user'; content: ContentBlock[] }
   | {
@@ -162,7 +163,11 @@ function fromObject(d: Obj, line: string): StreamEvent {
       return { type: 'stream', event: d.event.type };
     }
     case 'assistant':
-      return { type: 'assistant', content: blocks(d.message) };
+      return {
+        type: 'assistant',
+        content: blocks(d.message),
+        synthetic: isObj(d.message) && d.message.model === '<synthetic>',
+      };
     case 'user':
       return { type: 'user', content: blocks(d.message) };
     case 'result':
