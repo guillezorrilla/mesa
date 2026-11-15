@@ -91,11 +91,19 @@ export async function switchView(
         );
       await deps.sleep(POLL_MS);
     }
+    // Stamped once the old process is gone, so its SessionEnd, which lands after the switch
+    // began, falls before it and no longer speaks for the session (measured live).
+    const stopped = deps.clock().toISOString();
     const record = deps.store.update(id, (current) => ({
       view: to,
       // Idle from now, as after a wake: the new process's hooks speak next.
-      lastState: { ...current.lastState, state: 'idle' as const, at, source: 'tmux' as const },
-      events: [...current.events, { type: 'switched' as const, at, to }],
+      lastState: {
+        ...current.lastState,
+        state: 'idle' as const,
+        at: stopped,
+        source: 'tmux' as const,
+      },
+      events: [...current.events, { type: 'switched' as const, at: stopped, to }],
     }));
     const started = await startSession(deps, record, project, {
       command: (r, deny) => resumeCommand(deps, found, r.id, folder, deny),

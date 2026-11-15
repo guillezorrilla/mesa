@@ -1,4 +1,5 @@
-import { mkdtempSync, realpathSync } from 'node:fs';
+import { appendFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createMesa } from '../../mesa.js';
 import {
@@ -8,22 +9,36 @@ import {
   projectProfile,
   replaySpawner,
   scriptedRunner,
+  shortTempDir,
+  steppingClock,
   testDeps,
   testStore,
 } from '../../testing/index.js';
 
-// A unix socket path is capped near 104 bytes, and the system temp folder is long on macOS.
-const shortHome = () => realpathSync(mkdtempSync('/tmp/mv-'));
-
-/** lantern-cove with claude's process from a fake that stays up, and a TUI that quits on /exit. */
+/**
+ * lantern-cove with claude's process from a fake that stays up, a TUI that quits on /exit with
+ * its SessionEnd hook logged as it goes, and a clock a second on at each read.
+ */
 function world() {
   const fake = replaySpawner([], { stay: true });
+  const clock = steppingClock();
+  let home = '';
   const agents = agentWorld({
     onKeys: (window, text) => {
-      if (text === '/exit') window.dead = true;
+      if (text !== '/exit') return;
+      window.dead = true;
+      const id = window.window.replace('claude-', '');
+      const event = { at: clock().toISOString(), agent: 'claude', event: 'SessionEnd' };
+      const dir = profilePaths(home, 'default').events;
+      mkdirSync(dir, { recursive: true });
+      appendFileSync(
+        join(dir, `${id}.jsonl`),
+        `${JSON.stringify({ ...event, mesaSessionId: id, payload: {} })}\n`,
+      );
     },
   });
-  const { home, mesa } = projectProfile(agents.run, { home: shortHome(), spawn: fake.spawn });
+  home = shortTempDir();
+  const { mesa } = projectProfile(agents.run, { home, spawn: fake.spawn, clock });
   return { home, mesa, agents, fake, paths: profilePaths(home, 'default') };
 }
 
@@ -64,6 +79,9 @@ describe('switching a session between Structured and Terminal', () => {
     expect(result.switched).toBe(true);
     expect(w.agents.tmux.opened.at(-1)?.launch).toContain(`host ${plain.id}`);
     expect(result.record.view).toBe('structured');
+    // The TUI's SessionEnd, logged during the switch, is not the session's end.
+    const [row] = await w.mesa.sessions.list();
+    expect(row?.lastState.state).toBe('idle');
   });
 
   it('does nothing for a session already in that view', async () => {

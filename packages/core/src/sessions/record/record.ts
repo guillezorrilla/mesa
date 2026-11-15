@@ -276,8 +276,8 @@ const SessionRecordFields = z.strictObject({
        */
       z.strictObject({ type: z.literal('woke'), at: z.iso.datetime() }),
       /**
-       * Switched view (mesa sessions view, ADR-0029) at `at`, when the switch began: hook events
-       * before it are the stopped process's, as before a wake.
+       * Switched view (mesa sessions view, ADR-0029) at `at`, once the old process was gone: hook
+       * events before it are that process's, as before a wake.
        */
       z.strictObject({
         type: z.literal('switched'),
