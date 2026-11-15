@@ -9,33 +9,45 @@ import {
 // Claude Code's permission dialog and AskUserQuestion, as qualified live in
 // docs/spikes/prompt-answers.md: a digit picks a numbered answer at once, Esc denies.
 
-/** One question with single-choice answers, from AskUserQuestion's input; else undefined. */
-function question(input: unknown, tail: string): AgentPrompt | undefined {
+/**
+ * AskUserQuestion's input when it asks one question with 1 to 8 answers: its text, whether
+ * several answers may be chosen, and each answer by number; else undefined. The pane reader below
+ * and a Structured session's (sessions/answer/structured.ts) both read it.
+ */
+export function askedQuestion(input: unknown) {
   const questions = payloadField(input, 'questions');
   if (!Array.isArray(questions) || questions.length !== 1) return undefined;
   const [asked] = questions;
   const text = payloadField(asked, 'question');
   const options = payloadField(asked, 'options');
-  if (payloadField(asked, 'multiSelect') === true || typeof text !== 'string') return undefined;
+  if (typeof text !== 'string') return undefined;
   if (!Array.isArray(options) || !options.length || options.length > 8) return undefined;
-  const labels = options.map((o) => payloadField(o, 'label'));
-  if (!labels.every((l): l is string => typeof l === 'string')) return undefined;
+  const choices: { id: string; label: string; description?: string }[] = [];
+  for (const [i, option] of options.entries()) {
+    const label = payloadField(option, 'label');
+    if (typeof label !== 'string') return undefined;
+    const description = payloadField(option, 'description');
+    choices.push({
+      id: String(i + 1),
+      label,
+      ...(typeof description === 'string' && description ? { description } : {}),
+    });
+  }
+  return { text, multiSelect: payloadField(asked, 'multiSelect') === true, choices };
+}
+
+/** One question with single-choice answers, from AskUserQuestion's input; else undefined. */
+function question(input: unknown, tail: string): AgentPrompt | undefined {
+  const asked = askedQuestion(input);
+  if (!asked || asked.multiSelect) return undefined;
   // The pane shows this question's answers, not another's.
-  if (!tail.includes(`1. ${labels[0]}`)) return undefined;
-  const typed = String(options.length + 1);
+  if (!tail.includes(`1. ${asked.choices[0]?.label}`)) return undefined;
+  const typed = String(asked.choices.length + 1);
   return {
     kind: 'question',
     tool: 'AskUserQuestion',
-    summary: text,
-    options: labels.map((label, i) => {
-      const description = payloadField(options[i], 'description');
-      return {
-        id: String(i + 1),
-        label,
-        ...(typeof description === 'string' && description ? { description } : {}),
-        keys: [String(i + 1)],
-      };
-    }),
+    summary: asked.text,
+    options: asked.choices.map((choice) => ({ ...choice, keys: [choice.id] })),
     ...(tail.includes(`${typed}. Type something`) ? { freeText: [typed] } : {}),
   };
 }

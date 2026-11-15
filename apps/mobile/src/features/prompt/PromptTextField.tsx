@@ -4,11 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 
-/** A typed answer, for a question that takes one. */
+/** A typed answer, for a prompt that takes one, `hint` saying what it is. */
 export function PromptTextField({
+  hint,
   disabled,
   onSubmit,
 }: {
+  hint: string;
   disabled: boolean;
   onSubmit: (text: string) => void;
 }) {
@@ -19,11 +21,11 @@ export function PromptTextField({
       <Input
         value={text}
         onChangeText={setText}
-        placeholder="Or type an answer"
+        placeholder={hint}
         editable={!disabled}
         returnKeyType="send"
         onSubmitEditing={() => ready && onSubmit(text)}
-        accessibilityLabel="Typed answer"
+        accessibilityLabel={hint}
       />
       <Button variant="secondary" disabled={!ready} onPress={() => onSubmit(text)}>
         <Text>Send answer</Text>

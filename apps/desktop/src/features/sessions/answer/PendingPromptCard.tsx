@@ -1,4 +1,4 @@
-import { promptTitle } from '@mesa/core/browser';
+import { promptTitle, typedAnswerHint } from '@mesa/core/browser';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -42,7 +42,11 @@ export function PendingPromptCard(props: { session: string; className?: string }
         ))}
       </div>
       {prompt.freeText && (
-        <PromptTextField disabled={acting} onAnswer={(text) => answer({ text })} />
+        <PromptTextField
+          hint={typedAnswerHint(prompt)}
+          disabled={acting}
+          onAnswer={(text) => answer({ text })}
+        />
       )}
     </section>
   );

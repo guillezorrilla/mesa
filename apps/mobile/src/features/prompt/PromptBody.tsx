@@ -1,4 +1,4 @@
-import { type PhonePrompt, promptTitle } from '@mesa/core/phone';
+import { type PhonePrompt, promptTitle, typedAnswerHint } from '@mesa/core/phone';
 import { use } from 'react';
 import { BusyLine } from '@/components/BusyLine';
 import { CodeBlock } from '@/components/CodeBlock';
@@ -49,6 +49,7 @@ export function PromptBody({
           />
           {prompt.freeText ? (
             <PromptTextField
+              hint={typedAnswerHint(prompt)}
               disabled={Boolean(busy)}
               onSubmit={(text) => onAnswer({ text, prompt: prompt.id, label: text })}
             />

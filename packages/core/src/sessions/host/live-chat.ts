@@ -11,7 +11,7 @@ import {
   streamChatSent,
 } from '../native/stream-chat.js';
 import type { SessionRecord } from '../record/record.js';
-import { readJournal } from './journal.js';
+import { journalEntries, readJournal } from './journal.js';
 import { askHost, hostSocket } from './socket.js';
 
 // A Structured session's chat (ADR-0029): its transcript's history with its journal folded in
@@ -35,18 +35,10 @@ export function journalItems(
   agent: SessionRecord['agent'],
 ): ChatItem[] {
   let state: StreamChat = newStreamChat(cwd);
-  for (const line of lines) {
-    let entry: { at?: string; sent?: { type?: string; text?: string }; event?: unknown };
-    try {
-      entry = JSON.parse(line);
-    } catch {
-      continue;
-    }
-    const at = entry.at ?? '';
-    if (entry.sent?.type === 'user' && entry.sent.text)
-      state = streamChatSent(state, entry.sent.text, at);
-    else if (entry.event !== undefined)
-      state = foldJournalled(agent, state, JSON.stringify(entry.event), at);
+  for (const { at, sent, event } of journalEntries(lines)) {
+    if (sent?.type === 'user' && typeof sent.text === 'string' && sent.text)
+      state = streamChatSent(state, sent.text, at);
+    else if (event !== undefined) state = foldJournalled(agent, state, event, at);
   }
   return streamChatItems(state);
 }

@@ -52,6 +52,7 @@ describe('parseStreamLine', () => {
       toolName: 'Write',
       toolUseId: 'toolu_1',
       input: { file_path: 'made.txt', content: 'tide' },
+      suggestions: [{ type: 'setMode', mode: 'acceptEdits', destination: 'session' }],
     });
     expect(events[6]).toMatchObject({
       content: [{ type: 'text' }, { type: 'tool_use', name: 'Write', id: 'toolu_1' }],
@@ -185,6 +186,7 @@ describe('startClaudeRunner', () => {
     expect(exit).toEqual({ code: 0 });
     expect(fake.spawns[0]).toMatchObject({ file: 'claude', cwd: '/proj', env: { PATH: '/bin' } });
     runner.allow('req-1', { file_path: 'made.txt' });
+    runner.allow('req-3', { file_path: 'b.txt' }, [{ type: 'setMode', mode: 'acceptEdits' }]);
     runner.deny('req-2', 'no');
     runner.interrupt();
     runner.setPermissionMode('acceptEdits');
@@ -196,6 +198,18 @@ describe('startClaudeRunner', () => {
           subtype: 'success',
           request_id: 'req-1',
           response: { behavior: 'allow', updatedInput: { file_path: 'made.txt' } },
+        },
+      },
+      {
+        type: 'control_response',
+        response: {
+          subtype: 'success',
+          request_id: 'req-3',
+          response: {
+            behavior: 'allow',
+            updatedInput: { file_path: 'b.txt' },
+            updatedPermissions: [{ type: 'setMode', mode: 'acceptEdits' }],
+          },
         },
       },
       {

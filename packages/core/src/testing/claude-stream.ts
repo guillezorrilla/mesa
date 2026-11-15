@@ -46,6 +46,8 @@ export const RECORDED_CLAUDE_STREAM: string[] = [
       tool_name: 'Write',
       tool_use_id: 'toolu_1',
       input: { file_path: 'made.txt', content: 'tide' },
+      // As claude 2.1.325 sent it for a Write (measured, #1201).
+      permission_suggestions: [{ type: 'setMode', mode: 'acceptEdits', destination: 'session' }],
     },
   },
   {

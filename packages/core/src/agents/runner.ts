@@ -10,8 +10,11 @@ import type { CLAUDE_PERMISSION_MODES } from './names.js';
 export interface AgentRunner {
   /** A user message; while a turn runs, Claude queues it and Codex steers the turn with it. */
   send(text: string): void;
-  /** Answers a permission request by its request id. */
-  allow(requestId: string, input: Record<string, unknown>): void;
+  /**
+   * Answers a permission request by its request id; `permissions`, the rules Claude suggested,
+   * make it "allow always" (Codex offers none).
+   */
+  allow(requestId: string, input: Record<string, unknown>, permissions?: unknown[]): void;
   deny(requestId: string, message: string): void;
   /** Stops the turn in progress; the process stays up for the next message. */
   interrupt(): void;

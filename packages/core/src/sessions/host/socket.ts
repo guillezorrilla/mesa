@@ -17,6 +17,8 @@ const RequestSchema = z.discriminatedUnion('type', [
     type: z.literal('allow'),
     requestId: z.string().min(1),
     input: z.record(z.string(), z.unknown()),
+    /** The request's suggestions, for "allow always". */
+    permissions: z.array(z.unknown()).optional(),
   }),
   z.object({ type: z.literal('deny'), requestId: z.string().min(1), message: z.string() }),
   z.object({ type: z.literal('interrupt') }),

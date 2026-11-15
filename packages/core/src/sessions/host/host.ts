@@ -109,7 +109,8 @@ export async function hostSession(
     if (request.type === 'send') reply = { ok: true, queued: send(runner, request.text) };
     else {
       journal({ sent: request });
-      if (request.type === 'allow') runner.allow(request.requestId, request.input);
+      if (request.type === 'allow')
+        runner.allow(request.requestId, request.input, request.permissions);
       else if (request.type === 'deny') runner.deny(request.requestId, request.message);
       else if (request.type === 'interrupt') runner.interrupt();
       else if (request.type === 'mode') runner.setPermissionMode?.(request.mode);

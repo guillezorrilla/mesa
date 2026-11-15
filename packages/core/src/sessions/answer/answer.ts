@@ -4,6 +4,7 @@ import { typeable } from '../../lib/untrusted-text.js';
 import type { TmuxBackend } from '../tmux/backend.js';
 import type { Caller } from '../window/caller.js';
 import { type PendingPrompt, type PromptDeps, readPrompt } from './pending.js';
+import { answerStructured, structuredPrompt } from './structured.js';
 
 /** Where a person answered from, as the receipt names it. */
 export const ANSWER_VIAS = ['cli', 'app', 'phone'] as const;
@@ -40,7 +41,8 @@ export const isStale = (error: unknown) => error instanceof MesaError && error.d
 /**
  * Answers session `id`'s pending prompt as a person (ADR-0003): refused for an agent caller, and
  * as stale when the session no longer waits on that prompt (answered in the pane, or replaced).
- * Then it presses the option's keys, or opens the typed answer and types `text` with Enter.
+ * Then it presses the option's keys, or opens the typed answer and types `text` with Enter; a
+ * Structured session's goes to its host instead (structured.ts).
  */
 export async function answerPrompt(
   deps: PromptDeps & {
@@ -54,13 +56,34 @@ export async function answerPrompt(
   if (deps.caller().inMesaWindow) {
     throw usage(`only a person answers a prompt; answer it there (mesa attach ${id})`);
   }
+  const text = choice.text === undefined ? undefined : typeable(choice.text);
+  if (text !== undefined && !text.trim()) throw usage('nothing to answer: the text is empty');
+  const record = deps.store.get(id);
+  if (record.view === 'structured') {
+    const found = await structuredPrompt(deps, record);
+    if (!found) throw stale(`session ${id} waits on no prompt Mesa can answer now`);
+    const { prompt, waiting } = found;
+    if (choice.prompt !== undefined && choice.prompt !== waiting.requestId)
+      throw stale(`session ${id} now waits on another prompt (see mesa prompt ${id})`);
+    const answered = await answerStructured(deps.hosts, id, found, {
+      ...(choice.option === undefined ? {} : { option: choice.option }),
+      ...(text === undefined ? {} : { text }),
+    });
+    return {
+      answered: true,
+      session: id,
+      project: record.project,
+      prompt: waiting.requestId,
+      kind: prompt.status === 'pending' ? prompt.kind : 'question',
+      summary: prompt.status === 'pending' ? prompt.summary : waiting.tool,
+      ...answered,
+    };
+  }
   if ((choice.option === undefined) === (choice.text === undefined)) {
     throw usage(
       choice.text === undefined ? 'pass an option or --text' : 'pass an option or --text, not both',
     );
   }
-  const text = choice.text === undefined ? undefined : typeable(choice.text);
-  if (text !== undefined && !text.trim()) throw usage('nothing to answer: the text is empty');
   const read = await readPrompt(deps, id);
   const { prompt, target } = read;
   if (!prompt || !read.id) {

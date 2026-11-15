@@ -8,6 +8,7 @@ import type { SessionStore } from '../record/store.js';
 import { parentHook, readHookEvents } from '../signals/hook-events.js';
 import type { TmuxBackend } from '../tmux/backend.js';
 import { windowOf } from '../window/window-name.js';
+import { structuredPrompt } from './structured.js';
 
 // The permission or question a session's agent waits on (CONTEXT.md, Pending prompt), read from
 // its last hook event and its pane's tail by its agent's reader (AGENTS[agent].prompt).
@@ -35,6 +36,9 @@ export type PromptDeps = {
   store: SessionStore;
   tmux: Pick<TmuxBackend, 'findWindow' | 'capturePane'>;
   eventsDir: string;
+  /** A Structured session's journals and host sockets (structured.ts). */
+  journals: string;
+  hosts: string;
 };
 
 // ponytail: what the readers check sits at a dialog's bottom; only Codex's `$ command` line can
@@ -95,9 +99,16 @@ export async function readPrompt(deps: PromptDeps, id: string) {
 
 /**
  * Session `id`'s pending prompt with its answers, or `unsupported` when it waits on one its agent's
- * reader does not qualify; a usage error when it waits on none.
+ * reader does not qualify; a usage error when it waits on none. A Structured session's comes from
+ * its journal (structured.ts), not its pane.
  */
 export async function pendingPrompt(deps: PromptDeps, id: string): Promise<PendingPrompt> {
+  const record = deps.store.get(id);
+  if (record.view === 'structured') {
+    const found = await structuredPrompt(deps, record);
+    if (found) return found.prompt;
+    throw new MesaError('usage', `session ${id} is not waiting on a prompt`);
+  }
   const { prompt, waiting, id: promptKey } = await readPrompt(deps, id);
   if (prompt && promptKey) {
     return {
