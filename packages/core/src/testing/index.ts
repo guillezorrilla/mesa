@@ -4,6 +4,7 @@
 export * from './about.js';
 export * from './agents.js';
 export * from './changelog.js';
+export * from './claude-stream.js';
 export * from './clock.js';
 export * from './decisions.js';
 export * from './direct-socket.js';
