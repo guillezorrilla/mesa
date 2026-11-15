@@ -179,3 +179,29 @@ After 0.4.0 shipped the Explore line, the first six hours on the default profile
 Claude Code's docs say Explore runs on the session's model and ignores `CLAUDE_CODE_SUBAGENT_MODEL`, and that a PreToolUse hook can rewrite a tool's input with `updatedInput`. A probe with `claude -p --model sonnet` in an invented folder, asked to start Explore with no model, ran Sonnet alone without the hook and Sonnet plus Haiku with it, in default and auto permission modes, with and without `permissionDecision: "allow"`. orca uses the same `updatedInput` output, for its plugins, and also sets no decision.
 
 Decision (Decision model next-step, Jev, abstained at margin 0.49: hook and skill 0.59, reviewers on Haiku 0.21, hook only 0.14, skill only 0.04): Mesa's PreToolUse hook now matches `Agent` too and sets `model: haiku` on an Explore call that names none, approving nothing (`exploreOnHaiku`); and the repo's `code-review` skill starts both reviewers on Sonnet, since a review needs more judgement than a search.
+
+## Step 9: what orchestration's communication costs (2026-11-14)
+
+The owner asked whether orchestration spends many tokens on communication, against orca. Measured on the default profile, aggregates only: every family with a report wake since child reports shipped (2026-11-13), which is 3 coordinators, 30 workers and 45 wakes, from `usage.json` and the coordinators' transcripts, main chain. A wake is the coordinator's turn that a `[mesa] News from your child sessions` prompt starts.
+
+| Where a family's tokens went | Tokens | Share |
+| --- | --- | --- |
+| Workers | 272M | 55% |
+| The coordinator's turns with the person | 180M | 36% |
+| The coordinator woken by child reports | 42M | 8.6% |
+| The coordinator woken by `mesa send` | under 1M | 0.2% |
+
+The families were 494M of the profile's 929M tokens in those days. A report prompt averages 936 characters; a wake costs about 942k tokens, 3.3 model calls each rereading a coordinator at a median 283k context. So the message is not the cost, the wake is, and it scales with the coordinator's context: with every wake's context capped at 120k the same wakes cost 60% less, and at 2 calls a wake 40% less.
+
+10 of the 45 wakes, 25% of wake tokens, carried no explicit report: 7 `finished` turns from workers still working (one said only that it was waiting on its own reviewers, and woke a 438k coordinator for a 222-character reply) and 3 `waiting` notices, which only a person answers. Of the 7 workers, 5 reported again later.
+
+orca, read from its orchestration guide and worker preamble on 2026-11-14: the same protocol Mesa has (a brief, one three-sentence `worker_done`, no polling, tasks and gates), one coordinator wake per worker message, no batching. It closes a finished worker itself; Mesa's coordinator ran `mesa stop` 23 times.
+
+Decision (Decision model next-step, Jev, abstained at margin 0.50: quiet wakes and fewer calls together 0.57, quiet wakes 0.22, nothing 0.09, fewer calls 0.08, lean workers 0.02, small coordinator 0.01); the owner chose both:
+
+- Quiet wakes: a `waiting` report and a briefed worker's `finished` turn ride with the parent's next report, and wake it alone only after 900 idle seconds; an explicit report replaces the worker's pending `finished` one.
+- Fewer calls a wake, in its own pull request.
+
+Left to the owner: a coordinator handoff at a token count, and workers started without the person's MCP servers. Also found: `usage.json` has no price for `claude-fable-5-2`, so its rows read $0.
+
+Caveats: two days and three families; subagent transcripts are not counted; the savings are simulated from the recorded wakes, not measured after the change.
