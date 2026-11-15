@@ -31,12 +31,15 @@ export function useSessionPrompt({
   const platform = usePlatform();
   const [image, setImage] = useState<SessionImage>();
   const [sent, setSent] = useState<SentPrompt>();
+  /** Why the last prompt to a session was not sent, which Chat says beside its composer. */
+  const [refused, setRefused] = useState<{ id: string; text: string }>();
   useEffect(() => {
     setImage((current) => (current?.session === selectedSession ? current : undefined));
   }, [selectedSession]);
   /**
    * Sends a prompt. The guardrail's ask opens its dialog, whose Send anyway sends it again with
-   * `yes`; its block is said in the toast, with no way past it here (--force is the CLI's).
+   * `yes`; its block is said in the toast and in `refused`, with no way past it here (--force is
+   * the CLI's).
    */
   const send = (
     id: string,
@@ -46,6 +49,7 @@ export function useSessionPrompt({
     attachment?: SessionImage,
   ) =>
     act(async (): Promise<Message | undefined> => {
+      setRefused(undefined);
       const sent = attachment
         ? await call('image.send', { image: attachment, note: prompt, yes })
         : await call('sessions.send', { id, prompt, yes });
@@ -64,7 +68,9 @@ export function useSessionPrompt({
         return undefined;
       }
       closeDialog();
-      return { text: check ? `Not sent to ${id}: ${check.reason}` : error.message, tone: 'alert' };
+      const text = check ? `Not sent to ${id}: ${check.reason}` : error.message;
+      setRefused({ id, text });
+      return { text, tone: 'alert' };
     });
   const pickImage = (id: string) =>
     act(async (): Promise<Message | undefined> => {
@@ -77,7 +83,7 @@ export function useSessionPrompt({
       setImage(preview.data);
       return undefined;
     });
-  return { image, clearImage: () => setImage(undefined), send, pickImage, sent };
+  return { image, clearImage: () => setImage(undefined), send, pickImage, sent, refused };
 }
 
 /** What `useSessionPrompt` returns. */

@@ -206,6 +206,7 @@ export function SessionsScreen(
             sessionId={props.selectedSession}
             acting={acting}
             sent={prompt.sent}
+            refused={prompt.refused?.id === props.selectedSession ? prompt.refused.text : undefined}
             onSend={(text, form) => prompt.send(props.selectedSession ?? '', text, form)}
           />
         )}

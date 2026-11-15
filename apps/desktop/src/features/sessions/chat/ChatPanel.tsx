@@ -26,6 +26,8 @@ export function ChatPanel(props: {
   sessionId: string;
   acting: boolean;
   sent?: SentPrompt;
+  /** Why the last prompt was not sent: a guardrail's block, or the send's failure. */
+  refused?: string;
   onSend: (prompt: string, form: HTMLFormElement) => void;
 }) {
   const { chat, error, sending, loadingOlder, older } = useChat(props.sessionId, props.sent);
@@ -117,6 +119,11 @@ export function ChatPanel(props: {
         >
           <ArrowDown aria-hidden /> New
         </Button>
+      )}
+      {props.refused && (
+        <p role="alert" className="mx-auto w-full max-w-3xl px-4 text-destructive text-xs">
+          {props.refused}
+        </p>
       )}
       <ChatComposer sessionId={props.sessionId} acting={props.acting} onSend={props.onSend} />
     </section>

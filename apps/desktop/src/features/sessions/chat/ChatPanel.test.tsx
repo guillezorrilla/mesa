@@ -93,3 +93,17 @@ test('a transcript holds a sent prompt once one of the person since says it', ()
   const earlier = { ...said('you', 'Chart the tide'), at: '2026-09-28T11:00:00.000Z' };
   expect(transcriptHolds([earlier], sent)).toBe(false);
 });
+
+test("a guardrail's block shows beside the composer", async () => {
+  const { bridge } = fakeBridge({ chat: () => envelope(chatOf([])) });
+  await renderWithMesa(
+    <ChatPanel
+      sessionId="a1b2c3d4"
+      acting={false}
+      refused="Not sent to a1b2c3d4: the text holds a destructive command (rm -rf)"
+      onSend={() => {}}
+    />,
+    bridge,
+  );
+  expect(document.querySelector('[role="alert"]')?.textContent).toContain('destructive command');
+});
