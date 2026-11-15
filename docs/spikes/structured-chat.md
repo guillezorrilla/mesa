@@ -76,7 +76,7 @@ A plain `codex resume` (no `-c`) on the throwaway home started an app-server dae
 
 ### For the runner (#1202, was #1197)
 
-1. Start every thread with `approvalPolicy: "untrusted"` (or a policy Mesa maps from its mode picker) when the person wants approval cards; `on-request` with `workspace-write` writes inside the folder without asking. Answer `{"decision": "accept" | "decline"}` and clear the card on `serverRequest/resolved`, since another client may answer first.
+1. Start every thread with `approvalPolicy: "untrusted"` (or a policy Mesa maps from its mode picker) when the person wants approval cards; `on-request` with `workspace-write` writes inside the folder without asking. Answer `{"decision": "accept" | "decline"}` and clear the card on `serverRequest/resolved`, since another client may answer first. Update 2026-11-15 (#1202 live check): codex-cli 0.169.0 refuses to start with `approval_policy = "untrusted"` ("no longer supported"); `on-request` with `read-only` asked for the same write, so the runner takes the profile's `on-request` or `never`.
 2. Treat `thread/compact/start` as a turn: show it as running until `turn/completed`; do not wait for `thread/compacted`.
 3. Keep `turn/started`'s `turn.id` per thread; `turn/steer` and `turn/interrupt` need it. A send while a turn runs is a steer, not a queued prompt.
 4. Fold only `item/*` and `turn/*` into chat items; `agentMessage` `phase: "commentary"` is a step line, `final_answer` the reply. Token usage and rate limits feed the footer.
