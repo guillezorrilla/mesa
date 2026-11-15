@@ -1,3 +1,4 @@
+import { agentRecord } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { AGENT_FLAG, AS_FLAG, MODEL_FLAGS, requireTty, ticketStartOf } from '../input/flags.js';
 import { recordedOutput } from '../output/recorded.js';
@@ -108,6 +109,7 @@ export const open = defineCommand({
     });
     const session = recorded.result;
     const exec = flags.attach ? (await mesa.sessions.attach(session.id)).exec : undefined;
-    return { ...recordedOutput(recorded, { data: session, text: session.id }), exec };
+    const data = mesa.sessions.agentReads() ? agentRecord(session) : session;
+    return { ...recordedOutput(recorded, { data, text: session.id }), exec };
   },
 });

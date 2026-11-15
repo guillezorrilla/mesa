@@ -1,4 +1,4 @@
-import { MesaError } from '@mesa/core';
+import { agentRecord, MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
 
 /** An agent's one line on what it is doing now, shown on its card (CONTEXT.md, Progress line). */
@@ -18,6 +18,9 @@ export const progress = defineCommand({
     if (Boolean(flags.clear) === (args.text !== undefined))
       throw new MesaError('usage', 'pass either the text or --clear');
     const r = mesa.sessions.progress(args.text, flags.session);
-    return { data: r, text: `session ${r.id} progress: ${r.progress?.text ?? 'cleared'}` };
+    return {
+      data: mesa.sessions.agentReads() ? agentRecord(r) : r,
+      text: `session ${r.id} progress: ${r.progress?.text ?? 'cleared'}`,
+    };
   },
 });

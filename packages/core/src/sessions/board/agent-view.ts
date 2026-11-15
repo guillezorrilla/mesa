@@ -1,4 +1,5 @@
 import { sessionBranch } from '../record/labels.js';
+import type { SessionRecord } from '../record/record.js';
 import type { CrewRow } from './crew.js';
 import type { SessionRow } from './rows.js';
 
@@ -52,3 +53,15 @@ export const agentShown = <
   vault: shown.vault.state,
   decisions: { tool: shown.decisions.tool.state, advice: shown.decisions.advice.state },
 });
+
+/**
+ * A record a command that starts or changes a session returns, as an agent reads it: without the
+ * goal it just typed, the events Mesa logged and the capture, which it would reread every later
+ * turn; `mesa show <id> --full` has them.
+ */
+export const agentRecord = <T extends Partial<Pick<SessionRecord, 'goal' | 'events' | 'capture'>>>({
+  goal: _goal,
+  events: _events,
+  capture: _capture,
+  ...rest
+}: T) => rest;

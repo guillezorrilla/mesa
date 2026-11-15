@@ -162,7 +162,7 @@ export {
 } from './sessions/answer/answer.js';
 export type { PendingPrompt, PromptOption } from './sessions/answer/pending.js';
 export { awakeStatus, isKeepAwakeMode, KEEP_AWAKE_MODES } from './sessions/awake.js';
-export { agentCrewRow, agentRow, agentShown } from './sessions/board/agent-view.js';
+export { agentCrewRow, agentRecord, agentRow, agentShown } from './sessions/board/agent-view.js';
 export type { SessionScope } from './sessions/board/board.js';
 export type { CrewRow } from './sessions/board/crew.js';
 export type { BranchPullRequest } from './sessions/board/pull-requests.js';

@@ -1,4 +1,4 @@
-import { MesaError } from '@mesa/core';
+import { agentRecord, MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { MODEL_FLAGS } from '../input/flags.js';
 import { recordedOutput } from '../output/recorded.js';
@@ -31,6 +31,8 @@ export const worker = defineCommand({
   },
   example: 'mesa worker lantern-cove "Rename tideTable to tideChart; fix the tests" --model sonnet',
   run: async ({ mesa, args, flags }) => {
+    // The coordinator just typed the task: its goal does not come back to be reread each turn.
+    const agentReads = mesa.sessions.agentReads();
     const how = {
       agent: flags.agent,
       branch: flags.branch,
@@ -44,7 +46,7 @@ export const worker = defineCommand({
       const started = await mesa.tasks.start(flags.task, args.project, how);
       const { task, worker } = started.result;
       return recordedOutput(started, {
-        data: started.result,
+        data: agentReads ? { task, worker: agentRecord(worker) } : started.result,
         text: `${task.id} running in ${worker.id}`,
       });
     }
@@ -54,6 +56,9 @@ export const worker = defineCommand({
         'say what the worker does, or start a planned task with --task <id>',
       );
     const recorded = await mesa.sessions.worker(args.project, args.task, how);
-    return recordedOutput(recorded, { data: recorded.result, text: recorded.result.id });
+    return recordedOutput(recorded, {
+      data: agentReads ? agentRecord(recorded.result) : recorded.result,
+      text: recorded.result.id,
+    });
   },
 });
