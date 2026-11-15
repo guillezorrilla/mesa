@@ -26,6 +26,7 @@ export type { AutomationRun, AutomationTrigger } from './automations/state.js';
 export { type CheckResult, checkText } from './checks/check-text.js';
 export type { CommandReference } from './command-reference.js';
 export type { SlashCommand, SlashCommandSource } from './commands/catalog.js';
+export { invocation } from './commands/invocation.js';
 export type { DailyResult } from './daily/service.js';
 export type { ScopedContext } from './decisions/context.js';
 export type { AssistMode, Evaluation } from './decisions/evaluate.js';

@@ -10,7 +10,9 @@ import { completion, slashGroups, slashQuery } from './slashMatches';
  */
 export function useSlashMenu(session: string, text: string, setText: (text: string) => void) {
   const call = useCall();
-  const [commands, setCommands] = useState<SlashCommand[]>([]);
+  const [loaded, setLoaded] = useState<{ session: string; list: SlashCommand[] }>();
+  // Another session's list is never shown for this one while its own loads.
+  const commands = loaded?.session === session ? loaded.list : [];
   const [index, setIndex] = useState(0);
   const [dismissed, setDismissed] = useState<string>();
   const query = slashQuery(text);
@@ -19,7 +21,7 @@ export function useSlashMenu(session: string, text: string, setText: (text: stri
     if (!wanted) return;
     let live = true;
     void call('commands.list', { target: session }).then((r) => {
-      if (live && r.ok) setCommands(r.data);
+      if (live && r.ok) setLoaded({ session, list: r.data });
     });
     return () => {
       live = false;

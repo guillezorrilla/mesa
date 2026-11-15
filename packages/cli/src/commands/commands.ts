@@ -1,3 +1,4 @@
+import { invocation } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
 
@@ -18,12 +19,7 @@ export const commands = defineCommand({
       data: rows,
       text: rows.length
         ? columns(
-            rows.map((c) => [
-              c.name.startsWith('$') ? c.name : `/${c.name}`,
-              c.source,
-              c.argumentHint ?? '',
-              c.description,
-            ]),
+            rows.map((c) => [invocation(c.name), c.source, c.argumentHint ?? '', c.description]),
           ).join('\n')
         : 'no commands',
     };

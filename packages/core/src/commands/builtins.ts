@@ -1,6 +1,7 @@
 import type { Agent } from '../agents/names.js';
+import type { SlashCommand } from './catalog.js';
 
-export type BuiltinCommand = { name: string; description: string; argumentHint?: string };
+export type BuiltinCommand = Omit<SlashCommand, 'source'>;
 
 // Neither CLI lists its commands at rest, so these are curated per agent (as orca's
 // native-chat-slash-commands does); a command a newer CLI adds shows once this table does.

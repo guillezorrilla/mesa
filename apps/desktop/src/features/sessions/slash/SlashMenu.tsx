@@ -1,6 +1,7 @@
 import type { SlashCommand } from '@mesa/core';
+import { invocation } from '@mesa/core/browser';
 import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { invocation, type SlashGroup } from './slashMatches';
+import type { SlashGroup } from './slashMatches';
 
 /**
  * The slash menu above the composer. The textarea keeps focus, so the caller moves `active` with

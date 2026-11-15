@@ -64,8 +64,8 @@ function scanCommands(root: string, prefix = ''): { name: string; file: string }
   return found;
 }
 
-/** each folder's SKILL.md under `root`, named by the frontmatter `name` else the folder. */
-function scanSkills(root: string, prefix = '', pre = ''): SlashCommand[] {
+/** Each folder's SKILL.md under `root`, named by the frontmatter `name` else the folder. */
+function scanSkills(root: string, prefix = ''): SlashCommand[] {
   const out: SlashCommand[] = [];
   let entries: Dirent[];
   try {
@@ -85,7 +85,7 @@ function scanSkills(root: string, prefix = '', pre = ''): SlashCommand[] {
       source: 'skill',
     });
   }
-  return out.map((c) => ({ ...c, name: `${pre}${c.name}` }));
+  return out;
 }
 
 function commandsIn(root: string, source: SlashCommandSource, prefix = ''): SlashCommand[] {
@@ -123,10 +123,11 @@ export function slashCommands(input: {
   ];
   if (agent === 'claude') {
     const dir = claudeHome(home, env);
-    for (const { name, installPath } of installedPlugins(dir, projectDir)) {
+    for (const { name, installPath, disabled } of installedPlugins(dir, projectDir)) {
+      if (disabled) continue;
       const plugin = name.split('@')[0];
       layers.push(commandsIn(join(installPath, 'commands'), 'plugin', `${plugin}:`));
-      layers.push(scanSkills(join(installPath, 'skills'), '', `${plugin}:`));
+      layers.push(scanSkills(join(installPath, 'skills'), `${plugin}:`));
     }
     layers.push(commandsIn(join(dir, 'commands'), 'user'), scanSkills(claudeSkills(dir)));
     if (projectDir) {
@@ -136,9 +137,9 @@ export function slashCommands(input: {
   } else if (agent === 'codex') {
     layers.push(
       commandsIn(join(codexHome(home, env), 'prompts'), 'user', 'prompts:'),
-      scanSkills(join(home, CODEX_SKILLS), '', '$'),
+      scanSkills(join(home, CODEX_SKILLS), '$'),
     );
-    if (projectDir) layers.push(scanSkills(join(projectDir, CODEX_SKILLS), '', '$'));
+    if (projectDir) layers.push(scanSkills(join(projectDir, CODEX_SKILLS), '$'));
   }
   const byName = new Map<string, SlashCommand>();
   for (const c of layers.flat()) byName.set(c.name, c);

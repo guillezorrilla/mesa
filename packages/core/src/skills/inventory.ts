@@ -76,12 +76,7 @@ function readSettings(file: string): Record<string, unknown> {
   }
 }
 
-function nativeRoots(
-  home: string,
-  claudeDir: string,
-  projectDir?: string,
-  enabledPlugins?: Record<string, unknown>,
-): Root[] {
+function nativeRoots(home: string, claudeDir: string, projectDir?: string): Root[] {
   const roots: Root[] = [
     { path: claudeSkills(claudeDir), scope: 'global', providers: ['claude'] },
     { path: join(home, CODEX_SKILLS), scope: 'global', providers: ['codex'] },
@@ -111,12 +106,12 @@ function nativeRoots(
       });
     }
   }
-  for (const { name, installPath } of installedPlugins(claudeDir, projectDir)) {
+  for (const { installPath, disabled } of installedPlugins(claudeDir, projectDir)) {
     roots.push({
       path: join(installPath, 'skills'),
       scope: 'plugin',
       providers: ['claude'],
-      disabled: enabledPlugins?.[name] === false,
+      disabled,
     });
   }
   return roots;
@@ -165,10 +160,6 @@ export function skillInventory(input: {
   const disabled = codexDisabledSkills(input.codexConfig);
   const claudeDir = claudeHome(input.home, input.env);
   const claudeSettingsJson = readSettings(claudeSettings(input.home, input.env));
-  const enabledPlugins =
-    claudeSettingsJson.enabledPlugins && typeof claudeSettingsJson.enabledPlugins === 'object'
-      ? (claudeSettingsJson.enabledPlugins as Record<string, unknown>)
-      : {};
   const skillOverrides =
     claudeSettingsJson.skillOverrides && typeof claudeSettingsJson.skillOverrides === 'object'
       ? (claudeSettingsJson.skillOverrides as Record<string, unknown>)
@@ -203,7 +194,7 @@ export function skillInventory(input: {
     }),
   );
   const seen = new Map<string, SkillInventoryRow>();
-  for (const root of nativeRoots(input.home, claudeDir, input.projectDir, enabledPlugins)) {
+  for (const root of nativeRoots(input.home, claudeDir, input.projectDir)) {
     for (const entry of entries(root.path)) {
       if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
       const path = join(root.path, entry.name);

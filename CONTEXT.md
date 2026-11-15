@@ -719,3 +719,7 @@ Not: analytics, telemetry, usage.
 
 Which Releases Mesa updates to: `stable` reads only stable releases; `beta` reads the beta feed and stable too, and takes whichever is newer. Set per profile in `update.channel` (`mesa update channel [stable|beta]`, Settings > General); unset, it follows the running version, so a beta tracks betas. Only a version above the running one is offered, never a downgrade. A version listed in `revoked.json` on the `beta` prerelease is revoked: the app blocks with its reason until an update replaces it. ADR-0018.
 Not: track, ring, branch.
+
+## Slash command
+
+What a person types at the start of a prompt to an agent: a Claude Code or Codex built-in, one of their own commands or skills, or an installed plugin's. Neither agent lists them at rest, so Mesa keeps a curated table of built-ins and scans the person's folders (`mesa commands`); the chat composer's menu offers them (#1169). A Codex skill is typed with a `$` prefix instead of a slash.

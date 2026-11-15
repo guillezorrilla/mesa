@@ -114,3 +114,14 @@ test('symlinks are skipped', () => {
   symlinkSync(target, join(home, '.claude/commands/linked.md'));
   expect(find(slashCommands({ home, env: {}, agent: 'claude' }), 'linked')).toBeUndefined();
 });
+
+test('a plugin Claude has switched off in its settings offers nothing', () => {
+  const { home } = world();
+  put(
+    join(home, '.claude/settings.json'),
+    JSON.stringify({ enabledPlugins: { 'acme@market': false } }),
+  );
+  const rows = slashCommands({ home, env: {}, agent: 'claude' });
+  expect(find(rows, 'acme:hello')).toBeUndefined();
+  expect(find(rows, 'acme:greet')).toBeUndefined();
+});

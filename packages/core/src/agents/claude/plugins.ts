@@ -1,13 +1,24 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { isAbsolute, resolve } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 import { claudeInstalledPlugins } from './paths.js';
 
-export type InstalledPlugin = { name: string; installPath: string };
+function enabledPlugins(claudeDir: string): Record<string, unknown> {
+  try {
+    const settings: unknown = JSON.parse(readFileSync(join(claudeDir, 'settings.json'), 'utf8'));
+    const enabled = (settings as { enabledPlugins?: unknown } | null)?.enabledPlugins;
+    return enabled && typeof enabled === 'object' ? (enabled as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export type InstalledPlugin = { name: string; installPath: string; disabled: boolean };
 
 /**
  * The plugins Claude Code installed that apply to a project: user-scope ones, and project or
  * local ones installed for `projectDir`. `name` is the key in installed_plugins.json
- * (`plugin@marketplace`). A missing or unreadable file lists none.
+ * (`plugin@marketplace`); `disabled` is Claude's own `enabledPlugins` switch in its settings. A
+ * missing or unreadable file lists none.
  */
 export function installedPlugins(claudeDir: string, projectDir?: string): InstalledPlugin[] {
   const file = claudeInstalledPlugins(claudeDir);
@@ -23,6 +34,7 @@ export function installedPlugins(claudeDir: string, projectDir?: string): Instal
       ? metadata.plugins
       : undefined;
   if (!plugins || typeof plugins !== 'object') return [];
+  const enabled = enabledPlugins(claudeDir);
   const found: InstalledPlugin[] = [];
   for (const [name, installs] of Object.entries(plugins)) {
     if (!Array.isArray(installs)) continue;
@@ -42,7 +54,7 @@ export function installedPlugins(claudeDir: string, projectDir?: string): Instal
             typeof projectPath === 'string' &&
             resolve(projectPath) === resolve(projectDir)))
       ) {
-        found.push({ name, installPath });
+        found.push({ name, installPath, disabled: enabled[name] === false });
       }
     }
   }

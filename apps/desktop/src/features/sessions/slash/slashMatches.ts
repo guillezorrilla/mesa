@@ -1,4 +1,5 @@
 import type { SlashCommand } from '@mesa/core';
+import { invocation } from '@mesa/core/browser';
 
 export type SlashGroup = { label: 'Built-in' | 'Commands' | 'Skills'; items: SlashCommand[] };
 
@@ -12,8 +13,10 @@ export const slashQuery = (text: string) => (/^\/[^\s]*$/.test(text) ? text.slic
 export function slashGroups(commands: SlashCommand[], query: string): SlashGroup[] {
   const q = query.toLowerCase();
   // Name matches first (a prefix before the rest), then description-only matches.
-  const rank = (c: SlashCommand) =>
-    c.name.toLowerCase().startsWith(q) ? 0 : c.name.toLowerCase().includes(q) ? 1 : 2;
+  const rank = (c: SlashCommand) => {
+    const name = c.name.toLowerCase();
+    return name.startsWith(q) ? 0 : name.includes(q) ? 1 : 2;
+  };
   const hit = commands
     .filter((c) => c.name.toLowerCase().includes(q) || c.description.toLowerCase().includes(q))
     .sort((a, b) => rank(a) - rank(b));
@@ -28,6 +31,3 @@ export function slashGroups(commands: SlashCommand[], query: string): SlashGroup
 /** What the composer holds after completing `command`: its name, and a space when it takes arguments. */
 export const completion = (command: SlashCommand) =>
   `${invocation(command.name)}${command.argumentHint ? ' ' : ''}`;
-
-/** How a command is typed: Codex skills already carry their `$`, the rest take a slash. */
-export const invocation = (name: string) => (name.startsWith('$') ? name : `/${name}`);
