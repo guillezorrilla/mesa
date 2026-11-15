@@ -43,13 +43,15 @@ export type AppServerEvent =
   | {
       type: 'approval';
       requestId: string;
+      /** The id as Codex sent it, which the answer carries back. */
+      rpcId: string | number;
       kind: 'command' | 'file';
       itemId: string;
       command: string | undefined;
       reason: string | undefined;
     }
   /** A request Codex sends that Mesa does not answer, by its method. */
-  | { type: 'server_request'; requestId: string; method: string }
+  | { type: 'server_request'; requestId: string; rpcId: string | number; method: string }
   /** An approval answered, by Mesa or another client: its card goes. */
   | { type: 'resolved'; requestId: string }
   | {
@@ -68,7 +70,9 @@ export type AppServerEvent =
   | { type: 'usage'; usage: Record<string, unknown> }
   | { type: 'error'; message: string; willRetry: boolean }
   /** Any other response to Mesa's request, by its method. */
-  | { type: 'response'; method: string; ok: boolean; error: string | undefined }
+  | { type: 'response'; id: string; method: string; ok: boolean; error: string | undefined }
+  /** account/rateLimits/updated, as Codex sent it, for the footer. */
+  | { type: 'rate_limits'; rateLimits: Record<string, unknown> }
   /** Any other notification (status, rate limits, MCP startup, hooks), by its method. */
   | { type: 'notification'; method: string }
   | { type: 'other'; raw: string };
@@ -189,11 +193,12 @@ function response(method: string, d: Obj, line: string): AppServerEvent {
         return { type: 'usage', usage: result };
     }
   if (!method) return { type: 'other', raw: line };
-  return { type: 'response', method, ok: error === undefined, error };
+  return { type: 'response', id: str(d.id), method, ok: error === undefined, error };
 }
 
 /** A server request: an approval Mesa shows as a card, or one it leaves unanswered. */
-function serverRequest(method: string, requestId: string, p: Obj): AppServerEvent {
+function serverRequest(method: string, rpcId: string | number, p: Obj): AppServerEvent {
+  const requestId = requestKey(rpcId);
   if (
     method === 'item/commandExecution/requestApproval' ||
     method === 'item/fileChange/requestApproval'
@@ -201,12 +206,13 @@ function serverRequest(method: string, requestId: string, p: Obj): AppServerEven
     return {
       type: 'approval',
       requestId,
+      rpcId,
       kind: method.includes('command') ? 'command' : 'file',
       itemId: str(p.itemId),
       command: typeof p.command === 'string' ? p.command : undefined,
       reason: typeof p.reason === 'string' ? p.reason : undefined,
     };
-  return { type: 'server_request', requestId, method };
+  return { type: 'server_request', requestId, rpcId, method };
 }
 
 const DELTAS: Record<string, 'text' | 'reasoning' | 'output'> = {
@@ -235,6 +241,8 @@ function notification(method: string, p: Obj): AppServerEvent {
       return { type: 'item_completed', item: item(p.item) };
     case 'serverRequest/resolved':
       return { type: 'resolved', requestId: requestKey(p.requestId) };
+    case 'account/rateLimits/updated':
+      return { type: 'rate_limits', rateLimits: isObj(p.rateLimits) ? p.rateLimits : {} };
     case 'thread/tokenUsage/updated': {
       const usage = isObj(p.tokenUsage) ? p.tokenUsage : {};
       const total = isObj(usage.total) ? usage.total : {};
@@ -267,7 +275,8 @@ export function parseAppServerLine(line: string): AppServerEvent {
   if (!isObj(d)) return { type: 'other', raw: line };
   const method = typeof d.method === 'string' ? d.method : undefined;
   const params = isObj(d.params) ? d.params : {};
-  if (method && 'id' in d) return serverRequest(method, requestKey(d.id), params);
+  if (method && (typeof d.id === 'string' || typeof d.id === 'number'))
+    return serverRequest(method, d.id, params);
   if (method) return notification(method, params);
   if ('id' in d) return response(str(d.id).split('#')[0] ?? '', d, line);
   return { type: 'other', raw: line };

@@ -63,7 +63,7 @@ describe('parseAppServerLine', () => {
       'delta',
       'item_completed',
       'token_usage',
-      'notification',
+      'rate_limits',
       'turn_completed',
       'usage',
       'notification',
@@ -77,6 +77,7 @@ describe('parseAppServerLine', () => {
   it('keeps the fields Mesa reads', () => {
     expect(events[0]).toEqual({
       type: 'response',
+      id: 'initialize#1',
       method: 'initialize',
       ok: true,
       error: undefined,
@@ -99,6 +100,7 @@ describe('parseAppServerLine', () => {
     expect(events[13]).toEqual({
       type: 'approval',
       requestId: '0',
+      rpcId: 0,
       kind: 'command',
       itemId: 'c-1',
       command: 'echo tide > made.txt',
@@ -140,11 +142,13 @@ describe('parseAppServerLine', () => {
     expect(events[27]).toEqual({
       type: 'server_request',
       requestId: '1',
+      rpcId: 1,
       method: 'item/tool/requestUserInput',
     });
     expect(events[28]).toEqual({ type: 'error', message: 'stream lost', willRetry: true });
     expect(events[29]).toEqual({
       type: 'response',
+      id: 'turn/steer#9',
       method: 'turn/steer',
       ok: false,
       error: 'no active turn',
@@ -232,6 +236,20 @@ describe('startCodexRunner', () => {
     expect(fake.sent.at(-1)).toMatchObject({ method: 'account/usage/read' });
     runner.send('next');
     expect(fake.sent.filter((m) => m.method === 'turn/start')).toHaveLength(2);
+  });
+
+  it('starts a turn with a steer Codex refused because the turn had just ended', () => {
+    const { fake, runner, open } = start();
+    open();
+    runner.send('count');
+    fake.push(turnStarted);
+    runner.send('late');
+    const steer = fake.sent.find((m) => m.method === 'turn/steer');
+    fake.push(turnCompleted, { id: steer?.id, error: { message: 'no active turn' } });
+    expect(fake.sent.at(-1)).toMatchObject({
+      method: 'turn/start',
+      params: { input: [{ text: 'late' }] },
+    });
   });
 
   it('lets waiting messages go when Codex refuses a turn', () => {
