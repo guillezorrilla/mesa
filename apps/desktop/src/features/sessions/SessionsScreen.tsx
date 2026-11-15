@@ -186,7 +186,8 @@ export function SessionsScreen(
           onDialog={setDialog}
         />
       ) : null}
-      <PromptCard row={selected} />
+      {/* In chat the card sits at the chat's bottom. */}
+      <PromptCard row={chat ? undefined : selected} />
       {props.gridMode && panels.panels.length === 0 && (
         <Muted>No tiles open. Choose a live session or reopen a saved group.</Muted>
       )}
@@ -204,6 +205,7 @@ export function SessionsScreen(
           <ChatPanel
             key={props.selectedSession}
             sessionId={props.selectedSession}
+            row={selected}
             acting={acting}
             sent={prompt.sent}
             refused={prompt.refused?.id === props.selectedSession ? prompt.refused.text : undefined}

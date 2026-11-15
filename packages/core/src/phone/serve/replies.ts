@@ -1,5 +1,5 @@
 import { closesFence, opensFence } from '../../lib/code-fence.js';
-import { chatMessages } from '../../sessions/native/chat.js';
+import { type ChatMessage, chatMessages } from '../../sessions/native/chat.js';
 import type { NativePrompt, NativeResponse } from '../../sessions/native/responses.js';
 import type { ReplySegment } from '../protocol/rpc.js';
 
@@ -40,10 +40,12 @@ export function phoneReplies(
 ) {
   const { messages, more } = chatMessages(read, count, withPrompts);
   return {
-    replies: messages.map(({ text, ...message }) => ({
-      ...message,
-      segments: message.from === 'you' ? [{ code: false, text }] : replySegments(text),
-    })),
+    replies: messages
+      .filter((message): message is ChatMessage => message.from !== 'steps')
+      .map(({ text, ...message }) => ({
+        ...message,
+        segments: message.from === 'you' ? [{ code: false, text }] : replySegments(text),
+      })),
     more,
   };
 }

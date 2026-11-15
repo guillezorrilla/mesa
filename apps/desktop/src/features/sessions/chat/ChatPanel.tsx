@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@mesa/core';
+import type { ChatItem, TreeRow } from '@mesa/core';
 import { ArrowDown } from 'lucide-react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { MarkdownView } from '@/components/MarkdownView';
@@ -9,8 +9,10 @@ import { PROSE } from '@/features/vault/NoteMarkdown';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useAct } from '@/lib/useAct';
 import { cn } from '@/lib/utils';
+import { awaitsAnswer, PromptCard } from '../answer/PromptCard';
 import type { SentPrompt } from '../selected/useSessionPrompt';
 import { ChatComposer } from './ChatComposer';
+import { StepRun } from './StepRun';
 import { useChat } from './useChat';
 
 /** How near an end of the list counts as at it, in pixels. */
@@ -24,6 +26,8 @@ const NEAR = 40;
  */
 export function ChatPanel(props: {
   sessionId: string;
+  /** The session's row, for the prompt it waits on. */
+  row?: TreeRow;
   acting: boolean;
   sent?: SentPrompt;
   /** Why the last prompt was not sent: a guardrail's block, or the send's failure. */
@@ -120,12 +124,20 @@ export function ChatPanel(props: {
           <ArrowDown aria-hidden /> New
         </Button>
       )}
+      <div className="mx-auto w-full max-w-3xl">
+        <PromptCard row={props.row} />
+      </div>
       {props.refused && (
         <p role="alert" className="mx-auto w-full max-w-3xl px-4 text-destructive text-xs">
           {props.refused}
         </p>
       )}
-      <ChatComposer sessionId={props.sessionId} acting={props.acting} onSend={props.onSend} />
+      <ChatComposer
+        sessionId={props.sessionId}
+        acting={props.acting}
+        answerAbove={awaitsAnswer(props.row)}
+        onSend={props.onSend}
+      />
     </section>
   );
 }
@@ -133,8 +145,9 @@ export function ChatPanel(props: {
 const YOU = 'max-w-[80%] whitespace-pre-wrap break-words rounded-lg bg-accent px-3 py-2 text-sm';
 
 /** One message: the person's as a plain bubble on the right, the agent's as Markdown. */
-function ChatRow(props: { message: ChatMessage; onCopyCode: (code: string) => void }) {
+function ChatRow(props: { message: ChatItem; onCopyCode: (code: string) => void }) {
   const { message } = props;
+  if (message.from === 'steps') return <StepRun run={message} />;
   return (
     <li className={cn('flex', message.from === 'you' && 'justify-end')}>
       {message.from === 'you' ? (

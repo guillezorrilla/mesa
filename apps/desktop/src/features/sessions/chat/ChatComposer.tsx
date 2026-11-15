@@ -12,13 +12,15 @@ import { useSlashMenu } from '../slash/useSlashMenu';
 export function ChatComposer(props: {
   sessionId: string;
   acting: boolean;
+  /** The agent waits on a prompt's answer: typing would not reach it. */
+  answerAbove?: boolean;
   onSend: (prompt: string, form: HTMLFormElement) => void;
 }) {
   const [text, setText] = useState('');
   const slash = useSlashMenu(props.sessionId, text, setText);
   const submit = (form: HTMLFormElement) => {
     const prompt = String(new FormData(form).get('prompt') ?? '');
-    if (!props.acting && prompt.trim()) {
+    if (!props.acting && !props.answerAbove && prompt.trim()) {
       props.onSend(prompt, form);
       setText('');
     }
@@ -40,7 +42,8 @@ export function ChatComposer(props: {
         <Textarea
           name="prompt"
           aria-label={`Message ${props.sessionId}`}
-          placeholder="Message the agent"
+          placeholder={props.answerAbove ? 'Answer above' : 'Message the agent'}
+          disabled={props.answerAbove}
           rows={2}
           autoFocus
           className="max-h-60 min-h-9 w-full resize-none"
@@ -54,7 +57,12 @@ export function ChatComposer(props: {
           }}
         />
       </div>
-      <Button type="submit" size="sm" disabled={props.acting} aria-label="Send">
+      <Button
+        type="submit"
+        size="sm"
+        disabled={props.acting || props.answerAbove}
+        aria-label="Send"
+      >
         <Send aria-hidden />
       </Button>
     </form>
