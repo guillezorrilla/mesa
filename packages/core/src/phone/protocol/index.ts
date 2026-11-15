@@ -18,7 +18,7 @@ export { type TerminalColors, terminalPalette } from '../../profile/terminal-pal
 export { BUCKET_LABELS, commentPlace } from '../../prs/buckets.js';
 export { CHECK_STATES } from '../../prs/check-list.js';
 export { MERGE_LABELS, MERGE_METHODS, type MergeMethod } from '../../prs/merge-methods.js';
-export { promptTitle } from '../../sessions/answer/title.js';
+export { promptTitle, typedAnswerHint } from '../../sessions/answer/title.js';
 export { NAMED_KEYS } from '../../sessions/input/terminal-keys.js';
 export { BUSY_STATES, FINAL_STATES, WAITING_STATES } from '../../sessions/record/states.js';
 export { withoutChrome } from '../../sessions/window/screen-chrome.js';

@@ -10,7 +10,8 @@ import type { SessionDeps } from './deps.js';
 /** A session's pending prompt, and a person's answer to it with its receipt (CONTEXT.md, Pending prompt). */
 export function answerActions(ctx: MesaContext, deps: SessionDeps) {
   const { store, tmux, record, secrets } = ctx;
-  const promptDeps = { store, tmux, eventsDir: ctx.paths.events };
+  const { events: eventsDir, journals, hosts } = ctx.paths;
+  const promptDeps = { store, tmux, eventsDir, journals, hosts };
   return {
     /** The prompt session `id` waits on, with its options, or why Mesa cannot answer it. */
     prompt: (id: string) => pendingPrompt(promptDeps, id),

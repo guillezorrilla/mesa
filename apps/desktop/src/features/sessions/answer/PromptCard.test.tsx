@@ -74,7 +74,7 @@ test('a question takes a typed answer too', async () => {
   });
   const byTestId = await renderWithMesa(<PromptCard row={asking} />, bridge);
   expect(byTestId('session-prompt')[0]?.textContent).toContain('Tea or coffee?');
-  const input = document.querySelector<HTMLInputElement>('[aria-label="Type an answer"]');
+  const input = document.querySelector<HTMLInputElement>('[aria-label="Or type an answer"]');
   await fill(input, 'matcha');
   await click(input?.form?.querySelector<HTMLButtonElement>('button[type="submit"]') ?? undefined);
   expect(calls).toContainEqual([

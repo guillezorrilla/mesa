@@ -12,7 +12,11 @@ export const answer = defineCommand({
     "Answer a waiting session's permission or question prompt as a person, with an option from mesa prompt or --text",
   args: ['session', 'option?'],
   flags: {
-    text: { type: 'string', description: 'A typed answer, where the question takes one' },
+    text: {
+      type: 'string',
+      description:
+        "A typed answer, where the question takes one; for a Structured session's permission, a denial with this reason",
+    },
     prompt: {
       type: 'string',
       description: 'The prompt id from mesa prompt; refused as stale when another one waits',

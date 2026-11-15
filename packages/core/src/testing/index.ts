@@ -13,6 +13,7 @@ export * from './env.js';
 export * from './errors.js';
 export * from './gh.js';
 export * from './git.js';
+export * from './hosted.js';
 export * from './http.js';
 export * from './ids.js';
 export * from './lock.js';

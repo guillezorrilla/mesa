@@ -1,32 +1,12 @@
 import { mkdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import {
-  agentWorld,
-  profilePaths,
-  projectProfile,
-  RECORDED_CLAUDE_STREAM,
-  replaySpawner,
-  shortTempDir,
-  testStore,
-} from '../../testing/index.js';
+import { hostedSession, profilePaths, testStore } from '../../testing/index.js';
 import { recordHookEvent } from '../signals/hook-events.js';
 import type { ChatFollowLine } from './live-chat.js';
 
-async function hosted(stream = RECORDED_CLAUDE_STREAM) {
-  const fake = replaySpawner(stream, { stay: true });
-  const agents = agentWorld();
-  const { home, mesa } = projectProfile(agents.run, { home: shortTempDir(), spawn: fake.spawn });
-  const { result: record } = await mesa.sessions.open('lantern-cove', {
-    view: 'structured',
-    goal: 'make a file',
-  });
-  const host = await mesa.sessions.host(record.id, () => undefined);
-  return { home, mesa, fake, record, host, agents };
-}
-
 describe('mesa send to a Structured session', () => {
   it('goes to its host after the guardrail, not into the window', async () => {
-    const w = await hosted();
+    const w = await hostedSession();
     const { result } = await w.mesa.sessions.send(w.record.id, 'and a second file', {
       noFrom: true,
     });
@@ -42,7 +22,7 @@ describe('mesa send to a Structured session', () => {
   });
 
   it('says a message sent mid-turn is queued', async () => {
-    const w = await hosted([]);
+    const w = await hostedSession([]);
     const { result } = await w.mesa.sessions.send(w.record.id, 'also this', { noFrom: true });
     expect(result.queued).toBe(true);
     w.host.stop();
@@ -50,7 +30,7 @@ describe('mesa send to a Structured session', () => {
   });
 
   it('is refused, with nothing sent, when no host runs', async () => {
-    const w = await hosted();
+    const w = await hostedSession();
     w.host.stop();
     await w.host.done;
     await expect(
@@ -59,7 +39,7 @@ describe('mesa send to a Structured session', () => {
   });
 
   it("carries a child's report to its Structured parent", async () => {
-    const w = await hosted();
+    const w = await hostedSession();
     const { result: child } = await w.mesa.sessions.open('lantern-cove', {
       parent: w.record.id,
       goal: 'chart the tides',
@@ -99,7 +79,7 @@ describe('mesa send to a Structured session', () => {
 
 describe('mesa chat --follow', () => {
   it('prints the chat, then each item as it changes, until the host ends', async () => {
-    const w = await hosted();
+    const w = await hostedSession();
     const lines: ChatFollowLine[] = [];
     let looks = 0;
     const following = w.mesa.sessions.chatFollow(
@@ -124,7 +104,7 @@ describe('mesa chat --follow', () => {
   });
 
   it('ends when the window runs no host', async () => {
-    const w = await hosted();
+    const w = await hostedSession();
     w.host.stop();
     await w.host.done;
     const window = w.agents.tmux.opened[0];
@@ -139,7 +119,7 @@ describe('mesa chat --follow', () => {
   });
 
   it('prints a Terminal session chat once, and stops when the reader leaves', async () => {
-    const w = await hosted();
+    const w = await hostedSession();
     const { result: plain } = await w.mesa.sessions.open('lantern-cove');
     const lines: ChatFollowLine[] = [];
     await w.mesa.sessions.chatFollow(

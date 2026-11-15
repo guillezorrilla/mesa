@@ -25,8 +25,11 @@ export interface ClaudeStartOptions {
 }
 
 export interface ClaudeRunner extends AgentRunner {
-  /** Answers a permission request (`permission_request` event) by its request id. */
-  allow(requestId: string, input: Record<string, unknown>): void;
+  /**
+   * Answers a permission request (`permission_request` event) by its request id; `permissions`,
+   * its suggestions, make it "allow always".
+   */
+  allow(requestId: string, input: Record<string, unknown>, permissions?: unknown[]): void;
   setPermissionMode(mode: PermissionMode): void;
 }
 
@@ -85,7 +88,12 @@ export function startClaudeRunner(
 
   return {
     send: (text) => write({ type: 'user', message: { role: 'user', content: text } }),
-    allow: (requestId, input) => answer(requestId, { behavior: 'allow', updatedInput: input }),
+    allow: (requestId, input, permissions) =>
+      answer(requestId, {
+        behavior: 'allow',
+        updatedInput: input,
+        ...(permissions?.length ? { updatedPermissions: permissions } : {}),
+      }),
     deny: (requestId, message) => answer(requestId, { behavior: 'deny', message }),
     interrupt: () => control({ subtype: 'interrupt' }),
     setPermissionMode: (mode) => control({ subtype: 'set_permission_mode', mode }),

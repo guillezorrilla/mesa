@@ -3,8 +3,12 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-/** A typed answer to a question that takes one; Send gives it. */
-export function PromptTextField(props: { disabled: boolean; onAnswer: (text: string) => void }) {
+/** A typed answer to a prompt that takes one, `hint` saying what it is; Send gives it. */
+export function PromptTextField(props: {
+  hint: string;
+  disabled: boolean;
+  onAnswer: (text: string) => void;
+}) {
   const [text, setText] = useState('');
   return (
     <form
@@ -15,8 +19,8 @@ export function PromptTextField(props: { disabled: boolean; onAnswer: (text: str
       }}
     >
       <Input
-        aria-label="Type an answer"
-        placeholder="Or type an answer"
+        aria-label={props.hint}
+        placeholder={props.hint}
         value={text}
         onChange={(event) => setText(event.target.value)}
       />

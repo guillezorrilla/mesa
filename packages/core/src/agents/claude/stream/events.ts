@@ -58,6 +58,8 @@ export type StreamEvent =
       toolName: string;
       toolUseId: string | undefined;
       input: Record<string, unknown>;
+      /** The rules "allow always" would add (`permission_suggestions`), as claude sent them. */
+      suggestions: unknown[];
     }
   /** A control request Claude sends that is not a permission request, by its subtype. */
   | { type: 'control_request'; requestId: string; subtype: string }
@@ -203,6 +205,9 @@ function fromObject(d: Obj, line: string): StreamEvent {
           toolName: str(request.tool_name),
           toolUseId: typeof request.tool_use_id === 'string' ? request.tool_use_id : undefined,
           input: isObj(request.input) ? request.input : {},
+          suggestions: Array.isArray(request.permission_suggestions)
+            ? request.permission_suggestions
+            : [],
         };
       return { type: 'control_request', requestId, subtype: str(request.subtype) };
     }
