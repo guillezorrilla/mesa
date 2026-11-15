@@ -28,12 +28,15 @@ test('worker starts a briefed child of the caller in its own worktree; outside a
   const child = made.json.data;
   expect(child).toMatchObject({ parent, brief: true, project: 'lantern-cove' });
   expect(child.worktree.branch).toMatch(/^session\//);
+  // Inside a window the agent view: the goal the coordinator just typed does not come back.
+  expect(child).not.toHaveProperty('goal');
+  expect((await cli.mesa('stop', child.id, '--json')).json.data).not.toHaveProperty('goal');
   cli.env = {};
   expect((await cli.mesa('goal', child.id)).stdout).toContain(
     `[mesa] You are a worker started by session ${parent}.`,
   );
   const given = await cli.mesa('worker', 'lantern-cove', 'Chart it', '--parent', parent, '--json');
-  expect(given.json.data).toMatchObject({ parent });
+  expect(given.json.data).toMatchObject({ parent, goal: expect.stringContaining('Chart it') });
   expect((await cli.mesa('sessions', '--all', '--json')).json.data).toHaveLength(before + 2);
   expect((await cli.mesa('help', '--agent')).stdout).toContain('mesa worker');
 });

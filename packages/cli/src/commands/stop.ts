@@ -1,4 +1,4 @@
-import { MesaError } from '@mesa/core';
+import { agentRecord, MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { bulkExit } from '../output/bulk.js';
 import { recordedOutput } from '../output/recorded.js';
@@ -48,6 +48,7 @@ export const stop = defineCommand({
       cancelled: `cancelled ${record.id}: it was queued, and never starts now`,
       'already-ended': `session ${record.id} had already ended`,
     }[outcome];
-    return recordedOutput(recorded, { data: { ...record, outcome }, text: said });
+    const seen = mesa.sessions.agentReads() ? agentRecord(record) : record;
+    return recordedOutput(recorded, { data: { ...seen, outcome }, text: said });
   },
 });
