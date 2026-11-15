@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseStreamLine } from '../../agents/claude/stream/events.js';
+import { parseStreamLine, type StreamEvent } from '../../agents/claude/stream/events.js';
 import {
   INTERRUPTED_CLAUDE_STREAM,
   RECORDED_CLAUDE_STREAM,
@@ -60,7 +60,7 @@ describe('foldStreamEvent', () => {
 
   it('keeps a skill expansion reply as an agent message, not command output', () => {
     let state = streamChatSent(newStreamChat('/p'), '/lantern', AT);
-    for (const e of [
+    const events: StreamEvent[] = [
       {
         type: 'assistant',
         content: [{ type: 'text', text: 'LANTERN_OK' }],
@@ -78,8 +78,8 @@ describe('foldStreamEvent', () => {
         turns: 1,
         usage: undefined,
       },
-    ] as const)
-      state = foldStreamEvent(state, e, AT);
+    ];
+    for (const e of events) state = foldStreamEvent(state, e, AT);
     expect(streamChatItems(state).map((i) => [i.from, (i as { output?: string }).output])).toEqual([
       ['command', undefined],
       ['agent', undefined],
