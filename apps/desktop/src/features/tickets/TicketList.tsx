@@ -1,11 +1,12 @@
 import type { Ticket } from '@mesa/core';
+import { groupByStatus, type StatusGroup } from '@mesa/core/browser';
 import { ChevronDown, CornerDownRight } from 'lucide-react';
 import { useState } from 'react';
 import { PersonAvatar } from '@/components/PersonAvatar';
 import { cn } from '@/lib/utils';
 import { clickupHex } from './clickup/ClickupStatus';
 import { LiveDot } from './LiveDot';
-import { CATEGORIES, StatusIcon } from './StatusIcon';
+import { StatusIcon } from './StatusIcon';
 
 /** A row's assignees: up to two avatars, overlapping, or the unassigned one. */
 function Assignees({ ticket }: { ticket: Ticket }) {
@@ -20,32 +21,7 @@ function Assignees({ ticket }: { ticket: Ticket }) {
   );
 }
 
-type Group = { id: string; status: string; category: Ticket['category']; rows: Ticket[] };
-
-const RANK = Object.keys(CATEGORIES);
-
-/**
- * The tickets grouped by their own status name (Ready apart from In Progress, though Jira files
- * both as in progress), by category (CATEGORIES) and then by name, the tracker's order within one.
- */
-// ponytail: names order the statuses of one category; the workflow's own order needs each
-// tracker's board configuration, a read (and for Jira a scope) Mesa does not have yet.
-function groupByStatus(tickets: readonly Ticket[]): Group[] {
-  const groups = new Map<string, Group>();
-  for (const ticket of tickets) {
-    const { category } = ticket;
-    const status = ticket.status || CATEGORIES[category];
-    const id = `${category}:${status.toLowerCase()}`;
-    const group = groups.get(id) ?? { id, status, category, rows: [] };
-    groups.set(id, group);
-    group.rows.push(ticket);
-  }
-  return [...groups.values()].sort(
-    (a, b) =>
-      RANK.indexOf(a.category) - RANK.indexOf(b.category) ||
-      a.status.localeCompare(b.status, undefined, { sensitivity: 'base' }),
-  );
-}
+type Group = StatusGroup<Ticket>;
 
 /**
  * The tickets grouped by status (groupByStatus), done groups collapsed at first. Each row is one

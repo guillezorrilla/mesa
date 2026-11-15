@@ -119,6 +119,7 @@ export { DESCENDANTS_CAP } from './sources/browse.js';
 export { describeSource, siteNames } from './sources/describe.js';
 export { NOTES_MAX_ITEMS } from './sources/notes-limit.js';
 export { DEFAULTS, type TicketDefaults } from './tickets/defaults.js';
+export { groupByStatus, type StatusGroup } from './tickets/status-groups.js';
 export {
   TICKET_STARTS,
   type TicketStart,

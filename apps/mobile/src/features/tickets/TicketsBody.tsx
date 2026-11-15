@@ -1,16 +1,17 @@
 import type { CallResult } from '@mesa/core/phone';
-import { type ReactNode, use, useState } from 'react';
+import { type ReactNode, use } from 'react';
 import { View } from 'react-native';
 import { ChoiceChips } from '@/components/ChoiceChips';
 import { ErrorNote } from '@/components/ErrorNote';
 import { Screen } from '@/components/Screen';
 import { Text } from '@/components/ui/text';
+import { useKept } from '@/lib/useKept';
 import type { MacRead } from '../mac/tryCall';
 import { ProjectTickets } from './ProjectTickets';
 
 /**
  * The projects as chips over the chosen one's tickets, the most recently worked on first, all
- * under `header`.
+ * under `header`; the chosen one is kept across visits.
  */
 export function TicketsBody({
   projects,
@@ -21,7 +22,9 @@ export function TicketsBody({
 }) {
   const { result, error } = use(projects);
   const listed = result?.projects ?? [];
-  const [project, setProject] = useState(listed[0]?.name);
+  const [kept, setProject] = useKept('tickets.project');
+  // The project last picked, while the Mac still lists it; else the most recently worked on.
+  const project = listed.some((p) => p.name === kept) ? kept : listed[0]?.name;
   if (!project)
     return (
       <Screen header={header}>

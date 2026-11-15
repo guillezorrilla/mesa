@@ -36,6 +36,7 @@ export async function phoneTickets(deps: TicketDeps, project: string) {
       url: t.url,
       ...(t.site ? { site: t.site } : {}),
       sessions: t.sessions.map((s) => s.id),
+      views: t.views,
     })),
   } satisfies CallResult<'tickets'>;
 }

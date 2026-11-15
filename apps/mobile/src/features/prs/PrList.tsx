@@ -2,13 +2,21 @@ import type { CallResult } from '@mesa/core/phone';
 import { router } from 'expo-router';
 import { type ReactNode, use } from 'react';
 import { RefreshControl, SectionList, View } from 'react-native';
+import { CountChips } from '@/components/CountChips';
 import { ErrorNote } from '@/components/ErrorNote';
+import { GroupHeader } from '@/components/GroupHeader';
+import { StateDot } from '@/components/StateDot';
 import { Text } from '@/components/ui/text';
+import { useKept } from '@/lib/useKept';
 import type { MacRead } from '../mac/tryCall';
 import { PrRow } from './PrRow';
-import { groupPrs } from './prGroups';
+import { ALL_BUCKETS, bucketChoices, groupPrs } from './prGroups';
+import { bucketColor } from './prText';
 
-/** The queue grouped by bucket, most urgent first, under `header`, each PR opening its screen. */
+/**
+ * The queue grouped by bucket, most urgent first, under `header` and the buckets as counted chips
+ * (the picked one kept across visits), each PR opening its screen.
+ */
 export function PrList({
   answer,
   header,
@@ -22,16 +30,24 @@ export function PrList({
 }) {
   const { result, error } = use(answer);
   const now = Date.now();
+  const [kept, setBucket] = useKept('prs.bucket');
+  const sections = groupPrs(result?.prs ?? []);
+  const choices = bucketChoices(sections);
+  // A bucket that emptied since it was picked shows every bucket again.
+  const bucket = choices.some((c) => c.value === kept) ? (kept ?? ALL_BUCKETS) : ALL_BUCKETS;
   return (
     <SectionList
       contentInsetAdjustmentBehavior="automatic"
       className="flex-1 bg-background"
-      sections={groupPrs(result?.prs ?? [])}
+      sections={bucket ? sections.filter((s) => s.key === bucket) : sections}
       keyExtractor={(pr) => `${pr.project}#${pr.number}`}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ListHeaderComponent={
         <>
           {header}
+          {choices.length ? (
+            <CountChips label="Status" choices={choices} value={bucket} onChange={setBucket} />
+          ) : null}
           {error || result?.problems.length ? (
             <View className="gap-2 px-4 pb-2">
               {error ? <ErrorNote text={error} /> : null}
@@ -52,12 +68,11 @@ export function PrList({
         ) : undefined
       }
       renderSectionHeader={({ section }) => (
-        <Text
-          accessibilityRole="header"
-          className="bg-background px-4 pt-4 pb-1 text-sm font-semibold text-muted-foreground"
-        >
-          {section.title}
-        </Text>
+        <GroupHeader
+          mark={<StateDot color={bucketColor(section.key)} />}
+          title={section.title}
+          count={section.data.length}
+        />
       )}
       renderItem={({ item }) => (
         <PrRow

@@ -1,6 +1,6 @@
 import type { PhonePr } from '@mesa/core/phone';
 import { expect, test } from 'vitest';
-import { groupPrs } from './prGroups';
+import { bucketChoices, groupPrs } from './prGroups';
 
 const pr = (number: number, bucket: string): PhonePr => ({
   project: 'tide-pool',
@@ -20,4 +20,14 @@ test('PRs group in bucket order, empty buckets left out, an unknown one last', (
     ['Waiting on the author', [1]],
     ['Other', [3]],
   ]);
+});
+
+test('the bucket chips count each listed bucket under All; one bucket alone gives none', () => {
+  const sections = groupPrs([pr(1, 'waiting'), pr(2, 'need'), pr(4, 'need')]);
+  expect(bucketChoices(sections)).toEqual([
+    { value: '', label: 'All', count: 3 },
+    { value: 'need', label: 'To review', count: 2 },
+    { value: 'waiting', label: 'Waiting', count: 1 },
+  ]);
+  expect(bucketChoices(groupPrs([pr(1, 'need')]))).toEqual([]);
 });

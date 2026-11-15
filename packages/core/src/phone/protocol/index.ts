@@ -20,6 +20,7 @@ export { MERGE_LABELS, MERGE_METHODS, type MergeMethod } from '../../prs/merge-m
 export { promptTitle } from '../../sessions/answer/title.js';
 export { NAMED_KEYS } from '../../sessions/input/terminal-keys.js';
 export { BUSY_STATES, FINAL_STATES, WAITING_STATES } from '../../sessions/record/states.js';
+export { groupByStatus, type StatusGroup } from '../../tickets/status-groups.js';
 export { PHONE_PUSH_LABELS, PHONE_PUSH_MODES, type PhonePushMode } from '../away.js';
 export type { ChangedFile, NoteDelivery, StatusFile } from './changes.js';
 export { BOX_BYTES, fitsOneBox, type PartMessage, partJoiner, splitParts } from './chunk.js';

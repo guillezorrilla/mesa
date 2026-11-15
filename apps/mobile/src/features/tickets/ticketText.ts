@@ -2,10 +2,10 @@ import type { PhoneTicket, PhoneTicketDetail } from '@mesa/core/phone';
 
 const live = (n: number) => (n ? `${n} live session${n === 1 ? '' : 's'}` : undefined);
 
-/** A ticket row's second line: its status, whose it is, and its live sessions. */
+/** A ticket row's second line, under its status's heading: whose it is, and its live sessions. */
 export function ticketDetail(t: PhoneTicket) {
   const whose = t.mine ? 'Yours' : (t.assignee ?? 'Unassigned');
-  return [t.status, whose, live(t.sessions.length)].filter(Boolean).join(' · ');
+  return [whose, live(t.sessions.length)].filter(Boolean).join(' · ');
 }
 
 /** Who a ticket's panel says it is with. */
