@@ -7,7 +7,7 @@ type Select = (path: string) => void;
 
 /** How a vault note's Markdown reads: the reader's and the project overview's. */
 export const PROSE =
-  'min-w-0 space-y-3 break-words text-sm leading-6 [&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-muted [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:py-0.5 [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_code]:font-mono [&_code]:text-xs [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h3]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_table]:w-full [&_tbody_tr:last-child]:border-0 [&_td]:py-2 [&_td]:pr-6 [&_td]:align-top [&_th]:py-2 [&_th]:pr-6 [&_th]:text-left [&_th]:font-medium [&_th]:whitespace-nowrap [&_tr]:border-b [&_ul]:list-disc [&_ul]:pl-5';
+  'min-w-0 space-y-3 break-words text-sm leading-6 [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_code]:font-mono [&_code]:text-xs [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h3]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_ul]:list-disc [&_ul]:pl-5';
 
 // Each link core found is written back into the body as a Markdown link to `#vault-link-<i>`,
 // its index in `links`, and that href renders as the link.

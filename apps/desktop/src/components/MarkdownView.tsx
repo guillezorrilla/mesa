@@ -4,8 +4,8 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { IconButton } from './IconButton';
 
-// Block and inline elements only: no HTML, no images, so nothing remote ever loads. Any other
-// element GitHub's Markdown makes (a task box, a footnote) shows as its text.
+// Block and inline elements only: no HTML, no images, so nothing remote ever loads. With `gfm`,
+// any other element GitHub's Markdown makes (a task box, a footnote) shows as its text.
 const ALLOWED = [
   'table',
   'thead',
@@ -40,22 +40,23 @@ const textOf = (node: Node | undefined): string =>
   node?.value ?? (node?.children ?? []).map(textOf).join('');
 
 /**
- * Markdown, with GitHub's tables and strikethrough, as inert React elements. A link is underlined text, unless `link` renders it from its
+ * Markdown as inert React elements. A link is underlined text, unless `link` renders it from its
  * href; `link` returns undefined for one it leaves as text. With `onCopyCode`, each code block has
- * a Copy button that hands it its text.
+ * a Copy button that hands it its text. With `gfm`, GitHub's tables and strikethrough render too.
  */
 export function MarkdownView(props: {
   text: string;
   link?: (href: string, children: ReactNode) => ReactNode;
   onCopyCode?: (code: string) => void;
+  gfm?: boolean;
 }) {
   const copy = props.onCopyCode;
   return (
     <Markdown
       skipHtml
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={props.gfm ? [remarkGfm] : []}
       allowedElements={ALLOWED}
-      unwrapDisallowed
+      unwrapDisallowed={props.gfm}
       components={{
         // A wide table scrolls sideways on its own, the text around it stays put.
         table: ({ children }) => (

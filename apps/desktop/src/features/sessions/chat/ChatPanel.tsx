@@ -175,7 +175,7 @@ export function ChatPanel(props: {
             <ArrowDown aria-hidden /> New
           </Button>
         )}
-        <PromptCard row={props.row} className="mx-0 mt-0" />
+        <PromptCard row={props.row} className="mx-0 mt-0 rounded-xl border-0 bg-muted p-4" />
         {props.refused && (
           <p role="alert" className="px-2 text-destructive text-xs">
             {props.refused}
@@ -197,9 +197,9 @@ export function ChatPanel(props: {
 
 const YOU =
   'max-w-[min(85%,48rem)] whitespace-pre-wrap break-words rounded-2xl bg-muted px-4 py-2.5 text-[15px] leading-6';
-/** The agent's replies: the vault's prose a step larger, for reading at length. */
+/** The agent's replies: the vault's prose a step larger for reading at length, with tables and code chips. */
 const REPLY =
-  'w-full text-[15px] leading-7 [&_pre_code]:text-[13px] [&_h1]:mt-6 [&_h2]:mt-6 [&_h3]:mt-5 [&_li]:mt-1';
+  'w-full text-[15px] leading-7 [&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-muted [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:py-0.5 [&_pre_code]:text-[13px] [&_h1]:mt-6 [&_h2]:mt-6 [&_h3]:mt-5 [&_li]:mt-1 [&_table]:w-full [&_tbody_tr:last-child]:border-0 [&_td]:py-2 [&_td]:pr-6 [&_td]:align-top [&_th]:py-2 [&_th]:pr-6 [&_th]:text-left [&_th]:font-medium [&_th]:whitespace-nowrap [&_tr]:border-b';
 
 /**
  * One row: the person's message as a plain bubble on the right, the agent's as Markdown, a run of
@@ -238,7 +238,7 @@ function ChatRow(props: {
         <div className={YOU}>{message.text}</div>
       ) : (
         <div className={cn(PROSE, REPLY)}>
-          <MarkdownView text={message.text} onCopyCode={props.onCopyCode} />
+          <MarkdownView text={message.text} onCopyCode={props.onCopyCode} gfm />
         </div>
       )}
     </li>

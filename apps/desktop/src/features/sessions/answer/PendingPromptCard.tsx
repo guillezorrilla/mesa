@@ -23,7 +23,7 @@ export function PendingPromptCard(props: { session: string; className?: string }
     <section
       data-testid="session-prompt"
       aria-label={promptTitle(prompt)}
-      className={cn('mx-4 mt-3 grid gap-2 rounded-xl bg-muted p-4 text-sm', props.className)}
+      className={cn('mx-4 mt-3 grid gap-2 rounded-lg border bg-card p-3 text-sm', props.className)}
     >
       <p className="font-medium">{promptTitle(prompt)}</p>
       <p className="whitespace-pre-wrap break-all font-mono text-xs">{prompt.summary}</p>
