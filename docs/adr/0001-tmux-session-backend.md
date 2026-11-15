@@ -1,6 +1,6 @@
 # ADR-0001: tmux is the session backend
 
-Status: accepted
+Status: accepted, amended 2026-11-14 (Structured view, #1186)
 Date: 2026-09-24
 
 ## Context
@@ -104,8 +104,6 @@ A Skill run (CONTEXT.md) opens its window through the same `openWindow`, output 
 
 Evidence: a live check on 2026-09-26 with Claude Code 2.1.283 and tmux 3.7c, on a throwaway profile with a temp HOME. The real claude wrote its JSON result into the file and exited 1: the temp HOME had no login, so the result was `is_error` with "Not logged in". The pane-died hook recorded the exit, and the window was gone afterwards. A stand-in claude that printed a flag error on stderr and exited 2 gave `claude printed no result; claude exited with status 2; error: ...` (read then off the pane, where tmux's dead-pane line had to be skipped). On a throwaway socket, `pipe-pane` of a pane whose process printed one line on stderr and exited 2 logged that line alone. The 3 s wait was seen with `claude -p` fed by a pipe outside tmux. Then, with the owner's login (the real HOME, a throwaway profile, an invented repo), two real session-summary runs each wrote their result (about 20 s, list price about $0.26) and ended `done`, their windows gone. `claude agents --json` listed each `claude -p` under the pane's pid, as `kind: interactive` with `busy`, and `idle` in its last moment, so the board read the run from the listing as for any session.
 
----
-
-## Note 2026-11-14: Structured view still runs in a window (ADR-0029)
+## Amendment 2026-11-14: Structured view still runs in a window (#1186, ADR-0029)
 
 A session in Structured view is `mesa host` running in its tmux window, with the same window name and environment, so everything in this ADR holds. What changes is what the window shows (a status line, not the agent's TUI) and that `send`, tail and the output log are served by the host's socket and journal for that view.

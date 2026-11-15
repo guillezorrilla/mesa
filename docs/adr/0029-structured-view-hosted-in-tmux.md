@@ -32,13 +32,13 @@ docs/spikes/structured-chat.md (#1185, merged), measured 2026-11-14 on macOS, tm
 ## Options weighed
 
 - **A second session backend** (the host process outside tmux, a new kind of session). Rejected: every reader of windows (list, kill, attach, hooks, `mesa report`, the phone) would learn a second kind of session, and ADR-0001's alternative, a process tied to the app, was already rejected for the same restart reasons.
-- **ACP** (Agent Client Protocol). Rejected for now: Claude Code has no ACP of its own, and Codex 0.162.1 has no `acp` subcommand, so it would add an adapter in front of each agent for nothing the native protocols lack.
-- **The Agent SDK.** Rejected for now: it is the same binary and stream-json protocol, with a dependency and API-key billing questions, and its differences were not measured.
+- **ACP** (Agent Client Protocol). Not chosen, and not investigated: the spike found no `acp` subcommand in `codex --help` (0.162.1) and no ACP in Claude Code, so it would be an adapter in front of each agent, and the native protocols already cover what the chat needs. Revisit if an agent ships one.
+- **The Agent SDK.** Not chosen, and not measured: the spike notes it is the same binary, so it adds a dependency without a capability the stream-json runs lacked, and an API key would bill per token where the subscription login measured here does not. Revisit if the stream-json interface breaks.
 - **Keep Chat mode** (the transcript and the pane). Rejected by the owner: no live stream, and slash commands and prompts depend on pane diffs.
 
 ## Consequences
 
-- A host crash loses the process, not the session: `mesa resume` starts it again. The journal keeps what was streamed.
+- A host crash loses the process, not the session: resume should start it again (the spike resumed after killing the process mid-turn, but did not crash a host). The journal keeps what was streamed.
 - The merged chat renderer carries over; its source changes from the pane and the transcript to the stream, with the transcript still the history and reload source.
 - Command cards for Structured sessions come from message output, not pane diffs; the marker path goes once the app is on the stream.
 - Codex's Structured view waits on a live measurement of `codex app-server`.
