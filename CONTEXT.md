@@ -295,7 +295,32 @@ Not: pane, tab. A tmux session is a project's group of windows, never a Mesa ses
 ## Chat mode
 
 How the app shows a Claude Code or Codex session instead of its terminal: the person's prompts and the agent's replies from its native transcript, oldest at the top (`mesa chat <id>`, `sessionChat`), and a composer that types into the same window through the guarded send. The agent runs on in its tmux window either way; switching (the header's Terminal | Chat, or Cmd+Shift+J) only changes what the app shows, and each session's choice is kept on this machine, else `terminal.sessionView`. A plain terminal or Antigravity session shows only Terminal.
-Not: a separate agent process, or a chat the app holds itself.
+Not: a separate agent process, or a chat the app holds itself. Structured view (ADR-0029) is to replace it.
+
+## Structured view
+
+How a Claude Code or Codex session runs and shows when the host owns the agent process: the agent speaks its structured protocol (Claude Code's stream-json, Codex's app-server) to the host, and the app shows the typed events as chat, with replies as they stream, tool runs, edited files, and permission and question requests as cards (ADR-0029). The app's view control labels it Chat, and Cmd+Shift+J switches. Terminal stays the default for a new session, with a Settings choice for Structured. It replaces Chat mode, which read the transcript and the pane.
+Not: Chat mode, a second session backend, a chat the app holds itself.
+
+## Terminal view
+
+The agent's own TUI in the session's tmux window, the way every session ran before Structured view. It is the same agent session id as Structured view, resumed (`claude --resume <id>`), so switching keeps the conversation. `mesa attach` shows only this view; in a Structured session it offers a switch.
+Not: a plain terminal session (a login shell with no agent).
+
+## Host
+
+`mesa host <session>`: the process Mesa runs inside a Structured session's tmux window. It starts the agent in its structured mode, appends each event to the session's journal, and serves a unix socket in the profile that `mesa send`, the app and the phone write messages and answers to. The window shows a status line. The window, its name and its `MESA_SESSION_ID` are the same as any session's, so list, stop, hooks and `mesa report` need no change (ADR-0001, ADR-0003, ADR-0029). If the host dies the session survives: resume starts it again.
+Not: the Mesa daemon, a tmux server, a second backend.
+
+## Journal
+
+The host's append-only record of one Structured session: every event the agent streamed and every message and answer sent to it, one JSON line each, in the session's folder under `~/.mesa/<profile>/`. `mesa logs` and `mesa chat` read it for a Structured session, as they read the output log and the transcript for a Terminal one; the native transcript stays the history after a switch or a restart.
+Not: the output log (what a pane printed), the transcript (the agent's own file), the receipts.
+
+## Switch
+
+Changing a session between Structured view and Terminal view: stop the host or the TUI, then start the other on the same agent session id in the same window. Mid-turn it asks first, and on yes interrupts, stops and resumes. A second process on one session id is refused.
+Not: a handoff (a new session) or a resume after the window is gone.
 
 ## Message actions
 
