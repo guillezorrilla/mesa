@@ -251,13 +251,29 @@ describe('mesa host for Codex', () => {
       ok: false,
       error: 'codex has no permission modes to set',
     });
+    w.fake.push({
+      id: 0,
+      method: 'item/commandExecution/requestApproval',
+      params: {
+        threadId: THREAD,
+        turnId: 't2',
+        itemId: 'c-1',
+        command: `echo ${'x'.repeat(80)}\nmore`,
+        startedAtMs: 1,
+      },
+    });
+    expect(written.at(-1)).toMatch(/waiting for permission: echo x+\S*$/);
+    expect(written.at(-1)?.length).toBeLessThan(140);
     const journal = (readJournal(w.paths.journals, record.id) ?? []).map((l) => JSON.parse(l));
     expect(journal.filter((e) => 'event' in e).map((e) => e.event.id ?? e.event.method)).toEqual([
       'initialize#1',
       'thread/start#2',
       'turn/started',
       'turn/completed',
+      0,
     ]);
+    // A refused request is not journalled as sent.
+    expect(journal.filter((e) => 'sent' in e).map((e) => e.sent.type)).toEqual(['user']);
     host.stop();
     await host.done;
     // Terminal view resumes the same thread with Mesa's embedded codex, never a plain `codex resume`.

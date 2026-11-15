@@ -108,17 +108,16 @@ export async function hostSession(
     if (request.type === 'ping') return { ok: true };
     if (!runner) return { ok: false, error: 'the agent is still starting' };
     let reply: HostReply = { ok: true };
+    if (request.type === 'mode' && !runner.setPermissionMode)
+      return { ok: false, error: `${agentName} has no permission modes to set` };
     if (request.type === 'send') reply = { ok: true, queued: send(runner, request.text) };
     else {
       journal({ sent: request });
       if (request.type === 'allow') runner.allow(request.requestId, request.input);
       else if (request.type === 'deny') runner.deny(request.requestId, request.message);
       else if (request.type === 'interrupt') runner.interrupt();
-      else if (request.type === 'mode') {
-        if (!runner.setPermissionMode)
-          return { ok: false, error: `${agentName} has no permission modes to set` };
-        runner.setPermissionMode(request.mode);
-      } else runner.stop();
+      else if (request.type === 'mode') runner.setPermissionMode?.(request.mode);
+      else runner.stop();
       status.doing = busy ? 'working' : 'idle';
     }
     show();

@@ -1,7 +1,9 @@
+import { clip } from '../../../lib/clip.js';
 import { lineSplitter } from '../../../lib/lines.js';
 import type { Env } from '../../../lib/process.js';
 import type { SpawnExit, Spawner } from '../../../lib/spawn.js';
 import type { AgentRunner, RunnerSignal, StartHostRunner } from '../../runner.js';
+import { firstLine } from '../../steps.js';
 import { type AppServerEvent, parseAppServerLine } from './events.js';
 
 // Codex on `codex app-server` for one session: one long-lived process speaking JSON-RPC over
@@ -161,10 +163,12 @@ export function codexSignal(event: AppServerEvent): RunnerSignal | undefined {
   switch (event.type) {
     case 'thread':
       return { sessionId: event.threadId, ...(event.model ? { model: event.model } : {}) };
-    case 'approval':
-      return {
-        doing: `waiting for permission: ${event.kind === 'command' ? (event.command ?? 'a command') : 'a file change'}`,
-      };
+    case 'approval': {
+      // One line, short: the status is redrawn in place on the window's last line.
+      const what =
+        event.kind === 'command' ? firstLine(event.command ?? '') || 'a command' : 'a file change';
+      return { doing: `waiting for permission: ${clip(what, 60)}` };
+    }
     case 'turn_completed':
       return { doing: 'idle', turnEnded: true };
     case 'response':
