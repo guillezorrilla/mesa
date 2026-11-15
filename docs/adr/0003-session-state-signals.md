@@ -1,6 +1,6 @@
 # ADR-0003: Session state comes from agent hooks first, agent listings second, tmux tail last
 
-Status: accepted
+Status: accepted, amended 2026-11-14 (Structured view, #1186)
 Date: 2026-09-24
 
 ## Context
@@ -150,3 +150,7 @@ A look runs Claude Code's listing only when some live Claude session has no runn
 ## Amendment 2026-11-12: a person answers a prompt through Mesa (#1070)
 
 The 2026-09-24 line "never relayed through Mesa" now reads: never relayed by an agent. Epic #902 asked that a person answer a session's prompts away from the pane (ADR-0027), so `mesa answer`, the desktop's prompt card and, later, the phone answer a Pending prompt (CONTEXT.md) for a person. An agent caller, any process inside a Mesa window, is still refused, as `mesa send` refuses to type into a wait. Mesa answers only prompts an agent's reader qualified live (docs/spikes/prompt-answers.md): Claude Code's permission dialog and a single-choice AskUserQuestion, and Codex's command and edit approvals. It offers Allow and Deny, never a choice that changes permissions for later. The prompt is read from its hook event and the pane's tail, and an answer is checked against the prompt still on screen, so one given for a prompt already answered in the pane is refused as stale. Each answer leaves an `answer` receipt naming where it came from.
+
+## Amendment 2026-11-14: hooks in Structured view (#1186, ADR-0029)
+
+The hooks fire in `mesa host`'s stream-json mode (SessionStart, UserPromptSubmit, PreToolUse, Stop and SessionEnd measured; PermissionRequest and Notification not yet), with the window's `MESA_SESSION_ID`, so the first signal source is unchanged. The host's own turn start and end are a second signal; the tmux tail is not read for a Structured session.
