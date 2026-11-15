@@ -118,10 +118,11 @@ function usage(raw: unknown): TokenUsage | undefined {
   };
 }
 
+/** A `content_block_delta`'s delta type: the kind Mesa names it and the field holding its text. */
 const DELTA_KINDS = {
-  text_delta: ['text', 'text'],
-  thinking_delta: ['thinking', 'thinking'],
-  input_json_delta: ['input_json', 'partial_json'],
+  text_delta: { kind: 'text', field: 'text' },
+  thinking_delta: { kind: 'thinking', field: 'thinking' },
+  input_json_delta: { kind: 'input_json', field: 'partial_json' },
 } as const;
 
 function fromObject(d: Obj, line: string): StreamEvent {
@@ -154,8 +155,8 @@ function fromObject(d: Obj, line: string): StreamEvent {
       if (isObj(delta) && kind)
         return {
           type: 'delta',
-          kind: kind[0],
-          text: str(delta[kind[1]]),
+          kind: kind.kind,
+          text: str(delta[kind.field]),
           index: num(d.event.index) ?? 0,
         };
       return { type: 'stream', event: d.event.type };
@@ -212,21 +213,4 @@ export function parseStreamLine(line: string): StreamEvent {
     return { type: 'other', raw: line };
   }
   return isObj(raw) ? fromObject(raw, line) : { type: 'other', raw: line };
-}
-
-/** Splits stdout chunks into whole lines; a line cut off by a read waits for the rest. */
-export function lineSplitter(onLine: (line: string) => void) {
-  let rest = '';
-  return {
-    push(chunk: string) {
-      const parts = (rest + chunk).split('\n');
-      rest = parts.pop() ?? '';
-      for (const part of parts) if (part.trim()) onLine(part);
-    },
-    /** At exit: a last line with no newline. */
-    flush() {
-      if (rest.trim()) onLine(rest);
-      rest = '';
-    },
-  };
 }

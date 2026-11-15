@@ -1,12 +1,14 @@
+import { lineSplitter } from '../../../lib/lines.js';
 import type { Env } from '../../../lib/process.js';
-import type { Spawner } from '../../../lib/spawn.js';
-import { lineSplitter, parseStreamLine, type StreamEvent } from './events.js';
+import type { SpawnExit, Spawner } from '../../../lib/spawn.js';
+import type { CLAUDE_PERMISSION_MODES } from '../../names.js';
+import { parseStreamLine, type StreamEvent } from './events.js';
 
 // Claude Code in stream-json mode for one session: one long-lived process, JSON lines in and out
 // (docs/spikes/structured-chat.md). The runner starts it through an injected spawner (ADR-0008),
 // turns stdout into typed events, and writes the messages and control requests Mesa sends.
 
-export type PermissionMode = 'default' | 'acceptEdits' | 'plan' | 'bypassPermissions' | 'auto';
+export type PermissionMode = (typeof CLAUDE_PERMISSION_MODES)[number];
 
 export interface ClaudeStartOptions {
   cwd: string;
@@ -15,11 +17,6 @@ export interface ClaudeStartOptions {
   model?: string;
   effort?: string;
   permissionMode?: PermissionMode;
-}
-
-export interface ClaudeExit {
-  code: number | undefined;
-  detail?: string;
 }
 
 export interface ClaudeRunner {
@@ -34,7 +31,7 @@ export interface ClaudeRunner {
   /** Ends the process; resume it later with the session id from `init` or `result`. */
   stop(): void;
   /** Settles when the process ends, after its last event. */
-  exited: Promise<ClaudeExit>;
+  exited: Promise<SpawnExit>;
 }
 
 /** The command line for one runner (`claude` is the binary). */
@@ -78,7 +75,7 @@ export function startClaudeRunner(
 
   const lines = lineSplitter((line) => onEvent(parseStreamLine(line)));
   child.onStdout(lines.push);
-  const exited = new Promise<ClaudeExit>((resolve) =>
+  const exited = new Promise<SpawnExit>((resolve) =>
     child.onExit((exit) => {
       lines.flush();
       resolve(exit);

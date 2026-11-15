@@ -1,5 +1,5 @@
 import type { Env } from '../lib/process.js';
-import type { SpawnedProcess, Spawner } from '../lib/spawn.js';
+import type { SpawnExit, Spawner } from '../lib/spawn.js';
 
 /**
  * An invented stream-json run of Claude Code (shapes from docs/spikes/structured-chat.md): init, a
@@ -109,7 +109,7 @@ export function replaySpawner(stream: string[] = RECORDED_CLAUDE_STREAM, chunks?
   const spawn: Spawner = (file, args, options) => {
     spawns.push({ file, args, ...options });
     let stdout: (chunk: string) => void = () => undefined;
-    let exit: Parameters<SpawnedProcess['onExit']>[0] = () => undefined;
+    let exit: (exit: SpawnExit) => void = () => undefined;
     let replayed = false;
     const end = (code: number | undefined) => queueMicrotask(() => exit({ code }));
     return {

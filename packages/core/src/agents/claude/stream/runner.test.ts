@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { lineSplitter } from '../../../lib/lines.js';
 import { RECORDED_CLAUDE_STREAM, replaySpawner } from '../../../testing/index.js';
-import { lineSplitter, parseStreamLine, type StreamEvent } from './events.js';
+import { parseStreamLine, type StreamEvent } from './events.js';
 import { claudeStreamArgs, startClaudeRunner } from './runner.js';
 
 async function run(chunks?: number, stream?: string[]) {

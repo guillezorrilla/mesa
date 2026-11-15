@@ -1,14 +1,17 @@
 import { spawn } from 'node:child_process';
 import type { Env } from './process.js';
 
+/** How a process ended; `code` is none when it never started or was killed. */
+export type SpawnExit = { code: number | undefined; detail?: string };
+
 /** A running child process, read line by line; the streaming sibling of `Runner`. */
 export interface SpawnedProcess {
   /** Writes `text` to the process's stdin. */
   write(text: string): void;
   /** Called with each chunk of stdout, which may end mid-line. */
   onStdout(listener: (chunk: string) => void): void;
-  /** Called once when the process ends; `code` is none when it never started or was killed. */
-  onExit(listener: (exit: { code: number | undefined; detail?: string }) => void): void;
+  /** Called once when the process ends. */
+  onExit(listener: (exit: SpawnExit) => void): void;
   kill(): void;
 }
 
@@ -36,7 +39,7 @@ export const envSpawner =
       onExit: (listener) => {
         // 'error' (ENOENT) fires with no 'close', so one of them ends the process, once.
         let done = false;
-        const end = (exit: { code: number | undefined; detail?: string }) => {
+        const end = (exit: SpawnExit) => {
           if (!done) {
             done = true;
             listener(exit);
