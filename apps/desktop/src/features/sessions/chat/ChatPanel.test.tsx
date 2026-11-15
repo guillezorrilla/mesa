@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
-import type { ChatMessage, SessionChat } from '@mesa/core';
+import type { ChatItem, ChatMessage, ChatRun, SessionChat } from '@mesa/core';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
-import { click, envelope, fakeBridge, press, renderWithMesa } from '@/lib/testing';
+import { asking, click, envelope, fakeBridge, press, renderWithMesa } from '@/lib/testing';
 import { ChatPanel } from './ChatPanel';
 import { transcriptHolds } from './useChat';
 
@@ -13,7 +13,7 @@ const said = (from: ChatMessage['from'], text: string, id = text): ChatMessage =
   text,
   from,
 });
-const chatOf = (messages: ChatMessage[], more = false): SessionChat => ({
+const chatOf = (messages: ChatItem[], more = false): SessionChat => ({
   messages,
   count: messages.length,
   more,
@@ -133,4 +133,58 @@ test('typing /us in the composer offers /usage and Tab completes it', async () =
   );
   await press(field, 'Tab');
   expect(field.value).toBe('/usage');
+});
+
+test('a run of steps shows as one collapsed row that opens to its steps in order', async () => {
+  const run: ChatMessage | ChatRun = {
+    id: 'steps:s1',
+    at,
+    from: 'steps',
+    text: 'Read 2 files, ran 1 command',
+    steps: [
+      { id: 's1', line: 'Read a.ts', status: 'done' },
+      { id: 's2', line: 'Read b.ts', status: 'done' },
+      { id: 's3', line: 'Bash ls', status: 'done' },
+    ],
+  };
+  const { bridge } = fakeBridge({
+    chat: () => envelope(chatOf([said('you', 'Look'), run, said('agent', 'Done.')])),
+  });
+  const byTestId = await renderWithMesa(
+    <ChatPanel sessionId="a1b2c3d4" acting={false} onSend={() => {}} />,
+    bridge,
+  );
+  const details = byTestId('chat-messages')[0]?.querySelector('details');
+  expect(details?.open).toBe(false);
+  expect(details?.querySelector('summary')?.textContent).toBe('Read 2 files, ran 1 command');
+  expect([...(details?.querySelectorAll('ol li') ?? [])].map((li) => li.textContent)).toEqual([
+    'Read a.ts',
+    'Read b.ts',
+    'Bash ls',
+  ]);
+});
+
+test('a session waiting on a permission shows its answer card and the composer says Answer above', async () => {
+  const { bridge } = fakeBridge({
+    chat: () => envelope(chatOf([])),
+    prompt: () =>
+      envelope({
+        status: 'pending',
+        session: 'a1b2c3d4',
+        id: 'p1',
+        kind: 'permission',
+        tool: 'Bash',
+        summary: 'touch beacon.txt',
+        options: [{ id: 'allow', label: 'Allow' }],
+        freeText: false,
+      }),
+  });
+  const byTestId = await renderWithMesa(
+    <ChatPanel sessionId="a1b2c3d4" row={asking} acting={false} onSend={() => {}} />,
+    bridge,
+  );
+  expect(byTestId('session-prompt')[0]?.textContent).toContain('Allow Bash?');
+  const field = document.querySelector<HTMLTextAreaElement>('[aria-label="Message a1b2c3d4"]');
+  expect(field?.disabled).toBe(true);
+  expect(field?.placeholder).toBe('Answer above');
 });

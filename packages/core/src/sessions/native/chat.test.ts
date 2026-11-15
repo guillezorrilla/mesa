@@ -9,6 +9,7 @@ import {
   testStore,
 } from '../../testing/index.js';
 import { chatMessages } from './chat.js';
+import type { NativeStep } from './responses.js';
 
 const THREAD = '01a0e14e-be41-72f1-a81b-e25d2198602a';
 
@@ -112,4 +113,43 @@ test('the phone asks for replies only, an older phone that cannot show prompts',
   };
   expect(chatMessages(read, 5, false).messages.map((m) => m.text)).toEqual(['Found it.']);
   expect(chatMessages(read, 5).messages.map((m) => m.text)).toEqual(['Thanks', 'Found it.']);
+});
+
+const tool = (id: string, kind: string, newer: number): NativeStep => ({
+  type: 'tool',
+  id,
+  kind: kind as 'read',
+  name: kind === 'read' ? 'Read' : 'Bash',
+  target: `${id}.ts`,
+  status: 'done',
+  output: '',
+  newer,
+});
+const row = (revision: string) => ({ revision, text: revision, at: '2026-09-28T12:00:00.000Z' });
+
+test("a gap's steps show as one run between the replies, after the prompt that started it", () => {
+  const { messages } = chatMessages(
+    {
+      // Newest first: reply b, reply a.
+      rows: [row('b'), row('a')],
+      prompts: [{ revision: 'p', text: 'go', newer: 1 }],
+    },
+    2,
+    true,
+    // Newest first: after b (newer 0), and between a and b (newer 1), in time order oldest last.
+    [tool('s3', 'command', 0), tool('s2', 'read', 1), tool('s1', 'read', 1)],
+  );
+  // Newest first: run after b, b, run before b, prompt, a.
+  expect(messages.map((m) => `${m.from}:${m.text}`)).toEqual([
+    'steps:Ran 1 command',
+    'agent:b',
+    'steps:Read 2 files',
+    'you:go',
+    'agent:a',
+  ]);
+  const run = messages[2];
+  expect(run?.from === 'steps' && run.steps.map((s) => s.line)).toEqual([
+    'Read s1.ts',
+    'Read s2.ts',
+  ]);
 });

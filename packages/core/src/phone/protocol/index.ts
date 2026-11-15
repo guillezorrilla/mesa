@@ -2,6 +2,7 @@
 // but the pure words, clip, local day, session state sets, prompt title, diff lines, push modes and agent
 // names its screens share with the desktop.
 export { AGENT_LABELS, AGENT_NAMES, agentLabel } from '../../agents/names.js';
+export { runSentence } from '../../agents/step-words.js';
 export {
   DIFF_START,
   type DiffAt,

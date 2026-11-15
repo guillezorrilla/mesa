@@ -19,6 +19,7 @@ export {
   supportsPlanStart,
 } from './agents/names.js';
 export { AGENT_STATES } from './agents/states.js';
+export { type RunStep, runSentence } from './agents/step-words.js';
 export { describeAutomation } from './automations/describe.js';
 export { type CheckResult, checkText } from './checks/check-text.js';
 export { invocation } from './commands/invocation.js';

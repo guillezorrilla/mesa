@@ -1,4 +1,4 @@
-import type { ChatMessage, SessionChat } from '@mesa/core';
+import type { ChatItem, SessionChat } from '@mesa/core';
 import { useEffect, useRef, useState } from 'react';
 import { useCommand } from '@/lib/useCommand';
 import { useSessionEvents } from '@/lib/useSessionEvents';
@@ -13,7 +13,7 @@ const SENDING_POLL_FOR_MS = 120_000;
 const SKEW_MS = 5_000;
 
 /** Whether `messages` hold prompt `sent`: one of the person's, with its text, written since. */
-export const transcriptHolds = (messages: readonly ChatMessage[], sent: SentPrompt) =>
+export const transcriptHolds = (messages: readonly ChatItem[], sent: SentPrompt) =>
   messages.some(
     (message) =>
       message.from === 'you' &&

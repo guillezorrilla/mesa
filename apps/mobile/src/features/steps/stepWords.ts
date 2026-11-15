@@ -1,19 +1,19 @@
-import { clip, type PhoneStep } from '@mesa/core/phone';
+import { clip, type PhoneStep, runSentence } from '@mesa/core/phone';
 
 // How a step reads on its row, in orca's words (native-chat-tool-row-verb-copy.ts,
 // native-chat-tool-run-words.ts): a verb and a target per step, a sentence per run of steps.
 
-/** A tool kind's verb while running and once done, and its run clause's noun. */
-const KINDS: Record<string, { running: string; done: string; noun: [string, string] }> = {
-  read: { running: 'Reading', done: 'Read', noun: ['file', 'files'] },
-  search: { running: 'Searching', done: 'Searched', noun: ['time', 'times'] },
-  list: { running: 'Listing', done: 'Listed', noun: ['folder', 'folders'] },
-  command: { running: 'Running', done: 'Ran', noun: ['command', 'commands'] },
-  web: { running: 'Searching the web', done: 'Searched the web', noun: ['time', 'times'] },
-  agent: { running: 'Running', done: 'Ran', noun: ['agent', 'agents'] },
-  plan: { running: 'Updating the plan', done: 'Updated the plan', noun: ['time', 'times'] },
+/** A tool kind's verb while running and once done. */
+const KINDS: Record<string, { running: string; done: string }> = {
+  read: { running: 'Reading', done: 'Read' },
+  search: { running: 'Searching', done: 'Searched' },
+  list: { running: 'Listing', done: 'Listed' },
+  command: { running: 'Running', done: 'Ran' },
+  web: { running: 'Searching the web', done: 'Searched the web' },
+  agent: { running: 'Running', done: 'Ran' },
+  plan: { running: 'Updating the plan', done: 'Updated the plan' },
 };
-const OTHER = { running: 'Using', done: 'Used', noun: ['tool', 'tools'] as [string, string] };
+const OTHER = { running: 'Using', done: 'Used' };
 
 const kindOf = (kind: string) => KINDS[kind] ?? OTHER;
 
@@ -43,31 +43,7 @@ export function liveWords(step?: PhoneStep): { verb: string; target: string } {
   return { verb, target: clip(target.split('\n')[0]?.trim() ?? '', LIVE_CHARS) };
 }
 
-const counted = (verb: string, count: number, [one, many]: [string, string]) =>
-  `${verb} ${count} ${count === 1 ? one : many}`;
-
-/**
- * A run of steps in one sentence, its clauses in the order their kinds first appear: "Ran 2
- * commands, edited 1 file, thought".
- */
-export function runSentence(steps: PhoneStep[]): string {
-  const clauses = new Map<string, number>();
-  const edited = new Set<string>();
-  for (const step of steps) {
-    const key = step.type === 'tool' ? (KINDS[step.kind] ? step.kind : 'other') : step.type;
-    if (step.type === 'edit') edited.add(step.path);
-    clauses.set(key, (clauses.get(key) ?? 0) + 1);
-  }
-  const words = [...clauses].map(([key, count]) => {
-    if (key === 'edit') return counted('Edited', edited.size, ['file', 'files']);
-    if (key === 'thought') return count === 1 ? 'Thought' : `Thought ${count} times`;
-    const kind = kindOf(key);
-    return key === 'plan' && count === 1 ? kind.done : counted(kind.done, count, kind.noun);
-  });
-  return words
-    .map((clause, at) => (at ? clause.charAt(0).toLowerCase() + clause.slice(1) : clause))
-    .join(', ');
-}
+export { runSentence };
 
 /** A tool call or an edit that failed; a thought never does. */
 export const failed = (step: PhoneStep) => step.type !== 'thought' && step.status === 'failed';
