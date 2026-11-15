@@ -120,6 +120,19 @@ describe('mergeChat', () => {
     steps: [],
   });
 
+  it('shows what the transcript has once when the two do not line up', () => {
+    const command = (text: string, id: string): ChatItem => ({
+      id,
+      at: null,
+      text,
+      from: 'command',
+    });
+    // The transcript holds a command the stream never folded; nothing already shown comes twice.
+    const history = [msg('you', 'go', 'h1'), msg('agent', 'READY.', 'h2'), command('/clear', 'h3')];
+    const live = [msg('you', 'go', 's1'), msg('agent', 'READY.', 's2'), msg('agent', 'new', 's3')];
+    expect(mergeChat(history, live).map((i) => i.id)).toEqual(['h1', 'h2', 'h3', 's3']);
+  });
+
   it('keeps live items the transcript has not reached', () => {
     const history = [msg('you', 'a', 'h1'), msg('agent', 'b', 'h2')];
     expect(mergeChat(history, [msg('you', 'c', 's1')]).map((i) => i.text)).toEqual(['a', 'b', 'c']);

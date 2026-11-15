@@ -1,11 +1,11 @@
 import type { ChatItem, SessionChat } from '@mesa/core';
 import { useEffect, useRef, useState } from 'react';
-import { useCommand } from '@/lib/useCommand';
+import { type CommandError, useCommand } from '@/lib/useCommand';
 import { useSessionEvents } from '@/lib/useSessionEvents';
 import type { SentPrompt } from '../selected/useSessionPrompt';
 
 /** How many more replies each look further back reads. */
-const PAGE = 20;
+export const CHAT_PAGE = 20;
 /** How often a chat looks again while a sent prompt is not in its transcript yet, and how long. */
 const SENDING_POLL_MS = 2_000;
 const SENDING_POLL_FOR_MS = 120_000;
@@ -26,11 +26,22 @@ export const transcriptHolds = (messages: readonly ChatItem[], sent: SentPrompt)
   );
 
 /**
- * Session `sessionId`'s chat, read again as its hooks write and on the fallback poll, and further
- * back on `older`; the prompt `sent` to it while its transcript does not hold it yet.
+ * Session `sessionId`'s chat from its transcript, read again as its hooks write and on the
+ * fallback poll, and further back on `older`; the prompt `sent` to it while its transcript does
+ * not hold it yet. A Structured session's comes from its live stream instead (useFollowedChat).
  */
-export function useChat(sessionId: string, sent?: SentPrompt) {
-  const [count, setCount] = useState(PAGE);
+/** What a chat view reads, from the transcript (useChat) or the live stream (useFollowedChat). */
+export type ChatRead = {
+  chat: SessionChat | undefined;
+  error: CommandError | undefined;
+  sending: SentPrompt | undefined;
+  /** Whether a look further back is still reading. */
+  loadingOlder: boolean;
+  older: () => void;
+};
+
+export function useChat(sessionId: string, sent?: SentPrompt): ChatRead {
+  const [count, setCount] = useState(CHAT_PAGE);
   const read = useCommand('sessions.chat', { id: sessionId, count });
   // A look further back reads anew: keep the shorter chat in view until it answers.
   const last = useRef<SessionChat>(undefined);
@@ -57,7 +68,7 @@ export function useChat(sessionId: string, sent?: SentPrompt) {
     /** Whether a look further back is still reading. */
     loadingOlder: !read.data && Boolean(last.current),
     older: () => {
-      if (chat?.more) setCount((shown) => shown + PAGE);
+      if (chat?.more) setCount((shown) => shown + CHAT_PAGE);
     },
   };
 }

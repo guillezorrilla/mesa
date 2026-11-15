@@ -230,7 +230,6 @@ export function SessionsScreen(
                 ? () => side.open !== 'diff' && side.toggle('diff')
                 : undefined
             }
-            onOpenTerminal={() => view.choose('terminal')}
             terminal={props.terminalPreferences}
           />
         )}

@@ -14,6 +14,7 @@ export {
 export { fakeBridge } from './fakeBridge';
 export {
   fakeFileDrops,
+  fakeFollows,
   fakePlatform,
   fakeSessionEvents,
   fakeTerminals,

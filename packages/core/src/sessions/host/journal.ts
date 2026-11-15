@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 // A Structured session's journal (ADR-0029): every line its agent printed and every message Mesa
@@ -37,6 +37,15 @@ export function journalEntries(lines: readonly string[]) {
   }
   return entries;
 }
+
+/** How many bytes session `id`'s journal holds, 0 when it has none: a cheap look for growth. */
+export const journalSize = (dir: string, id: string) => {
+  try {
+    return statSync(journalFile(dir, id)).size;
+  } catch {
+    return 0;
+  }
+};
 
 /** The journal's lines, its last `tail` when given; none when it has no journal. */
 export function readJournal(dir: string, id: string, tail?: number): string[] | undefined {

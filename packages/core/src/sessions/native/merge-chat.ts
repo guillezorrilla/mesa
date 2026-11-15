@@ -30,5 +30,7 @@ export function mergeChat(history: ChatItem[], live: ChatItem[]): ChatItem[] {
     const overlap = Math.min(history.length, live.length - from);
     if (matches(0, from, overlap)) return [...history, ...live.slice(from + overlap)];
   }
-  return [...history, ...live];
+  // No place lines up (an item one source has and the other lacks): what the transcript has
+  // already is not shown again.
+  return [...history, ...live.filter((item) => !history.some((had) => same(had, item)))];
 }

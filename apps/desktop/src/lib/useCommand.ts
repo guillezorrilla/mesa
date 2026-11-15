@@ -48,7 +48,7 @@ export function useRun() {
   );
 }
 
-type CommandError = Extract<Result<unknown>, { ok: false }>['error'];
+export type CommandError = Extract<Result<unknown>, { ok: false }>['error'];
 
 /**
  * For a read that refreshes by itself: alerts a failure when it first appears or changes, not

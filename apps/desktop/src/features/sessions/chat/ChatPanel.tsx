@@ -1,6 +1,7 @@
-import type { Config, SessionImage, TreeRow } from '@mesa/core';
+import type { ChatItem, Config, SessionImage, TreeRow } from '@mesa/core';
 import { ArrowDown } from 'lucide-react';
 import { Fragment, useLayoutEffect, useRef, useState } from 'react';
+import { AnsiLines } from '@/components/AnsiLines';
 import { MarkdownView } from '@/components/MarkdownView';
 import { Muted } from '@/components/Muted';
 import { said } from '@/components/Toast';
@@ -8,20 +9,17 @@ import { Button } from '@/components/ui/button';
 import { PROSE } from '@/features/vault/NoteMarkdown';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useAct } from '@/lib/useAct';
-import { useCall, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { awaitsAnswer, PromptCard } from '../answer/PromptCard';
 import type { SentPrompt } from '../selected/useSessionPrompt';
 import { ChatComposer } from './ChatComposer';
-import { CommandCard } from './CommandCard';
-import { type ChatEntry, chatItems, isCommand } from './commandMarkers';
 import { EditedFiles } from './EditedFiles';
 import { MessageTime } from './MessageTime';
 import { SessionControlsPanel } from './SessionControlsPanel';
 import { StepRun } from './StepRun';
 import { turnEdits } from './turnEdits';
-import { useChat } from './useChat';
-import { useCommandMarkers } from './useCommandMarkers';
+import { type ChatRead, useChat } from './useChat';
+import { useFollowedChat } from './useFollowedChat';
 
 /** How near an end of the list counts as at it, in pixels. */
 const NEAR = 40;
@@ -31,14 +29,7 @@ const NEAR = 40;
  */
 const COLUMN = 'mx-auto w-full max-w-[78rem] px-6';
 
-/**
- * The selected session as a chat over its terminal: the person's prompts and its agent's replies
- * from its transcript, oldest at the top, and a composer that types into the same terminal. It
- * opens at the bottom and follows new replies while there; scrolled up, it holds still and offers
- * New; at the top it reads further back. A slash command shows as a command card, live with its
- * panel while it is the last one sent. A turn that changed files closes with their card.
- */
-export function ChatPanel(props: {
+type ChatPanelProps = {
   sessionId: string;
   /** The session's row, for the prompt it waits on. */
   row?: TreeRow;
@@ -53,20 +44,38 @@ export function ChatPanel(props: {
   onClearImage?: () => void;
   /** Opens the session's diff, for an Edited card's See all; none when it has no diff. */
   onOpenDiff?: () => void;
-  onOpenTerminal: () => void;
-  /** The profile's terminal settings, whose colours command cards draw in. */
+  /** The profile's terminal settings, whose colours a command's output draws in. */
   terminal?: Config['terminal'];
-}) {
-  const { chat, error, sending, loadingOlder, older } = useChat(props.sessionId, props.sent);
-  const markers = useCommandMarkers(props.sessionId, props.sent);
-  const run = useRun();
-  const call = useCall();
-  const pressKey = async (key: string) => {
-    if (!(await run('sessions.keys', { id: props.sessionId, keys: [key] }))) return;
-    // A look now: a picker reads as waiting-question, which refuses the next send until the board
-    // sees it closed, else up to its 10 s poll later.
-    void call('sessions.list');
-  };
+};
+
+/** Whether a session's chat comes from its host's live stream: a Structured one (ADR-0029). */
+const followedRow = (row?: TreeRow) => Boolean(row?.managed && row.view === 'structured');
+
+/**
+ * The selected session as a chat: the person's prompts and its agent's replies, oldest at the
+ * top, and a composer that sends to the same session. A Structured session's chat comes from its
+ * host's live stream (a reply grows as it is written); another's from its transcript. It opens at
+ * the bottom and follows new replies while there; scrolled up, it holds still and offers New; at
+ * the top it reads further back. A slash command shows with its output. A turn that changed files
+ * closes with their card. A view switch swaps the source, as the two are separate components.
+ */
+export function ChatPanel(props: ChatPanelProps) {
+  return followedRow(props.row) ? <FollowedChat {...props} /> : <TranscriptChat {...props} />;
+}
+
+function FollowedChat(props: ChatPanelProps) {
+  return <ChatView {...props} read={useFollowedChat(props.sessionId, props.sent)} />;
+}
+
+function TranscriptChat(props: ChatPanelProps) {
+  return <ChatView {...props} read={useChat(props.sessionId, props.sent)} />;
+}
+
+/** Whether `prompt` is a slash command, which shows with its output rather than as a bubble. */
+const isCommand = (prompt: string) => /^\/\S/.test(prompt.trimStart());
+
+function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead }) {
+  const { chat, error, sending, loadingOlder, older } = read;
   const platform = usePlatform();
   const { act } = useAct();
   const scroller = useRef<HTMLDivElement>(null);
@@ -75,9 +84,10 @@ export function ChatPanel(props: {
   const fromBottom = useRef<number>(undefined);
   const [fresh, setFresh] = useState(false);
   const messages = chat?.messages ?? [];
-  const items = chatItems(messages, markers.list);
   const edited = turnEdits(messages);
-  const newest = `${messages.length}:${messages.at(-1)?.id}:${sending?.at}:${markers.frames}`;
+  // The last item's text too: a reply growing on the live stream keeps the view at the bottom.
+  const last = messages.at(-1);
+  const newest = `${messages.length}:${last?.id}:${last && 'text' in last ? last.text.length : 0}:${sending?.at}`;
   const seen = useRef(newest);
   useLayoutEffect(() => {
     const view = scroller.current;
@@ -131,20 +141,13 @@ export function ChatPanel(props: {
               </Button>
             </li>
           )}
-          {items.map((item, index) => {
-            const files = item.message && edited.get(item.message);
+          {messages.map((message, index) => {
+            const files = edited.get(message);
             return (
               // Two prompts with the same words share an id: the place tells them apart.
               // biome-ignore lint/suspicious/noArrayIndexKey: messages are stateless and only prepend.
-              <Fragment key={`${index}:${item.message?.id ?? item.marker?.sentAt}`}>
-                <ChatRow
-                  item={item}
-                  live={item.marker !== undefined && item.marker === markers.live}
-                  onCopyCode={copy}
-                  onKey={(key) => void pressKey(key)}
-                  onOpenTerminal={props.onOpenTerminal}
-                  terminal={props.terminal}
-                />
+              <Fragment key={`${index}:${message.id}`}>
+                <ChatRow message={message} onCopyCode={copy} terminal={props.terminal} />
                 {files && (
                   <li>
                     <EditedFiles files={files} onSeeAll={props.onOpenDiff} />
@@ -207,32 +210,34 @@ const REPLY =
 
 /**
  * One row: the person's message as a plain bubble on the right, the agent's as Markdown, a run of
- * steps as its list, a slash command as its card. A message shows its time on hover.
+ * steps as its list, a slash command with its output. A message shows its time on hover.
  */
 function ChatRow(props: {
-  item: ChatEntry;
-  live: boolean;
+  message: ChatItem;
   onCopyCode: (code: string) => void;
-  onKey: (key: string) => void;
-  onOpenTerminal: () => void;
-  /** The profile's terminal settings, whose colours command cards draw in. */
+  /** The profile's terminal settings, whose colours a command's output draws in. */
   terminal?: Config['terminal'];
 }) {
-  const { message, marker } = props.item;
-  if (message?.from === 'steps') return <StepRun run={message} />;
-  if (!message || message.from === 'command')
+  const { message } = props;
+  if (message.from === 'steps') return <StepRun run={message} />;
+  if (message.from === 'command')
     return (
       <li className="flex">
-        <CommandCard
-          command={message?.text ?? marker?.command ?? ''}
-          frame={marker?.output}
-          output={message?.output}
-          error={message?.error}
-          live={props.live}
-          onKey={props.onKey}
-          onOpenTerminal={props.onOpenTerminal}
-          terminal={props.terminal}
-        />
+        <div
+          data-testid="command-output"
+          className="flex w-full flex-col gap-2 rounded-lg border bg-card p-3"
+        >
+          <code className="font-mono text-sm">{message.text}</code>
+          {message.output ? (
+            <AnsiLines
+              lines={message.output.split('\n')}
+              terminal={props.terminal}
+              className={cn(message.error && 'ring-1 ring-destructive')}
+            />
+          ) : (
+            <Muted size="xs">No output</Muted>
+          )}
+        </div>
       </li>
     );
   return (
