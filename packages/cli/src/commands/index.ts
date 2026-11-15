@@ -17,6 +17,7 @@ import {
 } from './browser.js';
 import { chat } from './chat.js';
 import { check } from './check.js';
+import { commands } from './commands.js';
 import { config, configSet } from './config.js';
 import { daily } from './daily.js';
 import { decide } from './decide.js';
@@ -162,6 +163,7 @@ export const COMMANDS: Command[] = [
   browserClear,
   browserExternal,
   chat,
+  commands,
   config,
   configSet,
   dependency,

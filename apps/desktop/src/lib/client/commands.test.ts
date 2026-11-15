@@ -15,6 +15,7 @@ import { reviewCommands } from './review';
 import { sessionsCommands } from './sessions';
 import { settingsCommands } from './settings';
 import { skillsCommands } from './skills';
+import { slashCommandsCommands } from './slash';
 import { sourcesCommands } from './sources';
 import { usageCommands } from './usage';
 import { vaultCommands } from './vault';
@@ -39,6 +40,7 @@ test('no command name is defined by two domain tables', () => {
     sessionsCommands,
     settingsCommands,
     skillsCommands,
+    slashCommandsCommands,
     sourcesCommands,
     usageCommands,
     vaultCommands,

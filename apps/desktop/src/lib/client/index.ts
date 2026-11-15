@@ -19,6 +19,7 @@ import { reviewCommands } from './review';
 import { sessionsCommands } from './sessions';
 import { settingsCommands } from './settings';
 import { skillsCommands } from './skills';
+import { slashCommandsCommands } from './slash';
 import { sourcesCommands } from './sources';
 import type { Spec } from './spec';
 import { tasksCommands } from './tasks';
@@ -47,6 +48,7 @@ const COMMANDS = {
   ...impactCommands,
   ...worktreesCommands,
   ...skillsCommands,
+  ...slashCommandsCommands,
   ...instructionsCommands,
   ...phoneCommands,
   ...sourcesCommands,
