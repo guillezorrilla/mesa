@@ -3,8 +3,9 @@ import { counted } from '../../lib/format.js';
 import { MesaError } from '../../lib/result.js';
 import { joinWarnings } from '../../receipts/recorder.js';
 import { applyEach } from '../record/each.js';
-import { projectLabel } from '../record/general.js';
+import { projectLabel, projectScope } from '../record/general.js';
 import { interrupted, isOver, recoverable, resumable } from '../record/lifecycle.js';
+import { recordAgent, type View } from '../record/record.js';
 import {
   launchGuardrail,
   markEnded,
@@ -19,12 +20,14 @@ import { handoffSession, stopHandedOff } from '../start/handoff.js';
 import { startQueued } from '../start/queue.js';
 import { resumeSession } from '../start/resume.js';
 import { swapAgent } from '../start/swap.js';
+import { switchView } from '../start/switch-view.js';
 import type { SessionDeps } from './deps.js';
 import type { lifecycleActions } from './lifecycle.js';
 
 /**
  * Work carried on from a session or a conversation: a handoff, an adoption, a resume (of one, or of
- * every recoverable one), a swap, a fork, and a queued session's dependencies and start.
+ * every recoverable one), a swap, a view switch, a fork, and a queued session's dependencies and
+ * start.
  */
 export function continueActions(
   ctx: MesaContext,
@@ -232,6 +235,23 @@ export function continueActions(
         },
         () => swapAgent({ ...openDeps(), eventsDir: paths.events }, id, agent),
       ).then((recorded) => ({ ...recorded, result: recorded.result.record })),
+    /** Session `id` switched to Structured or Terminal view (switchView), with its receipt. */
+    switchView: (id: string, to: View, opts: { interrupt?: boolean } = {}) =>
+      record(
+        {
+          type: 'session',
+          summary: (r) =>
+            r.switched ? `Switched session ${id} to ${to} view` : `Session ${id} was in ${to} view`,
+          failure: `Could not switch session ${id} to ${to} view`,
+          warning: (r) => r.warning,
+          project: (r) => projectScope(r.record.project),
+          session: () => id,
+          agent: (r) => recordAgent(r.record),
+          inputs: { id, to, ...(opts.interrupt ? { interrupt: true } : {}) },
+          outputs: (r) => ({ switched: r.switched, window: r.record.tmux.window }),
+        },
+        () => switchView({ ...openDeps(), sleep: ctx.sleep }, id, to, opts),
+      ),
     fork: (id: string, opts: { branch?: string; base?: string } = {}) =>
       recordStart(
         ctx,

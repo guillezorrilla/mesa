@@ -15,6 +15,7 @@ export function SegmentedControl<T extends string | number>(props: {
   name?: string;
   /** Stretches it to its container, each option an equal share, as tall as a select. */
   wide?: boolean;
+  disabled?: boolean;
   className?: string;
 }) {
   const key = (value: T | undefined) => (value === undefined ? undefined : String(value));
@@ -22,6 +23,7 @@ export function SegmentedControl<T extends string | number>(props: {
     <RadioGroup.Root
       aria-label={props.label}
       name={props.name}
+      disabled={props.disabled}
       value={key(props.value)}
       defaultValue={key(props.defaultValue)}
       onValueChange={(picked) => {

@@ -79,6 +79,16 @@ export async function listClaudeProcesses({
   });
 }
 
+/** The live claude process running conversation `sessionId`, if one does (one per conversation). */
+export async function runningConversation(
+  deps: Parameters<typeof listClaudeProcesses>[0],
+  sessionId: string,
+): Promise<AgentProcess | undefined> {
+  return (await listClaudeProcesses(deps)).find(
+    (p) => p.agentSessionId === sessionId && p.pid && p.nativeState !== 'stopped',
+  );
+}
+
 /** What each listed status means as a session state (docs/spikes/state-signals.md). */
 const LISTED: Record<string, AgentState> = {
   idle: 'idle',

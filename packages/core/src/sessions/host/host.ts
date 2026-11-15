@@ -1,5 +1,5 @@
 import { AGENTS } from '../../agents/agents.js';
-import { listClaudeProcesses } from '../../agents/claude/listing.js';
+import { runningConversation } from '../../agents/claude/listing.js';
 import { claudeTranscripts } from '../../agents/claude/paths.js';
 import { transcriptFile } from '../../agents/claude/transcripts.js';
 import type { Mounts } from '../../agents/mesa-mount.js';
@@ -70,11 +70,7 @@ export async function hostSession(
   // shortcut: Codex's listing reads rollouts, not processes, so only a second host is refused for
   // it (the socket); a codex TUI on the thread outside Mesa is not seen.
   const running =
-    agentName === 'claude'
-      ? (await listClaudeProcesses(deps)).find(
-          (p) => p.agentSessionId === sessionId && p.pid && p.nativeState !== 'stopped',
-        )
-      : undefined;
+    agentName === 'claude' && sessionId ? await runningConversation(deps, sessionId) : undefined;
   if (running)
     throw new MesaError(
       'usage',

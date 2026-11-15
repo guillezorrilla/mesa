@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { PromptCard } from './answer/PromptCard';
 import { ChatPanel } from './chat/ChatPanel';
+import { SwitchViewDialog } from './chat/SwitchViewDialog';
 import { useSessionView } from './chat/useSessionView';
 import { type OpenDialog, SessionDialogs } from './dialogs/SessionDialogs';
 import { useDialogRequest } from './dialogs/useDialogRequest';
@@ -80,7 +81,7 @@ export function SessionsScreen(
     closeDialog: close,
   });
   const side = useSidePanel(props.selectedSession);
-  const view = useSessionView(selected, props.terminalPreferences?.sessionView ?? 'terminal');
+  const view = useSessionView(selected, props.terminalPreferences?.sessionView ?? 'terminal', act);
   const chat = Boolean(props.selectedSession) && view.view === 'chat';
   const commands = useSessionCommands({
     act,
@@ -125,6 +126,7 @@ export function SessionsScreen(
           onTogglePanel={side.toggle}
           onDialog={setDialog}
           view={view.available ? view.view : undefined}
+          switching={view.switching}
           onView={view.choose}
         >
           {selected && (
@@ -166,6 +168,14 @@ export function SessionsScreen(
           />
           {grid.notice && <Muted role="status">{grid.notice}</Muted>}
         </>
+      )}
+      {view.asking && (
+        <SwitchViewDialog
+          to={view.asking}
+          disabled={acting}
+          onConfirm={view.confirm}
+          onCancel={view.cancel}
+        />
       )}
       <SessionDialogs
         dialog={dialog}

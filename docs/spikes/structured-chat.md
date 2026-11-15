@@ -134,4 +134,4 @@ Order: 1, 2, 3, then 4 and 8 in parallel, then 5, 6, 7, 9, 10, 11. Sizes in agen
 
 ## Reproduce
 
-`python3 docs/spikes/structured-chat/claude_stream.py <dir> slash|perm|interrupt|resume [session id]`, `init_time.py <dir> <session id> <runs>`, `tui_resume.sh <dir> <session id> <runs>` (private tmux server `-L spikechat`), `codex_appserver.py <dir> start|approval|steer|latency|compact|hooks|resume [thread id]` and `codex_tui_resume.sh <dir> <thread id> <runs>` (private tmux server `-L spikecodex`), both with a throwaway `CODEX_HOME`.
+`python3 docs/spikes/structured-chat/claude_stream.py <dir> slash|perm|interrupt|resume [session id]`, `init_time.py <dir> <session id> <runs>`, `tui_resume.sh <dir> <session id> <runs>` (private tmux server `-L spikechat`), `codex_appserver.py <dir> start|approval|steer|latency|compact|hooks|resume [thread id]` and `codex_tui_resume.sh <dir> <thread id> <runs>` (private tmux server `-L spikecodex`), both with a throwaway `CODEX_HOME`. `switch_time.py <profile> <session> <runs>` times `mesa sessions view` both ways (#1201).

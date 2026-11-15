@@ -8,7 +8,7 @@ import { supervisionKey, supervisionState } from '../../decisions/supervision.js
 import type { SystemOneProvider } from '../../decisions/systemone.js';
 import { MesaError } from '../../lib/result.js';
 import { hasConversation } from '../native/conversation.js';
-import type { SessionRecord } from '../record/record.js';
+import { quitting, type SessionRecord } from '../record/record.js';
 import { FINAL_STATES, isAgentState } from '../record/states.js';
 import type { SessionStore } from '../record/store.js';
 import { unreadOn } from '../record/unread.js';
@@ -142,8 +142,9 @@ export async function managedRow(
   const reader = AGENTS[found.agent];
   const listed = listedAs && reader.listing.state(listedAs) ? listedAs : undefined;
   // A stopped session keeps its state, and swaps nothing, so its hook log is not read.
-  // Since its last wake: the slept agent's SessionEnd no longer speaks for it.
-  const woke = found.events.filter((e) => e.type === 'woke').at(-1)?.at ?? '';
+  // Since its last wake or view switch: the stopped agent's SessionEnd no longer speaks for it.
+  const woke =
+    found.events.filter((e) => e.type === 'woke' || e.type === 'switched').at(-1)?.at ?? '';
   const logged = found.endedAt ? [] : deps.events(found.id);
   const events = logged.filter((e) => e.at >= woke);
   const event = stateEvent(found.agent, events);
@@ -153,7 +154,7 @@ export async function managedRow(
     background: found.background,
     last: found.lastState,
     // A sleeping session's state stands, as a stopped one's does, until it wakes.
-    ended: Boolean(found.endedAt || found.sleeping),
+    ended: Boolean(found.endedAt) || quitting(found),
     ...(event ? { event } : {}),
     ...(listed ? { listed } : {}),
     window: window

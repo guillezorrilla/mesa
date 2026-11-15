@@ -17,7 +17,7 @@ import { decisionStatus, decisionsReach } from '../native/decision-status.js';
 import { mesaPointer } from '../native/instructions.js';
 import { sessionFolder } from '../record/folder.js';
 import { isOver } from '../record/lifecycle.js';
-import { recordAgent, type SessionRecord } from '../record/record.js';
+import { quitting, recordAgent, type SessionRecord } from '../record/record.js';
 import { markEnded, markExited, startedOutputs } from '../record/session-receipt.js';
 import { endRun } from '../run/end.js';
 import type { SessionAssistance } from '../service/deps.js';
@@ -242,8 +242,9 @@ export function endSignals(
       }
       const state =
         event && parentHook(event) && AGENTS[event.agent].hookState?.(event.event, event.payload);
-      // A sleep's quit ends the agent, not the session: nothing queued after it starts.
-      if (event?.event === 'SessionEnd' && id && state && !store.find(id)?.sleeping)
+      // A sleep's or a switch's quit ends the agent, not the session: nothing queued after starts.
+      const found = id ? store.find(id) : undefined;
+      if (event?.event === 'SessionEnd' && id && state && !(found && quitting(found)))
         await startAfter(id);
       // An Explore subagent the agent starts without a model runs on Haiku (exploreOnHaiku).
       if (event?.event === 'PreToolUse' && event.agent === 'claude') {
