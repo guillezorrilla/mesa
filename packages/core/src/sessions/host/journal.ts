@@ -18,6 +18,26 @@ export function appendJournal(dir: string, id: string, entry: JournalEntry) {
   appendFileSync(journalFile(dir, id), `${JSON.stringify(entry)}\n`, { mode: 0o600 });
 }
 
+/**
+ * A journal's lines as entries, oldest first: what Mesa sent, or the event line the agent printed,
+ * for that agent's parser. A line that is not JSON is skipped.
+ */
+export function journalEntries(lines: readonly string[]) {
+  const entries: { at: string; sent?: Record<string, unknown>; event?: string }[] = [];
+  for (const line of lines) {
+    let entry: { at?: string; sent?: Record<string, unknown>; event?: unknown };
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const at = entry.at ?? '';
+    if (entry.sent) entries.push({ at, sent: entry.sent });
+    else if (entry.event !== undefined) entries.push({ at, event: JSON.stringify(entry.event) });
+  }
+  return entries;
+}
+
 /** The journal's lines, its last `tail` when given; none when it has no journal. */
 export function readJournal(dir: string, id: string, tail?: number): string[] | undefined {
   const file = journalFile(dir, id);

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { hostedSession } from '../../testing/index.js';
+import {
+  agentWorld,
+  hostedSession,
+  profilePaths,
+  projectProfile,
+  scriptedSpawner,
+  shortTempDir,
+} from '../../testing/index.js';
+import { askHost, hostSocket } from '../host/socket.js';
 
 // Requests as claude 2.1.325 sent them in stream-json mode (measured live, #1201).
 const line = (event: object) => JSON.stringify(event);
@@ -118,6 +126,31 @@ describe("a Structured session's permission request", () => {
     }
   });
 
+  it('denies with a reason given beside deny', async () => {
+    const w = await hostedSession([INIT, WRITE]);
+    await w.mesa.sessions.answer(w.record.id, { option: 'deny', text: 'wrong folder' });
+    expect(responseTo(w.fake.sent, 'req-w')?.response).toEqual({
+      behavior: 'deny',
+      message: 'wrong folder',
+    });
+    w.host.stop();
+    await w.host.done;
+  });
+
+  it('waits on nothing once Mesa interrupts the turn, or its host is gone', async () => {
+    const w = await hostedSession([INIT, WRITE]);
+    await askHost(hostSocket(profilePaths(w.home, 'default').hosts, w.record.id), {
+      type: 'interrupt',
+    });
+    await expect(w.mesa.sessions.prompt(w.record.id)).rejects.toThrow(/not waiting/);
+    w.host.stop();
+    await w.host.done;
+    const gone = await hostedSession([INIT, WRITE]);
+    gone.host.stop();
+    await gone.host.done;
+    await expect(gone.mesa.sessions.prompt(gone.record.id)).rejects.toThrow(/not waiting/);
+  });
+
   it('refuses an answer meant for another request', async () => {
     const w = await hostedSession([INIT, WRITE]);
     await expect(
@@ -129,7 +162,44 @@ describe("a Structured session's permission request", () => {
   });
 });
 
+/** QUESTION with its question changed by `change`. */
+const asking = (change: (question: Record<string, unknown>) => object) => {
+  const event = JSON.parse(QUESTION);
+  const [question] = event.request.input.questions;
+  event.request.input.questions = [change(question)].flat();
+  return JSON.stringify(event);
+};
+
 describe("a Structured session's AskUserQuestion", () => {
+  it('takes several answers to a multi-select question, joined', async () => {
+    const w = await hostedSession([INIT, asking((q) => ({ ...q, multiSelect: true }))]);
+    expect((await w.mesa.sessions.prompt(w.record.id)) as { summary: string }).toMatchObject({
+      summary: 'Tea or coffee? (choose one or more: 1,3)',
+    });
+    const { result } = await w.mesa.sessions.answer(w.record.id, { option: '1,2' });
+    expect(result).toMatchObject({ option: '1,2', answer: 'Tea, Coffee' });
+    expect(responseTo(w.fake.sent, 'req-q')?.response).toMatchObject({
+      updatedInput: { answers: { 'Tea or coffee?': 'Tea, Coffee' } },
+    });
+    w.host.stop();
+    await w.host.done;
+  });
+
+  it('declines one Mesa cannot show with the typed reason', async () => {
+    const w = await hostedSession([INIT, asking((q) => [q, { ...q, question: 'Milk?' }])]);
+    expect(await w.mesa.sessions.prompt(w.record.id)).toMatchObject({ status: 'unsupported' });
+    await expect(w.mesa.sessions.answer(w.record.id, { option: '1' })).rejects.toThrow(
+      /Mesa answers one question/,
+    );
+    await w.mesa.sessions.answer(w.record.id, { text: 'ask me one at a time' });
+    expect(responseTo(w.fake.sent, 'req-q')?.response).toEqual({
+      behavior: 'deny',
+      message: 'ask me one at a time',
+    });
+    w.host.stop();
+    await w.host.done;
+  });
+
   it('offers the answers by number and sends the chosen one as the answer', async () => {
     const w = await hostedSession([INIT, QUESTION]);
     expect(await w.mesa.sessions.prompt(w.record.id)).toMatchObject({
@@ -168,5 +238,49 @@ describe("a Structured session's AskUserQuestion", () => {
       s.host.stop();
       await s.host.done;
     }
+  });
+});
+
+describe("a Structured Codex session's approval", () => {
+  it('is its pending prompt by its command, and Allow and Deny accept and decline it', async () => {
+    const fake = scriptedSpawner();
+    const agents = agentWorld();
+    const { mesa } = projectProfile(agents.run, { home: shortTempDir(), spawn: fake.spawn });
+    const { result: record } = await mesa.sessions.open('lantern-cove', {
+      view: 'structured',
+      agent: 'codex',
+      goal: 'make a file',
+    });
+    const host = await mesa.sessions.host(record.id, () => undefined);
+    const approval = (id: number, command: string) => ({
+      method: 'item/commandExecution/requestApproval',
+      id,
+      params: { threadId: 'th-1', turnId: 'tu-1', itemId: `it-${id}`, command },
+    });
+    fake.push(
+      { id: 'initialize#1', result: {} },
+      { id: 'thread/start#2', result: { thread: { id: 'th-1' }, model: 'gpt-invented' } },
+      { method: 'turn/started', params: { turn: { id: 'tu-1' } } },
+      approval(90, 'touch made.txt'),
+    );
+    expect(await mesa.sessions.prompt(record.id)).toMatchObject({
+      status: 'pending',
+      kind: 'permission',
+      tool: 'Command',
+      summary: 'touch made.txt',
+      options: [
+        { id: 'allow', label: 'Allow' },
+        { id: 'deny', label: 'Deny' },
+      ],
+    });
+    await mesa.sessions.answer(record.id, { option: 'allow' });
+    expect(fake.sent).toContainEqual({ id: 90, result: { decision: 'accept' } });
+    fake.push(approval(91, 'rm -rf build'));
+    await mesa.sessions.answer(record.id, { text: 'not the build folder' });
+    expect(fake.sent).toContainEqual({ id: 91, result: { decision: 'decline' } });
+    fake.push({ method: 'serverRequest/resolved', params: { requestId: 91 } });
+    await expect(mesa.sessions.prompt(record.id)).rejects.toThrow(/not waiting/);
+    host.stop();
+    await host.done;
   });
 });

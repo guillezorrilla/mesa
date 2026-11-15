@@ -103,8 +103,9 @@ export async function readPrompt(deps: PromptDeps, id: string) {
  * its journal (structured.ts), not its pane.
  */
 export async function pendingPrompt(deps: PromptDeps, id: string): Promise<PendingPrompt> {
-  if (deps.store.get(id).view === 'structured') {
-    const found = structuredPrompt(deps.journals, id);
+  const record = deps.store.get(id);
+  if (record.view === 'structured') {
+    const found = await structuredPrompt(deps, record);
     if (found) return found.prompt;
     throw new MesaError('usage', `session ${id} is not waiting on a prompt`);
   }

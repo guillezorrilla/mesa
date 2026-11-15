@@ -4,7 +4,7 @@ import { typeable } from '../../lib/untrusted-text.js';
 import type { TmuxBackend } from '../tmux/backend.js';
 import type { Caller } from '../window/caller.js';
 import { type PendingPrompt, type PromptDeps, readPrompt } from './pending.js';
-import { answerRequest, structuredPrompt } from './structured.js';
+import { answerStructured, structuredPrompt } from './structured.js';
 
 /** Where a person answered from, as the receipt names it. */
 export const ANSWER_VIAS = ['cli', 'app', 'phone'] as const;
@@ -56,39 +56,33 @@ export async function answerPrompt(
   if (deps.caller().inMesaWindow) {
     throw usage(`only a person answers a prompt; answer it there (mesa attach ${id})`);
   }
-  if ((choice.option === undefined) === (choice.text === undefined)) {
-    throw usage(
-      choice.text === undefined ? 'pass an option or --text' : 'pass an option or --text, not both',
-    );
-  }
   const text = choice.text === undefined ? undefined : typeable(choice.text);
   if (text !== undefined && !text.trim()) throw usage('nothing to answer: the text is empty');
   const record = deps.store.get(id);
   if (record.view === 'structured') {
-    const found = structuredPrompt(deps.journals, id);
-    const { prompt } = found ?? {};
-    if (!found || prompt?.status !== 'pending')
-      throw stale(`session ${id} waits on no prompt Mesa can answer now`);
-    if (choice.prompt !== undefined && choice.prompt !== prompt.id)
+    const found = await structuredPrompt(deps, record);
+    if (!found) throw stale(`session ${id} waits on no prompt Mesa can answer now`);
+    const { prompt, waiting } = found;
+    if (choice.prompt !== undefined && choice.prompt !== waiting.requestId)
       throw stale(`session ${id} now waits on another prompt (see mesa prompt ${id})`);
-    const answered = await answerRequest(
-      deps.hosts,
-      id,
-      { request: found.request, prompt },
-      {
-        ...choice,
-        ...(text === undefined ? {} : { text }),
-      },
-    );
+    const answered = await answerStructured(deps.hosts, id, found, {
+      ...(choice.option === undefined ? {} : { option: choice.option }),
+      ...(text === undefined ? {} : { text }),
+    });
     return {
       answered: true,
       session: id,
       project: record.project,
-      prompt: prompt.id,
-      kind: prompt.kind,
-      summary: prompt.summary,
+      prompt: waiting.requestId,
+      kind: prompt.status === 'pending' ? prompt.kind : 'question',
+      summary: prompt.status === 'pending' ? prompt.summary : waiting.tool,
       ...answered,
     };
+  }
+  if ((choice.option === undefined) === (choice.text === undefined)) {
+    throw usage(
+      choice.text === undefined ? 'pass an option or --text' : 'pass an option or --text, not both',
+    );
   }
   const read = await readPrompt(deps, id);
   const { prompt, target } = read;
