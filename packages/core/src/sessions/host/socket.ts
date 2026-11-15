@@ -25,15 +25,20 @@ const RequestSchema = z.discriminatedUnion('type', [
 ]);
 
 export type HostRequest = z.infer<typeof RequestSchema>;
-/** `queued`: a message sent while a turn runs, which claude takes when the turn ends. */
-export type HostReply = { ok: true; queued?: boolean } | { ok: false; error: string };
+/**
+ * `queued`: a message sent while a turn runs, which claude takes when the turn ends. `unsure`: the
+ * request was written but no answer came, so whether the host acted on it is unknown.
+ */
+export type HostReply =
+  | { ok: true; queued?: boolean }
+  | { ok: false; error: string; unsure?: true };
 
 export const hostSocket = (dir: string, id: string) => join(dir, `${id}.sock`);
 
 /** How long a client waits for a host's reply. */
 const ASK_TIMEOUT_MS = 5000;
 
-/** Sends `request` to the host at `path`; none when no host listens there. */
+/** Sends `request` to the host at `path`; none when no host listens there, so nothing was sent. */
 export function askHost(path: string, request: HostRequest): Promise<HostReply | undefined> {
   return new Promise((resolve) => {
     if (!existsSync(path)) return resolve(undefined);
@@ -42,8 +47,14 @@ export function askHost(path: string, request: HostRequest): Promise<HostReply |
       socket.destroy();
       resolve(reply);
     };
-    socket.setTimeout(ASK_TIMEOUT_MS, () => done(undefined));
-    socket.on('error', () => done(undefined));
+    let connected = false;
+    const lost = (error: string) =>
+      done(connected ? { ok: false, error, unsure: true } : undefined);
+    socket.on('connect', () => {
+      connected = true;
+    });
+    socket.setTimeout(ASK_TIMEOUT_MS, () => lost('the host did not answer'));
+    socket.on('error', () => lost('the host connection broke'));
     socket.setEncoding('utf8');
     const lines = lineSplitter((line) => {
       try {

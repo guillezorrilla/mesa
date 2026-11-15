@@ -5,9 +5,11 @@ import type { DecisionRecorder } from '../../decisions/types.js';
 import { currentBranch } from '../../git/ref.js';
 import { typeable } from '../../lib/untrusted-text.js';
 import { resolveCheckout } from '../../projects/checkout.js';
+import { findProject } from '../../projects/projects.js';
 import { receiptText } from '../../receipts/command.js';
 import { joinWarnings } from '../../receipts/recorder.js';
 import type { AnswerVia } from '../answer/answer.js';
+import { type ChatFollowLine, followChat, liveChat } from '../host/live-chat.js';
 import { openBrowserExternal } from '../input/browser-address.js';
 import {
   type BrowserAnnotationInput,
@@ -31,9 +33,11 @@ import { sessionChat } from '../native/chat.js';
 import { previewResponseReview, sessionResponses, sessionTranscript } from '../native/responses.js';
 import { projectScope } from '../record/general.js';
 import { sessionLabel } from '../record/labels.js';
-import { recordAgent } from '../record/record.js';
+import { recordAgent, type SessionRecord } from '../record/record.js';
 import { workingFolder } from '../signals/readings.js';
+import { folderOf } from '../start/launch.js';
 import { agentStarted, WAKE_WAIT_MS, wakeSession } from '../start/wake.js';
+import { windowOf } from '../window/window-name.js';
 import type { SessionDeps } from './deps.js';
 import type { lifecycleActions } from './lifecycle.js';
 
@@ -136,6 +140,7 @@ export function inputActions(
           chars: r.chars,
           from: r.from,
           ...(r.woke ? { woke: true } : {}),
+          ...(r.queued ? { queued: true } : {}),
           ...(r.override ? { override: r.override } : {}),
           ...(via ? { via } : {}),
         }),
@@ -147,7 +152,7 @@ export function inputActions(
         await ensureBackgroundView(id);
         const woke = await wakeFirst(id, prompt);
         const sent = await sendPrompt(
-          { store, tmux, clock: ctx.clock, caller, guard },
+          { store, tmux, clock: ctx.clock, caller, guard, hosts: ctx.paths.hosts },
           id,
           prompt,
           {
@@ -162,6 +167,23 @@ export function inputActions(
       },
     );
   };
+  /** What a Structured session's chat reads beside its transcript (live-chat.ts). */
+  const liveChatDeps = {
+    history: (id: string, count?: number) =>
+      sessionChat({ profile, store, home: ctx.home, env: ctx.env }, id, count),
+    record: (id: string) => store.get(id),
+    folder: (r: SessionRecord) => {
+      const project = projectScope(r.project);
+      return folderOf(r, project ? findProject(ctx.open(), project) : null);
+    },
+    windowAlive: async (r: SessionRecord) => {
+      const pane = await tmux.findWindow(windowOf(r));
+      return Boolean(pane && !pane.dead);
+    },
+    journals: ctx.paths.journals,
+    hosts: ctx.paths.hosts,
+    sleep: ctx.sleep,
+  };
   return {
     images: {
       preview: (id: string, path: string) =>
@@ -175,9 +197,18 @@ export function inputActions(
       ) =>
         sessionImagePrompt({ profile, store, absolute }, id, path, revision, expectedProfile, note),
     },
-    /** A session's chat: the person's prompts and its agent's replies, oldest first (sessionChat). */
-    chat: (id: string, count?: number) =>
-      sessionChat({ profile, store, home: ctx.home, env: ctx.env }, id, count),
+    /**
+     * A session's chat: the person's prompts and its agent's replies, oldest first (sessionChat);
+     * a Structured session's with its journal merged in, so a reply shows as it streams (liveChat).
+     */
+    chat: (id: string, count?: number) => liveChat(liveChatDeps, id, count),
+    /** The chat now, then each item as it changes, until `open` turns false or its host ends. */
+    chatFollow: (
+      id: string,
+      emit: (line: ChatFollowLine) => void,
+      open: () => boolean,
+      count?: number,
+    ) => followChat(liveChatDeps, id, emit, open, count),
     responses: {
       list: (id: string) => sessionResponses({ profile, store, home: ctx.home, env: ctx.env }, id),
       file: (id: string) => sessionTranscript({ store, home: ctx.home, env: ctx.env }, id),

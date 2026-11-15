@@ -3,6 +3,7 @@ import type { Guarded, Override } from '../../decisions/guardrail.js';
 import type { Clock } from '../../lib/clock.js';
 import { MesaError, toFail } from '../../lib/result.js';
 import { typeable } from '../../lib/untrusted-text.js';
+import { askHost, hostSocket } from '../host/socket.js';
 import { projectLabel, projectScope } from '../record/general.js';
 import { refuseRun, type SessionRecord, sessionEnded } from '../record/record.js';
 import { WAITING_STATES } from '../record/states.js';
@@ -25,6 +26,8 @@ export type Sent = {
   warning?: string;
   /** It slept, and the send woke it first (CONTEXT.md, Sleeping session). */
   woke?: true;
+  /** Sent to a Structured session mid-turn: its agent takes it when the turn ends (ADR-0029). */
+  queued?: true;
 };
 
 /** A prompt's length in characters (code points), as `chars` and receipts count it. */
@@ -87,6 +90,8 @@ export async function sendPrompt(
     caller: () => Caller;
     /** The guardrail: throws guardrail_blocked, or returns the override that let it through. */
     guard: (action: Guarded) => Promise<Override | undefined>;
+    /** Where Structured sessions' hosts listen (ADR-0029). */
+    hosts: string;
   },
   id: string,
   prompt: string,
@@ -131,15 +136,32 @@ export async function sendPrompt(
     project: projectScope(record.project),
   });
 
-  try {
-    // The checks above are done; sendText still refuses a pane that died since.
-    const text = sender ? `${header(sender)}\n${typed}` : typed;
-    const { submitDelayMs } = AGENTS[record.agent];
-    await deps.tmux.sendText(target, text, { force: true, submitDelayMs });
-  } catch (error) {
-    if (error instanceof MesaError && error.code === 'agent_unavailable') throw sessionEnded();
-    throw error;
-  }
+  const text = sender ? `${header(sender)}\n${typed}` : typed;
+  let queued = false;
+  if (record.view === 'structured') {
+    // A Structured session's agent reads its host's socket, not the window (ADR-0029).
+    const reply = await askHost(hostSocket(deps.hosts, id), { type: 'send', text });
+    if (!reply) throw sessionEnded();
+    // Refused by the host: nothing reached the agent, so a report can go again (typedNothing).
+    if (!reply.ok && !reply.unsure)
+      throw new MesaError('not_found', `session ${id}: ${reply.error}; send again`, {
+        safeNoSend: true,
+      });
+    if (!reply.ok)
+      throw new MesaError(
+        'agent_unavailable',
+        `session ${id}: ${reply.error}; it may have been sent`,
+      );
+    queued = reply.queued === true;
+  } else
+    try {
+      // The checks above are done; sendText still refuses a pane that died since.
+      const { submitDelayMs } = AGENTS[record.agent];
+      await deps.tmux.sendText(target, text, { force: true, submitDelayMs });
+    } catch (error) {
+      if (error instanceof MesaError && error.code === 'agent_unavailable') throw sessionEnded();
+      throw error;
+    }
   const chars = charCount(typed);
   const at = deps.clock().toISOString();
   // The prompt is typed now, so its events are best effort: one that cannot be written (a record
@@ -175,6 +197,7 @@ export async function sendPrompt(
     from: sender?.id ?? null,
     chars,
     ...(override ? { override } : {}),
+    ...(queued ? { queued: true as const } : {}),
     ...(problems.length
       ? { warning: `the prompt was typed, but ${problems.join('; ')}; do not send it again` }
       : {}),
