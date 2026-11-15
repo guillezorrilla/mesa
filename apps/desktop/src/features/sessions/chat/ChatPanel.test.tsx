@@ -30,7 +30,7 @@ test('chat shows the prompts as plain bubbles and the replies as Markdown, oldes
       ),
   });
   const byTestId = await renderWithMesa(
-    <ChatPanel sessionId="a1b2c3d4" acting={false} onSend={() => {}} />,
+    <ChatPanel sessionId="a1b2c3d4" acting={false} onOpenTerminal={() => {}} onSend={() => {}} />,
     bridge,
   );
   expect(calls).toContainEqual(['--json', 'chat', '--count', '20', '--', 'a1b2c3d4']);
@@ -46,7 +46,10 @@ test('chat shows the prompts as plain bubbles and the replies as Markdown, oldes
 test('Enter sends what is typed, Shift+Enter does not', async () => {
   const { bridge } = fakeBridge({ chat: () => envelope(chatOf([])) });
   const onSend = vi.fn();
-  await renderWithMesa(<ChatPanel sessionId="a1b2c3d4" acting={false} onSend={onSend} />, bridge);
+  await renderWithMesa(
+    <ChatPanel sessionId="a1b2c3d4" acting={false} onOpenTerminal={() => {}} onSend={onSend} />,
+    bridge,
+  );
   const field = document.querySelector<HTMLTextAreaElement>('[aria-label="Message a1b2c3d4"]');
   if (!field) throw new Error('no composer');
   field.value = 'Chart the tide';
@@ -61,7 +64,13 @@ test('a sent prompt shows as Sending until the transcript holds it', async () =>
   const { bridge } = fakeBridge({ chat: () => envelope(chatOf(messages)) });
   const sent = { id: 'a1b2c3d4', prompt: 'Chart the tide', at: Date.parse(at) };
   const byTestId = await renderWithMesa(
-    <ChatPanel sessionId="a1b2c3d4" acting={false} sent={sent} onSend={() => {}} />,
+    <ChatPanel
+      sessionId="a1b2c3d4"
+      acting={false}
+      onOpenTerminal={() => {}}
+      sent={sent}
+      onSend={() => {}}
+    />,
     bridge,
   );
   expect(byTestId('chat-messages')[0]?.textContent).toContain('Chart the tideSending');
@@ -75,7 +84,7 @@ test('Older messages reads further back', async () => {
     chat: (args) => envelope(chatOf([said('agent', `count ${args.at(-3)}`)], args.at(-3) === '20')),
   });
   const byTestId = await renderWithMesa(
-    <ChatPanel sessionId="a1b2c3d4" acting={false} onSend={() => {}} />,
+    <ChatPanel sessionId="a1b2c3d4" acting={false} onOpenTerminal={() => {}} onSend={() => {}} />,
     bridge,
   );
   const older = [...document.querySelectorAll('button')].find(
@@ -101,6 +110,7 @@ test("a guardrail's block shows beside the composer", async () => {
     <ChatPanel
       sessionId="a1b2c3d4"
       acting={false}
+      onOpenTerminal={() => {}}
       refused="Not sent to a1b2c3d4: the text holds a destructive command (rm -rf)"
       onSend={() => {}}
     />,
@@ -118,7 +128,10 @@ test('typing /us in the composer offers /usage and Tab completes it', async () =
         { name: 'model', description: 'Choose the model', source: 'builtin' },
       ]),
   });
-  await renderWithMesa(<ChatPanel sessionId="a1b2c3d4" acting={false} onSend={() => {}} />, bridge);
+  await renderWithMesa(
+    <ChatPanel sessionId="a1b2c3d4" acting={false} onOpenTerminal={() => {}} onSend={() => {}} />,
+    bridge,
+  );
   const field = document.querySelector<HTMLTextAreaElement>('[aria-label="Message a1b2c3d4"]');
   if (!field) throw new Error('no composer');
   const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
@@ -151,7 +164,7 @@ test('a run of steps shows as one collapsed row that opens to its steps in order
     chat: () => envelope(chatOf([said('you', 'Look'), run, said('agent', 'Done.')])),
   });
   const byTestId = await renderWithMesa(
-    <ChatPanel sessionId="a1b2c3d4" acting={false} onSend={() => {}} />,
+    <ChatPanel sessionId="a1b2c3d4" acting={false} onOpenTerminal={() => {}} onSend={() => {}} />,
     bridge,
   );
   const details = byTestId('chat-messages')[0]?.querySelector('details');
@@ -180,7 +193,13 @@ test('a session waiting on a permission shows its answer card and the composer s
       }),
   });
   const byTestId = await renderWithMesa(
-    <ChatPanel sessionId="a1b2c3d4" row={asking} acting={false} onSend={() => {}} />,
+    <ChatPanel
+      sessionId="a1b2c3d4"
+      row={asking}
+      acting={false}
+      onOpenTerminal={() => {}}
+      onSend={() => {}}
+    />,
     bridge,
   );
   expect(byTestId('session-prompt')[0]?.textContent).toContain('Allow Bash?');

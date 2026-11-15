@@ -86,10 +86,14 @@ test('the screen holds the window at the phone size and draws its pane with the 
   await at.end();
 });
 
-test('mesa type and mesa keys refuse an agent session and an unknown key', async () => {
+test('mesa type refuses an agent session, mesa keys drives its panel, and an unknown key is refused', async () => {
   const at = await servingPhone();
   const { id } = await livePhoneSession(at);
   await expect(at.mesa.sessions.terminal.type(id, 'ls')).rejects.toThrow('mesa send types into it');
+  // A command card's keys: an agent's picker is driven with arrows and Enter.
+  await at.mesa.sessions.terminal.keys(id, ['Down', 'Enter']);
+  const agent = at.world.windows.find((w) => w.env.MESA_SESSION_ID === id);
+  expect(agent?.keys.slice(-2)).toEqual(['Down', 'Enter']);
   const { id: shell } = (await at.mesa.sessions.open('lantern-cove', { terminal: true })).result;
   await expect(at.mesa.sessions.terminal.keys(shell, ['Delete'])).rejects.toThrow(
     'unknown keys Delete',

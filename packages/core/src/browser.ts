@@ -117,6 +117,7 @@ export { sessionProjects } from './sessions/record/session-projects.js';
 export { FINAL_STATES, WAITING_STATES } from './sessions/record/states.js';
 export { parseSessionUri, sessionUri } from './sessions/record/uri.js';
 export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/record/workflow-status.js';
+export { SEQUENCE } from './sessions/window/terminal-text.js';
 export { GUIDELINES } from './skills/guidelines.js';
 export { DESCENDANTS_CAP } from './sources/browse.js';
 export { describeSource, siteNames } from './sources/describe.js';

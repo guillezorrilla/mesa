@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { AGENTS } from '../../agents/agents.js';
 import { currentStep, type TranscriptStep } from '../../agents/steps.js';
+import { commandOf } from '../../agents/transcript-commands.js';
 import { promptOf } from '../../agents/transcripts.js';
 import { closesFence, opensFence } from '../../lib/code-fence.js';
 import type { Env } from '../../lib/process.js';
@@ -42,6 +43,19 @@ export type NativeResponse = {
  */
 export type NativePrompt = { revision: string; text: string; at?: string; newer: number };
 
+/**
+ * A slash command the person ran among the responses (transcript-commands), placed as a prompt is:
+ * the command as typed and what it printed, `error` when to stderr; its transcript line's revision.
+ */
+export type NativeCommand = {
+  revision: string;
+  command: string;
+  output?: string;
+  error?: true;
+  at?: string;
+  newer: number;
+};
+
 /** A step the agent took among the responses (agents/steps.ts), placed as a prompt is. */
 export type NativeStep = TranscriptStep & { newer: number };
 
@@ -49,6 +63,8 @@ export type SessionResponses = {
   rows: NativeResponse[];
   /** The person's prompts from the newest message back to the oldest response read, newest first. */
   prompts: NativePrompt[];
+  /** The slash commands the person ran among them, newest first. */
+  commands: NativeCommand[];
   /** What the agent did among the responses read, newest first. */
   steps: NativeStep[];
   /** The id of the step the agent is on now (currentStep), none when it is on none. */
@@ -120,6 +136,7 @@ export function sessionResponses(
     return {
       rows: [],
       prompts: [],
+      commands: [],
       steps: [],
       reviews,
       truncated: false,
@@ -129,6 +146,7 @@ export function sessionResponses(
     return {
       rows: [],
       prompts: [],
+      commands: [],
       steps: [],
       reviews,
       truncated: false,
@@ -140,6 +158,7 @@ export function sessionResponses(
     return {
       rows: [],
       prompts: [],
+      commands: [],
       steps: [],
       reviews,
       truncated: false,
@@ -149,6 +168,7 @@ export function sessionResponses(
   const current = currentStep({ messages, steps: placed });
   const rows: NativeResponse[] = [];
   const prompts: NativePrompt[] = [];
+  const commands: NativeCommand[] = [];
   const steps: NativeStep[] = [];
   let next = placed.length - 1;
   for (let i = messages.length - 1; i >= 0 && rows.length < limit; i--) {
@@ -166,6 +186,21 @@ export function sessionResponses(
         ...(message.at ? { at: message.at } : {}),
         newer: rows.length,
       });
+    const ran = message?.role === 'user' && !message.tool ? commandOf(message.text) : undefined;
+    if (message && ran && 'command' in ran) {
+      // What it printed is the next message, when it printed anything.
+      const next = messages[i + 1];
+      const printed = next?.role === 'user' ? commandOf(next.text) : undefined;
+      const output = printed && 'output' in printed ? printed : undefined;
+      commands.push({
+        revision: sha(message.line),
+        command: ran.command,
+        ...(output ? { output: output.output.slice(0, MAX_TEXT) } : {}),
+        ...(output?.error ? { error: true as const } : {}),
+        ...(message.at ? { at: message.at } : {}),
+        newer: rows.length,
+      });
+    }
     if (message?.role !== 'assistant') continue;
     const text = message.text.slice(0, MAX_TEXT);
     const cut = message.text.length > MAX_TEXT;
@@ -191,6 +226,7 @@ export function sessionResponses(
   return {
     rows,
     prompts,
+    commands,
     steps,
     ...(current ? { current } : {}),
     reviews,

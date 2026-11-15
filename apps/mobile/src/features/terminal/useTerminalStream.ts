@@ -1,3 +1,4 @@
+import { withoutChrome } from '@mesa/core/phone';
 import * as Clipboard from 'expo-clipboard';
 import { useIsFocused } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -7,7 +8,6 @@ import { useRepeatWhileActive } from '@/lib/useRepeatWhileActive';
 import { useMac } from '../mac/useMac';
 import { useMacUpdates } from '../mac/useMacUpdates';
 import { forXterm, fromPage, linesText, streamStep, type ToPage } from './page/pageMessages';
-import { withoutChrome } from './screenChrome';
 import { useStreamWatch } from './useStreamWatch';
 
 /** How often a terminal drawn from log lines asks for them again. */

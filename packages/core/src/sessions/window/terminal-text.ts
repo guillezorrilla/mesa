@@ -7,7 +7,7 @@
  * escape or line when one never ends, then the short escapes (a charset, the keypad, the cursor
  * saved).
  */
-const SEQUENCE =
+export const SEQUENCE =
   // biome-ignore lint/suspicious/noControlCharactersInRegex: escape sequences are what it matches.
   /\x1b\[[0-?]*[ -/]*[@-~]|\x1b[\]PX^_][^\x07\x1b\n]*(?:\x07|\x1b\\)?|\x1b[ -/]*[0-~]/g;
 /** Control characters but tab and newline, after carriage returns became newlines. */

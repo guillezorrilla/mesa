@@ -51,15 +51,16 @@ test("a Claude Code session's chat is its prompts and replies oldest first, with
     ['you', 'Find the heron'],
     ['agent', 'Looking.'],
     ['agent', 'Found it.'],
+    ['command', '/clear'],
     ['you', 'Thanks'],
   ]);
-  expect(chat).toMatchObject({ count: 4, more: false });
+  expect(chat).toMatchObject({ count: 5, more: false });
   expect(chat.messages[0]?.at).toBe('2026-09-28T12:00:00.000Z');
 
   // The newest reply, the prompts after it, and that an older one exists.
   const newest = mesa.sessions.chat(session.id, 1);
-  expect(newest.messages.map((m) => m.text)).toEqual(['Found it.', 'Thanks']);
-  expect(newest).toMatchObject({ count: 2, more: true });
+  expect(newest.messages.map((m) => m.text)).toEqual(['Found it.', '/clear', 'Thanks']);
+  expect(newest).toMatchObject({ count: 3, more: true });
   expect(() => mesa.sessions.chat(session.id, 0)).toThrow('count must be');
 });
 

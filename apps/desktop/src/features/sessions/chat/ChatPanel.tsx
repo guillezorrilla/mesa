@@ -1,4 +1,4 @@
-import type { ChatItem, TreeRow } from '@mesa/core';
+import type { Config, TreeRow } from '@mesa/core';
 import { ArrowDown } from 'lucide-react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { MarkdownView } from '@/components/MarkdownView';
@@ -8,12 +8,16 @@ import { Button } from '@/components/ui/button';
 import { PROSE } from '@/features/vault/NoteMarkdown';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useAct } from '@/lib/useAct';
+import { useCall, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { awaitsAnswer, PromptCard } from '../answer/PromptCard';
 import type { SentPrompt } from '../selected/useSessionPrompt';
 import { ChatComposer } from './ChatComposer';
+import { CommandCard } from './CommandCard';
+import { type ChatEntry, chatItems, isCommand } from './commandMarkers';
 import { StepRun } from './StepRun';
 import { useChat } from './useChat';
+import { useCommandMarkers } from './useCommandMarkers';
 
 /** How near an end of the list counts as at it, in pixels. */
 const NEAR = 40;
@@ -22,7 +26,8 @@ const NEAR = 40;
  * The selected session as a chat over its terminal: the person's prompts and its agent's replies
  * from its transcript, oldest at the top, and a composer that types into the same terminal. It
  * opens at the bottom and follows new replies while there; scrolled up, it holds still and offers
- * New; at the top it reads further back.
+ * New; at the top it reads further back. A slash command shows as a command card, live with its
+ * panel while it is the last one sent.
  */
 export function ChatPanel(props: {
   sessionId: string;
@@ -33,8 +38,20 @@ export function ChatPanel(props: {
   /** Why the last prompt was not sent: a guardrail's block, or the send's failure. */
   refused?: string;
   onSend: (prompt: string, form: HTMLFormElement) => void;
+  onOpenTerminal: () => void;
+  /** The profile's terminal settings, whose colours command cards draw in. */
+  terminal?: Config['terminal'];
 }) {
   const { chat, error, sending, loadingOlder, older } = useChat(props.sessionId, props.sent);
+  const markers = useCommandMarkers(props.sessionId, props.sent);
+  const run = useRun();
+  const call = useCall();
+  const pressKey = async (key: string) => {
+    if (!(await run('sessions.keys', { id: props.sessionId, keys: [key] }))) return;
+    // A look now: a picker reads as waiting-question, which refuses the next send until the board
+    // sees it closed, else up to its 10 s poll later.
+    void call('sessions.list');
+  };
   const platform = usePlatform();
   const { act } = useAct();
   const scroller = useRef<HTMLDivElement>(null);
@@ -43,7 +60,8 @@ export function ChatPanel(props: {
   const fromBottom = useRef<number>(undefined);
   const [fresh, setFresh] = useState(false);
   const messages = chat?.messages ?? [];
-  const newest = `${messages.length}:${messages.at(-1)?.id}:${sending?.at}`;
+  const items = chatItems(messages, markers.list);
+  const newest = `${messages.length}:${messages.at(-1)?.id}:${sending?.at}:${markers.frames}`;
   const seen = useRef(newest);
   useLayoutEffect(() => {
     const view = scroller.current;
@@ -97,12 +115,20 @@ export function ChatPanel(props: {
               </Button>
             </li>
           )}
-          {messages.map((message, index) => (
+          {items.map((item, index) => (
             // Two prompts with the same words share an id: the place tells them apart.
-            // biome-ignore lint/suspicious/noArrayIndexKey: messages are stateless and only prepend.
-            <ChatRow key={`${index}:${message.id}`} message={message} onCopyCode={copy} />
+            <ChatRow
+              // biome-ignore lint/suspicious/noArrayIndexKey: messages are stateless and only prepend.
+              key={`${index}:${item.message?.id ?? item.marker?.sentAt}`}
+              item={item}
+              live={item.marker !== undefined && item.marker === markers.live}
+              onCopyCode={copy}
+              onKey={(key) => void pressKey(key)}
+              onOpenTerminal={props.onOpenTerminal}
+              terminal={props.terminal}
+            />
           ))}
-          {sending && (
+          {sending && !isCommand(sending.prompt) && (
             <li className="flex flex-col items-end gap-1 opacity-60">
               <div className={YOU}>{sending.prompt}</div>
               <Muted size="xs">Sending</Muted>
@@ -144,10 +170,36 @@ export function ChatPanel(props: {
 
 const YOU = 'max-w-[80%] whitespace-pre-wrap break-words rounded-lg bg-accent px-3 py-2 text-sm';
 
-/** One message: the person's as a plain bubble on the right, the agent's as Markdown. */
-function ChatRow(props: { message: ChatItem; onCopyCode: (code: string) => void }) {
-  const { message } = props;
-  if (message.from === 'steps') return <StepRun run={message} />;
+/**
+ * One row: the person's message as a plain bubble on the right, the agent's as Markdown, a run of
+ * steps as its list, a slash command as its card.
+ */
+function ChatRow(props: {
+  item: ChatEntry;
+  live: boolean;
+  onCopyCode: (code: string) => void;
+  onKey: (key: string) => void;
+  onOpenTerminal: () => void;
+  /** The profile's terminal settings, whose colours command cards draw in. */
+  terminal?: Config['terminal'];
+}) {
+  const { message, marker } = props.item;
+  if (message?.from === 'steps') return <StepRun run={message} />;
+  if (!message || message.from === 'command')
+    return (
+      <li className="flex">
+        <CommandCard
+          command={message?.text ?? marker?.command ?? ''}
+          frame={marker?.output}
+          output={message?.output}
+          error={message?.error}
+          live={props.live}
+          onKey={props.onKey}
+          onOpenTerminal={props.onOpenTerminal}
+          terminal={props.terminal}
+        />
+      </li>
+    );
   return (
     <li className={cn('flex', message.from === 'you' && 'justify-end')}>
       {message.from === 'you' ? (

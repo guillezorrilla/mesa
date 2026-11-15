@@ -100,6 +100,15 @@ export const sessionsCommands = {
     '--',
     id,
   ]),
+  /** What slash command `command` shows in a session's pane now, colours kept (sessionPanel). */
+  'sessions.panel': commandWith<
+    { id: string; command: string },
+    { session: string; command: string; lines: string[] }
+  >(({ id, command }) => ['panel', '--', id, command]),
+  /** Presses keys in a session by tmux name (Escape, Up, Enter), a command card's key row. */
+  'sessions.keys': commandWith<{ id: string; keys: string[] }, { session: string; keys: string[] }>(
+    ({ id, keys }) => ['keys', '--', id, ...keys],
+  ),
   /** The permission or question a waiting session asks (CONTEXT.md, Pending prompt). */
   'sessions.prompt': commandWith<{ id: string }, PendingPrompt>(({ id }) => ['prompt', '--', id]),
   // `--via app` names the app in the receipt; `--prompt` refuses the answer once another waits.

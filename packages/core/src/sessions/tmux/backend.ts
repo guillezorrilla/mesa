@@ -361,9 +361,10 @@ export function tmuxBackend({
       const [x = 0, y = 0] = cursor.trim().split(' ').map(Number);
       return `${text.replace(/\n$/, '').split('\n').join('\r\n')}\x1b[${y + 1};${x + 1}H`;
     },
-    /** The last `lines` lines of the pane, trailing blank lines dropped. */
-    capturePane: async (target: WindowTarget, lines: number) => {
-      const out = await onWindow(target, 'capture-pane', '-p', '-S', `-${lines}`);
+    /** The last `lines` lines of the pane, trailing blank lines dropped; `colors` keeps them. */
+    capturePane: async (target: WindowTarget, lines: number, { colors = false } = {}) => {
+      const color = colors ? ['-e'] : [];
+      const out = await onWindow(target, 'capture-pane', '-p', ...color, '-S', `-${lines}`);
       return out.replace(/\n+$/, '').split('\n').slice(-lines).join('\n');
     },
     listWindows,

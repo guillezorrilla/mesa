@@ -9,8 +9,9 @@ import { projectScope } from '../record/general.js';
 import type { SessionDeps } from './deps.js';
 
 /**
- * What a person types into a plain terminal session (CONTEXT.md, Plain terminal session): a line
- * through the guardrail (`mesa type`), and keys (`mesa keys`), from the CLI or the phone.
+ * What a person types into a session's terminal (CONTEXT.md, Plain terminal session): a line
+ * through the guardrail into a plain terminal (`mesa type`), and keys into any session (`mesa
+ * keys`), from the CLI, the phone, or the app's command cards.
  */
 export function terminalActions(ctx: MesaContext, faro: Faro, deps: SessionDeps) {
   const { store, tmux, record, secrets } = ctx;
@@ -62,8 +63,9 @@ export function terminalActions(ctx: MesaContext, faro: Faro, deps: SessionDeps)
         );
       },
       /**
-       * Presses keys by tmux name (Enter, Escape, Up, C-c), in order. They carry no text for the
-       * guardrail to read, yet Up then Enter runs a command again, so the receipt keeps them.
+       * Presses keys by tmux name (Enter, Escape, Up, C-c), in order, in a plain terminal or an
+       * agent's session. They carry no text for the guardrail to read, yet Up then Enter runs a
+       * command again, so the receipt keeps them.
        */
       keys: (id: string, keys: readonly string[], opts: { via?: AnswerVia } = {}) => {
         const { via } = opts;
@@ -72,8 +74,8 @@ export function terminalActions(ctx: MesaContext, faro: Faro, deps: SessionDeps)
           {
             kind: 'guardrail',
             scope: { project: target?.project, session: target?.id },
-            summary: (r) => `Pressed ${r.keys.join(' ')} in terminal ${id}`,
-            failure: `Could not press keys in terminal ${id}`,
+            summary: (r) => `Pressed ${r.keys.join(' ')} in session ${id}`,
+            failure: `Could not press keys in session ${id}`,
             project: () => (target ? projectScope(target.project) : undefined),
             session: () => id,
             inputs: { session: id, keys: [...keys], ...(via ? { via } : {}) },

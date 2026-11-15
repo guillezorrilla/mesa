@@ -1,6 +1,7 @@
 import type { MesaContext } from '../../context.js';
 import { attachSession } from '../window/attach.js';
 import { outputSince } from '../window/output-log.js';
+import { sessionPanel } from '../window/panel.js';
 import { resizeSession } from '../window/resize.js';
 import { sessionScreen } from '../window/screen.js';
 import { viewProject } from '../window/view.js';
@@ -17,6 +18,8 @@ export function windowActions(ctx: MesaContext, deps: SessionDeps) {
     /** A session's window sized to the phone, as its terminal draws it (sessionScreen). */
     screen: (id: string, cols: number, rows: number) =>
       sessionScreen({ store, tmux, logs: ctx.paths.logs }, id, cols, rows),
+    /** What slash command `command` shows in a session's pane now, with colours (sessionPanel). */
+    panel: (id: string, command: string) => sessionPanel({ store, tmux }, id, command),
     /** What a session's window printed since byte `from` of its output log (outputSince). */
     since: (id: string, from?: number) => outputSince(ctx.paths.logs, id, from),
     /**

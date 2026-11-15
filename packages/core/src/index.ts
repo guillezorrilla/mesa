@@ -246,6 +246,7 @@ export type { AdvertisedUrl } from './sessions/window/advertised-urls.js';
 export type { Attached } from './sessions/window/attach.js';
 export type { GridGroup } from './sessions/window/grid-groups.js';
 export type { SessionLog } from './sessions/window/output-log.js';
+export { plainText } from './sessions/window/terminal-text.js';
 export type { Viewed } from './sessions/window/view.js';
 export type { SkillInventoryRow } from './skills/inventory.js';
 export type { SkillRow, SkillSync } from './skills/sync.js';

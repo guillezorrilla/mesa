@@ -62,6 +62,7 @@ import {
 } from './notifications.js';
 import { obsidianManager, obsidianVaults } from './obsidian.js';
 import { open } from './open.js';
+import { panel } from './panel.js';
 import {
   phoneBeta,
   phonePair,
@@ -284,6 +285,7 @@ export const COMMANDS: Command[] = [
   send,
   typeCommand,
   keys,
+  panel,
   sessions,
   show,
   swap,
