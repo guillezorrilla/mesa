@@ -1,4 +1,5 @@
 // The drafts' pure rules, apart from the file that keeps them (drafts.ts).
+import { parseStringMap } from '../../lib/stringMap';
 
 /** Each session's unsent reply, by session id. */
 export type Drafts = Record<string, string>;
@@ -14,16 +15,4 @@ export const appended = (draft: string, text: string) =>
   draft.trim() ? `${draft.trimEnd()}\n\n${text}` : text;
 
 /** Drafts read back from their file; anything else (a broken file) is none. */
-export function parseDrafts(json: string): Drafts {
-  try {
-    const value: unknown = JSON.parse(json);
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-    return Object.fromEntries(
-      Object.entries(value).filter(
-        (entry): entry is [string, string] => typeof entry[1] === 'string',
-      ),
-    );
-  } catch {
-    return {};
-  }
-}
+export const parseDrafts: (json: string) => Drafts = parseStringMap;

@@ -8,16 +8,18 @@ import type { SourceId } from '../sources/sources.js';
 // What every ticket provider (Jira, and the trackers after it) gives the Tickets tab
 // (CONTEXT.md, Ticket view). The rows live in providers.ts; service.ts reads only through them.
 
+import { CATEGORIES } from './status-groups.js';
+
 /**
  * A status's shared category, which the tab groups by: new (to do), indeterminate (in
  * progress), or done. Jira's own keys; every provider maps its statuses onto them.
  */
 export type TicketCategory = 'new' | 'indeterminate' | 'done';
-const CATEGORIES: readonly string[] = ['new', 'indeterminate', 'done'];
+const KNOWN: readonly string[] = Object.keys(CATEGORIES);
 
 /** `key` as a shared category, one not known counting as to do. */
 export const categoryOf = (key: string | undefined): TicketCategory =>
-  CATEGORIES.includes(key ?? '') ? (key as TicketCategory) : 'new';
+  KNOWN.includes(key ?? '') ? (key as TicketCategory) : 'new';
 
 /** A ticket as a provider lists it, before the tab adds whose it is and its sessions. */
 export type ProviderTicket = {

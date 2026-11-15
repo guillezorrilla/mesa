@@ -121,6 +121,7 @@ test("a project's followed tickets, one ticket cut for a phone, and assigning it
         url: 'https://harbour.example/browse/HAR-219',
         site: 'harbour',
         sessions: ['a1b2c3d4'],
+        views: ['sprint'],
       },
     ],
   });

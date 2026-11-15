@@ -1,7 +1,5 @@
 import { ScrollView, View } from 'react-native';
-import { Button } from '@/components/ui/button';
-import { Text } from '@/components/ui/text';
-import { haptic } from '@/lib/haptics';
+import { Chip } from '@/components/Chip';
 import type { Mac } from '../mac/macsContext';
 import type { RowFilter } from './agentRows';
 
@@ -21,18 +19,12 @@ export function AgentFilters({
   onChange: (filter: RowFilter) => void;
 }) {
   const chip = (key: string, label: string, on: boolean, change: Partial<RowFilter>) => (
-    <Button
+    <Chip
       key={key}
-      size="sm"
-      variant={on ? 'default' : 'secondary'}
-      accessibilityState={{ selected: on }}
-      onPress={() => {
-        haptic('selection');
-        onChange({ ...filter, ...change });
-      }}
-    >
-      <Text>{label}</Text>
-    </Button>
+      label={label}
+      selected={on}
+      onPress={() => onChange({ ...filter, ...change })}
+    />
   );
   return (
     <ScrollView

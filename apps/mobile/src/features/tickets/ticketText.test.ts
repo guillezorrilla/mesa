@@ -12,13 +12,13 @@ const ticket = {
   sessions: [],
 };
 
-test("a ticket's line says its status, whose it is, and its live sessions", () => {
-  expect(ticketDetail(ticket)).toBe('To Do · Unassigned');
+test("a ticket's line says whose it is, and its live sessions", () => {
+  expect(ticketDetail(ticket)).toBe('Unassigned');
   expect(ticketDetail({ ...ticket, assignee: 'Ada', sessions: ['a1'] })).toBe(
-    'To Do · Ada · 1 live session',
+    'Ada · 1 live session',
   );
   expect(ticketDetail({ ...ticket, mine: true, assignee: 'Grace', sessions: ['a1', 'b2'] })).toBe(
-    'To Do · Yours · 2 live sessions',
+    'Yours · 2 live sessions',
   );
 });
 

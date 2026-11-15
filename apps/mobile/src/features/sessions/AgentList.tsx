@@ -4,9 +4,9 @@ import Bot from 'lucide-react-native/icons/bot';
 import { type ReactNode, use } from 'react';
 import { RefreshControl, SectionList, View } from 'react-native';
 import { EmptyState } from '@/components/EmptyState';
+import { GroupHeader } from '@/components/GroupHeader';
 import { SessionRow } from '@/components/SessionRow';
 import { SwipeRow } from '@/components/SwipeRow';
-import { Text } from '@/components/ui/text';
 import { GateRow } from '../gates/GateRow';
 import type { Mac } from '../mac/macsContext';
 import { AgentFilters } from './AgentFilters';
@@ -18,6 +18,7 @@ import {
   type MacUpdate,
   mergeListings,
   type OnMac,
+  offeredFilter,
   placeOf,
   projectsOf,
   type RowFilter,
@@ -59,14 +60,16 @@ export function AgentList({
   const listed = use(listing);
   const rows = mergeListings(listed, updates);
   const several = macs.length > 1;
+  const projects = projectsOf(rows);
+  const shown = offeredFilter(filter, projects, macs);
   const nameOf = (mac: string) => macs.find((m) => m.id === mac)?.name;
-  const shownGates = gates.filter((gate) => !filter.mac || gate.mac === filter.mac);
+  const shownGates = gates.filter((gate) => !shown.mac || gate.mac === shown.mac);
   const now = Date.now();
   return (
     <SectionList
       contentInsetAdjustmentBehavior="automatic"
       className="flex-1 bg-background"
-      sections={groupRows(filterRows(rows, filter), shownGates)}
+      sections={groupRows(filterRows(rows, shown), shownGates)}
       keyExtractor={(item) => `${item.mac}:${item.id}`}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       // A tap while searching presses what it lands on, instead of only closing the keyboard.
@@ -86,24 +89,14 @@ export function AgentList({
               </View>
             ) : null,
           )}
-          <AgentFilters
-            macs={macs}
-            projects={projectsOf(rows)}
-            filter={filter}
-            onChange={onFilter}
-          />
+          <AgentFilters macs={macs} projects={projects} filter={shown} onChange={onFilter} />
         </View>
       }
       ListEmptyComponent={
         <EmptyState icon={Bot} {...agentsEmpty(rows.length, filter.query, several)} />
       }
       renderSectionHeader={({ section }) => (
-        <Text
-          accessibilityRole="header"
-          className="bg-background px-4 pt-4 pb-1 text-sm font-semibold text-muted-foreground"
-        >
-          {section.title}
-        </Text>
+        <GroupHeader title={section.title} count={section.data.length} />
       )}
       renderItem={({ item }) => {
         if (isGate(item)) return <GateRow gate={item} />;

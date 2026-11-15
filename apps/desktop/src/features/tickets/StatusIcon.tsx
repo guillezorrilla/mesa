@@ -1,4 +1,3 @@
-import type { Ticket } from '@mesa/core';
 import { cn } from '@/lib/utils';
 
 /**
@@ -56,13 +55,3 @@ export function StatusIcon(props: {
     </svg>
   );
 }
-
-/**
- * Each status category's name, in the order the list ranks its groups; a name heads a group only
- * for tickets with no status of their own.
- */
-export const CATEGORIES: Record<Ticket['category'], string> = {
-  indeterminate: 'In progress',
-  new: 'To do',
-  done: 'Done',
-};

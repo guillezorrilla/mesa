@@ -52,6 +52,8 @@ export const phoneTicket = z.object({
   site: z.string().optional(),
   /** Live sessions started from it. */
   sessions: z.array(z.string()),
+  /** The followed views that list it; absent from a Mac before view filtering. */
+  views: z.array(z.string()).optional(),
 });
 export type PhoneTicket = z.infer<typeof phoneTicket>;
 
