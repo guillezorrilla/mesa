@@ -21,8 +21,15 @@ test('the menu opens only for a slash first with no space, and filters by name a
   expect(slashGroups(commands, '').map((g) => g.label)).toEqual(['Built-in', 'Commands', 'Skills']);
   expect(slashGroups(commands, 'us').flatMap((g) => g.items.map((c) => c.name))).toEqual(['usage']);
   expect(slashGroups(commands, 'choose')[0]?.items[0]?.name).toBe('model');
+  expect(
+    slashGroups(
+      [{ name: 'zeta', description: 'uses it', source: 'builtin' }, ...commands],
+      'us',
+    )[0]?.items.map((c) => c.name),
+  ).toEqual(['usage', 'zeta']);
   expect(completion(commands[1] as SlashCommand)).toBe('/model ');
   expect(completion(commands[0] as SlashCommand)).toBe('/usage');
+  expect(completion({ name: '$notes', description: '', source: 'skill' })).toBe('$notes');
 });
 
 function Harness(props: { start: string }) {

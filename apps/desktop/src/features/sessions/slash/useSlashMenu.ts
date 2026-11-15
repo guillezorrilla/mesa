@@ -35,7 +35,10 @@ export function useSlashMenu(session: string, text: string, setText: (text: stri
   const flat = groups.flatMap((g) => g.items);
   const active = flat[Math.min(index, flat.length - 1)];
   const pick = (c: SlashCommand) => {
-    setText(completion(c));
+    const done = completion(c);
+    setText(done);
+    // The completed text still matches itself: keep the menu shut until the person types again.
+    setDismissed(done);
     setIndex(0);
   };
   const onKeyDown = (e: KeyboardEvent): boolean => {

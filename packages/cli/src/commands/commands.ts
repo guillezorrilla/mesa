@@ -18,7 +18,12 @@ export const commands = defineCommand({
       data: rows,
       text: rows.length
         ? columns(
-            rows.map((c) => [`/${c.name}`, c.source, c.argumentHint ?? '', c.description]),
+            rows.map((c) => [
+              c.name.startsWith('$') ? c.name : `/${c.name}`,
+              c.source,
+              c.argumentHint ?? '',
+              c.description,
+            ]),
           ).join('\n')
         : 'no commands',
     };

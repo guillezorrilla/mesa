@@ -11,9 +11,12 @@ export const slashQuery = (text: string) => (/^\/[^\s]*$/.test(text) ? text.slic
 /** Commands matching `query` (substring of name or description), grouped Built-in, Commands, Skills. */
 export function slashGroups(commands: SlashCommand[], query: string): SlashGroup[] {
   const q = query.toLowerCase();
-  const hit = commands.filter(
-    (c) => c.name.toLowerCase().includes(q) || c.description.toLowerCase().includes(q),
-  );
+  // Name matches first (a prefix before the rest), then description-only matches.
+  const rank = (c: SlashCommand) =>
+    c.name.toLowerCase().startsWith(q) ? 0 : c.name.toLowerCase().includes(q) ? 1 : 2;
+  const hit = commands
+    .filter((c) => c.name.toLowerCase().includes(q) || c.description.toLowerCase().includes(q))
+    .sort((a, b) => rank(a) - rank(b));
   const groups: SlashGroup[] = [
     { label: 'Built-in', items: hit.filter((c) => c.source === 'builtin') },
     { label: 'Commands', items: hit.filter((c) => c.source !== 'builtin' && c.source !== 'skill') },
@@ -24,4 +27,7 @@ export function slashGroups(commands: SlashCommand[], query: string): SlashGroup
 
 /** What the composer holds after completing `command`: its name, and a space when it takes arguments. */
 export const completion = (command: SlashCommand) =>
-  `/${command.name}${command.argumentHint ? ' ' : ''}`;
+  `${invocation(command.name)}${command.argumentHint ? ' ' : ''}`;
+
+/** How a command is typed: Codex skills already carry their `$`, the rest take a slash. */
+export const invocation = (name: string) => (name.startsWith('$') ? name : `/${name}`);

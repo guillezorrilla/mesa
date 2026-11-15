@@ -1,6 +1,6 @@
 import type { SlashCommand } from '@mesa/core';
 import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import type { SlashGroup } from './slashMatches';
+import { invocation, type SlashGroup } from './slashMatches';
 
 /**
  * The slash menu above the composer. The textarea keeps focus, so the caller moves `active` with
@@ -29,7 +29,7 @@ export function SlashMenu(props: {
                 onMouseDown={(e) => e.preventDefault()}
                 onSelect={() => props.onPick(c)}
               >
-                <span className="font-mono">/{c.name}</span>
+                <span className="font-mono">{invocation(c.name)}</span>
                 {c.argumentHint && (
                   <span className="text-muted-foreground/70">{c.argumentHint}</span>
                 )}
