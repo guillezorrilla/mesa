@@ -24,6 +24,19 @@ export default defineConfig({
     {
       name: 'mesa-bridge',
       configureServer(server) {
+        // A Structured session's live chat (the app's Rust follow): `mesa chat --follow` streamed
+        // back as its lines, killed when the page lets go.
+        server.middlewares.use('/__follow', (req, res) => {
+          const url = new URL(req.url ?? '', 'http://harness');
+          const args = ['chat', '--follow', '--count', url.searchParams.get('count') ?? '20'];
+          const child = spawn('node', [cli, ...args, '--', url.searchParams.get('session') ?? ''], {
+            env: { ...process.env, MESA_PROFILE: profile, MESA_SESSION_ID: '' },
+          });
+          log(`FOLLOW ${url.searchParams.get('session')}`);
+          res.setHeader('content-type', 'text/plain');
+          child.stdout.pipe(res);
+          req.on('close', () => child.kill());
+        });
         server.middlewares.use('/__mesa', (req, res) => {
           let body = '';
           req.on('data', (chunk) => {

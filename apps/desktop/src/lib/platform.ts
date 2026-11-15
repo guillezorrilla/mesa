@@ -13,6 +13,21 @@ export type NotificationStatus = {
   soundsEnabled: boolean;
 };
 
+/**
+ * A Structured session's live chat (Rust `follow_*`, ADR-0029): one `mesa chat --follow` per open
+ * chat, each of its JSON lines passed on, started again with back-off if it dies.
+ */
+export type ChatFollowHost = {
+  /** Starts following the session's chat, its newest `count` replies first; resolves its id. */
+  open: (sessionId: string, count: number) => Promise<string>;
+  /** Each line it prints (`ChatFollowLine` as JSON); returns the unsubscribe. */
+  onLine: (followId: string, listener: (line: string) => void) => Promise<() => void>;
+  /** The renderer listens now: lines held until then come out. */
+  ready: (followId: string) => Promise<void>;
+  /** Kills its process; nothing starts it again. */
+  close: (followId: string) => Promise<void>;
+};
+
 /** A terminal the app runs on a session's tmux window (Rust `term_*`, ADR-0007). */
 export type TerminalHost = {
   /** Attaches a new terminal of `cols` x `rows` to the session's window; resolves its id. */
@@ -111,6 +126,7 @@ export type Platform = {
   /** The app's Dock icon: `badge(count)` shows the count, and 0 clears it. */
   dock: { badge: (count: number) => Promise<void> };
   terminal: TerminalHost;
+  follow: ChatFollowHost;
   browser: BrowserHost;
   /** Files dragged in from Finder: the webview never sees them, Tauri does. Returns the unsubscribe. */
   fileDrops: { onDrop: (handler: (drop: FileDrop) => void) => Promise<() => void> };

@@ -2,6 +2,7 @@ mod awake;
 mod bridge;
 mod browser;
 mod events;
+mod follow;
 mod install_location;
 mod menu;
 mod notifications;
@@ -11,6 +12,7 @@ mod terminal;
 mod updater;
 
 use serde_json::Value;
+use tauri::Manager;
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_window_state::StateFlags;
 
@@ -53,6 +55,7 @@ pub fn run() {
         )
         .manage(awake::Awake::default())
         .manage(terminal::Terms::default())
+        .manage(follow::Follows::default())
         .manage(updater::Updates::default())
         .setup(move |app| {
             menu::install(app)?;
@@ -100,6 +103,9 @@ pub fn run() {
             terminal::term_ready,
             terminal::term_close,
             terminal::clipboard_write,
+            follow::follow_open,
+            follow::follow_ready,
+            follow::follow_close,
             notifications::notification_status,
             notifications::notification_request_permission,
             notifications::notification_send,
@@ -124,6 +130,12 @@ pub fn run() {
             updater::update_open_page,
             updater::update_quit
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            // A quit ends every chat's follow with it (follow.rs).
+            if let tauri::RunEvent::Exit = event {
+                app.state::<follow::Follows>().close_all();
+            }
+        });
 }

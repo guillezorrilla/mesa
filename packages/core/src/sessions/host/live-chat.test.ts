@@ -28,4 +28,34 @@ describe('journalItems', () => {
     const items = journalItems(journal(RECORDED_CLAUDE_STREAM), '/proj', 'claude');
     expect(items.map((i) => i.from)).toEqual(['you', 'agent', 'steps']);
   });
+
+  it("folds Mesa's model and effort change as the transcript has it: two commands, no reply", () => {
+    const lines = [
+      JSON.stringify({ at: AT, sent: { type: 'user', text: 'Reply with just READY.' } }),
+      JSON.stringify({
+        at: AT,
+        event: { type: 'assistant', message: { content: [{ type: 'text', text: 'READY.' }] } },
+      }),
+      JSON.stringify({ at: AT, event: { type: 'result', subtype: 'success', num_turns: 1 } }),
+      JSON.stringify({ at: AT, sent: { type: 'model', model: 'sonnet', effort: 'high' } }),
+      JSON.stringify({
+        at: AT,
+        event: {
+          type: 'assistant',
+          message: {
+            model: '<synthetic>',
+            content: [{ type: 'text', text: 'Set effort level to high (this session only)' }],
+          },
+        },
+      }),
+    ];
+    const items = journalItems(lines, '/proj', 'claude');
+    expect(items.map((i) => [i.from, i.text])).toEqual([
+      ['you', 'Reply with just READY.'],
+      ['agent', 'READY.'],
+      ['command', '/model sonnet'],
+      ['command', '/effort high'],
+    ]);
+    expect(items.at(-1)).toMatchObject({ output: 'Set effort level to high (this session only)' });
+  });
 });

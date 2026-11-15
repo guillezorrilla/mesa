@@ -11,7 +11,7 @@ import {
   streamChatSent,
 } from '../native/stream-chat.js';
 import type { SessionRecord } from '../record/record.js';
-import { journalEntries, readJournal } from './journal.js';
+import { journalEntries, journalSize, readJournal } from './journal.js';
 import { askHost, hostSocket } from './socket.js';
 
 // A Structured session's chat (ADR-0029): its transcript's history with its journal folded in
@@ -38,7 +38,16 @@ export function journalItems(
   for (const { at, sent, event } of journalEntries(lines)) {
     if (sent?.type === 'user' && typeof sent.text === 'string' && sent.text)
       state = streamChatSent(state, sent.text, at);
-    else if (event !== undefined) state = foldJournalled(agent, state, event, at);
+    else if (sent?.type === 'model' && agent === 'claude') {
+      // As the transcript has them: `/model` (claude answers its control request, not the chat),
+      // then `/effort`, whose synthetic reply is its output.
+      if (typeof sent.model === 'string') {
+        const { command: _answered, ...rest } = streamChatSent(state, `/model ${sent.model}`, at);
+        state = rest;
+      }
+      if (typeof sent.effort === 'string')
+        state = streamChatSent(state, `/effort ${sent.effort}`, at);
+    } else if (event !== undefined) state = foldJournalled(agent, state, event, at);
   }
   return streamChatItems(state);
 }
@@ -67,7 +76,9 @@ export function liveChat(deps: LiveChatDeps, id: string, count?: number): Sessio
 }
 
 /** How often a follow looks at the journal again. */
-const FOLLOW_MS = 250;
+const FOLLOW_MS = 50;
+/** How often a follow asks whether the host still runs. */
+const PING_MS = 1000;
 
 /** One line of `mesa chat --follow`: the chat at the start, then each item as it changes. */
 export type ChatFollowLine =
@@ -97,12 +108,15 @@ export async function followChat(
   const shown = new Map(first.messages.map((item) => [item.id, JSON.stringify(item)]));
   const socket = hostSocket(deps.hosts, id);
   let hosted = false;
-  let read = -1;
+  let size = -1;
+  let pinged = 0;
   while (open()) {
     await deps.sleep(FOLLOW_MS);
-    const lines = readJournal(deps.journals, id) ?? [];
-    if (lines.length !== read) {
-      read = lines.length;
+    // The journal only grows: it is read again, and folded, only when it has.
+    const now = journalSize(deps.journals, id);
+    if (now !== size) {
+      size = now;
+      const lines = readJournal(deps.journals, id) ?? [];
       const items = mergeChat(
         history.messages,
         journalItems(lines, deps.folder(record), record.agent),
@@ -114,6 +128,8 @@ export async function followChat(
         emit({ type: 'item', item });
       }
     }
+    if ((pinged += FOLLOW_MS) < PING_MS) continue;
+    pinged = 0;
     if (await askHost(socket, { type: 'ping' })) hosted = true;
     else if (hosted || deps.record(id).endedAt || !(await deps.windowAlive(record))) break;
   }
