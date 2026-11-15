@@ -96,6 +96,11 @@ export function startClaudeRunner(
       }),
     deny: (requestId, message) => answer(requestId, { behavior: 'deny', message }),
     interrupt: () => control({ subtype: 'interrupt' }),
+    setModel: (model, effort) => {
+      if (model) control({ subtype: 'set_model', model });
+      // No control request sets effort: the command does, answered by a synthetic reply.
+      if (effort) write({ type: 'user', message: { role: 'user', content: `/effort ${effort}` } });
+    },
     setPermissionMode: (mode) => control({ subtype: 'set_permission_mode', mode }),
     stop: () => child.kill(),
     exited,

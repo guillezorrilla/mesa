@@ -172,6 +172,7 @@ export type { TreeRow } from './sessions/board/tree.js';
 export type { DescendantResult } from './sessions/end/descendants.js';
 export type { Removed } from './sessions/end/remove.js';
 export type { StopOutcome } from './sessions/end/stop.js';
+export type { ControlChange, SessionControls } from './sessions/host/controls.js';
 export type {
   BrowserAnnotationInput,
   BrowserAnnotationPreview,

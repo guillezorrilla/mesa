@@ -19,6 +19,7 @@ import type {
   Removed,
   Sent,
   SessionChat,
+  SessionControls,
   SessionImage,
   SessionLog,
   SessionMerge,
@@ -92,6 +93,29 @@ export const sessionsCommands = {
     // started inside a Mesa window. `--yes` answers a guardrail's ask; the app never passes
     // `--force`, so a block is final here.
     ({ id, prompt, yes }) => ['send', '--no-from', ...(yes ? ['--yes'] : []), '--', id, prompt],
+  ),
+  /** A Structured session's model, effort and mode as its agent confirmed them. */
+  'sessions.controls': commandWith<{ id: string }, SessionControls>(({ id }) => [
+    'sessions',
+    'controls',
+    '--',
+    id,
+  ]),
+  /** Its model and effort changed while it runs, once the agent confirms. */
+  'sessions.model': commandWith<
+    { id: string; model?: string; effort?: string },
+    Recorded<SessionControls>
+  >(({ id, model, effort }) => [
+    'sessions',
+    'model',
+    ...(effort ? [`--effort=${effort}`] : []),
+    '--',
+    id,
+    ...(model ? [model] : []),
+  ]),
+  /** Its permission mode changed while it runs, once the agent confirms. */
+  'sessions.mode': commandWith<{ id: string; mode: string }, Recorded<SessionControls>>(
+    ({ id, mode }) => ['sessions', 'mode', '--', id, mode],
   ),
   /** A session's chat, its newest `count` replies and the prompts among them (sessionChat). */
   'sessions.chat': commandWith<{ id: string; count: number }, SessionChat>(({ id, count }) => [

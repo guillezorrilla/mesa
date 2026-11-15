@@ -112,7 +112,13 @@ import { rm } from './rm.js';
 import { run } from './run.js';
 import { search } from './search.js';
 import { send } from './send.js';
-import { sessions, sessionsView } from './sessions.js';
+import {
+  sessions,
+  sessionsControls,
+  sessionsMode,
+  sessionsModel,
+  sessionsView,
+} from './sessions.js';
 import { show } from './show.js';
 import { skillsList, skillsRead, skillsSet, skillsSync, skillsWrite } from './skills.js';
 import { sleep } from './sleep.js';
@@ -290,6 +296,9 @@ export const COMMANDS: Command[] = [
   panel,
   sessions,
   sessionsView,
+  sessionsControls,
+  sessionsModel,
+  sessionsMode,
   show,
   swap,
   skillsList,

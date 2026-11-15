@@ -63,7 +63,14 @@ export type StreamEvent =
     }
   /** A control request Claude sends that is not a permission request, by its subtype. */
   | { type: 'control_request'; requestId: string; subtype: string }
-  | { type: 'control_response'; requestId: string; ok: boolean; error: string | undefined }
+  | {
+      type: 'control_response';
+      requestId: string;
+      ok: boolean;
+      error: string | undefined;
+      /** What claude answered (`set_model`'s `model`, `set_permission_mode`'s `mode`). */
+      response: Record<string, unknown>;
+    }
   | { type: 'compact_boundary'; trigger: string | undefined; preTokens: number | undefined }
   /** A `system` event other than init and compact_boundary, by its subtype. */
   | { type: 'system'; subtype: string }
@@ -218,6 +225,7 @@ function fromObject(d: Obj, line: string): StreamEvent {
         requestId: str(response.request_id),
         ok: response.subtype === 'success',
         error: typeof response.error === 'string' ? response.error : undefined,
+        response: isObj(response.response) ? response.response : {},
       };
     }
     default:

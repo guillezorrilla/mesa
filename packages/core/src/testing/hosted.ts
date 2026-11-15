@@ -7,8 +7,12 @@ import { shortTempDir } from './tmp.js';
  * A Structured session on lantern-cove with its host running in this process, claude's process a
  * fake that replays `stream` and stays up: the profile, the fake, the record and the host.
  */
-export async function hostedSession(stream = RECORDED_CLAUDE_STREAM) {
-  const fake = replaySpawner(stream, { stay: true });
+export async function hostedSession(
+  stream = RECORDED_CLAUDE_STREAM,
+  /** Answers each message after the goal, as claude would (replaySpawner's `reply`). */
+  reply?: (message: Record<string, unknown>) => object[],
+) {
+  const fake = replaySpawner(stream, { stay: true, ...(reply ? { reply } : {}) });
   const agents = agentWorld();
   const { home, mesa } = projectProfile(agents.run, { home: shortTempDir(), spawn: fake.spawn });
   const { result: record } = await mesa.sessions.open('lantern-cove', {

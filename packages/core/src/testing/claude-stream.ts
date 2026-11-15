@@ -103,11 +103,20 @@ export const RECORDED_CLAUDE_STREAM: string[] = [
  * A spawner whose process replays `stream` on stdout when the first message is written, then
  * exits, and records the spawns and every line written to stdin as parsed JSON. `chunks` splits the
  * replayed text into reads of that many characters, to show a line cut across reads; `stay` keeps
- * the process up after the replay until it is killed, as claude waits for its next message.
+ * the process up after the replay until it is killed, as claude waits for its next message;
+ * `reply` answers each message written after the first with the lines it returns.
  */
 export function replaySpawner(
   stream: string[] = RECORDED_CLAUDE_STREAM,
-  { chunks, stay = false }: { chunks?: number; stay?: boolean } = {},
+  {
+    chunks,
+    stay = false,
+    reply,
+  }: {
+    chunks?: number;
+    stay?: boolean;
+    reply?: (message: Record<string, unknown>) => object[];
+  } = {},
 ) {
   const spawns: { file: string; args: string[]; cwd?: string; env?: Env }[] = [];
   const sent: Record<string, unknown>[] = [];
@@ -125,8 +134,16 @@ export function replaySpawner(
     };
     return {
       write(text) {
-        for (const line of text.split('\n')) if (line.trim()) sent.push(JSON.parse(line));
-        if (replayed) return;
+        const written = text
+          .split('\n')
+          .filter((line) => line.trim())
+          .map((line) => JSON.parse(line));
+        sent.push(...written);
+        if (replayed) {
+          const lines = written.flatMap((message) => reply?.(message) ?? []);
+          if (lines.length) stdout(`${lines.map((l) => JSON.stringify(l)).join('\n')}\n`);
+          return;
+        }
         replayed = true;
         const all = `${stream.join('\n')}\n`;
         for (let i = 0; i < all.length; i += chunks ?? all.length)

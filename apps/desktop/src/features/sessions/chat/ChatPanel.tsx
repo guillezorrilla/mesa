@@ -17,6 +17,7 @@ import { CommandCard } from './CommandCard';
 import { type ChatEntry, chatItems, isCommand } from './commandMarkers';
 import { EditedFiles } from './EditedFiles';
 import { MessageTime } from './MessageTime';
+import { SessionControlsBar } from './SessionControlsBar';
 import { StepRun } from './StepRun';
 import { turnEdits } from './turnEdits';
 import { useChat } from './useChat';
@@ -190,6 +191,9 @@ export function ChatPanel(props: {
           onClearImage={props.onClearImage}
           onSend={props.onSend}
         />
+        {props.row?.managed && props.row.view === 'structured' && (
+          <SessionControlsBar row={props.row} />
+        )}
       </div>
     </section>
   );

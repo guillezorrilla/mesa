@@ -9,6 +9,7 @@ import {
   MesaError,
   percent,
   projectLabel,
+  type SessionControls,
   sessionBranch,
   sessionLabel,
   VIEWS,
@@ -129,5 +130,54 @@ export const sessionsView = defineCommand({
       data: { ...record, switched },
       text: switched ? `switched ${record.id} to ${to} view` : `${record.id} is in ${to} view`,
     });
+  },
+});
+
+/** A session's controls on one line: model, effort, mode, as its agent confirmed them. */
+const controlsText = (c: SessionControls) =>
+  `${c.session}: ${[
+    c.model ?? 'model unknown',
+    c.effort && `effort ${c.effort}`,
+    c.mode && `mode ${c.mode}`,
+  ]
+    .filter(Boolean)
+    .join(', ')}`;
+
+export const sessionsControls = defineCommand({
+  name: 'sessions controls',
+  summary:
+    "Show a Structured session's model, effort and permission mode as its agent confirmed them, what each takes, and its last /usage reply",
+  args: ['session'],
+  example: 'mesa sessions controls a1b2c3d4',
+  run: async ({ mesa, args }) => {
+    const data = mesa.sessions.controls(args.session);
+    return { data, text: [controlsText(data), data.usage?.text].filter(Boolean).join('\n') };
+  },
+});
+
+export const sessionsModel = defineCommand({
+  name: 'sessions model',
+  summary:
+    "Change a Structured session's model and effort while it runs: Claude Code confirms at once, Codex takes them from its next turn",
+  args: ['session', 'model?'],
+  flags: { effort: { type: 'string', description: "The effort level, one of the agent's" } },
+  example: 'mesa sessions model a1b2c3d4 opus --effort high',
+  run: async ({ mesa, args, flags }) => {
+    const recorded = await mesa.sessions.setControls(args.session, {
+      ...(args.model === undefined ? {} : { model: args.model }),
+      ...(flags.effort === undefined ? {} : { effort: flags.effort }),
+    });
+    return recordedOutput(recorded, { data: recorded.result, text: controlsText(recorded.result) });
+  },
+});
+
+export const sessionsMode = defineCommand({
+  name: 'sessions mode',
+  summary: "Change a Structured Claude Code session's permission mode while it runs",
+  args: ['session', 'mode'],
+  example: 'mesa sessions mode a1b2c3d4 plan',
+  run: async ({ mesa, args }) => {
+    const recorded = await mesa.sessions.setControls(args.session, { mode: args.mode });
+    return recordedOutput(recorded, { data: recorded.result, text: controlsText(recorded.result) });
   },
 });
