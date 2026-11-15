@@ -1,5 +1,5 @@
 #!/bin/bash
-# Usage: codex_tui_resume.sh <project dir> <thread id> <runs>. Times `codex -c mesa.embedded=true resume <id>` (Mesa's own command line, kept off any daemon) in a private tmux server until the prompt shows.
+# Usage: codex_tui_resume.sh <project dir> <thread id> <runs>. Times `codex -c mesa.embedded=true resume <id>` (Mesa's embedded override, kept off any daemon) in a private tmux server until the prompt shows.
 # CODEX_HOME must be a throwaway. Asks the code word in the first run to show the conversation survived.
 dir=$1; tid=$2; runs=${3:-3}
 t() { tmux -L spikecodex "$@"; }

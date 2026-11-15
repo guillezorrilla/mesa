@@ -74,6 +74,11 @@ def ask(text, tag, **kw):
     print(tag, "first_delta", first, "total", dt, {k: v for k, v in seen.items() if not k.startswith(("thread/tokenUsage", "account/"))})
 
 
+def start_thread(policy, sandbox):
+    r, _, _, _ = req("thread/start", {"cwd": cwd, "approvalPolicy": policy, "sandbox": sandbox})
+    return r["thread"]["id"]
+
+
 req("initialize", {"clientInfo": {"name": "spike", "version": "0"}, "capabilities": {"experimentalApi": True}})
 print("initialize done, s since spawn", round(time.time() - t_spawn, 2))
 if scenario == "start":
@@ -91,14 +96,12 @@ if scenario == "start":
     print("compact", dt)
 elif scenario == "approval":
     policy = os.environ.get("POLICY", "untrusted")
-    r, _, _, dt = req("thread/start", {"cwd": cwd, "approvalPolicy": policy, "sandbox": "workspace-write"})
-    tid = r["thread"]["id"]
+    tid = start_thread(policy, "workspace-write")
     print("thread/start", policy, tid)
     ask("Run the shell command `echo tide > made.txt` and then say done.", "approval-" + DECISION)
     print("made.txt exists:", os.path.exists(os.path.join(cwd, "made.txt")))
 elif scenario == "steer":
-    r, _, _, dt = req("thread/start", {"cwd": cwd, "approvalPolicy": "never", "sandbox": "read-only"})
-    tid = r["thread"]["id"]
+    tid = start_thread("never", "read-only")
     nid[0] += 1
     send({"id": nid[0], "method": "turn/start", "params": {"threadId": tid, "input": [{"type": "text", "text": "Count slowly from 1 to 60, one number per line, no other text."}]}})
     t0 = time.time()
@@ -124,17 +127,14 @@ elif scenario == "steer":
 elif scenario == "latency":
     ts = []
     for i in range(int(os.environ.get("RUNS", "8"))):
-        r, _, _, _ = req("thread/start", {"cwd": cwd, "approvalPolicy": "never", "sandbox": "read-only"})
-        tid = r["thread"]["id"]
-        t = time.time()
+        tid = start_thread("never", "read-only")
         _, seen, first, dt = req("turn/start", {"threadId": tid, "input": [{"type": "text", "text": "Reply with exactly: OK"}]}, stop="turn/completed")
         ts.append(first)
         print("run", i, "first_delta", first, "total", dt)
     ts.sort()
     print("first delta p50", statistics.median(ts), "p95", ts[min(len(ts) - 1, int(0.95 * len(ts) + 0.5) - 1)], "n", len(ts))
 elif scenario == "compact":
-    r, _, _, _ = req("thread/start", {"cwd": cwd, "approvalPolicy": "never", "sandbox": "read-only"})
-    tid = r["thread"]["id"]
+    tid = start_thread("never", "read-only")
     print("thread", tid)
     ask("Remember the code word HARBOR_44. Reply OK.", "t1")
     ask("Name three tides. Reply briefly.", "t2")
@@ -142,6 +142,12 @@ elif scenario == "compact":
     print("compact", dt, "result", json.dumps(r)[:80], {k: v for k, v in seen.items() if not k.startswith("mcp")})
     ask("What code word did I ask you to remember? Answer with only the word.", "after-compact")
 elif scenario == "hooks":
+    home = os.environ["CODEX_HOME"]
+    log = os.path.join(home, "hooks.log")
+    hook = {"hooks": [{"type": "command", "command": f"python3 -c \"import sys,json;print(json.load(sys.stdin)['hook_event_name'])\" >> {log}"}]}
+    if not os.path.exists(os.path.join(home, "hooks.json")):  # a logging hook per event, in Claude's JSON shape
+        with open(os.path.join(home, "hooks.json"), "w") as fh:
+            json.dump({"hooks": {e: [hook] for e in ["SessionStart", "UserPromptSubmit", "PermissionRequest", "Stop"]}}, fh)
     r, _, _, _ = req("hooks/list", {"cwds": [cwd]})
     hs = [h for e in r["data"] for h in e["hooks"]]
     print("hooks/list", len(hs), "hooks; fields", sorted(hs[0].keys()) if hs else None)
@@ -152,9 +158,9 @@ elif scenario == "hooks":
                   "value": {h["key"]: {"trusted_hash": h["currentHash"]} for h in hs}}]
         r, _, _, _ = req("config/batchWrite", {"edits": edits, "reloadUserConfig": True})
         print("config/batchWrite", json.dumps(r)[:100])
-    r, _, _, _ = req("thread/start", {"cwd": cwd, "approvalPolicy": "untrusted", "sandbox": "workspace-write"})
-    tid = r["thread"]["id"]
+    tid = start_thread("untrusted", "workspace-write")
     ask("Run the shell command `echo tide > made.txt` and then say done.", "turn-with-hooks")
+    print("hooks that ran:", open(log).read().split() if os.path.exists(log) else [])
 elif scenario == "resume":
     r, _, _, dt = req("thread/resume", {"threadId": tid, "cwd": cwd})
     print("thread/resume", dt)
