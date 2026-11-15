@@ -61,7 +61,12 @@ describe('foldStreamEvent', () => {
   it('keeps a skill expansion reply as an agent message, not command output', () => {
     let state = streamChatSent(newStreamChat('/p'), '/lantern', AT);
     for (const e of [
-      { type: 'assistant', content: [{ type: 'text', text: 'LANTERN_OK' }], synthetic: false },
+      {
+        type: 'assistant',
+        content: [{ type: 'text', text: 'LANTERN_OK' }],
+        synthetic: false,
+        sidechain: false,
+      },
       {
         type: 'result',
         sessionId: 's',
