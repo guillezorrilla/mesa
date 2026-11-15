@@ -14,7 +14,8 @@ export const chat = defineCommand({
     const data = mesa.sessions.chat(args.session, count);
     if (data.unavailable) return { data, text: data.unavailable };
     const said = data.messages.map(
-      (message) => `${message.from === 'you' ? 'You' : 'Agent'}:\n${message.text}`,
+      (message) =>
+        `${{ you: 'You', agent: 'Agent', steps: 'Steps' }[message.from]}:\n${message.text}`,
     );
     return {
       data,
