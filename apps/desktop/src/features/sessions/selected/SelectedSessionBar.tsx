@@ -9,18 +9,26 @@ import {
 } from '@mesa/core/browser';
 import { Archive, GitCompareArrows, Globe, MessageSquareQuote, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { Button } from '@/components/ui/button';
 import { AutomationBanner } from '@/features/automations/AutomationBanner';
 import { useCommand } from '@/lib/useCommand';
+import type { SessionView } from '../chat/useSessionView';
 import type { OpenDialog } from '../dialogs/SessionDialogs';
 import { AgentSwitcher } from './AgentSwitcher';
 import { SelectedSessionDetails } from './SelectedSessionDetails';
 import { useRefreshOnStamp } from './useRefreshOnStamp';
 import type { SidePanel } from './useSidePanel';
 
+const VIEWS = [
+  ['terminal', 'Terminal'],
+  ['chat', 'Chat'],
+] as const;
+
 /**
- * The selected session's bar: its project and title, details, agent, the Replies, Browser, Diff and
- * Crew (with children or tasks) toggles, Archive, and then `children` (its Session actions menu).
+ * The selected session's bar: its project and title, details, Terminal | Chat (with a transcript
+ * to show), agent, the Replies, Browser, Diff and Crew (with children or tasks) toggles, Archive,
+ * and then `children` (its Session actions menu).
  */
 export function SelectedSessionBar({
   sessionId,
@@ -33,6 +41,8 @@ export function SelectedSessionBar({
   onSwap,
   onTogglePanel,
   onDialog,
+  view,
+  onView,
   children,
 }: {
   sessionId: string;
@@ -46,6 +56,9 @@ export function SelectedSessionBar({
   onSwap: (id: string, agent: Agent) => void;
   onTogglePanel: (panel: SidePanel) => void;
   onDialog: (dialog: OpenDialog) => void;
+  /** How the session shows, none when it can only show its terminal. */
+  view?: SessionView;
+  onView: (view: SessionView) => void;
   children?: ReactNode;
 }) {
   // A session that coordinates tasks has a Crew too, before it has any worker; read again as its
@@ -81,6 +94,9 @@ export function SelectedSessionBar({
         />
       )}
       <span className="ml-auto" />
+      {view && (
+        <SegmentedControl label="Session view" options={VIEWS} value={view} onChange={onView} />
+      )}
       {row?.managed && row.kind === 'interactive' && row.agent !== 'terminal' && !row.background ? (
         <AgentSwitcher
           row={row}

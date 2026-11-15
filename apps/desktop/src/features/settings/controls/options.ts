@@ -13,6 +13,8 @@ const LABEL: Record<string, string> = {
   'red-green': 'Red-green',
   'blue-yellow': 'Blue-yellow',
   custom: 'Custom',
+  terminal: 'Terminal',
+  chat: 'Chat',
   ...Object.fromEntries(Object.entries(TERMINAL_PRESETS).map(([id, { label }]) => [id, label])),
 };
 /** The word for one of core's choices. */

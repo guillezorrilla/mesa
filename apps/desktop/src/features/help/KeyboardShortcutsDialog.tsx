@@ -32,6 +32,7 @@ const PROJECT = [
 const FIXED: (readonly [string, string])[] = [
   ['Keyboard shortcuts', FIXED_SHORTCUTS.keyboardShortcuts],
   ['Send feedback', FIXED_SHORTCUTS.sendFeedback],
+  ['Switch session between Terminal and Chat', FIXED_SHORTCUTS.toggleChat],
   ...PROJECT,
 ];
 
@@ -88,6 +89,10 @@ export function KeyboardShortcutsDialog(props: {
             <ShortcutRow
               label="Send feedback, in its dialog"
               shortcut={FIXED_SHORTCUTS.sendFeedback}
+            />
+            <ShortcutRow
+              label="Switch session between Terminal and Chat"
+              shortcut={FIXED_SHORTCUTS.toggleChat}
             />
           </section>
           <section aria-label="Project view">

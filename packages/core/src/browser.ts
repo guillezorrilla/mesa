@@ -52,6 +52,7 @@ export {
   INTERFACE_DENSITIES,
   INTERFACE_FONTS,
   INTERFACE_THEMES,
+  SESSION_VIEWS,
   TERMINAL_APPS,
 } from './profile/preferences.js';
 export { profileSlug, profileVault, validProfileName } from './profile/profile-name.js';

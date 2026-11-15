@@ -18,6 +18,7 @@ import type {
   PendingPrompt,
   Removed,
   Sent,
+  SessionChat,
   SessionImage,
   SessionLog,
   SessionMerge,
@@ -91,6 +92,14 @@ export const sessionsCommands = {
     // `--force`, so a block is final here.
     ({ id, prompt, yes }) => ['send', '--no-from', ...(yes ? ['--yes'] : []), '--', id, prompt],
   ),
+  /** A session's chat, its newest `count` replies and the prompts among them (sessionChat). */
+  'sessions.chat': commandWith<{ id: string; count: number }, SessionChat>(({ id, count }) => [
+    'chat',
+    '--count',
+    String(count),
+    '--',
+    id,
+  ]),
   /** The permission or question a waiting session asks (CONTEXT.md, Pending prompt). */
   'sessions.prompt': commandWith<{ id: string }, PendingPrompt>(({ id }) => ['prompt', '--', id]),
   // `--via app` names the app in the receipt; `--prompt` refuses the answer once another waits.

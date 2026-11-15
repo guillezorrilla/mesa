@@ -13,7 +13,7 @@ const MAX_TEXT = 64 << 10;
 const MAX_PASSAGE = 8 << 10;
 const MAX_COMMENT = 4 << 10;
 
-type ResponseDeps = { profile: string; store: SessionStore; home: string; env: Env };
+export type ResponseDeps = { profile: string; store: SessionStore; home: string; env: Env };
 type ReviewInput = {
   profile: string;
   source: string;
@@ -103,8 +103,15 @@ export function sessionTranscript(deps: Omit<ResponseDeps, 'profile'>, id: strin
   return AGENTS[record.agent].transcripts.file(deps, record.agentSessionId);
 }
 
-/** Recent native assistant messages, with exact source and text revisions for later review. */
-export function sessionResponses(deps: ResponseDeps, id: string): SessionResponses {
+/**
+ * Recent native assistant messages, the newest `limit`, with exact source and text revisions for
+ * later review.
+ */
+export function sessionResponses(
+  deps: ResponseDeps,
+  id: string,
+  limit = MAX_RESPONSES,
+): SessionResponses {
   const record = deps.store.get(id);
   const reviews = record.events.filter((event): event is SavedReview => event.type === 'review');
   if (record.kind !== 'interactive' || record.agent === 'terminal')
@@ -144,7 +151,7 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
   const prompts: NativePrompt[] = [];
   const steps: NativeStep[] = [];
   let next = placed.length - 1;
-  for (let i = messages.length - 1; i >= 0 && rows.length < MAX_RESPONSES; i--) {
+  for (let i = messages.length - 1; i >= 0 && rows.length < limit; i--) {
     // The steps after message i, before the responses read so far.
     for (; next >= 0 && (placed[next]?.before ?? 0) > i; next--) {
       const step = placed[next]?.step;
@@ -176,7 +183,7 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
     });
   }
   // Every message read: the steps before the first are older than every response.
-  if (rows.length < MAX_RESPONSES)
+  if (rows.length < limit)
     for (; next >= 0; next--) {
       const step = placed[next]?.step;
       if (step) steps.push({ ...step, newer: rows.length });
@@ -187,7 +194,7 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
     steps,
     ...(current ? { current } : {}),
     reviews,
-    truncated: truncated || rows.length === MAX_RESPONSES,
+    truncated: truncated || rows.length === limit,
   };
 }
 

@@ -4,13 +4,15 @@ import { TerminalPanel } from './TerminalPanel';
 import type { TerminalPanels } from './useTerminalPanels';
 
 /**
- * The open terminal panels: only the selected session's shows when one is selected, and in the
- * Grid the tiles of `gridProject` (or the zoomed one).
+ * The open terminal panels: only the selected session's shows when one is selected, unless Chat
+ * `covered` it (it stays attached, hidden), and in the Grid the tiles of `gridProject` (or the
+ * zoomed one).
  */
 export function TerminalTiles({
   rows,
   panels,
   selectedSession,
+  covered,
   gridMode,
   gridProject,
   terminalPreferences,
@@ -24,6 +26,7 @@ export function TerminalTiles({
   rows?: TreeRow[];
   panels: TerminalPanels;
   selectedSession?: string;
+  covered?: boolean;
   gridMode?: boolean;
   gridProject: string;
   terminalPreferences?: Config['terminal'];
@@ -55,7 +58,7 @@ export function TerminalTiles({
       data-testid={gridMode ? 'grid-tile' : undefined}
       hidden={
         selectedSession
-          ? id !== selectedSession
+          ? id !== selectedSession || covered
           : gridMode
             ? (gridProject !== 'all' &&
                 !liveRows.some((row) => row.id === id && row.project === gridProject)) ||
@@ -82,7 +85,7 @@ export function TerminalTiles({
         onClose={() => panels.close(id)}
         grid={gridMode}
         selected={Boolean(selectedSession)}
-        focus={id === selectedSession}
+        focus={id === selectedSession && !covered}
         held={rows?.some((row) => row.id === id && row.managed && row.held)}
         zoomed={zoomed === id}
         onZoom={() => panels.toggleZoom(id)}

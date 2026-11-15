@@ -7,9 +7,12 @@ import { guardrailOf } from '../dialogs/GuardrailDialog';
 import type { OpenDialog } from '../dialogs/SessionDialogs';
 import type { SessionAct } from '../useSessionAct';
 
+/** A prompt the app typed into a session, and when (Date.now()). */
+export type SentPrompt = { id: string; prompt: string; at: number };
+
 /**
  * The selected session's prompt: the image picked to send with it, kept only while its session
- * stays selected, and the Send that delivers either.
+ * stays selected, the Send that delivers either, and the last text prompt sent (Chat's "Sending").
  */
 export function useSessionPrompt({
   act,
@@ -27,12 +30,16 @@ export function useSessionPrompt({
   const call = useCall();
   const platform = usePlatform();
   const [image, setImage] = useState<SessionImage>();
+  const [sent, setSent] = useState<SentPrompt>();
+  /** Why the last prompt to a session was not sent, which Chat says beside its composer. */
+  const [refused, setRefused] = useState<{ id: string; text: string }>();
   useEffect(() => {
     setImage((current) => (current?.session === selectedSession ? current : undefined));
   }, [selectedSession]);
   /**
    * Sends a prompt. The guardrail's ask opens its dialog, whose Send anyway sends it again with
-   * `yes`; its block is said in the toast, with no way past it here (--force is the CLI's).
+   * `yes`; its block is said in the toast and in `refused`, with no way past it here (--force is
+   * the CLI's).
    */
   const send = (
     id: string,
@@ -42,12 +49,14 @@ export function useSessionPrompt({
     attachment?: SessionImage,
   ) =>
     act(async (): Promise<Message | undefined> => {
+      setRefused(undefined);
       const sent = attachment
         ? await call('image.send', { image: attachment, note: prompt, yes })
         : await call('sessions.send', { id, prompt, yes });
       if (sent.ok) {
         form.reset();
         if (attachment) setImage(undefined);
+        else setSent({ id, prompt, at: Date.now() });
         closeDialog();
         // Typed either way: a warning says so, so the prompt is not sent twice.
         return warningOf(sent.data);
@@ -59,7 +68,9 @@ export function useSessionPrompt({
         return undefined;
       }
       closeDialog();
-      return { text: check ? `Not sent to ${id}: ${check.reason}` : error.message, tone: 'alert' };
+      const text = check ? `Not sent to ${id}: ${check.reason}` : error.message;
+      setRefused({ id, text });
+      return { text, tone: 'alert' };
     });
   const pickImage = (id: string) =>
     act(async (): Promise<Message | undefined> => {
@@ -72,7 +83,7 @@ export function useSessionPrompt({
       setImage(preview.data);
       return undefined;
     });
-  return { image, clearImage: () => setImage(undefined), send, pickImage };
+  return { image, clearImage: () => setImage(undefined), send, pickImage, sent, refused };
 }
 
 /** What `useSessionPrompt` returns. */

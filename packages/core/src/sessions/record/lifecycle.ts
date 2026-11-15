@@ -34,6 +34,12 @@ export const waitingForInput = (s: SessionRow) =>
 /** A Mesa session with an interactive agent, whose native responses Review reads. */
 export const reviewable = (s: SessionRow): s is ManagedRow =>
   s.managed && s.kind === 'interactive' && s.agent !== 'terminal';
+/**
+ * A Mesa session whose agent writes a transcript Mesa reads (Claude Code or Codex), so the app can
+ * show it as a chat (sessionChat); the others show only their terminal.
+ */
+export const chattable = (s: SessionRow): s is ManagedRow =>
+  reviewable(s) && (s.agent === 'claude' || s.agent === 'codex');
 /** A live Mesa session with an interactive agent: one Mesa can type a prompt into. */
 export const liveAgent = (s: SessionRow): s is ManagedRow => reviewable(s) && s.alive && !s.endedAt;
 /** A Mesa session in a registered project, whose checkout the Diff panel compares with its base. */
