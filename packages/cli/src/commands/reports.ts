@@ -2,7 +2,7 @@ import type { PendingReport } from '@mesa/core';
 import { defineCommand } from '../command.js';
 
 const line = (r: PendingReport) =>
-  `${r.parent} <- ${r.child} (${r.childName}) ${r.kind}${r.outcome ? ` ${r.outcome}` : ''}${r.tool ? ` ${r.tool}` : ''}${r.state ? ` ${r.state}` : ''} ${r.at}${r.heldUntil ? ` held until ${r.heldUntil}` : ''}`;
+  `${r.parent} <- ${r.child} (${r.childName}) ${r.kind}${r.outcome ? ` ${r.outcome}` : ''}${r.tool ? ` ${r.tool}` : ''}${r.state ? ` ${r.state}` : ''} ${r.at}${r.heldUntil ? ` held until ${r.heldUntil}${r.rides ? ', or with the next report' : ''}` : ''}`;
 
 export const reports = defineCommand({
   name: 'reports',
@@ -13,7 +13,7 @@ export const reports = defineCommand({
     deliver: {
       type: 'boolean',
       description:
-        "Type each idle parent's due reports as one prompt; busy parents wait, and a finished turn is held until its child stays idle (sessions.reportHoldSeconds)",
+        "Type each idle parent's due reports as one prompt; busy parents wait, a finished turn is held until its child stays idle (sessions.reportHoldSeconds), and news a parent cannot act on rides with its next report",
     },
   },
   example: 'mesa reports --deliver',

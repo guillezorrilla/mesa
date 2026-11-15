@@ -509,7 +509,7 @@ test("a resumed parent's successor gets its child's reports and questions, ones 
   await expect(inside(f, parent.id).reply(asked.id, 'North')).rejects.toThrow(
     new RegExp(`is for session ${latest.id}`),
   );
-  expect(await reportsAtTurnEnd(f.ctx, latest.id)).toContain('Charted the bay');
+  expect(await reportsAtTurnEnd(f.ctx, latest.id)).toContain('All charted');
 });
 
 test('a handoff successor reports to the parent of the session that handed off', () => {
@@ -608,6 +608,51 @@ test('only a finished turn is held: waits, endings, explicit reports, questions 
   expect(held).toEqual([]);
   expect(deliveries[0]?.reports).toHaveLength(3);
   expect(typed).toHaveLength(1);
+});
+
+test("a briefed worker's finished turn and a wait on a person do not wake the parent alone until the worker has stalled", async () => {
+  const f = family();
+  const { mesa, store, parent, child, hook, service, typed, setNow } = f;
+  mesa.config.set('sessions.reportHoldSeconds', '120');
+  const worker = store.create(() =>
+    newSession({ parent: parent.id, agentName: 'reef-maps', brief: true }),
+  );
+  service.list();
+  hook('Stop', { last_assistant_message: 'Waiting on my reviewers.' }, worker.id); // 12:00:01
+  hook('PermissionRequest', { tool_name: 'Bash' }); // 12:00:02
+  setNow('2026-09-24T12:05:00.000Z');
+  expect(service.list().reports).toMatchObject([
+    { kind: 'waiting', heldUntil: '2026-09-24T12:15:02.000Z', rides: true },
+    { kind: 'finished', heldUntil: '2026-09-24T12:15:01.000Z', rides: true },
+  ]);
+  expect(await service.deliver()).toMatchObject({ deliveries: [], held: [{}, {}] });
+  expect(await reportsAtTurnEnd(f.ctx, parent.id)).toBeUndefined();
+  setNow('2026-09-24T12:15:01.000Z');
+  expect((await service.deliver()).deliveries[0]?.reports).toHaveLength(2);
+  expect(typed).toHaveLength(1);
+  expect(typed[0]?.prompt).toContain('Waiting on my reviewers.');
+  expect(typed[0]?.prompt).toContain(`${child.id} (tide-charts) is waiting on a person`);
+});
+
+test('a quiet report rides with the next report its parent is woken for, and an explicit report speaks for the finished turn before it', async () => {
+  const f = family();
+  const { mesa, store, parent, child, hook, service, typed } = f;
+  mesa.config.set('sessions.reportHoldSeconds', '120');
+  const worker = store.create(() =>
+    newSession({ parent: parent.id, agentName: 'reef-maps', brief: true }),
+  );
+  service.list();
+  hook('Stop', { last_assistant_message: 'Waiting on my reviewers.' }, worker.id);
+  hook('PermissionRequest', { tool_name: 'Bash' });
+  expect((await service.deliver()).deliveries).toEqual([]);
+  inside(f, worker.id).report('done', 'Reefs mapped.');
+  const { deliveries, held } = await service.deliver();
+  expect(held).toEqual([]);
+  expect(deliveries[0]?.reports).toHaveLength(2);
+  expect(typed).toHaveLength(1);
+  expect(typed[0]?.prompt).toContain('Reefs mapped.');
+  expect(typed[0]?.prompt).toContain(`${child.id} (tide-charts) is waiting on a person`);
+  expect(typed[0]?.prompt).not.toContain('Waiting on my reviewers.');
 });
 
 test("a delivery's receipt records the parent's context tokens at that moment", async () => {

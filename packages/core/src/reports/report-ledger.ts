@@ -135,14 +135,17 @@ export function reportLedger(file: string, eventsDir: string, deps: LockDeps) {
     },
     /**
      * Adds a worker's explicit report to the pending ones in place of its older explicit one
-     * (even one made the same millisecond), and keeps it as its newest.
+     * (even one made the same millisecond) and of its pending `finished` turn, which the report
+     * speaks for, and keeps it as its newest.
      */
     add: (report: ChildReport) =>
       change((state) => ({
         next: {
           ...state,
           pending: addReport(
-            state.pending.filter((r) => r.child !== report.child || !isExplicit(r)),
+            state.pending.filter(
+              (r) => r.child !== report.child || !(isExplicit(r) || r.kind === 'finished'),
+            ),
             report,
           ),
           explicit: { ...state.explicit, [report.child]: report },

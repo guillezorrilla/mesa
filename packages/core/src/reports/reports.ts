@@ -123,24 +123,54 @@ export function eventReport(child: SessionRecord & { parent: string }, event: Ho
   } satisfies ChildReport;
 }
 
-/** A pending report as `mesa reports` lists it: with `heldUntil` while its hold lasts. */
-export type PendingReport = ChildReport & { heldUntil?: string };
+/**
+ * A pending report as `mesa reports` lists it: with `heldUntil` while its hold lasts, and `rides`
+ * when a held one goes out sooner beside its parent's next due report (dueNow).
+ */
+export type PendingReport = ChildReport & { heldUntil?: string; rides?: true };
 
 /**
- * When a held `report` may go out, if it is held at `now`: an implicit `finished` report waits
- * until its child has stayed idle `holdSeconds` after `lastEventAt`, its latest hook event, so a
- * worker mid-way through many turns wakes its parent once. Any other kind, or a hold of 0, is due.
+ * How long a quiet report waits for its child to stay idle before it wakes the parent alone:
+ * long enough that a worker waiting on its own background agents, or on a person, has moved on.
+ */
+export const QUIET_HOLD_SECONDS = 900;
+
+/**
+ * Whether `report` is news its parent cannot act on yet: the child `waiting` on a person, whom
+ * only a person answers, or the `finished` turn of a `briefed` worker, which reports its work
+ * itself when it is done. Measured in docs/spikes/token-usage.md, Step 9.
+ */
+export const isQuiet = (report: Pick<ChildReport, 'kind'>, briefed: boolean) =>
+  report.kind === 'waiting' || (report.kind === 'finished' && briefed);
+
+/**
+ * When a held `report` may go out alone, if it is held at `now`: an implicit `finished` report
+ * waits until its child has stayed idle `holdSeconds` after `lastEventAt`, its latest hook event,
+ * so a worker mid-way through many turns wakes its parent once; a `quiet` one (isQuiet) waits
+ * QUIET_HOLD_SECONDS, so only a worker that has stalled wakes it. Any other kind, or a hold of 0,
+ * is due.
  */
 export function heldUntil(
   report: ChildReport,
   lastEventAt: string | undefined,
   holdSeconds: number,
   now: string,
+  quiet = false,
 ): string | undefined {
-  if (report.kind !== 'finished' || holdSeconds <= 0) return undefined;
+  if (holdSeconds <= 0 || (report.kind !== 'finished' && !quiet)) return undefined;
+  const seconds = quiet ? Math.max(holdSeconds, QUIET_HOLD_SECONDS) : holdSeconds;
   const idleSince = Math.max(Date.parse(report.at), Date.parse(lastEventAt ?? report.at));
-  const until = idleSince + holdSeconds * 1000;
+  const until = idleSince + seconds * 1000;
   return until > Date.parse(now) ? new Date(until).toISOString() : undefined;
+}
+
+/**
+ * The reports to give their parents now: each one not held, and each held one that `rides` with
+ * a report its parent is woken for anyway.
+ */
+export function dueNow(reports: readonly PendingReport[]): PendingReport[] {
+  const woken = new Set(reports.filter((r) => !r.heldUntil).map((r) => r.parent));
+  return reports.filter((r) => !r.heldUntil || (r.rides && woken.has(r.parent)));
 }
 
 /** How many files an explicit report names, and how long each path may be. */

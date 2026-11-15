@@ -18,11 +18,13 @@ import type { ResolvedGate } from '../tasks/task-file.js';
 import { reportLedger } from './report-ledger.js';
 import {
   type ChildReport,
+  dueNow,
   EXPLICIT_KINDS,
   explicitReport,
   gateReport,
   heldUntil,
   isExplicitKind,
+  isQuiet,
   type PendingReport,
   type Question,
   questionOf,
@@ -52,7 +54,8 @@ const reportingRecords = (ctx: MesaContext): SessionRecord[] =>
   });
 /**
  * Every child's new news in `records` (reportingRecords), collected into the pending reports,
- * each `finished` one marked with `heldUntil` while its child has not stayed idle `hold` seconds.
+ * each held one marked with `heldUntil` while its child has not stayed idle long enough, and with
+ * `rides` when it is a quiet one that goes sooner beside other news (heldUntil, isQuiet).
  */
 const collectAll = (
   ctx: MesaContext,
@@ -64,9 +67,15 @@ const collectAll = (
   const pending = ledger.collect(records, now);
   if (hold <= 0) return pending;
   const active = ledger.activity();
+  const briefed = new Set(records.filter((r) => r.brief).map((r) => r.id));
   return pending.map((report) => {
-    const until = heldUntil(report, active[report.child], hold, now);
-    return until ? { ...report, heldUntil: until } : report;
+    const last = active[report.child];
+    const quiet = isQuiet(report, briefed.has(report.child));
+    const until = heldUntil(report, last, hold, now, quiet);
+    if (!until) return report;
+    // Past the hold every finished turn waits, a quiet one goes beside its parent's next news.
+    const rides = quiet && !heldUntil(report, last, hold, now);
+    return { ...report, heldUntil: until, ...(rides ? { rides: true as const } : {}) };
   });
 };
 
@@ -224,8 +233,8 @@ export function reportsService(
           'child reports are off; turn them on with mesa config set sessions.childReports true',
         );
       const collected = collect();
-      const held = collected.filter((r) => r.heldUntil);
-      const pending = collected.filter((r) => !r.heldUntil);
+      const pending = dueNow(collected);
+      const held = collected.filter((r) => !pending.includes(r));
       if (!pending.length) return { deliveries: [], held };
       const board = await deps.board();
       const rows = new Map(board.filter(sendable).map((row) => [row.id, row]));
@@ -288,9 +297,9 @@ export async function reportsAtTurnEnd(
   const records = reportingRecords(ctx);
   if (!records.some((r) => r.parent === parent)) return undefined;
   const ledger = ledgerOf(ctx);
-  const ids = collectAll(ctx, ledger, sessions.reportHoldSeconds, records)
-    .filter((r) => r.parent === parent && !r.heldUntil)
-    .map((r) => r.id);
+  const ids = dueNow(
+    collectAll(ctx, ledger, sessions.reportHoldSeconds, records).filter((r) => r.parent === parent),
+  ).map((r) => r.id);
   const claimed = ids.length ? ledger.claim(ids) : [];
   if (!claimed.length) return undefined;
   const prompt = reportPrompt(claimed);
