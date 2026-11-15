@@ -74,6 +74,7 @@ describe('parseStreamLine', () => {
       requestId: 'mesa-1',
       ok: true,
       error: undefined,
+      response: {},
     });
     expect(events[10]).toEqual({ type: 'compact_boundary', trigger: 'manual', preTokens: 44600 });
     expect(events[11]).toEqual({ type: 'system', subtype: 'background_tasks_changed' });

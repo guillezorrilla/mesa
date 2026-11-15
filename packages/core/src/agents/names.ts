@@ -123,6 +123,16 @@ export const CLAUDE_PERMISSION_MODES = [
   'plan',
 ] as const;
 
+export type ClaudePermissionMode = (typeof CLAUDE_PERMISSION_MODES)[number];
+export const isClaudePermissionMode = (mode: string): mode is ClaudePermissionMode =>
+  (CLAUDE_PERMISSION_MODES as readonly string[]).includes(mode);
+
+/** A model as a person reads it: `claude-sonnet-5-5` as Sonnet 5.5, any other name as it is. */
+export function modelLabel(model: string) {
+  const [, name = '', major, minor] = /^claude-([a-z]+)-(\d+)-(\d+)/.exec(model) ?? [];
+  return name ? `${name[0]?.toUpperCase()}${name.slice(1)} ${major}.${minor}` : model;
+}
+
 /** The approval policies `codex --ask-for-approval` takes (Codex 0.159.2). */
 export const CODEX_APPROVAL_POLICIES = ['on-request', 'never'] as const;
 /** The sandbox policies `codex --sandbox` takes (Codex 0.159.2). */

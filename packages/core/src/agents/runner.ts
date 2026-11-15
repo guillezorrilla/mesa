@@ -18,6 +18,11 @@ export interface AgentRunner {
   deny(requestId: string, message: string): void;
   /** Stops the turn in progress; the process stays up for the next message. */
   interrupt(): void;
+  /**
+   * Changes the model and effort: Claude at once (`set_model`, `/effort`), Codex from the next
+   * turn (`turn/start` overrides, which hold for the turns after it).
+   */
+  setModel(model: string | undefined, effort: string | undefined): void;
   /** Ends the process; resume it later with its session or thread id. */
   stop(): void;
   /** Settles when the process ends, after its last event. */

@@ -22,6 +22,13 @@ const RequestSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('deny'), requestId: z.string().min(1), message: z.string() }),
   z.object({ type: z.literal('interrupt') }),
+  z
+    .object({
+      type: z.literal('model'),
+      model: z.string().min(1).optional(),
+      effort: z.string().min(1).optional(),
+    })
+    .refine((r) => r.model !== undefined || r.effort !== undefined, 'a model or an effort'),
   z.object({ type: z.literal('mode'), mode: z.enum(CLAUDE_PERMISSION_MODES) }),
   z.object({ type: z.literal('stop') }),
 ]);

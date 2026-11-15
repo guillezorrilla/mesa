@@ -1,5 +1,8 @@
 import type { MesaContext } from '../../context.js';
+import { applyControls, type ControlChange, sessionControls } from '../host/controls.js';
 import { hostSession } from '../host/host.js';
+import { projectScope } from '../record/general.js';
+import { recordAgent } from '../record/record.js';
 import { attachSession } from '../window/attach.js';
 import { outputSince } from '../window/output-log.js';
 import { sessionPanel } from '../window/panel.js';
@@ -21,6 +24,31 @@ export function windowActions(ctx: MesaContext, deps: SessionDeps) {
       const launch = deps.openDeps();
       return hostSession({ ...launch, spawn: ctx.spawn, cwd: ctx.cwd }, id, write);
     },
+    /** A Structured session's model, effort and mode as its agent confirmed them (controls.ts). */
+    controls: (id: string) => sessionControls({ store, journals: ctx.paths.journals }, id),
+    /** Changes them through its host once the agent confirms, with a receipt (applyControls). */
+    setControls: (id: string, change: ControlChange) =>
+      ctx.record(
+        {
+          type: 'session',
+          summary: () =>
+            `Set session ${id}'s ${Object.entries(change)
+              .map(([k, v]) => `${k} ${v}`)
+              .join(', ')}`,
+          failure: `Could not change session ${id}'s controls`,
+          project: () => projectScope(store.get(id).project),
+          session: () => id,
+          agent: () => recordAgent(store.get(id)),
+          inputs: { id, ...change },
+          outputs: (r) => ({ model: r.model, effort: r.effort, mode: r.mode }),
+        },
+        () =>
+          applyControls(
+            { store, journals: ctx.paths.journals, hosts: ctx.paths.hosts, sleep: ctx.sleep },
+            id,
+            change,
+          ),
+      ),
     /** Sizes a session's window to a view now (the app's terminal, after each fit). */
     resize: (id: string, cols: number, rows: number) =>
       resizeSession({ store, tmux }, id, cols, rows),

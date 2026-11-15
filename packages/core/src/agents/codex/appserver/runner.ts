@@ -56,6 +56,8 @@ export function startCodexRunner(
     return id;
   };
   const textInput = (text: string) => [{ type: 'text', text, text_elements: [] }];
+  /** The model and effort the next turn starts with; Codex keeps them for the turns after. */
+  let overrides: { model?: string; effort?: string } = {};
 
   const send = (text: string) => {
     if (!threadId || starting) return void waiting.push(text);
@@ -69,7 +71,7 @@ export function startCodexRunner(
     }
     starting = true;
     if (text.trim() === COMPACT) request('thread/compact/start', { threadId });
-    else request('turn/start', { threadId, input: textInput(text) });
+    else request('turn/start', { threadId, input: textInput(text), ...overrides });
   };
   const flush = () => {
     for (const text of waiting.splice(0)) send(text);
@@ -150,6 +152,9 @@ export function startCodexRunner(
     send,
     allow: (requestId) => answer(requestId, 'accept'),
     deny: (requestId) => answer(requestId, 'decline'),
+    setModel: (model, effort) => {
+      overrides = { ...overrides, ...(model ? { model } : {}), ...(effort ? { effort } : {}) };
+    },
     interrupt: () => {
       if (threadId && turnId) request('turn/interrupt', { threadId, turnId });
     },

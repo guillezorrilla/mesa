@@ -113,6 +113,7 @@ export async function hostSession(
         runner.allow(request.requestId, request.input, request.permissions);
       else if (request.type === 'deny') runner.deny(request.requestId, request.message);
       else if (request.type === 'interrupt') runner.interrupt();
+      else if (request.type === 'model') runner.setModel(request.model, request.effort);
       else if (request.type === 'mode') runner.setPermissionMode?.(request.mode);
       else runner.stop();
       status.doing = busy ? 'working' : 'idle';
