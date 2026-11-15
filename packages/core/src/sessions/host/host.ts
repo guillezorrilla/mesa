@@ -1,5 +1,5 @@
 import { AGENTS } from '../../agents/agents.js';
-import { listClaudeProcesses } from '../../agents/claude/listing.js';
+import { runningConversation } from '../../agents/claude/listing.js';
 import { claudeTranscripts } from '../../agents/claude/paths.js';
 import { type ClaudeRunner, startClaudeRunner } from '../../agents/claude/stream/runner.js';
 import { transcriptFile } from '../../agents/claude/transcripts.js';
@@ -64,9 +64,7 @@ export async function hostSession(
     throw new MesaError('usage', `session ${id} is not a Structured Claude Code session`);
   const sessionId = record.agentSessionId;
   if (!sessionId) throw new MesaError('usage', `session ${id} has no Claude session id`);
-  const running = (await listClaudeProcesses(deps)).find(
-    (p) => p.agentSessionId === sessionId && p.pid && p.nativeState !== 'stopped',
-  );
+  const running = await runningConversation(deps, sessionId);
   if (running)
     throw new MesaError(
       'usage',

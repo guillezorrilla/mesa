@@ -26,6 +26,7 @@ import type {
   SessionRecord,
   StopOutcome,
   TreeRow,
+  View,
 } from '@mesa/core';
 import { command, commandWith, type Recorded } from './spec';
 
@@ -199,6 +200,18 @@ export const sessionsCommands = {
     ...(deleteBranch ? ['--delete-branch'] : []),
     '--',
     id,
+  ]),
+  /** A Claude Code session switched between Structured and Terminal view (ADR-0029). */
+  'sessions.view': commandWith<
+    { id: string; view: View; interrupt?: boolean },
+    Recorded<SessionRecord & { switched: boolean }>
+  >(({ id, view, interrupt }) => [
+    'sessions',
+    'view',
+    ...(interrupt ? ['--interrupt'] : []),
+    '--',
+    id,
+    view,
   ]),
   /** A fresh session's agent swapped in place (CONTEXT.md, Swap). */
   'sessions.swap': commandWith<{ id: string; agent: Agent }, Recorded<SessionRecord>>(

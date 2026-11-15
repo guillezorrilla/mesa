@@ -242,8 +242,9 @@ export function endSignals(
       }
       const state =
         event && parentHook(event) && AGENTS[event.agent].hookState?.(event.event, event.payload);
-      // A sleep's quit ends the agent, not the session: nothing queued after it starts.
-      if (event?.event === 'SessionEnd' && id && state && !store.find(id)?.sleeping)
+      // A sleep's or a switch's quit ends the agent, not the session: nothing queued after starts.
+      const quitting = (r: SessionRecord | undefined) => Boolean(r?.sleeping || r?.switching);
+      if (event?.event === 'SessionEnd' && id && state && !quitting(store.find(id)))
         await startAfter(id);
       // An Explore subagent the agent starts without a model runs on Haiku (exploreOnHaiku).
       if (event?.event === 'PreToolUse' && event.agent === 'claude') {

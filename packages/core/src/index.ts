@@ -242,6 +242,7 @@ export type { HeadlessResult } from './sessions/run/files.js';
 export type { SessionMerge } from './sessions/service/merge.js';
 export type { Supervision } from './sessions/signals/placements.js';
 export type { DiscoveredAdoption, DiscoveryAdoption } from './sessions/start/discovery-adopt.js';
+export { VIEWS, type View } from './sessions/start/switch-view.js';
 export type { Worktree } from './sessions/start/worktree.js';
 export type { TmuxWindow } from './sessions/tmux/format.js';
 export type { AdvertisedUrl } from './sessions/window/advertised-urls.js';

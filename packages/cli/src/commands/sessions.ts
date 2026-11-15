@@ -11,10 +11,13 @@ import {
   projectLabel,
   sessionBranch,
   sessionLabel,
+  VIEWS,
+  type View,
   waitingOn,
 } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
+import { recordedOutput } from '../output/recorded.js';
 
 export const sessions = defineCommand({
   name: 'sessions',
@@ -103,5 +106,28 @@ export const sessions = defineCommand({
         ? 'no archived sessions'
         : 'no sessions; run mesa open <project>';
     return { data: agentView ? rows.map(agentRow) : rows, text };
+  },
+});
+
+export const sessionsView = defineCommand({
+  name: 'sessions view',
+  summary:
+    'Switch a Claude Code session between Structured and Terminal view: its agent stops and the conversation resumes in the same window; mid-turn it is refused unless --interrupt',
+  args: ['session', 'view'],
+  flags: {
+    interrupt: { type: 'boolean', description: 'Mid-turn, interrupt the agent and switch' },
+  },
+  example: 'mesa sessions view a1b2c3d4 structured',
+  run: async ({ mesa, args, flags }) => {
+    const to = args.view as View;
+    if (!VIEWS.includes(to)) throw new MesaError('usage', `view must be ${VIEWS.join(' or ')}`);
+    const recorded = await mesa.sessions.switchView(args.session, to, {
+      interrupt: flags.interrupt,
+    });
+    const { record, switched } = recorded.result;
+    return recordedOutput(recorded, {
+      data: { ...record, switched },
+      text: switched ? `switched ${record.id} to ${to} view` : `${record.id} is in ${to} view`,
+    });
   },
 });

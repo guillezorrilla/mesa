@@ -13,7 +13,6 @@ import { SegmentedControl } from '@/components/SegmentedControl';
 import { Button } from '@/components/ui/button';
 import { AutomationBanner } from '@/features/automations/AutomationBanner';
 import { useCommand } from '@/lib/useCommand';
-import type { SessionView } from '../chat/useSessionView';
 import type { OpenDialog } from '../dialogs/SessionDialogs';
 import { AgentSwitcher } from './AgentSwitcher';
 import { SelectedSessionDetails } from './SelectedSessionDetails';
@@ -42,6 +41,7 @@ export function SelectedSessionBar({
   onTogglePanel,
   onDialog,
   view,
+  switching,
   onView,
   children,
 }: {
@@ -57,8 +57,10 @@ export function SelectedSessionBar({
   onTogglePanel: (panel: SidePanel) => void;
   onDialog: (dialog: OpenDialog) => void;
   /** How the session shows, none when it can only show its terminal. */
-  view?: SessionView;
-  onView: (view: SessionView) => void;
+  view?: 'terminal' | 'chat';
+  /** A view switch runs (ADR-0029): the control shows where it goes, and waits. */
+  switching?: boolean;
+  onView: (view: 'terminal' | 'chat') => void;
   children?: ReactNode;
 }) {
   // A session that coordinates tasks has a Crew too, before it has any worker; read again as its
@@ -94,8 +96,19 @@ export function SelectedSessionBar({
         />
       )}
       <span className="ml-auto" />
+      {switching && (
+        <span role="status" className="text-xs text-muted-foreground">
+          Switching
+        </span>
+      )}
       {view && (
-        <SegmentedControl label="Session view" options={VIEWS} value={view} onChange={onView} />
+        <SegmentedControl
+          label="Session view"
+          options={VIEWS}
+          value={view}
+          disabled={switching}
+          onChange={onView}
+        />
       )}
       {row?.managed && row.kind === 'interactive' && row.agent !== 'terminal' && !row.background ? (
         <AgentSwitcher

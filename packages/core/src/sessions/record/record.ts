@@ -275,6 +275,15 @@ const SessionRecordFields = z.strictObject({
        * SessionEnd no longer says the session's state (CONTEXT.md, Sleeping session).
        */
       z.strictObject({ type: z.literal('woke'), at: z.iso.datetime() }),
+      /**
+       * Switched view (mesa sessions view, ADR-0029) at `at`, when the switch began: hook events
+       * before it are the stopped process's, as before a wake.
+       */
+      z.strictObject({
+        type: z.literal('switched'),
+        at: z.iso.datetime(),
+        to: z.enum(['terminal', 'structured']),
+      }),
       /** Handed off (mesa handoff): to its successor, or, on the successor, from the session. */
       z.strictObject({
         type: z.literal('handoff'),
@@ -316,6 +325,11 @@ const SessionRecordFields = z.strictObject({
    * record kept as it was, until `mesa wake` resumes the conversation in the same session.
    */
   sleeping: z.strictObject({ at: z.string() }).optional(),
+  /**
+   * A view switch under way since `at` (ADR-0029): its agent quits on purpose, so its SessionEnd
+   * and pane-died signals leave it running, as a sleep's do; one switch at a time.
+   */
+  switching: z.strictObject({ at: z.string() }).optional(),
 });
 
 /**
