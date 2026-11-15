@@ -4,7 +4,8 @@ import { finishSteps, type TranscriptStep } from '../../agents/steps.js';
 import { type ChatItem, type ChatMessage, chatRun } from './chat.js';
 
 // A Structured session's live chat: the runner's stream events (agents/claude/stream) folded into
-// the same chat items the transcript gives (chat.ts). Pure: each step returns a new state, so a
+// the same chat items the transcript gives (chat.ts); Codex's events fold through the same state
+// (codex-stream-chat.ts). Pure: each step returns a new state, so a
 // host, a journal replay and a test all fold the same way.
 
 export type StreamChat = {
@@ -45,12 +46,13 @@ const raw = (block: ContentBlock): RawBlock | undefined =>
         : undefined;
 
 /** The open run closed into an item. */
-function closeRun(state: StreamChat, at: string): StreamChat {
+export function closeRun(state: StreamChat, at: string): StreamChat {
   const run = chatRun(state.run, at);
   return run ? { ...state, items: [...state.items, run], run: [] } : state;
 }
 
-const add = (state: StreamChat, item: Omit<ChatMessage, 'id'>): StreamChat => ({
+/** `state` with one more message, numbered by the fold. */
+export const add = (state: StreamChat, item: Omit<ChatMessage, 'id'>): StreamChat => ({
   ...state,
   items: [...state.items, { ...item, id: `stream:${state.seq}` }],
   seq: state.seq + 1,
@@ -67,8 +69,8 @@ export function streamChatSent(state: StreamChat, text: string, at: string): Str
   return command ? { ...next, command: next.items.length - 1 } : next;
 }
 
-/** A command item with `change` applied. */
-const withCommand = (state: StreamChat, change: Partial<ChatMessage>): StreamChat => {
+/** The waiting command item with `change` applied. */
+export const withCommand = (state: StreamChat, change: Partial<ChatMessage>): StreamChat => {
   const { command } = state;
   const item = command === undefined ? undefined : state.items[command];
   if (command === undefined || item?.from !== 'command') return state;

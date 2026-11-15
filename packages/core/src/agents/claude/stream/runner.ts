@@ -2,6 +2,7 @@ import { lineSplitter } from '../../../lib/lines.js';
 import type { Env } from '../../../lib/process.js';
 import type { SpawnExit, Spawner } from '../../../lib/spawn.js';
 import type { CLAUDE_PERMISSION_MODES } from '../../names.js';
+import type { AgentRunner } from '../../runner.js';
 import { parseStreamLine, type StreamEvent } from './events.js';
 
 // Claude Code in stream-json mode for one session: one long-lived process, JSON lines in and out
@@ -23,19 +24,10 @@ export interface ClaudeStartOptions {
   args?: readonly string[];
 }
 
-export interface ClaudeRunner {
-  /** A user message; while a turn runs, Claude queues it. */
-  send(text: string): void;
+export interface ClaudeRunner extends AgentRunner {
   /** Answers a permission request (`permission_request` event) by its request id. */
   allow(requestId: string, input: Record<string, unknown>): void;
-  deny(requestId: string, message: string): void;
-  /** Stops the turn in progress; the process stays up for the next message. */
-  interrupt(): void;
   setPermissionMode(mode: PermissionMode): void;
-  /** Ends the process; resume it later with the session id from `init` or `result`. */
-  stop(): void;
-  /** Settles when the process ends, after its last event. */
-  exited: Promise<SpawnExit>;
 }
 
 /** The command line for one runner (`claude` is the binary). */
