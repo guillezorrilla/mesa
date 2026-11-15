@@ -1,9 +1,7 @@
-import type { ManagedRow } from '@mesa/core';
+import type { ControlChange, ManagedRow } from '@mesa/core';
 import { useState } from 'react';
 import { useCall, useCommand } from '@/lib/useCommand';
 import { useRefreshOnStamp } from '../selected/useRefreshOnStamp';
-
-export type ControlChange = { model?: string; effort?: string; mode?: string };
 
 /**
  * A Structured session's controls (ADR-0029): its model, effort and mode as the agent confirmed

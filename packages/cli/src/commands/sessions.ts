@@ -137,7 +137,7 @@ export const sessionsView = defineCommand({
 const controlsText = (c: SessionControls) =>
   `${c.session}: ${[
     c.model ?? 'model unknown',
-    c.effort && `effort ${c.effort}`,
+    c.effortQueued ? `effort ${c.effortQueued} after this turn` : c.effort && `effort ${c.effort}`,
     c.mode && `mode ${c.mode}`,
   ]
     .filter(Boolean)
@@ -151,7 +151,7 @@ export const sessionsControls = defineCommand({
   example: 'mesa sessions controls a1b2c3d4',
   run: async ({ mesa, args }) => {
     const data = mesa.sessions.controls(args.session);
-    return { data, text: [controlsText(data), data.usage?.text].filter(Boolean).join('\n') };
+    return { data, text: [controlsText(data), data.usage].filter(Boolean).join('\n') };
   },
 });
 

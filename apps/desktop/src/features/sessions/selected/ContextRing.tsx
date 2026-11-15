@@ -1,5 +1,5 @@
 import type { SessionRecord } from '@mesa/core';
-import { contextPercent, contextTokens, timeAgo } from '@mesa/core/browser';
+import { contextPercent, contextTokens, modelLabel, timeAgo } from '@mesa/core/browser';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -55,7 +55,7 @@ export function ContextRing(props: { context?: SessionRecord['context'] }) {
             />
             <dl className="grid grid-cols-[4rem_minmax(0,1fr)] gap-x-2 gap-y-1">
               <dt className="text-muted-foreground">Model</dt>
-              <dd className="break-all font-mono">{context.model ?? 'Unknown'}</dd>
+              <dd className="break-all">{context.model ? modelLabel(context.model) : 'Unknown'}</dd>
               <dt className="text-muted-foreground">Effort</dt>
               <dd>{context.effort ?? 'Unknown'}</dd>
               <dt className="text-muted-foreground">Read</dt>

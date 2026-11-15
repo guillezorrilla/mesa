@@ -45,9 +45,9 @@ export const EFFORTS = {
 } as const;
 
 /** Claude's model names and aliases, which Codex cannot run (the app's New worker offers them). */
-const CLAUDE_MODEL = /^(claude|opus|sonnet|haiku|fable)\b/;
 /** The aliases Claude Code's /model takes for its main models, which a model picker offers. */
 export const CLAUDE_MODEL_ALIASES = ['opus', 'sonnet', 'haiku', 'fable'] as const;
+const CLAUDE_MODEL = new RegExp(`^(claude|${CLAUDE_MODEL_ALIASES.join('|')})\\b`);
 
 /**
  * Refuses, as usage, a model or effort `agent` cannot start with: Antigravity takes neither, a

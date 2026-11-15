@@ -15,6 +15,7 @@ export {
   CODEX_APPROVAL_POLICIES,
   CODEX_SANDBOXES,
   DEFAULT_AGENT,
+  modelLabel,
   supportsAgentCapability,
   supportsPlanStart,
 } from './agents/names.js';

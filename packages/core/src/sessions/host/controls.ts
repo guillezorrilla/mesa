@@ -1,9 +1,10 @@
 import { parseStreamLine } from '../../agents/claude/stream/events.js';
 import { parseAppServerLine } from '../../agents/codex/appserver/events.js';
 import { CLAUDE_MODEL_ALIASES, EFFORTS, requireSessionModel } from '../../agents/launch-flags.js';
-import { CLAUDE_PERMISSION_MODES } from '../../agents/names.js';
+import { CLAUDE_PERMISSION_MODES, isClaudePermissionMode } from '../../agents/names.js';
 import { payloadField } from '../../agents/prompt.js';
 import { MesaError } from '../../lib/result.js';
+import { inTurn } from '../record/lifecycle.js';
 import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
 import { journalEntries, readJournal } from './journal.js';
@@ -26,8 +27,10 @@ export type SessionControls = {
   models: string[];
   efforts: readonly string[];
   modes: readonly string[];
-  /** The last `/usage` reply and when it came, Claude's alone. */
-  usage?: { text: string; at: string };
+  /** The last `/usage` reply, Claude's alone. */
+  usage?: string;
+  /** An effort asked for mid-turn, which Claude takes once the turn ends. */
+  effortQueued?: string;
 };
 
 export type ControlChange = { model?: string; effort?: string; mode?: string };
@@ -67,7 +70,7 @@ export function readControls(record: SessionRecord, lines: readonly string[]): S
     modes: agent === 'claude' ? CLAUDE_PERMISSION_MODES : [],
   };
   let askedUsage = false;
-  for (const { at, sent, event } of journalEntries(lines)) {
+  for (const { sent, event } of journalEntries(lines)) {
     if (sent) {
       askedUsage = sent.type === 'user' && sent.text === '/usage';
       if (agent === 'codex' && sent.type === 'model') {
@@ -99,7 +102,7 @@ export function readControls(record: SessionRecord, lines: readonly string[]): S
     if (text === undefined) continue;
     const effort = EFFORT_SET.exec(text)?.[1];
     if (effort) controls.effort = effort;
-    if (askedUsage) controls.usage = { text, at };
+    if (askedUsage) controls.usage = text;
     askedUsage = false;
   }
   return controls;
@@ -134,8 +137,9 @@ function confirmed(
       if (typeof e.response.model === 'string') model = true;
       if (typeof e.response.mode === 'string') mode = true;
     }
+    // Only a reply about effort speaks for it: another command's, a /usage say, is not a refusal.
     const text = syntheticText(e);
-    if (text !== undefined && !effort) {
+    if (text !== undefined && !effort && /effort/i.test(text)) {
       if (!EFFORT_SET.test(text)) return { ok: false, reason: text.trim() };
       effort = true;
     }
@@ -163,7 +167,7 @@ export async function applyControls(
   requireSessionModel(agent, { model, effort });
   if (mode !== undefined && agent !== 'claude')
     throw new MesaError('usage', `${agent} has no permission modes to set`);
-  if (mode !== undefined && !(CLAUDE_PERMISSION_MODES as readonly string[]).includes(mode))
+  if (mode !== undefined && !isClaudePermissionMode(mode))
     throw new MesaError('usage', `mode is one of ${CLAUDE_PERMISSION_MODES.join(', ')}`);
   const before = readJournal(deps.journals, id)?.length ?? 0;
   const socket = hostSocket(deps.hosts, id);
@@ -181,11 +185,14 @@ export async function applyControls(
     if (!reply) throw unavailable('its host does not answer');
     if (!reply.ok) throw unavailable(reply.error);
   }
+  // Mid-turn Claude queues `/effort` behind the turn: the rest is confirmed, the effort shown queued.
+  const queued = effort !== undefined && inTurn(record);
+  const awaited = queued ? { ...change, effort: undefined } : change;
   if (agent === 'claude')
     for (let waited = 0; ; waited += POLL_MS) {
       const since = journalEntries((readJournal(deps.journals, id) ?? []).slice(before));
       const events = since.flatMap((e) => (e.event === undefined ? [] : [e.event]));
-      const verdict = confirmed(events, change);
+      const verdict = confirmed(events, awaited);
       if (verdict?.ok) break;
       if (verdict && !verdict.ok) throw unavailable(verdict.reason);
       if (waited >= CONFIRM_MS) throw unavailable('the agent did not confirm the change in 10 s');
@@ -193,5 +200,6 @@ export async function applyControls(
     }
   if (model !== undefined || effort !== undefined)
     deps.store.update(id, { ...(model ? { model } : {}), ...(effort ? { effort } : {}) });
-  return sessionControls(deps, id);
+  const after = sessionControls(deps, id);
+  return queued ? { ...after, effortQueued: effort } : after;
 }

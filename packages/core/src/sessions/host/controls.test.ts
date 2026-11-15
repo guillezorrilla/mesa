@@ -105,10 +105,37 @@ describe("a Structured Claude session's controls", () => {
     }
   });
 
+  it('waits 10 s for a confirmation that never comes, then says so', async () => {
+    const w = await hostedSession([INIT], () => []);
+    await expect(w.mesa.sessions.setControls(w.record.id, { model: 'opus' })).rejects.toThrow(
+      /did not confirm the change in 10 s/,
+    );
+    w.host.stop();
+    await w.host.done;
+  });
+
+  it("takes an effort mid-turn as queued, and another command's reply is no refusal", async () => {
+    const w = await hostedSession([INIT], (m) =>
+      (m.message as { content?: string } | undefined)?.content === '/effort low'
+        ? [synthetic('No response requested.')]
+        : claude(m),
+    );
+    testStore(w.home).update(w.record.id, (r) => ({
+      lastState: { ...r.lastState, state: 'working' as const },
+    }));
+    const { result } = await w.mesa.sessions.setControls(w.record.id, {
+      model: 'sonnet',
+      effort: 'low',
+    });
+    expect(result).toMatchObject({ model: 'claude-sonnet-5-5', effortQueued: 'low' });
+    w.host.stop();
+    await w.host.done;
+  });
+
   it('shows the last /usage reply as its usage', async () => {
     const w = await hostedSession([INIT], claude);
     await w.mesa.sessions.send(w.record.id, '/usage');
-    expect(w.mesa.sessions.controls(w.record.id).usage?.text).toBe('Current session: 4% used');
+    expect(w.mesa.sessions.controls(w.record.id).usage).toBe('Current session: 4% used');
     w.host.stop();
     await w.host.done;
   });

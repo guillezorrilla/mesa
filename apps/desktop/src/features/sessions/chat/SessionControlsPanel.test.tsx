@@ -3,7 +3,7 @@ import type { SessionControls } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
 import { envelope, failure, fakeBridge, managedRow, renderWithMesa } from '@/lib/testing';
-import { SessionControlsBar } from './SessionControlsBar';
+import { SessionControlsPanel } from './SessionControlsPanel';
 
 const row = managedRow('cccccccc', { view: 'structured' });
 const controls: SessionControls = {
@@ -34,7 +34,7 @@ test('shows the confirmed model, effort and mode, and an effort picked goes to t
     'sessions controls': () => envelope(controls),
     'sessions model': () => envelope({ ...controls, effort: 'low', receipt: null }),
   });
-  const byTestId = await renderWithMesa(<SessionControlsBar row={row} />, bridge);
+  const byTestId = await renderWithMesa(<SessionControlsPanel row={row} />, bridge);
   const bar = byTestId('session-controls')[0];
   expect(bar?.textContent).toContain('Sonnet 5.5');
   expect(bar?.textContent).toContain('high');
@@ -49,7 +49,7 @@ test("shows the agent's refusal beside the controls", async () => {
     'sessions controls': () => envelope(controls),
     'sessions mode': () => failure('session cccccccc: no such mode', 'agent_unavailable'),
   });
-  await renderWithMesa(<SessionControlsBar row={row} />, bridge);
+  await renderWithMesa(<SessionControlsPanel row={row} />, bridge);
   await pick(button('Permission mode'), 'plan');
   expect(document.querySelector('[role="alert"]')?.textContent).toBe(
     'session cccccccc: no such mode',

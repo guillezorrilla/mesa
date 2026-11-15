@@ -1,4 +1,5 @@
 import type { ManagedRow } from '@mesa/core';
+import { modelLabel } from '@mesa/core/browser';
 import { ChevronDown, Gauge } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
@@ -13,12 +14,6 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ContextRing } from '../selected/ContextRing';
 import { useSessionControls } from './useSessionControls';
-
-/** `claude-sonnet-5-5` as Sonnet 5.5; any other model name as it is. */
-const modelLabel = (model: string) => {
-  const [, name, major, minor] = /^claude-([a-z]+)-(\d+)-(\d+)/.exec(model) ?? [];
-  return name ? `${name[0]?.toUpperCase()}${name.slice(1)} ${major}.${minor}` : model;
-};
 
 /** A quiet footer button that opens a picker. */
 function Picker(props: {
@@ -52,7 +47,7 @@ function Picker(props: {
  * mode (Claude Code), context and usage, each opening a picker or a card. A change shows the
  * agent's confirmed value once it answers; a refusal shows beside them.
  */
-export function SessionControlsBar(props: { row: ManagedRow }) {
+export function SessionControlsPanel(props: { row: ManagedRow }) {
   const { controls, applying, failure, apply, checkUsage } = useSessionControls(props.row);
   if (!controls) return null;
   const { model, effort, mode } = controls;
@@ -74,7 +69,11 @@ export function SessionControlsBar(props: { row: ManagedRow }) {
         trigger={
           <>
             <span>{model ? modelLabel(model) : 'Model'}</span>
-            {effort && <span className="text-muted-foreground">{effort}</span>}
+            {effort && (
+              <span className="text-muted-foreground">
+                {controls.effortQueued ? `${controls.effortQueued}, after this turn` : effort}
+              </span>
+            )}
           </>
         }
       >
@@ -125,7 +124,7 @@ export function SessionControlsBar(props: { row: ManagedRow }) {
           </PopoverTrigger>
           <PopoverContent data-testid="usage-card" align="end" className="w-80 text-xs">
             <p className="whitespace-pre-wrap">
-              {controls.usage?.text ?? 'No usage read yet in this session.'}
+              {controls.usage ?? 'No usage read yet in this session.'}
             </p>
             <Button size="sm" variant="outline" className="mt-2" onClick={checkUsage}>
               Check usage
