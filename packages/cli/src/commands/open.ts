@@ -1,6 +1,13 @@
 import { agentRecord } from '@mesa/core';
 import { defineCommand } from '../command.js';
-import { AGENT_FLAG, AS_FLAG, MODEL_FLAGS, requireTty, ticketStartOf } from '../input/flags.js';
+import {
+  AGENT_FLAG,
+  AS_FLAG,
+  MODEL_FLAGS,
+  requireTty,
+  SESSION_VIEW_FLAG,
+  ticketStartOf,
+} from '../input/flags.js';
 import { recordedOutput } from '../output/recorded.js';
 
 export const open = defineCommand({
@@ -22,6 +29,7 @@ export const open = defineCommand({
       type: 'string',
       description: 'Native startup mode: plan (Claude Code, Antigravity CLI)',
     },
+    ...SESSION_VIEW_FLAG,
     ...MODEL_FLAGS,
     goal: {
       type: 'string',
@@ -89,6 +97,7 @@ export const open = defineCommand({
       model: flags.model,
       effort: flags.effort,
       background: flags.background,
+      view: flags.view,
       goal: flags.goal,
       goalFile: flags['goal-file'],
       parent: flags.parent,

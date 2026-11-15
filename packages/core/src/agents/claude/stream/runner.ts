@@ -14,9 +14,13 @@ export interface ClaudeStartOptions {
   cwd: string;
   /** Continues this Claude session id instead of starting a new conversation. */
   resume?: string;
+  /** Starts a new conversation under this id (Mesa picks it, newSessionId). */
+  sessionId?: string;
   model?: string;
   effort?: string;
   permissionMode?: PermissionMode;
+  /** More of claude's flags as argv words: launch defaults, mounts, extra folders, deny rules. */
+  args?: readonly string[];
 }
 
 export interface ClaudeRunner {
@@ -47,17 +51,22 @@ export function claudeStreamArgs(options: Omit<ClaudeStartOptions, 'cwd'>): stri
     '--permission-prompt-tool',
     'stdio',
     ...(options.resume ? ['--resume', options.resume] : []),
+    ...(options.sessionId && !options.resume ? ['--session-id', options.sessionId] : []),
     ...(options.model ? ['--model', options.model] : []),
     ...(options.effort ? ['--effort', options.effort] : []),
     ...(options.permissionMode ? ['--permission-mode', options.permissionMode] : []),
+    ...(options.args ?? []),
   ];
 }
 
-/** Starts claude and reports each event to `onEvent`, in order, until the process ends. */
+/**
+ * Starts claude and reports each event to `onEvent`, in order, with the line it was read from,
+ * until the process ends.
+ */
 export function startClaudeRunner(
   deps: { spawn: Spawner; env: Env },
   options: ClaudeStartOptions,
-  onEvent: (event: StreamEvent) => void,
+  onEvent: (event: StreamEvent, line: string) => void,
 ): ClaudeRunner {
   const child = deps.spawn('claude', claudeStreamArgs(options), {
     cwd: options.cwd,
@@ -73,7 +82,7 @@ export function startClaudeRunner(
       response: { subtype: 'success', request_id: requestId, response },
     });
 
-  const lines = lineSplitter((line) => onEvent(parseStreamLine(line)));
+  const lines = lineSplitter((line) => onEvent(parseStreamLine(line), line));
   child.onStdout(lines.push);
   const exited = new Promise<SpawnExit>((resolve) =>
     child.onExit((exit) => {

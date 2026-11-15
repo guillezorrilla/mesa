@@ -26,6 +26,7 @@ const [
 ]);
 const {
   envRunner,
+  envSpawner,
   keychainStore,
   loopbackListener,
   macObsidianPaths,
@@ -79,6 +80,7 @@ const { code, stdout, stderr, exec, serve } = await runCli(argv, {
     self: bundled ? [process.execPath] : [process.execPath, fileURLToPath(import.meta.url)],
     env: process.env,
     run,
+    spawn: envSpawner(process.env),
     http: (url, init) => fetch(url, init),
     connect: webSocketConnect,
     listenDirect: wsDirectListen,
@@ -141,4 +143,6 @@ if (serve) {
     write: (text) => process.stdout.write(text),
     log: (text) => process.stderr.write(text),
   });
+  // Served out: stdin's reader would keep the process up (mesa host ends with its agent).
+  process.stdout.write('', () => process.exit());
 }

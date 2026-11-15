@@ -2,7 +2,12 @@ import type { SessionModel } from '../../agents/launch-flags.js';
 import type { OpenFlags } from './open-input.js';
 
 /** What `mesa worker` takes beside its project and task. */
-export type WorkerFlags = { agent?: string; branch?: string; parent?: string } & SessionModel;
+export type WorkerFlags = {
+  agent?: string;
+  branch?: string;
+  parent?: string;
+  view?: OpenFlags['view'];
+} & SessionModel;
 
 /**
  * The open a Worker is (CONTEXT.md, Worker): `task` as its goal, which gets the worker brief, a
@@ -17,5 +22,6 @@ export const workerOpen = (task: string, flags: WorkerFlags = {}): Omit<OpenFlag
   ...(flags.agent === undefined ? {} : { agent: flags.agent }),
   ...(flags.model === undefined ? {} : { model: flags.model }),
   ...(flags.effort === undefined ? {} : { effort: flags.effort }),
+  ...(flags.view === undefined ? {} : { view: flags.view }),
   ...(flags.branch === undefined ? { worktree: true } : { branch: flags.branch }),
 });

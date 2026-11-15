@@ -21,6 +21,7 @@ export type NewLaunch = {
   mode?: 'plan';
   background?: true;
   backgroundId?: string;
+  view?: SessionRecord['view'];
   /** None while queued: a session that never ran has no conversation. */
   agentSessionId?: string;
   goal?: string;
@@ -76,6 +77,7 @@ export function createRecord(
     ...(s.model ? { model: s.model } : {}),
     ...(s.effort ? { effort: s.effort } : {}),
     ...(s.background ? { background: true as const } : {}),
+    ...(s.view === 'structured' ? { view: s.view } : {}),
     ...(s.backgroundId ? { backgroundId: s.backgroundId } : {}),
     ...(s.agentSessionId === undefined ? {} : { agentSessionId: s.agentSessionId }),
     ...(s.goal === undefined ? {} : { goal: s.goal }),

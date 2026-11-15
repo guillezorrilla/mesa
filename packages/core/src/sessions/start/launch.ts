@@ -24,6 +24,7 @@ import type { RegistryEntry } from '../../projects/registry.js';
 import { reviewDeny } from '../../prs/review-guard.js';
 import { joinWarnings } from '../../receipts/recorder.js';
 import { sessionWorktree } from '../../worktrees/create.js';
+import { hostCommand } from '../host/command.js';
 import { sessionFolder } from '../record/folder.js';
 import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
@@ -214,11 +215,17 @@ export async function startSession(
     }
     const { paths, config } = deps.profile;
     const deny = reviewDeny(record.agent, record.review);
-    const command = record.backgroundId
-      ? claudeBackgroundAttach(record.backgroundId)
-      : record.agent === 'claude' && record.kind === 'interactive' && config.sessions.statusLineCost
-        ? withMesaStatusLine(start.command(given, deny), deps.self)
-        : start.command(given, deny);
+    // A Structured session's window runs the host, which starts or resumes the agent (ADR-0029).
+    const command =
+      record.view === 'structured'
+        ? hostCommand(deps.self, record.id)
+        : record.backgroundId
+          ? claudeBackgroundAttach(record.backgroundId)
+          : record.agent === 'claude' &&
+              record.kind === 'interactive' &&
+              config.sessions.statusLineCost
+            ? withMesaStatusLine(start.command(given, deny), deps.self)
+            : start.command(given, deny);
     // What this launch mounts; a process it attaches to keeps what it was started with.
     const decisionsMounted = deps.mounts.decisions ? (true as const) : undefined;
     if (

@@ -14,7 +14,10 @@ export type SessionView = (typeof SESSION_VIEWS)[number];
 export function useSessionView(row: TreeRow | undefined, fallback: SessionView) {
   const available = Boolean(row && chattable(row));
   const [kept, keep] = useKept(row ? `mesa.sessionView.${row.id}` : undefined);
-  const view: SessionView = available && (kept ?? fallback) === 'chat' ? 'chat' : 'terminal';
+  // A Structured default shows as Chat (ADR-0029); the session's own choice is Terminal or Chat.
+  const chosen = kept ?? fallback;
+  const view: SessionView =
+    available && (chosen === 'chat' || chosen === 'structured') ? 'chat' : 'terminal';
   const toggle = useRef(() => {});
   toggle.current = () => {
     if (available) keep(view === 'chat' ? 'terminal' : 'chat');

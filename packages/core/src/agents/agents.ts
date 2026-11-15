@@ -154,6 +154,23 @@ export const AGENTS = {
       disallowed: readonly string[] = [],
     ) =>
       `claude --resume ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)}${claudeDeny(disallowed)} ${claudeMount(mounts)}${addDirs('claude', dirs)}`,
+    /**
+     * The flags `mesa host` gives its stream-json claude (ADR-0029, agents/claude/stream) as
+     * argv words: what start and resume give, without the session id or a goal.
+     */
+    hostArgs: (
+      mounts: Mounts,
+      defaults: SessionLaunch,
+      mode?: 'plan',
+      dirs: readonly string[] = [],
+      disallowed: readonly string[] = [],
+    ) => [
+      ...(mode ? ['--permission-mode', 'plan'] : []),
+      ...launchFlags('claude', defaults, mode),
+      ...(disallowed.length ? [`--disallowedTools=${disallowed.join(',')}`] : []),
+      ...claudeMountArgs(mounts),
+      ...addDirArgs('claude', dirs),
+    ],
     fork: (
       sessionId: string,
       _folder: string,
