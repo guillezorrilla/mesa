@@ -1,3 +1,4 @@
+import type { Stdio } from '@mesa/core';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -21,4 +22,19 @@ test('open --view structured runs mesa host in the window; host refuses a Termin
     code: 2,
     stderr: 'unknown view sideways; use terminal or structured\n',
   });
+});
+
+test('chat --follow prints a Terminal session chat as one JSON line, then ends', async () => {
+  cli.withTmux();
+  await cli.withProject();
+  const plain = (await mesa('open', 'lantern-cove', '--json')).json.data;
+  const started = await mesa('chat', plain.id, '--follow');
+  expect([started.code, started.stdout, started.stderr]).toEqual([0, '', '']);
+  const written: string[] = [];
+  await (started.serve as (io: Stdio) => Promise<void>)({
+    lines: (async function* () {})(),
+    write: (text) => written.push(text),
+    log: () => undefined,
+  });
+  expect(written.map((line) => JSON.parse(line).type)).toEqual(['chat']);
 });

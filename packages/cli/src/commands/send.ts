@@ -32,8 +32,8 @@ export const send = defineCommand({
       from: flags.from,
       noFrom: flags['no-from'],
     });
-    const { sent, session, from, chars, override, woke } = recorded.result;
-    const text = `${woke ? `woke ${session}, then ` : ''}sent ${chars} characters to ${session}${from ? ` from ${from}` : ''}`;
+    const { sent, session, from, chars, override, woke, queued } = recorded.result;
+    const text = `${woke ? `woke ${session}, then ` : ''}sent ${chars} characters to ${session}${from ? ` from ${from}` : ''}${queued ? ', queued until its turn ends' : ''}`;
     const data = {
       sent,
       session,
@@ -41,6 +41,7 @@ export const send = defineCommand({
       chars,
       ...(override ? { override } : {}),
       ...(woke ? { woke } : {}),
+      ...(queued ? { queued } : {}),
     };
     return recordedOutput(recorded, { data, text });
   },
