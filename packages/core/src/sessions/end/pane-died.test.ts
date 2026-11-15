@@ -90,3 +90,10 @@ test('a look that saw the dead pane first still leaves the exit to the hook', as
   expect(exited).toMatchObject({ lastState: { state: 'failed', source: 'tmux-hook' } });
   expect(exited?.events).toEqual([{ type: 'exited', at, status: 1 }]);
 });
+
+test('a pane that died in a view switch is no exit: the switch quit its agent', async () => {
+  const { store, deps, clean } = setUp();
+  store.update(clean.id, { switching: { at } });
+  expect(await recordPaneDied(deps, 'lantern-cove', clean.tmux.window)).toBeUndefined();
+  expect(store.get(clean.id).events).toEqual([]);
+});
