@@ -1,6 +1,7 @@
 import type { ChatRun } from '@mesa/core';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MessageTime } from './MessageTime';
 
 /**
  * What the agent did between two replies as one collapsed row ("Read 3 files, ran 2 commands"),
@@ -9,7 +10,8 @@ import { cn } from '@/lib/utils';
 export function StepRun(props: { run: ChatRun }) {
   const { run } = props;
   return (
-    <li className="text-[13px] text-muted-foreground">
+    <li className="group/row relative text-[13px] text-muted-foreground">
+      <MessageTime at={run.at} side="left" />
       <details className="group">
         <summary className="-mx-1.5 inline-flex cursor-pointer list-none items-center gap-1.5 rounded-md px-1.5 py-0.5 hover:bg-muted hover:text-foreground [&::-webkit-details-marker]:hidden">
           <ChevronRight

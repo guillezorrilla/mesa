@@ -16,6 +16,7 @@ import { ChatComposer } from './ChatComposer';
 import { CommandCard } from './CommandCard';
 import { type ChatEntry, chatItems, isCommand } from './commandMarkers';
 import { EditedFiles } from './EditedFiles';
+import { MessageTime } from './MessageTime';
 import { StepRun } from './StepRun';
 import { turnEdits } from './turnEdits';
 import { useChat } from './useChat';
@@ -27,7 +28,7 @@ const NEAR = 40;
  * The one column every part of the chat shares, messages to composer: the pane's width with even
  * gutters, up to a width a reply still reads at.
  */
-const COLUMN = 'mx-auto w-full max-w-5xl px-6';
+const COLUMN = 'mx-auto w-full max-w-[78rem] px-6';
 
 /**
  * The selected session as a chat over its terminal: the person's prompts and its agent's replies
@@ -200,10 +201,6 @@ const YOU =
 const REPLY =
   'w-full text-[15px] leading-7 [&_pre_code]:text-[13px] [&_h1]:mt-6 [&_h2]:mt-6 [&_h3]:mt-5 [&_li]:mt-1';
 
-/** When a message was written, as the hour and minute shown on hovering it. */
-const clock = (at: string | null) =>
-  at ? new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined;
-
 /**
  * One row: the person's message as a plain bubble on the right, the agent's as Markdown, a run of
  * steps as its list, a slash command as its card. A message shows its time on hover.
@@ -234,20 +231,9 @@ function ChatRow(props: {
         />
       </li>
     );
-  const time = clock(message.at);
   return (
-    <li className={cn('group relative flex', message.from === 'you' && 'justify-end')}>
-      {time && (
-        <time
-          dateTime={message.at ?? undefined}
-          className={cn(
-            '-top-5 absolute text-muted-foreground text-xs opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100',
-            message.from === 'you' ? 'right-1' : 'left-0',
-          )}
-        >
-          {time}
-        </time>
-      )}
+    <li className={cn('group/row relative flex', message.from === 'you' && 'justify-end')}>
+      <MessageTime at={message.at} side={message.from === 'you' ? 'right' : 'left'} />
       {message.from === 'you' ? (
         <div className={YOU}>{message.text}</div>
       ) : (

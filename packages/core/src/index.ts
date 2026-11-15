@@ -192,7 +192,6 @@ export type {
 export type { ReviewDelivery, SavedReview } from './sessions/input/reviews.js';
 export type { Sent } from './sessions/input/send.js';
 export type {
-  ChatFileEdit,
   ChatItem,
   ChatMessage,
   ChatRun,
@@ -210,6 +209,7 @@ export {
   type NativeLive,
   type NativeProject,
 } from './sessions/native/discovery.js';
+export type { ChatFileEdit } from './sessions/native/file-edits.js';
 export type { NativeHistory, NativeHistoryRow } from './sessions/native/history.js';
 export type { InstructionStatus } from './sessions/native/instructions.js';
 export type {

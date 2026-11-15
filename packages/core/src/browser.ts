@@ -109,6 +109,7 @@ export {
   type NotesRecipient,
   notesRecipients,
 } from './sessions/input/notes-recipients.js';
+export { sumFileEdits } from './sessions/native/file-edits.js';
 export { sessionFolder } from './sessions/record/folder.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/record/general.js';
 export * from './sessions/record/labels.js';

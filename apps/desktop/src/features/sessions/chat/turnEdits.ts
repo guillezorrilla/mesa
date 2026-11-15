@@ -1,4 +1,5 @@
 import type { ChatFileEdit, ChatItem } from '@mesa/core';
+import { sumFileEdits } from '@mesa/core/browser';
 
 /**
  * The files each turn of `messages` (oldest first) changed, by the item that closes the turn: the
@@ -7,23 +8,14 @@ import type { ChatFileEdit, ChatItem } from '@mesa/core';
  */
 export function turnEdits(messages: readonly ChatItem[]): Map<ChatItem, ChatFileEdit[]> {
   const turns = new Map<ChatItem, ChatFileEdit[]>();
-  let files = new Map<string, ChatFileEdit>();
+  let edits: ChatFileEdit[] = [];
   const close = (last: ChatItem | undefined) => {
-    if (last && files.size) turns.set(last, [...files.values()]);
-    files = new Map();
+    if (last && edits.length) turns.set(last, sumFileEdits(edits));
+    edits = [];
   };
   messages.forEach((item, index) => {
     if (item.from === 'you' || item.from === 'command') close(messages[index - 1]);
-    if (item.from !== 'steps') return;
-    for (const edit of item.edits ?? []) {
-      const file = files.get(edit.path);
-      files.set(
-        edit.path,
-        file
-          ? { ...file, added: file.added + edit.added, removed: file.removed + edit.removed }
-          : edit,
-      );
-    }
+    if (item.from === 'steps') edits.push(...(item.edits ?? []));
   });
   close(messages.at(-1));
   return turns;

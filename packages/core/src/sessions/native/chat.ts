@@ -2,6 +2,7 @@ import { runSentence } from '../../agents/step-words.js';
 import { firstLine } from '../../agents/steps.js';
 import { clip } from '../../lib/clip.js';
 import { MesaError } from '../../lib/result.js';
+import { type ChatFileEdit, sumFileEdits } from './file-edits.js';
 import {
   type NativeCommand,
   type NativePrompt,
@@ -42,21 +43,9 @@ export type ChatRun = {
   edits?: ChatFileEdit[];
 };
 
-/** One file a run edited: its path as the agent wrote it, and the lines it added and removed. */
-export type ChatFileEdit = { path: string; added: number; removed: number };
-
 /** `steps`' edits, one per file. */
-const fileEdits = (steps: NativeStep[]): ChatFileEdit[] => {
-  const files = new Map<string, ChatFileEdit>();
-  for (const step of steps) {
-    if (step.type !== 'edit') continue;
-    const file = files.get(step.path) ?? { path: step.path, added: 0, removed: 0 };
-    file.added += step.added;
-    file.removed += step.removed;
-    files.set(step.path, file);
-  }
-  return [...files.values()];
-};
+const fileEdits = (steps: NativeStep[]) =>
+  sumFileEdits(steps.flatMap((step) => (step.type === 'edit' ? [step] : [])));
 
 /** A message or a run of steps, as the chat lists them. */
 export type ChatItem = ChatMessage | ChatRun;

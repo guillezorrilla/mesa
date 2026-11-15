@@ -1,6 +1,6 @@
 import type { SessionImage } from '@mesa/core';
 import { ArrowUp, Plus, X } from 'lucide-react';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,6 +25,15 @@ export function ChatComposer(props: {
 }) {
   const [text, setText] = useState('');
   const slash = useSlashMenu(props.sessionId, text, setText);
+  const field = useRef<HTMLTextAreaElement>(null);
+  // shortcut: a web view without field-sizing (Safari before 26.2) grows the field here instead.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: it measures the field each time its text changes.
+  useLayoutEffect(() => {
+    const view = field.current;
+    if (!view || globalThis.CSS?.supports?.('field-sizing', 'content')) return;
+    view.style.height = 'auto';
+    view.style.height = `${view.scrollHeight}px`;
+  }, [text]);
   const image = props.image?.session === props.sessionId ? props.image : undefined;
   const submit = (form: HTMLFormElement) => {
     const prompt = String(new FormData(form).get('prompt') ?? '');
@@ -67,6 +76,7 @@ export function ChatComposer(props: {
           />
         )}
         <Textarea
+          ref={field}
           name="prompt"
           aria-label={`Message ${props.sessionId}`}
           placeholder={props.answerAbove ? 'Answer above' : 'Type / for commands'}
