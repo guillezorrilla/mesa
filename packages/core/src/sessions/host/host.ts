@@ -94,6 +94,7 @@ export async function hostSession(
 
   const deny = record.review ? reviewDeny(agentName, record.review) : [];
   const { hostArgs, host } = AGENTS[agentName];
+  let recorded = sessionId;
   let runner: ReturnType<typeof host> | undefined;
   const send = (agent: AgentRunner, text: string) => {
     const queued = busy;
@@ -153,8 +154,10 @@ export async function hostSession(
       if (signal.turnEnded) busy = false;
       if (signal.cost !== undefined) status.cost = signal.cost;
       // Codex picks its thread's id: the record keeps it for resume and for Terminal view.
-      if (signal.sessionId && signal.sessionId !== sessionId)
-        deps.store.update(id, { agentSessionId: signal.sessionId });
+      if (signal.sessionId && signal.sessionId !== recorded) {
+        recorded = signal.sessionId;
+        deps.store.update(id, { agentSessionId: recorded });
+      }
       show();
     },
   );

@@ -266,6 +266,25 @@ describe('mesa host for Codex', () => {
     expect(terminal).toContain(THREAD);
   });
 
+  it("goes idle when Codex refuses the goal's turn, so the next message starts a turn", async () => {
+    const w = world(scriptedSpawner());
+    const record = await openStructured(w, 'make a file', 'codex');
+    const written: string[] = [];
+    const host = await w.mesa.sessions.host(record.id, (t) => written.push(t));
+    open(w.fake);
+    const start = w.fake.sent.find((m) => m.method === 'turn/start');
+    w.fake.push({ id: start?.id, error: { message: 'usage limit reached' } });
+    expect(written.at(-1)).toContain(' - idle');
+    expect(
+      await askHost(hostSocket(w.paths.hosts, record.id), { type: 'send', text: 'again' }),
+    ).toEqual({
+      ok: true,
+      queued: false,
+    });
+    host.stop();
+    await host.done;
+  });
+
   it('resumes the recorded thread and sends no goal', async () => {
     const w = world(scriptedSpawner());
     const record = await openStructured(w, 'make a file', 'codex');

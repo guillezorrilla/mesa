@@ -167,6 +167,11 @@ export function codexSignal(event: AppServerEvent): RunnerSignal | undefined {
       };
     case 'turn_completed':
       return { doing: 'idle', turnEnded: true };
+    case 'response':
+      // A turn Codex refused never completes.
+      return !event.ok && (event.method === 'turn/start' || event.method === 'thread/compact/start')
+        ? { doing: 'idle', turnEnded: true }
+        : undefined;
     case 'turn_started':
     case 'resolved':
     case 'delta':

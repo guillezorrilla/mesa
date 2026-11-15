@@ -1,6 +1,6 @@
 import type { Env } from '../lib/process.js';
 import type { SpawnExit, Spawner } from '../lib/spawn.js';
-import type { PermissionMode } from './claude/stream/runner.js';
+import type { CLAUDE_PERMISSION_MODES } from './names.js';
 
 /**
  * A Structured session's agent process (ADR-0029): the seam `mesa host` runs each agent through,
@@ -47,4 +47,7 @@ export type StartHostRunner = (
   deps: { spawn: Spawner; env: Env },
   launch: HostLaunch,
   onLine: (line: string, signal: RunnerSignal | undefined) => void,
-) => AgentRunner & { setPermissionMode?: (mode: PermissionMode) => void };
+) => AgentRunner & {
+  /** Claude Code's alone: Codex has no permission mode to set mid-session. */
+  setPermissionMode?: (mode: (typeof CLAUDE_PERMISSION_MODES)[number]) => void;
+};
