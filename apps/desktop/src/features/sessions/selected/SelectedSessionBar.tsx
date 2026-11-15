@@ -95,12 +95,7 @@ export function SelectedSessionBar({
       )}
       <span className="ml-auto" />
       {view && (
-        <SegmentedControl
-          label="Session view"
-          options={VIEWS}
-          value={view}
-          onChange={onView}
-        />
+        <SegmentedControl label="Session view" options={VIEWS} value={view} onChange={onView} />
       )}
       {row?.managed && row.kind === 'interactive' && row.agent !== 'terminal' && !row.background ? (
         <AgentSwitcher
