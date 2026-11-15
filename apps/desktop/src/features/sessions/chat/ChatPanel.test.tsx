@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import type { ChatMessage, SessionChat } from '@mesa/core';
+import { act } from 'react';
 import { expect, test, vi } from 'vitest';
 import { click, envelope, fakeBridge, press, renderWithMesa } from '@/lib/testing';
 import { ChatPanel } from './ChatPanel';
@@ -106,4 +107,30 @@ test("a guardrail's block shows beside the composer", async () => {
     bridge,
   );
   expect(document.querySelector('[role="alert"]')?.textContent).toContain('destructive command');
+});
+
+test('typing /us in the composer offers /usage and Tab completes it', async () => {
+  const { bridge } = fakeBridge({
+    chat: () => envelope(chatOf([])),
+    commands: () =>
+      envelope([
+        { name: 'usage', description: 'Show plan usage', source: 'builtin' },
+        { name: 'model', description: 'Choose the model', source: 'builtin' },
+      ]),
+  });
+  await renderWithMesa(<ChatPanel sessionId="a1b2c3d4" acting={false} onSend={() => {}} />, bridge);
+  const field = document.querySelector<HTMLTextAreaElement>('[aria-label="Message a1b2c3d4"]');
+  if (!field) throw new Error('no composer');
+  const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+  await act(async () => {
+    set?.call(field, '/us');
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await act(async () => new Promise((r) => setTimeout(r, 0)));
+  expect(document.querySelector('[aria-label="Slash commands"]')?.textContent).toContain('/usage');
+  expect(document.querySelector('[aria-label="Slash commands"]')?.textContent).not.toContain(
+    '/model',
+  );
+  await press(field, 'Tab');
+  expect(field.value).toBe('/usage');
 });

@@ -39,7 +39,8 @@ export function useSlashMenu(session: string, text: string, setText: (text: stri
     setIndex(0);
   };
   const onKeyDown = (e: KeyboardEvent): boolean => {
-    if (!flat.length) return false;
+    // Already completed: Enter sends it.
+    if (!flat.length || (active && completion(active) === text && e.key !== 'Escape')) return false;
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       const step = e.key === 'ArrowDown' ? 1 : flat.length - 1;
       setIndex((i) => (Math.min(i, flat.length - 1) + step) % flat.length);
