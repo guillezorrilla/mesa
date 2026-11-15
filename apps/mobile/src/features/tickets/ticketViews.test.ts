@@ -25,9 +25,7 @@ test('several views give All and one counted chip each; one view, or an older Ma
   expect(viewChoices(views, [ticket('A')])).toEqual([]);
 });
 
-test('a picked view keeps its tickets; none, or one no longer followed, keeps all', () => {
-  const choices = viewChoices(views, tickets);
-  expect(inView(tickets, 'triage', choices).map((t) => t.key)).toEqual(['B']);
-  expect(inView(tickets, undefined, choices)).toHaveLength(2);
-  expect(inView(tickets, 'gone', choices)).toHaveLength(2);
+test('a picked view keeps its tickets; All keeps every one', () => {
+  expect(inView(tickets, 'triage').map((t) => t.key)).toEqual(['B']);
+  expect(inView(tickets, '')).toHaveLength(2);
 });

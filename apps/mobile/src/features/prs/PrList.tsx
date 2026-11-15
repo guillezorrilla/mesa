@@ -7,10 +7,11 @@ import { ErrorNote } from '@/components/ErrorNote';
 import { GroupHeader } from '@/components/GroupHeader';
 import { StateDot } from '@/components/StateDot';
 import { Text } from '@/components/ui/text';
+import { ALL, keptChoice } from '@/lib/keptChoice';
 import { useKept } from '@/lib/useKept';
 import type { MacRead } from '../mac/tryCall';
 import { PrRow } from './PrRow';
-import { ALL_BUCKETS, bucketChoices, groupPrs } from './prGroups';
+import { bucketChoices, groupPrs } from './prGroups';
 import { bucketColor } from './prText';
 
 /**
@@ -33,13 +34,12 @@ export function PrList({
   const [kept, setBucket] = useKept('prs.bucket');
   const sections = groupPrs(result?.prs ?? []);
   const choices = bucketChoices(sections);
-  // A bucket that emptied since it was picked shows every bucket again.
-  const bucket = choices.some((c) => c.value === kept) ? (kept ?? ALL_BUCKETS) : ALL_BUCKETS;
+  const bucket = keptChoice(choices, kept);
   return (
     <SectionList
       contentInsetAdjustmentBehavior="automatic"
       className="flex-1 bg-background"
-      sections={bucket ? sections.filter((s) => s.key === bucket) : sections}
+      sections={bucket === ALL ? sections : sections.filter((s) => s.key === bucket)}
       keyExtractor={(pr) => `${pr.project}#${pr.number}`}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ListHeaderComponent={

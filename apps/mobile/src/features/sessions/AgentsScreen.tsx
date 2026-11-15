@@ -3,7 +3,7 @@ import { BusyScreen } from '@/components/BusyScreen';
 import { useKept } from '@/lib/useKept';
 import { AgentList } from './AgentList';
 import { AgentsHeader } from './AgentsHeader';
-import { keptFilter, type RowFilter } from './agentRows';
+import type { RowFilter } from './agentRows';
 import { useAgents } from './useAgents';
 
 /**
@@ -13,11 +13,15 @@ import { useAgents } from './useAgents';
 export function AgentsScreen() {
   const agents = useAgents();
   const [query, setQuery] = useState('');
-  const [kept, keep] = useKept('agents.filter');
-  const filter: RowFilter = { ...keptFilter(kept), query };
-  const setFilter = ({ query: next, ...chips }: RowFilter) => {
-    setQuery(next);
-    keep(JSON.stringify(chips));
+  const [project, keepProject] = useKept('agents.project');
+  const [mac, keepMac] = useKept('agents.mac');
+  const [unread, keepUnread] = useKept('agents.unread');
+  const filter: RowFilter = { query, project, mac, unreadOnly: unread !== undefined };
+  const setFilter = (next: RowFilter) => {
+    setQuery(next.query);
+    keepProject(next.project);
+    keepMac(next.mac);
+    keepUnread(next.unreadOnly ? 'on' : undefined);
   };
   const header = <AgentsHeader query={query} onQuery={setQuery} />;
   return (

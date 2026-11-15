@@ -6,14 +6,15 @@ import { CountChips } from '@/components/CountChips';
 import { ErrorNote } from '@/components/ErrorNote';
 import { GroupHeader } from '@/components/GroupHeader';
 import { Text } from '@/components/ui/text';
+import { keptChoice } from '@/lib/keptChoice';
 import { useKept } from '@/lib/useKept';
 import type { MacRead } from '../mac/tryCall';
 import { StatusIcon } from './StatusIcon';
 import { TicketRow } from './TicketRow';
 import { noTicketsText } from './ticketText';
-import { ALL_VIEWS, inView, viewChoices } from './ticketViews';
+import { inView, viewChoices } from './ticketViews';
 
-const titled = (status: string) => status.charAt(0).toUpperCase() + status.slice(1);
+const capitalized = (status: string) => status.charAt(0).toUpperCase() + status.slice(1);
 
 /**
  * The tickets read, as the Mac app's Tickets tab lists them: the followed views as chips (the
@@ -40,12 +41,14 @@ export function TicketList({
   const views = result?.views ?? [];
   const all = result?.tickets ?? [];
   const choices = viewChoices(views, all);
-  const current = choices.some((c) => c.value === view) ? (view ?? ALL_VIEWS) : ALL_VIEWS;
+  const current = keptChoice(choices, view);
+  // A view that lists nothing may say why (a board with no active sprint).
+  const empty = views.find((v) => v.name === current)?.note ?? noTicketsText(views.length);
   const problems = [
     ...(error ? [error] : []),
     ...views.flatMap((v) => (v.error ? [`${v.name}: ${v.error}`] : [])),
   ];
-  const groups = groupByStatus(inView(all, current, choices)).map((group) => {
+  const groups = groupByStatus(inView(all, current)).map((group) => {
     const open = picked.get(group.id) ?? group.category !== 'done';
     return { ...group, open, data: open ? group.rows : [] };
   });
@@ -73,16 +76,13 @@ export function TicketList({
       }
       ListEmptyComponent={
         error ? undefined : (
-          <Text className="px-4 py-8 text-center text-muted-foreground">
-            {(current && views.find((v) => v.name === current)?.note) ||
-              noTicketsText(views.length)}
-          </Text>
+          <Text className="px-4 py-8 text-center text-muted-foreground">{empty}</Text>
         )
       }
       renderSectionHeader={({ section }) => (
         <GroupHeader
           mark={<StatusIcon category={section.category} />}
-          title={titled(section.status)}
+          title={capitalized(section.status)}
           count={section.rows.length}
           open={section.open}
           onToggle={() => setPicked(new Map(picked).set(section.id, !section.open))}

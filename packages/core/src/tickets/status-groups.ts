@@ -1,3 +1,5 @@
+import type { TicketCategory } from './provider.js';
+
 /**
  * Each status category's name, in the order a ticket list ranks its groups; a name heads a group
  * only for tickets with no status of their own.
@@ -6,13 +8,16 @@ export const CATEGORIES = {
   indeterminate: 'In progress',
   new: 'To do',
   done: 'Done',
-} as const;
+} as const satisfies Record<TicketCategory, string>;
 
 export type StatusGroup<T> = { id: string; status: string; category: string; rows: T[] };
 
 const RANK = Object.keys(CATEGORIES);
 /** A category this version does not know ranks after the known ones. */
-const rank = (category: string) => (RANK.indexOf(category) + RANK.length + 1) % (RANK.length + 1);
+const rank = (category: string) => {
+  const at = RANK.indexOf(category);
+  return at < 0 ? RANK.length : at;
+};
 
 /**
  * The tickets grouped by their own status name (Ready apart from In Progress, though Jira files

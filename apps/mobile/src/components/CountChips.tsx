@@ -1,8 +1,5 @@
 import { ScrollView } from 'react-native';
-import { Button } from '@/components/ui/button';
-import { Text } from '@/components/ui/text';
-import { haptic } from '@/lib/haptics';
-import { cn } from '@/lib/utils';
+import { Chip } from '@/components/Chip';
 
 /**
  * One chip per choice on a row that scrolls sideways, each with how many it holds, the chosen one
@@ -27,27 +24,16 @@ export function CountChips<T extends string>({
       showsHorizontalScrollIndicator={false}
       contentContainerClassName="items-center gap-2 px-4 pt-1 pb-2"
     >
-      {choices.map((choice) => {
-        const selected = choice.value === value;
-        return (
-          <Button
-            key={choice.value}
-            size="sm"
-            variant={selected ? 'default' : 'secondary'}
-            accessibilityLabel={`${choice.label}, ${choice.count}`}
-            accessibilityState={{ selected }}
-            onPress={() => {
-              if (!selected) haptic('selection');
-              onChange(choice.value);
-            }}
-          >
-            <Text>{choice.label}</Text>
-            <Text className={cn('tabular-nums', selected ? 'opacity-70' : 'text-muted-foreground')}>
-              {choice.count}
-            </Text>
-          </Button>
-        );
-      })}
+      {choices.map((choice) => (
+        <Chip
+          key={choice.value}
+          label={choice.label}
+          count={choice.count}
+          selected={choice.value === value}
+          changes={choice.value !== value}
+          onPress={() => onChange(choice.value)}
+        />
+      ))}
     </ScrollView>
   );
 }

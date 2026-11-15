@@ -1,7 +1,5 @@
 import type { PhoneTicket } from '@mesa/core/phone';
-
-/** The chip that shows every followed view's tickets. */
-export const ALL_VIEWS = '';
+import { ALL } from '../../lib/keptChoice';
 
 /**
  * The view chips over a project's tickets, as the Mac app's view switcher: All first, then each
@@ -11,7 +9,7 @@ export const ALL_VIEWS = '';
 export function viewChoices(views: readonly { name: string }[], tickets: readonly PhoneTicket[]) {
   if (views.length < 2 || !tickets.every((t) => t.views)) return [];
   return [
-    { value: ALL_VIEWS, label: 'All', count: tickets.length },
+    { value: ALL, label: 'All', count: tickets.length },
     ...views.map((v) => ({
       value: v.name,
       label: v.name,
@@ -20,12 +18,6 @@ export function viewChoices(views: readonly { name: string }[], tickets: readonl
   ];
 }
 
-/** The tickets `view` lists; every ticket for All, or for a view no longer followed. */
-export const inView = (
-  tickets: readonly PhoneTicket[],
-  view: string | undefined,
-  choices: readonly { value: string }[],
-) =>
-  view && choices.some((c) => c.value === view)
-    ? tickets.filter((t) => t.views?.includes(view))
-    : tickets;
+/** The tickets `view` lists; every ticket for All. */
+export const inView = (tickets: readonly PhoneTicket[], view: string) =>
+  view === ALL ? tickets : tickets.filter((t) => t.views?.includes(view));

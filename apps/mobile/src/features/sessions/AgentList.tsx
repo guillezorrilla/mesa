@@ -4,6 +4,7 @@ import Bot from 'lucide-react-native/icons/bot';
 import { type ReactNode, use } from 'react';
 import { RefreshControl, SectionList, View } from 'react-native';
 import { EmptyState } from '@/components/EmptyState';
+import { GroupHeader } from '@/components/GroupHeader';
 import { SessionRow } from '@/components/SessionRow';
 import { SwipeRow } from '@/components/SwipeRow';
 import { Text } from '@/components/ui/text';
@@ -18,6 +19,7 @@ import {
   type MacUpdate,
   mergeListings,
   type OnMac,
+  offeredFilter,
   placeOf,
   projectsOf,
   type RowFilter,
@@ -60,12 +62,7 @@ export function AgentList({
   const rows = mergeListings(listed, updates);
   const several = macs.length > 1;
   const projects = projectsOf(rows);
-  // A kept chip whose project or Mac is gone would hide every row with no chip to lift it.
-  const shown: RowFilter = {
-    ...filter,
-    project: filter.project && projects.includes(filter.project) ? filter.project : undefined,
-    mac: several && macs.some((m) => m.id === filter.mac) ? filter.mac : undefined,
-  };
+  const shown = offeredFilter(filter, projects, macs);
   const nameOf = (mac: string) => macs.find((m) => m.id === mac)?.name;
   const shownGates = gates.filter((gate) => !shown.mac || gate.mac === shown.mac);
   const now = Date.now();
@@ -100,12 +97,7 @@ export function AgentList({
         <EmptyState icon={Bot} {...agentsEmpty(rows.length, filter.query, several)} />
       }
       renderSectionHeader={({ section }) => (
-        <Text
-          accessibilityRole="header"
-          className="bg-background px-4 pt-4 pb-1 text-sm font-semibold text-muted-foreground"
-        >
-          {section.title}
-        </Text>
+        <GroupHeader title={section.title} count={section.data.length} />
       )}
       renderItem={({ item }) => {
         if (isGate(item)) return <GateRow gate={item} />;

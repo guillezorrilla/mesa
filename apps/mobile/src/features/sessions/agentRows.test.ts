@@ -7,6 +7,7 @@ import {
   isGate,
   mergeListings,
   needsYouCount,
+  offeredFilter,
   placeOf,
   projectsOf,
 } from './agentRows';
@@ -184,4 +185,16 @@ test('Needs you counts every open gate and every waiting session, whatever the f
   ];
   expect(needsYouCount(rows, [gate])).toBe(3);
   expect(needsYouCount([], [])).toBe(0);
+});
+
+test('a filter keeps only the chips still offered: a known project, a Mac among several', () => {
+  const filter = { query: 'x', unreadOnly: true, project: 'tide-pool', mac: 'm1' };
+  const macs = [{ id: 'm1' }, { id: 'm2' }];
+  expect(offeredFilter(filter, ['tide-pool'], macs)).toEqual(filter);
+  expect(offeredFilter(filter, ['other'], [{ id: 'm1' }])).toEqual({
+    query: 'x',
+    unreadOnly: true,
+    project: undefined,
+    mac: undefined,
+  });
 });

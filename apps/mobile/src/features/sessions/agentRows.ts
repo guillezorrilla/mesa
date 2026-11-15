@@ -4,19 +4,19 @@ import { GROUP_TITLES, type Group, groupOf } from './sessionState';
 /** `mac` keeps one paired Mac's rows (its pairing id); none keeps every Mac's. */
 export type RowFilter = { query: string; project?: string; mac?: string; unreadOnly: boolean };
 
-/** The chips of a filter kept as JSON (useKept); anything else is no chip picked. */
-export function keptFilter(json: string | undefined): Omit<RowFilter, 'query'> {
-  try {
-    const kept = JSON.parse(json ?? '{}') as Partial<RowFilter> | null;
-    return {
-      unreadOnly: kept?.unreadOnly === true,
-      ...(typeof kept?.project === 'string' ? { project: kept.project } : {}),
-      ...(typeof kept?.mac === 'string' ? { mac: kept.mac } : {}),
-    };
-  } catch {
-    return { unreadOnly: false };
-  }
-}
+/**
+ * `filter` with only the chips still offered: a kept project or Mac that is gone would hide every
+ * row with no chip to lift it. A Mac chip is offered only with several Macs paired.
+ */
+export const offeredFilter = (
+  filter: RowFilter,
+  projects: readonly string[],
+  macs: readonly { id: string }[],
+): RowFilter => ({
+  ...filter,
+  project: filter.project && projects.includes(filter.project) ? filter.project : undefined,
+  mac: macs.length > 1 && macs.some((m) => m.id === filter.mac) ? filter.mac : undefined,
+});
 
 /** A row, or an open gate, with the pairing of the Mac it came from. */
 export type OnMac<T> = T & { mac: string };

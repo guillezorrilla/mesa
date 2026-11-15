@@ -1,7 +1,5 @@
 import { View } from 'react-native';
-import { Button } from '@/components/ui/button';
-import { Text } from '@/components/ui/text';
-import { haptic } from '@/lib/haptics';
+import { Chip } from '@/components/Chip';
 
 /**
  * One chip per choice, wrapping onto more lines as needed, the chosen one filled; a press picks it,
@@ -22,18 +20,13 @@ export function ChoiceChips<T extends string>({
   return (
     <View accessibilityLabel={label} className="flex-row flex-wrap gap-2">
       {choices.map(([choice, words]) => (
-        <Button
+        <Chip
           key={choice}
-          size="sm"
-          variant={choice === value ? 'default' : 'secondary'}
-          accessibilityState={{ selected: choice === value }}
-          onPress={() => {
-            if (choice !== value) haptic('selection');
-            onChange(choice);
-          }}
-        >
-          <Text>{words}</Text>
-        </Button>
+          label={words}
+          selected={choice === value}
+          changes={choice !== value}
+          onPress={() => onChange(choice)}
+        />
       ))}
     </View>
   );

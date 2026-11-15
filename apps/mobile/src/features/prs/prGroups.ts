@@ -1,9 +1,7 @@
 import { BUCKET_LABELS, type PhonePr } from '@mesa/core/phone';
+import { ALL } from '../../lib/keptChoice';
 
 export type PrSection = { key: string; title: string; short: string; data: PhonePr[] };
-
-/** The chip that shows every bucket. */
-export const ALL_BUCKETS = '';
 
 /** A bucket's name on its chip, where its heading does not fit. */
 const SHORT: Record<keyof typeof BUCKET_LABELS, string> = {
@@ -35,7 +33,7 @@ export function bucketChoices(sections: readonly PrSection[]) {
   if (sections.length < 2) return [];
   return [
     {
-      value: ALL_BUCKETS,
+      value: ALL,
       label: 'All',
       count: sections.reduce((n, section) => n + section.data.length, 0),
     },
