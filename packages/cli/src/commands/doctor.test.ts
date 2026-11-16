@@ -37,6 +37,7 @@ test('doctor reports { healthy, checks } and exits 3 when unhealthy', async () =
     ].map((event) => `codex hooks ${event}`),
     'antigravity hooks',
     'antigravity vault',
+    'tmux servers',
   ]);
 
   // gh and twg only serve PR reviews: missing, they warn with their install and Mesa stays healthy.

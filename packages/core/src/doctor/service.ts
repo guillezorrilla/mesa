@@ -7,6 +7,7 @@ import { codexDaemonSocket, codexHome } from '../agents/codex/paths.js';
 import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
 import { readConfig } from '../profile/config.js';
+import { leftoverServers, stopLeftoverServers } from '../sessions/tmux/leftovers.js';
 import type { VaultStatus } from '../vault/vault.js';
 import { type DoctorReport, inboxCheck, runDoctor } from './doctor.js';
 import { installRequirement } from './install.js';
@@ -26,6 +27,8 @@ export function doctorService(
   return {
     /** Installs a missing requirement with Homebrew (`mesa doctor install`). */
     installRequirement: (name: string) => installRequirement(ctx.run, name),
+    /** Stops the tmux servers of profiles that no longer exist (`mesa doctor --fix`). */
+    stopLeftoverServers: () => stopLeftoverServers(ctx),
     doctor: async () => {
       const report = await runDoctor({
         run: ctx.run,
@@ -41,6 +44,7 @@ export function doctorService(
         },
         codexDaemon: codexDaemonSocket(codexHome(ctx.home, ctx.env)),
         unreadableRecords: ctx.store.unreadable,
+        leftovers: () => leftoverServers(ctx),
         ...(existsSync(ctx.paths.config)
           ? {
               vault: deps.vaultStatus,
