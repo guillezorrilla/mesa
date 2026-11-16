@@ -1,5 +1,7 @@
 import { parseStreamLine } from '../../agents/claude/stream/events.js';
 import { parseAppServerLine } from '../../agents/codex/appserver/events.js';
+import type { PendingPrompt } from '../answer/pending.js';
+import { journalPrompt } from '../answer/structured.js';
 import type { ChatItem, SessionChat } from '../native/chat.js';
 import { foldCodexEvent } from '../native/codex-stream-chat.js';
 import { mergeChat } from '../native/merge-chat.js';
@@ -109,10 +111,13 @@ export type ChatFollowLine =
   | { type: 'item'; item: ChatItem }
   /** The prompt suggestion changed: a new one, or null once a message is sent. */
   | { type: 'suggestion'; text: string | null }
+  /** The permission or question the agent waits on changed: a new one, or null once answered. */
+  | { type: 'prompt'; prompt: PendingPrompt | null }
   | { type: 'end' };
 
 /**
- * `mesa chat --follow`: the chat now, then each item that is new or changed, until `open` says
+ * `mesa chat --follow`: the chat now, then each item that is new or changed, and the prompt the
+ * agent waits on as it comes and goes (no hook, board read or `mesa prompt` between), until `open` says
  * the reader is gone or the session's host has ended (or never runs: a Terminal session prints its
  * chat once). shortcut: a grown journal is read and folded whole; keep an offset if journals grow large.
  */
@@ -132,6 +137,7 @@ export async function followChat(
   if (record.view !== 'structured') return;
   const shown = new Map(first.messages.map((item) => [item.id, JSON.stringify(item)]));
   let suggested = first.suggestion ?? null;
+  let asked = 'null';
   const socket = hostSocket(deps.hosts, id);
   let hosted = false;
   let size = -1;
@@ -156,6 +162,10 @@ export async function followChat(
       const suggestion = journalSuggestion(lines, record.agent) ?? null;
       if (suggestion !== suggested) emit({ type: 'suggestion', text: suggestion });
       suggested = suggestion;
+      const prompt = journalPrompt(lines, id, record.agent) ?? null;
+      const waiting = JSON.stringify(prompt);
+      if (waiting !== asked) emit({ type: 'prompt', prompt });
+      asked = waiting;
     }
     pinged += FOLLOW_MS;
     if (pinged < PING_MS) continue;

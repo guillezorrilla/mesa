@@ -12,7 +12,7 @@ export const chat = defineCommand({
     follow: {
       type: 'boolean',
       description:
-        'Then follow a Structured session: one JSON line per new or changed item, until stdin closes or it ends',
+        'Then follow a Structured session: one JSON line per new or changed item, and the prompt its agent waits on as it comes and goes, until stdin closes or it ends',
     },
   },
   example: 'mesa chat a1b2c3d4 --count 5',

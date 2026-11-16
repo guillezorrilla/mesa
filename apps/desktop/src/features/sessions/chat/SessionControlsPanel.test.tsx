@@ -70,3 +70,24 @@ test("the usage popover shows the last /usage reply's limits as bars", async () 
       ?.getAttribute('aria-label'),
   ).toBe('Current session: 14% used');
 });
+
+test('a pick shows at once with a spinner, and rolls back with the refusal', async () => {
+  let answer: (value: unknown) => void = () => undefined;
+  const { bridge } = fakeBridge({
+    'sessions controls': () => envelope(controls),
+    'sessions mode': () =>
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+  });
+  await renderWithMesa(<SessionControlsPanel row={row} />, bridge);
+  await pick(button('Permission mode'), 'plan');
+  expect(button('Permission mode')?.textContent).toBe('plan');
+  expect(button('Permission mode')?.getAttribute('aria-busy')).toBe('true');
+  await act(async () => answer(failure('session cccccccc: no such mode', 'agent_unavailable')));
+  expect(button('Permission mode')?.textContent).toBe('default');
+  expect(button('Permission mode')?.getAttribute('aria-busy')).toBe('false');
+  expect(document.querySelector('[role="alert"]')?.textContent).toBe(
+    'session cccccccc: no such mode',
+  );
+});

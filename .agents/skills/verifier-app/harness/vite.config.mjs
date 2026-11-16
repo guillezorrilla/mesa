@@ -35,7 +35,7 @@ export default defineConfig({
           log(`FOLLOW ${url.searchParams.get('session')}`);
           res.setHeader('content-type', 'text/plain');
           child.stdout.pipe(res);
-          req.on('close', () => child.kill());
+          res.on('close', () => child.kill());
         });
         server.middlewares.use('/__mesa', (req, res) => {
           let body = '';

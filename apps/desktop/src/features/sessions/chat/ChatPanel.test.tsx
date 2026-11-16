@@ -2,7 +2,15 @@
 import type { ChatItem, ChatMessage, ChatRun, SessionChat } from '@mesa/core';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
-import { asking, click, envelope, fakeBridge, press, renderWithMesa } from '@/lib/testing';
+import {
+  asking,
+  click,
+  envelope,
+  fakeBridge,
+  managedRow,
+  press,
+  renderWithMesa,
+} from '@/lib/testing';
 import { ChatPanel } from './ChatPanel';
 import { transcriptHolds } from './useChat';
 
@@ -74,6 +82,25 @@ test('a sent prompt shows as Sending until the transcript holds it', async () =>
   messages = [...messages, said('you', 'Chart the tide')];
   await new Promise((done) => setTimeout(done, 2500));
   expect(byTestId('chat-messages')[0]?.textContent).not.toContain('Sending');
+});
+
+test('a command sent shows as Running, and a prompt sent mid-turn as Queued', async () => {
+  const { bridge } = fakeBridge({ chat: () => envelope(chatOf([said('agent', 'Ready.')])) });
+  const run = { id: 'a1b2c3d4', prompt: '/usage', at: Date.parse(at) };
+  const byTestId = await renderWithMesa(
+    <ChatPanel sessionId="a1b2c3d4" acting={false} sent={run} onSend={() => {}} />,
+    bridge,
+  );
+  expect(byTestId('chat-messages')[0]?.textContent).toContain('/usageRunning');
+  const working = managedRow('a1b2c3d4', {
+    lastState: { state: 'working', confidence: 1, at, source: 'hook' },
+  });
+  const queued = { ...run, prompt: 'Chart the tide' };
+  const again = await renderWithMesa(
+    <ChatPanel sessionId="a1b2c3d4" row={working} acting={false} sent={queued} onSend={() => {}} />,
+    bridge,
+  );
+  expect(again('chat-messages')[0]?.textContent).toContain('Chart the tideQueued');
 });
 
 test('Older messages reads further back', async () => {

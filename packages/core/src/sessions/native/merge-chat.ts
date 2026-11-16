@@ -1,11 +1,20 @@
 import type { ChatItem } from './chat.js';
 
-/** What makes two items the same one across the transcript and the stream: a run's id or a shared step, else who said what. */
+/** How far apart the transcript and the stream may stamp one item (measured: under a second). */
+const SAME_MS = 5_000;
+/** Whether two stamps may be one item's: either unknown, or within SAME_MS. */
+const near = (a: string | null, b: string | null) =>
+  !a || !b || Math.abs(Date.parse(a) - Date.parse(b)) <= SAME_MS;
+
+/**
+ * What makes two items the same one across the transcript and the stream: a run's id or a shared
+ * step, else who said what, said within moments (a `/usage` run again later is another).
+ */
 const same = (a: ChatItem, b: ChatItem) =>
   a.from === b.from &&
   (a.from === 'steps' && b.from === 'steps'
     ? a.id === b.id || a.steps.some((step) => b.steps.some((other) => other.id === step.id))
-    : a.from !== 'steps' && b.from !== 'steps' && a.text === b.text);
+    : a.from !== 'steps' && b.from !== 'steps' && a.text === b.text && near(a.at, b.at));
 
 /**
  * The transcript's chat (`history`, oldest first) with the stream's items (`live`, oldest first)
@@ -32,7 +41,14 @@ export function mergeChat(history: ChatItem[], live: ChatItem[]): ChatItem[] {
     const overlap = Math.min(history.length, live.length - from);
     if (matches(0, from, overlap)) return [...history, ...live.slice(from + overlap)];
   }
-  // No place lines up (an item one source has and the other lacks): what the transcript has
-  // already is not shown again.
-  return [...history, ...live.filter((item) => !history.some((had) => same(had, item)))];
+  // No place lines up (an item one source has and the other lacks): an item the transcript has
+  // already is not shown again, so one run again since (a second
+  // `/usage`) still shows; what came before the transcript's window stays out with it.
+  const since = history[0]?.at;
+  return [
+    ...history,
+    ...live.filter(
+      (item) => !(since && item.at && item.at < since) && !history.some((had) => same(had, item)),
+    ),
+  ];
 }

@@ -36,13 +36,13 @@ const DENY = 'deny';
 const DENIED = 'The person denied this from Mesa.';
 
 /**
- * The request session `id`'s `agent` waits on: the last one in its journal that Mesa has not
+ * The request a session's `agent` waits on in its journal's `lines`: the last one Mesa has not
  * answered or interrupted, the agent has not cancelled or resolved, and whose turn has not ended.
  */
-function waitingRequest(journals: string, id: string, agent: SessionRecord['agent']) {
+function waitingRequest(lines: readonly string[], agent: SessionRecord['agent']) {
   const pending = new Map<string, Waiting>();
   // shortcut: reads the whole journal per look; keep an offset if journals grow past a few MB.
-  for (const { sent, event } of journalEntries(readJournal(journals, id) ?? [])) {
+  for (const { sent, event } of journalEntries(lines)) {
     if (sent) {
       if (sent.type === 'interrupt' || sent.type === 'stop') pending.clear();
       else if (sent.type === 'allow' || sent.type === 'deny')
@@ -100,6 +100,20 @@ function promptOf(id: string, waiting: Waiting): PendingPrompt {
 }
 
 /**
+ * The prompt session `id`'s journal `lines` say its agent waits on now, as structuredPrompt shows
+ * it; none when nothing waits. For a reader that already holds the lines and knows the host runs
+ * (the chat's follow).
+ */
+export function journalPrompt(
+  lines: readonly string[],
+  id: string,
+  agent: SessionRecord['agent'],
+): PendingPrompt | undefined {
+  const waiting = waitingRequest(lines, agent);
+  return waiting && promptOf(id, waiting);
+}
+
+/**
  * Session `id`'s pending prompt while its host runs: a question's answers by number, or a
  * permission's Allow, Allow always (when Claude suggests rules) and Deny, where typed text answers
  * a question or is the reason a permission is denied. `unsupported` for an AskUserQuestion Mesa
@@ -109,7 +123,7 @@ export async function structuredPrompt(
   deps: { journals: string; hosts: string },
   record: Pick<SessionRecord, 'id' | 'agent'>,
 ): Promise<StructuredPrompt | undefined> {
-  const waiting = waitingRequest(deps.journals, record.id, record.agent);
+  const waiting = waitingRequest(readJournal(deps.journals, record.id) ?? [], record.agent);
   if (!waiting) return undefined;
   // The journal outlives the host: a request its process died with waits on nothing now.
   if (!(await askHost(hostSocket(deps.hosts, record.id), { type: 'ping' }))) return undefined;
