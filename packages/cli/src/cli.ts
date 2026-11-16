@@ -23,6 +23,7 @@ import {
   renamedUsage,
 } from './command.js';
 import { commandHelp, groupUsage, mainHelp, usage, usageWithSubcommands } from './help/usage.js';
+import type { RunOne } from './serve.js';
 
 // Inside the app's single executable (ADR-0017) the version is an asset; elsewhere package.json's.
 export const VERSION: string = isSea()
@@ -133,13 +134,19 @@ async function dispatch(argv: string[], deps: CliDeps): Promise<Output> {
   const { tty, stdin, askSecret, commands } = deps;
   // No terminal and no one to ask; started now, with its own argv (receipts, hook budgets).
   const { confirm: _confirm, askSecret: _askSecret, ...unprompted } = deps;
-  const rerun = (next: string[], input: string) =>
+  const rerun: RunOne = (next, input, { env, serves } = {}) =>
     runCli(next, {
       ...unprompted,
+      env: { ...deps.env, ...env },
       tty: false,
-      served: true,
+      served: !serves,
       stdin: async () => input,
-      mesa: { ...deps.mesa, argv: next, processStartedAt: deps.mesa.clock() },
+      mesa: {
+        ...deps.mesa,
+        env: { ...deps.mesa.env, ...env },
+        argv: next,
+        processStartedAt: deps.mesa.clock(),
+      },
     });
   // A caller reading --json output is a program, which cannot answer a question.
   const confirm = values.json ? undefined : deps.confirm;

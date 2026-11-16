@@ -4,8 +4,8 @@ import { expect, test } from 'vitest';
 import { shellWord } from '../../lib/process.js';
 import {
   agentWorld,
-  CLAUDE_MOUNT,
-  CODEX_MOUNT,
+  claudeMount,
+  codexMount,
   gitRepo,
   newSession,
   projectProfile,
@@ -21,10 +21,10 @@ import type { SessionRecord } from '../record/record.js';
 
 /** The window command each agent's start runs, with its goal as one shell word. */
 const started = {
-  claude: (r: SessionRecord, goal: string) =>
-    `unset NO_COLOR; exec claude --session-id ${r.agentSessionId} ${CLAUDE_MOUNT} '${goal}'`,
-  codex: (_r: SessionRecord, goal: string) =>
-    `codex -c mesa.embedded=true ${CODEX_MOUNT} -- '${goal}'`,
+  claude: (home: string, r: SessionRecord, goal: string) =>
+    `unset NO_COLOR; exec claude --session-id ${r.agentSessionId} ${claudeMount(home)} '${goal}'`,
+  codex: (home: string, _r: SessionRecord, goal: string) =>
+    `codex -c mesa.embedded=true ${codexMount(home)} -- '${goal}'`,
 };
 
 test.each(['claude', 'codex'] as const)(
@@ -41,7 +41,7 @@ test.each(['claude', 'codex'] as const)(
     ).result;
     expect(window(first)).toMatchObject({
       path: first.worktree?.path,
-      launch: started[agent](first, 'Map the tides'),
+      launch: started[agent](home, first, 'Map the tides'),
     });
 
     const note = join(home, 'note.md');
@@ -49,7 +49,7 @@ test.each(['claude', 'codex'] as const)(
     const { to, note: kept } = (await mesa.sessions.handoff(first.id, { note })).result;
     expect(window(to)).toMatchObject({
       path: first.worktree?.path,
-      launch: started[agent](to, `Map the tides\n\nRead the handoff note at ${kept} first.`),
+      launch: started[agent](home, to, `Map the tides\n\nRead the handoff note at ${kept} first.`),
     });
 
     const queued = (
@@ -62,7 +62,7 @@ test.each(['claude', 'codex'] as const)(
     });
     await mesa.sessions.stop(to.id);
     const now = await mesa.sessions.show(queued.id);
-    expect(window(queued)?.launch).toBe(started[agent](now, 'Chart the shoals'));
+    expect(window(queued)?.launch).toBe(started[agent](home, now, 'Chart the shoals'));
     // Each launch marks its record, which show reads.
     for (const r of [first, to, now]) {
       expect((await mesa.sessions.show(r.id)).vault).toEqual({
@@ -93,11 +93,11 @@ test('a record Mesa launched before the mount existed reports it missing until r
 
 test('with sessions.statusLineCost on, claude windows launch with mesa statusline in --settings; off, unchanged', async () => {
   const world = agentWorld();
-  const { mesa } = projectProfile(world.run);
+  const { mesa, home } = projectProfile(world.run);
   const window = (r: SessionRecord) =>
     world.tmux.windows.find((w) => w.window === `${r.agent}-${r.id}`);
   const before = (await mesa.sessions.open('lantern-cove', { goal: 'Map the tides' })).result;
-  expect(window(before)?.launch).toBe(started.claude(before, 'Map the tides'));
+  expect(window(before)?.launch).toBe(started.claude(home, before, 'Map the tides'));
 
   mesa.config.set('sessions.statusLineCost', 'true');
   // testDeps' self is /usr/local/bin/mesa: the status line runs that mesa, not one on PATH.
@@ -108,21 +108,21 @@ test('with sessions.statusLineCost on, claude windows launch with mesa statuslin
   );
   const on = (await mesa.sessions.open('lantern-cove', { goal: 'Map the tides' })).result;
   expect(window(on)?.launch).toBe(
-    `unset NO_COLOR; exec claude ${settings} --session-id ${on.agentSessionId} ${CLAUDE_MOUNT} 'Map the tides'`,
+    `unset NO_COLOR; exec claude ${settings} --session-id ${on.agentSessionId} ${claudeMount(home)} 'Map the tides'`,
   );
   for (const w of world.tmux.windows) w.dead = true;
   await mesa.sessions.stop(on.id, true);
   const resumed = (await mesa.sessions.resume(on.id)).result.record;
   expect(window(resumed)?.launch).toBe(
-    `unset NO_COLOR; exec claude ${settings} --resume ${on.agentSessionId} ${CLAUDE_MOUNT}`,
+    `unset NO_COLOR; exec claude ${settings} --resume ${on.agentSessionId} ${claudeMount(home)}`,
   );
   // Codex has no Claude status line.
   const codex = (
     await mesa.sessions.open('lantern-cove', { agent: 'codex', goal: 'Map the tides' })
   ).result;
-  expect(window(codex)?.launch).toBe(started.codex(codex, 'Map the tides'));
+  expect(window(codex)?.launch).toBe(started.codex(home, codex, 'Map the tides'));
 
   mesa.config.set('sessions.statusLineCost', 'false');
   const after = (await mesa.sessions.open('lantern-cove', { goal: 'Map the tides' })).result;
-  expect(window(after)?.launch).toBe(started.claude(after, 'Map the tides'));
+  expect(window(after)?.launch).toBe(started.claude(home, after, 'Map the tides'));
 });

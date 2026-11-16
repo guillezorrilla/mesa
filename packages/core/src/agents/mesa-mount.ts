@@ -8,8 +8,8 @@ import type { Agent } from './names.js';
 // (docs/spikes/vault-mcp.md, ADR-0012): mesa-vault, `mesa vault mcp` (ADR-0011), always, and beside
 // it, while the profile has a Decision model, mesa-decisions, `mesa decisions mcp` (ADR-0019,
 // #463). Claude Code and Codex take them per launch, in argv, so every start, resume, fork, and
-// headless run carries them; Antigravity takes one global entry each instead
-// (antigravity/mesa-mount.ts).
+// headless run carries them, each a relay to the profile's Shared MCP server (ADR-0031);
+// Antigravity takes one global entry each instead (antigravity/mesa-mount.ts).
 
 /** Whether an agent's launch command carries the mounts; Antigravity's are its global entries. */
 export const mountsPerLaunch = (agent: Agent | 'terminal') =>
@@ -27,28 +27,61 @@ export const DECISIONS_MOUNT: MesaServer = {
 export type ServerCommand = { command: string; args: readonly string[] };
 
 /**
+ * The relay a per-launch mount runs (ADR-0031): when the profile's Shared MCP server accepts a
+ * connection at the socket ($1), it sends the binding for server $2 and this window's
+ * MESA_SESSION_ID and MESA_PROFILE, then pipes the agent's stdio through; otherwise it becomes
+ * the rest of its argv, the server's own process. A plain connect probes, as macOS's `nc -zU`
+ * reports failure on a live socket.
+ */
+export const RELAY_SCRIPT = [
+  's=$1 n=$2; shift 2',
+  'if nc -U "$s" </dev/null >/dev/null 2>&1; then',
+  '  { printf \'{"server":"%s","session":"%s","profile":"%s"}\\n\' "$n" "$MESA_SESSION_ID" "$MESA_PROFILE"; exec cat; } | nc -U "$s"',
+  'else exec "$@"; fi',
+].join('\n');
+
+/**
  * This mesa running `server`, from the argv that runs it (MesaDeps.self). No --profile: the server
  * reads MESA_PROFILE and MESA_SESSION_ID from the window's environment, which every agent passes
- * on, so Antigravity's one global entry serves every profile.
+ * on, so Antigravity's one global entry serves every profile. With `socket`, the profile's Shared
+ * MCP server's, it is the relay to it, which runs this command when no server answers.
  */
-export function mesaServer(self: readonly string[], server: MesaServer): ServerCommand {
+export function mesaServer(
+  self: readonly string[],
+  server: MesaServer,
+  socket?: string,
+): ServerCommand {
   const [program = 'mesa', ...args] = self;
-  return { command: program, args: [...args, ...server.subcommand] };
+  const own = { command: program, args: [...args, ...server.subcommand] };
+  if (!socket) return own;
+  return {
+    command: '/bin/sh',
+    args: [
+      '-c',
+      RELAY_SCRIPT,
+      'mesa-relay',
+      socket,
+      server.subcommand[0] ?? '',
+      program,
+      ...own.args,
+    ],
+  };
 }
 
 /** What a launch mounts: mesa-vault always, and mesa-decisions while there is a Decision model. */
 export type Mounts = { vault: ServerCommand; decisions?: ServerCommand };
 
 /**
- * This mesa's mounts for a launch. With no Decision model (`decisions` off) nothing of
- * mesa-decisions is mounted, so no tool is listed and the agent works as before.
+ * This mesa's mounts for a launch, each a relay to the Shared MCP server at `socket` when given.
+ * With no Decision model (`decisions` off) nothing of mesa-decisions is mounted, so no tool is
+ * listed and the agent works as before.
  */
 export const launchMounts = (
   self: readonly string[],
-  { decisions }: { decisions: boolean },
+  { decisions, socket }: { decisions: boolean; socket?: string },
 ): Mounts => ({
-  vault: mesaServer(self, VAULT_MOUNT),
-  ...(decisions ? { decisions: mesaServer(self, DECISIONS_MOUNT) } : {}),
+  vault: mesaServer(self, VAULT_MOUNT, socket),
+  ...(decisions ? { decisions: mesaServer(self, DECISIONS_MOUNT, socket) } : {}),
 });
 
 /** The servers of `mounts` by their config names, mesa-vault first. */

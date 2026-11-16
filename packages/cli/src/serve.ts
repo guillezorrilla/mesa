@@ -1,10 +1,20 @@
-import type { Stdio } from '@mesa/core';
+import type { Env, Stdio } from '@mesa/core';
 
-/** One CLI call: its argv and stdin, to its exit code and streams (runCli's). */
+/**
+ * One CLI call: its argv and stdin, to its exit code and streams (runCli's). `env` overlays the
+ * environment it reads; with `serves`, a command that serves its own stdio runs and its loop comes
+ * back as `serve` (the Shared MCP server's connections), else it is refused (`mesa serve`).
+ */
 export type RunOne = (
   argv: string[],
   stdin: string,
-) => Promise<{ code: number; stdout: string; stderr: string }>;
+  opts?: { env?: Env; serves?: boolean },
+) => Promise<{
+  code: number;
+  stdout: string;
+  stderr: string;
+  serve?: (io: Stdio) => Promise<void>;
+}>;
 
 type Reply = { code: number; stdout: string; stderr: string };
 type Request = { id: number | null; args?: string[]; stdin: string };

@@ -21,6 +21,8 @@ export type ProfilePaths = {
   logs: string;
   /** Structured sessions' journals, one `<session id>.jsonl` each: every event its host read or sent. */
   journals: string;
+  /** The Shared MCP server's socket (ADR-0031), which every session's mesa-vault and mesa-decisions reach. */
+  mcpSocket: string;
   /** Each running host's socket, `<session id>.sock` (ADR-0029); short, as a unix socket path is capped. */
   hosts: string;
   /** What each headless run's agent printed, `<session id>.json` each (CONTEXT.md, Skill run). */
@@ -108,6 +110,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     logs: join(root, 'sessions', 'logs'),
     journals: join(root, 'sessions', 'journals'),
     hosts: join(root, 'hosts'),
+    mcpSocket: join(root, 'mcp.sock'),
     runs: join(root, 'sessions', 'runs'),
     checks: join(root, 'checks'),
     costs: join(root, 'sessions', 'costs'),

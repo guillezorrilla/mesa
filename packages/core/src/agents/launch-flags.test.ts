@@ -1,5 +1,5 @@
 import { describe, expect, it, test } from 'vitest';
-import { CLAUDE_MOUNT, CODEX_MOUNT, NATIVE_LAUNCH, tempDir } from '../testing/index.js';
+import { claudeMount, codexMount, NATIVE_LAUNCH, tempDir } from '../testing/index.js';
 import { AGENTS, startCommand } from './agents.js';
 import {
   codexServerOverrides,
@@ -12,17 +12,21 @@ import { launchMounts } from './mesa-mount.js';
 // The profile's launch defaults on the commands every start, resume, and fork runs, in each
 // agent's own syntax, under the mount testDeps launches carry.
 
-const SERVER = launchMounts(['/usr/local/bin/mesa'], { decisions: false });
+const HOME = '/h';
+const SERVER = launchMounts(['/usr/local/bin/mesa'], {
+  decisions: false,
+  socket: '/h/.mesa/default/mcp.sock',
+});
 const ID = '360ed2a1-f255-4c2a-8f30-ba7b6ea349f5';
 const FOLDER = '/src/lantern-cove';
 const set = (patch: Partial<LaunchDefaults>): LaunchDefaults => ({ ...NATIVE_LAUNCH, ...patch });
 
 test('unset defaults emit nothing, so each agent starts on its native config', () => {
   expect(startCommand('claude', SERVER, NATIVE_LAUNCH, { agentSessionId: ID }, [])).toBe(
-    `claude --session-id ${ID} ${CLAUDE_MOUNT}`,
+    `claude --session-id ${ID} ${claudeMount(HOME)}`,
   );
   expect(startCommand('codex', SERVER, NATIVE_LAUNCH, {}, [])).toBe(
-    `codex -c mesa.embedded=true ${CODEX_MOUNT}`,
+    `codex -c mesa.embedded=true ${codexMount(HOME)}`,
   );
   expect(
     startCommand('antigravity', SERVER, NATIVE_LAUNCH, { id: 'a1', logs: tempDir() }, []),
@@ -38,19 +42,19 @@ test('unset defaults emit nothing, so each agent starts on its native config', (
 test('Claude Code skips permissions on start, resume, and fork; plan from the session wins', () => {
   const skip = set({ claude: { skipPermissions: true } });
   expect(startCommand('claude', SERVER, skip, { agentSessionId: ID, goal: 'go' }, [])).toBe(
-    `claude --session-id ${ID} --dangerously-skip-permissions ${CLAUDE_MOUNT} 'go'`,
+    `claude --session-id ${ID} --dangerously-skip-permissions ${claudeMount(HOME)} 'go'`,
   );
   expect(AGENTS.claude.resume(ID, FOLDER, SERVER, skip)).toBe(
-    `claude --resume ${ID} --dangerously-skip-permissions ${CLAUDE_MOUNT}`,
+    `claude --resume ${ID} --dangerously-skip-permissions ${claudeMount(HOME)}`,
   );
   expect(AGENTS.claude.fork(ID, FOLDER, SERVER, skip)).toBe(
-    `claude --resume '${ID}' --fork-session --dangerously-skip-permissions ${CLAUDE_MOUNT}`,
+    `claude --resume '${ID}' --fork-session --dangerously-skip-permissions ${claudeMount(HOME)}`,
   );
   expect(startCommand('claude', SERVER, skip, { agentSessionId: ID, mode: 'plan' }, [])).toBe(
-    `claude --session-id ${ID} --permission-mode plan ${CLAUDE_MOUNT}`,
+    `claude --session-id ${ID} --permission-mode plan ${claudeMount(HOME)}`,
   );
   expect(AGENTS.claude.resume(ID, FOLDER, SERVER, skip, 'plan')).toBe(
-    `claude --resume ${ID} --permission-mode plan ${CLAUDE_MOUNT}`,
+    `claude --resume ${ID} --permission-mode plan ${claudeMount(HOME)}`,
   );
 });
 
@@ -58,23 +62,23 @@ test('Codex takes its approval policy and sandbox; bypass replaces both', () => 
   const both = set({ codex: { approvalPolicy: 'on-request', sandbox: 'workspace-write' } });
   const flags = '--ask-for-approval=on-request --sandbox=workspace-write';
   expect(startCommand('codex', SERVER, both, { goal: 'review' }, [])).toBe(
-    `codex -c mesa.embedded=true ${flags} ${CODEX_MOUNT} -- 'review'`,
+    `codex -c mesa.embedded=true ${flags} ${codexMount(HOME)} -- 'review'`,
   );
   expect(AGENTS.codex.resume('019a', FOLDER, SERVER, both)).toBe(
-    `codex -c mesa.embedded=true ${flags} ${CODEX_MOUNT} resume '019a' -C '${FOLDER}'`,
+    `codex -c mesa.embedded=true ${flags} ${codexMount(HOME)} resume '019a' -C '${FOLDER}'`,
   );
   expect(AGENTS.codex.fork('019a', FOLDER, SERVER, both)).toBe(
-    `codex -c mesa.embedded=true ${flags} ${CODEX_MOUNT} fork '019a' -C '${FOLDER}'`,
+    `codex -c mesa.embedded=true ${flags} ${codexMount(HOME)} fork '019a' -C '${FOLDER}'`,
   );
   expect(startCommand('codex', SERVER, set({ codex: { sandbox: 'read-only' } }), {}, [])).toBe(
-    `codex -c mesa.embedded=true --sandbox=read-only ${CODEX_MOUNT}`,
+    `codex -c mesa.embedded=true --sandbox=read-only ${codexMount(HOME)}`,
   );
   const bypass = set({ codex: { approvalPolicy: 'never', sandbox: 'read-only', bypass: true } });
   expect(startCommand('codex', SERVER, bypass, {}, [])).toBe(
-    `codex -c mesa.embedded=true --dangerously-bypass-approvals-and-sandbox ${CODEX_MOUNT}`,
+    `codex -c mesa.embedded=true --dangerously-bypass-approvals-and-sandbox ${codexMount(HOME)}`,
   );
   expect(AGENTS.codex.resume('019a', FOLDER, SERVER, bypass)).toBe(
-    `codex -c mesa.embedded=true --dangerously-bypass-approvals-and-sandbox ${CODEX_MOUNT} resume '019a' -C '${FOLDER}'`,
+    `codex -c mesa.embedded=true --dangerously-bypass-approvals-and-sandbox ${codexMount(HOME)} resume '019a' -C '${FOLDER}'`,
   );
 });
 
@@ -82,13 +86,13 @@ test('Codex with extra folders gets the workspace-write sandbox, over read-only 
   const dirs = ['/src/tide-pool'];
   const extra = " '--add-dir' '/src/tide-pool'";
   expect(startCommand('codex', SERVER, NATIVE_LAUNCH, { goal: 'go' }, dirs)).toBe(
-    `codex -c mesa.embedded=true --sandbox=workspace-write ${CODEX_MOUNT}${extra} -- 'go'`,
+    `codex -c mesa.embedded=true --sandbox=workspace-write ${codexMount(HOME)}${extra} -- 'go'`,
   );
   expect(AGENTS.codex.resume('019a', FOLDER, SERVER, NATIVE_LAUNCH, undefined, dirs)).toBe(
-    `codex -c mesa.embedded=true --sandbox=workspace-write ${CODEX_MOUNT} resume '019a' -C '${FOLDER}'${extra}`,
+    `codex -c mesa.embedded=true --sandbox=workspace-write ${codexMount(HOME)} resume '019a' -C '${FOLDER}'${extra}`,
   );
   expect(AGENTS.codex.fork('019a', FOLDER, SERVER, NATIVE_LAUNCH, undefined, dirs)).toBe(
-    `codex -c mesa.embedded=true --sandbox=workspace-write ${CODEX_MOUNT} fork '019a' -C '${FOLDER}'${extra}`,
+    `codex -c mesa.embedded=true --sandbox=workspace-write ${codexMount(HOME)} fork '019a' -C '${FOLDER}'${extra}`,
   );
   const flagsFor = (codex: LaunchDefaults['codex']) =>
     launchFlags('codex', set({ codex }), undefined, dirs);

@@ -5,7 +5,8 @@ import { claudeLiveSessions, claudeTranscripts } from '../agents/claude/paths.js
 import { codexSessionIndex, codexSessions } from '../agents/codex/paths.js';
 import type { LaunchDefaults } from '../agents/launch-flags.js';
 import { type ListingDeps, listAgentProcesses } from '../agents/listing.js';
-import type { Env, Runner } from '../lib/process.js';
+import { RELAY_SCRIPT } from '../agents/mesa-mount.js';
+import { type Env, type Runner, shellWord } from '../lib/process.js';
 import { localDay } from '../lib/time.js';
 import { fixedClock } from './clock.js';
 import { scriptedRunner } from './runner.js';
@@ -96,16 +97,40 @@ export const claudeAnswer = (text: string) =>
 /** What `claude --version` answers in tests. */
 export const CLAUDE_VERSION = '2.1.282 (Claude Code)';
 
-// The mesa-vault mount a launch under testDeps carries (agents/mesa-mount.ts), as its shell
-// words: `/usr/local/bin/mesa vault mcp`, spelled out here so a test checks the real argv.
-/** Claude Code's --mcp-config with mesa-vault alone, one shell word. */
-export const CLAUDE_MCP_CONFIG = `'--mcp-config={"mcpServers":{"mesa-vault":{"type":"stdio","command":"/usr/local/bin/mesa","args":["vault","mcp"]}}}'`;
+// The mesa-vault mount a launch under testDeps(home) carries (agents/mesa-mount.ts), as its shell
+// words: the relay to the default profile's Shared MCP server, which falls back to
+// `/usr/local/bin/mesa vault mcp`, spelled out here so a test checks the real argv.
+const vaultRelay = (home: string) => [
+  '-c',
+  RELAY_SCRIPT,
+  'mesa-relay',
+  join(home, '.mesa/default/mcp.sock'),
+  'vault',
+  '/usr/local/bin/mesa',
+  'vault',
+  'mcp',
+];
+/** Claude Code's --mcp-config with mesa-vault alone, as an argv word. */
+export const claudeMcpConfigArg = (home: string) =>
+  `--mcp-config=${JSON.stringify({ mcpServers: { 'mesa-vault': { type: 'stdio', command: '/bin/sh', args: vaultRelay(home) } } })}`;
+/** The same, one shell word. */
+export const claudeMcpConfig = (home: string) => shellWord(claudeMcpConfigArg(home));
 /** Claude Code's, on an interactive start, resume, or fork. */
-export const CLAUDE_MOUNT = `${CLAUDE_MCP_CONFIG} '--allowedTools=mcp__mesa-vault'`;
+export const claudeMount = (home: string) =>
+  `${claudeMcpConfig(home)} '--allowedTools=mcp__mesa-vault'`;
 /** Claude Code's on a headless run, the profile's allowed tools after it. */
-export const CLAUDE_HEADLESS_MOUNT = `${CLAUDE_MCP_CONFIG} --allowedTools 'mcp__mesa-vault'`;
+export const claudeHeadlessMount = (home: string) =>
+  `${claudeMcpConfig(home)} --allowedTools 'mcp__mesa-vault'`;
 /** Codex's four -c overrides. */
-export const CODEX_MOUNT = `-c 'mcp_servers.mesa-vault.command="/usr/local/bin/mesa"' -c 'mcp_servers.mesa-vault.args=["vault","mcp"]' -c 'mcp_servers.mesa-vault.env_vars=["MESA_SESSION_ID","MESA_PROFILE"]' -c 'mcp_servers.mesa-vault.default_tools_approval_mode="approve"'`;
+export const codexMount = (home: string) =>
+  [
+    'command="/bin/sh"',
+    `args=${JSON.stringify(vaultRelay(home))}`,
+    'env_vars=["MESA_SESSION_ID","MESA_PROFILE"]',
+    'default_tools_approval_mode="approve"',
+  ]
+    .map((value) => `-c ${shellWord(`mcp_servers.mesa-vault.${value}`)}`)
+    .join(' ');
 /** No launch defaults: every agent on its native config, as a new profile has it. */
 export const NATIVE_LAUNCH: LaunchDefaults = { claude: {}, codex: {}, antigravity: {} };
 /** What `codex --version` answers in tests (docs/spikes/codex.md). */

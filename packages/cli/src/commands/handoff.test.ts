@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CLAUDE_MOUNT } from '@mesa/core/testing';
+import { claudeMount } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -45,7 +45,7 @@ test('handoff starts a successor with the goal and the note, then stops the sess
   expect(b.events).toEqual([{ type: 'handoff', at: expect.any(String), from: a.id, note: kept }]);
   // The successor's command line: its own session id, mesa-vault, then the goal as one shell word.
   expect(window(to)?.launch).toBe(
-    `unset NO_COLOR; exec claude --session-id ${b.agentSessionId} ${CLAUDE_MOUNT} '${goal}'`,
+    `unset NO_COLOR; exec claude --session-id ${b.agentSessionId} ${claudeMount(cli.home)} '${goal}'`,
   );
   // Stopped from outside its window: at once.
   expect(window(a.id)).toBeUndefined();
@@ -70,7 +70,9 @@ test('a session handing itself off is stopped by the tmux server a moment later'
   expect(out.stdout).toContain(`${a.id} stops in a moment`);
   // Still running: its own stop would have killed this mesa half-way.
   expect(window(a.id)).toBeDefined();
-  expect(world.ranLater).toEqual([
+  // Each start also starts the Shared MCP server (mcp.test.ts): only the stop is this test's.
+  const stops = () => world.ranLater.filter((command) => command.includes(' stop '));
+  expect(stops()).toEqual([
     `sleep 2; '/usr/local/bin/mesa' --profile 'default' stop ${a.id} >/dev/null 2>&1 || :`,
   ]);
 });
@@ -94,7 +96,7 @@ test('--keep leaves the session running; no goal is usage, a missing note not_fo
   expect(kept.code).toBe(0);
   expect(window(a.id)).toBeDefined();
   expect((await show(a.id)).endedAt).toBeUndefined();
-  expect(world.ranLater).toEqual([]);
+  expect(world.ranLater.filter((command) => command.includes(' stop '))).toEqual([]);
 
   const bare = await open();
   const windows = world.windows.length;

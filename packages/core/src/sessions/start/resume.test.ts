@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import {
   agentWorld,
-  CODEX_MOUNT,
+  codexMount,
   profilePaths,
   projectProfile,
   steppingClock,
@@ -14,7 +14,7 @@ const THREAD = '01a0e14e-be41-72f1-a81b-e25d2198602a';
 
 test('resume reopens a Codex thread embedded, in its recorded folder, with -C', async () => {
   const world = agentWorld();
-  const { mesa, dir } = projectProfile(world.run, {
+  const { mesa, dir, home } = projectProfile(world.run, {
     env: world.codex.env,
     clock: steppingClock('2026-09-24T12:00:00.000Z'),
   });
@@ -32,7 +32,7 @@ test('resume reopens a Codex thread embedded, in its recorded folder, with -C', 
   const window = world.tmux.windows.at(-1);
   expect(window).toMatchObject({ window: `codex-${record.id}`, path: dir });
   expect(window?.launch).toBe(
-    `codex -c mesa.embedded=true ${CODEX_MOUNT} resume '${THREAD}' -C '${dir}'`,
+    `codex -c mesa.embedded=true ${codexMount(home)} resume '${THREAD}' -C '${dir}'`,
   );
 });
 

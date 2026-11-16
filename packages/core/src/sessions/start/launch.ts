@@ -11,6 +11,7 @@ import { codexHome } from '../../agents/codex/paths.js';
 import { sandboxOverride } from '../../agents/launch-flags.js';
 import { type Mounts, mountsPerLaunch } from '../../agents/mesa-mount.js';
 import { AGENT_NAMES } from '../../agents/names.js';
+import { ensureSharedMcp } from '../../agents/shared-mcp.js';
 import { readyAgent } from '../../doctor/probe.js';
 import type { Clock } from '../../lib/clock.js';
 import type { AsyncLockDeps } from '../../lib/lock-file.js';
@@ -54,7 +55,7 @@ export type LaunchDeps = {
   /** For MESA_PROFILE: a Profile knows its paths, not its name. */
   profileName: string;
   store: SessionStore;
-  tmux: Pick<TmuxBackend, 'openWindow' | 'respawnWindow'>;
+  tmux: Pick<TmuxBackend, 'openWindow' | 'respawnWindow' | 'runMesaLater'>;
   run: Runner;
   env: Env;
   home: string;
@@ -256,6 +257,10 @@ export async function startSession(
       },
       ...(config.sessions.log ? { log: prepareOutputLog(paths.logs, record.id) } : {}),
     });
+    // The agent's mounts relay to the profile's Shared MCP server (ADR-0031), started from the
+    // tmux server (running now), so it outlives this mesa; until it listens they run their own.
+    if (mountsPerLaunch(record.agent))
+      await ensureSharedMcp(paths.mcpSocket, (args) => deps.tmux.runMesaLater(args, 0));
     return { record, ...(warning ? { warning } : {}) };
   } catch (error) {
     if (backgroundId) await stopClaudeBackground(deps.run, backgroundId).catch(() => undefined);

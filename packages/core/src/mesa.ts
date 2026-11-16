@@ -1,5 +1,6 @@
 import { about } from './about/about.js';
 import { hooksService } from './agents/hooks-service.js';
+import { type ServeBound, serveSharedMcp } from './agents/shared-mcp.js';
 import { automationsService } from './automations/service.js';
 import { runCheck } from './checks/check.js';
 import { commandsService } from './commands/service.js';
@@ -223,6 +224,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
     gates,
     prs,
     hooks: hooksService(ctx),
+    /** The profile's Shared MCP server (ADR-0031): every session's mesa-vault and mesa-decisions. */
+    mcp: {
+      serve: (serve: ServeBound, log: (text: string) => void) =>
+        serveSharedMcp(ctx.paths.mcpSocket, profile, serve, { log }),
+    },
     skills,
     ...commandsService(ctx),
     usage,

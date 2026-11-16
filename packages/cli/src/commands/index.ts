@@ -53,6 +53,7 @@ import { keys } from './keys.js';
 import { log } from './log.js';
 import { logs } from './logs.js';
 import { map } from './map.js';
+import { mcpServe } from './mcp.js';
 import { merge } from './merge.js';
 import {
   notifications,
@@ -296,6 +297,7 @@ export const COMMANDS: Command[] = [
   search,
   send,
   serve,
+  mcpServe,
   typeCommand,
   keys,
   panel,

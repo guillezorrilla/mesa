@@ -65,6 +65,7 @@ export function sessionDeps(
     // mesa-decisions only while the profile has a Decision model (ADR-0019, #463).
     mounts: launchMounts(ctx.self, {
       decisions: (ctx.configIfAny()?.decisions.model ?? 'none') !== 'none',
+      socket: paths.mcpSocket,
     }),
     shell: ctx.env.SHELL || '/bin/zsh',
     home: ctx.home,

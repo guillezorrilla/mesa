@@ -28,6 +28,7 @@ export {
   supportsAgentCapability,
   supportsPlanStart,
 } from './agents/names.js';
+export type { ServeBound } from './agents/shared-mcp.js';
 export { describeAutomation } from './automations/describe.js';
 export type { AutomationRule } from './automations/schema.js';
 export type { AutomationStatus } from './automations/service.js';

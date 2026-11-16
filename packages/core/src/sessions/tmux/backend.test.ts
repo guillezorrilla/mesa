@@ -6,7 +6,7 @@ import { AGENTS } from '../../agents/agents.js';
 import { launchMounts } from '../../agents/mesa-mount.js';
 import { type Runner, shellWord } from '../../lib/process.js';
 import {
-  CLAUDE_MOUNT,
+  claudeMount,
   lockDeps,
   NATIVE_LAUNCH,
   scriptedRunner,
@@ -271,11 +271,14 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     const command = AGENTS.claude
       .start(
         'uuid',
-        launchMounts(['/usr/local/bin/mesa'], { decisions: false }),
+        launchMounts(['/usr/local/bin/mesa'], {
+          decisions: false,
+          socket: '/h/.mesa/default/mcp.sock',
+        }),
         NATIVE_LAUNCH,
         goal,
       )
-      .replace(`claude --session-id uuid ${CLAUDE_MOUNT}`, 'printf %s');
+      .replace(`claude --session-id uuid ${claudeMount('/h')}`, 'printf %s');
     await open(lantern('claude-goal01'), `${command} > ${out}`);
     const written = () => Promise.resolve(existsSync(out) ? readFileSync(out, 'utf8') : '');
     expect(await eventually(written, /stop$/)).toBe(goal);
