@@ -98,6 +98,9 @@ function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead & { card
   );
   const newestCard = [...cards.cards.keys()].at(-1);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const focusComposer = useCallback(() => composer.current?.focus(), []);
+  /** The footer's model menu, which `/model` opens in a Structured chat. */
+  const [modelOpen, setModelOpen] = useState(false);
   // The last item's text too: a reply growing on the live stream keeps the view at the bottom.
   const last = messages.at(-1);
   const newest = `${messages.length}:${last?.id}:${last && 'text' in last ? last.text.length : 0}:${sending?.at}`;
@@ -169,11 +172,10 @@ function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead & { card
                   <CommandRow
                     message={message}
                     sessionId={props.sessionId}
-                    row={props.row}
                     placed={cards.cards.get(message)}
                     newest={message === newestCard}
                     terminal={props.terminal}
-                    onFocusComposer={() => composer.current?.focus()}
+                    onFocusComposer={focusComposer}
                   />
                 ) : (
                   <ChatRow message={message} onCopyCode={copy} />
@@ -247,9 +249,25 @@ function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead & { card
           onPickImage={props.onPickImage}
           onClearImage={props.onClearImage}
           onSend={props.onSend}
+          onCommand={
+            read.cards
+              ? (prompt) => {
+                  // As in Claude Desktop: /model picks from the footer's menu, nothing is sent.
+                  if (prompt.trim() !== '/model') return false;
+                  setModelOpen(true);
+                  return true;
+                }
+              : undefined
+          }
         />
         {props.row?.managed && props.row.view === 'structured' && (
-          <SessionControlsPanel row={props.row} items={messages.length} />
+          <SessionControlsPanel
+            row={props.row}
+            items={messages.length}
+            modelOpen={modelOpen}
+            onModelOpenChange={setModelOpen}
+            onReturnFocus={focusComposer}
+          />
         )}
       </div>
     </section>

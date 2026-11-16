@@ -4,6 +4,7 @@ import type { Env } from '../../../lib/process.js';
 import type { SpawnExit, Spawner } from '../../../lib/spawn.js';
 import type { AgentRunner, RunnerSignal, StartHostRunner } from '../../runner.js';
 import { firstLine } from '../../steps.js';
+import { CODEX_PRESETS } from '../presets.js';
 import { type AppServerEvent, parseAppServerLine } from './events.js';
 
 // Codex on `codex app-server` for one session: one long-lived process speaking JSON-RPC over
@@ -56,8 +57,16 @@ export function startCodexRunner(
     return id;
   };
   const textInput = (text: string) => [{ type: 'text', text, text_elements: [] }];
-  /** The model and effort the next turn starts with; Codex keeps them for the turns after. */
-  let overrides: { model?: string; effort?: string } = {};
+  /**
+   * The model, effort, approval policy and sandbox the next turn starts with; Codex keeps them
+   * for the turns after.
+   */
+  let overrides: {
+    model?: string;
+    effort?: string;
+    approvalPolicy?: string;
+    sandboxPolicy?: { type: string };
+  } = {};
 
   const send = (text: string) => {
     if (!threadId || starting) return void waiting.push(text);
@@ -154,6 +163,15 @@ export function startCodexRunner(
     deny: (requestId) => answer(requestId, 'decline'),
     setModel: (model, effort) => {
       overrides = { ...overrides, ...(model ? { model } : {}), ...(effort ? { effort } : {}) };
+    },
+    setPermissionMode: (mode) => {
+      const preset = CODEX_PRESETS.find((p) => p.id === mode);
+      if (preset)
+        overrides = {
+          ...overrides,
+          approvalPolicy: preset.approvalPolicy,
+          sandboxPolicy: { type: preset.sandbox },
+        };
     },
     interrupt: () => {
       if (threadId && turnId) request('turn/interrupt', { threadId, turnId });

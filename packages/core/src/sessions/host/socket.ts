@@ -2,12 +2,17 @@ import { existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import { connect, createServer } from 'node:net';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { CODEX_PRESET_IDS } from '../../agents/codex/presets.js';
 import { CLAUDE_PERMISSION_MODES } from '../../agents/names.js';
 import { lineSplitter } from '../../lib/lines.js';
 import { MesaError } from '../../lib/result.js';
 
 // A host's unix socket (ADR-0029): one JSON request per line in, one reply per line out. `mesa
 // send`, the app and the phone reach a Structured session's agent through it.
+
+/** The modes a host sets: Claude's permission modes and Codex's approval presets. */
+const HostModeSchema = z.union([z.enum(CLAUDE_PERMISSION_MODES), z.enum(CODEX_PRESET_IDS)]);
+export type HostMode = z.infer<typeof HostModeSchema>;
 
 const RequestSchema = z.discriminatedUnion('type', [
   /** Whether a host listens, which changes nothing. */
@@ -29,7 +34,7 @@ const RequestSchema = z.discriminatedUnion('type', [
       effort: z.string().min(1).optional(),
     })
     .refine((r) => r.model !== undefined || r.effort !== undefined, 'a model or an effort'),
-  z.object({ type: z.literal('mode'), mode: z.enum(CLAUDE_PERMISSION_MODES) }),
+  z.object({ type: z.literal('mode'), mode: HostModeSchema }),
   z.object({ type: z.literal('stop') }),
 ]);
 

@@ -1,5 +1,6 @@
 import { parseStreamLine } from '../../agents/claude/stream/events.js';
 import { parseAppServerLine } from '../../agents/codex/appserver/events.js';
+import { CODEX_PRESETS, codexPreset, isCodexPreset } from '../../agents/codex/presets.js';
 import { CLAUDE_MODEL_ALIASES, EFFORTS, requireSessionModel } from '../../agents/launch-flags.js';
 import { CLAUDE_PERMISSION_MODES, isClaudePermissionMode } from '../../agents/names.js';
 import { payloadField } from '../../agents/prompt.js';
@@ -7,8 +8,9 @@ import { MesaError } from '../../lib/result.js';
 import { inTurn } from '../record/lifecycle.js';
 import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
+import { agentModes } from './control-choices.js';
 import { journalEntries, readJournal } from './journal.js';
-import { askHost, type HostRequest, hostSocket } from './socket.js';
+import { askHost, type HostMode, type HostRequest, hostSocket } from './socket.js';
 
 // A Structured session's model, effort and permission mode (ADR-0029, #1201), as its agent last
 // confirmed them in its journal, and the changes Mesa makes to them through its host. Measured
@@ -22,11 +24,17 @@ export type SessionControls = {
   agent: 'claude' | 'codex';
   model?: string;
   effort?: string;
-  /** Claude's permission mode; Codex has none to set mid-session. */
+  /** Claude's permission mode (its `default` read as `manual`), or Codex's approval preset. */
   mode?: string;
   models: string[];
   efforts: readonly string[];
+  /** The modes its picker offers: Claude's permission modes, or Codex's approval presets. */
   modes: readonly string[];
+  /** The mode it started in, the picker's Default. */
+  defaultMode?: string;
+  /** Codex's names for its models, and the one it runs by default. */
+  modelLabels?: Record<string, string>;
+  defaultModel?: string;
   /** The last `/usage` reply, Claude's alone. */
   usage?: string;
   /** An effort asked for mid-turn, which Claude takes once the turn ends. */
@@ -77,7 +85,14 @@ export function readControls(record: SessionRecord, lines: readonly string[]): S
     ...(record.effort ? { effort: record.effort } : {}),
     models: agent === 'claude' ? [...CLAUDE_MODEL_ALIASES] : [],
     efforts: EFFORTS[agent],
-    modes: agent === 'claude' ? CLAUDE_PERMISSION_MODES : [],
+    modes: [],
+    // Claude Code's own default on its paid plans; Codex names its own in its model list.
+    ...(agent === 'claude' ? { defaultModel: 'opus' } : {}),
+  };
+  // Claude names its ask-each-time mode `default` in events and takes it back as `manual`.
+  const setMode = (mode: string) => {
+    controls.mode = mode === 'default' ? 'manual' : mode;
+    controls.defaultMode ??= controls.mode;
   };
   let asked: string | undefined;
   for (const { sent, event } of journalEntries(lines)) {
@@ -87,26 +102,38 @@ export function readControls(record: SessionRecord, lines: readonly string[]): S
         if (typeof sent.model === 'string') controls.model = sent.model;
         if (typeof sent.effort === 'string') controls.effort = sent.effort;
       }
+      // Codex takes a preset at its next turn: the host's word is all there is to read.
+      if (agent === 'codex' && sent.type === 'mode' && typeof sent.mode === 'string')
+        setMode(sent.mode);
       continue;
     }
     if (event === undefined) continue;
     if (agent === 'codex') {
       const e = parseAppServerLine(event);
-      if (e.type === 'thread' && e.model && !controls.model) controls.model = e.model;
-      if (e.type === 'models') controls.models = e.models.map((m) => m.id);
+      if (e.type === 'thread') {
+        if (e.model && !controls.model) controls.model = e.model;
+        const preset = codexPreset(e.approvalPolicy, e.sandbox);
+        if (preset && controls.mode === undefined) setMode(preset);
+      }
+      if (e.type === 'models') {
+        controls.models = e.models.map((m) => m.id);
+        controls.modelLabels = Object.fromEntries(e.models.map((m) => [m.id, m.name]));
+        const fallback = e.models.find((m) => m.isDefault)?.id;
+        if (fallback) controls.defaultModel = fallback;
+      }
       continue;
     }
     const e = parseStreamLine(event);
     if (e.type === 'init') {
       if (e.model) controls.model = e.model;
-      if (e.permissionMode) controls.mode = e.permissionMode;
+      if (e.permissionMode) setMode(e.permissionMode);
     } else if (e.type === 'control_response' && e.ok) {
       const { model, mode } = e.response;
       if (typeof model === 'string') controls.model = model;
-      if (typeof mode === 'string') controls.mode = mode;
+      if (typeof mode === 'string') setMode(mode);
     } else if (e.type === 'system' && e.subtype === 'status') {
       const mode = payloadField(JSON.parse(event), 'permissionMode');
-      if (typeof mode === 'string') controls.mode = mode;
+      if (typeof mode === 'string') setMode(mode);
     }
     const text = syntheticText(e);
     if (text === undefined) continue;
@@ -117,6 +144,7 @@ export function readControls(record: SessionRecord, lines: readonly string[]): S
     if (models.length) controls.models = models;
     asked = undefined;
   }
+  controls.modes = agentModes(agent, controls.defaultMode);
   return controls;
 }
 
@@ -177,10 +205,10 @@ export async function applyControls(
   if (model === undefined && effort === undefined && mode === undefined)
     throw new MesaError('usage', 'pass a model, an effort or a mode');
   requireSessionModel(agent, { model, effort });
-  if (mode !== undefined && agent !== 'claude')
-    throw new MesaError('usage', `${agent} has no permission modes to set`);
-  if (mode !== undefined && !isClaudePermissionMode(mode))
+  if (mode !== undefined && agent === 'claude' && !isClaudePermissionMode(mode))
     throw new MesaError('usage', `mode is one of ${CLAUDE_PERMISSION_MODES.join(', ')}`);
+  if (mode !== undefined && agent === 'codex' && !isCodexPreset(mode))
+    throw new MesaError('usage', `mode is one of ${CODEX_PRESETS.map((p) => p.id).join(', ')}`);
   const before = readJournal(deps.journals, id)?.length ?? 0;
   const socket = hostSocket(deps.hosts, id);
   const unavailable = (why: string) => new MesaError('agent_unavailable', `session ${id}: ${why}`);
@@ -188,9 +216,7 @@ export async function applyControls(
     ...(model || effort
       ? [{ type: 'model' as const, ...(model ? { model } : {}), ...(effort ? { effort } : {}) }]
       : []),
-    ...(mode
-      ? [{ type: 'mode' as const, mode: mode as (typeof CLAUDE_PERMISSION_MODES)[number] }]
-      : []),
+    ...(mode ? [{ type: 'mode' as const, mode: mode as HostMode }] : []),
   ];
   for (const ask of asks) {
     const reply = await askHost(socket, ask);

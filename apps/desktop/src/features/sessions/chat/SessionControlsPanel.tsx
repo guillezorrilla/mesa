@@ -1,74 +1,35 @@
 import type { ManagedRow } from '@mesa/core';
-import { modelLabel, parsePlanUsage } from '@mesa/core/browser';
-import { ChevronDown, Gauge, Loader2 } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { parsePlanUsage } from '@mesa/core/browser';
+import { Gauge, Loader2 } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ContextRing } from '../selected/ContextRing';
-import { ModelEffortList } from './ModelEffortList';
+import { ModelPicker } from './ModelPicker';
+import { ModePicker } from './ModePicker';
 import { UsagePanel } from './UsagePanel';
 import { useSessionControls } from './useSessionControls';
 
-/** A trigger's end: a spinner while its change waits on the agent, else the picker's chevron. */
-function TriggerMark(props: { busy: boolean }) {
-  return props.busy ? (
-    <Loader2 aria-hidden className="size-3 animate-spin opacity-60 motion-reduce:animate-none" />
-  ) : (
-    <ChevronDown aria-hidden className="size-3 opacity-60" />
-  );
-}
-
-/** A quiet footer button that opens a picker. */
-function Picker(props: {
-  label: string;
-  children: ReactNode;
-  trigger: ReactNode;
-  disabled: boolean;
-  busy: boolean;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild disabled={props.disabled}>
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label={props.label}
-          aria-busy={props.busy}
-          className="h-7 gap-1 px-2 text-xs"
-        >
-          {props.trigger}
-          <TriggerMark busy={props.busy} />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="max-h-80 overflow-y-auto">
-        {props.children}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 /**
- * A Structured session's controls under Chat's composer (ADR-0029): model and effort, permission
- * mode (Claude Code), context and usage, each opening a picker or a card. A change shows at once
- * with a spinner on its trigger, then the agent's confirmed value; a refusal rolls it back and
- * shows beside them.
+ * A Structured session's controls under Chat's composer (ADR-0029): model and effort, mode,
+ * context and usage. Model and mode pick from menus as Claude Desktop's (#1222); a pick shows at
+ * once with a spinner on its trigger, then the agent's confirmed value; a refusal rolls it back
+ * and shows beside them. `modelOpen` lets `/model` open the model menu from the composer, and
+ * closing a menu gives the keys back to it (`onReturnFocus`).
  */
-export function SessionControlsPanel(props: { row: ManagedRow; items?: number }) {
-  const { controls, pending, applying, failure, apply, checkUsage } = useSessionControls(
+export function SessionControlsPanel(props: {
+  row: ManagedRow;
+  items?: number;
+  modelOpen?: boolean;
+  onModelOpenChange?: (open: boolean) => void;
+  onReturnFocus?: () => void;
+}) {
+  const { controls, pending, failure, apply, checkUsage } = useSessionControls(
     props.row,
     props.items,
   );
-  const [modelOpen, setModelOpen] = useState(false);
   const [checking, setChecking] = useState(false);
   if (!controls) return null;
-  const modelBusy = Boolean(pending && pending.mode === undefined);
-  const { model, effort, mode } = controls;
   const usage = controls.usage ? parsePlanUsage(controls.usage) : undefined;
   return (
     <div
@@ -80,52 +41,21 @@ export function SessionControlsPanel(props: { row: ManagedRow; items?: number })
           {failure}
         </p>
       )}
-      <Popover open={modelOpen} onOpenChange={setModelOpen}>
-        <PopoverTrigger asChild disabled={applying}>
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label="Model and effort"
-            aria-busy={modelBusy}
-            className="h-7 gap-1 px-2 text-xs"
-          >
-            <span>{model ? modelLabel(model) : 'Model'}</span>
-            {effort && (
-              <span className="text-muted-foreground">
-                {controls.effortQueued ? `${controls.effortQueued}, after this turn` : effort}
-              </span>
-            )}
-            <TriggerMark busy={modelBusy} />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent align="end" className="w-56 p-1">
-          <ModelEffortList
-            controls={controls}
-            autoFocus
-            onPick={(change) => {
-              setModelOpen(false);
-              void apply(change);
-            }}
-          />
-        </PopoverContent>
-      </Popover>
+      <ModelPicker
+        controls={controls}
+        busy={pending !== undefined && pending.mode === undefined}
+        open={props.modelOpen}
+        onOpenChange={props.onModelOpenChange}
+        onPick={(change) => void apply(change)}
+        onReturnFocus={props.onReturnFocus}
+      />
       {controls.modes.length > 0 && (
-        <Picker
-          label="Permission mode"
-          disabled={applying}
+        <ModePicker
+          controls={controls}
           busy={pending?.mode !== undefined}
-          trigger={<span>{mode ?? 'Mode'}</span>}
-        >
-          {controls.modes.map((one) => (
-            <DropdownMenuCheckboxItem
-              key={one}
-              checked={mode === one}
-              onSelect={() => apply({ mode: one })}
-            >
-              {one}
-            </DropdownMenuCheckboxItem>
-          ))}
-        </Picker>
+          onPick={(mode) => void apply({ mode })}
+          onReturnFocus={props.onReturnFocus}
+        />
       )}
       <span className="px-1">
         <ContextRing context={props.row.context} />

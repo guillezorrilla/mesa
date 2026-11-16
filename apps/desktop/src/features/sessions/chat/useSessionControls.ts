@@ -32,5 +32,5 @@ export function useSessionControls(row: ManagedRow, items = 0) {
     if (!sent.ok) setFailure(sent.error.message);
   };
   const shown = controls.data && pending ? { ...controls.data, ...pending } : controls.data;
-  return { controls: shown, pending, applying: pending !== undefined, failure, apply, checkUsage };
+  return { controls: shown, pending, failure, apply, checkUsage };
 }

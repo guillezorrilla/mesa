@@ -190,7 +190,8 @@ export const sessionsModel = defineCommand({
 
 export const sessionsMode = defineCommand({
   name: 'sessions mode',
-  summary: "Change a Structured Claude Code session's permission mode while it runs",
+  summary:
+    "Change a Structured session's mode while it runs: Claude Code's permission mode (auto, manual, acceptEdits, plan, bypassPermissions) at once, or Codex's approval preset (read-only, auto, full-access) from its next turn",
   args: ['session', 'mode'],
   example: 'mesa sessions mode a1b2c3d4 plan',
   run: async ({ mesa, args }) => {

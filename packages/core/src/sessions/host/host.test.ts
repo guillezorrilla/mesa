@@ -245,10 +245,8 @@ describe('mesa host for Codex', () => {
     );
     expect(written.at(-1)).toContain('Structured view - gpt-invented-codex - idle');
     const socket = hostSocket(w.paths.hosts, record.id);
-    expect(await askHost(socket, { type: 'mode', mode: 'plan' })).toEqual({
-      ok: false,
-      error: 'codex has no permission modes to set',
-    });
+    // An approval preset, which codex takes from its next turn.
+    expect(await askHost(socket, { type: 'mode', mode: 'auto' })).toEqual({ ok: true });
     w.fake.push({
       id: 0,
       method: 'item/commandExecution/requestApproval',
@@ -271,7 +269,7 @@ describe('mesa host for Codex', () => {
       0,
     ]);
     // A refused request is not journalled as sent.
-    expect(journal.filter((e) => 'sent' in e).map((e) => e.sent.type)).toEqual(['user']);
+    expect(journal.filter((e) => 'sent' in e).map((e) => e.sent.type)).toEqual(['user', 'mode']);
     host.stop();
     await host.done;
     // Terminal view resumes the same thread with Mesa's embedded codex, never a plain `codex resume`.

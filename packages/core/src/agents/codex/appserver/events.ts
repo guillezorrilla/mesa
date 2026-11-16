@@ -31,7 +31,14 @@ export type CodexItem =
 
 export type AppServerEvent =
   /** thread/start or thread/resume answered: the thread Mesa now talks to. */
-  | { type: 'thread'; threadId: string; model: string }
+  | {
+      type: 'thread';
+      threadId: string;
+      model: string;
+      /** The approval policy and sandbox (`readOnly`, `workspaceWrite`, `dangerFullAccess`) it runs with. */
+      approvalPolicy?: string;
+      sandbox?: string;
+    }
   | { type: 'turn_started'; turnId: string }
   /** `status`: completed, interrupted or failed. */
   | { type: 'turn_completed'; turnId: string; status: string; error: string | undefined }
@@ -161,7 +168,14 @@ function response(method: string, d: Obj, line: string): AppServerEvent {
       case 'thread/resume': {
         const thread = isObj(result.thread) ? result.thread : {};
         if (!str(thread.id)) break;
-        return { type: 'thread', threadId: str(thread.id), model: str(result.model) };
+        const sandbox = isObj(result.sandbox) ? str(result.sandbox.type) : '';
+        return {
+          type: 'thread',
+          threadId: str(thread.id),
+          model: str(result.model),
+          ...(str(result.approvalPolicy) ? { approvalPolicy: str(result.approvalPolicy) } : {}),
+          ...(sandbox ? { sandbox } : {}),
+        };
       }
       case 'skills/list':
         return {
