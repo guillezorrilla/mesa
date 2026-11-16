@@ -122,13 +122,15 @@ export function stateEvent(agent: Agent, events: readonly HookEvent[]): HookEven
 }
 
 /**
- * Whether `event` alone settles the state at `now`, so the listing cannot change it: fresh, and
- * not a wait, which a later listing may show the agent moved on from (a denial fires no hook).
+ * Whether the kept listing (under FRESH_MS old) may stand in for a new one for a session whose
+ * last state hook is `event`: it has one, and it is not a wait, which a later listing may show
+ * the agent moved on from (a denial fires no hook). Its age does not matter: a change of state
+ * fires a fresh hook, which the look reads; what only a listing shows (an interrupt, a session
+ * outside Mesa) shows within a minute (#1228).
  */
-export function hookSettles(agent: Agent, event: HookEvent | undefined, now: Date) {
+export function hookLetsListingWait(agent: Agent, event: HookEvent | undefined) {
   const state = event && AGENTS[agent].hookState?.(event.event, event.payload);
-  if (!event || !state || WAITING_STATES.has(state)) return false;
-  return now.getTime() - Date.parse(event.at) < FRESH_MS;
+  return state ? !WAITING_STATES.has(state) : false;
 }
 
 // Attention levels, lowest first; a Score's position runs 0 (none) to 1 (urgent).

@@ -76,9 +76,12 @@ for arch in arm64 x64; do
       "attributions.json": `${work}/attributions.json`, "CHANGELOG.md": "CHANGELOG.md", "vault-AGENTS.md": "packages/core/templates/vault-AGENTS.md" };
     for (const file of files) assets[file] = file;
     console.log(JSON.stringify({ main: `${work}/mesa.mjs`, mainFormat: "module", output: `${work}/mesa-${arch}`,
-      executable: base, assets, disableExperimentalSEAWarning: true }));
+      executable: base, assets, disableExperimentalSEAWarning: true, useCodeCache: true }));
   ' "$work" "$arch" "release/node/node-v$NODE_VERSION-darwin-$arch/bin/node" >"$work/sea-$arch.json"
-  "$node" --build-sea "$work/sea-$arch.json" >/dev/null
+  # Each slice by its own arch's Node (x64 under Rosetta, as the smoke check runs it): a code cache
+  # made by the other arch is rejected, with a warning on every start (docs/spikes/app-efficiency.md).
+  case $arch in arm64) slice=arm64 ;; *) slice=x86_64 ;; esac
+  arch -"$slice" "release/node/node-v$NODE_VERSION-darwin-$arch/bin/node" --build-sea "$work/sea-$arch.json" >/dev/null
   codesign --sign - --force "$work/mesa-$arch"
 done
 # externalBin wants one per target: each slice for its arch's compile, the universal one to ship.
@@ -107,8 +110,10 @@ cp "$BUNDLE/dmg/$dmg" "$DIST/"
 mesa="$BUNDLE/macos/Mesa.app/Contents/MacOS/mesa"
 [ "$(lipo -archs "$mesa")" = "x86_64 arm64" ] || { echo "release: $mesa is not universal" >&2; exit 1; }
 for arch in arm64 x86_64; do
-  got=$(arch -"$arch" "$mesa" --version)
+  got=$(arch -"$arch" "$mesa" --version 2>"$work/smoke-$arch.err")
   [ "$got" = "$version" ] || { echo "release: $arch mesa --version says $got, not $version" >&2; exit 1; }
+  # A start must say nothing on stderr: a rejected code cache warns there.
+  [ ! -s "$work/smoke-$arch.err" ] || { echo "release: $arch mesa warned: $(cat "$work/smoke-$arch.err")" >&2; exit 1; }
 done
 echo "release: built Mesa $version (build $build_number) into $DIST"
 

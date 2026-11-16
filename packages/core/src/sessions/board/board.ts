@@ -14,7 +14,7 @@ import { isAgentState } from '../record/states.js';
 import type { SessionStore } from '../record/store.js';
 import type { HookEvent } from '../signals/hook-events.js';
 import { refreshReadings } from '../signals/readings.js';
-import { hookSettles, stateEvent } from '../signals/state.js';
+import { hookLetsListingWait, stateEvent } from '../signals/state.js';
 import type { TmuxBackend } from '../tmux/backend.js';
 import { targetLabel } from '../tmux/format.js';
 import { windowOf } from '../window/window-name.js';
@@ -129,9 +129,9 @@ export async function listSessions(
   const events = (id: string) => logs.get(id) ?? logs.set(id, deps.events(id)).get(id) ?? [];
   const windowList = await windowsNow();
   const live = new Set(windowList.filter((w) => !w.dead).map(targetLabel));
-  // A costly listing (Claude's) is reused from the last look while every live session of its agent
-  // has a running window and a fresh hook that is not a wait; a board with none of them lists, for
-  // the foreign rows it gives (#896).
+  // A costly listing (Claude's) is reused from the last look, while it is under a minute old, as
+  // long as every live session of its agent has a running window and a hook that is not a wait; a
+  // board with none of them lists, for the foreign rows it gives (#896, #1228).
   const reuse = AGENT_NAMES.filter((agent) => {
     if (!AGENTS[agent].listing.costly) return false;
     const running = records.filter(
@@ -142,7 +142,7 @@ export async function listSessions(
       running.every(
         (r) =>
           live.has(targetLabel(windowOf(r))) &&
-          hookSettles(agent, stateEvent(agent, events(r.id)), now),
+          hookLetsListingWait(agent, stateEvent(agent, events(r.id))),
       )
     );
   });

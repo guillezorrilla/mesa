@@ -1,9 +1,7 @@
 import { createHash } from 'node:crypto';
-import { Defuddle } from 'defuddle/node';
-import { parseHTML } from 'linkedom';
 import type { Http } from '../lib/http.js';
 import { MesaError } from '../lib/result.js';
-import { htmlToMarkdown } from './html-markdown.js';
+import { converter, htmlToMarkdown } from './html-markdown.js';
 import type { Item, ItemRef } from './items.js';
 
 /**
@@ -35,6 +33,7 @@ export async function webPage(
 
 /** A whole web page's main content, cleaned by Defuddle (no menus, ads, or footers), as Markdown. */
 async function readablePage(html: string, url: string) {
+  const { Defuddle, parseHTML } = await converter();
   const { title, content } = await Defuddle(parseHTML(html).document, url, { useAsync: false });
   return { title: title.trim(), markdown: await htmlToMarkdown(content, url) };
 }
