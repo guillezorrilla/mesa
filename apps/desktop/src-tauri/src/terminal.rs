@@ -224,10 +224,12 @@ pub async fn term_close(terms: State<'_, Terms>, term_id: String) -> Result<(), 
 
 /// Writes the macOS pasteboard: WKWebView refuses `navigator.clipboard` (SP-3), so OSC 52 copies
 /// from tmux come here. (Paste is the webview's own: Cmd+V fires a paste event xterm handles.)
+/// A Finder-launched app has no locale, and pbcopy without one reads UTF-8 as Mac Roman.
 #[tauri::command]
 pub async fn clipboard_write(text: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let mut pbcopy = std::process::Command::new("pbcopy")
+            .env("LC_ALL", "en_US.UTF-8")
             .stdin(std::process::Stdio::piped())
             .spawn()
             .map_err(|e| e.to_string())?;

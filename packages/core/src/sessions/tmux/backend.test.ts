@@ -655,7 +655,7 @@ test('the server takes the app terminal options: mouse, no status, OSC 52, drag 
   }
   for (const table of ['copy-mode', 'copy-mode-vi']) {
     expect(args).toContain(
-      `bind-key -T ${table} MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel pbcopy`,
+      `bind-key -T ${table} MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel LC_ALL=en_US.UTF-8 pbcopy`,
     );
   }
   expect(args).not.toContain('allow-passthrough');
