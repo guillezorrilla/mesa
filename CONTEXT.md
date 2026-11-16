@@ -133,7 +133,7 @@ Not: task, job, run (`kind: run` qualifies a session, it is not another name for
 
 ## Command server
 
-The one long-lived `mesa serve` the desktop app starts on its first call and sends every `run_mesa` call to (ADR-0030): one JSON request a line on its stdin (`{"id","args","stdin"}`), one reply a line on its stdout (`{"id","code","stdout","stderr"}`), each call run by `runCli` exactly as a spawn of it would be, so calls overlap and answer in any order. It ends when the app closes its stdin. A call that never reached it is spawned instead; a call in flight when it exits fails rather than running twice; a server that ends without answering anything is not started again. Hooks, the notification helper, the updater and the terminal's attach still spawn. Not: worker (a child session, `mesa worker`), daemon, sidecar.
+The one long-lived `mesa serve` the desktop app starts on its first call and sends every `run_mesa` call to (ADR-0030): one JSON request a line on its stdin (`{"id","args","stdin"}`), one reply a line on its stdout (`{"id","code","stdout","stderr"}`), each call run by `runCli` exactly as a spawn of it would be, so calls overlap and answer in any order; the caller keeps ids unique. A malformed request is refused with a usage envelope under its id (id null when it has none), and so is a command that serves its own stdio. It ends when the app closes its stdin. A call that never reached it is spawned instead; a call in flight when it exits fails rather than running twice; a server that ends without answering anything is not started again. Hooks, the notification helper, the updater and the terminal's attach still spawn. Not: worker (a child session, `mesa worker`), daemon, sidecar.
 
 ## Command card
 

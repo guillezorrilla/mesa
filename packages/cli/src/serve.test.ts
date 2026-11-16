@@ -10,7 +10,7 @@ async function* linesOf(lines: string[]) {
 
 const replies = (written: string[]) => written.map((line) => JSON.parse(line));
 
-test('mesa serve answers each request line with its call, and a line that is no request with id null', async () => {
+test('mesa serve answers each request line with its call, and refuses what it cannot run under its id', async () => {
   const out = await runCli(['serve'], cliDeps(tempDir()));
   expect(out.stdout).toBe('');
   const written: string[] = [];
@@ -21,6 +21,7 @@ test('mesa serve answers each request line with its call, and a line that is no 
       '{"id":2,"args":["--json","nope"]}',
       'not json',
       '{"id":3,"args":[1]}',
+      '{"id":4,"args":["serve"]}',
     ]),
     write: (text) => written.push(text),
     log: () => {},
@@ -31,10 +32,20 @@ test('mesa serve answers each request line with its call, and a line that is no 
   expect(JSON.parse(byId.get(1).stdout)).toMatchObject({ ok: true });
   expect(byId.get(2).code).toBe(2);
   expect(JSON.parse(byId.get(2).stdout).error.code).toBe('usage');
-  expect(replies(written).filter((r) => r.id === null)).toEqual([
-    { id: null, code: 2, stdout: '', stderr: 'mesa serve: not a request line\n' },
-    { id: null, code: 2, stdout: '', stderr: 'mesa serve: not a request line\n' },
+  const refusal = (r: { stdout: string }) => JSON.parse(r.stdout).error;
+  const nulls = replies(written).filter((r) => r.id === null);
+  expect(nulls.map((r) => [r.code, refusal(r)])).toEqual([
+    [2, { code: 'usage', message: 'mesa serve: not a request line' }],
   ]);
+  // Malformed, but numbered: answered under its id, so its caller is not left waiting.
+  expect([byId.get(3).code, refusal(byId.get(3)).message]).toEqual([
+    2,
+    'mesa serve: not a request line',
+  ]);
+  // Its stdout would be its own protocol's, not a reply.
+  expect(refusal(byId.get(4)).message).toBe(
+    'mesa serve: serve serves its own stdio; run it as its own process',
+  );
 });
 
 test('calls overlap: a quick one answers before a slow one sent first, each with its own stdin', async () => {
