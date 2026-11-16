@@ -10,7 +10,8 @@ const FollowRoutesContext = createContext<FollowRoutes | null>(null);
 
 /**
  * Everything a screen needs around it: the mesa client over `bridge` (a chat action over its
- * session's open follow, followRoutes.ts), the OS `platform`, and the toasts. main.tsx passes the real bridge and platform; tests pass fakes.
+ * session's open follow, followRoutes.ts), the OS `platform`, and the toasts. main.tsx passes
+ * the real bridge and platform; tests pass fakes.
  */
 export function MesaRoot(props: { bridge: Bridge; platform: Platform; children: ReactNode }) {
   const routes = useMemo<FollowRoutes>(() => new Map(), []);

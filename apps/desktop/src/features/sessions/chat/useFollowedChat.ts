@@ -35,8 +35,8 @@ export function followed(
  * A Structured session's chat on its host's live stream (ADR-0029): one follow (Rust `follow_*`)
  * while the chat is open, the prompt its agent waits on included (none once the follow ends),
  * read again further back on `older`, closed when it closes. No CLI call per refresh: the stream
- * says what changed; and while it runs, the session's chat actions run in it (followRoutes.ts). A follow that ended (its host stopped, a resume
- * coming) opens again on the session's next change.
+ * says what changed; and while it runs, the session's chat actions run in it (followRoutes.ts).
+ * A follow that ended (its host stopped, a resume coming) opens again on the session's next change.
  */
 export function useFollowedChat(sessionId: string, sent?: SentPrompt): ChatRead {
   const { follow } = usePlatform();
