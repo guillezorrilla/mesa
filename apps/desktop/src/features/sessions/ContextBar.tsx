@@ -12,6 +12,10 @@ export const contextTone = (used: number) => {
   return shown >= RED ? 'red' : shown >= AMBER ? 'amber' : 'normal';
 };
 
+/** A plan limit's tone: amber from 75% used, red from 90%; a limit is not a context, so later. */
+export const limitTone = (percent: number) =>
+  percent >= 90 ? 'red' : percent >= 75 ? 'amber' : 'normal';
+
 /** The progress indicator's colour for a context tone, so every context bar reads alike. */
 export const toneIndicator = (tone: ReturnType<typeof contextTone>) =>
   cn(

@@ -11,8 +11,11 @@
 //
 // More tables follow (MCP tools, skills); the card shows the categories, the raw text the rest.
 
-/** One category of the window: its name, its tokens as the agent wrote them, and its share. */
-export type ContextCategory = { name: string; tokens: string; percent: number };
+/**
+ * One category of the window: its name, its tokens and share as the agent wrote them (`<0.1%`
+ * too), and the share as a number for its bar (0 when the agent wrote none).
+ */
+export type ContextCategory = { name: string; tokens: string; share: string; percent: number };
 
 export type ContextReport = {
   model?: string;
@@ -53,9 +56,14 @@ export function parseContextReport(output: string): ContextReport | undefined {
     if (row[0] === 'Category') inTable = true;
     else if (inTable && !/^-+$/.test(row[0] ?? '')) {
       const [name, count, share] = row;
-      const percent = Number.parseFloat(share ?? '');
-      if (name && count && Number.isFinite(percent))
-        categories.push({ name, tokens: count, percent });
+      const percent = Number.parseFloat((share ?? '').replace(/[^\d.]/g, ''));
+      if (name && count && share)
+        categories.push({
+          name,
+          tokens: count,
+          share,
+          percent: Number.isFinite(percent) ? percent : 0,
+        });
     }
   }
   return {

@@ -13,7 +13,7 @@ const REPLY = [
   '| Category | Tokens | Percentage |',
   '|----------|--------|------------|',
   '| System prompt | 3.3k | 0.3% |',
-  '| Messages | 3.1k | 0.3% |',
+  '| Messages | 3.1k | <0.1% |',
   '| Free space | 943.9k | 94.4% |',
   '',
   '### MCP Tools',
@@ -30,9 +30,9 @@ test('reads the model, the tokens used of the window, and the categories table a
     window: '1m',
     percent: 2,
     categories: [
-      { name: 'System prompt', tokens: '3.3k', percent: 0.3 },
-      { name: 'Messages', tokens: '3.1k', percent: 0.3 },
-      { name: 'Free space', tokens: '943.9k', percent: 94.4 },
+      { name: 'System prompt', tokens: '3.3k', share: '0.3%', percent: 0.3 },
+      { name: 'Messages', tokens: '3.1k', share: '<0.1%', percent: 0.1 },
+      { name: 'Free space', tokens: '943.9k', share: '94.4%', percent: 94.4 },
     ],
   });
 });

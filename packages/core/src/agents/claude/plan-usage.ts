@@ -27,8 +27,8 @@ export type PlanUsage = {
   /** The lines before the limits: which plan or account pays. */
   notes: string[];
   limits: PlanLimit[];
-  /** What contributes to usage: its heading lines, then each window. */
-  contributors: { notes: string[]; windows: PlanUsageWindow[] };
+  /** What contributes to usage: its heading, the lines under it, then each window. */
+  contributors: { heading?: string; notes: string[]; windows: PlanUsageWindow[] };
 };
 
 const LIMIT = /^(.+?): (\d+(?:\.\d+)?)% used(?: · resets (.+))?$/;
@@ -63,7 +63,9 @@ export function parsePlanUsage(output: string): PlanUsage | undefined {
     } else if (/^Last\b/.test(line) || /\d+ requests?\b/.test(line)) {
       window = { title: line, lines: [] };
       report.contributors.windows.push(window);
-    } else if (!window) report.contributors.notes.push(line);
+    } else if (!window && report.contributors.heading === undefined)
+      report.contributors.heading = line;
+    else if (!window) report.contributors.notes.push(line);
     else window.lines.push({ text: line });
   }
   return report.limits.length ? report : undefined;

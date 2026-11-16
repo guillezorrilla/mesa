@@ -33,7 +33,8 @@ test('reads the limits as bars with their resets, and the contributors by window
       { label: 'Current week (Tide)', percent: 0 },
     ],
     contributors: {
-      notes: ["What's contributing to your usage?", 'Approximate · sessions on this machine only'],
+      heading: "What's contributing to your usage?",
+      notes: ['Approximate · sessions on this machine only'],
       windows: [
         {
           title: 'Last 24h · 594 requests · 24 sessions',

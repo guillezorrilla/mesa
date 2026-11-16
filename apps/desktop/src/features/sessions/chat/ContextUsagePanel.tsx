@@ -39,7 +39,7 @@ export function ContextUsagePanel(props: { report: ContextReport }) {
               </span>
               <Progress value={category.percent} className="h-1" aria-hidden />
               <span className="text-right text-muted-foreground tabular-nums">
-                {category.percent}%
+                {category.share}
               </span>
             </li>
           ))}
