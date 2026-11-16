@@ -124,6 +124,15 @@ async function dispatch(argv: string[], deps: CliDeps): Promise<Output> {
   const profile = resolveProfileName(values.profile as string | undefined, deps.env);
   const mesa = createMesa(profile, deps.mesa);
   const { tty, stdin, askSecret, commands } = deps;
+  // No terminal and no one to ask; started now, with its own argv (receipts, hook budgets).
+  const { confirm: _, askSecret: __, ...plain } = deps;
+  const rerun = (next: string[], input: string) =>
+    runCli(next, {
+      ...plain,
+      tty: false,
+      stdin: async () => input,
+      mesa: { ...deps.mesa, argv: next, processStartedAt: deps.mesa.clock() },
+    });
   // A caller reading --json output is a program, which cannot answer a question.
   const confirm = values.json ? undefined : deps.confirm;
   return command.run({
@@ -135,6 +144,7 @@ async function dispatch(argv: string[], deps: CliDeps): Promise<Output> {
     confirm,
     askSecret,
     commands,
+    rerun,
   } as Invocation);
 }
 
