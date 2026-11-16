@@ -37,11 +37,14 @@ Save knowledge a later session acts on; everything else stays in the session. Ea
 
 ```sh
 mesa vault save decision --title "Fixed clock in tide tests" --decision "Tests take the clock as a parameter" --rationale "The flake was the wall clock at midnight" --probability inject-clock=0.8 --probability pin-tz=0.2 --confidence 0.8 --json
-mesa vault save summary --file /tmp/summary.md --json
-mesa vault save note --title "Tide table sources" --file /tmp/tide-sources.md --json
+mesa vault save summary --json <<'EOF'
+Goal: fix the tide-table flake
+Done: the clock is a parameter of parseTide
+EOF
+mesa vault save note --title "Tide table sources" --text "The harbour office publishes them weekly." --json
 ```
 
-`--probability <option>=<p>` (repeated) and `--confidence <c>` add the Decision model's numbers to a decision. Inside a session a save is that session's, on its project; outside one, name them with `--session` and `--project`. A text with quotes or several lines goes in a file with `--file`. A read-only skill run saves nothing: Mesa lands its output, and a save is refused.
+`--probability <option>=<p>` (repeated) and `--confidence <c>` add the Decision model's numbers to a decision. Inside a session a save is that session's, on its project; outside one, name them with `--session` and `--project`. A summary or note text goes in `--text`, or on stdin (a here-document, as above) when it has quotes or several lines. `--file` reads only a file in your session's own folder or worktree. A read-only skill run saves nothing: Mesa lands its output, and a save is refused.
 
 Routine events are never saved: a session opened, resumed, or stopped, a prompt sent, a status read, a poll, a retry, a test run, a configuration change. Mesa's session records already hold them.
 

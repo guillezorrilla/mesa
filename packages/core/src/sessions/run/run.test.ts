@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createContext } from '../../context.js';
+import { createMesa } from '../../mesa.js';
 import { listReceipts } from '../../receipts/store.js';
 import {
   agentWorld,
@@ -773,7 +774,7 @@ test("each of Mesa's own skill runs starts lean: its own model, MCP server and e
   const lean = (model: string, effort = '') =>
     `--output-format json --model '${model}' ${effort}--strict-mcp-config --setting-sources project,local '--settings={"disableAllHooks":true}' --permission-mode`;
   const world = agentWorld({ onOpen: finishesRun({ output: claudeResult('success') }) });
-  const { mesa } = projectProfile(world.run, {
+  const { mesa, home } = projectProfile(world.run, {
     mesaYaml: 'name: lantern-cove\nskills: [session-summary, project-brief]\n',
     argv: ['run'],
   });
@@ -791,6 +792,13 @@ test("each of Mesa's own skill runs starts lean: its own model, MCP server and e
     // Mesa's commands, read-only, and no MCP server: none of the person's either.
     expect(line).not.toContain('--mcp-config');
     expect(line).toContain(`${CLAUDE_MESA_SAVE_DENY} ${CLAUDE_HEADLESS_MESA}`);
+    // The deny misses `env X=1 mesa vault save`, `bash -c` and other paths: the run's own
+    // environment is what refuses a save, however its agent calls it.
+    const [, name = '', value = ''] = line.match(/^exec env (\w+)=(\S+) claude -p /) ?? [];
+    const asRun = createMesa('default', testDeps(home, { env: { [name]: value } }));
+    await expect(asRun.vault.saveNote({ title: 'Stray', body: 'From the run' })).rejects.toThrow(
+      'this is a read-only run',
+    );
   }
   const text = await launched('git-text');
   expect(text).toContain(lean('haiku', '--effort low '));

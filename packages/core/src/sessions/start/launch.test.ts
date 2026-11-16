@@ -6,7 +6,10 @@ import {
   agentWorld,
   CLAUDE_MESA,
   gitRepo,
+  newSession,
   projectProfile,
+  shortIds,
+  testStore,
   withRealGit,
 } from '../../testing/index.js';
 import type { SessionRecord } from '../record/record.js';
@@ -99,4 +102,31 @@ test('with sessions.statusLineCost on, claude windows launch with mesa statuslin
   mesa.config.set('sessions.statusLineCost', 'false');
   const after = (await mesa.sessions.open('lantern-cove', { goal: 'Map the tides' })).result;
   expect(window(after)?.launch).toBe(started.claude(after, 'Map the tides'));
+});
+
+test('a record launched with the old mounts resumes and forks with the mesa commands, and no server', async () => {
+  const world = agentWorld();
+  const { home, dir, mesa } = projectProfile(withRealGit(world.run));
+  gitRepo(dir);
+  // As a mesa before ADR-0031 wrote it: mounted with mesa-vault and mesa-decisions.
+  const old = testStore(home, 'default', shortIds('oldmount')).create(() => ({
+    ...newSession({ agentSessionId: '00000000-0000-4000-8000-0000000000aa' }),
+    vaultMounted: true,
+    decisionsMounted: true,
+  }));
+  for (const w of world.tmux.windows) w.dead = true;
+  await mesa.sessions.stop(old.id, true);
+  const resumed = (await mesa.sessions.resume(old.id)).result.record;
+  const forked = (await mesa.sessions.fork(resumed.id)).result;
+  const launch = (r: SessionRecord) =>
+    world.tmux.windows.find((w) => w.window === `claude-${r.id}`)?.launch ?? '';
+  expect(launch(resumed)).toBe(
+    `unset NO_COLOR; exec claude --resume 00000000-0000-4000-8000-0000000000aa ${CLAUDE_MESA}`,
+  );
+  for (const r of [resumed, forked]) {
+    expect(launch(r)).toContain(CLAUDE_MESA);
+    expect(launch(r)).not.toMatch(/mcp-config|mcp__mesa/);
+    expect(r).not.toHaveProperty('vaultMounted');
+    expect(r).not.toHaveProperty('decisionsMounted');
+  }
 });

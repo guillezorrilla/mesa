@@ -70,6 +70,13 @@ const claudeDeny = (rules: readonly string[]) =>
 const claudeMesa = shellWord(CLAUDE_MESA_ALLOW);
 
 /**
+ * A read-only run's variable, before its agent, for every agent alike: `mesa vault save` refuses
+ * it however the agent calls it (another path, `env`, `bash -c`), which no tool rule covers.
+ */
+const readOnlyEnv = (may: HeadlessPermissions) =>
+  may.readOnlyVault ? `env ${VAULT_READ_ONLY_VAR}=1 ` : '';
+
+/**
  * How a headless run may act, from the profile's config `run` (CONTEXT.md, Profile), and with
  * `readOnlyVault`, refusing `mesa vault save` (a pipeline skill's run, whose output core lands);
  * `lean`, one of Mesa's own runs, with its own model, vault access and effort and none of the
@@ -185,7 +192,8 @@ export const AGENTS = {
       /**
        * `prompt` through `claude -p`, its JSON result on stdout, in the conversation Mesa chose,
        * with the profile's permission mode, and Mesa's commands allowed before the profile's own
-       * rules; a read-only run disallows `mesa vault save`, which wins over the allow. The prompt
+       * rules; a read-only run disallows `mesa vault save`, which wins over the allow, and runs
+       * under readOnlyEnv, which the save refuses however it is called. The prompt
        * and each rule are one shell word, as a rule such as `Bash(git log:*)` holds a space;
        * --allowedTools takes every word after it, so it comes last. A `lean` run allows Mesa's
        * commands only when its profile reads the vault.
@@ -199,7 +207,7 @@ export const AGENTS = {
         const mesa = !may.lean || may.lean.vault ? CLAUDE_MESA_TOOLS : [];
         const allowed = [...mesa, ...may.allowedTools];
         return [
-          'claude -p',
+          `${readOnlyEnv(may)}claude -p`,
           shellWord(prompt),
           `--session-id ${sessionId} --output-format json`,
           ...(may.lean ? claudeLeanRun(may.lean) : []),
@@ -298,7 +306,7 @@ export const AGENTS = {
         may: HeadlessPermissions,
         folder: string,
       ) =>
-        `${may.readOnlyVault ? `env ${VAULT_READ_ONLY_VAR}=1 ` : ''}codex exec --json -C ${shellWord(folder)} -c approval_policy=never -c sandbox_mode=${may.textOnly ? 'read-only' : 'workspace-write'} ${shellWord(prompt)}`,
+        `${readOnlyEnv(may)}codex exec --json -C ${shellWord(folder)} -c approval_policy=never -c sandbox_mode=${may.textOnly ? 'read-only' : 'workspace-write'} ${shellWord(prompt)}`,
       result: readCodexResult,
     },
     /** Trusted hooks from the embedded Codex process. */
@@ -341,16 +349,14 @@ export const AGENTS = {
     submitDelayMs: 300,
     headless: {
       skillPrefix: '/',
-      /**
-       * No read-only run: agy takes no per-run tool rule, so `mesa vault save` stays allowed
-       * (CONTEXT.md, Skill run).
-       */
+      /** agy takes no per-run tool rule: a read-only run has only its variable (readOnlyEnv). */
       command: (
         _sessionId: string | undefined,
         prompt: string,
-        _may: HeadlessPermissions,
+        may: HeadlessPermissions,
         log: string,
-      ) => `agy --log-file ${shellWord(log)} --print ${shellWord(prompt)} --output-format json`,
+      ) =>
+        `${readOnlyEnv(may)}agy --log-file ${shellWord(log)} --print ${shellWord(prompt)} --output-format json`,
       result: readAntigravityResult,
     },
     hookState: undefined,

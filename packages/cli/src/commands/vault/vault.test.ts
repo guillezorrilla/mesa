@@ -1205,15 +1205,15 @@ test('a session saves its own decision and summary with no --project or --sessio
   expect(decision.json.data.path).toMatch(/^wiki\/decisions\/.*fixed-clock-in-tide-tests\.md$/);
   const { receipt } = (await mesa('receipts', '--json')).json.data[0];
   expect(receipt).toMatchObject({ kind: 'decision', project: 'lantern-cove', session: id });
-  const summary = await mesa(
-    'vault',
-    'save',
-    'summary',
-    '--text',
-    'Goal: fix the flake\n',
-    '--json',
-  );
+  // The text on stdin, as a here-document gives it: no terminal.
+  cli.tty = false;
+  cli.stdin = 'Goal: fix the flake\nDone: fixed clock\n';
+  const summary = await mesa('vault', 'save', 'summary', '--json');
   expect(summary.json.data.path).toBe(`wiki/sessions/${id}.md`);
+  expect(readFileSync(join(cli.home, 'vault', summary.json.data.path), 'utf8')).toContain(
+    'Done: fixed clock',
+  );
+  cli.stdin = '';
   cli.env = { ...cli.env, MESA_VAULT_READ_ONLY: '1' };
   const refused = await mesa('vault', 'save', 'note', '--title', 'Stray', '--text', 'x', '--json');
   expect(refused.json.error.message).toContain('read-only run');

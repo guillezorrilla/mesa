@@ -9,10 +9,11 @@ import {
   symlinkSync,
   unlinkSync,
 } from 'node:fs';
-import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { CLAUDE_PROJECT_SKILLS } from '../agents/claude/paths.js';
 import { CODEX_SKILLS } from '../agents/codex/paths.js';
 import { excludeFromGit } from '../git/exclude.js';
+import { inside } from '../lib/inside.js';
 import { type LibrarySkill, readSkill } from './library.js';
 
 /** Where each agent looks for a project's skills: Claude Code's, then Codex's. */
@@ -42,11 +43,8 @@ export type SkillSync = {
 /** Whether `entry` is a link Mesa made: a symlink that resolves inside the library. */
 function isMesaLink(entry: string, library: string): boolean {
   if (!lstatSync(entry, { throwIfNoEntry: false })?.isSymbolicLink()) return false;
-  const target = resolve(dirname(entry), readlinkSync(entry));
-  const root = existsSync(library) ? realpathSync(library) : resolve(library);
   // A link into a folder the library no longer has still resolves inside it, by its path.
-  const real = existsSync(target) ? realpathSync(target) : target;
-  return real === root || real.startsWith(`${root}${sep}`);
+  return inside(resolve(dirname(entry), readlinkSync(entry)), library);
 }
 
 /** The skill every Mesa library has shipped, which marks a folder as one. */

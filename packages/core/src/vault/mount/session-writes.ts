@@ -1,14 +1,19 @@
+import { resolve } from 'node:path';
 import { VAULT_READ_ONLY_VAR } from '../../agents/mesa-commands.js';
 import type { MesaContext } from '../../context.js';
+import { inside } from '../../lib/inside.js';
 import { redactWhole } from '../../lib/redact.js';
 import { MesaError } from '../../lib/result.js';
 import { readTextFile } from '../../lib/text-file.js';
 import { localDay } from '../../lib/time.js';
+import { findProject } from '../../projects/projects.js';
 import { receiptText } from '../../receipts/command.js';
 import { type NoteChange, recordNoteChange, settleUnchanged } from '../../receipts/note-change.js';
 import { recordScope } from '../../receipts/record-scope.js';
 import type { Recorded } from '../../receipts/recorder.js';
-import { recordAgent } from '../../sessions/record/record.js';
+import { sessionFolder } from '../../sessions/record/folder.js';
+import { projectScope } from '../../sessions/record/general.js';
+import { recordAgent, type SessionRecord } from '../../sessions/record/record.js';
 import { callerOf } from '../../sessions/window/caller.js';
 import { landOutput } from '../../skills/landing.js';
 import { SESSION_SUMMARY } from '../../skills/library.js';
@@ -46,8 +51,10 @@ export type DecisionInput = {
   confidence?: number;
 };
 
-/** A summary is its text, or a file (relative to the working directory) holding it. */
-/** `session` defaults to the Caller: a session saving its own summary. */
+/**
+ * A summary is its text, or a file (relative to the working directory) holding it; `session`
+ * defaults to the Caller, a session saving its own.
+ */
 export type SummaryInput = { session?: string; summary?: string; file?: string };
 
 export type NoteInput = {
@@ -136,12 +143,40 @@ function notePath(vault: string, path: string): string {
 export function sessionWrites(ctx: MesaContext) {
   const writes = (): WriteDeps => ({ ...ctx.notes(), record: ctx.record });
   const redact = (text: string) => redactWhole(text, ctx.home, ctx.secrets());
+  /** The session this mesa runs in, if any. */
+  const caller = () =>
+    callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile }).session;
+  /**
+   * The folders a session's own files are in: its folder or worktree, else its project's, and
+   * each additional project's worktree. None for one in the home folder (General).
+   */
+  const ownFolders = (s: SessionRecord) => {
+    const project = projectScope(s.project);
+    const registered = () => (project ? findProject(ctx.open(), project).path : undefined);
+    return [sessionFolder(s) ?? registered(), ...(s.additional ?? []).map((a) => a.worktree.path)]
+      .filter((folder): folder is string => folder !== undefined)
+      .filter((folder) => resolve(folder) !== resolve(ctx.home));
+  };
+  /**
+   * A save's text file, from the working directory. A session's agent may run the save outside
+   * its sandbox (ADR-0031: Codex's rules), so from its window only a file in that session's own
+   * folders is read: a save never carries another file of the person's into the vault.
+   */
+  const fileText = (file: string, what: string) => {
+    const path = ctx.absolute(file);
+    const own = caller();
+    if (own && !ownFolders(own).some((folder) => inside(path, folder)))
+      throw usage(
+        `a session reads a ${what} file only from its own folder or worktree, not ${path}: pass the ${what} as text or on stdin`,
+      );
+    return readTextFile(path, `${what} file`);
+  };
   /** A save's text: given, or read from a file; its receipt's argv then keeps it short. */
   const textOf = (text: string | undefined, file: string | undefined, what: string) => {
     if (text !== undefined && file !== undefined) {
       throw usage(`pass the ${what} as text or as a file, not both`);
     }
-    const raw = file === undefined ? text : readTextFile(ctx.absolute(file), `${what} file`);
+    const raw = file === undefined ? text : fileText(file, what);
     const value = required(raw, what);
     const argv = text === undefined ? undefined : receiptText(text, ctx.argv, ctx.secrets()).argv;
     return { value: redact(value), ...(argv ? { argv } : {}) };
@@ -161,7 +196,7 @@ export function sessionWrites(ctx: MesaContext) {
    */
   const scope = (given: { project?: string; session?: string }) => {
     if (given.project !== undefined || given.session !== undefined) return recordScope(ctx, given);
-    const own = callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile }).session;
+    const own = caller();
     return recordScope(ctx, own ? { session: own.id } : given);
   };
 

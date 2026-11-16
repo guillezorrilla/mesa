@@ -532,3 +532,28 @@ test.each(['note', 'summary'] as const)(
     expect(files.map((file) => readFileSync(join(w.vault, file)))).toEqual(before);
   },
 );
+
+test("from a session's window a save reads a file only from that session's own folders", async () => {
+  const w = world();
+  const project = join(w.home, 'src/lantern-cove');
+  const inWindow = w.mesa({ MESA_SESSION_ID: w.session, MESA_PROFILE: 'default' });
+  writeFileSync(join(project, 'summary.md'), 'Goal: chart the neaps\n');
+  writeFileSync(join(w.home, 'private.md'), "Not the session's to save\n");
+  symlinkSync(join(w.home, 'private.md'), join(project, 'link.md'));
+  const saved = await inWindow.vault.saveSummary({ file: join(project, 'summary.md') });
+  expect(saved.result.path).toBe(`wiki/sessions/${w.session}.md`);
+  // ADR-0031: an agent may run the save outside its sandbox, so a file elsewhere, or a link out
+  // of its folder, never reaches the vault from its window.
+  for (const file of [join(w.home, 'private.md'), join(project, 'link.md')]) {
+    const refused = await rejected(inWindow.vault.saveNote({ title: 'Stray', file }));
+    expect(refused).toMatchObject({ code: 'usage' });
+    expect(refused.message).toContain('a session reads a note file only from its own folder');
+  }
+  expect(existsSync(join(w.vault, 'wiki/notes/stray.md'))).toBe(false);
+  // Its text as an argument still saves; and a person outside any window names any file.
+  await inWindow.vault.saveNote({ title: 'Kept', body: 'Typed in' });
+  const person = await w
+    .mesa()
+    .vault.saveNote({ title: 'Theirs', file: join(w.home, 'private.md') });
+  expect(person.result.path).toBe('wiki/notes/theirs.md');
+});

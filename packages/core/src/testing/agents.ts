@@ -54,9 +54,11 @@ export const finishesRun =
     stderr?: string;
   }) =>
   (w: FakeWindow) => {
-    const file = /^exec (?:claude -p|codex exec|agy --log-file .* --print) .* >'([^']+)'$/.exec(
-      w.launch,
-    )?.[1];
+    // A read-only run's line starts with its variable (agents.ts, readOnlyEnv).
+    const file =
+      /^exec (?:env \w+=\S+ )?(?:claude -p|codex exec|agy --log-file .* --print) .* >'([^']+)'$/.exec(
+        w.launch,
+      )?.[1];
     if (!file) return;
     if (output !== undefined) writeFileSync(file, output);
     if (stderr !== undefined) {

@@ -12,7 +12,18 @@ Evidence, from the owner's Mac (docs/spikes/app-efficiency.md, #1229):
 - **Memory.** 37 idle `mesa vault mcp` and `mesa decisions mcp` processes at about 52 MB footprint each, about 1.9 GB. On 2026-11-16 there were 34 at 54.4 MB each, 1,851 MB. A fresh one measures 70.7 MB as the app's executable.
 - **Use.** The hook logs show 4,728 Mesa MCP calls in 618 of 682 sessions: 3,728 `search_vault`, 587 `project_context`, 321 `read_note`, 60 `save_decision`, 24 `decision_evaluate`. Most sessions make a few reads, so the servers mostly sit idle.
 - **A CLI call** costs one mesa start: about 0.11 CPU-s and 111 MB, for well under a second, then nothing.
-- **Tokens.** Claude Code defers MCP tool schemas: a session carries the nine tool names, and pays for the schemas (2,608 bytes for mesa-vault's seven tools, about 1.2 KB for decision_evaluate) when it loads them. Codex loads every MCP tool schema into its context up front. The `mesa-vault` skill (7.4 KB) was already linked into every session and was already read on demand. So the skill costs nothing new. Dropping the servers removes the schemas, and costs only the skill's few extra lines naming the commands.
+- **Tokens.** Measured in bytes on this branch; tokens are estimated at about 4 bytes a token, not counted, as no tokenizer for today's models runs offline.
+
+  | What an agent reads | Before | After |
+  | --- | --- | --- |
+  | `tools/list`: mesa-vault's seven tools + `decision_evaluate` | 2,608 + 1,239 = 3,847 bytes (about 960 tokens) | none |
+  | Those tools' names, which Claude Code lists while it defers the schemas | 211 bytes | none |
+  | Pointer's vault lines, every session | about 305 bytes | 256 bytes |
+  | Pointer's `Decisions:` line, with a Decision model | about 353 bytes | 371 bytes |
+  | `mesa-vault` skill, read on demand | 7,011 bytes | 7,438 bytes (+427, about 107 tokens) |
+  | The Decision model's part of the `mesa` skill, read on demand | 2,025 bytes | 2,025 bytes, its examples rewritten |
+
+  Codex loads every MCP tool schema into its context up front, so a Codex session drops about 3.8 KB a session. Claude Code defers the schemas: it drops the 211 bytes of names, and the 3.8 KB whenever it would have loaded them. Both skills were already linked into every session and read on demand before. They now carry the command forms, and the pointer names them too, so an agent can call a command without reading a skill at all. An agent that does read the `mesa-vault` skill pays 427 bytes more than before, for the command table that replaces the tool table.
 
 orca (github.com/stablyai/orca) gives its agents its own features through its CLI and a skill (`skills/orca-cli`), with no MCP server. The owner chose the same for Mesa on 2026-11-16.
 
@@ -26,6 +37,17 @@ orca (github.com/stablyai/orca) gives its agents its own features through its CL
   - Codex reads Mesa's rules file, `<CODEX_HOME>/rules/mesa.rules`, which `mesa hooks install` writes with one `prefix_rule(..., decision="allow")` per command. An allow rule runs the command without a prompt and outside Codex's sandbox, as the vault and the Decision log are outside the workspace and the servers ran outside it too.
   - Codex has no per-run deny, so a read-only Codex run runs under `env MESA_VAULT_READ_ONLY=1`, which makes `mesa vault save` refuse.
   - Antigravity takes no per-launch rule; its pointer and skills name the commands.
+  - **Read-only is enforced by the run's environment, for every agent.** A tool rule only matches the command as written. `env X=1 mesa vault save`, `bash -c '...'`, or another path to mesa all miss the deny. So every agent's read-only run (Claude Code's, Codex's, Antigravity's) starts under `env MESA_VAULT_READ_ONLY=1`, and `mesa vault save` refuses whenever the variable is set. Claude Code's deny stays, for the plain form.
+- **The commands stay confined, though an allow rule may run them outside a sandbox.**
+  - `mesa vault read` and `mesa vault save note --path` take only vault paths, through the Vault scope.
+  - `context`, `search`, `goals` and the `decisions` commands take no path. The Decision commands read their request on stdin.
+  - `--file` is the only flag that names another file. From a session's window (a Caller), a save reads it only inside that session's own folder, its worktree, or its additional projects' worktrees. The check goes through symlinks. A General session, whose folder is the home folder, has none. So an agent cannot carry another of the person's files into the vault. The text as `--text` or on stdin still works, and a person outside a window still names any file.
+- **Codex's rules file is global.** `<CODEX_HOME>/rules/mesa.rules` applies to every Codex the person runs, inside Mesa or not, because Codex takes no rules per launch. That is acceptable for three reasons:
+  - The commands are the person's own CLI, acting as the person on the person's vault and Decision log, as they would typed in a terminal.
+  - The reads take no path outside the vault, and a save's `--file` is confined whenever a session's window is the Caller.
+  - Outside a Mesa window there is no Caller. A save is then the person's own: a decision still needs `--project` and a summary `--session`, and either is recorded with no session as its actor.
+
+  `mesa hooks uninstall` removes the file.
 - **The decision command needs no mount.** A session started before the profile chose a model can ask it too, so the delivery status loses its `restart` and `hooks install` actions and the app its buttons for them. The pointer carries the `Decisions:` line while the profile has a model and the session has it on.
 - **Deprecated for one release.** `mesa vault mcp` and `mesa decisions mcp` stay, marked deprecated in their help, so sessions already running with them keep working. Removing them, and the records' `vaultMounted` and `decisionsMounted` fields that nothing reads any more, is a follow-up.
 
