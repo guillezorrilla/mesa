@@ -26,6 +26,8 @@ export type ChatFollowHost = {
   onExit: (followId: string, listener: () => void) => Promise<() => void>;
   /** The renderer listens now: lines held until then come out. */
   ready: (followId: string) => Promise<void>;
+  /** Writes one request line to its stdin (a `reply` line answers it); refused while it restarts. */
+  write: (followId: string, line: string) => Promise<void>;
   /** Kills its process; nothing starts it again. */
   close: (followId: string) => Promise<void>;
 };

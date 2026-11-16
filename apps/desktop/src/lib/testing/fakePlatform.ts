@@ -69,8 +69,12 @@ export function fakeTerminals() {
   return { host, calls, push };
 }
 
-/** Rust's chat follows: `push` prints one `mesa chat --follow` line on the open follow. */
-export function fakeFollows() {
+/**
+ * Rust's chat follows: `push` prints one `mesa chat --follow` line on the open follow. A request
+ * written to it is answered by `answer` (its argv, without --json), as `mesa chat --follow` runs
+ * it; without `answer` a write is refused, so the bridge answers instead.
+ */
+export function fakeFollows(answer?: (argv: string[]) => unknown) {
   const calls: (string | number)[][] = [];
   const lines = new Map<string, (line: string) => void>();
   const exits = new Map<string, () => void>();
@@ -90,6 +94,13 @@ export function fakeFollows() {
       return () => exits.delete(followId);
     },
     ready: async (followId) => void calls.push(['ready', followId]),
+    write: async (followId, line) => {
+      if (!answer) throw new Error("the chat's follow is not running");
+      const { id, argv } = JSON.parse(line) as { id: string; argv: string[] };
+      calls.push(['write', followId, ...argv]);
+      const reply = await answer(argv);
+      queueMicrotask(() => lines.get(followId)?.(JSON.stringify({ type: 'reply', id, reply })));
+    },
     close: async (followId) => void calls.push(['close', followId]),
   };
   /** The open follow ends for good, as a stopped host's does. */

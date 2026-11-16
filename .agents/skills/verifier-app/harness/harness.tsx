@@ -20,10 +20,12 @@ const follows = new Map<string, { abort: AbortController; listeners: Set<(line: 
 let nextFollow = 0;
 const follow: Platform['follow'] = {
   open: async (sessionId, count) => {
-    const id = `f${++nextFollow}`;
+    const id = `f${++nextFollow}-${Date.now()}`;
     const entry = { abort: new AbortController(), listeners: new Set<(line: string) => void>() };
     follows.set(id, entry);
-    void fetch(`/__follow?session=${sessionId}&count=${count}`, { signal: entry.abort.signal })
+    void fetch(`/__follow?session=${sessionId}&count=${count}&key=${id}`, {
+      signal: entry.abort.signal,
+    })
       .then(async (res) => {
         const reader = res.body?.pipeThrough(new TextDecoderStream()).getReader();
         let rest = '';
@@ -44,6 +46,10 @@ const follow: Platform['follow'] = {
   },
   onExit: async () => () => {},
   ready: async () => {},
+  write: async (id, line) => {
+    const res = await fetch(`/__follow_write?key=${id}`, { method: 'POST', body: line });
+    if (!res.ok) throw new Error("the chat's follow is not running");
+  },
   close: async (id) => {
     follows.get(id)?.abort.abort();
     follows.delete(id);

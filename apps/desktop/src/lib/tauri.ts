@@ -71,6 +71,7 @@ export const tauriPlatform: Platform = {
       listen<string>(`follow://line/${followId}`, (e) => listener(e.payload)),
     onExit: (followId, listener) => listen(`follow://exit/${followId}`, () => listener()),
     ready: (followId) => invoke('follow_ready', { followId }),
+    write: (followId, line) => invoke('follow_write', { followId, line }),
     close: (followId) => invoke('follow_close', { followId }),
   },
   browser: {

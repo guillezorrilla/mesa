@@ -154,7 +154,27 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<CliResult> 
   const code = out?.code ?? exitCode(result);
   const exec = result.ok ? out?.exec : undefined;
   // A server's stdout is its protocol's alone: no envelope, no text.
-  if (result.ok && out?.serve) return { code, stdout: '', stderr: '', serve: out.serve };
+  const serve = result.ok ? out?.serve : undefined;
+  if (serve)
+    return {
+      code,
+      stdout: '',
+      stderr: '',
+      // A server may run another command in this process (`chat --follow`'s requests): no spawn.
+      serve: (io) =>
+        serve({
+          ...io,
+          run: (more) =>
+            runCli(more, {
+              ...deps,
+              tty: false,
+              stdin: async () => '',
+              confirm: undefined,
+              askSecret: undefined,
+              mesa: { ...deps.mesa, argv: more },
+            }).then((ran) => ran.stdout),
+        }),
+    };
   if (json) return { code, stdout: `${JSON.stringify(result)}\n`, stderr: '', exec };
   if (result.ok) return { code, stdout: `${out?.text ?? ''}\n`, stderr: '', exec };
   return { code, stdout: '', stderr: `${result.error.message}\n` };

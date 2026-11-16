@@ -1,6 +1,40 @@
-import { plainText } from '@mesa/core';
-import { defineCommand } from '../command.js';
+import { followedSession, plainText } from '@mesa/core';
+import { defineCommand, type ServeIo } from '../command.js';
 import { wholeNumber } from '../input/flags.js';
+
+/**
+ * One request on a follow's stdin, `{"type":"run","id":…,"argv":[…]}`: one of the chat's actions
+ * for the followed session (followedSession), run in this process (no new mesa), its envelope
+ * printed back as `{"type":"reply","id":…,"reply":…}`, always. Another line is ignored.
+ */
+async function runRequest(line: string, session: string, io: ServeIo) {
+  let request: { type?: unknown; id?: unknown; argv?: unknown };
+  try {
+    request = JSON.parse(line);
+  } catch {
+    return;
+  }
+  const { id, argv } = request;
+  if (request.type !== 'run' || typeof id !== 'string' || !Array.isArray(argv)) return;
+  const words = argv.map(String);
+  // Always a reply, so the app never waits on one that cannot come.
+  let reply: unknown;
+  try {
+    reply =
+      followedSession(words) === session
+        ? JSON.parse(await io.run(['--json', ...words]))
+        : {
+            ok: false,
+            error: {
+              code: 'usage',
+              message: `a chat's follow runs only ${session}'s chat actions`,
+            },
+          };
+  } catch (failed) {
+    reply = { ok: false, error: { code: 'internal', message: String(failed) } };
+  }
+  io.write(`${JSON.stringify({ type: 'reply', id, reply })}\n`);
+}
 
 export const chat = defineCommand({
   name: 'chat',
@@ -12,7 +46,7 @@ export const chat = defineCommand({
     follow: {
       type: 'boolean',
       description:
-        'Then follow a Structured session: one JSON line per new or changed item, and the prompt its agent waits on as it comes and goes, until stdin closes or it ends',
+        "Then follow a Structured session: one JSON line per new or changed item, and the prompt its agent waits on as it comes and goes, until stdin closes or it ends; a JSON line on stdin runs one of the chat's actions for it in this process",
     },
   },
   example: 'mesa chat a1b2c3d4 --count 5',
@@ -23,10 +57,10 @@ export const chat = defineCommand({
         data: null,
         text: '',
         serve: async (io) => {
-          // The reader leaves by closing stdin.
+          // The reader leaves by closing stdin; until then each line is a request to answer.
           let open = true;
           void (async () => {
-            for await (const _ of io.lines);
+            for await (const line of io.lines) void runRequest(line, args.session, io);
             open = false;
           })();
           await mesa.sessions.chatFollow(

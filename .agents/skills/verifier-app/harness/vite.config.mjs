@@ -26,6 +26,20 @@ export default defineConfig({
       configureServer(server) {
         // A Structured session's live chat (the app's Rust follow): `mesa chat --follow` streamed
         // back as its lines, killed when the page lets go.
+        const following = new Map();
+        server.middlewares.use('/__follow_write', (req, res) => {
+          const child = following.get(new URL(req.url ?? '', 'http://harness').searchParams.get('key'));
+          let body = '';
+          req.on('data', (chunk) => {
+            body += chunk;
+          });
+          req.on('end', () => {
+            if (child) child.stdin.write(`${body}\n`);
+            log(`FOLLOW_WRITE ${child ? 'sent' : 'no follow'} ${body.slice(0, 120)}`);
+            res.statusCode = child ? 204 : 409;
+            res.end();
+          });
+        });
         server.middlewares.use('/__follow', (req, res) => {
           const url = new URL(req.url ?? '', 'http://harness');
           const args = ['chat', '--follow', '--count', url.searchParams.get('count') ?? '20'];
@@ -33,6 +47,10 @@ export default defineConfig({
             env: { ...process.env, MESA_PROFILE: profile, MESA_SESSION_ID: '' },
           });
           log(`FOLLOW ${url.searchParams.get('session')}`);
+          // Its stdin takes the chat's requests (follow_write), by the key the page gave it.
+          const key = url.searchParams.get('key') ?? '';
+          following.set(key, child);
+          child.on('close', () => following.delete(key));
           res.setHeader('content-type', 'text/plain');
           child.stdout.pipe(res);
           res.on('close', () => child.kill());

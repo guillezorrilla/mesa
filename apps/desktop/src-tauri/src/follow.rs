@@ -5,7 +5,7 @@
 //! chat or quitting the app kills it.
 
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
@@ -35,6 +35,20 @@ pub struct Follow {
 }
 
 impl Follow {
+    /// Writes `line` to its process's stdin: a request `mesa chat --follow` answers on its stdout.
+    /// Refused while no process runs (starting again), so the caller can send another way.
+    fn write(&self, line: &str) -> Result<(), String> {
+        let mut slot = self.child.lock().unwrap();
+        let stdin = slot
+            .as_mut()
+            .and_then(|child| child.stdin.as_mut())
+            .ok_or("the chat's follow is not running")?;
+        stdin
+            .write_all(format!("{line}\n").as_bytes())
+            .and_then(|()| stdin.flush())
+            .map_err(|e| e.to_string())
+    }
+
     /// Ends it for good: no restart, and its process killed and reaped.
     fn close(&self) {
         self.closed.store(true, Ordering::SeqCst);
@@ -220,6 +234,24 @@ pub fn follow_ready(
     Ok(())
 }
 
+/// Sends one request line to a chat's follow (`mesa chat --follow` reads it on stdin and answers
+/// with a `reply` line): an action on the session without a new mesa process.
+#[tauri::command]
+pub fn follow_write(
+    follows: State<'_, Follows>,
+    follow_id: String,
+    line: String,
+) -> Result<(), String> {
+    let follow = follows
+        .open
+        .lock()
+        .unwrap()
+        .get(&follow_id)
+        .cloned()
+        .ok_or("no such follow")?;
+    follow.write(&line)
+}
+
 /// Ends a chat's follow and kills its process, off the main thread.
 #[tauri::command]
 pub async fn follow_close(follows: State<'_, Follows>, follow_id: String) -> Result<(), String> {
@@ -292,6 +324,29 @@ mod tests {
             |_| {},
         );
         assert_eq!(tries.load(Ordering::SeqCst), MAX_FAILED_STARTS);
+    }
+
+    #[test]
+    fn a_line_written_reaches_the_follow_and_its_answer_comes_back() {
+        let follow = Arc::new(Follow::default());
+        let running = follow.clone();
+        let (tx, rx) = std::sync::mpsc::channel::<String>();
+        let thread = std::thread::spawn(move || {
+            keep_following(
+                &running,
+                || sh(r#"read l; echo "$l"; echo '{"type":"end"}'"#),
+                move |line| {
+                    let _ = tx.send(line);
+                },
+                |_| {},
+            );
+        });
+        assert!(Follow::default().write("nobody").is_err(), "no process yet");
+        while follow.write(r#"{"type":"run"}"#).is_err() {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        thread.join().unwrap();
+        assert_eq!(rx.recv().unwrap(), r#"{"type":"run"}"#);
     }
 
     #[test]

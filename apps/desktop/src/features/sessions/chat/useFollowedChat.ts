@@ -1,6 +1,7 @@
 import type { ChatFollowLine, PendingPrompt, SessionChat } from '@mesa/core';
 import { useEffect, useRef, useState } from 'react';
-import { usePlatform } from '@/lib/MesaRoot';
+import { followRoute } from '@/lib/followRoutes';
+import { useFollowRoutes, usePlatform } from '@/lib/MesaRoot';
 import { useSessionEvents } from '@/lib/useSessionEvents';
 import type { SentPrompt } from '../selected/useSessionPrompt';
 import { CHAT_PAGE, type ChatRead, transcriptHolds } from './useChat';
@@ -34,11 +35,12 @@ export function followed(
  * A Structured session's chat on its host's live stream (ADR-0029): one follow (Rust `follow_*`)
  * while the chat is open, the prompt its agent waits on included (none once the follow ends),
  * read again further back on `older`, closed when it closes. No CLI call per refresh: the stream
- * says what changed. A follow that ended (its host stopped, a resume
- * coming) opens again on the session's next change.
+ * says what changed; and while it runs, the session's chat actions run in it (followRoutes.ts).
+ * A follow that ended (its host stopped, a resume coming) opens again on the session's next change.
  */
 export function useFollowedChat(sessionId: string, sent?: SentPrompt): ChatRead {
   const { follow } = usePlatform();
+  const routes = useFollowRoutes();
   const [count, setCount] = useState(CHAT_PAGE);
   /** Bumped to open a new follow after one ended. */
   const [opening, setOpening] = useState(0);
@@ -55,6 +57,14 @@ export function useFollowedChat(sessionId: string, sent?: SentPrompt): ChatRead 
     let active = true;
     let id: string | undefined;
     const stops: (() => void)[] = [];
+    // The session's chat actions go over this follow while it runs (followRoutes.ts).
+    const channel = followRoute((line) =>
+      id ? follow.write(id, line) : Promise.reject(new Error('not open yet')),
+    );
+    const unroute = () => {
+      if (routes.get(sessionId) === channel.route) routes.delete(sessionId);
+      channel.end();
+    };
     ended.current = false;
     void (async () => {
       try {
@@ -62,6 +72,8 @@ export function useFollowedChat(sessionId: string, sent?: SentPrompt): ChatRead 
         stops.push(
           await follow.onLine(id, (text) => {
             const line = JSON.parse(text) as ChatFollowLine;
+            if (line.type === 'reply') return channel.answered(line.id, line.reply);
+            if (line.type === 'end') unroute();
             // A follow that ended (its host gone) leaves nothing waiting on an answer.
             if (line.type === 'prompt' || line.type === 'end')
               return setAsked({
@@ -75,6 +87,7 @@ export function useFollowedChat(sessionId: string, sent?: SentPrompt): ChatRead 
           }),
           await follow.onExit(id, () => {
             ended.current = true;
+            unroute();
             setAsked({ session: sessionId, prompt: null });
           }),
         );
@@ -84,6 +97,7 @@ export function useFollowedChat(sessionId: string, sent?: SentPrompt): ChatRead 
         }
         setError(undefined);
         await follow.ready(id);
+        if (active) routes.set(sessionId, channel.route);
       } catch (failed) {
         if (!active) return;
         setError(failed instanceof Error ? failed.message : String(failed));
@@ -93,10 +107,11 @@ export function useFollowedChat(sessionId: string, sent?: SentPrompt): ChatRead 
     })();
     return () => {
       active = false;
+      unroute();
       for (const stop of stops) stop();
       if (id) void follow.close(id);
     };
-  }, [follow, sessionId, count, opening]);
+  }, [follow, routes, sessionId, count, opening]);
   const { chat } = state;
   return {
     chat,
