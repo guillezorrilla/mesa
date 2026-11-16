@@ -121,6 +121,12 @@ test('search narrows by name, description or key; Escape clears it, then closes 
   const search = document.querySelector<HTMLInputElement>('[aria-label="Search /config settings"]');
   if (!search) throw new Error('no search');
   const shown = () => [...(card()?.querySelectorAll('label') ?? [])].map((l) => l.textContent);
+  // Grouped by topic, in the table's topic order, a key it does not know last.
+  expect([...(card()?.querySelectorAll('h3') ?? [])].map((h) => h.textContent)).toEqual([
+    'Notifications',
+    'Model and thinking',
+    'Other',
+  ]);
   await fill(search, 'context window');
   expect(shown()).toEqual(['Auto-compact']);
   await fill(search, 'preferredNotif');
