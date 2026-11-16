@@ -1,23 +1,21 @@
 import type { PendingPrompt, PromptOption } from '@mesa/core';
 import { promptTitle, typedAnswerHint } from '@mesa/core/browser';
 import { Loader2, MessageCircleQuestion, ShieldQuestion } from 'lucide-react';
-import type { KeyboardEvent } from 'react';
+import { type KeyboardEvent, useEffect, useRef } from 'react';
 import { Kbd } from '@/components/Kbd';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
+import { numberKey } from '@/lib/numberKey';
 import { cn } from '@/lib/utils';
 import { PromptTextField } from './PromptTextField';
 import { usePendingPrompt } from './usePendingPrompt';
 
-/** Whether a key press came from a field being typed in, where a digit is text. */
-const typing = (event: KeyboardEvent) =>
-  event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
-
 /**
  * The prompt a waiting session asks, as a card above the composer, laid out as orca's (#1222): an
  * icon and what it asks, what it is about, and its options numbered, a question's as tiles with
- * what each means. A number key picks that option; the first option takes the keys when the card
- * shows, so Enter gives it; the option pressed spins until the answer is in. A typed answer
+ * what each means. The card takes the keys when it shows, so a key meant for the composer answers
+ * nothing; a number key selects that option and Enter gives it (orca's select, then confirm); the
+ * option pressed spins until the answer is in. A typed answer
  * where it takes one, or why Mesa cannot answer it. `prompt` is the one its chat's follow
  * streamed, else the card reads it.
  */
@@ -27,6 +25,11 @@ export function PendingPromptCard(props: {
   className?: string;
 }) {
   const { prompt, acting, pressed, answer } = usePendingPrompt(props.session, props.prompt);
+  const card = useRef<HTMLElement>(null);
+  const shown = prompt?.status === 'pending' ? prompt.id : undefined;
+  useEffect(() => {
+    if (shown) card.current?.focus();
+  }, [shown]);
   if (!prompt) return null;
   if (prompt.status === 'unsupported') {
     return (
@@ -38,20 +41,23 @@ export function PendingPromptCard(props: {
   const question = prompt.kind === 'question';
   const Icon = question ? MessageCircleQuestion : ShieldQuestion;
   const pick = (option: PromptOption) => answer({ option: option.id });
-  const byNumber = (event: KeyboardEvent) => {
-    const at = /^[1-9]$/.test(event.key) ? Number(event.key) - 1 : -1;
-    const option = prompt.options[at];
-    if (!option || acting || typing(event) || event.metaKey || event.ctrlKey || event.altKey)
-      return;
+  const byNumber = (event: KeyboardEvent<HTMLElement>) => {
+    const at = numberKey(event);
+    if (at === undefined || at >= prompt.options.length) return;
     event.preventDefault();
-    void pick(option);
+    event.currentTarget.querySelectorAll<HTMLElement>('[data-option]')[at]?.focus();
   };
   return (
     <section
+      ref={card}
+      tabIndex={-1}
       data-testid="session-prompt"
       aria-label={promptTitle(prompt)}
       aria-busy={acting}
-      className={cn('mx-4 mt-3 grid gap-3 rounded-xl border bg-card p-4 text-sm', props.className)}
+      className={cn(
+        'mx-4 mt-3 grid gap-3 rounded-xl border bg-card p-4 text-sm outline-none',
+        props.className,
+      )}
       onKeyDown={byNumber}
     >
       <header className="flex items-center gap-2">
@@ -71,11 +77,10 @@ export function PendingPromptCard(props: {
             <button
               key={option.id}
               type="button"
-              // biome-ignore lint/a11y/noAutofocus: the card is what the person answers next.
-              autoFocus={i === 0}
+              data-option
               disabled={acting}
               aria-label={option.label}
-              title={option.description}
+              aria-describedby={`${prompt.id}-${option.id}`}
               aria-busy={pressed === option.id}
               className="flex items-start gap-3 rounded-lg border px-3 py-2 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50"
               onClick={() => void pick(option)}
@@ -90,7 +95,9 @@ export function PendingPromptCard(props: {
               <span className="grid gap-0.5">
                 <span className="font-medium">{option.label}</span>
                 {option.description && option.description !== option.label && (
-                  <span className="text-muted-foreground">{option.description}</span>
+                  <span id={`${prompt.id}-${option.id}`} className="text-muted-foreground">
+                    {option.description}
+                  </span>
                 )}
               </span>
             </button>
@@ -100,8 +107,7 @@ export function PendingPromptCard(props: {
               size="sm"
               variant={i === 0 ? 'default' : 'outline'}
               title={option.description}
-              // biome-ignore lint/a11y/noAutofocus: the card is what the person answers next.
-              autoFocus={i === 0}
+              data-option
               disabled={acting}
               aria-label={option.label}
               aria-busy={pressed === option.id}

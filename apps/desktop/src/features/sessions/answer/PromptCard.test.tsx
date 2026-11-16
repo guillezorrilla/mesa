@@ -70,17 +70,22 @@ test('a waiting session shows its prompt with options as buttons; Allow answers 
   expect(byTestId('session-prompt')).toHaveLength(0);
 });
 
-test('a number key answers with that option; the first option has the keys, so Enter gives it; a digit typed in the field is text', async () => {
+test('the card takes the keys, so Enter meant for the composer answers nothing; a number key selects, Enter gives it; a digit in the field is text', async () => {
   const { bridge, calls } = fakeBridge({
     prompt: () => envelope(question),
     answer: () => envelope({ answered: true, prompt: 'q1', receipt: null }),
   });
   const byTestId = await renderWithMesa(<PromptCard row={asking} />, bridge);
-  expect(document.activeElement?.getAttribute('aria-label')).toBe('Tea');
+  const card = byTestId('session-prompt')[0];
+  expect(document.activeElement).toBe(card);
+  await press(card, 'Enter');
   const input = document.querySelector<HTMLInputElement>('[aria-label="Or type an answer"]');
   await press(input ?? undefined, '2');
   expect(calls.filter((c) => c[1] === 'answer')).toEqual([]);
-  await press(byTestId('session-prompt')[0], '2');
+  await press(card, '2');
+  expect(document.activeElement?.getAttribute('aria-label')).toBe('Coffee');
+  expect(calls.filter((c) => c[1] === 'answer')).toEqual([]);
+  await click(button('Coffee'));
   expect(
     calls
       .filter((c) => c[1] === 'answer')
