@@ -14,7 +14,8 @@ const LABEL: Record<string, string> = {
   'blue-yellow': 'Blue-yellow',
   custom: 'Custom',
   terminal: 'Terminal',
-  chat: 'Chat',
+  chat: 'Chat (beta)',
+  structured: 'Structured (beta)',
   ...Object.fromEntries(Object.entries(TERMINAL_PRESETS).map(([id, { label }]) => [id, label])),
 };
 /** The word for one of core's choices. */

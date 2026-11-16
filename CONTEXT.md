@@ -299,8 +299,8 @@ Not: a separate agent process, or a chat the app holds itself. Structured view (
 
 ## Structured view
 
-How a Claude Code or Codex session runs and shows when the host owns the agent process: the agent speaks its structured protocol (Claude Code's stream-json, Codex's app-server) to the host, and the app shows the typed events as chat, with replies as they stream, tool runs, edited files, and permission and question requests as cards (ADR-0029). The app's view control labels it Chat, and Cmd+Shift+J switches. Terminal stays the default for a new session, with a Settings choice for Structured. It replaces Chat mode, which read the transcript and the pane.
-Not: Chat mode, a second session backend, a chat the app holds itself. Its control reads Chat, so a search for Chat finds this entry and Chat mode.
+How a Claude Code or Codex session runs and shows when the host owns the agent process: the agent speaks its structured protocol (Claude Code's stream-json, Codex's app-server) to the host, and the app shows the typed events as chat, with replies as they stream, tool runs, edited files, and permission and question requests as cards (ADR-0029). The app's view control labels it Chat (beta), since it is still experimental, and Cmd+Shift+J switches. Terminal stays the default for a new session, with a Settings choice for Structured. It replaces Chat mode, which read the transcript and the pane.
+Not: Chat mode, a second session backend, a chat the app holds itself. Its control reads Chat (beta), so a search for Chat finds this entry and Chat mode.
 
 ## Terminal view
 

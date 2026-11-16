@@ -32,7 +32,7 @@ const PROJECT = [
 const FIXED: (readonly [string, string])[] = [
   ['Keyboard shortcuts', FIXED_SHORTCUTS.keyboardShortcuts],
   ['Send feedback', FIXED_SHORTCUTS.sendFeedback],
-  ['Switch session between Terminal and Chat', FIXED_SHORTCUTS.toggleChat],
+  ['Switch session between Terminal and Chat (beta)', FIXED_SHORTCUTS.toggleChat],
   ...PROJECT,
 ];
 
@@ -91,7 +91,7 @@ export function KeyboardShortcutsDialog(props: {
               shortcut={FIXED_SHORTCUTS.sendFeedback}
             />
             <ShortcutRow
-              label="Switch session between Terminal and Chat"
+              label="Switch session between Terminal and Chat (beta)"
               shortcut={FIXED_SHORTCUTS.toggleChat}
             />
           </section>

@@ -22,7 +22,7 @@ import type { SidePanel } from './useSidePanel';
 
 const VIEWS = [
   ['terminal', 'Terminal'],
-  ['chat', 'Chat'],
+  ['chat', 'Chat (beta)'],
 ] as const;
 
 /**
