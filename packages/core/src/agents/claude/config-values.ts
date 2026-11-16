@@ -2,47 +2,35 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { readJson } from '../../lib/json-file.js';
 import type { Env } from '../../lib/process.js';
+import { configSetting } from './config-settings.js';
 import { CLAUDE_PROJECT_DIR, claudeSettings } from './paths.js';
 
 // The values `/config` sets, read from where Claude Code keeps them (#1218): its global config
 // (`~/.claude.json`, or `.claude.json` in CLAUDE_CONFIG_DIR) and its settings (user, then the
-// project's shared and local files, the last one set winning). Where a key is kept, and its value
-// when nothing is set, is what claude 2.1.325's own /config panel reads; any other key is looked
-// up under its own name, so a key added later still shows a value once one is saved.
+// project's shared and local files, the last one set winning). Where a key is kept is what claude
+// 2.1.325's own /config panel reads, and its value when nothing is set is config-settings.ts's; any
+// other key is looked up under its own name, so a key added later still shows a value once saved.
 
-/** A `/config` key's place: the field path in the global config or the settings, and its default. */
-type Place = { field: string; fallback?: string };
-
-/** The keys /config names differently from where it keeps them, or that have a default. */
-const PLACES: Record<string, Place> = {
-  agentPushNotifEnabled: { field: 'agentPushNotifEnabled', fallback: 'false' },
-  autoCompact: { field: 'autoCompactEnabled', fallback: 'true' },
-  autoConnectIde: { field: 'autoConnectIde', fallback: 'false' },
-  autoScroll: { field: 'autoScrollEnabled' },
-  checkpoints: { field: 'fileCheckpointingEnabled' },
-  copyOnSelect: { field: 'copyOnSelect', fallback: 'true' },
-  defaultToAgentsView: { field: 'defaultToAgentsView', fallback: 'false' },
-  editor: { field: 'editorMode', fallback: 'normal' },
-  externalEditorContext: { field: 'externalEditorContext', fallback: 'false' },
-  gitignore: { field: 'respectGitignore' },
-  inputNeededNotifEnabled: { field: 'inputNeededNotifEnabled', fallback: 'false' },
-  notifChannel: { field: 'preferredNotifChannel' },
-  outputStyle: { field: 'outputStyle', fallback: 'default' },
-  permissionMode: { field: 'permissions.defaultMode', fallback: 'default' },
-  prStatus: { field: 'prStatusFooterEnabled', fallback: 'true' },
-  progressBar: { field: 'terminalProgressBarEnabled' },
-  promptSuggestionEnabled: { field: 'promptSuggestionEnabled', fallback: 'true' },
-  recap: { field: 'awaySummaryEnabled' },
-  reduceMotion: { field: 'prefersReducedMotion', fallback: 'false' },
-  remoteControl: { field: 'remoteControlAtStartup', fallback: 'default' },
-  thinking: { field: 'alwaysThinkingEnabled' },
-  timeFormat: { field: 'timeFormat', fallback: 'auto' },
-  tips: { field: 'spinnerTipsEnabled', fallback: 'true' },
-  turnDuration: { field: 'showTurnDuration' },
-  useAutoModeDuringPlan: { field: 'useAutoModeDuringPlan', fallback: 'true' },
-  verbose: { field: 'verbose', fallback: 'false' },
-  workflowKeywordTriggerEnabled: { field: 'workflowKeywordTriggerEnabled', fallback: 'true' },
-  worktreeBaseRef: { field: 'worktree.baseRef', fallback: 'fresh' },
+/** The field path, in the global config or the settings, of each key /config names differently. */
+const FIELDS: Record<string, string> = {
+  autoCompact: 'autoCompactEnabled',
+  autoScroll: 'autoScrollEnabled',
+  checkpoints: 'fileCheckpointingEnabled',
+  editor: 'editorMode',
+  gitignore: 'respectGitignore',
+  notifChannel: 'preferredNotifChannel',
+  permissionMode: 'permissions.defaultMode',
+  prStatus: 'prStatusFooterEnabled',
+  progressBar: 'terminalProgressBarEnabled',
+  recap: 'awaySummaryEnabled',
+  reduceMotion: 'prefersReducedMotion',
+  remoteControl: 'remoteControlAtStartup',
+  thinking: 'alwaysThinkingEnabled',
+  timestamps: 'showMessageTimestamps',
+  tips: 'spinnerTipsEnabled',
+  turnDuration: 'showTurnDuration',
+  workflows: 'enableWorkflows',
+  worktreeBaseRef: 'worktree.baseRef',
 };
 
 const OBJECT = z.record(z.string(), z.unknown());
@@ -84,7 +72,8 @@ export function claudeConfigValues(
   ].map(readObject);
   const values: Record<string, string> = {};
   for (const key of keys) {
-    const { field, fallback } = PLACES[key] ?? { field: key };
+    const field = (Object.hasOwn(FIELDS, key) && FIELDS[key]) || key;
+    const { fallback } = configSetting(key);
     const value = [global, ...settings].map((o) => at(o, field)).find((v) => v !== undefined);
     // Claude Code reads a saved `emacs` editor as normal.
     const shown = value === 'emacs' && key === 'editor' ? 'normal' : (value ?? fallback);

@@ -23,6 +23,13 @@ const LIST = [
   '  tide=low|high',
   '  harbourName=<value>',
 ].join('\n');
+// Two keys the settings table knows, in two topics, and one it does not.
+const KNOWN = [
+  'Usage: /config key=value [key=value ...]',
+  '  autoCompact=true|false',
+  '  lanternGlow=true|false',
+  '  notifChannel=auto|terminal_bell',
+].join('\n');
 const command = (id: string, text: string, output?: string): ChatItem => ({
   id,
   at: null,
@@ -66,7 +73,7 @@ async function structuredChat(items: ChatItem[], replies: Record<string, unknown
 const card = () => document.querySelector<HTMLElement>('[data-testid="command-card"]') ?? undefined;
 const sent = (calls: string[][]) => calls.filter((c) => c[1] === 'send').map((c) => c.at(-1));
 
-test('/config opens a settings form: grouped, current values read, a change sent and confirmed', async () => {
+test('/config opens a settings list: readable names, current values read, a change sent and confirmed', async () => {
   const { calls, push } = await structuredChat([command('c1', '/config', LIST)]);
   expect(calls).toContainEqual([
     '--json',
@@ -78,16 +85,19 @@ test('/config opens a settings form: grouped, current values read, a change sent
     'tide',
     'harbourName',
   ]);
-  const text = card()?.textContent ?? '';
-  expect(text).toContain('On or off');
-  expect(text).toContain('Choices');
-  expect(text).toContain('Values');
+  // Keys the settings table does not know land in Other, named from the key.
+  expect([...(card()?.querySelectorAll('h3') ?? [])].map((h) => h.textContent)).toEqual(['Other']);
+  expect(document.querySelector('label[for="setting-lanternGlow"]')?.textContent).toBe(
+    'Lantern glow',
+  );
   const glow = document.querySelector<HTMLElement>('#setting-lanternGlow');
   expect(glow?.getAttribute('aria-checked')).toBe('false');
   expect(document.querySelector<HTMLSelectElement>('#setting-tide')?.value).toBe('high');
   await click(glow ?? undefined);
   expect(sent(calls)).toEqual(['/config lanternGlow=true']);
-  expect(card()?.querySelector('[role="status"]')?.textContent).toBe('Setting lanternGlow to true');
+  expect(card()?.querySelector('[role="status"]')?.textContent).toBe(
+    'Setting Lantern glow to True',
+  );
   await push(command('c2', '/config lanternGlow=true', 'Lantern glow set to true'));
   // The reply shows in the card, not as a row of its own.
   expect(card()?.querySelector('[role="status"]')?.textContent).toBe(
@@ -106,13 +116,27 @@ test('a command sent from the composer opens as its card once its output arrives
   expect(document.querySelector('#setting-lanternGlow')).not.toBeNull();
 });
 
-test('search narrows the keys, Show raw gives the text back, Escape closes and refocuses the composer', async () => {
-  await structuredChat([command('c1', '/config', LIST)]);
+test('search narrows by name, description or key; Escape clears it, then closes and refocuses the composer', async () => {
+  await structuredChat([command('c1', '/config', KNOWN)]);
   const search = document.querySelector<HTMLInputElement>('[aria-label="Search /config settings"]');
   if (!search) throw new Error('no search');
-  await fill(search, 'tide');
-  expect(document.querySelector('#setting-lanternGlow')).toBeNull();
-  expect(document.querySelector('#setting-tide')).not.toBeNull();
+  const shown = () => [...(card()?.querySelectorAll('label') ?? [])].map((l) => l.textContent);
+  // Grouped by topic, in the table's topic order, a key it does not know last.
+  expect([...(card()?.querySelectorAll('h3') ?? [])].map((h) => h.textContent)).toEqual([
+    'Notifications',
+    'Model and thinking',
+    'Other',
+  ]);
+  await fill(search, 'context window');
+  expect(shown()).toEqual(['Auto-compact']);
+  await fill(search, 'preferredNotif');
+  expect(shown()).toEqual([]);
+  await fill(search, 'notifchannel');
+  expect(shown()).toEqual(['Notification channel']);
+  await press(search, 'Escape');
+  expect(search.value).toBe('');
+  expect(card()).toBeDefined();
+  expect(shown()).toHaveLength(3);
   const raw = [...(card()?.querySelectorAll('button') ?? [])].find(
     (b) => b.textContent === 'Show raw',
   );
@@ -123,12 +147,37 @@ test('search narrows the keys, Show raw gives the text back, Escape closes and r
   expect(document.activeElement?.getAttribute('aria-label')).toBe('Message eeeeeeee');
 });
 
-test('Down moves from the search to the first control', async () => {
-  await structuredChat([command('c1', '/config', LIST)]);
+test('Up and Down move between rows in the order shown, through a select too', async () => {
+  await structuredChat([command('c1', '/config', KNOWN)]);
   const search = document.querySelector<HTMLInputElement>('[aria-label="Search /config settings"]');
   search?.focus();
   await press(search, 'ArrowDown');
-  expect(document.activeElement?.id).toBe('setting-lanternGlow');
+  expect(document.activeElement?.id).toBe('setting-notifChannel');
+  await press(document.activeElement as HTMLElement, 'ArrowDown');
+  expect(document.activeElement?.id).toBe('setting-autoCompact');
+  await press(document.activeElement as HTMLElement, 'ArrowUp');
+  expect(document.activeElement?.id).toBe('setting-notifChannel');
+});
+
+test('a switch at its default is marked Default; changed, it resets to the default', async () => {
+  const { calls } = await structuredChat([command('c1', '/config', KNOWN)], {
+    'sessions config': () => envelope({ autoCompact: 'false', notifChannel: 'auto' }),
+  });
+  const row = (id: string) => document.querySelector(`#${id}`)?.closest('div.flex');
+  expect(row('setting-notifChannel')?.textContent).toContain('Default');
+  expect(
+    document.querySelector<HTMLSelectElement>('#setting-notifChannel')?.selectedOptions[0]
+      ?.textContent,
+  ).toBe('Auto');
+  // No value read and no default known: a switch still, marked Default, never a "Not set" select.
+  expect(document.querySelector('#setting-lanternGlow')?.getAttribute('role')).toBe('switch');
+  expect(row('setting-lanternGlow')?.textContent).toContain('Default');
+  expect(row('setting-autoCompact')?.textContent).not.toContain('Default');
+  await click(
+    document.querySelector<HTMLElement>('[aria-label="Reset Auto-compact to default"]') ??
+      undefined,
+  );
+  expect(sent(calls)).toEqual(['/config autoCompact=true']);
 });
 
 test('a free value is sent on Enter', async () => {
@@ -145,8 +194,7 @@ test("another built-in's key=value list gets the same form, with no values to re
     command('c1', '/moorings', 'Usage: /moorings key=value\n  berth=one|two\n  dock=true|false'),
   ]);
   expect(document.querySelector('#setting-berth')).not.toBeNull();
-  // An on-or-off key with no value read offers both, not a switch that reads as off.
-  expect(document.querySelector<HTMLSelectElement>('#setting-dock')?.value).toBe('');
+  expect(document.querySelector('#setting-dock')?.getAttribute('role')).toBe('switch');
   expect(calls.some((c) => c[2] === 'config')).toBe(false);
 });
 

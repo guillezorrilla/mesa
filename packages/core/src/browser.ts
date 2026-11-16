@@ -2,6 +2,13 @@
 // type imports only, so no Node code reaches the webview. The CLI reads the same from @mesa/core.
 
 export {
+  CONFIG_GROUPS,
+  type ConfigGroup,
+  type ConfigSetting,
+  configSetting,
+  readableName,
+} from './agents/claude/config-settings.js';
+export {
   type ContextCategory,
   type ContextReport,
   parseContextReport,

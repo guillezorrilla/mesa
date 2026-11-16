@@ -1,19 +1,13 @@
-import type { ChatMessage, UsageField, UsageForm } from '@mesa/core';
+import type { ChatMessage, UsageForm } from '@mesa/core';
+import { CONFIG_GROUPS, configSetting, readableName } from '@mesa/core/browser';
+import { Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
 import { Input } from '@/components/ui/input';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { Switch } from '@/components/ui/switch';
 import { useCall } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
-
-/** The form's groups, by the kind of value a key takes. */
-const GROUPS: { kind: UsageField['kind']; title: string }[] = [
-  { kind: 'boolean', title: 'On or off' },
-  { kind: 'choice', title: 'Choices' },
-  { kind: 'text', title: 'Values' },
-];
+import { SettingField } from './SettingField';
 
 /**
  * `/config`'s current values from where Claude Code keeps them, read again after each reply;
@@ -41,97 +35,11 @@ function useConfigValues(sessionId: string, form: UsageForm, replies: number) {
 }
 
 /**
- * One key's control: a switch, a select of the agent's values, or a field committed with Enter or
- * on leaving it. A key with no value read shows unset.
- */
-function FieldControl(props: {
-  field: UsageField;
-  value?: string;
-  disabled: boolean;
-  onChange: (value: string) => void;
-}) {
-  const { value } = props;
-  // A switch would read as off: an on-or-off key with no value read is a choice of the two.
-  const field: UsageField =
-    props.field.kind === 'boolean' && value === undefined
-      ? { key: props.field.key, kind: 'choice', choices: ['true', 'false'] }
-      : props.field;
-  const id = `setting-${field.key}`;
-  const label = (
-    <label htmlFor={id} className="min-w-0 flex-1 truncate text-sm" title={field.key}>
-      {field.key}
-    </label>
-  );
-  if (field.kind === 'boolean')
-    return (
-      <div className="flex items-center gap-3 py-1">
-        {label}
-        <Switch
-          id={id}
-          data-card-control
-          checked={value === 'true'}
-          disabled={props.disabled}
-          onCheckedChange={(on) => props.onChange(String(on))}
-        />
-      </div>
-    );
-  if (field.kind === 'choice') {
-    const choices =
-      value && !field.choices.includes(value) ? [value, ...field.choices] : field.choices;
-    return (
-      <div className="flex items-center gap-3 py-1">
-        {label}
-        <div className="w-44 shrink-0">
-          <NativeSelect
-            id={id}
-            data-card-control
-            size="sm"
-            value={value ?? ''}
-            disabled={props.disabled}
-            onChange={(event) => props.onChange(event.target.value)}
-          >
-            {value === undefined && <NativeSelectOption value="">Not set</NativeSelectOption>}
-            {choices.map((one) => (
-              <NativeSelectOption key={one} value={one}>
-                {one}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
-      </div>
-    );
-  }
-  const commit = (input: HTMLInputElement) => {
-    const next = input.value.trim();
-    if (next && next !== (value ?? '')) props.onChange(next);
-  };
-  return (
-    <div className="flex items-center gap-3 py-1">
-      {label}
-      <Input
-        id={id}
-        data-card-control
-        key={value}
-        defaultValue={value}
-        placeholder="Not set"
-        disabled={props.disabled}
-        className="h-8 w-44 shrink-0 text-xs"
-        onKeyDown={(event) => {
-          if (event.key !== 'Enter') return;
-          event.preventDefault();
-          commit(event.currentTarget);
-        }}
-        onBlur={(event) => commit(event.currentTarget)}
-      />
-    </div>
-  );
-}
-
-/**
- * A built-in's `key=value` list as a form (#1218): every key the agent listed, grouped by kind and
- * searchable, each with its current value (`/config`'s from Claude Code's files, through
- * `sessions config`). A change sends `/cmd key=value` to the session; the agent's answer shows
- * under the form, and the values are read again.
+ * A built-in's `key=value` list as a settings list (#1218, #1233): every key the agent listed, by
+ * readable name under its topic, searchable by name, description or key, each with its current
+ * value (`/config`'s from Claude Code's files, through `sessions config`). A change sends
+ * `/cmd key=value` to the session; the agent's answer shows under the list, and the values are read
+ * again. Escape clears the search before it closes the card.
  */
 export function SettingsCard(props: {
   sessionId: string;
@@ -164,40 +72,62 @@ export function SettingsCard(props: {
       setFailure(done.error.message);
     }
   };
-  const shown = form.fields.filter((f) => f.key.toLowerCase().includes(query.trim().toLowerCase()));
+  const words = query.trim().toLowerCase();
+  const rows = form.fields
+    .map((field) => ({ field, setting: configSetting(field.key) }))
+    .filter(({ setting }) =>
+      [setting.name, setting.description, setting.key].some((text) =>
+        text.toLowerCase().includes(words),
+      ),
+    )
+    .sort((a, b) => a.setting.name.localeCompare(b.setting.name));
   return (
-    <div className="flex flex-col gap-3">
-      <Input
-        data-card-control
-        autoFocus={props.autoFocus}
-        aria-label={`Search ${form.command} settings`}
-        placeholder={`Search ${form.fields.length} settings`}
-        className="h-8 text-sm"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-      />
-      <div className="max-h-96 overflow-y-auto pr-1">
-        {GROUPS.map(({ kind, title }) => {
-          const fields = shown.filter((f) => f.kind === kind);
-          if (!fields.length) return null;
+    <div className="flex flex-col gap-2">
+      <div className="relative">
+        <Search
+          aria-hidden
+          className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+        />
+        <Input
+          data-card-control
+          autoFocus={props.autoFocus}
+          aria-label={`Search ${form.command} settings`}
+          placeholder={`Search ${form.fields.length} settings`}
+          className="h-8 pl-8 text-sm"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape' || !query) return;
+            event.preventDefault();
+            setQuery('');
+          }}
+        />
+      </div>
+      <div className="max-h-[26rem] overflow-y-auto pr-1">
+        {CONFIG_GROUPS.map((group) => {
+          const inGroup = rows.filter((row) => row.setting.group === group);
+          if (!inGroup.length) return null;
           return (
-            <div key={kind} className="mb-3">
-              <SectionLabel className="mb-1">{title}</SectionLabel>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-x-8">
-                {fields.map((field) => (
-                  <FieldControl
-                    key={field.key}
-                    field={field}
-                    value={values[field.key]}
-                    disabled={waiting}
-                    onChange={(value) => void change(field.key, value)}
-                  />
-                ))}
-              </div>
-            </div>
+            <section key={group} aria-label={group}>
+              <SectionLabel className="sticky top-0 z-10 bg-card pt-3 pb-1">{group}</SectionLabel>
+              {inGroup.map(({ field, setting }) => (
+                <SettingField
+                  key={field.key}
+                  setting={setting}
+                  field={field}
+                  value={values[field.key]}
+                  disabled={waiting}
+                  onChange={(value) => void change(field.key, value)}
+                />
+              ))}
+            </section>
           );
         })}
-        {!shown.length && <Muted size="xs">No setting matches.</Muted>}
+        {!rows.length && (
+          <Muted size="xs" className="py-3">
+            No setting matches.
+          </Muted>
+        )}
       </div>
       {(failure || waiting || last) && (
         <p
@@ -209,7 +139,7 @@ export function SettingsCard(props: {
         >
           {failure ??
             (waiting
-              ? `Setting ${sent.key} to ${sent.value}`
+              ? `Setting ${configSetting(sent.key).name} to ${readableName(sent.value)}`
               : `${last?.text.slice(form.command.length).trim()}: ${last?.output || 'no reply'}`)}
         </p>
       )}
