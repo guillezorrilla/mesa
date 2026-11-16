@@ -789,7 +789,7 @@ test('a row lists the worktrees a newer session took over, which removing it lea
   expect(second?.managed && second.takenOver).toBeUndefined();
 });
 
-test("Claude's listing runs only when some live Claude session's hook is stale or a wait", async () => {
+test("Claude's listing runs once a minute while every live Claude session has a hook that is not a wait", async () => {
   const store = storeIn();
   const a = store.create(() =>
     inWindow('lantern-cove', '2026-09-24T11:00:00.000Z', 'claude-aaaaaa'),
@@ -804,7 +804,8 @@ test("Claude's listing runs only when some live Claude session's hook is stale o
     [b.id]: hook('Stop', fresh),
   };
   const { run, calls } = scriptedRunner({ claude: JSON.stringify([]) });
-  const clock = fixedClock('2026-09-24T12:00:00.000Z');
+  let now = '2026-09-24T12:00:00.000Z';
+  const clock = () => new Date(now);
   const file = join(tempDir(), 'listing.json');
   const look = () =>
     listSessions({
@@ -826,14 +827,23 @@ test("Claude's listing runs only when some live Claude session's hook is stale o
     { state: 'idle', confidence: 0.95, source: 'hook' },
     { state: 'idle', confidence: 0.95, source: 'hook' },
   ]);
-  // One hook a minute old: the listing runs.
-  logs[b.id] = hook('Stop', '2026-09-24T11:58:59.000Z');
+  // Idle for an hour, as most of a board is: the kept listing still stands, seconds later.
+  logs[a.id] = hook('Stop', '2026-09-24T11:00:00.000Z');
+  logs[b.id] = hook('Stop', '2026-09-24T11:00:00.000Z');
+  now = '2026-09-24T12:00:05.000Z';
+  await look();
+  await look();
+  expect(listings()).toBe(1);
+  // A minute after it was kept: listed again, once.
+  now = '2026-09-24T12:01:00.000Z';
+  await look();
   await look();
   expect(listings()).toBe(2);
-  // One waits on a permission, which a denial ends with no hook: the listing runs.
-  logs[b.id] = hook('PermissionRequest', fresh);
+  // One waits on a permission, which a denial ends with no hook: the listing runs each look.
+  logs[b.id] = hook('PermissionRequest', '2026-09-24T12:00:59.000Z');
   await look();
-  expect(listings()).toBe(3);
+  await look();
+  expect(listings()).toBe(4);
 });
 
 test('a live Claude session whose window died lists, though its hook is fresh', async () => {

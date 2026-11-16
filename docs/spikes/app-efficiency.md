@@ -31,7 +31,7 @@ Sampled for 60 s (quiet period, 6 hook events): 12 board looks (6 from events, 6
 | Quiet (measured) | 12 | about 17 s (28 % of a core) | about 60 |
 | Busy (events faster than the gap: one look per about 1.4 s) | about 43 | about 60 s (one core) | about 215 |
 
-Inside one `sessions --tree --full` (CPU profile of the release build, `NODE_OPTIONS=--cpu-prof`): of about 450 ms on the main thread, about 175 ms is compiling and initialising the bundle, 73 ms scanning the session store, 48 ms parsing `config.yaml` through zod, 42 ms rewriting and fsyncing the pull-request cache (`saveCache`, every look even when nothing changed), 33 ms line counts, 26 ms the automation due check. It also starts 18 children per look (PATH shims): one `tmux list-windows`, one `tmux capture-pane` per live session (14), one `tmux set-hook`, two `git`, plus `claude agents --json` once a minute (which itself starts 25 `ps` and 3 `security`).
+Inside one `sessions --tree --full` (CPU profile of the release build, `NODE_OPTIONS=--cpu-prof`): of about 450 ms on the main thread, about 175 ms is compiling and initialising the bundle, 73 ms scanning the session store, 48 ms parsing `config.yaml` through zod, 42 ms rewriting and fsyncing the pull-request cache (`saveCache`; this look's list had turned 60 s old, so once a minute, not every look), 33 ms line counts, 26 ms the automation due check. It also starts 18 children per look (PATH shims): one `tmux list-windows`, one `tmux capture-pane` per live session (14), one `tmux set-hook`, two `git`, plus `claude agents --json` once a minute (which itself starts 25 `ps` and 3 `security`).
 
 After the Command server (#1227), the same 10 looks of `sessions --tree --full`, `queue list` and `sessions --archived --full` take 7.8 to 9.9 CPU-s (from 16.3), and what remains is mostly children: `claude agents --json --all` ran 20 times in those 10 looks (0.21 CPU-s each, with 24 `ps`, 3 `security` and a `git`). The kept listing (#896) is reused only while every running Claude session has a hook under 60 s old, and on a board of mostly idle sessions none has, so every look lists. Inside the server, the store scan behind `dueToStart` (about 48 ms a look) and `loadConfig` (about 23 ms a call) are the largest repeat reads.
 
@@ -71,7 +71,7 @@ The `mesa-deleted-*` servers are tiny (under 1 MB) but grow by one per test run.
 | 1 | Start-up per app call: 5 spawns a look, 0.85 of 1.4 CPU-s, 130 to 250 MB each | about 60 % of app CPU (10 s a minute quiet, 36 s busy); 60 to 215 process starts a minute | One long-lived `mesa worker` the app starts once and sends each call to over stdio; spawn per call stays the fallback. Amends ADR-0007 (ADR-0030). |
 | 2 | Idle MCP servers: two full copies of core per Claude session | about 1.9 GB now, 104 MB per new session | One MCP endpoint per profile (HTTP on loopback, a per-session token in place of the environment binding, ADR-0011), or failing that a lazy-loading stdio server. |
 | 3 | Hook start-up loads all of core | up to 0.18 CPU-s and 130 MB per hook, 6 to 22 CPU-s a minute | A hook fast path that imports only what `hook claude` needs. |
-| 4 | The Claude listing on every look over idle sessions, and reads repeated though nothing changed | about 0.21 CPU-s and 27 processes a look for the listing; about 120 ms a look for the PR cache fsync and config parse | Reuse the listing for a minute while every running session has a live window; save the PR cache only when it changes. |
+| 4 | The Claude listing on every look over idle sessions | about 0.21 CPU-s and 27 processes a look | Reuse the listing for a minute while every running session has a live window and a hook that is not a wait. |
 | 5 | Leftover tmux servers | small per server; the demo profile's sessions about 1 GB | Tests kill the servers they start; `mesa doctor` lists tmux servers of profiles that no longer exist and `--fix` stops them. |
 
 ## Commands used
@@ -107,3 +107,18 @@ python3 -I bench.py serve node packages/cli/bundle/mesa.mjs
 
 # Hook events a minute, from the profile's event logs (the "at" field, to the minute)
 ```
+
+## Start-up, measured for #1228
+
+Release-style single executables of the same bundle on Node 26.10 (arm64), `/usr/bin/time -l`, three runs each:
+
+| | `mesa --version` | `mesa hook claude` (throwaway `HOME`) |
+| --- | --- | --- |
+| Today's build | 0.16 CPU-s, 126 MB | 0.16 CPU-s, 127 MB |
+| `useCodeCache: true` | 0.13 to 0.14 CPU-s, 119 MB | |
+| Code cache and Defuddle and linkedom loaded on first use | 0.11 to 0.14 CPU-s, 111 MB | 0.11 CPU-s, 111 MB |
+| Bare `node -e 0` | 0.04 CPU-s, 50 MB | |
+
+A code cache made by one arch is rejected by the other (`Warning: Code cache data rejected.` on every start), so each slice is built by its own arch's Node, x64 under Rosetta. What is left above bare Node is core's init (about 60 MB and 60 ms): every command, a hook's included, builds `createMesa`, which imports every service. Halving a hook needs a composition root that loads only what a hook uses.
+
+The board read with the listing kept for a minute over idle sessions, 10 `sessions --tree --full` through one `mesa serve` on the owner's profile: 5.6 CPU-s and 470 child processes (10 `claude agents`) before, 3.1 CPU-s and 210 (no `claude agents`) after.

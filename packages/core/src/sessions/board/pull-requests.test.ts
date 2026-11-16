@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { createContext } from '../../context.js';
 import type { Runner } from '../../lib/process.js';
@@ -199,4 +199,18 @@ test('each write drops projects no longer registered and entries over a day old'
   later(1);
   await withPullRequests(deps, [row('aaaaaaaa', 'tides')]);
   expect(Object.keys(JSON.parse(readFileSync(deps.file, 'utf8')))).toEqual(['lantern-cove']);
+});
+
+test('a look within 60 s of the last list writes nothing; the next list writes again', async () => {
+  const { deps, row, later } = setUp();
+  const rows = [row('aaaaaaaa', 'tides')];
+  await withPullRequests(deps, rows);
+  const past = new Date('2026-01-01T00:00:00.000Z');
+  utimesSync(deps.file, past, past);
+  later(30);
+  await withPullRequests(deps, rows);
+  expect(statSync(deps.file).mtime).toEqual(past);
+  later(31);
+  await withPullRequests(deps, rows);
+  expect(statSync(deps.file).mtime).not.toEqual(past);
 });

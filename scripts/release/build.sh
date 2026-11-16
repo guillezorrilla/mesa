@@ -69,16 +69,25 @@ printf %s "$build_number" >"$work/build"
 # The assets mesa reads inside the executable: the version, the build number, the attributions,
 # the changelog (the release notes), the vault template, the skills.
 for arch in arm64 x64; do
+  # A code cache made by the other arch is rejected, with a warning on every start
+  # (docs/spikes/app-efficiency.md): each slice is built by its own arch's Node, x64 under Rosetta
+  # on Apple silicon (as the smoke check runs it); an Intel Mac cannot run arm64, so that slice
+  # goes without a cache there.
+  builder=release/node/node-v$NODE_VERSION-darwin-$arch/bin/node cache=1
+  case $(uname -m)-$arch in
+  arm64-x64) builder="arch -x86_64 $builder" ;;
+  x86_64-arm64) builder=$node cache=0 ;;
+  esac
   git ls-files skills | "$node" -e '
-    const [work, arch, base] = process.argv.slice(1);
+    const [work, arch, base, cache] = process.argv.slice(1);
     const files = require("node:fs").readFileSync(0, "utf8").trim().split("\n");
     const assets = { version: `${work}/version`, build: `${work}/build`,
       "attributions.json": `${work}/attributions.json`, "CHANGELOG.md": "CHANGELOG.md", "vault-AGENTS.md": "packages/core/templates/vault-AGENTS.md" };
     for (const file of files) assets[file] = file;
     console.log(JSON.stringify({ main: `${work}/mesa.mjs`, mainFormat: "module", output: `${work}/mesa-${arch}`,
-      executable: base, assets, disableExperimentalSEAWarning: true }));
-  ' "$work" "$arch" "release/node/node-v$NODE_VERSION-darwin-$arch/bin/node" >"$work/sea-$arch.json"
-  "$node" --build-sea "$work/sea-$arch.json" >/dev/null
+      executable: base, assets, disableExperimentalSEAWarning: true, useCodeCache: cache === "1" }));
+  ' "$work" "$arch" "release/node/node-v$NODE_VERSION-darwin-$arch/bin/node" "$cache" >"$work/sea-$arch.json"
+  $builder --build-sea "$work/sea-$arch.json" >/dev/null
   codesign --sign - --force "$work/mesa-$arch"
 done
 # externalBin wants one per target: each slice for its arch's compile, the universal one to ship.
@@ -107,8 +116,10 @@ cp "$BUNDLE/dmg/$dmg" "$DIST/"
 mesa="$BUNDLE/macos/Mesa.app/Contents/MacOS/mesa"
 [ "$(lipo -archs "$mesa")" = "x86_64 arm64" ] || { echo "release: $mesa is not universal" >&2; exit 1; }
 for arch in arm64 x86_64; do
-  got=$(arch -"$arch" "$mesa" --version)
+  got=$(arch -"$arch" "$mesa" --version 2>"$work/smoke-$arch.err")
   [ "$got" = "$version" ] || { echo "release: $arch mesa --version says $got, not $version" >&2; exit 1; }
+  # A start must say nothing on stderr: a rejected code cache warns there.
+  [ ! -s "$work/smoke-$arch.err" ] || { echo "release: $arch mesa warned: $(cat "$work/smoke-$arch.err")" >&2; exit 1; }
 done
 echo "release: built Mesa $version (build $build_number) into $DIST"
 
