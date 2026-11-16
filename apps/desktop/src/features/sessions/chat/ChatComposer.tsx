@@ -2,6 +2,7 @@ import type { SessionImage } from '@mesa/core';
 import { ArrowUp, Plus, X } from 'lucide-react';
 import { type RefObject, useLayoutEffect, useRef, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
+import { Kbd } from '@/components/Kbd';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { SlashMenu } from '../slash/SlashMenu';
@@ -22,6 +23,8 @@ export function ChatComposer(props: {
   onPickImage?: () => void;
   onClearImage?: () => void;
   onSend: (prompt: string, form: HTMLFormElement, image?: SessionImage) => void;
+  /** The prompt the agent predicts comes next: dim in the empty field, Tab or Right takes it. */
+  suggestion?: string;
   /** The field, for a card that gives the keys back when it closes. */
   fieldRef?: RefObject<HTMLTextAreaElement | null>;
 }) {
@@ -38,6 +41,7 @@ export function ChatComposer(props: {
     view.style.height = `${view.scrollHeight}px`;
   }, [text]);
   const image = props.image?.session === props.sessionId ? props.image : undefined;
+  const ghost = !text && !props.answerAbove ? props.suggestion : undefined;
   const submit = (form: HTMLFormElement) => {
     const prompt = String(new FormData(form).get('prompt') ?? '');
     if (!props.acting && !props.answerAbove && (prompt.trim() || image)) {
@@ -82,7 +86,8 @@ export function ChatComposer(props: {
           ref={field}
           name="prompt"
           aria-label={`Message ${props.sessionId}`}
-          placeholder={props.answerAbove ? 'Answer above' : 'Type / for commands'}
+          placeholder={props.answerAbove ? 'Answer above' : (ghost ?? 'Type / for commands')}
+          aria-description={ghost ? 'Suggested prompt: Tab or Right arrow takes it' : undefined}
           disabled={props.answerAbove}
           rows={1}
           autoFocus
@@ -91,11 +96,17 @@ export function ChatComposer(props: {
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {
             if (slash.onKeyDown(event)) return;
+            if (ghost && (event.key === 'Tab' || event.key === 'ArrowRight') && !event.shiftKey) {
+              event.preventDefault();
+              setText(ghost);
+              return;
+            }
             if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
             event.preventDefault();
             if (event.currentTarget.form) submit(event.currentTarget.form);
           }}
         />
+        {ghost && <Kbd className="mb-2 shrink-0">Tab</Kbd>}
         <Button
           type="submit"
           size="icon-sm"

@@ -162,6 +162,8 @@ describe('startClaudeRunner', () => {
       '--include-partial-messages',
       '--permission-prompt-tool',
       'stdio',
+      '--prompt-suggestions',
+      'true',
     ]);
     expect(
       claudeStreamArgs({
@@ -169,7 +171,7 @@ describe('startClaudeRunner', () => {
         model: 'haiku',
         effort: 'high',
         permissionMode: 'plan',
-      }).slice(9),
+      }).slice(11),
     ).toEqual([
       '--resume',
       'sid',

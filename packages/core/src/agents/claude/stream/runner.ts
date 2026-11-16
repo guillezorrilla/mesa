@@ -45,6 +45,9 @@ export function claudeStreamArgs(options: Omit<ClaudeStartOptions, 'cwd'>): stri
     '--include-partial-messages',
     '--permission-prompt-tool',
     'stdio',
+    // A predicted next prompt after each turn, as the TUI shows one (spike section 7).
+    '--prompt-suggestions',
+    'true',
     ...(options.resume ? ['--resume', options.resume] : []),
     ...(options.sessionId && !options.resume ? ['--session-id', options.sessionId] : []),
     ...(options.model ? ['--model', options.model] : []),

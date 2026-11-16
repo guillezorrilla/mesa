@@ -71,6 +71,8 @@ export type StreamEvent =
       /** What claude answered (`set_model`'s `model`, `set_permission_mode`'s `mode`). */
       response: Record<string, unknown>;
     }
+  /** The prompt Claude predicts the person sends next, after a turn (`--prompt-suggestions`). */
+  | { type: 'suggestion'; text: string }
   | { type: 'compact_boundary'; trigger: string | undefined; preTokens: number | undefined }
   /** A `system` event other than init and compact_boundary, by its subtype. */
   | { type: 'system'; subtype: string }
@@ -190,6 +192,8 @@ function fromObject(d: Obj, line: string): StreamEvent {
       };
     case 'user':
       return { type: 'user', content: blocks(d.message), sidechain: sidechain(d) };
+    case 'prompt_suggestion':
+      return typeof d.suggestion === 'string' ? { type: 'suggestion', text: d.suggestion } : other;
     case 'result':
       return {
         type: 'result',

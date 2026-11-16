@@ -6,13 +6,20 @@ import type { SentPrompt } from '../selected/useSessionPrompt';
 import { CHAT_PAGE, type ChatRead, transcriptHolds } from './useChat';
 
 /**
- * `chat` after one line of `mesa chat --follow`: the whole chat, or one item new (added) or
- * changed (replaced where it is, so a reply grows in place).
+ * `chat` after one line of `mesa chat --follow`: the whole chat, one item new (added) or changed
+ * (replaced where it is, so a reply grows in place), or the agent's prompt suggestion.
  */
-export function followed(chat: SessionChat | undefined, line: ChatFollowLine) {
+export function followed(
+  chat: SessionChat | undefined,
+  line: ChatFollowLine,
+): SessionChat | undefined {
   if (line.type === 'chat') {
     const { type: _, ...whole } = line;
     return whole;
+  }
+  if (line.type === 'suggestion' && chat) {
+    const { suggestion: _old, ...rest } = chat;
+    return line.text ? { ...rest, suggestion: line.text } : rest;
   }
   if (line.type !== 'item' || !chat) return chat;
   const at = chat.messages.findIndex((item) => item.id === line.item.id);

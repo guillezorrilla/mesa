@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RECORDED_CLAUDE_STREAM, RECORDED_CODEX_STREAM } from '../../testing/index.js';
-import { journalItems } from './live-chat.js';
+import { journalItems, journalSuggestion } from './live-chat.js';
 
 const AT = '2026-11-15T10:00:00.000Z';
 /** A host's journal: the prompt sent, then each line its agent printed. */
@@ -57,5 +57,25 @@ describe('journalItems', () => {
       ['command', '/effort high'],
     ]);
     expect(items.at(-1)).toMatchObject({ output: 'Set effort level to high (this session only)' });
+  });
+});
+
+describe('journalSuggestion', () => {
+  // As claude 2.1.325 prints one with --prompt-suggestions (spike section 7).
+  const suggest = (text: string) =>
+    JSON.stringify({ type: 'prompt_suggestion', suggestion: text, session_id: 's' });
+  const sent = (text: string) => JSON.stringify({ at: AT, sent: { type: 'user', text } });
+
+  it('is the newest suggestion since the last message sent, and none once another is sent', () => {
+    const lines = journal([suggest('chart the tide'), suggest('chart the reef')]);
+    expect(journalSuggestion(lines, 'claude')).toBe('chart the reef');
+    expect(journalSuggestion([...lines, sent('light the lantern')], 'claude')).toBeUndefined();
+    expect(journalSuggestion(journal(RECORDED_CLAUDE_STREAM), 'claude')).toBeUndefined();
+  });
+
+  it('is none once a turn starts, a resumed one too, and none for Codex', () => {
+    const init = JSON.stringify({ type: 'system', subtype: 'init', session_id: 's' });
+    expect(journalSuggestion(journal([suggest('chart the reef'), init]), 'claude')).toBeUndefined();
+    expect(journalSuggestion(journal([suggest('chart the reef')]), 'codex')).toBeUndefined();
   });
 });

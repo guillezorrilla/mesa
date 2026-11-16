@@ -8,7 +8,9 @@ import {
   fakeFollows,
   fakePlatform,
   fakeSessionEvents,
+  fill,
   managedRow,
+  press,
   renderWithMesa,
 } from '@/lib/testing';
 import { ChatPanel } from './ChatPanel';
@@ -36,6 +38,9 @@ test('a followed line replaces the chat, adds a new item, and changes one in pla
   });
   expect(grown?.messages.map((m) => ('text' in m ? m.text : ''))).toEqual(['go', 'Hello']);
   expect(followed(grown, { type: 'end' })).toBe(grown);
+  const suggested = followed(grown, { type: 'suggestion', text: 'chart the reef' });
+  expect(suggested?.suggestion).toBe('chart the reef');
+  expect(followed(suggested, { type: 'suggestion', text: null })).not.toHaveProperty('suggestion');
 });
 
 test("a Structured session's chat reads its live stream: no chat call, the reply grows in place, closed on leaving", async () => {
@@ -91,4 +96,36 @@ test('a follow that ended, its host stopped, opens again on the next session cha
   await act(async () => follows.exit());
   await act(async () => events.push());
   expect(opens()).toBe(2);
+});
+
+test("the agent's prompt suggestion shows dim in the empty composer; Tab or Right takes it, typing replaces it", async () => {
+  const follows = fakeFollows();
+  const { bridge } = fakeBridge({
+    'sessions controls': () =>
+      envelope({ session: 'dddddddd', agent: 'claude', models: [], efforts: [], modes: [] }),
+  });
+  await renderWithMesa(
+    <ChatPanel sessionId="dddddddd" row={structured} acting={false} onSend={() => {}} />,
+    bridge,
+    fakePlatform({ follow: follows.host }),
+  );
+  await act(async () => {
+    follows.push({ type: 'chat', messages: [said('agent', 'Charted.')], count: 1, more: false });
+    follows.push({ type: 'suggestion', text: 'chart the reef too' });
+  });
+  const field = () =>
+    document.querySelector<HTMLTextAreaElement>('[aria-label="Message dddddddd"]') ?? undefined;
+  expect(field()?.placeholder).toBe('chart the reef too');
+  await press(field(), 'Tab');
+  expect(field()?.value).toBe('chart the reef too');
+  await fill(field(), '');
+  await press(field(), 'ArrowRight');
+  expect(field()?.value).toBe('chart the reef too');
+  await fill(field(), 'light the lantern');
+  await press(field(), 'Tab');
+  expect(field()?.value).toBe('light the lantern');
+  // Sent, the suggestion is gone.
+  await fill(field(), '');
+  await act(async () => follows.push({ type: 'suggestion', text: null }));
+  expect(field()?.placeholder).toBe('Type / for commands');
 });

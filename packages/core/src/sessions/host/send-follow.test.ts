@@ -103,6 +103,43 @@ describe('mesa chat --follow', () => {
     expect(lines.at(-1)).toEqual({ type: 'end' });
   });
 
+  it("prints the agent's prompt suggestion, and null once a message is sent", async () => {
+    const turn = (text: string) => [
+      { type: 'result', subtype: 'success', is_error: false, result: text, session_id: 's' },
+      { type: 'prompt_suggestion', suggestion: `after ${text}`, session_id: 's' },
+    ];
+    const w = await hostedSession(undefined, (m) =>
+      (m.message as { content?: unknown } | undefined)?.content === 'chart the tide'
+        ? turn('tide')
+        : [],
+    );
+    const lines: ChatFollowLine[] = [];
+    let reading = true;
+    const following = w.mesa.sessions.chatFollow(
+      w.record.id,
+      (line) => lines.push(line),
+      () => reading,
+    );
+    const suggestions = () => lines.filter((l) => l.type === 'suggestion');
+    const until = async (ok: () => boolean) => {
+      for (let i = 0; i < 200 && !ok(); i++) await new Promise((r) => setTimeout(r, 10));
+    };
+    await until(() => lines.length > 0);
+    await w.mesa.sessions.send(w.record.id, 'chart the tide', { noFrom: true });
+    await until(() => suggestions().length > 0);
+    expect(w.mesa.sessions.chat(w.record.id).suggestion).toBe('after tide');
+    await w.mesa.sessions.send(w.record.id, 'light the lantern', { noFrom: true });
+    await until(() => suggestions().length > 1);
+    reading = false;
+    await following;
+    w.host.stop();
+    await w.host.done;
+    expect(suggestions()).toEqual([
+      { type: 'suggestion', text: 'after tide' },
+      { type: 'suggestion', text: null },
+    ]);
+  });
+
   it('ends when the window runs no host', async () => {
     const w = await hostedSession();
     w.host.stop();
