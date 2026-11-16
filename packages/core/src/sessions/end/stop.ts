@@ -24,7 +24,7 @@ export type StopOutcome = 'exited' | 'killed' | 'gone' | 'cancelled' | 'already-
 
 export type StopDeps = {
   store: SessionStore;
-  tmux: Pick<TmuxBackend, 'findWindow' | 'pressKey' | 'sendText' | 'killWindow'>;
+  tmux: Pick<TmuxBackend, 'findWindow' | 'pressKey' | 'sendText' | 'killWindow' | 'endPane'>;
   clock: Clock;
   sleep: (ms: number) => Promise<void>;
   run: Runner;
@@ -63,7 +63,11 @@ export async function stopSession(
 export async function quitAgent(
   deps: StopDeps,
   found: SessionRecord,
-  { force = false } = {},
+  {
+    force = false,
+    /** The window stays, its pane dead, for the next process (a view switch, switch-view.ts). */
+    keepWindow = false,
+  } = {},
 ): Promise<Exclude<StopOutcome, 'cancelled' | 'already-ended'>> {
   const target = windowOf(found);
   const pane = () => deps.tmux.findWindow(target);
@@ -76,6 +80,13 @@ export async function quitAgent(
   if (!first) return 'gone';
   if (!force && !first.dead && found.agent !== 'terminal')
     await askToQuit(deps, target, AGENTS[found.agent], pane);
+  if (keepWindow) {
+    // Forced, its process was asked another way (a host's stop): it has the wait to go.
+    if (force) await untilDead(deps, pane);
+    const left = await pane();
+    if (left && !left.dead) await deps.tmux.endPane(target);
+    return !left || left.dead ? 'exited' : 'killed';
+  }
   const last = await pane();
   // A pane that exited stays, dead, under remain-on-exit; the window goes either way.
   if (last) await killIfThere(deps.tmux, target);
@@ -103,6 +114,14 @@ async function askToQuit(
     if (error instanceof MesaError && error.code === 'agent_unavailable') return;
     throw error;
   }
+  await untilDead(deps, pane);
+}
+
+/** Up to POLITE_WAIT_MS for the pane to die or vanish. */
+async function untilDead(
+  deps: Pick<StopDeps, 'sleep'>,
+  pane: () => Promise<{ dead: boolean } | undefined>,
+) {
   for (let waited = 0; waited < POLITE_WAIT_MS; waited += POLL_MS) {
     const now = await pane();
     if (!now || now.dead) return;

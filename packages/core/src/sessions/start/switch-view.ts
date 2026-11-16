@@ -100,9 +100,10 @@ export async function switchView(
       await askHost(socket, { type: 'stop' });
     }
     // A Terminal agent gets Escape (its interrupt) and /exit; a host that stopped is a dead pane.
-    await quitAgent(deps, found, { force: found.view === 'structured' });
-    // shortcut: Codex lists no processes, so its stop is the window's: quitAgent kills it, and
-    // codex (the TUI, or the host's app-server child) goes with it.
+    // The window stays: a view the app has attached to it would otherwise fall to a sibling.
+    await quitAgent(deps, found, { force: found.view === 'structured', keepWindow: true });
+    // shortcut: Codex lists no processes, so its stop is the pane's: quitAgent ends what runs
+    // there, and codex (the TUI, or the host's app-server child) goes with it.
     for (let waited = 0; agent === 'claude'; waited += POLL_MS) {
       const running = await runningConversation(deps, sessionId);
       if (!running) break;
@@ -129,6 +130,7 @@ export async function switchView(
     }));
     const started = await startSession(deps, record, project, {
       command: (r, deny) => resumeCommand(deps, found, r.id, folder, deny),
+      inPlace: true,
     });
     return { ...started, record: release(), switched: true };
   } catch (error) {

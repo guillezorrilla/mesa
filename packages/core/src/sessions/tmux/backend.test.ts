@@ -392,6 +392,43 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     await tmux.killWindow(b);
   }, 30_000);
 
+  test('a pane ended and respawned keeps its window, so a view attached to it stays on it', async () => {
+    const [a, b] = [lantern('claude-resp1'), lantern('claude-resp2')];
+    await open(a, 'cat');
+    await open(b, 'cat');
+    // The app's terminal: a view grouped with the project, on b (attachArgv).
+    await raw(
+      'new-session',
+      '-d',
+      '-t',
+      '=lantern',
+      '-s',
+      '_view-r1',
+      ';',
+      'select-window',
+      '-t',
+      '=_view-r1:=claude-resp2',
+    );
+    const shown = () => raw('display-message', '-p', '-t', '=_view-r1:', '#{window_name}');
+    expect(await shown()).toBe(b.window);
+    await tmux.endPane(b);
+    expect(await tmux.findWindow(b)).toMatchObject({ dead: true });
+    await tmux.respawnWindow({
+      ...b,
+      cwd,
+      command: "sh -c 'echo again in place; exec cat'",
+      env: {},
+    });
+    expect(await eventually(() => tmux.capturePane(b, 5), /again in place/)).toContain(
+      'again in place',
+    );
+    // A new window under b's name would have left the view on a, its sibling.
+    expect(await shown()).toBe(b.window);
+    await raw('kill-session', '-t', '=_view-r1');
+    await tmux.killWindow(a);
+    await tmux.killWindow(b);
+  }, 30_000);
+
   test('openView lays windows out side by side, a terminal on each; a layout tmux lacks is usage', async () => {
     const [a, b] = [lantern('claude-view01'), lantern('claude-view02')];
     await open(a, 'cat');
