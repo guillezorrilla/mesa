@@ -133,6 +133,24 @@ describe('mergeChat', () => {
     expect(mergeChat(history, live).map((i) => i.id)).toEqual(['h1', 'h2', 'h3', 's3']);
   });
 
+  it('shows a command run twice in a row twice, once the transcript has both', () => {
+    const command = (id: string): ChatItem => ({ id, at: null, text: '/config', from: 'command' });
+    const history = [msg('you', 'go', 'h1'), command('h2'), command('h3')];
+    const live = [command('s1'), command('s2')];
+    expect(mergeChat(history, live).map((i) => i.id)).toEqual(['h1', 'h2', 'h3']);
+  });
+
+  it('lines the stream up with the end of a transcript that repeats it', () => {
+    const history = [
+      msg('you', 'a', 'h1'),
+      msg('agent', 'b', 'h2'),
+      msg('you', 'a', 'h3'),
+      msg('agent', 'b', 'h4'),
+    ];
+    const live = [msg('you', 'a', 's1'), msg('agent', 'b', 's2'), msg('you', 'c', 's3')];
+    expect(mergeChat(history, live).map((i) => i.id)).toEqual(['h1', 'h2', 'h3', 'h4', 's3']);
+  });
+
   it('keeps live items the transcript has not reached', () => {
     const history = [msg('you', 'a', 'h1'), msg('agent', 'b', 'h2')];
     expect(mergeChat(history, [msg('you', 'c', 's1')]).map((i) => i.text)).toEqual(['a', 'b', 'c']);

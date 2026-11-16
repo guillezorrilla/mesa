@@ -1,3 +1,4 @@
+import { claudeConfigValues } from '../../agents/claude/config-values.js';
 import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
 import type { Guarded, Overrides } from '../../decisions/guardrail.js';
@@ -202,6 +203,9 @@ export function inputActions(
      * a Structured session's with its journal merged in, so a reply shows as it streams (liveChat).
      */
     chat: (id: string, count?: number) => liveChat(liveChatDeps, id, count),
+    /** The current value of each of `keys` (Claude Code's own /config list) for a session's folder. */
+    config: (id: string, keys: readonly string[]) =>
+      claudeConfigValues(keys, liveChatDeps.folder(store.get(id)), ctx.env, ctx.home),
     /** The chat now, then each item as it changes, until `open` turns false or its host ends. */
     chatFollow: (
       id: string,

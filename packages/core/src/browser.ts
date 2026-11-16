@@ -1,6 +1,11 @@
 // What the app may bundle from core besides its types (`@mesa/core/browser`): pure modules with
 // type imports only, so no Node code reaches the webview. The CLI reads the same from @mesa/core.
 
+export {
+  parseUsageForm,
+  type UsageField,
+  type UsageForm,
+} from './agents/claude/usage-form.js';
 export { CODEX_REVIEW_TITLE, HOOKS_UPDATE_DETAIL } from './agents/hooks-update.js';
 export {
   AGENT_CAPABILITIES,

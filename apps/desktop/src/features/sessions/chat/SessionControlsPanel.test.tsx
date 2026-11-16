@@ -18,14 +18,15 @@ const controls: SessionControls = {
 };
 const button = (label: string) =>
   document.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`) ?? undefined;
-/** Opens a Radix menu the way a pointer does, then picks the item that reads `text`. */
+/** Opens a Radix menu or popover the way a pointer does, then picks the item that reads `text`. */
 async function pick(trigger: HTMLElement | undefined, text: string) {
   await act(async () => {
     trigger?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+    trigger?.click();
   });
-  const item = [...document.querySelectorAll<HTMLElement>('[role="menuitemcheckbox"]')].find(
-    (i) => i.textContent === text,
-  );
+  const item = [
+    ...document.querySelectorAll<HTMLElement>('[role="menuitemcheckbox"], [role="option"]'),
+  ].find((i) => i.textContent === text);
   await act(async () => item?.click());
 }
 
