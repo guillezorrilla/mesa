@@ -2,7 +2,8 @@
 
 /**
  * With `mouse on`, a drag selects in tmux's copy mode; ending it pipes the text to pbcopy, so a
- * copy reaches the pasteboard in every client, Terminal.app too (it ignores OSC 52).
+ * copy reaches the pasteboard in every client, Terminal.app too (it ignores OSC 52). pbcopy gets a
+ * UTF-8 locale: the server inherits the app's empty one, where pbcopy reads bytes as Mac Roman.
  */
 export const COPY_BINDINGS = ['copy-mode', 'copy-mode-vi'].flatMap((table) => [
   ';',
@@ -13,7 +14,7 @@ export const COPY_BINDINGS = ['copy-mode', 'copy-mode-vi'].flatMap((table) => [
   'send-keys',
   '-X',
   'copy-pipe-and-cancel',
-  'pbcopy',
+  'LC_ALL=en_US.UTF-8 pbcopy',
 ]);
 
 /** The view-session option a terminal sets for how many lines one wheel report scrolls. */
