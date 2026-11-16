@@ -163,8 +163,9 @@ export async function followChat(
       if (suggestion !== suggested) emit({ type: 'suggestion', text: suggestion });
       suggested = suggestion;
       const prompt = journalPrompt(lines, id, record.agent) ?? null;
-      if (JSON.stringify(prompt) !== asked) emit({ type: 'prompt', prompt });
-      asked = JSON.stringify(prompt);
+      const waiting = JSON.stringify(prompt);
+      if (waiting !== asked) emit({ type: 'prompt', prompt });
+      asked = waiting;
     }
     pinged += FOLLOW_MS;
     if (pinged < PING_MS) continue;

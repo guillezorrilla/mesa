@@ -183,3 +183,33 @@ test('the prompt the agent waits on comes on the stream: no prompt call, the pre
   await act(async () => follows.push({ type: 'prompt', prompt: null }));
   expect(card()).toBeNull();
 });
+
+test('a follow that ends takes its prompt card with it: nothing is left to answer', async () => {
+  const follows = fakeFollows();
+  const { bridge } = fakeBridge({
+    'sessions controls': () =>
+      envelope({ session: 'dddddddd', agent: 'claude', models: [], efforts: [], modes: [] }),
+  });
+  await renderWithMesa(
+    <ChatPanel sessionId="dddddddd" row={structured} acting={false} onSend={() => {}} />,
+    bridge,
+    fakePlatform({ follow: follows.host }),
+  );
+  const prompt = {
+    status: 'pending',
+    session: 'dddddddd',
+    id: 'req-q',
+    kind: 'question',
+    tool: 'AskUserQuestion',
+    summary: 'Tea or coffee?',
+    options: [{ id: '1', label: 'Tea' }],
+    freeText: true,
+  };
+  await act(async () => {
+    follows.push({ type: 'chat', messages: [], count: 0, more: false });
+    follows.push({ type: 'prompt', prompt });
+  });
+  expect(document.querySelector('[data-testid="session-prompt"]')).not.toBeNull();
+  await act(async () => follows.exit());
+  expect(document.querySelector('[data-testid="session-prompt"]')).toBeNull();
+});

@@ -65,7 +65,9 @@ export function SessionControlsPanel(props: { row: ManagedRow; items?: number })
     props.items,
   );
   const [modelOpen, setModelOpen] = useState(false);
+  const [checking, setChecking] = useState(false);
   if (!controls) return null;
+  const modelBusy = Boolean(pending && pending.mode === undefined);
   const { model, effort, mode } = controls;
   const usage = controls.usage ? parsePlanUsage(controls.usage) : undefined;
   return (
@@ -84,7 +86,7 @@ export function SessionControlsPanel(props: { row: ManagedRow; items?: number })
             variant="ghost"
             size="sm"
             aria-label="Model and effort"
-            aria-busy={Boolean(pending && pending.mode === undefined)}
+            aria-busy={modelBusy}
             className="h-7 gap-1 px-2 text-xs"
           >
             <span>{model ? modelLabel(model) : 'Model'}</span>
@@ -93,7 +95,7 @@ export function SessionControlsPanel(props: { row: ManagedRow; items?: number })
                 {controls.effortQueued ? `${controls.effortQueued}, after this turn` : effort}
               </span>
             )}
-            <TriggerMark busy={Boolean(pending && pending.mode === undefined)} />
+            <TriggerMark busy={modelBusy} />
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-56 p-1">
@@ -143,7 +145,19 @@ export function SessionControlsPanel(props: { row: ManagedRow; items?: number })
                 {controls.usage ?? 'No usage read yet in this session.'}
               </p>
             )}
-            <Button size="sm" variant="outline" className="mt-2" onClick={checkUsage}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-2"
+              disabled={checking}
+              onClick={() => {
+                setChecking(true);
+                void checkUsage().finally(() => setChecking(false));
+              }}
+            >
+              {checking && (
+                <Loader2 aria-hidden className="animate-spin motion-reduce:animate-none" />
+              )}
               Check usage
             </Button>
           </PopoverContent>

@@ -32,8 +32,9 @@ export function followed(
 
 /**
  * A Structured session's chat on its host's live stream (ADR-0029): one follow (Rust `follow_*`)
- * while the chat is open, the prompt its agent waits on included, read again further back on `older`, closed when it closes. No CLI call
- * per refresh: the stream says what changed. A follow that ended (its host stopped, a resume
+ * while the chat is open, the prompt its agent waits on included (none once the follow ends),
+ * read again further back on `older`, closed when it closes. No CLI call per refresh: the stream
+ * says what changed. A follow that ended (its host stopped, a resume
  * coming) opens again on the session's next change.
  */
 export function useFollowedChat(sessionId: string, sent?: SentPrompt): ChatRead {
@@ -43,12 +44,9 @@ export function useFollowedChat(sessionId: string, sent?: SentPrompt): ChatRead 
   const [opening, setOpening] = useState(0);
   const ended = useRef(false);
   const [state, setState] = useState<{ count: number; chat?: SessionChat }>({ count });
-  /** The prompt the agent waits on, as the stream last said; none before it says. */
-  const [prompt, setPrompt] = useState<PendingPrompt | null>(null);
+  /** The prompt the agent waits on, as this session's stream last said; none before it says. */
+  const [asked, setAsked] = useState<{ session: string; prompt: PendingPrompt | null }>();
   const [error, setError] = useState<string>();
-  // Another session's prompt never shows here; its own follow says again what waits.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: it resets on a new session only.
-  useEffect(() => setPrompt(null), [sessionId]);
   useSessionEvents(() => {
     if (ended.current) setOpening((n) => n + 1);
   });
@@ -64,7 +62,12 @@ export function useFollowedChat(sessionId: string, sent?: SentPrompt): ChatRead 
         stops.push(
           await follow.onLine(id, (text) => {
             const line = JSON.parse(text) as ChatFollowLine;
-            if (line.type === 'prompt') return setPrompt(line.prompt);
+            // A follow that ended (its host gone) leaves nothing waiting on an answer.
+            if (line.type === 'prompt' || line.type === 'end')
+              return setAsked({
+                session: sessionId,
+                prompt: line.type === 'end' ? null : line.prompt,
+              });
             setState((last) => ({
               count,
               chat: followed(last.count === count ? last.chat : undefined, line) ?? last.chat,
@@ -72,6 +75,7 @@ export function useFollowedChat(sessionId: string, sent?: SentPrompt): ChatRead 
           }),
           await follow.onExit(id, () => {
             ended.current = true;
+            setAsked({ session: sessionId, prompt: null });
           }),
         );
         if (!active) {
@@ -99,7 +103,7 @@ export function useFollowedChat(sessionId: string, sent?: SentPrompt): ChatRead 
     error: error === undefined ? undefined : { code: 'internal', message: error },
     sending:
       sent?.id === sessionId && chat && !transcriptHolds(chat.messages, sent) ? sent : undefined,
-    prompt,
+    prompt: asked?.session === sessionId ? asked.prompt : null,
     loadingOlder: state.count !== count,
     older: () => {
       if (chat?.more) setCount((shown) => shown + CHAT_PAGE);
