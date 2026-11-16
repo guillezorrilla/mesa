@@ -8,7 +8,7 @@ import type { DefuddleOptions } from 'defuddle/node';
  * Defuddle and linkedom, loaded on first use: at module load they cost every mesa start, a hook's
  * included, about 20 ms (docs/spikes/app-efficiency.md).
  */
-export const converter = async () => {
+export const loadDefuddle = async () => {
   const [{ Defuddle }, { parseHTML }] = await Promise.all([
     import('defuddle/node'),
     import('linkedom'),
@@ -16,7 +16,7 @@ export const converter = async () => {
   return { Defuddle, parseHTML };
 };
 
-type Page = ReturnType<Awaited<ReturnType<typeof converter>>['parseHTML']>['document'];
+type Page = ReturnType<Awaited<ReturnType<typeof loadDefuddle>>['parseHTML']>['document'];
 
 /** Every part of the HTML kept: Defuddle's clean-up off, only its code and heading standardizing on. */
 const FAITHFUL: DefuddleOptions = {
@@ -43,7 +43,7 @@ function keepTaskBoxes(page: Page) {
 /** `html` as Markdown, all of it, its relative links made absolute against `url`. */
 export async function htmlToMarkdown(html: string, url: string): Promise<string> {
   if (!html.trim()) return '';
-  const { Defuddle, parseHTML } = await converter();
+  const { Defuddle, parseHTML } = await loadDefuddle();
   const page = parseHTML(`<!doctype html><html><head></head><body>${html}</body></html>`).document;
   keepTaskBoxes(page);
   const { content } = await Defuddle(page, url, FAITHFUL);
