@@ -95,8 +95,6 @@ export async function resumeSession(
       name: old.name,
       agentName: old.agentName,
       adopted: old.adopted,
-      vaultMounted: old.vaultMounted,
-      decisionsMounted: old.decisionsMounted,
       from: old.from,
       // Still a review of the PR, but Post now was the yes for that run only: back to drafts.
       ...(old.review ? { review: carriedReview(old.review) } : {}),
@@ -135,11 +133,11 @@ export async function resumeSession(
  * or a wake's same one), from its folder, with `deny` (a review's rules).
  */
 export function resumeCommand(
-  deps: Pick<LaunchDeps, 'profile' | 'mounts'>,
+  deps: Pick<LaunchDeps, 'profile'>,
   old: SessionRecord,
   id: string,
   folder: string,
-  deny: Parameters<(typeof AGENTS)['claude']['resume']>[6],
+  deny: Parameters<(typeof AGENTS)['claude']['resume']>[5],
 ) {
   const agentId = old.backgroundId ?? old.agentSessionId;
   if (old.agent === 'terminal' || !agentId)
@@ -158,7 +156,6 @@ export function resumeCommand(
   return AGENTS[old.agent].resume(
     agentId,
     folder,
-    deps.mounts,
     own,
     old.mode,
     additionalDirs(old),

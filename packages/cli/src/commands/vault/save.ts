@@ -30,7 +30,10 @@ export const vaultSaveDecision = defineCommand({
   summary:
     'Save a decision and its rationale in wiki/decisions/, with one decision receipt; the same save again adds nothing',
   flags: {
-    project: { type: 'string', required: true, description: 'The registered project it is for' },
+    project: {
+      type: 'string',
+      description: "The registered project it is for (default: the Mesa session's it runs in)",
+    },
     title: {
       type: 'string',
       required: true,
@@ -52,7 +55,7 @@ export const vaultSaveDecision = defineCommand({
   run: async ({ mesa, flags }) =>
     savedOutput(
       await mesa.vault.saveDecision({
-        project: flags.project,
+        ...(flags.project === undefined ? {} : { project: flags.project }),
         session: flags.session,
         title: flags.title,
         decision: flags.decision,
@@ -99,7 +102,10 @@ export const vaultSaveSummary = defineCommand({
   summary:
     "Save a session's summary as wiki/sessions/<id>.md, with one vault-change receipt when it changed",
   flags: {
-    session: { type: 'string', required: true, description: 'The Mesa session it summarises' },
+    session: {
+      type: 'string',
+      description: 'The Mesa session it summarises (default: the Mesa window this runs in)',
+    },
     ...textFlags('summary'),
   },
   example: 'mesa vault save summary --session a1b2c3d4 --file summary.md',

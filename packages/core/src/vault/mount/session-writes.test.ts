@@ -150,9 +150,9 @@ test("a save inside a Mesa window is the Caller's when on its project, and the C
   await inWindow.vault.saveDecision(tide);
   expect(w.receipts()[0]?.receipt).toMatchObject({ session: w.session, actor: w.session });
   const note = await inWindow.vault.saveNote({ title: 'Loose end', body: 'Check the tide API.' });
-  // With no project, a note is the person's own: the Caller only acts.
-  expect(w.receipts()[0]?.receipt).toMatchObject({ actor: w.session });
-  expect(w.receipts()[0]?.receipt.session).toBeUndefined();
+  // With no project or session given, a note from a session's window is that session's own, as
+  // its mesa-vault tool's was (ADR-0031).
+  expect(w.receipts()[0]?.receipt).toMatchObject({ session: w.session, actor: w.session });
   expect(note.result.path).toBe('wiki/notes/loose-end.md');
   expect((await rejected(w.mesa().vault.saveDecision({ ...tide, project: 'nowhere' }))).code).toBe(
     'not_found',

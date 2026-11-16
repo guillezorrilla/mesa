@@ -19,6 +19,14 @@ test('evaluate, advise and context answer a session alike, in JSON and in words'
     site: 'next-step',
     evaluation: { status: 'accepted', answer: 'add-retry', model: 'jev-1.13.0' },
   });
+  // Asked from the session's own window, as the mesa skill has its agent ask: show observes it.
+  const inWindow = cli.env;
+  cli.env = {};
+  expect((await cli.mesa('show', id, '--json')).json.data.decisions.tool).toMatchObject({
+    state: 'configured',
+    observedAt: '2026-09-24T12:00:00.000Z',
+  });
+  cli.env = inWindow;
   cli.stdin = JSON.stringify({ candidates: NEXT_STEP_REQUEST.candidates });
   const advised = await cli.mesa('decisions', 'advise', 'next-step', '--json');
   expect(normalAnswer(advised.json.data)).toEqual(normalAnswer(evaluated.json.data));

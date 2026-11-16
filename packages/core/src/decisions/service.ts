@@ -29,8 +29,8 @@ import { ACCEPT_AT } from './sites.js';
 import type { Decision } from './types.js';
 
 // Decision assistance for sessions (ADR-0019, CONTEXT.md Decision assistance): scoped context and
-// advice for one live session, through `mesa decisions evaluate|context|advise`, the
-// decision_evaluate tool, and the app's session details. Routine calls keep nothing but the
+// advice for one live session, through `mesa decisions evaluate|context|advise` (which a session's
+// agent calls through the mesa skill), and the app's session details. Routine calls keep nothing but the
 // session's bounded use; only an explicit decision with a rationale writes a receipt.
 
 export type EvaluateOptions = {
@@ -174,8 +174,14 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
 
   return {
     /** A decision request answered for the session (DecisionRequestSchema). */
-    evaluate: async (raw: unknown, { session, ...options }: EvaluateOptions = {}) =>
-      answer(bound(session), raw, options),
+    evaluate: async (raw: unknown, { session, ...options }: EvaluateOptions = {}) => {
+      const asking = bound(session);
+      const answered = await answer(asking, raw, options);
+      // From the session's own window, with a model to ask: its agent asked, as the mesa skill
+      // teaches (ADR-0031).
+      if (session === undefined && model() !== 'none') stateOf(asking.id).saw('tool');
+      return answered;
+    },
     advise,
     /**
      * The saved goal's answer, asked as its agent starts (`mesa decisions prepare`, which the

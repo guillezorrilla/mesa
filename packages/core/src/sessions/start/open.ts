@@ -182,7 +182,6 @@ export async function openSession(
   ) =>
     startCommand(
       agent,
-      deps.mounts,
       deps.profile.config.agents,
       {
         id,

@@ -57,8 +57,6 @@ export async function swapAgent(
     mode: found.mode,
     tmux: found.tmux,
     lastState: found.lastState,
-    vaultMounted: found.vaultMounted,
-    decisionsMounted: found.decisionsMounted,
   };
   const swapped = deps.store.update(id, {
     agent,
@@ -67,8 +65,6 @@ export async function swapAgent(
     mode: undefined,
     tmux: { ...found.tmux, window: windowName(agent, id) },
     lastState: launched(deps.clock().toISOString()),
-    vaultMounted: undefined,
-    decisionsMounted: undefined,
   });
   // The old agent's hooks spoke for it, not for the new one, whose first events come next.
   rmSync(eventsLog(deps.eventsDir, id), { force: true });
@@ -78,7 +74,6 @@ export async function swapAgent(
       command: (record) =>
         startCommand(
           agent,
-          deps.mounts,
           deps.profile.config.agents,
           {
             id: record.id,

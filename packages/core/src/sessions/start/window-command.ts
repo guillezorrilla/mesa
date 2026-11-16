@@ -3,17 +3,20 @@ import type { SessionRecord } from '../record/record.js';
 import type { LaunchDeps } from './launch.js';
 
 // The command line a session's window opens with: its agent's command, behind the background ask
-// for its goal while mesa-decisions is mounted.
+// for its goal while the profile has a Decision model.
 
 /**
  * The background ask for a session's goal while its agent starts (decisions/delivery.ts): for an
- * interactive session with a goal whose launch mounts mesa-decisions; none otherwise.
+ * interactive session with a goal while the profile has a Decision model; none otherwise.
  */
 export const goalPreparing = (
-  deps: Pick<LaunchDeps, 'mounts' | 'self'>,
+  deps: Pick<LaunchDeps, 'profile' | 'self'>,
   kind: SessionRecord['kind'],
   goal?: string,
-) => (deps.mounts.decisions && goal && kind === 'interactive' ? prepareCommand(deps.self) : '');
+) =>
+  deps.profile.config.decisions.model !== 'none' && goal && kind === 'interactive'
+    ? prepareCommand(deps.self)
+    : '';
 
 /**
  * The command tmux receives, including Claude's color and process-identity setup, after

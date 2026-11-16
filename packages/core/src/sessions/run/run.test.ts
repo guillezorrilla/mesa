@@ -5,9 +5,8 @@ import { createContext } from '../../context.js';
 import { listReceipts } from '../../receipts/store.js';
 import {
   agentWorld,
-  CLAUDE_HEADLESS_MOUNT,
-  CLAUDE_MCP_CONFIG,
-  CODEX_MOUNT,
+  CLAUDE_HEADLESS_MESA,
+  CLAUDE_MESA_SAVE_DENY,
   claudeResult,
   codexResult,
   type FakeWindow,
@@ -704,7 +703,7 @@ test('Codex uses its native skill prompt and thread, keeps tokens locally, and r
     if (status) expect(result.reason).toBe('codex exited with status 1');
     expect(result).not.toHaveProperty('costUsd');
     expect(command).toBe(
-      `exec codex exec --json -C '${dir}' -c approval_policy=never -c sandbox_mode=workspace-write ${CODEX_MOUNT} '$session-summary focus on tests' </dev/null >'${runOutput(profilePaths(home, 'default').runs, result.session)}'`,
+      `exec codex exec --json -C '${dir}' -c approval_policy=never -c sandbox_mode=workspace-write '$session-summary focus on tests' </dev/null >'${runOutput(profilePaths(home, 'default').runs, result.session)}'`,
     );
     const record = testStore(home).get(result.session);
     expect(record).toMatchObject({
@@ -789,18 +788,18 @@ test("each of Mesa's own skill runs starts lean: its own model, MCP server and e
     const line = await launched(skill);
     expect(line).toContain(lean(skill === 'import-notes' ? 'sonnet' : 'haiku'));
     expect(line).not.toContain('--effort');
-    // Only mesa-vault, read-only: no mesa-decisions, none of the person's servers.
-    expect(line).toContain(`${CLAUDE_MCP_CONFIG} --disallowedTools`);
-    expect(line).toContain("--allowedTools 'mcp__mesa-vault'");
+    // Mesa's commands, read-only, and no MCP server: none of the person's either.
+    expect(line).not.toContain('--mcp-config');
+    expect(line).toContain(`${CLAUDE_MESA_SAVE_DENY} ${CLAUDE_HEADLESS_MESA}`);
   }
   const text = await launched('git-text');
   expect(text).toContain(lean('haiku', '--effort low '));
   expect(text).not.toContain('--mcp-config');
   expect(text).not.toContain('--allowedTools');
-  // Any other skill keeps today's flags: the person's default model and setup, Mesa's mounts.
+  // Any other skill keeps today's flags: the person's default model and setup, Mesa's commands.
   const other = await launched('project-brief');
   expect(other).toContain(
-    `--output-format json --permission-mode 'acceptEdits' ${CLAUDE_HEADLESS_MOUNT}`,
+    `--output-format json --permission-mode 'acceptEdits' ${CLAUDE_HEADLESS_MESA}`,
   );
   for (const flag of [
     '--model',

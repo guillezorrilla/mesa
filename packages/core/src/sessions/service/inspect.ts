@@ -176,7 +176,7 @@ export function inspectActions(
           ctx.self,
           identityChanged,
         ),
-        vault: vaultStatus(current, ctx.home, ctx.self),
+        vault: vaultStatus(current),
         decisions: decisionStatus(
           current,
           deps.assistance.assistState(current),

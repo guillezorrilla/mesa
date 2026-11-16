@@ -37,9 +37,9 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
     hooks.data?.installed &&
     hooks.data.codex?.installed !== false &&
     hooks.data.antigravity?.installed !== false &&
-    hooks.data.antigravityVault?.installed !== false &&
-    // mesa-decisions only while the profile has a Decision model (#463).
-    (hooks.data.antigravityDecisions?.wanted !== true || hooks.data.antigravityDecisions.installed);
+    hooks.data.codex?.rules !== false &&
+    // Mesa's old Antigravity MCP entries, which install removes (ADR-0031).
+    hooks.data.antigravityMounts?.left !== true;
   const run = useRun();
   const { acting, act } = useAct();
   const change = (name: 'hooks.install' | 'hooks.uninstall') =>
@@ -163,22 +163,22 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
                 in <span className="font-mono text-xs">{hooks.data.antigravity.path}</span>
               </p>
             )}
-            {hooks.data?.antigravityVault && (
-              <p data-testid="antigravity-vault-status" className="mt-3 text-sm">
-                Antigravity mesa-vault:{' '}
-                {hooks.data.antigravityVault.conflict
-                  ? `Conflicting (${hooks.data.antigravityVault.conflict})`
-                  : hooks.data.antigravityVault.installed
-                    ? hooks.data.antigravityVault.disabled
-                      ? 'Disabled in Antigravity'
-                      : 'Installed'
-                    : hooks.data.antigravityVault.stale
-                      ? 'Stale (reinstall)'
-                      : hooks.data.antigravityVault.server
-                        ? 'Allow rule missing'
-                        : 'Not installed'}{' '}
-                in <span className="font-mono text-xs">{hooks.data.antigravityVault.path}</span> and{' '}
-                <span className="font-mono text-xs">{hooks.data.antigravityVault.rulePath}</span>
+            {hooks.data?.codex && (
+              <p data-testid="codex-rules-status" className="mt-3 text-sm">
+                Codex rules for Mesa's commands:{' '}
+                {hooks.data.codex.rules ? 'Installed' : 'Not installed'} in{' '}
+                <span className="font-mono text-xs">{hooks.data.codex.rulesPath}</span>
+              </p>
+            )}
+            {hooks.data?.antigravityMounts && (
+              <p data-testid="antigravity-mcp-status" className="mt-3 text-sm">
+                Antigravity MCP entries:{' '}
+                {hooks.data.antigravityMounts.conflict
+                  ? `Conflicting (${hooks.data.antigravityMounts.conflict})`
+                  : hooks.data.antigravityMounts.left
+                    ? "Mesa's old mesa-vault and mesa-decisions entries (install removes them)"
+                    : 'None (sessions use the mesa CLI)'}{' '}
+                in <span className="font-mono text-xs">{hooks.data.antigravityMounts.path}</span>
               </p>
             )}
           </CardContent>

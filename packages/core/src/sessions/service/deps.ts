@@ -1,5 +1,4 @@
 import { listAgentProcesses } from '../../agents/listing.js';
-import { launchMounts } from '../../agents/mesa-mount.js';
 import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
 import type { Guarded, Override } from '../../decisions/guardrail.js';
@@ -62,10 +61,6 @@ export function sessionDeps(
     newUuid: ctx.newUuid,
     caller,
     syncSkills: skills.linkInto,
-    // mesa-decisions only while the profile has a Decision model (ADR-0019, #463).
-    mounts: launchMounts(ctx.self, {
-      decisions: (ctx.configIfAny()?.decisions.model ?? 'none') !== 'none',
-    }),
     shell: ctx.env.SHELL || '/bin/zsh',
     home: ctx.home,
     self: ctx.self,

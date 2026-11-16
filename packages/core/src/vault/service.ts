@@ -51,9 +51,16 @@ export function vaultService(
     project: string,
     { limit, exclude = caller() }: { limit?: number; exclude?: string } = {},
   ) => sessionGoals({ vault: vaultOf(), store }, known(project), { limit, exclude });
-  /** The agent of `session` opened `path` through the vault server (noteOpened). */
+  /** The agent of `session` opened `path` (noteOpened). */
   const opened = (session: SessionRecord, path: string) =>
     noteOpened(ctx.decisionLog, ctx.clock(), session, path);
+  /** One item read; from a session's window its agent opened it, as `mesa vault read` (ADR-0031). */
+  const readAsCaller = (path: string) => {
+    const item = read(path);
+    const own = callerOf({ store, env: ctx.env, profileName: ctx.profile }).session;
+    if (own) opened(own, item.path);
+    return item;
+  };
   const writes = sessionWrites(ctx);
   return {
     vault: {
@@ -78,7 +85,7 @@ export function vaultService(
         const items = listVault(vault, filter);
         return { vault, total: items.length, items };
       },
-      read,
+      read: readAsCaller,
       search,
       context,
       goals,

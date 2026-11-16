@@ -154,9 +154,15 @@ You call next-step and evidence yourself; the only advice Mesa adds on its own i
 - **next-step**, before you recommend one of several options: the situation goes in `events`, as short recent facts, and each option in `candidates` (a slug `id` and a short `step`); `attempts` lists what was tried. It picks one, or `defer`.
 - **evidence**, before you call a task done: the `claim` and the `evidence` for it.
 
+The request is JSON on stdin. A here-document keeps the call one command, which a Mesa session runs without a prompt:
+
 ```sh
-echo '{"events":["tide-table test fails only after midnight UTC","the clock is read inside parseTide"],"candidates":[{"id":"inject-clock","step":"Pass the clock to parseTide"},{"id":"pin-tz","step":"Pin TZ=UTC in the test setup"}]}' | mesa decisions advise next-step --json
-echo '{"claim":"the tide-table flake is fixed","evidence":"Tests 48 passed (48), run 20 times"}' | mesa decisions advise evidence --json
+mesa decisions advise next-step --json <<'EOF'
+{"events":["tide-table test fails only after midnight UTC","the clock is read inside parseTide"],"candidates":[{"id":"inject-clock","step":"Pass the clock to parseTide"},{"id":"pin-tz","step":"Pin TZ=UTC in the test setup"}]}
+EOF
+mesa decisions advise evidence --json <<'EOF'
+{"claim":"the tide-table flake is fixed","evidence":"Tests 48 passed (48), run 20 times"}
+EOF
 ```
 
-A field it does not know is a `usage` error that lists the fields it takes. `mesa decisions evaluate --json` takes the same request with `site` in it. The answer is `accepted` when its margin reaches the site's threshold (`acceptAt`), `abstained` when the call was too close (the choice stays yours or the person's), or `unavailable` when no answer came (no model, a failed or late call, assistance off). Show its probabilities beside your recommendation and pass them to `save_decision`. Questions of preference belong to the person. A session started before the profile chose a model has no `mesa-decisions` tool; the CLI works the same.
+A field it does not know is a `usage` error that lists the fields it takes. `mesa decisions evaluate --json` takes the same request with `site` in it. The answer is `accepted` when its margin reaches the site's threshold (`acceptAt`), `abstained` when the call was too close (the choice stays yours or the person's), or `unavailable` when no answer came (no model, a failed or late call, assistance off). Show its probabilities beside your recommendation and pass them to `mesa vault save decision` (`--probability`, `--confidence`). Questions of preference belong to the person.

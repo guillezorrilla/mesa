@@ -182,26 +182,24 @@ function vaultCheck(read: () => VaultStatus): Finding {
   }
 }
 
-/** Antigravity's global mesa-vault entry and its allow rule, from the same reader as hooks status. */
-function antigravityVaultCheck(read: () => ReturnType<typeof mesaMountStatus>): Finding {
-  const name = 'antigravity vault';
+/**
+ * Antigravity's old mesa-vault and mesa-decisions entries, from the same reader as hooks status:
+ * sessions use the mesa CLI now (ADR-0031), so one Mesa left behind is for `mesa hooks install`
+ * to remove.
+ */
+function antigravityMountsCheck(read: () => ReturnType<typeof mesaMountStatus>): Finding {
+  const name = 'antigravity mcp';
   try {
     const status = read();
     return {
       name,
-      ok: status.installed && !status.disabled,
+      ok: !status.left && !status.conflict,
       path: status.path,
-      hint: status.conflict
-        ? status.conflict
-        : status.stale
-          ? HOOKS_UPDATE_HINT
-          : !status.server
-            ? 'not installed: run `mesa hooks install`'
-            : status.disabled
-              ? 'disabled in Antigravity: its sessions have no vault tools'
-              : status.rule
-                ? ''
-                : 'allow rule missing: run `mesa hooks install`',
+      hint:
+        status.conflict ??
+        (status.left
+          ? "Mesa's old mesa-vault and mesa-decisions entries are there: run `mesa hooks install` to remove them"
+          : ''),
     };
   } catch (error) {
     return { name, ok: false, hint: toFail(error).error.message };
@@ -302,7 +300,7 @@ export async function runDoctor(deps: {
     claude: () => ClaudeHooksStatus;
     codex?: () => CodexHooksStatus;
     antigravity?: () => ReturnType<typeof antigravityHooksStatus>;
-    antigravityVault?: () => ReturnType<typeof mesaMountStatus>;
+    antigravityMounts?: () => ReturnType<typeof mesaMountStatus>;
     tmux: () => Promise<TmuxHookStatus>;
   };
   /** Where a Codex app-server daemon's socket is while it runs. */
@@ -348,7 +346,9 @@ export async function runDoctor(deps: {
       ...(deps.hooks && hooks ? [claudeHooksCheck(deps.hooks.claude), tmuxHookCheck(hooks)] : []),
       ...(deps.hooks?.codex ? codexHooksChecks(deps.hooks.codex) : []),
       ...(deps.hooks?.antigravity ? [antigravityHooksCheck(deps.hooks.antigravity)] : []),
-      ...(deps.hooks?.antigravityVault ? [antigravityVaultCheck(deps.hooks.antigravityVault)] : []),
+      ...(deps.hooks?.antigravityMounts
+        ? [antigravityMountsCheck(deps.hooks.antigravityMounts)]
+        : []),
       ...codexDaemonCheck(deps.codexDaemon),
       ...(leftovers ? [leftoverServersCheck(leftovers)] : []),
     ].map((c) => ({

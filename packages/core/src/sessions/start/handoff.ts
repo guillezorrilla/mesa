@@ -100,7 +100,6 @@ export async function handoffSession(
         'interactive',
         startCommand(
           agent,
-          deps.mounts,
           deps.profile.config.agents,
           {
             id: 'xxxxxxxx',
@@ -144,7 +143,6 @@ export async function handoffSession(
       command: (successor) =>
         startCommand(
           agent,
-          deps.mounts,
           deps.profile.config.agents,
           { ...successor, logs: deps.profile.paths.logs },
           additionalDirs(successor),

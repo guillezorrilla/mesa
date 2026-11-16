@@ -7,7 +7,7 @@ import { canvasOf, noteOf } from './reader.js';
 import { vaultFile } from './scope.js';
 
 // Vault search (CONTEXT.md, Vault search): `mesa vault search`, the Vault screen's search box, and
-// the mesa-vault server's search_vault.
+// `mesa vault search`, which sessions call through the mesa-vault skill.
 
 export const DEFAULT_VAULT_SEARCH_LIMIT = 50;
 const SNIPPETS = 3;

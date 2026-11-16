@@ -43,8 +43,6 @@ export type NewLaunch = {
   agentName?: string;
   adopted?: true;
   /** A background process started with the mount, which a resume attaches to again. */
-  vaultMounted?: true;
-  decisionsMounted?: true;
   resumedFrom?: string;
   /** The imported item it starts from (mesa open --from). */
   from?: SessionRecord['from'];
@@ -93,8 +91,6 @@ export function createRecord(
     ...(s.name === undefined ? {} : { name: s.name }),
     ...(s.agentName === undefined ? {} : { agentName: s.agentName }),
     ...(s.adopted ? { adopted: s.adopted } : {}),
-    ...(s.vaultMounted ? { vaultMounted: s.vaultMounted } : {}),
-    ...(s.decisionsMounted ? { decisionsMounted: s.decisionsMounted } : {}),
     ...(s.from === undefined ? {} : { from: s.from }),
     ...(s.review === undefined ? {} : { review: s.review }),
     // Named after the Mesa id, which a resume never reuses, so windows never collide.

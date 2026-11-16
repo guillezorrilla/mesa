@@ -18,7 +18,7 @@ async function imported() {
 const LC12_GOAL = [
   'Work on the imported Jira issue LC-12: Fix the tide alarm',
   `Source: ${SITE}/browse/LC-12`,
-  'Read these with the mesa-vault read_note tool before you begin:',
+  'Read these with mesa vault read <path> --json before you begin:',
   '- Note: wiki/notes/lc-12-fix-the-tide-alarm.md',
   '- Latest snapshot: raw/jira/LC-12/2026-09-24T1200.md',
 ].join('\n');
@@ -33,7 +33,7 @@ test('a session started from an imported item by id or link gets its goal and ke
     from: { source: 'jira', id: 'LC-12' },
   });
   // The goal is claude's first prompt, whole.
-  expect(agents.tmux.windows.at(-1)?.launch).toContain('mesa-vault read_note tool');
+  expect(agents.tmux.windows.at(-1)?.launch).toContain('mesa vault read <path> --json');
 
   // A link to it finds the same item, with no new fetch.
   const byLink = await mesa.imports.open('lantern-cove', { from: `${SITE}/browse/LC-12` });
@@ -77,7 +77,7 @@ test('a link not imported yet is imported first, honouring notes off, then start
     goal: [
       'Work on the imported Confluence page Tide schedule',
       `Source: ${SITE}/wiki/spaces/LC/pages/9001`,
-      'Read these with the mesa-vault read_note tool before you begin:',
+      'Read these with mesa vault read <path> --json before you begin:',
       '- Latest snapshot: raw/confluence/9001/2026-09-24T1200.md',
     ].join('\n'),
     from: { source: 'confluence', id: '9001' },

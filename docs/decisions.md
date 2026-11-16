@@ -12,8 +12,8 @@ Jev and CLEF answer the same four kinds of question, called decision sites:
 | --- | --- | --- |
 | Session state | Which state a session is in, from its screen, when its hooks and the agent listing say nothing | The Board, beside the rules' reading |
 | Source relevance | Which of the project's vault notes matters for a prompt or goal | Advice added to an agent's turn, and Preview context in the session details |
-| Next step | Which of the steps an agent offers comes next, or whether to stop and ask | The `decision_evaluate` tool and `mesa decisions advise next-step` |
-| Completion evidence | Whether the evidence an agent shows supports its claim that work is done | The `decision_evaluate` tool and `mesa decisions advise evidence` |
+| Next step | Which of the steps an agent offers comes next, or whether to stop and ask | `mesa decisions advise next-step`, which an agent runs through the mesa skill |
+| Completion evidence | Whether the evidence an agent shows supports its claim that work is done | `mesa decisions advise evidence`, which an agent runs through the mesa skill |
 
 Mesa acts on an answer only when the model is sure enough; otherwise it gives no advice and the rules stand. Advice never runs a command, approves a permission or marks work complete.
 
@@ -75,8 +75,6 @@ The session details (Decision assistance) and `mesa decisions status --session <
 | Did not answer within ... ms | A turn's advice was too late (3,000 ms in all), so it was dropped | Nothing: turns never wait longer |
 | Not proven for automatic advice yet | The site has not passed the paired workflows | Use it on demand, or turn on Try unproven automatic decisions (Settings > Advanced) |
 | Codex sends no advice | Codex runs a new or changed hook only once you review it | In Codex, open the hook review and trust Mesa's hooks (`mesa hooks status` shows UNTRUSTED until then) |
-| "Started without mesa-decisions" | The session started before the key | Stop it and resume it through Mesa |
-| Antigravity: no global mesa-decisions entry | Its tool is a global entry written only while a model is chosen | `mesa hooks install` |
 
 ## Turning it off
 

@@ -254,8 +254,8 @@ test('Doctor shows each Codex trust state and installs when only Claude hooks ex
   expect(byTestId('codex-hooks-status')[0]?.textContent).toContain('Hooks need review');
 });
 
-test('Doctor installs the missing Antigravity mesa-vault allow rule', async () => {
-  let rule = false;
+test("Doctor's install removes Mesa's old Antigravity MCP entries (ADR-0031)", async () => {
+  let left = true;
   const { bridge, calls } = fakeBridge({
     'hooks status': () =>
       envelope({
@@ -263,33 +263,43 @@ test('Doctor installs the missing Antigravity mesa-vault allow rule', async () =
         installed: true,
         stale: false,
         events: {},
-        codex: { path: '/h/.codex/hooks.json', installed: true, events: {}, trusted: {}, hint: '' },
+        codex: {
+          path: '/h/.codex/hooks.json',
+          installed: true,
+          events: {},
+          trusted: {},
+          hint: '',
+          rulesPath: '/h/.codex/rules/mesa.rules',
+          rules: true,
+        },
         antigravity: { path: '/h/.gemini/config/hooks.json', installed: true, stale: false },
-        antigravityVault: {
+        antigravityMounts: {
           path: '/h/.gemini/config/mcp_config.json',
           rulePath: '/h/.gemini/antigravity-cli/settings.json',
-          installed: rule,
-          stale: false,
-          server: true,
-          rule,
+          left,
         },
       }),
     'hooks install': () => {
-      rule = true;
+      left = false;
       return envelope({ changed: true });
     },
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('nav-doctor')[0]);
-  expect(byTestId('antigravity-vault-status')[0]?.textContent).toBe(
-    'Antigravity mesa-vault: Allow rule missing in /h/.gemini/config/mcp_config.json and /h/.gemini/antigravity-cli/settings.json',
+  expect(byTestId('antigravity-mcp-status')[0]?.textContent).toBe(
+    "Antigravity MCP entries: Mesa's old mesa-vault and mesa-decisions entries (install removes them) in /h/.gemini/config/mcp_config.json",
+  );
+  expect(byTestId('codex-rules-status')[0]?.textContent).toBe(
+    "Codex rules for Mesa's commands: Installed in /h/.codex/rules/mesa.rules",
   );
   await click(byTestId('hooks-install')[0]);
   expect(calls).toContainEqual(['--json', 'hooks', 'install']);
-  expect(byTestId('antigravity-vault-status')[0]?.textContent).toContain('Installed');
+  expect(byTestId('antigravity-mcp-status')[0]?.textContent).toContain(
+    'None (sessions use the mesa CLI)',
+  );
 });
 
-test('Doctor shows a malformed Antigravity vault file as conflicting beside working hooks', async () => {
+test('Doctor shows a malformed Antigravity MCP file as conflicting beside working hooks', async () => {
   const conflict = '/h/.gemini/config/mcp_config.json: not valid JSON; fix it before Mesa edits it';
   const { bridge } = fakeBridge({
     'hooks status': () =>
@@ -300,14 +310,10 @@ test('Doctor shows a malformed Antigravity vault file as conflicting beside work
         events: {},
         codex: { path: '/h/.codex/hooks.json', installed: true, events: {}, trusted: {}, hint: '' },
         antigravity: { path: '/h/.gemini/config/hooks.json', installed: true, stale: false },
-        antigravityVault: {
+        antigravityMounts: {
           path: '/h/.gemini/config/mcp_config.json',
           rulePath: '/h/.gemini/antigravity-cli/settings.json',
-          installed: false,
-          stale: false,
-          server: false,
-          rule: false,
-          disabled: false,
+          left: false,
           conflict,
         },
       }),
@@ -315,8 +321,8 @@ test('Doctor shows a malformed Antigravity vault file as conflicting beside work
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('nav-doctor')[0]);
   expect(byTestId('hooks-status')[0]?.textContent).toContain('Installed');
-  expect(byTestId('antigravity-vault-status')[0]?.textContent).toContain(
-    `Antigravity mesa-vault: Conflicting (${conflict})`,
+  expect(byTestId('antigravity-mcp-status')[0]?.textContent).toContain(
+    `Antigravity MCP entries: Conflicting (${conflict})`,
   );
 });
 

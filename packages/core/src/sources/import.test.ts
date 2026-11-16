@@ -100,9 +100,7 @@ test('a Jira key and a Confluence URL import as snapshots and notes linked from 
   const launch = agents.calls.find((c) => c.args.some((a) => a.includes('/import-notes')));
   const line = launch?.args.find((a) => a.startsWith('exec '));
   expect(line).toContain(`'/import-notes ${jira}=${jiraNote} ${page}=${pageNote}'`);
-  expect(line).toContain(
-    "--disallowedTools 'mcp__mesa-vault__save_decision' 'mcp__mesa-vault__save_summary' 'mcp__mesa-vault__save_note' --allowedTools",
-  );
+  expect(line).toContain("--disallowedTools 'Bash(mesa vault save:*)' --allowedTools");
   expect(readNote(vault, jiraNote)).toEqual({
     frontmatter: {
       created: '2026-09-24T12:00',

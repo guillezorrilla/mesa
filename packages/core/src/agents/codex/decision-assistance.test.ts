@@ -1,25 +1,19 @@
 import { realpathSync, writeFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
+import type { Profile } from '../../profile/profile.js';
 import { decisionStatus } from '../../sessions/native/decision-status.js';
 import { goalPreparing, sessionWindowCommand } from '../../sessions/start/window-command.js';
 import { ADVICE_MARKER, assistedAgent, NATIVE_LAUNCH as NATIVE } from '../../testing/index.js';
 import { AGENTS } from '../agents.js';
-import { launchMounts } from '../mesa-mount.js';
 import { codexConfig, codexHome } from './paths.js';
 
-// Codex's decision assistance (#463, ADR-0019): mesa-decisions mounted per launch with the same
-// four overrides as mesa-vault, and a turn's advice as UserPromptSubmit additionalContext (a
+// Codex's decision assistance (#463, ADR-0019): `mesa decisions evaluate` allowed by Mesa's rules
+// file (ADR-0031), and a turn's advice as UserPromptSubmit additionalContext (a
 // developer message, proven by #459), only once the person trusted Mesa's hook in Codex.
 
 const SELF = ['/opt/node', '/src/mesa.js'];
 const MESA = ['/usr/local/bin/mesa'];
 const THREAD = '11111111-2222-4333-8444-555555555555';
-const DECISIONS = [
-  `-c 'mcp_servers.mesa-decisions.command="/opt/node"'`,
-  `-c 'mcp_servers.mesa-decisions.args=["/src/mesa.js","decisions","mcp"]'`,
-  `-c 'mcp_servers.mesa-decisions.env_vars=["MESA_SESSION_ID","MESA_PROFILE"]'`,
-  `-c 'mcp_servers.mesa-decisions.default_tools_approval_mode="approve"'`,
-].join(' ');
 const prompt = (session_id: string, text = 'Make the feed import retry on 503') =>
   JSON.stringify({
     session_id,
@@ -28,32 +22,24 @@ const prompt = (session_id: string, text = 'Make the feed import retry on 503') 
     prompt: text,
   });
 
-test('mesa-decisions is mounted on start, resume, fork and exec only with a Decision model', () => {
-  const on = launchMounts(SELF, { decisions: true });
-  // After mesa-vault's four overrides; the goal stays a prompt after --.
-  expect(AGENTS.codex.start(on, NATIVE, 'review')).toMatch(
-    new RegExp(`approve"' ${DECISIONS.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} -- 'review'$`),
-  );
+test('codex mounts no Mesa server on start, resume, fork or exec', () => {
   for (const command of [
-    AGENTS.codex.resume(THREAD, '/src', on, NATIVE),
-    AGENTS.codex.fork(THREAD, '/src', on, NATIVE),
+    AGENTS.codex.start(NATIVE, 'review'),
+    AGENTS.codex.resume(THREAD, '/src', NATIVE),
+    AGENTS.codex.fork(THREAD, '/src', NATIVE),
     AGENTS.codex.headless.command(
       undefined,
       '$tide',
       { permissionMode: 'default', allowedTools: [] },
       '/src',
-      on,
     ),
   ])
-    expect(command).toContain(DECISIONS);
-  expect(
-    AGENTS.codex.start(launchMounts(SELF, { decisions: false }), NATIVE, 'review'),
-  ).not.toContain('mesa-decisions');
+    expect(command).not.toContain('mcp_servers');
 });
 
 test("after the goal's background ask the window execs codex, so codex stays the pane's process", () => {
-  const deps = { mounts: launchMounts(SELF, { decisions: true }), self: SELF };
-  const command = AGENTS.codex.start(deps.mounts, NATIVE, 'review');
+  const deps = { profile: { config: { decisions: { model: 'jev' } } } as Profile, self: SELF };
+  const command = AGENTS.codex.start(NATIVE, 'review');
   const preparing = goalPreparing(deps, 'interactive', 'review');
   expect(sessionWindowCommand('codex', 'interactive', command, preparing)).toBe(
     `('/opt/node' '/src/mesa.js' decisions prepare >/dev/null 2>&1 &); exec ${command}`,

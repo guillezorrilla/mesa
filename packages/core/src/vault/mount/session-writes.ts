@@ -1,3 +1,4 @@
+import { VAULT_READ_ONLY_VAR } from '../../agents/mesa-commands.js';
 import type { MesaContext } from '../../context.js';
 import { redactWhole } from '../../lib/redact.js';
 import { MesaError } from '../../lib/result.js';
@@ -8,6 +9,7 @@ import { type NoteChange, recordNoteChange, settleUnchanged } from '../../receip
 import { recordScope } from '../../receipts/record-scope.js';
 import type { Recorded } from '../../receipts/recorder.js';
 import { recordAgent } from '../../sessions/record/record.js';
+import { callerOf } from '../../sessions/window/caller.js';
 import { landOutput } from '../../skills/landing.js';
 import { SESSION_SUMMARY } from '../../skills/library.js';
 import type { Note } from '../frontmatter.js';
@@ -32,7 +34,8 @@ import { withVaultLock } from '../vault-lock.js';
 // the save changed it (#274); the same save again adds nothing.
 
 export type DecisionInput = {
-  project: string;
+  /** Default: the Caller's project, when it is in a session on one. */
+  project?: string;
   /** The Mesa session it is from; default: the Caller, when it is on the project. */
   session?: string;
   title: string;
@@ -44,7 +47,8 @@ export type DecisionInput = {
 };
 
 /** A summary is its text, or a file (relative to the working directory) holding it. */
-export type SummaryInput = { session: string; summary?: string; file?: string };
+/** `session` defaults to the Caller: a session saving its own summary. */
+export type SummaryInput = { session?: string; summary?: string; file?: string };
 
 export type NoteInput = {
   project?: string;
@@ -143,6 +147,24 @@ export function sessionWrites(ctx: MesaContext) {
     return { value: redact(value), ...(argv ? { argv } : {}) };
   };
 
+  /** A read-only run's agent saves nothing (VAULT_READ_ONLY_VAR, set where no deny rule can be). */
+  const writable = () => {
+    if (ctx.env[VAULT_READ_ONLY_VAR])
+      throw usage(
+        'this is a read-only run: its output is landed for it, so it saves nothing itself',
+      );
+  };
+
+  /**
+   * Whom a save is for: as given, or with neither a project nor a session given, the session whose
+   * window it runs in, saving its own (ADR-0031: the mesa-vault skill's calls).
+   */
+  const scope = (given: { project?: string; session?: string }) => {
+    if (given.project !== undefined || given.session !== undefined) return recordScope(ctx, given);
+    const own = callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile }).session;
+    return recordScope(ctx, own ? { session: own.id } : given);
+  };
+
   return {
     /**
      * Saves a decision at `wiki/decisions/<YYYY-MM-DD>-<slug>.md` (`type: decision`), linking
@@ -150,8 +172,10 @@ export function sessionWrites(ctx: MesaContext) {
      * and confidence when given.
      */
     saveDecision: async (input: DecisionInput): Promise<Recorded<Saved>> => {
-      const { session, actor } = recordScope(ctx, input);
-      const { project } = input;
+      writable();
+      const { project, session, actor } = scope(input);
+      if (!project)
+        throw usage('pass --project, or save it from a session on a project; General has none');
       const title = redact(oneLine(required(input.title, 'title')));
       const [decision, rationale] = [
         required(input.decision, 'decision'),
@@ -207,7 +231,9 @@ export function sessionWrites(ctx: MesaContext) {
      * (landOutput): a changed text gets one `vault-change` receipt, the same text nothing.
      */
     saveSummary: async (input: SummaryInput): Promise<Recorded<Saved>> => {
-      const { project, session, actor } = recordScope(ctx, { session: input.session });
+      writable();
+      const { project, session, actor } = scope({ session: input.session });
+      if (!session) throw usage('pass --session, or save it from that session');
       const summary = textOf(input.summary, input.file, 'summary');
       const notes = writes();
       requireLog(notes.vault);
@@ -234,6 +260,7 @@ export function sessionWrites(ctx: MesaContext) {
      * note gets an index line; a change, one `vault-change` receipt.
      */
     saveNote: async (input: NoteInput): Promise<Recorded<Saved>> => {
+      writable();
       const title = redact(oneLine(required(input.title, 'title')));
       const path = notePath(
         ctx.vaultOf(),
@@ -245,7 +272,7 @@ export function sessionWrites(ctx: MesaContext) {
       if (input.project && inFolder && input.project !== inFolder) {
         throw usage(`${path} is in project ${inFolder}'s folder, not ${input.project}'s`);
       }
-      const { project, session, actor } = recordScope(ctx, {
+      const { project, session, actor } = scope({
         project: input.project ?? inFolder,
         session: input.session,
       });

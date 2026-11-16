@@ -1,31 +1,23 @@
 import { hooksStatus as antigravityHooks } from '../../agents/antigravity/hooks.js';
-import { mesaMountStatus } from '../../agents/antigravity/mesa-mount.js';
 import { hooksStatus as claudeHooks } from '../../agents/claude/hooks.js';
 import { hooksStatus as codexHooks } from '../../agents/codex/hooks.js';
 import { codexHome } from '../../agents/codex/paths.js';
-import { DECISIONS_MOUNT, mountsPerLaunch } from '../../agents/mesa-mount.js';
 import { NO_MODEL } from '../../decisions/evaluate.js';
 import { siteMode } from '../../decisions/site-mode.js';
 import type { DecisionsModel } from '../../decisions/types.js';
 import type { Env } from '../../lib/process.js';
-import { toFail } from '../../lib/result.js';
 import type { SessionRecord } from '../record/record.js';
-import type { DecisionsReach, InstructionStatus } from './instructions.js';
+import type { InstructionStatus } from './instructions.js';
 
 // Whether a session's agent can reach decision assistance (#463, ADR-0019), in the instruction
-// status's words plus `disabled`: the decision_evaluate tool (its mesa-decisions mount) and
-// automatic advice (its turn hook), each configured or why not, beside when Mesa last saw it used.
+// status's words plus `disabled`: the decision command (`mesa decisions evaluate`) and automatic
+// advice (its turn hook), each configured or why not, beside when Mesa last saw it used.
 // Configuration, not proof: only the provider's transcript shows the agent read the advice.
 
 export type DeliveryStatus = {
   state: InstructionStatus['state'] | 'disabled';
   reason: string;
-  /**
-   * What gives a session the mount it lacks: a restart of a live one, a resume, or (Antigravity's
-   * global entry, written only while there is a Decision model) `mesa hooks install`.
-   */
-  action?: 'restart' | 'resume' | 'hooks install';
-  /** When Mesa last saw it happen: the tool called, advice sent. */
+  /** When Mesa last saw it happen: the command called from the session, advice sent. */
   observedAt?: string;
 };
 
@@ -49,61 +41,16 @@ function disabled(record: SessionRecord, state: AssistState): DeliveryStatus | u
   return undefined;
 }
 
-/** The decision_evaluate tool: mounted at launch (Claude Code, Codex), or Antigravity's entry. */
-function toolStatus(
-  record: SessionRecord,
-  state: AssistState,
-  home: string,
-  self: readonly string[],
-): DeliveryStatus {
+/** The decision command: `mesa decisions evaluate`, through the mesa skill (ADR-0031). */
+function toolStatus(record: SessionRecord, state: AssistState): DeliveryStatus {
   const seen = at(state.seen.tool);
-  const why = disabled(record, state);
-  if (why) return { ...why, ...seen };
-  if (mountsPerLaunch(record.agent)) {
-    if (record.decisionsMounted)
-      return {
-        state: 'configured',
-        reason: 'mesa-decisions is mounted in its launch command',
-        ...seen,
-      };
-    if (record.lastState.state === 'queued')
-      return { state: 'missing', reason: 'Mounted when the queued session starts' };
-    // Launched before the key, or adopted without a resume: argv cannot change in a running agent.
-    const action = record.endedAt ? 'resume' : 'restart';
-    return {
-      state: 'missing',
-      reason:
-        action === 'resume'
-          ? 'Resume through Mesa to mount mesa-decisions'
-          : 'Started without mesa-decisions; stop it and resume through Mesa to mount it',
-      action,
+  return (
+    disabled(record, state) ?? {
+      state: 'configured',
+      reason: 'mesa decisions evaluate, through the mesa skill',
       ...seen,
-    };
-  }
-  try {
-    const mount = mesaMountStatus(home, self, DECISIONS_MOUNT);
-    if (mount.conflict) return { state: 'conflicting', reason: mount.conflict, ...seen };
-    if (mount.stale)
-      return {
-        state: 'conflicting',
-        reason: 'Mesa mesa-decisions entry is stale; run mesa hooks install',
-        action: 'hooks install',
-        ...seen,
-      };
-    // Written by mesa hooks install only while there is a Decision model: one chosen since needs it.
-    if (!mount.server || !mount.rule)
-      return {
-        state: 'missing',
-        reason: 'No global mesa-decisions entry; run mesa hooks install',
-        action: 'hooks install',
-        ...seen,
-      };
-    if (mount.disabled)
-      return { state: 'missing', reason: 'mesa-decisions is disabled in Antigravity', ...seen };
-    return { state: 'configured', reason: 'Global mesa-decisions entry and allow rule', ...seen };
-  } catch (error) {
-    return { state: 'conflicting', reason: toFail(error).error.message, ...seen };
-  }
+    }
+  );
 }
 
 /**
@@ -182,20 +129,12 @@ export function decisionStatus(
   identityChanged: boolean | 'ambiguous' = false,
 ) {
   return {
-    tool: toolStatus(record, state, hosts.home, hosts.self),
+    tool: toolStatus(record, state),
     advice: adviceStatus(record, state, hosts, identityChanged),
   };
 }
 
 export type DecisionDeliveryStatus = ReturnType<typeof decisionStatus>;
 
-/**
- * Which `Decisions:` line a pointer carries for the tool's status (#728): the tool's when it is
- * configured, the CLI's when it is conflicting or missing with an action that would mount it, and
- * none otherwise (no model, off, no agent, queued, or the person disabled it in Antigravity).
- */
-export function decisionsReach(tool: DeliveryStatus): DecisionsReach | undefined {
-  if (tool.state === 'configured') return 'tool';
-  if (tool.state === 'conflicting' || (tool.state === 'missing' && tool.action)) return 'cli';
-  return undefined;
-}
+/** Whether a pointer carries the `Decisions:` line: while the decision command is configured. */
+export const decisionsReach = (tool: DeliveryStatus) => tool.state === 'configured';
