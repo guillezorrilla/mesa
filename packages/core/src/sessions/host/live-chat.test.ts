@@ -68,8 +68,14 @@ describe('journalSuggestion', () => {
 
   it('is the newest suggestion since the last message sent, and none once another is sent', () => {
     const lines = journal([suggest('chart the tide'), suggest('chart the reef')]);
-    expect(journalSuggestion(lines)).toBe('chart the reef');
-    expect(journalSuggestion([...lines, sent('light the lantern')])).toBeUndefined();
-    expect(journalSuggestion(journal(RECORDED_CLAUDE_STREAM))).toBeUndefined();
+    expect(journalSuggestion(lines, 'claude')).toBe('chart the reef');
+    expect(journalSuggestion([...lines, sent('light the lantern')], 'claude')).toBeUndefined();
+    expect(journalSuggestion(journal(RECORDED_CLAUDE_STREAM), 'claude')).toBeUndefined();
+  });
+
+  it('is none once a turn starts, a resumed one too, and none for Codex', () => {
+    const init = JSON.stringify({ type: 'system', subtype: 'init', session_id: 's' });
+    expect(journalSuggestion(journal([suggest('chart the reef'), init]), 'claude')).toBeUndefined();
+    expect(journalSuggestion(journal([suggest('chart the reef')]), 'codex')).toBeUndefined();
   });
 });

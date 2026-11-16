@@ -53,16 +53,22 @@ export function journalItems(
 }
 
 /**
- * The prompt suggestion a Claude session's journal holds now: the newest one since the last
- * message sent; none once the person sends another.
+ * The prompt suggestion a session's journal holds now: Claude's newest since the last message
+ * sent and the last turn start (claude prints `system/init` as each turn starts, a resumed one
+ * too); none for another agent.
  */
-export function journalSuggestion(lines: readonly string[]): string | undefined {
+export function journalSuggestion(
+  lines: readonly string[],
+  agent: SessionRecord['agent'],
+): string | undefined {
+  if (agent !== 'claude') return undefined;
   let suggestion: string | undefined;
   for (const { sent, event } of journalEntries(lines)) {
     if (sent?.type === 'user') suggestion = undefined;
     else if (event !== undefined) {
       const e = parseStreamLine(event);
-      if (e.type === 'suggestion') suggestion = e.text.trim() || undefined;
+      if (e.type === 'init') suggestion = undefined;
+      else if (e.type === 'suggestion') suggestion = e.text.trim() || undefined;
     }
   }
   return suggestion;
@@ -88,7 +94,7 @@ export function liveChat(deps: LiveChatDeps, id: string, count?: number): Sessio
   if (record.view !== 'structured') return chat;
   const lines = readJournal(deps.journals, id) ?? [];
   const messages = mergeChat(chat.messages, journalItems(lines, deps.folder(record), record.agent));
-  const suggestion = record.agent === 'claude' ? journalSuggestion(lines) : undefined;
+  const suggestion = journalSuggestion(lines, record.agent);
   return { ...chat, messages, count: messages.length, ...(suggestion ? { suggestion } : {}) };
 }
 
@@ -147,7 +153,7 @@ export async function followChat(
         shown.set(item.id, text);
         emit({ type: 'item', item });
       }
-      const suggestion = record.agent === 'claude' ? (journalSuggestion(lines) ?? null) : null;
+      const suggestion = journalSuggestion(lines, record.agent) ?? null;
       if (suggestion !== suggested) emit({ type: 'suggestion', text: suggestion });
       suggested = suggestion;
     }
