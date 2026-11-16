@@ -602,7 +602,9 @@ test.skipIf(!hasTmux)(
     mkdirSync(cwd);
     const tmux = tmuxBackend({ sleep: async () => {}, run: testRunner, socket, env: {} });
     // After a failure or a timeout too: a seed left running is a tmux server per test run.
-    onTestFinished(() => killServer(socket));
+    onTestFinished(async () => {
+      await killServer(socket);
+    });
     expect(
       (
         await testRunner(
@@ -641,7 +643,9 @@ test.skipIf(!hasTmux)(
     const tmux = tmuxBackend({ sleep: async () => {}, run, socket, env: {} });
     const target = { project: 'lantern', window: 'claude-nolocale' };
     // A timeout skips the finally below: the server still goes.
-    onTestFinished(() => killServer(socket));
+    onTestFinished(async () => {
+      await killServer(socket);
+    });
     try {
       await tmux.openWindow({ ...target, cwd: tempDir(), command: 'exec cat', env: {} });
       const found = await tmux.findWindow(target);
