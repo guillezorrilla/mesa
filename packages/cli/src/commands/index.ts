@@ -48,6 +48,7 @@ import { importGoal, importLinks, importList, importRefresh, importStatus } from
 import { init } from './init.js';
 import { installs } from './installs.js';
 import { instructionsList, instructionsRead, instructionsWrite } from './instructions.js';
+import { interrupt } from './interrupt.js';
 import { keys } from './keys.js';
 import { log } from './log.js';
 import { logs } from './logs.js';
@@ -281,6 +282,7 @@ export const COMMANDS: Command[] = [
   progress,
   prompt,
   answer,
+  interrupt,
   rename,
   rewind,
   impact,

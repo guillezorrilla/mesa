@@ -1,6 +1,7 @@
 import type { MesaContext } from '../../context.js';
 import { applyControls, type ControlChange, sessionControls } from '../host/controls.js';
 import { hostSession } from '../host/host.js';
+import { interruptSession } from '../host/interrupt.js';
 import { projectScope } from '../record/general.js';
 import { recordAgent } from '../record/record.js';
 import { attachSession } from '../window/attach.js';
@@ -48,6 +49,21 @@ export function windowActions(ctx: MesaContext, deps: SessionDeps) {
             id,
             change,
           ),
+      ),
+    /** Stops a Structured session's agent mid-turn through its host, with a receipt (interruptSession). */
+    interrupt: (id: string) =>
+      ctx.record(
+        {
+          type: 'session',
+          summary: () => `Interrupted session ${id}'s agent`,
+          failure: `Could not interrupt session ${id}`,
+          project: () => projectScope(store.get(id).project),
+          session: () => id,
+          agent: () => recordAgent(store.get(id)),
+          inputs: { id },
+          outputs: () => ({}),
+        },
+        () => interruptSession({ store, hosts: ctx.paths.hosts }, id),
       ),
     /** Sizes a session's window to a view now (the app's terminal, after each fit). */
     resize: (id: string, cols: number, rows: number) =>

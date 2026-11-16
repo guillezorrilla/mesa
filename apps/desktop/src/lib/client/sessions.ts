@@ -121,6 +121,11 @@ export const sessionsCommands = {
   'sessions.mode': commandWith<{ id: string; mode: string }, Recorded<SessionControls>>(
     ({ id, mode }) => ['sessions', 'mode', '--', id, mode],
   ),
+  /** Its agent stopped mid-turn, as Esc does in a terminal. */
+  'sessions.interrupt': commandWith<
+    { id: string },
+    Recorded<{ session: string; interrupted: true }>
+  >(({ id }) => ['interrupt', '--', id]),
   /** A session's chat, its newest `count` replies and the prompts among them (sessionChat). */
   'sessions.chat': commandWith<{ id: string; count: number }, SessionChat>(({ id, count }) => [
     'chat',

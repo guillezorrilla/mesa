@@ -169,7 +169,7 @@ test('the prompt the agent waits on comes on the stream: no prompt call, the pre
   const card = () => document.querySelector('[data-testid="session-prompt"]');
   const allow = () =>
     [...(card()?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find(
-      (b) => b.textContent === 'Allow',
+      (b) => b.getAttribute('aria-label') === 'Allow',
     );
   expect(card()?.textContent).toContain('tide.txt');
   expect(
@@ -246,7 +246,7 @@ test("while the chat's follow runs, its actions go over it: an answer starts no 
     });
   });
   const allow = [...document.querySelectorAll<HTMLButtonElement>('button')].find(
-    (b) => b.textContent === 'Allow',
+    (b) => b.getAttribute('aria-label') === 'Allow',
   );
   await act(async () => allow?.click());
   expect(follows.calls).toContainEqual([
@@ -263,4 +263,33 @@ test("while the chat's follow runs, its actions go over it: an answer starts no 
   ]);
   expect(calls.some((c) => c[1] === 'answer')).toBe(false);
   expect(document.querySelector('[data-testid="session-prompt"]')).toBeNull();
+});
+
+test('while the agent works, an empty composer offers Stop and Esc stops it; a draft keeps Send', async () => {
+  const follows = fakeFollows();
+  const { bridge, calls } = fakeBridge({
+    'sessions controls': () =>
+      envelope({ session: 'dddddddd', agent: 'claude', models: [], efforts: [], modes: [] }),
+    interrupt: () => envelope({ session: 'dddddddd', interrupted: true, receipt: null }),
+  });
+  const working = managedRow('dddddddd', {
+    view: 'structured',
+    lastState: { state: 'working', confidence: 1, at, source: 'hook' },
+  });
+  await renderWithMesa(
+    <ChatPanel sessionId="dddddddd" row={working} acting={false} onSend={() => {}} />,
+    bridge,
+    fakePlatform({ follow: follows.host }),
+  );
+  const stop = () => document.querySelector<HTMLButtonElement>('button[aria-label^="Stop"]');
+  const field = () =>
+    document.querySelector<HTMLTextAreaElement>('[aria-label="Message dddddddd"]') ?? undefined;
+  expect(stop()?.getAttribute('aria-label')).toBe('Stop');
+  await fill(field(), 'and then');
+  expect(stop()).toBeNull();
+  await fill(field(), '');
+  await press(field(), 'Escape');
+  expect(calls).toContainEqual(['--json', 'interrupt', '--', 'dddddddd']);
+  expect(stop()?.getAttribute('aria-label')).toBe('Stopping');
+  expect(stop()?.disabled).toBe(true);
 });
