@@ -26,8 +26,9 @@ export type ContextReport = {
   categories: ContextCategory[];
 };
 
-const TOKENS = /^\*\*Tokens:\*\*\s*(\S+)\s*\/\s*(\S+)\s*\((\d+(?:\.\d+)?)%\)/m;
-const MODEL = /^\*\*Model:\*\*\s*(.+?)\s*$/m;
+// Each part stops at a character the next one starts with, so no input backtracks far (CodeQL).
+const TOKENS = /^\*\*Tokens:\*\* *([^\s/]+) *\/ *([^\s(]+) *\((\d+(?:\.\d+)?)%\)/m;
+const MODEL = '**Model:**';
 
 /** The cells of a Markdown table row, or none for a line that is not one. */
 const cells = (line: string) =>
@@ -43,7 +44,11 @@ const cells = (line: string) =>
 export function parseContextReport(output: string): ContextReport | undefined {
   const tokens = TOKENS.exec(output);
   if (!tokens?.[1] || !tokens[2] || !tokens[3]) return undefined;
-  const model = MODEL.exec(output)?.[1];
+  const model = output
+    .split('\n')
+    .find((line) => line.startsWith(MODEL))
+    ?.slice(MODEL.length)
+    .trim();
   const categories: ContextCategory[] = [];
   // The first table whose header starts with Category, up to its end.
   let inTable = false;

@@ -31,8 +31,21 @@ export type PlanUsage = {
   contributors: { heading?: string; notes: string[]; windows: PlanUsageWindow[] };
 };
 
-const LIMIT = /^(.+?): (\d+(?:\.\d+)?)% used(?: · resets (.+))?$/;
-const SHARE = /^(\d+(?:\.\d+)?)%\s+(.+)$/;
+const SHARE = /^(\d+(?:\.\d+)?)%\s+(\S.*)$/;
+const USED = '% used';
+const RESETS = ' · resets ';
+
+/** A `Label: 14% used · resets …` line as a limit; none for another line. Read without a regex (CodeQL). */
+function readLimit(line: string): PlanLimit | undefined {
+  const used = line.indexOf(USED);
+  const colon = line.lastIndexOf(': ', used);
+  if (used < 0 || colon < 1) return undefined;
+  const number = line.slice(colon + 2, used);
+  const rest = line.slice(used + USED.length);
+  if (!/^\d+(?:\.\d+)?$/.test(number) || (rest && !rest.startsWith(RESETS))) return undefined;
+  const resets = rest.slice(RESETS.length);
+  return { label: line.slice(0, colon), percent: Number(number), ...(resets ? { resets } : {}) };
+}
 
 /** The report in a `/usage` reply, or none when it names no limit. */
 export function parsePlanUsage(output: string): PlanUsage | undefined {
@@ -41,13 +54,9 @@ export function parsePlanUsage(output: string): PlanUsage | undefined {
   for (const raw of output.split('\n')) {
     const line = raw.trim();
     if (!line) continue;
-    const limit = LIMIT.exec(line);
-    if (limit?.[1] && limit[2] && !window) {
-      report.limits.push({
-        label: limit[1],
-        percent: Number(limit[2]),
-        ...(limit[3] ? { resets: limit[3] } : {}),
-      });
+    const limit = window ? undefined : readLimit(line);
+    if (limit) {
+      report.limits.push(limit);
       continue;
     }
     if (!report.limits.length) {
@@ -60,7 +69,7 @@ export function parsePlanUsage(output: string): PlanUsage | undefined {
       window.lines.push(
         share?.[1] && share[2] ? { percent: Number(share[1]), text: share[2] } : { text: line },
       );
-    } else if (/^Last\b/.test(line) || /\d+ requests?\b/.test(line)) {
+    } else if (line.startsWith('Last ') || line.includes(' requests')) {
       window = { title: line, lines: [] };
       report.contributors.windows.push(window);
     } else if (!window && report.contributors.heading === undefined)
