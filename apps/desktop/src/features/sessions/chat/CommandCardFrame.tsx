@@ -25,12 +25,11 @@ export function CommandOutput(props: {
 }
 
 /**
- * Up and Down move between a card's controls (`data-card-control`); a list that moves by itself
- * (it prevents the key) and a select keep their own arrows.
+ * Up and Down move between a card's controls (`data-card-control`), a select's too (Space opens
+ * it); a list that moves by itself (it prevents the key) keeps its own arrows.
  */
 function moveFocus(event: KeyboardEvent<HTMLElement>) {
   if (event.defaultPrevented || (event.key !== 'ArrowDown' && event.key !== 'ArrowUp')) return;
-  if (event.target instanceof HTMLSelectElement) return;
   const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('[data-card-control]')];
   const at = controls.indexOf(event.target as HTMLElement);
   const next = controls[at + (event.key === 'ArrowDown' ? 1 : -1)];
@@ -41,7 +40,7 @@ function moveFocus(event: KeyboardEvent<HTMLElement>) {
 
 /**
  * A slash command's card in Structured chat (#1218): the command, what it is, and its body, with
- * its raw text one click away. Escape closes it to one line and gives the keys back to the
+ * its raw text one click away. Escape, unless a control used it, closes it to one line and gives the keys back to the
  * composer (`onClose`); closed, it opens again on a click.
  */
 export function CommandCardFrame(props: {
@@ -73,6 +72,8 @@ export function CommandCardFrame(props: {
       className="flex w-full flex-col gap-3 rounded-lg border bg-card p-3"
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
+          // A control that used the key (a search it cleared) keeps the card open.
+          if (event.defaultPrevented) return;
           event.preventDefault();
           props.onClose();
         } else moveFocus(event);

@@ -2,6 +2,7 @@
 // seams, the result envelope, and the data types callers render. Everything else is internal.
 
 export type { About, Attribution } from './about/about.js';
+export type { ConfigGroup, ConfigSetting } from './agents/claude/config-settings.js';
 export type { ContextCategory, ContextReport } from './agents/claude/context-report.js';
 export type { ClaudeHooksStatus } from './agents/claude/hooks.js';
 export type {
