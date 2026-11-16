@@ -213,6 +213,7 @@ function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead & { card
           sessionId={props.sessionId}
           acting={props.acting}
           answerAbove={awaitsAnswer(props.row)}
+          suggestion={chat?.suggestion}
           image={props.image}
           onPickImage={props.onPickImage}
           onClearImage={props.onClearImage}

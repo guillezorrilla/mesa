@@ -52,6 +52,22 @@ export function journalItems(
   return streamChatItems(state);
 }
 
+/**
+ * The prompt suggestion a Claude session's journal holds now: the newest one since the last
+ * message sent; none once the person sends another.
+ */
+export function journalSuggestion(lines: readonly string[]): string | undefined {
+  let suggestion: string | undefined;
+  for (const { sent, event } of journalEntries(lines)) {
+    if (sent?.type === 'user') suggestion = undefined;
+    else if (event !== undefined) {
+      const e = parseStreamLine(event);
+      if (e.type === 'suggestion') suggestion = e.text.trim() || undefined;
+    }
+  }
+  return suggestion;
+}
+
 export type LiveChatDeps = {
   /** The transcript's chat (sessionChat), oldest first. */
   history: (id: string, count?: number) => SessionChat;
@@ -72,7 +88,8 @@ export function liveChat(deps: LiveChatDeps, id: string, count?: number): Sessio
   if (record.view !== 'structured') return chat;
   const lines = readJournal(deps.journals, id) ?? [];
   const messages = mergeChat(chat.messages, journalItems(lines, deps.folder(record), record.agent));
-  return { ...chat, messages, count: messages.length };
+  const suggestion = record.agent === 'claude' ? journalSuggestion(lines) : undefined;
+  return { ...chat, messages, count: messages.length, ...(suggestion ? { suggestion } : {}) };
 }
 
 /** How often a follow looks at the journal again. */
@@ -84,6 +101,8 @@ const PING_MS = 1000;
 export type ChatFollowLine =
   | ({ type: 'chat' } & SessionChat)
   | { type: 'item'; item: ChatItem }
+  /** The prompt suggestion changed: a new one, or null once a message is sent. */
+  | { type: 'suggestion'; text: string | null }
   | { type: 'end' };
 
 /**
@@ -106,6 +125,7 @@ export async function followChat(
   const record = deps.record(id);
   if (record.view !== 'structured') return;
   const shown = new Map(first.messages.map((item) => [item.id, JSON.stringify(item)]));
+  let suggested = first.suggestion ?? null;
   const socket = hostSocket(deps.hosts, id);
   let hosted = false;
   let size = -1;
@@ -127,6 +147,9 @@ export async function followChat(
         shown.set(item.id, text);
         emit({ type: 'item', item });
       }
+      const suggestion = record.agent === 'claude' ? (journalSuggestion(lines) ?? null) : null;
+      if (suggestion !== suggested) emit({ type: 'suggestion', text: suggestion });
+      suggested = suggestion;
     }
     pinged += FOLLOW_MS;
     if (pinged < PING_MS) continue;

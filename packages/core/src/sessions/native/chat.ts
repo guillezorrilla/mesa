@@ -89,6 +89,8 @@ export type SessionChat = {
   more: boolean;
   /** Why the session's transcript cannot be read yet (sessionResponses), none when it can. */
   unavailable?: string;
+  /** The prompt a Structured Claude session's agent predicts the person sends next, until one is sent. */
+  suggestion?: string;
 };
 
 /** How many replies a chat opens with. */
