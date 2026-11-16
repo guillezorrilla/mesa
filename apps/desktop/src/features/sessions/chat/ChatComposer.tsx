@@ -2,6 +2,7 @@ import type { SessionImage } from '@mesa/core';
 import { ArrowUp, Plus, X } from 'lucide-react';
 import { type RefObject, useLayoutEffect, useRef, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
+import { Kbd } from '@/components/Kbd';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { SlashMenu } from '../slash/SlashMenu';
@@ -105,6 +106,7 @@ export function ChatComposer(props: {
             if (event.currentTarget.form) submit(event.currentTarget.form);
           }}
         />
+        {ghost && <Kbd className="mb-2 shrink-0">Tab</Kbd>}
         <Button
           type="submit"
           size="icon-sm"
