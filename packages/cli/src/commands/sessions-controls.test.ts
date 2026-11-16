@@ -1,3 +1,5 @@
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -43,4 +45,16 @@ test('sessions controls shows a Structured session with no reply yet from its re
     models: ['opus', 'sonnet', 'haiku', 'fable'],
   });
   expect((await mesa('sessions', 'controls', opened.id)).stdout).toBe(`${opened.id}: haiku\n`);
+});
+
+test('sessions config reads the named /config keys where Claude Code keeps them', async () => {
+  cli.withTmux();
+  await cli.withProject();
+  writeFileSync(join(cli.home, '.claude.json'), JSON.stringify({ verbose: true, theme: 'dark' }));
+  const opened = (
+    await mesa('open', 'lantern-cove', '--no-parent', '--view', 'structured', '--json')
+  ).json.data;
+  const read = await mesa('sessions', 'config', opened.id, 'verbose', 'theme', 'buoy', '--json');
+  expect(read.json.data).toEqual({ verbose: 'true', theme: 'dark' });
+  expect((await mesa('sessions', 'config', opened.id, 'verbose')).stdout).toBe('verbose=true\n');
 });

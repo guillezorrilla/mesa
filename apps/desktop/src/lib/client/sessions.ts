@@ -101,6 +101,10 @@ export const sessionsCommands = {
     '--',
     id,
   ]),
+  /** The current value of each Claude Code /config key named, for the session's folder. */
+  'sessions.config': commandWith<{ id: string; keys: string[] }, Record<string, string>>(
+    ({ id, keys }) => ['sessions', 'config', '--', id, ...keys],
+  ),
   /** Its model and effort changed while it runs, once the agent confirms. */
   'sessions.model': commandWith<
     { id: string; model?: string; effort?: string },

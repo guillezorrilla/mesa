@@ -35,6 +35,15 @@ export type SessionControls = {
 
 export type ControlChange = { model?: string; effort?: string; mode?: string };
 
+/** What Claude answers `/model` with: `Available: sonnet, opus, …, or a full model ID.` */
+const AVAILABLE = /Available: (.+?)(?:,? or a full model ID)?\.?$/m;
+
+/** The models a `/model` reply lists, the agent's own; none when it lists none. */
+export const availableModels = (text: string) =>
+  AVAILABLE.exec(text)?.[1]
+    ?.split(', ')
+    .filter((m) => /^\S+$/.test(m)) ?? [];
+
 /** What Claude answers `/effort <level>` with. */
 const EFFORT_SET = /^Set effort level to (\w+)/;
 /** How long a change waits for the agent to confirm it. */
@@ -69,10 +78,10 @@ export function readControls(record: SessionRecord, lines: readonly string[]): S
     efforts: EFFORTS[agent],
     modes: agent === 'claude' ? CLAUDE_PERMISSION_MODES : [],
   };
-  let askedUsage = false;
+  let asked: string | undefined;
   for (const { sent, event } of journalEntries(lines)) {
     if (sent) {
-      askedUsage = sent.type === 'user' && sent.text === '/usage';
+      asked = sent.type === 'user' && typeof sent.text === 'string' ? sent.text.trim() : undefined;
       if (agent === 'codex' && sent.type === 'model') {
         if (typeof sent.model === 'string') controls.model = sent.model;
         if (typeof sent.effort === 'string') controls.effort = sent.effort;
@@ -102,8 +111,10 @@ export function readControls(record: SessionRecord, lines: readonly string[]): S
     if (text === undefined) continue;
     const effort = EFFORT_SET.exec(text)?.[1];
     if (effort) controls.effort = effort;
-    if (askedUsage) controls.usage = text;
-    askedUsage = false;
+    if (asked === '/usage') controls.usage = text;
+    const models = asked === '/model' ? availableModels(text) : [];
+    if (models.length) controls.models = models;
+    asked = undefined;
   }
   return controls;
 }

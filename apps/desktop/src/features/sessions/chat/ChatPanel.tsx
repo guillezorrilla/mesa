@@ -1,7 +1,6 @@
 import type { ChatItem, Config, SessionImage, TreeRow } from '@mesa/core';
 import { ArrowDown } from 'lucide-react';
-import { Fragment, useLayoutEffect, useRef, useState } from 'react';
-import { AnsiLines } from '@/components/AnsiLines';
+import { Fragment, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { MarkdownView } from '@/components/MarkdownView';
 import { Muted } from '@/components/Muted';
 import { said } from '@/components/Toast';
@@ -13,6 +12,8 @@ import { cn } from '@/lib/utils';
 import { awaitsAnswer, PromptCard } from '../answer/PromptCard';
 import type { SentPrompt } from '../selected/useSessionPrompt';
 import { ChatComposer } from './ChatComposer';
+import { CommandRow } from './CommandRow';
+import { commandCards } from './commandCards';
 import { EditedFiles } from './EditedFiles';
 import { MessageTime } from './MessageTime';
 import { SessionControlsPanel } from './SessionControlsPanel';
@@ -64,7 +65,9 @@ export function ChatPanel(props: ChatPanelProps) {
 }
 
 function FollowedChat(props: ChatPanelProps) {
-  return <ChatView {...props} read={useFollowedChat(props.sessionId, props.sent)} />;
+  return (
+    <ChatView {...props} read={{ ...useFollowedChat(props.sessionId, props.sent), cards: true }} />
+  );
 }
 
 function TranscriptChat(props: ChatPanelProps) {
@@ -74,7 +77,7 @@ function TranscriptChat(props: ChatPanelProps) {
 /** Whether `prompt` is a slash command, which shows with its output rather than as a bubble. */
 const isCommand = (prompt: string) => /^\/\S/.test(prompt.trimStart());
 
-function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead }) {
+function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead & { cards?: boolean } }) {
   const { chat, error, sending, loadingOlder, older } = read;
   const platform = usePlatform();
   const { act } = useAct();
@@ -85,6 +88,13 @@ function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead }) {
   const [fresh, setFresh] = useState(false);
   const messages = chat?.messages ?? [];
   const edited = turnEdits(messages);
+  // Cards only where the session takes their changes: a Structured one's live chat.
+  const cards = useMemo(
+    () => (read.cards ? commandCards(messages) : { cards: new Map(), folded: new Set() }),
+    [read.cards, messages],
+  );
+  const newestCard = [...cards.cards.keys()].at(-1);
+  const composer = useRef<HTMLTextAreaElement>(null);
   // The last item's text too: a reply growing on the live stream keeps the view at the bottom.
   const last = messages.at(-1);
   const newest = `${messages.length}:${last?.id}:${last && 'text' in last ? last.text.length : 0}:${sending?.at}`;
@@ -142,12 +152,25 @@ function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead }) {
             </li>
           )}
           {messages.map((message, index) => {
+            if (cards.folded.has(message)) return null;
             const files = edited.get(message);
             return (
               // Two prompts with the same words share an id: the place tells them apart.
               // biome-ignore lint/suspicious/noArrayIndexKey: messages are stateless and only prepend.
               <Fragment key={`${index}:${message.id}`}>
-                <ChatRow message={message} onCopyCode={copy} terminal={props.terminal} />
+                {message.from === 'command' ? (
+                  <CommandRow
+                    message={message}
+                    sessionId={props.sessionId}
+                    row={props.row}
+                    placed={cards.cards.get(message)}
+                    newest={message === newestCard}
+                    terminal={props.terminal}
+                    onFocusComposer={() => composer.current?.focus()}
+                  />
+                ) : (
+                  <ChatRow message={message} onCopyCode={copy} />
+                )}
                 {files && (
                   <li>
                     <EditedFiles files={files} onSeeAll={props.onOpenDiff} />
@@ -186,6 +209,7 @@ function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead }) {
           </p>
         )}
         <ChatComposer
+          fieldRef={composer}
           sessionId={props.sessionId}
           acting={props.acting}
           answerAbove={awaitsAnswer(props.row)}
@@ -195,7 +219,7 @@ function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead }) {
           onSend={props.onSend}
         />
         {props.row?.managed && props.row.view === 'structured' && (
-          <SessionControlsPanel row={props.row} />
+          <SessionControlsPanel row={props.row} items={messages.length} />
         )}
       </div>
     </section>
@@ -210,36 +234,11 @@ const REPLY =
 
 /**
  * One row: the person's message as a plain bubble on the right, the agent's as Markdown, a run of
- * steps as its list, a slash command with its output. A message shows its time on hover.
+ * steps as its list. A message shows its time on hover.
  */
-function ChatRow(props: {
-  message: ChatItem;
-  onCopyCode: (code: string) => void;
-  /** The profile's terminal settings, whose colours a command's output draws in. */
-  terminal?: Config['terminal'];
-}) {
+function ChatRow(props: { message: ChatItem; onCopyCode: (code: string) => void }) {
   const { message } = props;
   if (message.from === 'steps') return <StepRun run={message} />;
-  if (message.from === 'command')
-    return (
-      <li className="flex">
-        <div
-          data-testid="command-output"
-          className="flex w-full flex-col gap-2 rounded-lg border bg-card p-3"
-        >
-          <code className="font-mono text-sm">{message.text}</code>
-          {message.output ? (
-            <AnsiLines
-              lines={message.output.split('\n')}
-              terminal={props.terminal}
-              className={cn(message.error && 'ring-1 ring-destructive')}
-            />
-          ) : (
-            <Muted size="xs">No output</Muted>
-          )}
-        </div>
-      </li>
-    );
   return (
     <li className={cn('group/row relative flex', message.from === 'you' && 'justify-end')}>
       <MessageTime at={message.at} side={message.from === 'you' ? 'right' : 'left'} />

@@ -42,6 +42,12 @@ function claude(message: Record<string, unknown>): object[] {
     return [synthetic('Set effort level to low (this session only): Quick, straightforward')];
   if (content === '/effort turbo') return [synthetic('Usage: /effort <low|medium|high|xhigh|max>')];
   if (content === '/usage') return [synthetic('Current session: 4% used')];
+  if (content === '/model')
+    return [
+      synthetic(
+        'Current model: `Haiku 5.5`\nUsage: /model <name>. Available: sonnet, haiku, opusplan, sonnet[1m], or a full model ID.',
+      ),
+    ];
   return [];
 }
 
@@ -136,6 +142,19 @@ describe("a Structured Claude session's controls", () => {
     const w = await hostedSession([INIT], claude);
     await w.mesa.sessions.send(w.record.id, '/usage');
     expect(w.mesa.sessions.controls(w.record.id).usage).toBe('Current session: 4% used');
+    w.host.stop();
+    await w.host.done;
+  });
+
+  it("offer the agent's own model list once /model has answered", async () => {
+    const w = await hostedSession([INIT], claude);
+    await w.mesa.sessions.send(w.record.id, '/model');
+    expect(w.mesa.sessions.controls(w.record.id).models).toEqual([
+      'sonnet',
+      'haiku',
+      'opusplan',
+      'sonnet[1m]',
+    ]);
     w.host.stop();
     await w.host.done;
   });

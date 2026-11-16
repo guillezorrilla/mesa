@@ -155,6 +155,23 @@ export const sessionsControls = defineCommand({
   },
 });
 
+export const sessionsConfig = defineCommand({
+  name: 'sessions config',
+  summary:
+    "Show the current value of each Claude Code /config key named, as the session's folder reads it; a key with no value saved and no known default is left out",
+  args: ['session', 'keys...'],
+  example: 'mesa sessions config a1b2c3d4 verbose theme',
+  run: async ({ mesa, args }) => {
+    const data = mesa.sessions.config(args.session, args.keys);
+    return {
+      data,
+      text: Object.entries(data)
+        .map(([k, v]) => `${k}=${v}`)
+        .join('\n'),
+    };
+  },
+});
+
 export const sessionsModel = defineCommand({
   name: 'sessions model',
   summary:

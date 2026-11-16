@@ -114,6 +114,7 @@ import { search } from './search.js';
 import { send } from './send.js';
 import {
   sessions,
+  sessionsConfig,
   sessionsControls,
   sessionsMode,
   sessionsModel,
@@ -297,6 +298,7 @@ export const COMMANDS: Command[] = [
   sessions,
   sessionsView,
   sessionsControls,
+  sessionsConfig,
   sessionsModel,
   sessionsMode,
   show,

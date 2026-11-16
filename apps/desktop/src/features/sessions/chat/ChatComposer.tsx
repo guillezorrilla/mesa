@@ -1,6 +1,6 @@
 import type { SessionImage } from '@mesa/core';
 import { ArrowUp, Plus, X } from 'lucide-react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { type RefObject, useLayoutEffect, useRef, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,10 +22,13 @@ export function ChatComposer(props: {
   onPickImage?: () => void;
   onClearImage?: () => void;
   onSend: (prompt: string, form: HTMLFormElement, image?: SessionImage) => void;
+  /** The field, for a card that gives the keys back when it closes. */
+  fieldRef?: RefObject<HTMLTextAreaElement | null>;
 }) {
   const [text, setText] = useState('');
   const slash = useSlashMenu(props.sessionId, text, setText);
-  const field = useRef<HTMLTextAreaElement>(null);
+  const own = useRef<HTMLTextAreaElement>(null);
+  const field = props.fieldRef ?? own;
   // shortcut: a web view without field-sizing (Safari before 26.2) grows the field here instead.
   // biome-ignore lint/correctness/useExhaustiveDependencies: it measures the field each time its text changes.
   useLayoutEffect(() => {

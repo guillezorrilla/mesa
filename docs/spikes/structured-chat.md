@@ -128,6 +128,15 @@ Order: 1, 2, 3, then 4 and 8 in parallel, then 5, 6, 7, 9, 10, 11. Sizes in agen
 10. `sessions: Codex structured runner on app-server` (M). Section 3 lists what it must change.
 11. `docs: ADR and CONTEXT terms for Structured and Terminal views` (S). Amends ADR-0001 and ADR-0003 notes; defines Structured, Terminal, host.
 
+## 7. Built-in command cards and prompt suggestions (measured, #1218)
+
+Measured 2026-11-16 on `claude` 2.1.325, Haiku, a throwaway folder and profile, invented prompts.
+
+- Prompt suggestions: `--prompt-suggestions true` makes stream-json emit `{"type":"prompt_suggestion","suggestion":"tell me another fact"}` about 1.2 s after a turn's `result`, from the third turn (the CLI skips a conversation with fewer than two replies). The CLI also skips it while the account's rate limit status is not `allowed` (this account was at `allowed_warning`: three turns, none), unless `CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION` is set, which is how the TUI behaves too. A `set_prompt_suggestions_paused` control request pauses them while no composer is on screen.
+- `/config` with no argument prints `Usage: /config key=value [key=value ...]` and one `key=a|b` or `key=<value>` line per setting (37 here); `/config key` alone, an unknown key and a bad value each answer with one line of text ("Verbose output takes true or false, not \"maybe\"."); a good one answers "Set Verbose output to true". `verbose` was written to the user's `~/.claude/settings.json`. No command or control request reads the current values back: `get_settings` returns only the settings layers, and most `/config` keys live in `~/.claude.json` under other names (`autoCompact` is `autoCompactEnabled`, `editor` is `editorMode`), as the TUI's /config panel reads them.
+- `/model` with no name prints the current model and `Available: sonnet, opus, haiku, fable, best, sonnet[1m], opus[1m], fable[1m], opusplan, default, or a full model ID.`
+- Control requests that answer as data: `get_usage` (rate limits with percent and `resets_at`), `get_context_usage` (categories with tokens), `list_models` (display names and effort levels per model).
+
 ## Not measured
 
 `/clear` session id; the half-written reply after a kill; PermissionRequest and Notification hooks in structured mode; Agent SDK differences and API-key cost; two processes on one session id; startup time with the owner's full plugin and MCP set.
