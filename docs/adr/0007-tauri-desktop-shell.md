@@ -23,6 +23,8 @@ Owner request on 2026-09-24. Versions from `pnpm view` and crates.io on 2026-09-
 
 ## Consequences
 
+- ADR-0030 (2026-11-16): `run_mesa` sends its calls to one long-lived `mesa serve`, the Command server, and spawns only when the call cannot reach it.
+
 - No node-pty, no electron-rebuild, no electron-builder.
 - Rust is a toolchain requirement for contributors and CI; cold `cargo` builds take minutes and are cached.
 - WKWebView is the rendering engine: terminal rendering and clipboard behaviour need native checks, not Chromium assumptions. The P0 spike confirmed that the WebGL addon loaded; a later native check found its output could stay black (see the 2026-09-28 amendment).

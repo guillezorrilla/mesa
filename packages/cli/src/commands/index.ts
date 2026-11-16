@@ -113,6 +113,7 @@ import { rm } from './rm.js';
 import { run } from './run.js';
 import { search } from './search.js';
 import { send } from './send.js';
+import { serve } from './serve.js';
 import {
   sessions,
   sessionsConfig,
@@ -294,6 +295,7 @@ export const COMMANDS: Command[] = [
   run,
   search,
   send,
+  serve,
   typeCommand,
   keys,
   panel,

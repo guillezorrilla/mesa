@@ -1,5 +1,6 @@
 import { parseArgs } from 'node:util';
 import type { Mesa, Stdio } from '@mesa/core';
+import type { RunOne } from './serve.js';
 
 export type Flag = {
   type: 'string' | 'boolean';
@@ -102,6 +103,8 @@ export type Invocation<A extends readonly string[] = readonly string[], F extend
   askSecret: ((question: string) => Promise<string>) | undefined;
   /** The command table, which `mesa help` describes. */
   commands: Command[];
+  /** Runs another argv in this process with `stdin`, as a program would (`mesa serve`). */
+  rerun: RunOne;
 };
 
 /** A server's stdio, and `run`: another mesa command in this process, what it printed. */
