@@ -5,6 +5,7 @@
 const FOLLOW_ACTIONS = [
   ['send'],
   ['answer'],
+  ['interrupt'],
   ['prompt'],
   ['sessions', 'model'],
   ['sessions', 'mode'],

@@ -1,11 +1,9 @@
-import type { ChatItem, Config, SessionImage, TreeRow } from '@mesa/core';
+import type { Config, SessionImage, TreeRow } from '@mesa/core';
 import { ArrowDown } from 'lucide-react';
-import { Fragment, memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { MarkdownView } from '@/components/MarkdownView';
+import { Fragment, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
-import { PROSE } from '@/features/vault/NoteMarkdown';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useAct } from '@/lib/useAct';
 import { cn } from '@/lib/utils';
@@ -13,15 +11,15 @@ import { PendingPromptCard } from '../answer/PendingPromptCard';
 import { awaitsAnswer, PromptCard } from '../answer/PromptCard';
 import type { SentPrompt } from '../selected/useSessionPrompt';
 import { ChatComposer } from './ChatComposer';
+import { ChatRow, YOU } from './ChatRow';
 import { CommandRow } from './CommandRow';
 import { commandCards } from './commandCards';
 import { EditedFiles } from './EditedFiles';
-import { MessageTime } from './MessageTime';
 import { SessionControlsPanel } from './SessionControlsPanel';
-import { StepRun } from './StepRun';
 import { turnEdits } from './turnEdits';
 import { type ChatRead, useChat } from './useChat';
 import { useFollowedChat } from './useFollowedChat';
+import { useInterrupt } from './useInterrupt';
 
 /** How near an end of the list counts as at it, in pixels. */
 const NEAR = 40;
@@ -98,6 +96,7 @@ function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead & { card
   );
   const newestCard = [...cards.cards.keys()].at(-1);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const interrupt = useInterrupt(read.cards ? props.row : undefined);
   const focusComposer = useCallback(() => composer.current?.focus(), []);
   /** The footer's model menu, which `/model` opens in a Structured chat. */
   const [modelOpen, setModelOpen] = useState(false);
@@ -249,6 +248,7 @@ function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead & { card
           onPickImage={props.onPickImage}
           onClearImage={props.onClearImage}
           onSend={props.onSend}
+          stop={{ ...interrupt, onStop: () => void interrupt.stop() }}
           onCommand={
             read.cards
               ? (prompt) => {
@@ -275,33 +275,4 @@ function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead & { card
 }
 
 /** The prompt card's place above the composer. */
-const PROMPT = 'mx-0 mt-0 rounded-xl border-0 bg-muted p-4';
-const YOU =
-  'max-w-[min(85%,48rem)] whitespace-pre-wrap break-words rounded-2xl bg-muted px-4 py-2.5 text-[15px] leading-6';
-/** The agent's replies: the vault's prose a step larger for reading at length, with tables and code chips. */
-const REPLY =
-  'w-full text-[15px] leading-7 [&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-muted [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:py-0.5 [&_pre_code]:text-[13px] [&_h1]:mt-6 [&_h2]:mt-6 [&_h3]:mt-5 [&_li]:mt-1 [&_table]:w-full [&_tbody_tr:last-child]:border-0 [&_td]:py-2 [&_td]:pr-6 [&_td]:align-top [&_th]:py-2 [&_th]:pr-6 [&_th]:text-left [&_th]:font-medium [&_th]:whitespace-nowrap [&_tr]:border-b';
-
-/**
- * One row: the person's message as a plain bubble on the right, the agent's as Markdown, a run of
- * steps as its list. A message shows its time on hover.
- */
-const ChatRow = memo(function ChatRow(props: {
-  message: ChatItem;
-  onCopyCode: (code: string) => void;
-}) {
-  const { message } = props;
-  if (message.from === 'steps') return <StepRun run={message} />;
-  return (
-    <li className={cn('group/row relative flex', message.from === 'you' && 'justify-end')}>
-      <MessageTime at={message.at} side={message.from === 'you' ? 'right' : 'left'} />
-      {message.from === 'you' ? (
-        <div className={YOU}>{message.text}</div>
-      ) : (
-        <div className={cn(PROSE, REPLY)}>
-          <MarkdownView text={message.text} onCopyCode={props.onCopyCode} gfm />
-        </div>
-      )}
-    </li>
-  );
-});
+const PROMPT = 'mx-0 mt-0 shadow-sm';

@@ -1,5 +1,5 @@
 import type { SessionImage } from '@mesa/core';
-import { ArrowUp, Plus, X } from 'lucide-react';
+import { ArrowUp, Plus, Square, X } from 'lucide-react';
 import { type RefObject, useLayoutEffect, useRef, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Kbd } from '@/components/Kbd';
@@ -11,7 +11,8 @@ import { useSlashMenu } from '../slash/useSlashMenu';
 /**
  * Chat's composer, a card docked at the chat's foot: + attaches an image, Enter sends what is
  * typed into the session's terminal (the guarded send), Shift+Enter starts a new line, and the
- * field grows with its text up to a cap. The form clears once the prompt is typed.
+ * field grows with its text up to a cap. While the agent works, an empty field's Send is Stop,
+ * and Esc stops it too. The form clears once the prompt is typed.
  */
 export function ChatComposer(props: {
   sessionId: string;
@@ -29,6 +30,8 @@ export function ChatComposer(props: {
   suggestion?: string;
   /** The field, for a card that gives the keys back when it closes. */
   fieldRef?: RefObject<HTMLTextAreaElement | null>;
+  /** Stop for an agent mid-turn: Send becomes Stop while the field is empty, and Esc stops it. */
+  stop?: { working: boolean; stopping: boolean; onStop: () => void };
 }) {
   const [text, setText] = useState('');
   const slash = useSlashMenu(props.sessionId, text, setText);
@@ -44,6 +47,8 @@ export function ChatComposer(props: {
   }, [text]);
   const image = props.image?.session === props.sessionId ? props.image : undefined;
   const ghost = !text && !props.answerAbove ? props.suggestion : undefined;
+  // With a draft, Send stays: it queues behind the turn, as in Claude Desktop and orca.
+  const stopping = props.stop?.working && !text.trim() && !image ? props.stop : undefined;
   const submit = (form: HTMLFormElement) => {
     const prompt = String(new FormData(form).get('prompt') ?? '');
     if (!image && props.onCommand?.(prompt)) setText('');
@@ -104,21 +109,41 @@ export function ChatComposer(props: {
               setText(ghost);
               return;
             }
+            if (event.key === 'Escape' && props.stop?.working && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              props.stop.onStop();
+              return;
+            }
             if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
             event.preventDefault();
             if (event.currentTarget.form) submit(event.currentTarget.form);
           }}
         />
         {ghost && <Kbd className="mb-2 shrink-0">Tab</Kbd>}
-        <Button
-          type="submit"
-          size="icon-sm"
-          className="rounded-full"
-          disabled={props.acting || props.answerAbove}
-          aria-label="Send"
-        >
-          <ArrowUp aria-hidden />
-        </Button>
+        {stopping ? (
+          <Button
+            type="button"
+            size="icon-sm"
+            className="rounded-full"
+            disabled={stopping.stopping}
+            aria-label={stopping.stopping ? 'Stopping' : 'Stop'}
+            title="Stop (Esc)"
+            // A double click's second press would cut the turn that starts next.
+            onClick={(event) => event.detail < 2 && stopping.onStop()}
+          >
+            <Square aria-hidden className="size-3 fill-current" />
+          </Button>
+        ) : (
+          <Button
+            type="submit"
+            size="icon-sm"
+            className="rounded-full"
+            disabled={props.acting || props.answerAbove}
+            aria-label="Send"
+          >
+            <ArrowUp aria-hidden />
+          </Button>
+        )}
       </div>
     </form>
   );

@@ -9,6 +9,7 @@ import {
   failure,
   fakeBridge,
   fill,
+  press,
   renderWithMesa,
   toastTexts,
 } from '@/lib/testing';
@@ -40,7 +41,9 @@ const question: PendingPrompt = {
   freeText: true,
 };
 const button = (label: string) =>
-  [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === label);
+  [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+    (b) => (b.getAttribute('aria-label') ?? b.textContent) === label,
+  );
 
 test('a waiting session shows its prompt with options as buttons; Allow answers it and the card closes', async () => {
   const { bridge, calls } = fakeBridge({
@@ -64,6 +67,31 @@ test('a waiting session shows its prompt with options as buttons; Allow answers 
     'aaaaaaaa',
     'allow',
   ]);
+  expect(byTestId('session-prompt')).toHaveLength(0);
+});
+
+test('the card takes the keys, so Enter meant for the composer answers nothing; a number key selects, Enter gives it; a digit in the field is text', async () => {
+  const { bridge, calls } = fakeBridge({
+    prompt: () => envelope(question),
+    answer: () => envelope({ answered: true, prompt: 'q1', receipt: null }),
+  });
+  const byTestId = await renderWithMesa(<PromptCard row={asking} />, bridge);
+  const card = byTestId('session-prompt')[0];
+  expect(document.activeElement).toBe(card);
+  await press(card, 'Enter');
+  const input = document.querySelector<HTMLInputElement>('[aria-label="Or type an answer"]');
+  await press(input ?? undefined, '2');
+  expect(calls.filter((c) => c[1] === 'answer')).toEqual([]);
+  await press(card, '2');
+  expect(document.activeElement?.getAttribute('aria-label')).toBe('Coffee');
+  expect(calls.filter((c) => c[1] === 'answer')).toEqual([]);
+  await click(button('Coffee'));
+  expect(
+    calls
+      .filter((c) => c[1] === 'answer')
+      .at(-1)
+      ?.at(-1),
+  ).toBe('2');
   expect(byTestId('session-prompt')).toHaveLength(0);
 });
 
