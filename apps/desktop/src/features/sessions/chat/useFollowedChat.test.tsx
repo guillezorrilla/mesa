@@ -129,3 +129,57 @@ test("the agent's prompt suggestion shows dim in the empty composer; Tab or Righ
   await act(async () => follows.push({ type: 'suggestion', text: null }));
   expect(field()?.placeholder).toBe('Type / for commands');
 });
+
+test('the prompt the agent waits on comes on the stream: no prompt call, the pressed answer spins, the card closes at once', async () => {
+  const follows = fakeFollows();
+  let answered: (value: unknown) => void = () => undefined;
+  const { bridge, calls } = fakeBridge({
+    'sessions controls': () =>
+      envelope({ session: 'dddddddd', agent: 'claude', models: [], efforts: [], modes: [] }),
+    answer: () =>
+      new Promise((resolve) => {
+        answered = resolve;
+      }),
+  });
+  // Idle on the board: the stream alone says a prompt waits.
+  await renderWithMesa(
+    <ChatPanel sessionId="dddddddd" row={structured} acting={false} onSend={() => {}} />,
+    bridge,
+    fakePlatform({ follow: follows.host }),
+  );
+  await act(async () => {
+    follows.push({ type: 'chat', messages: [], count: 0, more: false });
+    follows.push({
+      type: 'prompt',
+      prompt: {
+        status: 'pending',
+        session: 'dddddddd',
+        id: 'req-w',
+        kind: 'permission',
+        tool: 'Write',
+        summary: 'tide.txt',
+        options: [
+          { id: 'allow', label: 'Allow' },
+          { id: 'deny', label: 'Deny' },
+        ],
+        freeText: true,
+      },
+    });
+  });
+  const card = () => document.querySelector('[data-testid="session-prompt"]');
+  const allow = () =>
+    [...(card()?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find(
+      (b) => b.textContent === 'Allow',
+    );
+  expect(card()?.textContent).toContain('tide.txt');
+  expect(
+    document.querySelector<HTMLTextAreaElement>('[aria-label="Message dddddddd"]')?.placeholder,
+  ).toBe('Answer above');
+  await act(async () => allow()?.click());
+  expect(allow()?.getAttribute('aria-busy')).toBe('true');
+  await act(async () => answered(envelope({ answered: true, prompt: 'req-w', receipt: null })));
+  expect(card()).toBeNull();
+  expect(calls.some((c) => c[1] === 'prompt')).toBe(false);
+  await act(async () => follows.push({ type: 'prompt', prompt: null }));
+  expect(card()).toBeNull();
+});

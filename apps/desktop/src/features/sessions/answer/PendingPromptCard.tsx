@@ -1,4 +1,6 @@
+import type { PendingPrompt } from '@mesa/core';
 import { promptTitle, typedAnswerHint } from '@mesa/core/browser';
+import { Loader2 } from 'lucide-react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -7,10 +9,15 @@ import { usePendingPrompt } from './usePendingPrompt';
 
 /**
  * The prompt a waiting session asks, as a card: what it is about and its options as buttons, a
- * typed answer where it takes one, or why Mesa cannot answer it.
+ * typed answer where it takes one, or why Mesa cannot answer it. The option pressed spins until
+ * the answer is in; `prompt` is the one its chat's follow streamed, else the card reads it.
  */
-export function PendingPromptCard(props: { session: string; className?: string }) {
-  const { prompt, acting, answer } = usePendingPrompt(props.session);
+export function PendingPromptCard(props: {
+  session: string;
+  prompt?: PendingPrompt;
+  className?: string;
+}) {
+  const { prompt, acting, pressed, answer } = usePendingPrompt(props.session, props.prompt);
   if (!prompt) return null;
   if (prompt.status === 'unsupported') {
     return (
@@ -35,8 +42,12 @@ export function PendingPromptCard(props: { session: string; className?: string }
             variant={i === 0 ? 'default' : 'outline'}
             title={option.description}
             disabled={acting}
+            aria-busy={pressed === option.id}
             onClick={() => answer({ option: option.id })}
           >
+            {pressed === option.id && (
+              <Loader2 aria-hidden className="animate-spin motion-reduce:animate-none" />
+            )}
             {option.label}
           </Button>
         ))}

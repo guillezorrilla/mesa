@@ -140,6 +140,61 @@ describe('mesa chat --follow', () => {
     ]);
   });
 
+  it('prints the prompt the agent waits on, and null once it is answered', async () => {
+    const write = {
+      type: 'control_request',
+      request_id: 'req-w',
+      request: {
+        subtype: 'can_use_tool',
+        tool_name: 'Write',
+        input: { file_path: 'tide.txt', content: 'high' },
+        tool_use_id: 'toolu_w',
+      },
+    };
+    const w = await hostedSession(undefined, (m) =>
+      (m.message as { content?: unknown } | undefined)?.content === 'chart the tide' ? [write] : [],
+    );
+    const lines: ChatFollowLine[] = [];
+    let reading = true;
+    const following = w.mesa.sessions.chatFollow(
+      w.record.id,
+      (line) => lines.push(line),
+      () => reading,
+    );
+    const prompts = () => lines.filter((l) => l.type === 'prompt');
+    const until = async (ok: () => boolean) => {
+      for (let i = 0; i < 200 && !ok(); i++) await new Promise((r) => setTimeout(r, 10));
+    };
+    await until(() => lines.length > 0);
+    await w.mesa.sessions.send(w.record.id, 'chart the tide', { noFrom: true });
+    await until(() => prompts().length > 0);
+    await w.mesa.sessions.answer(w.record.id, { option: 'allow', prompt: 'req-w' });
+    await until(() => prompts().length > 1);
+    reading = false;
+    await following;
+    w.host.stop();
+    await w.host.done;
+    expect(prompts()).toEqual([
+      {
+        type: 'prompt',
+        prompt: {
+          status: 'pending',
+          session: w.record.id,
+          id: 'req-w',
+          kind: 'permission',
+          tool: 'Write',
+          summary: 'tide.txt',
+          options: [
+            { id: 'allow', label: 'Allow' },
+            { id: 'deny', label: 'Deny' },
+          ],
+          freeText: true,
+        },
+      },
+      { type: 'prompt', prompt: null },
+    ]);
+  });
+
   it('ends when the window runs no host', async () => {
     const w = await hostedSession();
     w.host.stop();

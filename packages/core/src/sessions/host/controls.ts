@@ -48,7 +48,8 @@ export const availableModels = (text: string) =>
 const EFFORT_SET = /^Set effort level to (\w+)/;
 /** How long a change waits for the agent to confirm it. */
 const CONFIRM_MS = 10_000;
-const POLL_MS = 200;
+/** How often it looks: claude confirms in a few ms, so a long look is the change's own lag. */
+const POLL_MS = 25;
 
 /** A synthetic reply's text: what Claude Code wrote itself for a slash command. */
 const syntheticText = (event: ReturnType<typeof parseStreamLine>) =>

@@ -1,6 +1,6 @@
 import type { ManagedRow } from '@mesa/core';
 import { modelLabel, parsePlanUsage } from '@mesa/core/browser';
-import { ChevronDown, Gauge } from 'lucide-react';
+import { ChevronDown, Gauge, Loader2 } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,12 +15,22 @@ import { ModelEffortList } from './ModelEffortList';
 import { UsagePanel } from './UsagePanel';
 import { useSessionControls } from './useSessionControls';
 
+/** A trigger's end: a spinner while its change waits on the agent, else the picker's chevron. */
+function TriggerMark(props: { busy: boolean }) {
+  return props.busy ? (
+    <Loader2 aria-hidden className="size-3 animate-spin opacity-60 motion-reduce:animate-none" />
+  ) : (
+    <ChevronDown aria-hidden className="size-3 opacity-60" />
+  );
+}
+
 /** A quiet footer button that opens a picker. */
 function Picker(props: {
   label: string;
   children: ReactNode;
   trigger: ReactNode;
   disabled: boolean;
+  busy: boolean;
 }) {
   return (
     <DropdownMenu>
@@ -29,10 +39,11 @@ function Picker(props: {
           variant="ghost"
           size="sm"
           aria-label={props.label}
+          aria-busy={props.busy}
           className="h-7 gap-1 px-2 text-xs"
         >
           {props.trigger}
-          <ChevronDown aria-hidden className="size-3 opacity-60" />
+          <TriggerMark busy={props.busy} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="max-h-80 overflow-y-auto">
@@ -44,11 +55,12 @@ function Picker(props: {
 
 /**
  * A Structured session's controls under Chat's composer (ADR-0029): model and effort, permission
- * mode (Claude Code), context and usage, each opening a picker or a card. A change shows the
- * agent's confirmed value once it answers; a refusal shows beside them.
+ * mode (Claude Code), context and usage, each opening a picker or a card. A change shows at once
+ * with a spinner on its trigger, then the agent's confirmed value; a refusal rolls it back and
+ * shows beside them.
  */
 export function SessionControlsPanel(props: { row: ManagedRow; items?: number }) {
-  const { controls, applying, failure, apply, checkUsage } = useSessionControls(
+  const { controls, pending, applying, failure, apply, checkUsage } = useSessionControls(
     props.row,
     props.items,
   );
@@ -72,6 +84,7 @@ export function SessionControlsPanel(props: { row: ManagedRow; items?: number })
             variant="ghost"
             size="sm"
             aria-label="Model and effort"
+            aria-busy={Boolean(pending && pending.mode === undefined)}
             className="h-7 gap-1 px-2 text-xs"
           >
             <span>{model ? modelLabel(model) : 'Model'}</span>
@@ -80,7 +93,7 @@ export function SessionControlsPanel(props: { row: ManagedRow; items?: number })
                 {controls.effortQueued ? `${controls.effortQueued}, after this turn` : effort}
               </span>
             )}
-            <ChevronDown aria-hidden className="size-3 opacity-60" />
+            <TriggerMark busy={Boolean(pending && pending.mode === undefined)} />
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-56 p-1">
@@ -95,7 +108,12 @@ export function SessionControlsPanel(props: { row: ManagedRow; items?: number })
         </PopoverContent>
       </Popover>
       {controls.modes.length > 0 && (
-        <Picker label="Permission mode" disabled={applying} trigger={<span>{mode ?? 'Mode'}</span>}>
+        <Picker
+          label="Permission mode"
+          disabled={applying}
+          busy={pending?.mode !== undefined}
+          trigger={<span>{mode ?? 'Mode'}</span>}
+        >
           {controls.modes.map((one) => (
             <DropdownMenuCheckboxItem
               key={one}

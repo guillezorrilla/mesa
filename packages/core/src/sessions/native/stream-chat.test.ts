@@ -133,6 +133,43 @@ describe('mergeChat', () => {
     expect(mergeChat(history, live).map((i) => i.id)).toEqual(['h1', 'h2', 'h3', 's3']);
   });
 
+  it('shows a command run again when the two do not line up, and nothing from before the window', () => {
+    const command = (text: string, id: string, at: string): ChatItem => ({
+      id,
+      at,
+      text,
+      from: 'command',
+    });
+    const t = (s: number) => new Date(Date.parse(AT) + s * 1000).toISOString();
+    // The transcript holds a /clear the stream never folded, and the stream ran /usage once more.
+    const history = [
+      { ...msg('you', 'go', 'h1'), at: t(30) },
+      command('/clear', 'h2', t(60)),
+      command('/usage', 'h3', t(90)),
+    ];
+    const live = [
+      command('/cost', 's0', t(0)),
+      { ...msg('you', 'go', 's1'), at: t(30) },
+      command('/usage', 's2', t(90.2)),
+      command('/usage', 's3', t(120)),
+    ];
+    expect(mergeChat(history, live).map((i) => i.id)).toEqual(['h1', 'h2', 'h3', 's3']);
+  });
+
+  it('does not line the stream up on one repeated item at the start of the window', () => {
+    const t = (s: number) => new Date(Date.parse(AT) + s * 1000).toISOString();
+    const command = (text: string, id: string, at: string): ChatItem => ({
+      id,
+      at,
+      text,
+      from: 'command',
+    });
+    // The window opens on an older /context; the stream ends with a new one.
+    const history = [command('/context', 'h1', t(0)), { ...msg('you', 'go', 'h2'), at: t(30) }];
+    const live = [{ ...msg('you', 'go', 's1'), at: t(30) }, command('/context', 's2', t(90))];
+    expect(mergeChat(history, live).map((i) => i.id)).toEqual(['h1', 'h2', 's2']);
+  });
+
   it('shows a command run twice in a row twice, once the transcript has both', () => {
     const command = (id: string): ChatItem => ({ id, at: null, text: '/config', from: 'command' });
     const history = [msg('you', 'go', 'h1'), command('h2'), command('h3')];

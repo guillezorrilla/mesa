@@ -1,4 +1,4 @@
-import type { ChatFollowLine, SessionChat } from '@mesa/core';
+import type { ChatFollowLine, PendingPrompt, SessionChat } from '@mesa/core';
 import { useEffect, useRef, useState } from 'react';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useSessionEvents } from '@/lib/useSessionEvents';
@@ -32,7 +32,7 @@ export function followed(
 
 /**
  * A Structured session's chat on its host's live stream (ADR-0029): one follow (Rust `follow_*`)
- * while the chat is open, read again further back on `older`, closed when it closes. No CLI call
+ * while the chat is open, the prompt its agent waits on included, read again further back on `older`, closed when it closes. No CLI call
  * per refresh: the stream says what changed. A follow that ended (its host stopped, a resume
  * coming) opens again on the session's next change.
  */
@@ -43,7 +43,12 @@ export function useFollowedChat(sessionId: string, sent?: SentPrompt): ChatRead 
   const [opening, setOpening] = useState(0);
   const ended = useRef(false);
   const [state, setState] = useState<{ count: number; chat?: SessionChat }>({ count });
+  /** The prompt the agent waits on, as the stream last said; none before it says. */
+  const [prompt, setPrompt] = useState<PendingPrompt | null>(null);
   const [error, setError] = useState<string>();
+  // Another session's prompt never shows here; its own follow says again what waits.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: it resets on a new session only.
+  useEffect(() => setPrompt(null), [sessionId]);
   useSessionEvents(() => {
     if (ended.current) setOpening((n) => n + 1);
   });
@@ -57,14 +62,14 @@ export function useFollowedChat(sessionId: string, sent?: SentPrompt): ChatRead 
       try {
         id = await follow.open(sessionId, count);
         stops.push(
-          await follow.onLine(id, (line) =>
+          await follow.onLine(id, (text) => {
+            const line = JSON.parse(text) as ChatFollowLine;
+            if (line.type === 'prompt') return setPrompt(line.prompt);
             setState((last) => ({
               count,
-              chat:
-                followed(last.count === count ? last.chat : undefined, JSON.parse(line)) ??
-                last.chat,
-            })),
-          ),
+              chat: followed(last.count === count ? last.chat : undefined, line) ?? last.chat,
+            }));
+          }),
           await follow.onExit(id, () => {
             ended.current = true;
           }),
@@ -94,6 +99,7 @@ export function useFollowedChat(sessionId: string, sent?: SentPrompt): ChatRead 
     error: error === undefined ? undefined : { code: 'internal', message: error },
     sending:
       sent?.id === sessionId && chat && !transcriptHolds(chat.messages, sent) ? sent : undefined,
+    prompt,
     loadingOlder: state.count !== count,
     older: () => {
       if (chat?.more) setCount((shown) => shown + CHAT_PAGE);

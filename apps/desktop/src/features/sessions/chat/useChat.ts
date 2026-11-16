@@ -1,4 +1,4 @@
-import type { ChatItem, SessionChat } from '@mesa/core';
+import type { ChatItem, PendingPrompt, SessionChat } from '@mesa/core';
 import { useEffect, useRef, useState } from 'react';
 import { type CommandError, useCommand } from '@/lib/useCommand';
 import { useSessionEvents } from '@/lib/useSessionEvents';
@@ -38,6 +38,8 @@ export type ChatRead = {
   /** Whether a look further back is still reading. */
   loadingOlder: boolean;
   older: () => void;
+  /** The prompt the agent waits on, null for none, when the chat's own stream says (a follow's). */
+  prompt?: PendingPrompt | null;
 };
 
 export function useChat(sessionId: string, sent?: SentPrompt): ChatRead {

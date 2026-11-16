@@ -1,6 +1,6 @@
 import type { ChatItem, Config, SessionImage, TreeRow } from '@mesa/core';
 import { ArrowDown } from 'lucide-react';
-import { Fragment, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { MarkdownView } from '@/components/MarkdownView';
 import { Muted } from '@/components/Muted';
 import { said } from '@/components/Toast';
@@ -9,6 +9,7 @@ import { PROSE } from '@/features/vault/NoteMarkdown';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useAct } from '@/lib/useAct';
 import { cn } from '@/lib/utils';
+import { PendingPromptCard } from '../answer/PendingPromptCard';
 import { awaitsAnswer, PromptCard } from '../answer/PromptCard';
 import type { SentPrompt } from '../selected/useSessionPrompt';
 import { ChatComposer } from './ChatComposer';
@@ -58,7 +59,9 @@ const followedRow = (row?: TreeRow) => Boolean(row?.managed && row.view === 'str
  * host's live stream (a reply grows as it is written); another's from its transcript. It opens at
  * the bottom and follows new replies while there; scrolled up, it holds still and offers New; at
  * the top it reads further back. A slash command shows with its output. A turn that changed files
- * closes with their card. A view switch swaps the source, as the two are separate components.
+ * closes with their card. A prompt sent shows at once (Sending, or Queued mid-turn; a command as
+ * Running) until the chat holds it. A Structured session's pending prompt comes on the same
+ * stream. A view switch swaps the source, as the two are separate components.
  */
 export function ChatPanel(props: ChatPanelProps) {
   return followedRow(props.row) ? <FollowedChat {...props} /> : <TranscriptChat {...props} />;
@@ -122,11 +125,15 @@ function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead & { card
     fromBottom.current = view.scrollHeight - view.scrollTop;
     older();
   };
-  const copy = (code: string) =>
-    void act(async () => {
-      await platform.clipboard.write(code);
-      return said('Code copied');
-    });
+  // Stable, so a row that did not change does not draw again as the chat grows or a prompt is sent.
+  const copy = useCallback(
+    (code: string) =>
+      void act(async () => {
+        await platform.clipboard.write(code);
+        return said('Code copied');
+      }),
+    [act, platform],
+  );
   return (
     <section
       aria-label={`Session ${props.sessionId} chat`}
@@ -179,12 +186,23 @@ function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead & { card
               </Fragment>
             );
           })}
-          {sending && !isCommand(sending.prompt) && (
-            <li className="flex flex-col items-end gap-1 opacity-60">
-              <div className={YOU}>{sending.prompt}</div>
-              <Muted size="xs">Sending</Muted>
-            </li>
-          )}
+          {sending &&
+            (isCommand(sending.prompt) ? (
+              <li className="flex opacity-60">
+                <div className="flex w-full items-center gap-2 rounded-lg border bg-card px-3 py-2">
+                  <code className="font-mono text-sm">{sending.prompt.trim()}</code>
+                  <Muted size="xs">Running</Muted>
+                </div>
+              </li>
+            ) : (
+              <li className="flex flex-col items-end gap-1 opacity-60">
+                <div className={YOU}>{sending.prompt}</div>
+                {/* Mid-turn the agent takes it once its turn ends. */}
+                <Muted size="xs">
+                  {props.row?.lastState.state === 'working' ? 'Queued' : 'Sending'}
+                </Muted>
+              </li>
+            ))}
         </ol>
         {chat && !messages.length && !sending && (
           <Muted className="p-6 text-center">{chat.unavailable ?? 'No messages yet.'}</Muted>
@@ -202,7 +220,18 @@ function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead & { card
             <ArrowDown aria-hidden /> New
           </Button>
         )}
-        <PromptCard row={props.row} className="mx-0 mt-0 rounded-xl border-0 bg-muted p-4" />
+        {read.prompt === undefined ? (
+          <PromptCard row={props.row} className={PROMPT} />
+        ) : (
+          read.prompt && (
+            <PendingPromptCard
+              key={read.prompt.status === 'pending' ? read.prompt.id : 'unsupported'}
+              session={props.sessionId}
+              prompt={read.prompt}
+              className={PROMPT}
+            />
+          )
+        )}
         {props.refused && (
           <p role="alert" className="px-2 text-destructive text-xs">
             {props.refused}
@@ -212,7 +241,7 @@ function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead & { card
           fieldRef={composer}
           sessionId={props.sessionId}
           acting={props.acting}
-          answerAbove={awaitsAnswer(props.row)}
+          answerAbove={read.prompt === undefined ? awaitsAnswer(props.row) : Boolean(read.prompt)}
           suggestion={chat?.suggestion}
           image={props.image}
           onPickImage={props.onPickImage}
@@ -227,6 +256,8 @@ function ChatView({ read, ...props }: ChatPanelProps & { read: ChatRead & { card
   );
 }
 
+/** The prompt card's place above the composer. */
+const PROMPT = 'mx-0 mt-0 rounded-xl border-0 bg-muted p-4';
 const YOU =
   'max-w-[min(85%,48rem)] whitespace-pre-wrap break-words rounded-2xl bg-muted px-4 py-2.5 text-[15px] leading-6';
 /** The agent's replies: the vault's prose a step larger for reading at length, with tables and code chips. */
@@ -237,7 +268,10 @@ const REPLY =
  * One row: the person's message as a plain bubble on the right, the agent's as Markdown, a run of
  * steps as its list. A message shows its time on hover.
  */
-function ChatRow(props: { message: ChatItem; onCopyCode: (code: string) => void }) {
+const ChatRow = memo(function ChatRow(props: {
+  message: ChatItem;
+  onCopyCode: (code: string) => void;
+}) {
   const { message } = props;
   if (message.from === 'steps') return <StepRun run={message} />;
   return (
@@ -252,4 +286,4 @@ function ChatRow(props: { message: ChatItem; onCopyCode: (code: string) => void 
       )}
     </li>
   );
-}
+});

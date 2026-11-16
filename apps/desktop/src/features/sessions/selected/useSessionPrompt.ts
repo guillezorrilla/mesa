@@ -50,18 +50,21 @@ export function useSessionPrompt({
   ) =>
     act(async (): Promise<Message | undefined> => {
       setRefused(undefined);
+      // Shown in the chat at once, before the CLI answers; taken back below when it is not sent.
+      const shown = attachment ? undefined : { id, prompt, at: Date.now() };
+      if (shown) setSent(shown);
       const sent = attachment
         ? await call('image.send', { image: attachment, note: prompt, yes })
         : await call('sessions.send', { id, prompt, yes });
       if (sent.ok) {
         form.reset();
         if (attachment) setImage(undefined);
-        else setSent({ id, prompt, at: Date.now() });
         closeDialog();
         // Typed either way: a warning says so, so the prompt is not sent twice.
         return warningOf(sent.data);
       }
       const { error } = sent;
+      setSent((last) => (last === shown ? undefined : last));
       const check = guardrailOf(error);
       if (check?.verdict === 'ask' && !yes) {
         openDialog({ kind: 'guardrail', id, prompt, form, check, image: attachment });
