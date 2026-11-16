@@ -9,7 +9,7 @@ import { useSessionView } from './useSessionView';
 
 const VIEWS = [
   ['terminal', 'Terminal'],
-  ['chat', 'Chat'],
+  ['chat', 'Chat (beta)'],
 ] as const;
 
 /** The view control and its mid-turn dialog, as SessionsScreen wires them. */
@@ -42,7 +42,7 @@ const idle = managedRow('dddddddd', {
 });
 const chat = () =>
   [...document.querySelectorAll<HTMLButtonElement>('button[role="radio"]')].find(
-    (b) => b.textContent === 'Chat',
+    (b) => b.textContent === 'Chat (beta)',
   );
 const switched = () => envelope({ ...idle, view: 'structured', switched: true, receipt: null });
 

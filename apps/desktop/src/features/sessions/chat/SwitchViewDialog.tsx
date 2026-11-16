@@ -11,7 +11,7 @@ export function SwitchViewDialog(props: {
   return (
     <ActionDialog
       testId="switch-view-dialog"
-      title={`Switch to ${props.to === 'chat' ? 'Chat' : 'Terminal'}?`}
+      title={`Switch to ${props.to === 'chat' ? 'Chat (beta)' : 'Terminal'}?`}
       description="The agent is working. Wait for it to finish, or interrupt and switch."
       submit={{
         label: 'Interrupt and switch',
