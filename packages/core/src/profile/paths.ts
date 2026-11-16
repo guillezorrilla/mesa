@@ -94,6 +94,13 @@ export const profilesDir = (home: string) => join(home, '.mesa');
  */
 export const appProfileFile = (home: string) => join(profilesDir(home), '.app-profile');
 
+/** A profile's tmux server name (`tmux -L`), and back: the one place that knows the prefix. */
+export const tmuxSocketOf = (profile: string) => `mesa-${profile}`;
+export const profileOfTmuxSocket = (socket: string) =>
+  socket.startsWith('mesa-') && socket.length > 'mesa-'.length
+    ? socket.slice('mesa-'.length)
+    : undefined;
+
 export function profilePaths(home: string, profile: string): ProfilePaths {
   const root = join(profilesDir(home), profile);
   return {
@@ -136,6 +143,6 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     pendingImportNotes: join(root, 'pending-import-notes.yaml'),
     importProgress: join(root, 'import-progress'),
     backups: join(root, 'backups'),
-    tmuxSocket: `mesa-${profile}`,
+    tmuxSocket: tmuxSocketOf(profile),
   };
 }

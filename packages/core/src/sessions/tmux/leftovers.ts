@@ -1,18 +1,37 @@
-import { existsSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Env, Runner } from '../../lib/process.js';
-import { profilesDir } from '../../profile/paths.js';
+import { profileOfTmuxSocket, profilePaths } from '../../profile/paths.js';
+import { tmuxBackend } from './backend.js';
 
 /**
- * A tmux server named for a Mesa profile (`mesa-<profile>`) whose profile folder is gone; `recent`
- * when one of its sessions was created within the hour.
+ * A tmux server named for a Mesa profile (`mesa-<profile>`) whose profile folder is gone: its
+ * socket, its live windows, and `inUse` when one of them was active within the hour, or tmux did
+ * not say what it holds.
  */
-export type LeftoverServer = { name: string; socket: string; running: boolean; recent: boolean };
+export type LeftoverServer = { profile: string; socket: string; windows: number; inUse: boolean };
 
-type Deps = { run: Runner; home: string; env: Env; clock: () => Date };
+type Deps = {
+  run: Runner;
+  home: string;
+  env: Env;
+  clock: () => Date;
+  sleep: (ms: number) => Promise<void>;
+};
 
-/** A server this young may be another home's live work (a test or an agent's throwaway profile). */
-const RECENT_MS = 60 * 60_000;
+/** A server active this recently may be another home's live work (a test, an agent's throwaway profile). */
+const IN_USE_MS = 60 * 60_000;
+
+const tmuxOf = (deps: Deps, profile: string) =>
+  tmuxBackend({ ...deps, socket: profilePaths(deps.home, profile).tmuxSocket });
+
+const isSocket = (path: string) => {
+  try {
+    return lstatSync(path).isSocket();
+  } catch {
+    return false;
+  }
+};
 
 /** tmux's own socket folder: `$TMUX_TMPDIR` or /tmp, then `tmux-<uid>`, as tmux picks it. */
 async function socketFolder({ run, env }: Deps): Promise<string | undefined> {
@@ -22,48 +41,52 @@ async function socketFolder({ run, env }: Deps): Promise<string | undefined> {
 }
 
 /**
- * The tmux servers left by deleted profiles: each `mesa-<name>` socket in tmux's folder with no
- * `~/.mesa/<name>`, and whether a server still answers on it. A profile that exists is never one.
+ * The tmux servers left by deleted profiles: each `mesa-<profile>` socket in tmux's folder with
+ * no profile folder, with what it still runs. A profile that exists is never one.
  */
 export async function leftoverServers(deps: Deps): Promise<LeftoverServer[]> {
   const folder = await socketFolder(deps);
   if (!folder || !existsSync(folder)) return [];
-  const profiles = profilesDir(deps.home);
   const named = readdirSync(folder)
-    .filter((file) => file.startsWith('mesa-'))
     .sort()
-    .map((file) => ({ name: file.slice('mesa-'.length), socket: join(folder, file) }))
-    .filter(({ name }) => name && !existsSync(join(profiles, name)));
+    .flatMap((file) => {
+      const profile = profileOfTmuxSocket(file);
+      const socket = join(folder, file);
+      const gone = profile && !existsSync(profilePaths(deps.home, profile).root);
+      return gone && isSocket(socket) ? [{ profile, socket }] : [];
+    });
+  const since = deps.clock().getTime() - IN_USE_MS;
   return Promise.all(
     named.map(async (server) => {
-      const answer = await deps.run(
-        'tmux',
-        ['-S', server.socket, 'list-sessions', '-F', '#{session_created}'],
-        2000,
-      );
-      // Only "no server running" proves it gone; any other failure keeps it, so it is never orphaned.
-      const gone = !answer.ok && /no server running/.test(answer.detail);
-      const created = answer.ok ? answer.stdout.split('\n').map(Number).filter(Boolean) : [];
-      const since = deps.clock().getTime() - RECENT_MS;
-      return { ...server, running: !gone, recent: created.some((s) => s * 1000 > since) };
+      // A failure other than "nothing there" leaves it unknown, so it counts as in use.
+      const windows = await tmuxOf(deps, server.profile)
+        .listWindows()
+        .catch(() => undefined);
+      const active = windows?.some((w) => !w.dead && Date.parse(w.activity) > since);
+      return {
+        ...server,
+        windows: windows?.filter((w) => !w.dead).length ?? 0,
+        inUse: windows === undefined || Boolean(active),
+      };
     }),
   );
 }
 
 /**
- * Stops each leftover server (`kill-server`, its sessions with it) and removes its socket file;
- * a socket nothing answers on is only removed. A recent one, and one that does not stop, are left
- * as they were. Returns what it stopped or removed.
+ * Stops each leftover server not in use (its windows with it) and removes a socket it leaves;
+ * one in use, or one that will not stop, is left as it was. Returns what it stopped.
  */
 export async function stopLeftoverServers(deps: Deps): Promise<LeftoverServer[]> {
-  const found = await leftoverServers(deps);
   const stopped: LeftoverServer[] = [];
-  for (const server of found) {
-    if (server.recent) continue;
-    // A server that will not stop keeps its socket, so it can still be reached and stopped.
-    if (server.running && !(await deps.run('tmux', ['-S', server.socket, 'kill-server'], 2000)).ok)
+  for (const server of await leftoverServers(deps)) {
+    if (server.inUse) continue;
+    try {
+      await tmuxOf(deps, server.profile).killServer();
+    } catch {
+      // Still answering: its socket stays, so it can be reached and stopped later.
       continue;
-    rmSync(server.socket, { force: true });
+    }
+    if (isSocket(server.socket)) rmSync(server.socket, { force: true });
     stopped.push(server);
   }
   return stopped;

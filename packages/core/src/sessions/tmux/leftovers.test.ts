@@ -1,58 +1,85 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { join } from 'node:path';
-import { expect, test } from 'vitest';
+import { expect, onTestFinished, test } from 'vitest';
 import { scriptedRunner, tempDir } from '../../testing/index.js';
 import { leftoverServers, stopLeftoverServers } from './leftovers.js';
 
-/** A home with profile `keep`, and tmux's folder holding sockets for kept, deleted and other names. */
-function world({ killFails = false } = {}) {
+/** A listening unix socket at `path`, as a tmux server's is, closed when the test ends. */
+async function socketAt(path: string) {
+  const server = createServer();
+  await new Promise<void>((resolve) => server.listen(path, resolve));
+  onTestFinished(() => new Promise<void>((resolve) => server.close(() => resolve())));
+}
+
+const NOW = 1790085600;
+/** One live window last active `ago` seconds before NOW, as `list-windows -F FORMAT` prints it. */
+const windowLine = (ago: number) =>
+  ['lantern', '0', 'claude-aaaa', '123', 'claude', '/tmp', `${NOW - ago}`, '0', '', '', ''].join(
+    '\t',
+  );
+
+/**
+ * A home with profile `keep`, and tmux's folder (a short path: sockets allow about 100 bytes)
+ * holding sockets for a kept profile, deleted ones idle, stale or in use, a plain file, and
+ * another name.
+ */
+async function world({ killFails = false } = {}) {
   const home = tempDir();
   mkdirSync(join(home, '.mesa', 'keep'), { recursive: true });
-  const tmp = tempDir();
+  const tmp = mkdtempSync('/tmp/mesa-left-');
+  // Registered first, so it runs last: after the sockets close.
+  onTestFinished(() => rmSync(tmp, { recursive: true, force: true }));
   const folder = join(tmp, 'tmux-501');
   mkdirSync(folder);
-  for (const name of ['mesa-keep', 'mesa-gone', 'mesa-stale', 'mesa-young', 'other-server'])
-    writeFileSync(join(folder, name), '');
+  for (const name of ['mesa-keep', 'mesa-idle', 'mesa-stale', 'mesa-busy', 'other'])
+    await socketAt(join(folder, name));
+  writeFileSync(join(folder, 'mesa-file'), '');
   const killed: string[] = [];
   const { run } = scriptedRunner({
     id: '501\n',
     tmux: (args) => {
-      const socket = args[1] ?? '';
-      if (args[2] === 'kill-server') {
+      const name = args[args.indexOf('-L') + 1] ?? '';
+      if (args.includes('kill-server')) {
         if (killFails) return { ok: false, reason: 'failed', detail: 'permission denied' };
-        killed.push(socket);
+        killed.push(name);
         return '';
       }
-      if (socket.endsWith('mesa-stale'))
-        return { ok: false, reason: 'failed', detail: `no server running on ${socket}` };
-      // Sessions created as epoch seconds: two days ago, or ten minutes before the clock.
-      return socket.endsWith('mesa-young') ? '1790000000\n1790085000\n' : '1789900000\n';
+      if (name === 'mesa-stale')
+        return { ok: false, reason: 'failed', detail: 'no server running on /tmp/x' };
+      // Idle for two days, or typed in ten minutes ago.
+      return `${windowLine(name === 'mesa-busy' ? 600 : 2 * 86_400)}\n`;
     },
   });
-  const clock = () => new Date(1790085600 * 1000);
-  return { deps: { run, home, env: { TMUX_TMPDIR: tmp }, clock }, folder, killed };
+  const deps = {
+    run,
+    home,
+    env: { TMUX_TMPDIR: tmp },
+    clock: () => new Date(NOW * 1000),
+    sleep: async () => {},
+  };
+  return { deps, folder, killed };
 }
 
-test('servers named for a deleted profile are leftovers; a kept profile and other names are not', async () => {
-  const { deps, folder } = world();
+test('servers named for a deleted profile are leftovers; a kept profile, a plain file and other names are not', async () => {
+  const { deps, folder } = await world();
   expect(await leftoverServers(deps)).toEqual([
-    { name: 'gone', socket: join(folder, 'mesa-gone'), running: true, recent: false },
-    { name: 'stale', socket: join(folder, 'mesa-stale'), running: false, recent: false },
-    { name: 'young', socket: join(folder, 'mesa-young'), running: true, recent: true },
+    { profile: 'busy', socket: join(folder, 'mesa-busy'), windows: 1, inUse: true },
+    { profile: 'idle', socket: join(folder, 'mesa-idle'), windows: 1, inUse: false },
+    { profile: 'stale', socket: join(folder, 'mesa-stale'), windows: 0, inUse: false },
   ]);
 });
 
-test('stopping kills an old running leftover and removes both sockets; a kept profile and a young server stay', async () => {
-  const { deps, folder, killed } = world();
-  expect((await stopLeftoverServers(deps)).map((s) => s.name)).toEqual(['gone', 'stale']);
-  expect(killed).toEqual([join(folder, 'mesa-gone')]);
-  const left = ['mesa-keep', 'mesa-gone', 'mesa-stale', 'mesa-young'];
-  expect(left.map((f) => existsSync(join(folder, f)))).toEqual([true, false, false, true]);
-  expect((await leftoverServers(deps)).map((s) => s.name)).toEqual(['young']);
+test('stopping stops the idle and stale ones and removes their sockets; one in use, a kept profile and a plain file stay', async () => {
+  const { deps, folder, killed } = await world();
+  expect((await stopLeftoverServers(deps)).map((s) => s.profile)).toEqual(['idle', 'stale']);
+  expect(killed).toEqual(['mesa-idle', 'mesa-stale']);
+  const files = ['mesa-keep', 'mesa-busy', 'mesa-file', 'mesa-idle', 'mesa-stale'];
+  expect(files.map((f) => existsSync(join(folder, f)))).toEqual([true, true, true, false, false]);
 });
 
 test('a server that will not stop keeps its socket, so it can still be reached', async () => {
-  const { deps, folder } = world({ killFails: true });
-  expect((await stopLeftoverServers(deps)).map((s) => s.name)).toEqual(['stale']);
-  expect(existsSync(join(folder, 'mesa-gone'))).toBe(true);
+  const { deps, folder } = await world({ killFails: true });
+  expect(await stopLeftoverServers(deps)).toEqual([]);
+  expect(existsSync(join(folder, 'mesa-idle'))).toBe(true);
 });
