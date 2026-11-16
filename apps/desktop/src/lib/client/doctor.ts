@@ -5,6 +5,7 @@ import type {
   DiagnosticReport,
   DoctorReport,
   HooksStatus,
+  LeftoverServer,
   TmuxWindow,
 } from '@mesa/core';
 import { command, commandWith, type Recorded } from './spec';
@@ -12,6 +13,8 @@ import { command, commandWith, type Recorded } from './spec';
 /** What the Doctor and Help read: checks, agents, hooks, tmux windows, mesa's reference. */
 export const doctorCommands = {
   'doctor.run': command<DoctorReport>('doctor'),
+  /** Stops the tmux servers of profiles that no longer exist, then checks again. */
+  'doctor.fix': command<DoctorReport & { stopped: LeftoverServer[] }>('doctor', '--fix'),
   /** Installs a missing requirement with Homebrew. */
   'doctor.install': commandWith<{ name: string }, { name: string; installed: true }>(({ name }) => [
     'doctor',

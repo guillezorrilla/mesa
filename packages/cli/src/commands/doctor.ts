@@ -8,8 +8,15 @@ export const doctor = defineCommand({
   name: 'doctor',
   summary:
     'Check tmux, the agents, Obsidian, the profile directory, the decision model, and both hooks',
+  flags: {
+    fix: {
+      type: 'boolean',
+      description: 'First stop the tmux servers of profiles that no longer exist, then check',
+    },
+  },
   example: 'mesa doctor',
-  run: async ({ mesa }) => {
+  run: async ({ mesa, flags }) => {
+    const stopped = flags.fix ? await mesa.stopLeftoverServers() : undefined;
     const report = await mesa.doctor();
     // Path and hint share the last column, which is never padded.
     const lines = columns(
@@ -21,8 +28,9 @@ export const doctor = defineCommand({
       ]),
     );
     if (!report.healthy) lines.push(`doctor: ${report.summary}`);
+    if (stopped) lines.unshift(`stopped ${stopped.length} tmux server(s) of deleted profiles`);
     return {
-      data: report,
+      data: stopped ? { ...report, stopped } : report,
       text: lines.join('\n'),
       code: report.healthy ? 0 : EXIT_CODES.not_found,
     };

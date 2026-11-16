@@ -14,6 +14,7 @@ import {
 import { useOpenSettings } from '@/features/settings/useOpenSettings';
 import { cn } from '@/lib/utils';
 import { InstallButton } from './InstallButton';
+import { StopServersButton } from './StopServersButton';
 
 const MARK: Record<Check['status'], string> = { ok: '✓', warn: '!', fail: '✗' };
 const TONE: Record<Check['status'], string> = {
@@ -24,7 +25,8 @@ const TONE: Record<Check['status'], string> = {
 
 /**
  * A doctor report's checks, one row each, under its summary when it is not healthy. A missing
- * binary Mesa can install offers Install; `onInstalled` reruns the doctor. Decisions on rules
+ * binary Mesa can install offers Install, and tmux servers left by deleted profiles offer Stop
+ * them; `onInstalled` reruns the doctor after either. Decisions on rules
  * only offers Set up, which opens Settings on Smarter decisions.
  */
 export function DoctorChecksPanel({
@@ -63,6 +65,7 @@ export function DoctorChecksPanel({
                 <TableCell className="space-y-2 whitespace-normal text-muted-foreground text-xs">
                   <p>{c.hint}</p>
                   {c.install && <InstallButton name={c.name} onInstalled={onInstalled} />}
+                  {c.stoppable && <StopServersButton onStopped={onInstalled} />}
                   {c.name === 'decisions' && c.version === 'rules' && openSettings && (
                     <Button size="sm" variant="secondary" onClick={() => openSettings('decisions')}>
                       <Sparkles aria-hidden /> Set up

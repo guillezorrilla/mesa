@@ -1,7 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { join } from 'node:path';
 import { scriptedRunner } from '@mesa/core/testing';
-import { beforeEach, expect, test } from 'vitest';
+import { beforeEach, expect, onTestFinished, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
 const cli = cliHarness();
@@ -37,6 +38,7 @@ test('doctor reports { healthy, checks } and exits 3 when unhealthy', async () =
     ].map((event) => `codex hooks ${event}`),
     'antigravity hooks',
     'antigravity vault',
+    'tmux servers',
   ]);
 
   // gh and twg only serve PR reviews: missing, they warn with their install and Mesa stays healthy.
@@ -203,4 +205,42 @@ test('doctor names a config key Mesa does not know, which every command then ign
     path: cli.paths.config,
     hint: 'Mesa ignores futureSection: written by a newer Mesa, or a typo',
   });
+});
+
+test('doctor --fix stops the tmux server of a deleted profile first, then reports it gone', async () => {
+  // A short folder: a socket path allows about 100 bytes.
+  const tmp = mkdtempSync('/tmp/mesa-fix-');
+  const folder = join(tmp, 'tmux-501');
+  mkdirSync(folder);
+  const servers = ['mesa-gone', 'mesa-default'].map((name) =>
+    createServer().listen(join(folder, name)),
+  );
+  onTestFinished(() => {
+    for (const server of servers) server.close();
+    rmSync(tmp, { recursive: true, force: true });
+  });
+  mkdirSync(join(cli.home, '.mesa', 'default'), { recursive: true });
+  const killed: string[] = [];
+  cli.env = { TMUX_TMPDIR: tmp };
+  cli.run = scriptedRunner({
+    id: '501\n',
+    tmux: (args) => {
+      const name = args[args.indexOf('-L') + 1];
+      if (!args.includes('-L') || name === 'mesa-default') return 'tmux 3.7c';
+      if (args.includes('kill-server')) killed.push(name ?? '');
+      // One window, last active long ago (epoch seconds): no one's live work.
+      return `${['tide', '0', 'claude-aaaa', '9', 'claude', '/', '1700000000', '0', '', '', ''].join('\t')}\n`;
+    },
+  }).run;
+  const row = (out: Awaited<ReturnType<typeof mesa>>) =>
+    out.json.data.checks.find((c: { name: string }) => c.name === 'tmux servers');
+  const before = await mesa('doctor', '--json');
+  expect(row(before)).toMatchObject({ status: 'warn', stoppable: true });
+  expect(row(before).hint).toContain('mesa-gone (1 windows)');
+  const fixed = await mesa('doctor', '--fix', '--json');
+  expect(fixed.json.data.stopped.map((s: { profile: string }) => s.profile)).toEqual(['gone']);
+  expect(killed).toEqual(['mesa-gone']);
+  expect(row(fixed)).toMatchObject({ status: 'ok' });
+  expect(existsSync(join(folder, 'mesa-default'))).toBe(true);
+  expect((await mesa('doctor', '--fix')).stdout).toMatch(/^stopped 0 tmux server\(s\)/);
 });

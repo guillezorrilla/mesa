@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { afterAll, describe, expect, test } from 'vitest';
+import { afterAll, describe, expect, onTestFinished, test } from 'vitest';
 import { AGENTS } from '../../agents/agents.js';
 import { launchMounts } from '../../agents/mesa-mount.js';
 import { type Runner, shellWord } from '../../lib/process.js';
@@ -601,34 +601,34 @@ test.skipIf(!hasTmux)(
     const cwd = join(tempDir(), "it's lantern");
     mkdirSync(cwd);
     const tmux = tmuxBackend({ sleep: async () => {}, run: testRunner, socket, env: {} });
-    try {
-      expect(
-        (
-          await testRunner(
-            'tmux',
-            ['-L', socket, '-f', '/dev/null', 'new-session', '-d', '-s', 'seed', 'cat'],
-            2000,
-            { cwd: origin },
-          )
-        ).ok,
-      ).toBe(true);
-      rmSync(origin, { recursive: true });
-      for (const window of ['first', 'second']) {
-        const target = { project: 'lantern', window };
-        const out = join(cwd, `${window}.txt`);
-        await tmux.openWindow({
-          ...target,
-          cwd,
-          command: `printf '%s\\n' "$PWD" > ${shellWord(out)}; /bin/pwd >> ${shellWord(out)}; echo cwd-ok; exec cat`,
-          env: {},
-        });
-        const output = await eventually(() => tmux.capturePane(target, 10), /cwd-ok/);
-        expect(output).toBe('cwd-ok');
-        expect(readFileSync(out, 'utf8')).toBe(`${cwd}\n${cwd}\n`);
-        expect((await tmux.findWindow(target))?.dead).toBe(false);
-      }
-    } finally {
+    // After a failure or a timeout too: a seed left running is a tmux server per test run.
+    onTestFinished(async () => {
       await killServer(socket);
+    });
+    expect(
+      (
+        await testRunner(
+          'tmux',
+          ['-L', socket, '-f', '/dev/null', 'new-session', '-d', '-s', 'seed', 'cat'],
+          2000,
+          { cwd: origin },
+        )
+      ).ok,
+    ).toBe(true);
+    rmSync(origin, { recursive: true });
+    for (const window of ['first', 'second']) {
+      const target = { project: 'lantern', window };
+      const out = join(cwd, `${window}.txt`);
+      await tmux.openWindow({
+        ...target,
+        cwd,
+        command: `printf '%s\\n' "$PWD" > ${shellWord(out)}; /bin/pwd >> ${shellWord(out)}; echo cwd-ok; exec cat`,
+        env: {},
+      });
+      const output = await eventually(() => tmux.capturePane(target, 10), /cwd-ok/);
+      expect(output).toBe('cwd-ok');
+      expect(readFileSync(out, 'utf8')).toBe(`${cwd}\n${cwd}\n`);
+      expect((await tmux.findWindow(target))?.dead).toBe(false);
     }
   },
 );
@@ -642,6 +642,10 @@ test.skipIf(!hasTmux)(
       testRunner('env', ['-u', 'LANG', '-u', 'LC_ALL', '-u', 'LC_CTYPE', file, ...args], timeoutMs);
     const tmux = tmuxBackend({ sleep: async () => {}, run, socket, env: {} });
     const target = { project: 'lantern', window: 'claude-nolocale' };
+    // A timeout skips the finally below: the server still goes.
+    onTestFinished(async () => {
+      await killServer(socket);
+    });
     try {
       await tmux.openWindow({ ...target, cwd: tempDir(), command: 'exec cat', env: {} });
       const found = await tmux.findWindow(target);

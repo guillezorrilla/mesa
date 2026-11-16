@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { basename } from 'node:path';
 import type { hooksStatus as antigravityHooksStatus } from '../agents/antigravity/hooks.js';
 import type { mesaMountStatus } from '../agents/antigravity/mesa-mount.js';
 import type { ClaudeHooksStatus } from '../agents/claude/hooks.js';
@@ -11,6 +12,7 @@ import type { DecisionsModel } from '../decisions/types.js';
 import type { Runner } from '../lib/process.js';
 import { toFail } from '../lib/result.js';
 import { PR_CLIS } from '../prs/provider.js';
+import type { LeftoverServer } from '../sessions/tmux/leftovers.js';
 import { type ObsidianPaths, obsidianCli } from '../vault/obsidian.js';
 import type { VaultStatus } from '../vault/vault.js';
 import {
@@ -35,6 +37,8 @@ export type Check = {
   registered?: boolean;
   /** On a missing binary Mesa can install: its Homebrew command (`mesa doctor install`). */
   install?: string;
+  /** What `mesa doctor --fix` stops (tmux servers left by deleted profiles). */
+  stoppable?: true;
 };
 
 /** Decided here once: `healthy` when tmux and at least one agent answered; `summary` says why not. */
@@ -230,6 +234,17 @@ function codexDaemonCheck(socket: string | undefined): Finding[] {
   return [{ name: 'codex daemon', ok: false, path: socket, hint }];
 }
 
+/** tmux servers left by deleted profiles: each still holds its windows' processes, or a socket. */
+function leftoverServersCheck(found: LeftoverServer[]): Finding {
+  const name = 'tmux servers';
+  if (!found.length) return { name, ok: true, hint: '' };
+  const state = (s: LeftoverServer) =>
+    s.inUse ? ' (in use within the hour, left alone)' : s.windows ? ` (${s.windows} windows)` : '';
+  const each = found.map((s) => `${basename(s.socket)}${state(s)}`).join(', ');
+  const hint = `${found.length} left by profiles that no longer exist: ${each}. mesa doctor --fix stops them`;
+  return { name, ok: false, hint, stoppable: true };
+}
+
 /** Session records Mesa cannot read: left out of the board, so listed here once instead. */
 function sessionRecordsCheck(reasons: string[]): Finding {
   const name = 'session records';
@@ -298,8 +313,10 @@ export async function runDoctor(deps: {
   unreadableRecords?: () => string[];
   /** The profile's config file and the keys in it Mesa does not know; none before init. */
   config?: { file: string; unknownKeys: () => string[] };
+  /** tmux servers named for profiles that no longer exist. */
+  leftovers?: () => Promise<LeftoverServer[]>;
 }): Promise<DoctorReport> {
-  const [binaries, obsidian, hooks] = await Promise.all([
+  const [binaries, obsidian, hooks, leftovers] = await Promise.all([
     Promise.all(
       BINARIES.map(async (b) => ({
         role: b.role,
@@ -309,6 +326,7 @@ export async function runDoctor(deps: {
     ),
     obsidianCheck(deps.run, deps.obsidian),
     deps.hooks?.tmux(),
+    deps.leftovers?.(),
   ]);
   const anAgent = binaries.some((b) => b.role === 'agent' && b.check.ok);
   const healthy = anAgent && binaries.every((b) => b.role !== 'required' || b.check.ok);
@@ -332,6 +350,7 @@ export async function runDoctor(deps: {
       ...(deps.hooks?.antigravity ? [antigravityHooksCheck(deps.hooks.antigravity)] : []),
       ...(deps.hooks?.antigravityVault ? [antigravityVaultCheck(deps.hooks.antigravityVault)] : []),
       ...codexDaemonCheck(deps.codexDaemon),
+      ...(leftovers ? [leftoverServersCheck(leftovers)] : []),
     ].map((c) => ({
       ...c,
       status: statusOf(c.ok, false),

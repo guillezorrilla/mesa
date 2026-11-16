@@ -374,6 +374,30 @@ test('Install on a missing tmux runs doctor install, then doctor again so the ro
   expect(byTestId('install-button')).toHaveLength(0);
 });
 
+test('Stop them on leftover tmux servers runs doctor --fix, then the row turns ok', async () => {
+  let stopped = false;
+  const leftover: Check = {
+    name: 'tmux servers',
+    ok: false,
+    status: 'warn',
+    hint: '1 left by profiles that no longer exist: mesa-gone (running). mesa doctor --fix stops them',
+    stoppable: true,
+  };
+  const { bridge, calls } = fakeBridge({
+    doctor: (args) => {
+      if (args.includes('--fix')) stopped = true;
+      const checks = [stopped ? { ...check('3.7c'), name: 'tmux servers' } : leftover];
+      return envelope({ ...report(checks), ...(args.includes('--fix') ? { stopped: [{}] } : {}) });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  await click(byTestId('stop-servers')[0]);
+  expect(calls).toContainEqual(['--json', 'doctor', '--fix']);
+  expect(byTestId('doctor-row')[0]?.dataset.status).toBe('ok');
+  expect(byTestId('stop-servers')).toHaveLength(0);
+});
+
 test("Install without Homebrew says so, with brew.sh and Homebrew's installer to copy", async () => {
   const missing: Check = {
     name: 'tmux',
