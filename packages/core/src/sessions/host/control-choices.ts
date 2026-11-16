@@ -1,3 +1,5 @@
+import { CODEX_PRESETS } from '../../agents/codex/presets.js';
+
 // What a Structured session's model, effort and mode pickers show (#1222): each choice's id, the
 // name a person reads, and a line on what it does. The one owner of those names, for Claude Code
 // and Codex alike; the app and `mesa sessions controls` read them from here.
@@ -40,40 +42,6 @@ const CLAUDE_MODES: ControlChoice[] = [
   { id: 'plan', label: 'Plan', description: 'Create a plan before making changes' },
   { id: 'bypassPermissions', label: 'Bypass permissions', description: 'Accepts all permissions' },
 ];
-
-/** Codex's approval presets, as its /approvals names them: an approval policy and a sandbox. */
-export const CODEX_PRESETS = [
-  {
-    id: 'read-only',
-    label: 'Read only',
-    description: 'Reads files and answers; asks before editing, running commands or going online',
-    approvalPolicy: 'on-request',
-    sandbox: 'readOnly',
-  },
-  {
-    id: 'auto',
-    label: 'Auto',
-    description: 'Edits and runs commands in the workspace; asks before leaving it or going online',
-    approvalPolicy: 'on-request',
-    sandbox: 'workspaceWrite',
-  },
-  {
-    id: 'full-access',
-    label: 'Full access',
-    description: 'Edits, runs commands and goes online without asking',
-    approvalPolicy: 'never',
-    sandbox: 'dangerFullAccess',
-  },
-] as const;
-
-export const CODEX_PRESET_IDS = ['read-only', 'auto', 'full-access'] as const;
-export type CodexPreset = (typeof CODEX_PRESET_IDS)[number];
-export const isCodexPreset = (mode: string): mode is CodexPreset =>
-  (CODEX_PRESET_IDS as readonly string[]).includes(mode);
-
-/** The preset an approval policy and sandbox make; none for a mix no preset is. */
-export const codexPreset = (approvalPolicy?: string, sandbox?: string) =>
-  CODEX_PRESETS.find((p) => p.approvalPolicy === approvalPolicy && p.sandbox === sandbox)?.id;
 
 /** The modes each agent offers, the risky one only to a session that started with it. */
 export function agentModes(agent: 'claude' | 'codex', started?: string): string[] {

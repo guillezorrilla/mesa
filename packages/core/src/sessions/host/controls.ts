@@ -1,5 +1,6 @@
 import { parseStreamLine } from '../../agents/claude/stream/events.js';
 import { parseAppServerLine } from '../../agents/codex/appserver/events.js';
+import { CODEX_PRESETS, codexPreset, isCodexPreset } from '../../agents/codex/presets.js';
 import { CLAUDE_MODEL_ALIASES, EFFORTS, requireSessionModel } from '../../agents/launch-flags.js';
 import { CLAUDE_PERMISSION_MODES, isClaudePermissionMode } from '../../agents/names.js';
 import { payloadField } from '../../agents/prompt.js';
@@ -7,7 +8,7 @@ import { MesaError } from '../../lib/result.js';
 import { inTurn } from '../record/lifecycle.js';
 import type { SessionRecord } from '../record/record.js';
 import type { SessionStore } from '../record/store.js';
-import { agentModes, CODEX_PRESETS, codexPreset, isCodexPreset } from './control-choices.js';
+import { agentModes } from './control-choices.js';
 import { journalEntries, readJournal } from './journal.js';
 import { askHost, type HostMode, type HostRequest, hostSocket } from './socket.js';
 

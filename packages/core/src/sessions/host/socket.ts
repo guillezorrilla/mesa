@@ -2,10 +2,10 @@ import { existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import { connect, createServer } from 'node:net';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { CODEX_PRESET_IDS } from '../../agents/codex/presets.js';
 import { CLAUDE_PERMISSION_MODES } from '../../agents/names.js';
 import { lineSplitter } from '../../lib/lines.js';
 import { MesaError } from '../../lib/result.js';
-import { CODEX_PRESET_IDS } from './control-choices.js';
 
 // A host's unix socket (ADR-0029): one JSON request per line in, one reply per line out. `mesa
 // send`, the app and the phone reach a Structured session's agent through it.

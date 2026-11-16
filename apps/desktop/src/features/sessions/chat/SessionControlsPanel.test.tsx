@@ -48,7 +48,15 @@ test('shows the confirmed model, effort and mode by name, and an effort picked g
   await renderWithMesa(<SessionControlsPanel row={row} />, bridge);
   expect(button('Model and effort')?.textContent).toBe('Sonnet 5.5High');
   expect(button('Mode')?.textContent).toBe('Manual');
-  await pick(button('Model and effort'), 'Low', 'Effort');
+  await open(button('Model and effort'));
+  await open(item('Effort'));
+  // A digit in a submenu picks nothing: only the main models are numbered.
+  await press(
+    document.querySelector<HTMLElement>('[data-slot="dropdown-menu-sub-content"]') ?? undefined,
+    '1',
+  );
+  expect(calls.some((c) => c[2] === 'model')).toBe(false);
+  await act(async () => item('Low')?.click());
   expect(calls).toContainEqual(['--json', 'sessions', 'model', '--effort=low', '--', 'cccccccc']);
   expect(button('Model and effort')?.textContent).toBe('Sonnet 5.5Low');
 });

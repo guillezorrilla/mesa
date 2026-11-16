@@ -2,9 +2,9 @@ import { clip } from '../../../lib/clip.js';
 import { lineSplitter } from '../../../lib/lines.js';
 import type { Env } from '../../../lib/process.js';
 import type { SpawnExit, Spawner } from '../../../lib/spawn.js';
-import { CODEX_PRESETS } from '../../../sessions/host/control-choices.js';
 import type { AgentRunner, RunnerSignal, StartHostRunner } from '../../runner.js';
 import { firstLine } from '../../steps.js';
+import { CODEX_PRESETS } from '../presets.js';
 import { type AppServerEvent, parseAppServerLine } from './events.js';
 
 // Codex on `codex app-server` for one session: one long-lived process speaking JSON-RPC over

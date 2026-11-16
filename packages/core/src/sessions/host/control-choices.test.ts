@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
-import { agentModes, codexPreset, controlChoices } from './control-choices.js';
+import { codexPreset } from '../../agents/codex/presets.js';
+import { agentModes, controlChoices } from './control-choices.js';
 
 test("Claude's pickers: its four models by name, the rest under More, efforts and modes as Desktop names them", () => {
   const choices = controlChoices({

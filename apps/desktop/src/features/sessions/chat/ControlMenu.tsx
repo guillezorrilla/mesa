@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { numberKey } from '@/lib/numberKey';
 import { cn } from '@/lib/utils';
 
 /**
@@ -36,9 +37,11 @@ export function ControlMenu(props: {
     props.onOpenChange?.(next);
   };
   const byNumber = (event: KeyboardEvent) => {
-    const at = /^[1-9]$/.test(event.key) ? Number(event.key) - 1 : -1;
-    const choice = props.numbered[at];
-    if (!choice || event.metaKey || event.ctrlKey || event.altKey) return;
+    // A submenu's keys bubble here through its portal: its own items have no numbers.
+    if ((event.target as Element).closest('[data-slot="dropdown-menu-sub-content"]')) return;
+    const at = numberKey(event);
+    const choice = at === undefined ? undefined : props.numbered[at];
+    if (!choice) return;
     event.preventDefault();
     setOpen(false);
     props.onPick(choice);

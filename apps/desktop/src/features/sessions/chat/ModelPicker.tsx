@@ -63,23 +63,27 @@ export function ModelPicker(props: {
           onSelect={() => props.onPick({ model: choice.id })}
         />
       ))}
-      <DropdownMenuSeparator />
-      <DropdownMenuSub>
-        <DropdownMenuSubTrigger className="rounded-lg px-2.5 py-2">
-          <span className="flex-1">Effort</span>
-          {effort && <span className="text-muted-foreground">{effortLabel(effort)}</span>}
-        </DropdownMenuSubTrigger>
-        <DropdownMenuSubContent className="w-44 rounded-xl p-1.5">
-          {choices.efforts.map((choice) => (
-            <ControlMenuItem
-              key={choice.id}
-              choice={choice}
-              checked={effort === choice.id}
-              onSelect={() => props.onPick({ effort: choice.id })}
-            />
-          ))}
-        </DropdownMenuSubContent>
-      </DropdownMenuSub>
+      {choices.efforts.length > 0 && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="rounded-lg px-2.5 py-2">
+              <span className="flex-1">Effort</span>
+              {effort && <span className="text-muted-foreground">{effortLabel(effort)}</span>}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-44 rounded-xl p-1.5">
+              {choices.efforts.map((choice) => (
+                <ControlMenuItem
+                  key={choice.id}
+                  choice={choice}
+                  checked={effort === choice.id}
+                  onSelect={() => props.onPick({ effort: choice.id })}
+                />
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        </>
+      )}
       {choices.more.length > 0 && (
         <>
           <DropdownMenuSeparator />
