@@ -1,12 +1,15 @@
 import type { ChatMessage, Config, TreeRow } from '@mesa/core';
 import { type ReactNode, useEffect, useState } from 'react';
 import { CommandCardFrame, CommandOutput } from './CommandCardFrame';
+import { ContextUsagePanel } from './ContextUsagePanel';
 import type { PlacedCard } from './commandCards';
 import { ModelCard } from './ModelCard';
 import { SettingsCard } from './SettingsCard';
+import { UsagePanel } from './UsagePanel';
 
 /**
- * A slash command in the chat: its card when it has one (a settings form, `/model`'s picker), else
+ * A slash command in the chat: its card when it has one (a settings form, `/model`'s picker,
+ * `/usage` and `/context` read as data), else
  * the command with what it printed. Only the newest card opens by itself and takes the keys.
  */
 export function CommandRow(props: {
@@ -52,6 +55,10 @@ export function CommandRow(props: {
         autoFocus={props.newest}
       />,
     );
+  if (placed?.card.kind === 'usage')
+    return frame('Usage', <UsagePanel report={placed.card.report} />);
+  if (placed?.card.kind === 'context')
+    return frame('Context', <ContextUsagePanel report={placed.card.report} />);
   if (placed?.card.kind === 'model' && props.row?.managed)
     return frame('Model and effort', <ModelCard row={props.row} autoFocus={props.newest} />);
   return (
