@@ -10,6 +10,7 @@ export const vaultMcp = defineCommand({
     tools: { type: 'boolean', description: 'Print the tool definitions instead of serving them' },
   },
   example: 'mesa vault mcp --tools',
+  serves: (flags) => !flags.tools,
   run: ({ mesa, flags }) => {
     if (!flags.tools) return { data: null, text: '', serve: (io) => mesa.vault.mcp(io, VERSION) };
     const tools = mesa.vault.tools();

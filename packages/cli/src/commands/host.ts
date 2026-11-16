@@ -7,6 +7,7 @@ export const host = defineCommand({
     "Run a Structured session's agent in this window: stream-json, journalled, with its socket open to Mesa",
   args: ['session'],
   example: 'mesa host a1b2c3d4',
+  serves: () => true,
   run: async ({ mesa, args }) => {
     // Started here, so a refusal (one host and one claude per conversation) is the command's error.
     // Its status until the window's stdout is served, then straight to it.

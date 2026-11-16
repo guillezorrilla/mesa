@@ -1,10 +1,10 @@
 import type { Stdio } from '@mesa/core';
 
-/** One CLI call: its argv and stdin, to its exit code and streams (runCli's); `serve` when it serves. */
+/** One CLI call: its argv and stdin, to its exit code and streams (runCli's). */
 export type RunOne = (
   argv: string[],
   stdin: string,
-) => Promise<{ code: number; stdout: string; stderr: string; serve?: unknown }>;
+) => Promise<{ code: number; stdout: string; stderr: string }>;
 
 type Reply = { code: number; stdout: string; stderr: string };
 type Request = { id: number | null; args?: string[]; stdin: string };
@@ -42,8 +42,8 @@ function parseRequest(line: string): Request {
  * Serves `mesa serve` (ADR-0030, the Command server): each stdin line `{"id","args","stdin"}`
  * runs as one CLI call, and its reply `{"id","code","stdout","stderr"}` is one stdout line when
  * the call ends, so calls overlap and answer in any order; the caller keeps ids unique. A line
- * that is no request is refused under its id, or id null when it has none, and a command that
- * serves its own stdio (`mesa serve`, `vault mcp`) is refused, since stdout here is the replies'.
+ * that is no request is refused under its id, or id null when it has none; a command that serves
+ * its own stdio is refused before it runs (runCli, Command.serves), since stdout is the replies'.
  * Ends when stdin ends and every call has answered.
  */
 export async function serveCommands(io: Stdio, runOne: RunOne): Promise<void> {
@@ -58,15 +58,7 @@ export async function serveCommands(io: Stdio, runOne: RunOne): Promise<void> {
       continue;
     }
     const call = runOne(args, stdin).then(
-      (out) =>
-        reply(
-          id,
-          out.serve
-            ? refused(
-                `mesa serve: ${args.join(' ')} serves its own stdio; run it as its own process`,
-              )
-            : out,
-        ),
+      (out) => reply(id, out),
       (error: unknown) =>
         reply(id, {
           code: 1,
