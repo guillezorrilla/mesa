@@ -142,9 +142,11 @@ test('a free value is sent on Enter', async () => {
 
 test("another built-in's key=value list gets the same form, with no values to read", async () => {
   const { calls } = await structuredChat([
-    command('c1', '/moorings', 'Usage: /moorings key=value\n  berth=one|two'),
+    command('c1', '/moorings', 'Usage: /moorings key=value\n  berth=one|two\n  dock=true|false'),
   ]);
   expect(document.querySelector('#setting-berth')).not.toBeNull();
+  // An on-or-off key with no value read offers both, not a switch that reads as off.
+  expect(document.querySelector<HTMLSelectElement>('#setting-dock')?.value).toBe('');
   expect(calls.some((c) => c[2] === 'config')).toBe(false);
 });
 

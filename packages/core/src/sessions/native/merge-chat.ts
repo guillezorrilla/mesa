@@ -10,10 +10,11 @@ const same = (a: ChatItem, b: ChatItem) =>
 /**
  * The transcript's chat (`history`, oldest first) with the stream's items (`live`, oldest first)
  * after it. The transcript catches up with the stream after a moment, and a resume replays what
- * the stream already showed, so the place in `history` where `live` begins with the longest overlap is kept once,
- * as the transcript has it, and only the items past the transcript's end are added; nothing is
- * reordered. Live items older than the transcript's window are left out with it. shortcut: a prompt sent twice in a row reads as one, and an item has no id both
- * sources share; upgrade when the host writes the transcript's revision into the journal.
+ * the stream already showed, so the place in `history` where `live` begins with the longest
+ * overlap is kept once, as the transcript has it, and only the items past the transcript's end are
+ * added; nothing is reordered. Live items older than the transcript's window are left out with it.
+ * shortcut: a prompt sent again before the transcript has the first reads as one, and an item has
+ * no id both sources share; upgrade when the host writes the transcript's revision into the journal.
  */
 export function mergeChat(history: ChatItem[], live: ChatItem[]): ChatItem[] {
   const first = live[0];

@@ -50,7 +50,12 @@ function FieldControl(props: {
   disabled: boolean;
   onChange: (value: string) => void;
 }) {
-  const { field, value } = props;
+  const { value } = props;
+  // A switch would read as off: an on-or-off key with no value read is a choice of the two.
+  const field: UsageField =
+    props.field.kind === 'boolean' && value === undefined
+      ? { key: props.field.key, kind: 'choice', choices: ['true', 'false'] }
+      : props.field;
   const id = `setting-${field.key}`;
   const label = (
     <label htmlFor={id} className="min-w-0 flex-1 truncate text-sm" title={field.key}>

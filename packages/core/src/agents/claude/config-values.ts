@@ -1,5 +1,6 @@
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { z } from 'zod';
+import { readJson } from '../../lib/json-file.js';
 import type { Env } from '../../lib/process.js';
 import { CLAUDE_PROJECT_DIR, claudeSettings } from './paths.js';
 
@@ -44,11 +45,12 @@ const PLACES: Record<string, Place> = {
   worktreeBaseRef: { field: 'worktree.baseRef', fallback: 'fresh' },
 };
 
-/** A JSON file's object, or none when it is missing or does not read. */
-function readJson(path: string): Record<string, unknown> {
+const OBJECT = z.record(z.string(), z.unknown());
+
+/** A JSON file's object; empty when it is missing or does not read (Claude Code may be writing it). */
+function readObject(path: string): Record<string, unknown> {
   try {
-    const value: unknown = JSON.parse(readFileSync(path, 'utf8'));
-    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+    return readJson(path, OBJECT) ?? {};
   } catch {
     return {};
   }
@@ -73,13 +75,13 @@ export function claudeConfigValues(
   env: Env,
   home: string,
 ): Record<string, string> {
-  const global = readJson(join(env.CLAUDE_CONFIG_DIR || home, '.claude.json'));
+  const global = readObject(join(env.CLAUDE_CONFIG_DIR || home, '.claude.json'));
   // Latest first: the project's local file beats its shared one, which beats the user's.
   const settings = [
     join(cwd, CLAUDE_PROJECT_DIR, 'settings.local.json'),
     join(cwd, CLAUDE_PROJECT_DIR, 'settings.json'),
     claudeSettings(home, env),
-  ].map(readJson);
+  ].map(readObject);
   const values: Record<string, string> = {};
   for (const key of keys) {
     const { field, fallback } = PLACES[key] ?? { field: key };
