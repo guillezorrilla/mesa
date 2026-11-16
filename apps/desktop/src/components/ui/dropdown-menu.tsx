@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
 import { DropdownMenu as Primitive } from 'radix-ui';
 import type * as React from 'react';
 import { cn } from '@/lib/utils';
@@ -87,4 +87,47 @@ export function DropdownMenuSeparator({
   ...props
 }: React.ComponentProps<typeof Primitive.Separator>) {
   return <Primitive.Separator className={cn('-mx-1 my-1 h-px bg-border', className)} {...props} />;
+}
+
+export function DropdownMenuSub(props: React.ComponentProps<typeof Primitive.Sub>) {
+  return <Primitive.Sub data-slot="dropdown-menu-sub" {...props} />;
+}
+
+export function DropdownMenuSubTrigger({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof Primitive.SubTrigger>) {
+  return (
+    <Primitive.SubTrigger
+      data-slot="dropdown-menu-sub-trigger"
+      className={cn(
+        'flex items-center gap-2 rounded px-2 py-1.5 text-sm outline-none focus:bg-accent data-[highlighted]:bg-accent data-[state=open]:bg-accent',
+        className,
+      )}
+      {...props}
+    >
+      {children}
+      <ChevronRight aria-hidden className="ml-auto size-4 text-muted-foreground" />
+    </Primitive.SubTrigger>
+  );
+}
+
+export function DropdownMenuSubContent({
+  className,
+  ...props
+}: React.ComponentProps<typeof Primitive.SubContent>) {
+  return (
+    <Primitive.Portal>
+      <Primitive.SubContent
+        data-slot="dropdown-menu-sub-content"
+        sideOffset={6}
+        className={cn(
+          'z-50 min-w-40 rounded-md border bg-popover p-1 text-popover-foreground shadow-lg',
+          className,
+        )}
+        {...props}
+      />
+    </Primitive.Portal>
+  );
 }

@@ -2,12 +2,11 @@ import type { ChatItem, ChatMessage, ContextReport, PlanUsage, UsageForm } from 
 import { parseContextReport, parsePlanUsage, parseUsageForm } from '@mesa/core/browser';
 
 /**
- * What a command's card shows: a form for a `key=value` usage list, `/model`'s picker, or the
- * `/usage` and `/context` replies read as data.
+ * What a command's card shows: a form for a `key=value` usage list, or the `/usage` and
+ * `/context` replies read as data. (`/model` opens the footer's model menu instead, #1222.)
  */
 export type CommandCard =
   | { kind: 'form'; form: UsageForm }
-  | { kind: 'model' }
   | { kind: 'usage'; report: PlanUsage }
   | { kind: 'context'; report: ContextReport };
 
@@ -37,10 +36,6 @@ export function commandCards(messages: readonly ChatItem[]) {
   for (const message of messages) {
     if (message.from !== 'command') continue;
     const text = message.text.trim();
-    if (text === '/model') {
-      cards.set(message, { card: { kind: 'model' }, replies: [] });
-      continue;
-    }
     const reply = message.output ? replyCard(text, message.output) : undefined;
     if (reply) {
       cards.set(message, { card: reply, replies: [] });

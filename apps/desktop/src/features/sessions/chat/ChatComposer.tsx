@@ -23,6 +23,8 @@ export function ChatComposer(props: {
   onPickImage?: () => void;
   onClearImage?: () => void;
   onSend: (prompt: string, form: HTMLFormElement, image?: SessionImage) => void;
+  /** Takes a prompt the chat answers itself (`/model` opens its menu): true when it did, so nothing is sent. */
+  onCommand?: (prompt: string) => boolean;
   /** The prompt the agent predicts comes next: dim in the empty field, Tab or Right takes it. */
   suggestion?: string;
   /** The field, for a card that gives the keys back when it closes. */
@@ -44,7 +46,8 @@ export function ChatComposer(props: {
   const ghost = !text && !props.answerAbove ? props.suggestion : undefined;
   const submit = (form: HTMLFormElement) => {
     const prompt = String(new FormData(form).get('prompt') ?? '');
-    if (!props.acting && !props.answerAbove && (prompt.trim() || image)) {
+    if (!image && props.onCommand?.(prompt)) setText('');
+    else if (!props.acting && !props.answerAbove && (prompt.trim() || image)) {
       props.onSend(prompt, form, image);
       setText('');
     }

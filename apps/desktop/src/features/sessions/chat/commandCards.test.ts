@@ -38,10 +38,10 @@ test('a change goes to the newest card for its command; one before any card stay
   expect(folded.has(early)).toBe(false);
 });
 
-test('/model alone is a picker card; /model with a name stays a row', () => {
+test("/model is a row, alone or with a name: the footer's menu picks a model (#1222)", () => {
   const pick = command('a', '/model', 'Current model: `Haiku 5.5`');
   const direct = command('b', '/model sonnet', 'Set model to Sonnet 5.5');
   const { cards } = commandCards([pick, direct]);
-  expect(cards.get(pick)?.card).toEqual({ kind: 'model' });
+  expect(cards.has(pick)).toBe(false);
   expect(cards.has(direct)).toBe(false);
 });

@@ -57,10 +57,13 @@ describe("a Structured Claude session's controls", () => {
     expect(w.mesa.sessions.controls(w.record.id)).toMatchObject({
       agent: 'claude',
       model: 'claude-haiku-5-5',
-      mode: 'default',
+      // Claude's `default` is the mode it takes back as `manual`, and the one it started in.
+      mode: 'manual',
+      defaultMode: 'manual',
       models: ['opus', 'sonnet', 'haiku', 'fable'],
       efforts: ['low', 'medium', 'high', 'xhigh', 'max'],
-      modes: expect.arrayContaining(['plan', 'acceptEdits']),
+      // Bypass only for a session started with it, as Claude refuses it otherwise.
+      modes: ['auto', 'manual', 'acceptEdits', 'plan'],
     });
     w.host.stop();
     await w.host.done;
@@ -168,7 +171,7 @@ describe("a Structured Claude session's controls", () => {
 });
 
 describe("a Structured Codex session's controls", () => {
-  it('take a model and effort for the next turn, and refuse a mode', async () => {
+  it('take a model, effort and approval preset for the next turn, named as Codex lists them', async () => {
     const fake = scriptedSpawner();
     const agents = agentWorld();
     const { home, mesa } = projectProfile(agents.run, { home: shortTempDir(), spawn: fake.spawn });
@@ -179,7 +182,15 @@ describe("a Structured Codex session's controls", () => {
     const host = await mesa.sessions.host(record.id, () => undefined);
     fake.push(
       { id: 'initialize#1', result: {} },
-      { id: 'thread/start#2', result: { thread: { id: 'th-1' }, model: 'gpt-invented' } },
+      {
+        id: 'thread/start#2',
+        result: {
+          thread: { id: 'th-1' },
+          model: 'gpt-invented',
+          approvalPolicy: 'on-request',
+          sandbox: { type: 'readOnly' },
+        },
+      },
       {
         id: 'model/list#4',
         result: { data: [{ id: 'gpt-invented', displayName: 'GPT', isDefault: true }] },
@@ -189,7 +200,11 @@ describe("a Structured Codex session's controls", () => {
       agent: 'codex',
       model: 'gpt-invented',
       models: ['gpt-invented'],
-      modes: [],
+      modelLabels: { 'gpt-invented': 'GPT' },
+      defaultModel: 'gpt-invented',
+      mode: 'read-only',
+      defaultMode: 'read-only',
+      modes: ['read-only', 'auto'],
     });
     const { result } = await mesa.sessions.setControls(record.id, {
       model: 'gpt-other',
@@ -197,13 +212,20 @@ describe("a Structured Codex session's controls", () => {
     });
     expect(result).toMatchObject({ model: 'gpt-other', effort: 'high' });
     expect(testStore(home).get(record.id)).toMatchObject({ model: 'gpt-other', effort: 'high' });
+    await expect(mesa.sessions.setControls(record.id, { mode: 'plan' })).rejects.toThrow(
+      /mode is one of read-only, auto, full-access/,
+    );
+    const { result: auto } = await mesa.sessions.setControls(record.id, { mode: 'auto' });
+    expect(auto.mode).toBe('auto');
     await mesa.sessions.send(record.id, 'next');
     expect(fake.sent.filter((m) => m.method === 'turn/start').at(-1)).toMatchObject({
-      params: { model: 'gpt-other', effort: 'high' },
+      params: {
+        model: 'gpt-other',
+        effort: 'high',
+        approvalPolicy: 'on-request',
+        sandboxPolicy: { type: 'workspaceWrite' },
+      },
     });
-    await expect(mesa.sessions.setControls(record.id, { mode: 'plan' })).rejects.toThrow(
-      /codex has no permission modes/,
-    );
     host.stop();
     await host.done;
   });

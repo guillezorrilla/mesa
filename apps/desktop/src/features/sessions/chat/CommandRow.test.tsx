@@ -158,16 +158,22 @@ test('other output stays formatted text', async () => {
   );
 });
 
-test("/model opens the footer's model list as a card: the current one checked, a pick applied", async () => {
-  const { calls } = await structuredChat([command('c1', '/model', 'Current model: `Haiku 5.5`')], {
+test("typing /model opens the footer's model menu, not a card: a number key picks, and the keys go back to the composer", async () => {
+  const { calls } = await structuredChat([], {
     'sessions model': () => envelope({ ...controls, model: 'claude-sonnet-5-5', receipt: null }),
   });
-  const options = [...(card()?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])];
-  expect(options.map((o) => o.textContent)).toEqual(['sonnet', 'haiku', 'opusplan', 'low', 'high']);
-  expect(options.find((o) => o.textContent === 'haiku')?.getAttribute('aria-checked')).toBe('true');
-  await click(options[0]);
+  const field = document.querySelector<HTMLTextAreaElement>('[aria-label="Message eeeeeeee"]');
+  await fill(field ?? undefined, '/model');
+  await press(field ?? undefined, 'Enter');
+  expect(sent(calls)).toEqual([]);
+  const menu = document.querySelector<HTMLElement>('[role="menu"]');
+  const items = [...(menu?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? [])];
+  expect(items.map((item) => item.textContent)).toEqual(['Sonnet 5.51', 'Haiku 5.52']);
+  expect(items[1]?.getAttribute('aria-checked')).toBe('true');
+  await press(menu ?? undefined, '1');
   expect(calls).toContainEqual(['--json', 'sessions', 'model', '--', 'eeeeeeee', 'sonnet']);
-  expect(card()?.querySelector('[role="status"]')?.textContent).toBe('Now Sonnet 5.5, low effort');
+  expect(document.querySelector('[role="menu"]')).toBeNull();
+  expect(document.activeElement).toBe(field);
 });
 
 test('/model with a name stays a row', async () => {
