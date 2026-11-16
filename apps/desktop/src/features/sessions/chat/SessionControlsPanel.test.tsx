@@ -2,7 +2,7 @@
 import type { SessionControls } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
-import { envelope, failure, fakeBridge, managedRow, renderWithMesa } from '@/lib/testing';
+import { envelope, failure, fakeBridge, managedRow, press, renderWithMesa } from '@/lib/testing';
 import { SessionControlsPanel } from './SessionControlsPanel';
 
 const row = managedRow('cccccccc', { view: 'structured' });
@@ -143,7 +143,9 @@ test("a Codex session's menus: its models by the names it lists, its approval pr
     [...document.querySelectorAll('[role="menuitemradio"]')].map((r) => r.textContent),
   ).toEqual(['InventedDefault1', 'Other2']);
   await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
-  await pick(button('Mode'), 'Auto');
+  await open(button('Mode'));
+  await press(document.querySelector<HTMLElement>('[role="menu"]') ?? undefined, '2');
+  expect(document.querySelector('[role="menu"]')).toBeNull();
   expect(calls).toContainEqual(['--json', 'sessions', 'mode', '--', 'cccccccc', 'auto']);
   expect(button('Mode')?.textContent).toBe('Auto');
 });

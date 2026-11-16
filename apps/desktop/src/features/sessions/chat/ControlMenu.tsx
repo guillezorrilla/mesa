@@ -1,6 +1,6 @@
 import type { ControlChoice } from '@mesa/core/browser';
 import { Check, Loader2 } from 'lucide-react';
-import type { KeyboardEvent, ReactNode } from 'react';
+import { type KeyboardEvent, type ReactNode, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,16 +28,23 @@ export function ControlMenu(props: {
   className?: string;
   children: ReactNode;
 }) {
+  // Its own open state unless the caller holds it (`/model` opens the model menu).
+  const [own, setOwn] = useState(false);
+  const open = props.open ?? own;
+  const setOpen = (next: boolean) => {
+    setOwn(next);
+    props.onOpenChange?.(next);
+  };
   const byNumber = (event: KeyboardEvent) => {
     const at = /^[1-9]$/.test(event.key) ? Number(event.key) - 1 : -1;
     const choice = props.numbered[at];
     if (!choice || event.metaKey || event.ctrlKey || event.altKey) return;
     event.preventDefault();
-    props.onOpenChange?.(false);
+    setOpen(false);
     props.onPick(choice);
   };
   return (
-    <DropdownMenu open={props.open} onOpenChange={props.onOpenChange}>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild disabled={props.busy}>
         <Button
           variant="ghost"
