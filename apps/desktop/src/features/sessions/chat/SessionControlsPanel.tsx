@@ -1,5 +1,5 @@
 import type { ManagedRow } from '@mesa/core';
-import { modelLabel } from '@mesa/core/browser';
+import { modelLabel, parsePlanUsage } from '@mesa/core/browser';
 import { ChevronDown, Gauge } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ContextRing } from '../selected/ContextRing';
 import { ModelEffortList } from './ModelEffortList';
+import { UsagePanel } from './UsagePanel';
 import { useSessionControls } from './useSessionControls';
 
 /** A quiet footer button that opens a picker. */
@@ -54,6 +55,7 @@ export function SessionControlsPanel(props: { row: ManagedRow; items?: number })
   const [modelOpen, setModelOpen] = useState(false);
   if (!controls) return null;
   const { model, effort, mode } = controls;
+  const usage = controls.usage ? parsePlanUsage(controls.usage) : undefined;
   return (
     <div
       data-testid="session-controls"
@@ -115,10 +117,14 @@ export function SessionControlsPanel(props: { row: ManagedRow; items?: number })
               <Gauge aria-hidden />
             </Button>
           </PopoverTrigger>
-          <PopoverContent data-testid="usage-card" align="end" className="w-80 text-xs">
-            <p className="whitespace-pre-wrap">
-              {controls.usage ?? 'No usage read yet in this session.'}
-            </p>
+          <PopoverContent data-testid="usage-card" align="end" className="w-96 text-xs">
+            {usage ? (
+              <UsagePanel report={usage} />
+            ) : (
+              <p className="whitespace-pre-wrap">
+                {controls.usage ?? 'No usage read yet in this session.'}
+              </p>
+            )}
             <Button size="sm" variant="outline" className="mt-2" onClick={checkUsage}>
               Check usage
             </Button>

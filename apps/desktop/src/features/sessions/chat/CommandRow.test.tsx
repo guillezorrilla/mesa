@@ -174,3 +174,53 @@ test('/model with a name stays a row', async () => {
   await structuredChat([command('c1', '/model sonnet', 'Set model to Sonnet 5.5')]);
   expect(card()).toBeUndefined();
 });
+
+// Invented numbers in the shape claude 2.1.325's `/usage` and `/context` print in Structured mode.
+const USAGE = [
+  'You are paying for the harbour with a lantern plan',
+  'Current session: 14% used · resets Nov 16 at 2:10pm (Harbour/Time)',
+  'Current week (all models): 92% used · resets Nov 22 at 6pm (Harbour/Time)',
+  '',
+  "What's contributing to your usage?",
+  'Last 24h · 594 requests · 24 sessions',
+  '  93%  Start fresh when you switch tasks · run /clear',
+].join('\n');
+const CONTEXT = [
+  '## Context Usage',
+  '**Model:** claude-haiku-5-5',
+  '**Tokens:** 23.1k / 1m (2%)',
+  '| Category | Tokens | Percentage |',
+  '|----------|--------|------------|',
+  '| Messages | 3.1k | 0.3% |',
+].join('\n');
+
+test('/usage reads as bars with their resets, the contributors collapsed, the raw text one click away', async () => {
+  await structuredChat([command('c1', '/usage', USAGE)]);
+  const bars = [...(card()?.querySelectorAll('[role="progressbar"]') ?? [])];
+  expect(bars.map((b) => b.getAttribute('aria-label'))).toEqual([
+    'Current session: 14% used',
+    'Current week (all models): 92% used',
+  ]);
+  expect(card()?.textContent).toContain('Resets Nov 16 at 2:10pm (Harbour/Time)');
+  const details = card()?.querySelector('details');
+  expect(details?.open).toBe(false);
+  expect(details?.querySelector('summary')?.textContent).toBe("What's contributing to your usage?");
+  const raw = [...(card()?.querySelectorAll('button') ?? [])].find(
+    (b) => b.textContent === 'Show raw',
+  );
+  await click(raw);
+  expect(card()?.textContent).toContain('Current session: 14% used · resets');
+});
+
+test("/context reads as the window used and each category's share", async () => {
+  await structuredChat([command('c1', '/context', CONTEXT)]);
+  const text = card()?.textContent ?? '';
+  expect(text).toContain('2% used');
+  expect(text).toContain('23.1k of 1m tokens · Haiku 5.5');
+  expect(text).toContain('Messages3.1k0.3%');
+});
+
+test('a /usage reply with no limit stays formatted text', async () => {
+  await structuredChat([command('c1', '/usage', 'Usage is not available here.')]);
+  expect(card()).toBeUndefined();
+});

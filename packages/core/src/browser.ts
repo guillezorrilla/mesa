@@ -2,6 +2,18 @@
 // type imports only, so no Node code reaches the webview. The CLI reads the same from @mesa/core.
 
 export {
+  type ContextCategory,
+  type ContextReport,
+  parseContextReport,
+} from './agents/claude/context-report.js';
+export {
+  type PlanLimit,
+  type PlanUsage,
+  type PlanUsageLine,
+  type PlanUsageWindow,
+  parsePlanUsage,
+} from './agents/claude/plan-usage.js';
+export {
   parseUsageForm,
   type UsageField,
   type UsageForm,

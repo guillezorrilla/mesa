@@ -56,3 +56,17 @@ test("shows the agent's refusal beside the controls", async () => {
     'session cccccccc: no such mode',
   );
 });
+
+test("the usage popover shows the last /usage reply's limits as bars", async () => {
+  const { bridge } = fakeBridge({
+    'sessions controls': () =>
+      envelope({ ...controls, usage: 'Current session: 14% used · resets Nov 16 at 2pm' }),
+  });
+  await renderWithMesa(<SessionControlsPanel row={row} />, bridge);
+  await act(async () => button('Usage')?.click());
+  expect(
+    document
+      .querySelector('[data-testid="usage-panel"] [role="progressbar"]')
+      ?.getAttribute('aria-label'),
+  ).toBe('Current session: 14% used');
+});

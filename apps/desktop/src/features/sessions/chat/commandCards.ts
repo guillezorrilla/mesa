@@ -1,8 +1,23 @@
-import type { ChatItem, ChatMessage, UsageForm } from '@mesa/core';
-import { parseUsageForm } from '@mesa/core/browser';
+import type { ChatItem, ChatMessage, ContextReport, PlanUsage, UsageForm } from '@mesa/core';
+import { parseContextReport, parsePlanUsage, parseUsageForm } from '@mesa/core/browser';
 
-/** What a command's card shows: a form for a `key=value` usage list, or `/model`'s picker. */
-export type CommandCard = { kind: 'form'; form: UsageForm } | { kind: 'model' };
+/**
+ * What a command's card shows: a form for a `key=value` usage list, `/model`'s picker, or the
+ * `/usage` and `/context` replies read as data.
+ */
+export type CommandCard =
+  | { kind: 'form'; form: UsageForm }
+  | { kind: 'model' }
+  | { kind: 'usage'; report: PlanUsage }
+  | { kind: 'context'; report: ContextReport };
+
+/** The card a finished command's reply reads as, by the command run; none for any other. */
+function replyCard(text: string, output: string): CommandCard | undefined {
+  const usage = text === '/usage' ? parsePlanUsage(output) : undefined;
+  if (usage) return { kind: 'usage', report: usage };
+  const context = text === '/context' ? parseContextReport(output) : undefined;
+  return context ? { kind: 'context', report: context } : undefined;
+}
 
 /** A card and the replies to the changes made from it, oldest first. */
 export type PlacedCard = { card: CommandCard; replies: ChatMessage[] };
@@ -24,6 +39,11 @@ export function commandCards(messages: readonly ChatItem[]) {
     const text = message.text.trim();
     if (text === '/model') {
       cards.set(message, { card: { kind: 'model' }, replies: [] });
+      continue;
+    }
+    const reply = message.output ? replyCard(text, message.output) : undefined;
+    if (reply) {
+      cards.set(message, { card: reply, replies: [] });
       continue;
     }
     const form = message.output ? parseUsageForm(message.output) : undefined;
