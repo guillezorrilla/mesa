@@ -179,6 +179,11 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* The app is one window-sized shell; the document itself never scrolls or rubber-bands. */
+  html,
+  body {
+    @apply overflow-hidden overscroll-none;
+  }
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }

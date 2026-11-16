@@ -181,7 +181,8 @@ function AppShell() {
     <>
       {!ready && <LoadingScreen />}
       {/* Mounted while loading, so the session tree it reads loads behind the loading screen. */}
-      <div hidden={!ready} className="flex h-screen min-h-[480px] flex-col">
+      {/* Fixed to the window: a focus or a wheel that scrolls the document cannot move the shell. */}
+      <div hidden={!ready} className="fixed inset-0 flex min-h-[480px] flex-col overflow-hidden">
         <TitleBar
           view={view}
           navigate={navigate}
