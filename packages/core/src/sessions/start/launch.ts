@@ -54,7 +54,7 @@ export type LaunchDeps = {
   /** For MESA_PROFILE: a Profile knows its paths, not its name. */
   profileName: string;
   store: SessionStore;
-  tmux: Pick<TmuxBackend, 'openWindow'>;
+  tmux: Pick<TmuxBackend, 'openWindow' | 'respawnWindow'>;
   run: Runner;
   env: Env;
   home: string;
@@ -123,6 +123,11 @@ type Start = {
    * is left to it (open.ts).
    */
   setupBeside?: SetupBeside;
+  /**
+   * Run in the window the session has, which stays (a view switch, ADR-0029): every view attached
+   * to it goes on showing it.
+   */
+  inPlace?: true;
 };
 
 /**
@@ -234,7 +239,7 @@ export async function startSession(
       (!record.vaultMounted || record.decisionsMounted !== decisionsMounted)
     )
       record = deps.store.update(record.id, { vaultMounted: true, decisionsMounted });
-    await deps.tmux.openWindow({
+    await deps.tmux[start.inPlace ? 'respawnWindow' : 'openWindow']({
       project: record.tmux.session,
       window: record.tmux.window,
       // claude keys its transcripts by cwd.

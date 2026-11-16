@@ -52,6 +52,9 @@ export const nestedAgentVars = (env: Env) =>
 const NOTHING_THERE =
   /no server running|error connecting to .*\(No such file or directory\)|can't find session|no current target/;
 
+/** What endPane leaves running in a pane: nothing, as it exits at once. */
+export const ENDED = '/usr/bin/true';
+
 /** Text longer than this, in bytes, is pasted rather than typed (sendText). */
 const PASTE_BYTES = 1024;
 
@@ -174,6 +177,40 @@ export function tmuxBackend({
       'on',
     ];
   };
+  /**
+   * How a window's command starts: in its folder, with its variables, run by /bin/sh. env changes
+   * directory before sh starts: tmux 3.7 can ignore -c when its server's cwd was deleted. It sets
+   * PATH too: tmux gives a new pane its client's PATH over -e's (#1032). Both env and sh exec, so
+   * the pane's pid remains the agent's.
+   */
+  const launch = (spec: WindowSpec) => [
+    '-c',
+    spec.cwd,
+    ...Object.entries(spec.env).flatMap(([k, v]) => ['-e', `${k}=${v}`]),
+    '/usr/bin/env',
+    '-C',
+    spec.cwd,
+    ...(spec.env.PATH === undefined ? [] : [`PATH=${spec.env.PATH}`]),
+    '/bin/sh',
+    '-c',
+    spec.command,
+  ];
+  /**
+   * Its output to its log, in the same call, so the pipe is there before tmux reads anything the
+   * agent prints; `-o` opens one only where none is, without it any old pipe is replaced. tmux runs
+   * it with /bin/sh after expanding its formats: the file is one shell word, `#` doubled.
+   */
+  const logPipe = (spec: WindowSpec, ...flags: string[]) =>
+    spec.log
+      ? [
+          ';',
+          'pipe-pane',
+          ...flags,
+          '-t',
+          exact(spec),
+          `cat >> ${shellWord(spec.log)}`.replaceAll('#', '##'),
+        ]
+      : [];
   return {
     /** Starts the profile's server, or updates it, with Mesa's options and its pane-died hook. */
     ensureServer,
@@ -213,7 +250,6 @@ export function tmuxBackend({
      */
     openWindow: async (spec: WindowSpec): Promise<WindowTarget> => {
       await ensureServer();
-      const vars = Object.entries(spec.env).flatMap(([k, v]) => ['-e', `${k}=${v}`]);
       // new-session -e also sets the tmux session's environment, which a window the user adds by
       // hand would inherit; the first window keeps its own copy.
       const unset = Object.keys(spec.env).flatMap((k) => [
@@ -224,22 +260,6 @@ export function tmuxBackend({
         '-u',
         k,
       ]);
-      // In the same call, so the pipe is there before tmux reads anything the agent prints. tmux
-      // runs it with /bin/sh after expanding its formats: the file is one shell word, `#` doubled.
-      const pipe = spec.log
-        ? [
-            ';',
-            'pipe-pane',
-            '-o',
-            '-t',
-            exact(spec),
-            `cat >> ${shellWord(spec.log)}`.replaceAll('#', '##'),
-          ]
-        : [];
-      // env changes directory before sh starts: tmux 3.7 can ignore -c when its server's cwd was
-      // deleted. It sets PATH too: tmux gives a new pane its client's PATH over -e's (#1032).
-      // Both env and sh exec, so the pane's pid remains the agent's.
-      const path = spec.env.PATH === undefined ? [] : [`PATH=${spec.env.PATH}`];
       const open = (inSession: boolean) =>
         tmux([
           ...(inSession
@@ -247,17 +267,8 @@ export function tmuxBackend({
             : ['new-session', '-d', '-s', spec.project]),
           '-n',
           spec.window,
-          '-c',
-          spec.cwd,
-          ...vars,
-          '/usr/bin/env',
-          '-C',
-          spec.cwd,
-          ...path,
-          '/bin/sh',
-          '-c',
-          spec.command,
-          ...pipe,
+          ...launch(spec),
+          ...logPipe(spec, '-o'),
           ...(inSession ? [] : unset),
         ]);
       const hasSession = (await tmux(['has-session', '-t', `=${spec.project}`])).ok;
@@ -298,6 +309,21 @@ export function tmuxBackend({
      */
     holdWindow: async (target: WindowTarget, cols: number, rows: number) => {
       await onWindow(target, 'resize-window', '-x', String(cols), '-y', String(rows));
+    },
+    /**
+     * Runs `spec` in the pane of its window, which stays: whatever runs there is killed first.
+     * Every view attached to the window goes on showing it, where a new window under the same name
+     * would leave a grouped view on a sibling (a view switch, ADR-0029). Its output log goes on.
+     */
+    respawnWindow: async (spec: WindowSpec) => {
+      await onWindow(spec, 'respawn-pane', '-k', ...launch(spec), ...logPipe(spec));
+    },
+    /**
+     * Ends what runs in the window's pane and keeps the window, its pane dead (remain-on-exit) for
+     * respawnWindow: `true` takes the pane's place and exits at once.
+     */
+    endPane: async (target: WindowTarget) => {
+      await onWindow(target, 'respawn-pane', '-k', ENDED);
     },
     killWindow: async (target: WindowTarget) => {
       await onWindow(target, 'kill-window');

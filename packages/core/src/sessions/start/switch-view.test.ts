@@ -59,13 +59,17 @@ describe('switching a session between Structured and Terminal', () => {
   it('stops the host and resumes the TUI in the same window when idle', async () => {
     const w = world();
     const { record, host } = await structured(w);
+    const window = w.agents.tmux.windows.find((x) => x.window === record.tmux.window);
+    const opened = w.agents.tmux.opened.length;
     const { result } = await w.mesa.sessions.switchView(record.id, 'terminal');
     expect(result.switched).toBe(true);
     expect(await host.done).toEqual({ code: undefined });
     expect(w.fake.wasKilled()).toBe(true);
-    const reopened = w.agents.tmux.opened.at(-1);
-    expect(reopened?.window).toBe(record.tmux.window);
-    expect(reopened?.launch).toContain(`claude --resume ${record.agentSessionId}`);
+    // The same window, its pane respawned: a view the app attached to it stays on it.
+    expect(w.agents.tmux.opened).toHaveLength(opened);
+    expect(w.agents.tmux.respawned).toEqual([window]);
+    expect(window?.launch).toContain(`claude --resume ${record.agentSessionId}`);
+    expect(w.agents.tmux.windows).toContain(window);
     expect(result.record.view).toBe('terminal');
     expect(result.record.switching).toBeUndefined();
     expect(result.record.events.at(-1)).toMatchObject({ type: 'switched', to: 'terminal' });
@@ -77,7 +81,7 @@ describe('switching a session between Structured and Terminal', () => {
     expect(plain.view).toBeUndefined();
     const { result } = await w.mesa.sessions.switchView(plain.id, 'structured');
     expect(result.switched).toBe(true);
-    expect(w.agents.tmux.opened.at(-1)?.launch).toContain(`host ${plain.id}`);
+    expect(w.agents.tmux.respawned.at(-1)?.launch).toContain(`host ${plain.id}`);
     expect(result.record.view).toBe('structured');
     // The TUI's SessionEnd, logged during the switch, is not the session's end.
     const [row] = await w.mesa.sessions.list();
@@ -138,6 +142,7 @@ describe('switching a session between Structured and Terminal', () => {
       /still has claude running its conversation \(pid 77\)/,
     );
     expect(w.agents.tmux.opened).toHaveLength(opened);
+    expect(w.agents.tmux.respawned).toEqual([]);
     const after = testStore(w.home).get(plain.id);
     expect(after.view).toBeUndefined();
     expect(after.switching).toBeUndefined();
@@ -146,9 +151,9 @@ describe('switching a session between Structured and Terminal', () => {
   it('records the exit when the new process fails to start after the old one stopped', async () => {
     const w = world();
     const { result: plain } = await w.mesa.sessions.open('lantern-cove');
-    w.agents.tmux.failing.push('new-window', 'new-session');
+    w.agents.tmux.failing.push('respawn-pane');
     await expect(w.mesa.sessions.switchView(plain.id, 'structured')).rejects.toThrow(
-      /could not open/,
+      /respawn-pane failed/,
     );
     const after = testStore(w.home).get(plain.id);
     expect(after.switching).toBeUndefined();
@@ -189,11 +194,11 @@ describe('switching a session between Structured and Terminal', () => {
     const { result: toTerminal } = await w.mesa.sessions.switchView(opened.id, 'terminal');
     await host.done;
     expect(toTerminal.record.view).toBe('terminal');
-    const tui = w.agents.tmux.opened.at(-1)?.launch ?? '';
+    const tui = w.agents.tmux.respawned.at(-1)?.launch ?? '';
     expect(tui).toContain('codex -c mesa.embedded=true');
     expect(tui).toContain(`resume '${thread}'`);
     const { result: back } = await w.mesa.sessions.switchView(opened.id, 'structured');
     expect(back.record.view).toBe('structured');
-    expect(w.agents.tmux.opened.at(-1)?.launch).toContain(`host ${opened.id}`);
+    expect(w.agents.tmux.respawned.at(-1)?.launch).toContain(`host ${opened.id}`);
   });
 });

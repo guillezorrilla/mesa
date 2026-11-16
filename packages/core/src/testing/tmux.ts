@@ -1,5 +1,5 @@
 import type { RunResult } from '../lib/process.js';
-import { type TmuxBackend, tmuxBackend } from '../sessions/tmux/backend.js';
+import { ENDED, type TmuxBackend, tmuxBackend } from '../sessions/tmux/backend.js';
 import { tmuxLine } from './tmux-line.js';
 
 /** One window of `fakeTmux`: tests may mark it exited (`dead`) or read what was typed into it. */
@@ -135,6 +135,28 @@ export function fakeTmux(
         windows.push(opened);
         world.opened.push(opened);
         openedNow.push(opened);
+        return ok();
+      }
+      // The window stays, with a new command in its pane (respawnWindow).
+      case 'respawn-pane': {
+        const w = find(target);
+        if (!w) return failed("can't find window");
+        const env = rest.flatMap((word, i) => (rest[i - 1] === '-e' ? [word.split(/=(.*)/s)] : []));
+        Object.assign(w, {
+          path: flag(rest, '-c'),
+          launch: rest.at(-1) ?? '',
+          env: Object.fromEntries(env.map(([name = '', value = '']) => [name, value])),
+          // endPane's `true` exits at once.
+          dead: rest.at(-1) === ENDED,
+          running: newWindow({
+            project: w.project,
+            window: w.window,
+            path: '',
+            launch: '',
+            env: {},
+          }).running,
+        });
+        if (rest.at(-1) !== ENDED) world.respawned.push(w);
         return ok();
       }
       case 'kill-window': {
@@ -300,6 +322,8 @@ export function fakeTmux(
     ranLater,
     /** Every window the server opened, in order, closed ones too. */
     opened: [] as FakeWindow[],
+    /** Each window whose pane ran a new command in place (respawn-pane), in order; endPane's aside. */
+    respawned: [] as FakeWindow[],
     /** The commands that fail from now on; a test may change it. */
     failing: [opts.failing ?? []].flat(),
     /** The commands that time out from now on, as a hung server's would. */
