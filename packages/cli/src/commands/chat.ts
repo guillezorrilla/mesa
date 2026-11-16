@@ -50,6 +50,7 @@ export const chat = defineCommand({
     },
   },
   example: 'mesa chat a1b2c3d4 --count 5',
+  serves: (flags) => Boolean(flags.follow),
   run: ({ mesa, args, flags }) => {
     const count = flags.count === undefined ? undefined : wholeNumber(flags.count, '--count');
     if (flags.follow)

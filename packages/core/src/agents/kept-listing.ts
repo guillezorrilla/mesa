@@ -1,5 +1,3 @@
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { z } from 'zod';
 import { writeFileAtomic } from '../lib/atomic-file.js';
 import { readJson } from '../lib/json-file.js';
@@ -42,7 +40,7 @@ export function keptListing(deps: ListingDeps & { file: string; maxAgeMs: number
     }
     const listed = await listAgentProcesses(deps);
     try {
-      mkdirSync(dirname(deps.file), { recursive: true, mode: 0o700 });
+      // Into the profile's sessions/ only when it exists: a look at a missing profile makes none.
       writeFileAtomic(
         deps.file,
         `${JSON.stringify({ at: now.toISOString(), processes: listed })}\n`,

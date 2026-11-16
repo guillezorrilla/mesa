@@ -7,5 +7,6 @@ export const serve = defineCommand({
   summary:
     "Serve the app's commands on stdin and stdout, one JSON request and one reply a line (started by the app)",
   example: `printf '%s\\n' '{"id":1,"args":["--json","sessions"]}' | mesa serve`,
+  serves: () => true,
   run: async ({ rerun }) => ({ data: null, text: '', serve: (io) => serveCommands(io, rerun) }),
 });

@@ -10,6 +10,7 @@ export const decisionsMcp = defineCommand({
     tools: { type: 'boolean', description: 'Print the tool definitions instead of serving them' },
   },
   example: 'mesa decisions mcp --tools',
+  serves: (flags) => !flags.tools,
   run: ({ mesa, flags }) => {
     if (!flags.tools)
       return { data: null, text: '', serve: (io) => mesa.decisions.mcp(io, VERSION) };

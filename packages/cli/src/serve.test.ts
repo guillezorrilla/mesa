@@ -21,7 +21,9 @@ test('mesa serve answers each request line with its call, and refuses what it ca
       '{"id":2,"args":["--json","nope"]}',
       'not json',
       '{"id":3,"args":[1]}',
-      '{"id":4,"args":["serve"]}',
+      '{"id":4,"args":["--json","serve"]}',
+      '{"id":5,"args":["--json","host","a1b2c3d4"]}',
+      '{"id":6,"args":["--json","vault","mcp","--tools"]}',
     ]),
     write: (text) => written.push(text),
     log: () => {},
@@ -42,10 +44,15 @@ test('mesa serve answers each request line with its call, and refuses what it ca
     2,
     'mesa serve: not a request line',
   ]);
-  // Its stdout would be its own protocol's, not a reply.
+  // Its stdout would be its own protocol's, not a reply: refused before it runs (no host started).
   expect(refusal(byId.get(4)).message).toBe(
     'mesa serve: serve serves its own stdio; run it as its own process',
   );
+  expect(refusal(byId.get(5)).message).toBe(
+    'mesa serve: host serves its own stdio; run it as its own process',
+  );
+  // The same command printing, not serving, runs (the app's Session details).
+  expect(JSON.parse(byId.get(6).stdout).ok).toBe(true);
 });
 
 test('calls overlap: a quick one answers before a slow one sent first, each with its own stdin', async () => {

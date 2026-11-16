@@ -42,6 +42,8 @@ export type CliDeps = {
   askSecret?: (question: string) => Promise<string>;
   /** What Mesa's services are built from, once the profile is known. */
   mesa: MesaDeps;
+  /** A call `mesa serve` runs, whose stdout carries replies: a command that serves is refused. */
+  served?: boolean;
 };
 
 type CliResult = {
@@ -121,6 +123,11 @@ async function dispatch(argv: string[], deps: CliDeps): Promise<Output> {
   if (values.help) return say(commandHelp(command, deps.commands, GLOBAL_FLAGS));
   const args = bindArgs(command, positionals.slice(command.name.split(' ').length), deps.commands);
   checkRequiredFlags(command, values);
+  if (deps.served && command.serves?.(values))
+    throw new MesaError(
+      'usage',
+      `mesa serve: ${command.name} serves its own stdio; run it as its own process`,
+    );
   const profile = resolveProfileName(values.profile as string | undefined, deps.env);
   const mesa = createMesa(profile, deps.mesa);
   const { tty, stdin, askSecret, commands } = deps;
@@ -130,6 +137,7 @@ async function dispatch(argv: string[], deps: CliDeps): Promise<Output> {
     runCli(next, {
       ...unprompted,
       tty: false,
+      served: true,
       stdin: async () => input,
       mesa: { ...deps.mesa, argv: next, processStartedAt: deps.mesa.clock() },
     });

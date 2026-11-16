@@ -34,3 +34,16 @@ test('a kept listing that cannot be written still lists', async () => {
   const listing = keptListing({ ...listingDeps(run), file, maxAgeMs: FRESH_MS });
   expect(await listing([])).toHaveLength(1);
 });
+
+test('a look at a profile with no sessions folder lists, and makes no folder', async () => {
+  const { run } = scriptedRunner({ claude: JSON.stringify([SPIKE_LISTING.idle]) });
+  const { existsSync } = await import('node:fs');
+  const profile = join(tempDir(), 'gone');
+  const listing = keptListing({
+    ...listingDeps(run),
+    file: join(profile, 'sessions', 'listing.json'),
+    maxAgeMs: FRESH_MS,
+  });
+  expect(await listing([])).toHaveLength(1);
+  expect(existsSync(profile)).toBe(false);
+});

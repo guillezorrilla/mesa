@@ -133,6 +133,11 @@ export type Command = {
   flags?: Flags;
   /** One invocation an agent can copy; a test checks it parses as this command. */
   example: string;
+  /**
+   * Whether a run with these flags serves its own stdio: `mesa serve` refuses it before it runs,
+   * since there stdout carries the replies.
+   */
+  serves?: (flags: Record<string, unknown>) => boolean;
   run: (invocation: Invocation) => Output | Promise<Output>;
 };
 
