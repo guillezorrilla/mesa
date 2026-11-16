@@ -125,10 +125,10 @@ async function dispatch(argv: string[], deps: CliDeps): Promise<Output> {
   const mesa = createMesa(profile, deps.mesa);
   const { tty, stdin, askSecret, commands } = deps;
   // No terminal and no one to ask; started now, with its own argv (receipts, hook budgets).
-  const { confirm: _, askSecret: __, ...plain } = deps;
+  const { confirm: _confirm, askSecret: _askSecret, ...unprompted } = deps;
   const rerun = (next: string[], input: string) =>
     runCli(next, {
-      ...plain,
+      ...unprompted,
       tty: false,
       stdin: async () => input,
       mesa: { ...deps.mesa, argv: next, processStartedAt: deps.mesa.clock() },

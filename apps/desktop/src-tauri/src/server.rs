@@ -20,7 +20,9 @@ struct Reply {
     stderr: String,
 }
 
-type Waiting = Arc<Mutex<HashMap<u64, Sender<Reply>>>>;
+/// The calls waiting for a reply; None once the server's stdout has ended, so no call can wait on
+/// a server that will never answer.
+type Waiting = Arc<Mutex<Option<HashMap<u64, Sender<Reply>>>>>;
 
 /// The running server: where requests go, and the calls waiting for a reply.
 struct Live {
@@ -29,10 +31,18 @@ struct Live {
     waiting: Waiting,
 }
 
+impl Drop for Live {
+    /// Reaped, so a replaced server leaves no zombie.
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
 pub struct Server {
     start: fn() -> Result<Command, String>,
     live: Mutex<Option<Live>>,
-    next: AtomicU64,
+    next_id: AtomicU64,
     /// Set when a server ends without answering anything (a mesa without `serve`): spawn from then on.
     broken: Arc<AtomicBool>,
 }
@@ -42,7 +52,7 @@ impl Server {
         Server {
             start,
             live: Mutex::new(None),
-            next: AtomicU64::new(1),
+            next_id: AtomicU64::new(1),
             broken: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -55,18 +65,23 @@ impl Server {
         if self.broken.load(Ordering::Relaxed) {
             return None;
         }
-        let id = self.next.fetch_add(1, Ordering::Relaxed);
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = channel();
         {
             let mut live = self.live.lock().ok()?;
-            if !live
-                .as_mut()
-                .is_some_and(|l| matches!(l.child.try_wait(), Ok(None)))
-            {
+            // Ended means its reader is done, `broken` already settled: restart unless it is.
+            let ended = live
+                .as_ref()
+                .is_none_or(|l| l.waiting.lock().map_or(true, |w| w.is_none()));
+            if ended {
+                if self.broken.load(Ordering::Relaxed) {
+                    return None;
+                }
                 *live = Some(self.spawn().ok()?);
             }
             let server = live.as_mut()?;
-            server.waiting.lock().ok()?.insert(id, tx);
+            // Closed since: nothing was written, so the caller may spawn it.
+            server.waiting.lock().ok()?.as_mut()?.insert(id, tx);
             let line = json!({ "id": id, "args": args, "stdin": stdin }).to_string() + "\n";
             if server
                 .stdin
@@ -74,8 +89,10 @@ impl Server {
                 .and_then(|_| server.stdin.flush())
                 .is_err()
             {
-                server.waiting.lock().ok()?.remove(&id);
-                *live = None;
+                // Its stdin is closed, so it never read this; its reader closes `waiting`.
+                if let Some(w) = server.waiting.lock().ok()?.as_mut() {
+                    w.remove(&id);
+                }
                 return None;
             }
         }
@@ -98,26 +115,32 @@ impl Server {
             .map_err(|e| format!("cannot start mesa serve: {e}"))?;
         let stdin = child.stdin.take().ok_or("mesa serve has no stdin")?;
         let stdout = child.stdout.take().ok_or("mesa serve has no stdout")?;
-        let waiting: Waiting = Arc::default();
+        let waiting: Waiting = Arc::new(Mutex::new(Some(HashMap::new())));
         let (pending, broken) = (waiting.clone(), self.broken.clone());
         std::thread::spawn(move || {
             let mut answered = false;
-            for line in BufReader::new(stdout).lines().map_while(Result::ok) {
-                let Ok(reply) = serde_json::from_str::<Reply>(&line) else {
+            // Bytes, not lines of text: one line that is not UTF-8 is skipped, not the end.
+            for line in BufReader::new(stdout).split(b'\n').map_while(Result::ok) {
+                let Ok(reply) = serde_json::from_slice::<Reply>(&line) else {
                     continue;
                 };
                 let Some(id) = reply.id else { continue };
                 answered = true;
-                if let Some(tx) = pending.lock().ok().and_then(|mut w| w.remove(&id)) {
+                let tx = pending
+                    .lock()
+                    .ok()
+                    .and_then(|mut w| w.as_mut()?.remove(&id));
+                if let Some(tx) = tx {
                     let _ = tx.send(reply);
                 }
             }
-            if !answered {
-                broken.store(true, Ordering::Relaxed);
-            }
-            // Its end drops every waiting sender, so each call in flight gets its error.
+            // Under the lock that closes `waiting`, so a call that finds it closed sees `broken`.
             if let Ok(mut w) = pending.lock() {
-                w.clear();
+                if !answered {
+                    broken.store(true, Ordering::Relaxed);
+                }
+                // Dropping every waiting sender gives each call in flight its error.
+                *w = None;
             }
         });
         Ok(Live {
@@ -189,14 +212,29 @@ mod tests {
         // Ended with the call in flight (an error, not a second run), or before it was written.
         let first = server.call(&["x".into()], None);
         assert!(matches!(first, Some(Err(_)) | None), "{first:?}");
-        for _ in 0..100 {
-            if server.broken.load(std::sync::atomic::Ordering::Relaxed) {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
-        // Answered nothing, so it is never started again: the caller spawns.
         assert!(server.call(&["x".into()], None).is_none());
+    }
+
+    #[test]
+    fn a_server_that_ends_after_answering_is_started_again() {
+        let server = Server::new(|| {
+            let mut cmd = Command::new("/bin/sh");
+            cmd.arg("-c").arg(
+                r#"read -r line; id=$(printf '%s' "$line" | sed 's/.*"id":\([0-9]*\).*/\1/')
+                   printf '{"id":%s,"code":0,"stdout":"{\\"ok\\":true,\\"data\\":1}","stderr":""}\n' "$id""#,
+            );
+            Ok(cmd)
+        });
+        assert!(server.call(&["x".into()], None).unwrap().is_ok());
+        // Each later call gets a fresh server's answer, an in-flight error, or a spawn; never a hang.
+        for _ in 0..5 {
+            let later = server.call(&["x".into()], None);
+            assert!(
+                !matches!(later, Some(Ok(ref v)) if v["ok"] != true),
+                "{later:?}"
+            );
+        }
+        assert!(!server.broken.load(std::sync::atomic::Ordering::Relaxed));
     }
 
     #[test]
