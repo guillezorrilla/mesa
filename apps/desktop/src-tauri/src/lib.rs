@@ -106,6 +106,7 @@ pub fn run() {
             terminal::clipboard_write,
             follow::follow_open,
             follow::follow_ready,
+            follow::follow_write,
             follow::follow_close,
             notifications::notification_status,
             notifications::notification_request_permission,

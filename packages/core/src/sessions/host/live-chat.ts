@@ -113,6 +113,8 @@ export type ChatFollowLine =
   | { type: 'suggestion'; text: string | null }
   /** The permission or question the agent waits on changed: a new one, or null once answered. */
   | { type: 'prompt'; prompt: PendingPrompt | null }
+  /** `mesa chat --follow`'s answer to request `id` written on its stdin: the command's envelope. */
+  | { type: 'reply'; id: string; reply: unknown }
   | { type: 'end' };
 
 /**

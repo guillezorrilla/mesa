@@ -104,6 +104,9 @@ export type Invocation<A extends readonly string[] = readonly string[], F extend
   commands: Command[];
 };
 
+/** A server's stdio, and `run`: another mesa command in this process, what it printed. */
+export type ServeIo = Stdio & { run: (argv: string[]) => Promise<string> };
+
 /**
  * `data` goes into the JSON envelope; `text` is what a human sees without --json.
  * `code` overrides the exit code of a successful result that still reports a problem.
@@ -115,7 +118,7 @@ export type Output = {
   /** An argv the entrypoint replaces the process with after printing (`mesa open --attach`). */
   exec?: string[];
   /** A loop the entrypoint runs on its stdio in place of printing (`mesa vault mcp`). */
-  serve?: (io: Stdio) => Promise<void>;
+  serve?: (io: ServeIo) => Promise<void>;
 };
 
 export type Command = {

@@ -83,3 +83,33 @@ test('chat --follow prints a Terminal session chat as one JSON line, then ends',
   });
   expect(written.map((line) => JSON.parse(line).type)).toEqual(['chat']);
 });
+
+test('chat --follow runs a request on stdin for its own session in this process, and refuses others', async () => {
+  cli.withTmux();
+  await cli.withProject();
+  const plain = (await cli.mesa('open', 'lantern-cove', '--json')).json.data;
+  const started = await cli.mesa('chat', plain.id, '--follow');
+  const written: string[] = [];
+  const run = (id: string, argv: string[]) => JSON.stringify({ type: 'run', id, argv });
+  await (started.serve as (io: Stdio) => Promise<void>)({
+    lines: (async function* () {
+      yield run('r1', ['send', '--no-from', '--', plain.id, 'chart the tide']);
+      yield run('r2', ['send', '--no-from', '--', 'zzzzzzzz', 'chart the tide']);
+      yield run('r3', ['rename', '--', plain.id, 'tides']);
+      yield 'not json';
+    })(),
+    write: (text) => written.push(text),
+    log: () => undefined,
+  });
+  await new Promise((done) => setTimeout(done, 200));
+  const replies = written.map((line) => JSON.parse(line)).filter((line) => line.type === 'reply');
+  expect(replies.map((r) => [r.id, r.reply.ok])).toEqual([
+    ['r2', false],
+    ['r3', false],
+    ['r1', true],
+  ]);
+  expect(replies[0].reply.error.message).toBe(
+    `a chat's follow runs only ${plain.id}'s chat actions`,
+  );
+  expect(replies[2].reply.data).toMatchObject({ sent: true, session: plain.id });
+});

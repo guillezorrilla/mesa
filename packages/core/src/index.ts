@@ -181,6 +181,7 @@ export type { DescendantResult } from './sessions/end/descendants.js';
 export type { Removed } from './sessions/end/remove.js';
 export type { StopOutcome } from './sessions/end/stop.js';
 export type { ControlChange, SessionControls } from './sessions/host/controls.js';
+export { followedSession } from './sessions/host/follow-actions.js';
 export type { ChatFollowLine } from './sessions/host/live-chat.js';
 export type {
   BrowserAnnotationInput,

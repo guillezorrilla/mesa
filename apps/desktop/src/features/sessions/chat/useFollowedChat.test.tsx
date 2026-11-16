@@ -213,3 +213,54 @@ test('a follow that ends takes its prompt card with it: nothing is left to answe
   await act(async () => follows.exit());
   expect(document.querySelector('[data-testid="session-prompt"]')).toBeNull();
 });
+
+test("while the chat's follow runs, its actions go over it: an answer starts no mesa", async () => {
+  const follows = fakeFollows((argv) =>
+    argv[0] === 'answer'
+      ? envelope({ answered: true, prompt: 'req-w', receipt: null })
+      : envelope({ session: 'dddddddd', agent: 'claude', models: [], efforts: [], modes: [] }),
+  );
+  const { bridge, calls } = fakeBridge({
+    'sessions controls': () =>
+      envelope({ session: 'dddddddd', agent: 'claude', models: [], efforts: [], modes: [] }),
+  });
+  await renderWithMesa(
+    <ChatPanel sessionId="dddddddd" row={structured} acting={false} onSend={() => {}} />,
+    bridge,
+    fakePlatform({ follow: follows.host }),
+  );
+  await act(async () => {
+    follows.push({ type: 'chat', messages: [], count: 0, more: false });
+    follows.push({
+      type: 'prompt',
+      prompt: {
+        status: 'pending',
+        session: 'dddddddd',
+        id: 'req-w',
+        kind: 'permission',
+        tool: 'Write',
+        summary: 'tide.txt',
+        options: [{ id: 'allow', label: 'Allow' }],
+        freeText: false,
+      },
+    });
+  });
+  const allow = [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+    (b) => b.textContent === 'Allow',
+  );
+  await act(async () => allow?.click());
+  expect(follows.calls).toContainEqual([
+    'write',
+    'f1',
+    'answer',
+    '--via',
+    'app',
+    '--prompt',
+    'req-w',
+    '--',
+    'dddddddd',
+    'allow',
+  ]);
+  expect(calls.some((c) => c[1] === 'answer')).toBe(false);
+  expect(document.querySelector('[data-testid="session-prompt"]')).toBeNull();
+});
