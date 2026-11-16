@@ -90,7 +90,7 @@ export function SettingField(props: {
   const id = `setting-${setting.key}`;
   const atDefault = value === undefined || value === setting.fallback;
   return (
-    <div className="-mx-2 flex items-center gap-4 rounded-md px-2 py-2.5 focus-within:bg-muted/50 hover:bg-muted/30">
+    <div className="-mx-2 flex items-center gap-4 rounded-md px-2 py-2 focus-within:bg-muted/50 hover:bg-muted/30">
       <div className="min-w-0 flex-1">
         <label htmlFor={id} className="block truncate text-sm" title={setting.key}>
           {setting.name}
@@ -100,7 +100,7 @@ export function SettingField(props: {
         )}
       </div>
       {atDefault ? (
-        <span className="text-[11px] text-muted-foreground">Default</span>
+        <span className="text-[11px] text-muted-foreground/80">Default</span>
       ) : (
         setting.fallback !== undefined && (
           <IconButton
