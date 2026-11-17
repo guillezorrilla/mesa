@@ -5,6 +5,7 @@ import type { Reply } from '../compose/useReply';
 import { TerminalBar } from '../terminal/TerminalBar';
 import { TerminalBody } from '../terminal/TerminalBody';
 import { SessionBody } from './SessionBody';
+import { useReadWhileOpen } from './useReadWhileOpen';
 import type { SessionDetail } from './useSessionDetail';
 
 /**
@@ -21,6 +22,7 @@ export function SessionView({
   reply: Reply;
 }) {
   const { detail, error } = use(session.read);
+  useReadWhileOpen(id, detail?.row.unread === true);
   if (detail?.row.terminal)
     return (
       <KeyboardScreen bar={<TerminalBar id={id} />}>
