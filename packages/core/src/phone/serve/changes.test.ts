@@ -285,4 +285,6 @@ test("a diff page reuses the session's last read for a minute; the file list rea
   now = DIFF_KEPT_MS;
   expect(await diff('s1', true)).toBe('s1 read 3');
   expect(await diff('s1')).toBe('s1 read 4');
+  // s2 was not read again within the minute: it is no longer held.
+  expect(diff.held()).toBe(1);
 });
