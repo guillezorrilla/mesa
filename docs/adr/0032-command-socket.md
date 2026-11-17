@@ -25,7 +25,7 @@ orca (stablyai/orca) keeps its CLI thin: it parses argv, then sends one request 
 - It runs the call itself when:
   - stdin is a terminal (only it can ask the person);
   - no server answers, or the folder is not private;
-  - the server does not take the call within 2 s (a stalled server);
+  - the server does not take the call within 1 s (a stalled server; it takes one within milliseconds, and 2 s cost every call of a stalled app 2.3 s, measured 2026-11-17);
   - the server hands it back: another version or build, or a command that runs in its own process. That is `Command.serves` (`serve`, `host`, the MCP servers, `chat --follow`, and now `phone serve`, which runs until stopped), and `Command.ownProcess`, a command that waits on something outside the call with no short bound: `wait`, `run`, `check`, `sources connect` (its sign-in listener), `vault capture`, `import` and `import refresh`. The app's own stdio calls still run `ownProcess` commands.
 - A hook's reply gets 5 s, as the hook holds up its agent's turn; other calls get no reply deadline, since one may rightly take long and one that waits runs in its caller anyway.
 - A connection lost, or a hook's deadline passed, after the server took the call: the call fails with exit 1, as it may have run; a hook runs again in its caller, as a lost event costs more than one recorded twice.

@@ -57,10 +57,11 @@ async function forwarded() {
       startedAt: performance.timeOrigin,
     },
     readStdin,
-    // A server that does not take the call in 2 s is stalled: it runs here. A hook holds up its
-    // agent's turn, so its reply gets 5 s; any other call may rightly take long (a guardrail's
-    // check, a model's advice), and one that waits runs here anyway (Command.ownProcess).
-    hook ? { readyMs: 2000, replyMs: 5000 } : { readyMs: 2000 },
+    // A server takes a call within milliseconds; one that has not in 1 s is stalled, and the call
+    // runs here (a stalled app then costs each call 1 s, not 2). A hook holds up its agent's turn,
+    // so its reply gets 5 s; any other call may rightly take long (a guardrail's check, a model's
+    // advice), and one that waits runs here anyway (Command.ownProcess).
+    hook ? { readyMs: 1000, replyMs: 5000 } : { readyMs: 1000 },
   );
   if (out !== 'lost') return out;
   // A hook's event must reach Mesa, and one recorded twice is harmless; anything else may have
