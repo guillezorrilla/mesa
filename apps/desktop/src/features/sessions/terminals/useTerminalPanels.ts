@@ -13,7 +13,8 @@ export const KEPT_HIDDEN = 3;
 /**
  * Embedded terminals, one panel per session, in the order opened; several at once. The selected
  * session's opens with it, and one panel at most is zoomed. Outside the Grid, whose tiles are the
- * panels, a selection closes the hidden ones beyond the KEPT_HIDDEN selected most recently.
+ * panels, a selection closes the hidden ones it opened beyond the KEPT_HIDDEN selected most
+ * recently; a panel open while the Grid showed stays until it is closed.
  */
 export function useTerminalPanels(
   rows: TreeRow[] | undefined,
@@ -24,6 +25,8 @@ export function useTerminalPanels(
   const [zoomed, setZoomed] = useState<string>();
   /** Sessions in the order they were last selected, the latest last. */
   const recent = useRef<string[]>([]);
+  /** The panels a selection opened outside the Grid: the only ones the cap closes. */
+  const bySelection = useRef(new Set<string>());
   // A panel goes with its session: once it is not live (stopped, resumed, exited), tmux would
   // show the view another window of the project.
   const liveRows = (rows ?? []).filter(
@@ -32,20 +35,23 @@ export function useTerminalPanels(
   const live = new Set(liveRows.map((s) => s.id));
   if (rows && panels.some((id) => !live.has(id))) setPanels(panels.filter((id) => live.has(id)));
   useEffect(() => {
+    // The Grid's tiles are the panels: what is open while it shows is its own, never capped.
+    if (gridMode) bySelection.current.clear();
     const id = selectedSession;
-    if (id && rows?.some((row) => row.id === id && row.managed && !exited(row))) {
-      // Only the latest few matter; the rest would only grow.
-      recent.current = [...recent.current.filter((each) => each !== id), id].slice(
-        -(KEPT_HIDDEN + 1),
-      );
-      setPanels((open) => {
-        const next = open.includes(id) ? open : [...open, id];
-        if (gridMode) return next;
-        const kept = new Set(recent.current);
-        const trimmed = next.filter((each) => kept.has(each));
-        return trimmed.length === next.length ? next : trimmed;
-      });
-    }
+    if (!id || !rows?.some((row) => row.id === id && row.managed && !exited(row))) return;
+    // Only the latest few matter; the rest would only grow.
+    recent.current = [...recent.current.filter((each) => each !== id), id].slice(
+      -(KEPT_HIDDEN + 1),
+    );
+    setPanels((open) => {
+      const next = open.includes(id) ? open : [...open, id];
+      if (gridMode) return next;
+      if (!open.includes(id)) bySelection.current.add(id);
+      const kept = new Set(recent.current);
+      const closed = next.filter((each) => bySelection.current.has(each) && !kept.has(each));
+      for (const each of closed) bySelection.current.delete(each);
+      return closed.length ? next.filter((each) => !closed.includes(each)) : next;
+    });
   }, [rows, selectedSession, gridMode]);
   return {
     panels,
