@@ -68,7 +68,7 @@ export function SessionsScreen(
   useDialogRequest(props.archiveSessionRequest, data, 'archive', setDialog);
   useDialogRequest(props.dependencySessionRequest, data, 'dependency', setDialog);
   const close = () => setDialog(undefined);
-  const panels = useTerminalPanels(data, props.selectedSession);
+  const panels = useTerminalPanels(data, props.selectedSession, props.gridMode);
   const selected = data?.find((row) => row.id === props.selectedSession);
   const insert = usePromptInsert(props.promptInsertRequest, selected?.id);
   const selectionVersion = useSelectionVersion(props.selectedSession);

@@ -15,13 +15,21 @@ export function keptDiffs<A, T>(
   keyOf: (of: A) => string = String,
 ) {
   const kept = new Map<string, { at: number; read: Promise<T> }>();
-  return (of: A, reuse = false): Promise<T> => {
+  const diffOf = (of: A, reuse = false): Promise<T> => {
+    // A read too old to reuse is dropped, so a long-running listener holds only the last minute's
+    // diffs, not every session's and pull request's it ever paged.
+    for (const [key, each] of kept) if (now() - each.at >= DIFF_KEPT_MS) kept.delete(key);
     const key = keyOf(of);
     const last = kept.get(key);
     if (reuse && last && now() - last.at < DIFF_KEPT_MS) return last.read;
     const next = read(of);
     kept.set(key, { at: now(), read: next });
-    next.catch(() => kept.delete(key));
+    // A failed read is not kept, unless a newer read replaced it meanwhile.
+    next.catch(() => {
+      if (kept.get(key)?.read === next) kept.delete(key);
+    });
     return next;
   };
+  /** How many reads it holds now. */
+  return Object.assign(diffOf, { held: () => kept.size });
 }
