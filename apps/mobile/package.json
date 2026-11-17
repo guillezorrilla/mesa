@@ -12,6 +12,15 @@
     "eas-build-post-install": "pnpm --filter @mesa/core build",
     "postinstall": "node scripts/build-terminal-page.mjs"
   },
+  "expo": {
+    "install": {
+      "exclude": [
+        "expo",
+        "expo-file-system",
+        "expo-router"
+      ]
+    }
+  },
   "dependencies": {
     "@expo-google-fonts/ibm-plex-mono": "^0.4.1",
     "@expo-google-fonts/ibm-plex-sans": "^0.4.1",
