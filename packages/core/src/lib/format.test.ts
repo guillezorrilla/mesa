@@ -63,4 +63,9 @@ test("a reply's preview line is plain text: no Markdown marks, snake_case kept",
     'kept tide_table and 2 * 3 as written',
   );
   expect(plainLine('> __quoted__ line')).toBe('quoted line');
+  // A hostile line returns at once: no pattern backtracks, and only PREVIEW_CHARS are read.
+  const started = Date.now();
+  plainLine(`[${'[\\'.repeat(50_000)}`);
+  plainLine(`*${' *'.repeat(50_000)}`);
+  expect(Date.now() - started).toBeLessThan(200);
 });

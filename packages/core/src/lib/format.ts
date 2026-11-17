@@ -53,14 +53,20 @@ export function formatBytes(bytes: number): string {
 /** A text's first line, without its leading blank lines and spaces: a title or a one-line summary. */
 export const firstLine = (text: string) => text.trim().split(/\r?\n/, 1)[0] ?? '';
 
+/** The most of a reply's first line a preview reads: a card shows one truncated line anyway. */
+const PREVIEW_CHARS = 500;
+
 /**
  * A Markdown text's first line as plain text, for a one-line preview: no heading, list or quote
- * marker, no bold, italic or code marks, and a link as its words. Snake_case and lone asterisks stay.
+ * marker, no bold, italic or code marks, and a link as its words. Snake_case and lone asterisks
+ * stay. Each pattern matches without backtracking (negated classes), over at most PREVIEW_CHARS.
  */
 export const plainLine = (text: string) =>
   firstLine(text)
+    .slice(0, PREVIEW_CHARS)
     .replace(/^(?:#{1,6}\s+|>\s*|[-*+]\s+|\d+[.)]\s+)/, '')
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    .replace(/(\*\*|__)(?=\S)(.+?)(?<=\S)\1/g, '$2')
-    .replace(/(?<![\w*])\*(?=\S)([^*]+?)(?<=\S)\*(?![\w*])/g, '$1')
+    .replace(/\[([^[\]]+)\]\([^()]*\)/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/(?<![\w*])\*([^*\s][^*]*)\*(?![\w*])/g, '$1')
     .replace(/`([^`]+)`/g, '$1');
