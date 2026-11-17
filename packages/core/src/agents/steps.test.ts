@@ -121,6 +121,52 @@ test('a transcript read again as it grows matches a full read of it', () => {
   expect(messages(file).messages.map((m) => m.text)).toEqual(['Start over']);
 });
 
+test('a Codex rollout read again as it grows matches a full read of it', () => {
+  const response = (payload: object) => ({ timestamp: at, type: 'response_item', payload });
+  const message = (role: 'user' | 'assistant', text: string) =>
+    response({
+      type: 'message',
+      role,
+      content: [{ type: role === 'user' ? 'input_text' : 'output_text', text }],
+    });
+  // Codex's startup message, which a later turn_context shows not to be the person's.
+  const file = codexWorld().rollout({
+    id: '01a1d249-0000-7000-8000-000000000002',
+    cwd: '/code/kettle',
+    startedAt: at,
+    lines: [message('user', '# AGENTS.md for kettle')],
+  });
+  const { messages } = AGENTS.codex.transcripts;
+  const fullRead = () => {
+    const fresh = join(tempDir('steps-'), 'fresh.jsonl');
+    copyFileSync(file, fresh);
+    return messages(fresh);
+  };
+  const append = (...lines: object[]) =>
+    appendFileSync(file, lines.map((line) => `\n${JSON.stringify(line)}`).join(''));
+
+  expect(messages(file)).toEqual(fullRead());
+  append(
+    { timestamp: at, type: 'turn_context', payload: {} },
+    message('user', 'Fix it'),
+    response({
+      type: 'function_call',
+      name: 'shell',
+      call_id: 'call-1',
+      arguments: JSON.stringify({ command: ['bash', '-lc', 'pnpm test'] }),
+    }),
+  );
+  expect(messages(file)).toEqual(fullRead());
+  append(
+    response({ type: 'function_call_output', call_id: 'call-1', output: '2 passed' }),
+    message('assistant', 'Done.'),
+  );
+  const grown = messages(file);
+  expect(grown).toEqual(fullRead());
+  expect(grown.messages.map((m) => m.text)).toEqual(['Fix it', 'Done.']);
+  expect(grown.steps[0]?.step).toMatchObject({ id: 'call-1', status: 'done' });
+});
+
 test("Codex's calls, apply_patch edits and reasoning summaries are read between its messages", () => {
   const world = codexWorld();
   const response = (payload: object) => ({ timestamp: at, type: 'response_item', payload });

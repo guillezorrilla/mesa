@@ -57,16 +57,44 @@ test('reads after appends, a partial line, a shrink and a replacement match a fu
   expect(read()).toEqual({ values: ['juliet', 'kilo'], truncated: false });
 });
 
-test('a process keeps a few files and drops one left unread', () => {
+test('a character split across two writes is read whole once its line is', () => {
+  const file = join(tempDir('live-tail-'), 'tide.jsonl');
+  const e = Buffer.from('é');
+  writeFileSync(file, Buffer.concat([Buffer.from('marée\ncaf'), e.subarray(0, 1)]));
+  expect(liveTail(file, 1 << 10, String)).toEqual(fullRead(file, 1 << 10));
+  appendFileSync(file, Buffer.concat([e.subarray(1), Buffer.from('\n')]));
+  expect(liveTail(file, 1 << 10, String)).toEqual({ values: ['marée', 'café'], truncated: false });
+});
+
+test('each window of a file is kept apart', () => {
+  const file = join(tempDir('live-tail-'), 'tide.jsonl');
+  writeFileSync(file, 'alpha\nbravo\ncharlie\n');
+  expect(liveTail(file, 1 << 10, String)).toEqual(fullRead(file, 1 << 10));
+  expect(liveTail(file, 10, String)).toEqual(fullRead(file, 10));
+  appendFileSync(file, 'delta\n');
+  expect(liveTail(file, 1 << 10, String)).toEqual(fullRead(file, 1 << 10));
+  expect(liveTail(file, 10, String)).toEqual(fullRead(file, 10));
+});
+
+test('kept values are frozen', () => {
+  const file = join(tempDir('live-tail-'), 'tide.jsonl');
+  writeFileSync(file, 'alpha\nbrav');
+  const [whole, partial] = liveTail(file, 1 << 10, (line) => ({ line })).values;
+  expect(Object.isFrozen(whole)).toBe(true);
+  expect(Object.isFrozen(partial)).toBe(true);
+});
+
+test('a process keeps the files read most recently and drops one left unread', () => {
   vi.useFakeTimers();
   const dir = tempDir('live-tail-');
-  const files = Array.from({ length: LIVE_FILES + 2 }, (_, n) => join(dir, `${n}.jsonl`));
-  for (const file of files) {
-    writeFileSync(file, 'line\n');
-    liveTail(file, 1 << 10, String);
-  }
-  expect(liveTailHeld()).toBe(LIVE_FILES);
+  const files = Array.from({ length: LIVE_FILES + 1 }, (_, n) => join(dir, `${n}.jsonl`));
+  const read = (file: string) => liveTail(file, 1 << 10, String);
+  for (const file of files) writeFileSync(file, 'line\n');
+  for (const file of files.slice(0, LIVE_FILES)) read(file);
+  read(files[0] as string); // read again, so the second is now the least recent
+  read(files[LIVE_FILES] as string);
+  expect(liveTailHeld()).toEqual([...files.slice(2, LIVE_FILES), files[0], files[LIVE_FILES]]);
   vi.advanceTimersByTime(LIVE_IDLE_MS);
-  liveTail(files[0] as string, 1 << 10, String);
-  expect(liveTailHeld()).toBe(1);
+  read(files[1] as string);
+  expect(liveTailHeld()).toEqual([files[1]]);
 });
