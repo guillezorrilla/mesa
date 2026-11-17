@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
-import { lastMatchingLine, tailLines } from '../../lib/file-tail.js';
+import { lastMatchingLine } from '../../lib/file-tail.js';
+import { liveTail } from '../../lib/live-tail.js';
 import { readTurns } from '../steps.js';
 import {
   type Block,
@@ -66,6 +67,13 @@ function isTurnContext(line: string) {
   }
 }
 
+/** What one line says to readTurns, parsed once and kept by liveTail. */
+const turnLine = (line: string) => ({
+  message: messageIn(line),
+  events: codexStepEvents(line),
+  turn: isTurnContext(line),
+});
+
 /** Codex's rollouts as its entry reads them (AGENTS, agents.ts). */
 export const codexTranscriptReader: Transcripts<'codex'> = {
   history: codexHistory,
@@ -73,18 +81,14 @@ export const codexTranscriptReader: Transcripts<'codex'> = {
   name: (where, id) => codexName(codexSessionIndex(codexHome(where.home, where.env)), id),
   prompts: (file, count) => promptsIn(file, userText, count),
   messages: (file) => {
-    const { lines, truncated } = tailLines(file, MESSAGE_TAIL);
+    const { values: lines, truncated } = liveTail(file, MESSAGE_TAIL, turnLine);
     // Codex's startup AGENTS and environment messages use role=user before turn_context.
-    const firstTurn = lines.findIndex(isTurnContext);
+    const firstTurn = lines.findIndex((line) => line.turn);
     const turns = readTurns(
       lines,
-      (line, index) => {
-        const message = messageIn(line);
-        return message?.role === 'user' && (firstTurn < 0 || index < firstTurn)
-          ? undefined
-          : message;
-      },
-      codexStepEvents,
+      ({ message }, index) =>
+        message?.role === 'user' && (firstTurn < 0 || index < firstTurn) ? undefined : message,
+      (line) => line.events,
     );
     return { ...turns, truncated };
   },

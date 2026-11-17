@@ -5,8 +5,13 @@ import { createInterface } from 'node:readline';
  * Each complete line appended to an append-only file since byte `offset` (from the start again
  * when the file is now shorter), without loading the whole file; returns the offset after the
  * last complete line, where the next scan starts. A line still being written waits for it.
+ * `onLine` also gets the byte offset the line starts at.
  */
-export function scanLines(file: string, offset: number, onLine: (line: string) => void): number {
+export function scanLines(
+  file: string,
+  offset: number,
+  onLine: (line: string, start: number) => void,
+): number {
   const size = statSync(file).size;
   let position = offset <= size ? offset : 0;
   let complete = position;
@@ -20,6 +25,7 @@ export function scanLines(file: string, offset: number, onLine: (line: string) =
       if (count === 0) break;
       position += count;
       const chunk = buffer.subarray(0, count);
+      const chunkStart = position - count;
       let start = 0;
       for (let end = chunk.indexOf(10, start); end !== -1; end = chunk.indexOf(10, start)) {
         const line = chunk.subarray(start, end);
@@ -28,6 +34,7 @@ export function scanLines(file: string, offset: number, onLine: (line: string) =
             ? Buffer.concat([...pending, line], pendingBytes + line.length)
             : line
           ).toString('utf8'),
+          chunkStart + start - pendingBytes,
         );
         pending = [];
         pendingBytes = 0;

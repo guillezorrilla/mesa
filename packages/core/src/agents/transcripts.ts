@@ -44,7 +44,8 @@ export type Transcripts<A extends Agent> = {
   prompts: (file: string, count: number) => string[];
   /**
    * The messages in the end of `file` (MESSAGE_TAIL), oldest first, the steps between them
-   * (agents/steps.ts), and whether it was cut.
+   * (agents/steps.ts), and whether it was cut. Read through liveTail, so a read after the file
+   * grew parses only its new lines.
    */
   messages: (file: string) => {
     messages: TranscriptMessage[];

@@ -1,3 +1,5 @@
+import { appendFileSync, copyFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { codexWorld, plantTranscript, tempDir } from '../testing/index.js';
 import { AGENTS } from './agents.js';
@@ -74,6 +76,49 @@ test("Claude Code's tool calls, edits and thinking are read between its messages
     status: 'done',
   });
   expect(steps[3]?.step).toMatchObject({ kind: 'search', target: 'floor', status: 'failed' });
+});
+
+test('a transcript read again as it grows matches a full read of it', () => {
+  const home = tempDir('steps-');
+  const file = plantTranscript(home, 'kettle-2', '/code/kettle', [
+    claudeLine('user', 'Fix the boil timer'),
+  ]);
+  const { messages } = AGENTS.claude.transcripts;
+  // A full read: the same bytes under a name never read before.
+  const fullRead = () => {
+    const fresh = join(tempDir('steps-'), 'fresh.jsonl');
+    copyFileSync(file, fresh);
+    return messages(fresh);
+  };
+  const append = (...lines: (object | string)[]) =>
+    appendFileSync(
+      file,
+      lines.map((line) => (typeof line === 'string' ? line : `\n${JSON.stringify(line)}`)).join(''),
+    );
+
+  expect(messages(file)).toEqual(fullRead());
+  append(
+    claudeLine('assistant', [
+      { type: 'tool_use', id: 'tu-1', name: 'Bash', input: { command: 'pnpm test' } },
+    ]),
+  );
+  expect(messages(file).steps[0]?.step).toMatchObject({ status: 'running' });
+  expect(messages(file)).toEqual(fullRead());
+  // A result finishes the step read before it; a line half written is read as a full read does.
+  const result = JSON.stringify(
+    claudeLine('user', [{ type: 'tool_result', tool_use_id: 'tu-1', content: '2 passed' }]),
+  );
+  append(`\n${result.slice(0, 20)}`);
+  expect(messages(file)).toEqual(fullRead());
+  append(result.slice(20), claudeLine('assistant', [{ type: 'text', text: 'Fixed.' }]));
+  const grown = messages(file);
+  expect(grown).toEqual(fullRead());
+  expect(grown.steps[0]?.step).toMatchObject({ status: 'done', output: '2 passed' });
+  expect(grown.messages.at(-1)?.text).toBe('Fixed.');
+  // A transcript cut shorter is read anew.
+  writeFileSync(file, JSON.stringify(claudeLine('user', 'Start over')));
+  expect(messages(file)).toEqual(fullRead());
+  expect(messages(file).messages.map((m) => m.text)).toEqual(['Start over']);
 });
 
 test("Codex's calls, apply_patch edits and reasoning summaries are read between its messages", () => {

@@ -93,13 +93,14 @@ export function editHunk(before: string, after: string) {
 
 /**
  * A transcript's messages (`messageIn` per line) and its steps (`eventsIn` per line), in one pass
- * over its lines: each step placed after the messages read before it, its result filled in when
- * a later line brings it.
+ * over its lines, raw or as liveTail kept them parsed: each step placed after the messages read
+ * before it, its result filled in when a later line brings it. The events are not changed, so
+ * kept ones can be read again.
  */
-export function readTurns(
-  lines: string[],
-  messageIn: (line: string, index: number) => TranscriptMessage | undefined,
-  eventsIn: (line: string, index: number) => StepEvent[],
+export function readTurns<Line>(
+  lines: Line[],
+  messageIn: (line: Line, index: number) => TranscriptMessage | undefined,
+  eventsIn: (line: Line, index: number) => StepEvent[],
 ): { messages: TranscriptMessage[]; steps: PlacedStep[] } {
   const messages: TranscriptMessage[] = [];
   const steps: PlacedStep[] = [];
@@ -107,8 +108,9 @@ export function readTurns(
   lines.forEach((line, index) => {
     for (const event of eventsIn(line, index)) {
       if ('start' in event) {
-        byId.set(event.start.id, event.start);
-        steps.push({ step: event.start, before: messages.length });
+        const step = { ...event.start };
+        byId.set(step.id, step);
+        steps.push({ step, before: messages.length });
         continue;
       }
       finishSteps(byId.values(), event.result);
