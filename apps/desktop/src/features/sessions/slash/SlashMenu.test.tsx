@@ -27,6 +27,13 @@ test('the menu opens only for a slash first with no space, and filters by name a
       'us',
     )[0]?.items.map((c) => c.name),
   ).toEqual(['usage', 'zeta']);
+  // The name typed in full is first, so Enter picks it, not a longer name it begins.
+  expect(
+    slashGroups(
+      [{ name: 'usage-credits', description: 'Credits', source: 'builtin' }, ...commands],
+      'usage',
+    )[0]?.items.map((c) => c.name),
+  ).toEqual(['usage', 'usage-credits']);
   expect(completion(commands[1] as SlashCommand)).toBe('/model ');
   expect(completion(commands[0] as SlashCommand)).toBe('/usage');
   expect(completion({ name: '$notes', description: '', source: 'skill' })).toBe('$notes');
