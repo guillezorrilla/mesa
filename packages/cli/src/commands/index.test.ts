@@ -116,8 +116,8 @@ test("the mesa-vault skill's save commands parse as vault save's own", async () 
   expect(saves).toHaveLength(3);
   const named = COMMANDS.map((c) => ({ ...c, run: () => ({ data: c.name, text: c.name }) }));
   for (const line of saves) {
-    // Each ends in --json, as an agent runs it.
-    const out = await runCli(wordsOf(line), { ...deps, commands: named });
+    // Each ends in --json, as an agent runs it; a here-document is the shell's, not mesa's argv.
+    const out = await runCli(wordsOf(line.replace(/ <<'EOF'$/, '')), { ...deps, commands: named });
     const name = line.split(' ').slice(1, 4).join(' ');
     expect([out.code, JSON.parse(out.stdout)], line).toEqual([0, { ok: true, data: name }]);
   }
