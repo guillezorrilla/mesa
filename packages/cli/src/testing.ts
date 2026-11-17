@@ -1,5 +1,6 @@
 import { mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { createServer, type Socket } from 'node:net';
+import { dirname, join } from 'node:path';
 import type { BrowserPageSelection, MesaDeps, Runner } from '@mesa/core';
 import {
   CLAUDE_VERSION,
@@ -34,6 +35,45 @@ export const cliDeps = (
   mesa: testDeps(home, mesa),
   ...rest,
 });
+
+/**
+ * A stand-in for the Command server at `path` (ADR-0032), in a private folder: `onLine` sees each
+ * connection's lines so far, and can answer, stall or drop it. `calls` holds every connection's
+ * lines.
+ */
+export async function fakeCommandServer(
+  path: string,
+  onLine: (lines: string[], client: Socket) => void,
+) {
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  const calls: string[][] = [];
+  const clients: Socket[] = [];
+  const server = createServer((client) => {
+    const lines: string[] = [];
+    calls.push(lines);
+    clients.push(client);
+    client.on('error', () => {});
+    client.setEncoding('utf8');
+    let rest = '';
+    client.on('data', (chunk) => {
+      const parts = (rest + chunk).split('\n');
+      rest = parts.pop() ?? '';
+      for (const part of parts) {
+        lines.push(part);
+        onLine(lines, client);
+      }
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(path, resolve));
+  return {
+    calls,
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.close(() => resolve());
+        for (const client of clients) client.destroy();
+      }),
+  };
+}
 
 /**
  * Every real command through runCli against a temp home, so nothing touches the real HOME. `reset`

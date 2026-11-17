@@ -139,6 +139,13 @@ export type Command = {
    * and a forwarded call runs it in its caller's process instead (ADR-0032).
    */
   serves?: (flags: Record<string, unknown>) => boolean;
+  /**
+   * Whether a run with these flags waits on something outside the call with no short bound (a
+   * person signing in, another session's agent, a project's check): a call forwarded to the
+   * Command socket runs it in its caller's process, so it never parks the app's server or dies
+   * with it (ADR-0032). The app's own calls still run it there.
+   */
+  ownProcess?: (flags: Record<string, unknown>) => boolean;
   run: (invocation: Invocation) => Output | Promise<Output>;
 };
 

@@ -4,6 +4,8 @@ import { recordedOutput } from '../../output/recorded.js';
 
 export const vaultCapture = defineCommand({
   name: 'vault capture',
+  // It runs a skill headlessly and waits for its agent.
+  ownProcess: () => true,
   summary:
     "Capture a session's durable decisions and findings into the vault now: one vault-capture run over its messages since its last capture, waited for, then the notes it saved; exits 1 when it saved none because it failed",
   args: ['session'],

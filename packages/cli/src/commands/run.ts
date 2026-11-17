@@ -5,6 +5,8 @@ import { recordedOutput } from '../output/recorded.js';
 
 export const run = defineCommand({
   name: 'run',
+  // It waits for the run's agent to finish.
+  ownProcess: () => true,
   summary:
     'Run a skill headlessly on a project in a new tmux window, once the guardrail allows its prompt, wait for it, and print its result, agent session id, and cost when available; exits 1 when the run is not ok',
   // The skill's own words go after `--`; the agent owns its invocation syntax.

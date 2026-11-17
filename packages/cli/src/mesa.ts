@@ -44,22 +44,28 @@ async function forwarded() {
     typeof values.profile === 'string' ? values.profile : undefined,
     process.env,
   );
+  const hook = positionals[0] === 'hook';
   const out = await socket.forwardCall(
     profilePaths(homedir(), profile).commandSocket,
     process.getuid?.() ?? -1,
     {
       version: ver.VERSION,
+      build: ver.BUILD,
       argv,
       cwd: process.cwd(),
       env: process.env,
       startedAt: performance.timeOrigin,
     },
     readStdin,
+    // A server that does not take the call in 2 s is stalled: it runs here. A hook holds up its
+    // agent's turn, so its reply gets 5 s; any other call may rightly take long (a guardrail's
+    // check, a model's advice), and one that waits runs here anyway (Command.ownProcess).
+    hook ? { readyMs: 2000, replyMs: 5000 } : { readyMs: 2000 },
   );
   if (out !== 'lost') return out;
   // A hook's event must reach Mesa, and one recorded twice is harmless; anything else may have
   // acted, so it is not run again.
-  if (positionals[0] === 'hook') return undefined;
+  if (hook) return undefined;
   return {
     code: 1,
     stdout: '',
@@ -112,7 +118,7 @@ async function runHere() {
     commands: COMMANDS,
     env: process.env,
     tty: Boolean(process.stdin.isTTY),
-    forEnv: (env) => ({ run: envRunner(env), spawn: envSpawner(env) }),
+    forEnv: (env, cwd) => ({ run: envRunner(env, cwd), spawn: envSpawner(env, cwd) }),
     stdin: readStdin,
     // Only a terminal has a person to ask.
     ...(process.stdin.isTTY

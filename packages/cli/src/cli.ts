@@ -39,11 +39,13 @@ export type CliDeps = {
   mesa: MesaDeps;
   /** A call `mesa serve` runs, whose stdout carries replies: a command that serves is refused. */
   served?: boolean;
+  /** A call the Command socket forwarded: a command that runs as its own process is refused too. */
+  forwarded?: boolean;
   /**
-   * The processes a call starts, with `env`: a call the Command socket forwards starts them with
-   * its caller's environment (ADR-0032); none keeps these deps' own.
+   * The processes a call starts, in `env` and `cwd`: a call the Command socket forwards starts
+   * them as its caller would (ADR-0032); none keeps these deps' own.
    */
-  forEnv?: (env: Env) => Pick<MesaDeps, 'run' | 'spawn'>;
+  forEnv?: (env: Env, cwd: string) => Pick<MesaDeps, 'run' | 'spawn'>;
 };
 
 type CliResult = {
@@ -53,12 +55,12 @@ type CliResult = {
   exec?: string[];
   /** Run on the process's stdio, which nothing else was printed to. */
   serve?: (io: Stdio) => Promise<void>;
-  /** Refused under `mesa serve` as a command that serves, to run in its own process. */
+  /** Refused under `mesa serve` as a command that runs in its own process. */
   ownProcess?: true;
 };
 
-/** A command that serves, refused under `mesa serve` (Command.serves). */
-class ServesItself extends MesaError {
+/** A command refused under `mesa serve` (Command.serves, and Command.ownProcess when forwarded). */
+class OwnProcess extends MesaError {
   constructor(name: string) {
     super('usage', `mesa serve: ${name} serves; run it as its own process`);
   }
@@ -132,7 +134,8 @@ async function dispatch(argv: string[], deps: CliDeps): Promise<Output> {
   if (values.help) return say(commandHelp(command, deps.commands, GLOBAL_FLAGS));
   const args = bindArgs(command, positionals.slice(command.name.split(' ').length), deps.commands);
   checkRequiredFlags(command, values);
-  if (deps.served && command.serves?.(values)) throw new ServesItself(command.name);
+  if (deps.served && (command.serves?.(values) || (deps.forwarded && command.ownProcess?.(values))))
+    throw new OwnProcess(command.name);
   const profile = resolveProfileName(values.profile as string | undefined, deps.env);
   const mesa = createMesa(profile, deps.mesa);
   const { tty, stdin, askSecret, commands } = deps;
@@ -143,11 +146,16 @@ async function dispatch(argv: string[], deps: CliDeps): Promise<Output> {
       ...unprompted,
       tty: false,
       served: true,
+      forwarded: Boolean(caller),
       stdin: typeof input === 'string' ? async () => input : input,
       env: caller?.env ?? deps.env,
       mesa: {
         ...deps.mesa,
-        ...(caller && { env: caller.env, cwd: caller.cwd, ...deps.forEnv?.(caller.env) }),
+        ...(caller && {
+          env: caller.env,
+          cwd: caller.cwd,
+          ...deps.forEnv?.(caller.env, caller.cwd),
+        }),
         argv: next,
         processStartedAt: caller?.startedAt ?? deps.mesa.clock(),
       },
@@ -180,7 +188,7 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<CliResult> 
     result = ok(out.data);
   } catch (error) {
     result = toFail(error);
-    if (error instanceof ServesItself) own = { ownProcess: true };
+    if (error instanceof OwnProcess) own = { ownProcess: true };
   }
   const code = out?.code ?? exitCode(result);
   const exec = result.ok ? out?.exec : undefined;

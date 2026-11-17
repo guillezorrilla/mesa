@@ -1,7 +1,7 @@
 import { defineCommand } from '../command.js';
 import { listenCommands } from '../command-socket.js';
 import { serveCommands } from '../serve.js';
-import { VERSION } from '../version.js';
+import { BUILD, VERSION } from '../version.js';
 
 /**
  * The Command server the app sends its commands to (ADR-0030); the app starts it, a person need
@@ -17,7 +17,8 @@ export const serve = defineCommand({
     data: null,
     text: '',
     serve: async (io) => {
-      const socket = await listenCommands(mesa.commandSocket(), VERSION, rerun).catch(
+      const identity = { version: VERSION, build: BUILD };
+      const socket = await listenCommands(mesa.commandSocket(), identity, rerun).catch(
         (error: unknown) => {
           // Calls still come on stdio; a `mesa` start then runs in its own process.
           io.log(

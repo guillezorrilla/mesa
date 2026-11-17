@@ -22,12 +22,15 @@ export type Spawner = (
   options: { cwd?: string; env?: Env },
 ) => SpawnedProcess;
 
-/** The real spawner, in `options.env` when a caller passes one, else in `env` (ADR-0008). */
+/**
+ * The real spawner, in `options.env` when a caller passes one, else in `env`, and in
+ * `options.cwd`, else `cwd` (a forwarded call's, ADR-0032) (ADR-0008).
+ */
 export const envSpawner =
-  (env: Env): Spawner =>
+  (env: Env, cwd?: string): Spawner =>
   (file, args, options) => {
     const child = spawn(file, args, {
-      cwd: options.cwd,
+      cwd: options.cwd ?? cwd,
       env: (options.env ?? env) as NodeJS.ProcessEnv,
       stdio: ['pipe', 'pipe', 'ignore'],
     });

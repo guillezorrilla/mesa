@@ -30,6 +30,8 @@ function imported(recorded: Recorded<ImportResult>) {
 
 export const importLinks = defineCommand({
   name: 'import',
+  // Fetching items and writing their notes runs an agent per batch.
+  ownProcess: () => true,
   summary:
     "Import Jira issues (a URL or a key), Confluence pages, Notion pages and database rows, ClickUp tasks and Doc pages, Linear issues, projects and documents, and public web pages into a project's vault: a raw/ snapshot each, then one import-notes run that writes a wiki/ note per item, linked from the project hub; exits 1 when the notes were not written",
   args: ['links...'],
@@ -72,6 +74,7 @@ export const importStatus = defineCommand({
 
 export const importRefresh = defineCommand({
   name: 'import refresh',
+  ownProcess: () => true,
   summary:
     "Import a project's items again (the ids given, else all): a new snapshot each, and their notes updated, keeping their <!-- keep --> blocks",
   args: ['ids...'],

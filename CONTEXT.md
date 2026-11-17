@@ -137,7 +137,7 @@ The one long-lived `mesa serve` the desktop app starts on its first call and sen
 
 ## Command socket
 
-The unix socket the Command server also answers on while it serves, `~/.mesa/<profile>/run/serve.sock`, in a folder only its user can enter (ADR-0032). A `mesa` start with no terminal on its stdin (an agent's call, a hook) sends its argv, folder, environment and version there before loading core, and prints the reply as if it had run the call itself; it runs the call itself when no server answers, the server is another version, or the command serves. Not: the host socket (a Structured session's, ADR-0029), the phone's direct socket.
+The unix socket the Command server also answers on while it serves, `~/.mesa/<profile>/run/serve.sock`, in a folder only its user can enter (ADR-0032). A `mesa` start with no terminal on its stdin (an agent's call, a hook) sends its argv, folder, environment, version and build there before loading core, and prints the reply as if it had run the call itself; it runs the call itself when no server answers or takes it within 2 s, the server is another version or build, or the command runs as its own process (one that serves, or waits with no short bound: `wait`, `run`, `check`, a sign-in). Not: the host socket (a Structured session's, ADR-0029), the phone's direct socket.
 
 ## Command card
 

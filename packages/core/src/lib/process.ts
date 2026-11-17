@@ -27,10 +27,11 @@ const MAX_OUTPUT_MB = 64;
 
 /**
  * The real runner: execFile with a timeout, in `options.env` when a caller passes one, else in
- * `env`. Only an entrypoint builds it, with the environment it runs in (ADR-0008).
+ * `env`, and in `options.cwd`, else `cwd` (a forwarded call's, ADR-0032), else this process's.
+ * Only an entrypoint builds it, with the environment it runs in (ADR-0008).
  */
 export const envRunner =
-  (env: Env): Runner =>
+  (env: Env, cwd?: string): Runner =>
   (file, args, timeoutMs, options) =>
     new Promise((resolve) => {
       const child = execFile(
@@ -38,7 +39,7 @@ export const envRunner =
         args,
         {
           timeout: timeoutMs,
-          cwd: options?.cwd,
+          cwd: options?.cwd ?? cwd,
           env: (options?.env ?? env) as NodeJS.ProcessEnv,
           // ponytail: 64 MiB, not the 1 MiB default, for Git diffs and listings; stream if one outgrows it.
           maxBuffer: MAX_OUTPUT_MB * 1024 * 1024,

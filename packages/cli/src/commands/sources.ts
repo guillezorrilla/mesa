@@ -8,6 +8,8 @@ const line = (row: SourceRow) => [row.id, row.status, row.account?.name, siteNam
 
 export const sourcesConnect = defineCommand({
   name: 'sources connect',
+  // Its loopback listener waits up to five minutes for the person's sign-in.
+  ownProcess: () => true,
   summary: 'Sign in to a source in the browser through the broker; its token goes in the Keychain',
   args: ['source'],
   example: 'mesa sources connect atlassian',

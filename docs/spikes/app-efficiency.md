@@ -121,6 +121,18 @@ Release-style single executables of the same bundle on Node 26.10 (arm64), `/usr
 
 A code cache made by one arch is rejected by the other (`Warning: Code cache data rejected.` on every start), so each slice is built by its own arch's Node, x64 under Rosetta. What is left above bare Node is core's init (about 60 MB and 60 ms): every command, a hook's included, builds `createMesa`, which imports every service. Halving a hook needs a composition root that loads only what a hook uses.
 
+### Addendum: the Command socket (ADR-0032)
+
+A `mesa` start with no terminal now forwards its call to the app's `mesa serve` over a unix socket before loading core. Measured on release-style single executables (esbuild bundle, Node 26.10.0 checked against build.sh's sha, code cache, arm64), median of 15 runs under `/usr/bin/time -l`, throwaway `HOME` and profile:
+
+| Command | Before (main at 1e259690) | After, no server | After, server running |
+| --- | --- | --- | --- |
+| `mesa --version` | 0.10 CPU-s, 110 MB, 1.27 G instr | 0.10 s, 110 MB, 1.27 G | 0.03 s, 90 MB, 0.60 G |
+| `mesa vault search x --json` | 0.11 s, 115 MB, 1.50 G | 0.12 s, 115 MB, 1.51 G | 0.03 s, 90 MB, 0.60 G |
+| `mesa hook claude` (PostToolUse) | 0.12 s, 117 MB, 1.54 G | 0.12 s, 117 MB, 1.55 G | 0.03 s, 90 MB, 0.60 G |
+
+At the p90 of 17 hook events a minute, hooks go from about 2 to about 0.5 CPU-s a minute while the app runs. `sh` with `nc -U` to the same socket measured 0.024 G instructions and 2.8 MB, and a bare `node -e 0` 0.26 G and 51 MB; the fast path's remaining 90 MB is the executable mapping its bundle and code cache. Hooks stay on the Node fast path (ADR-0032 says why).
+
 The board read with the listing kept for a minute over idle sessions, 10 `sessions --tree --full` through one `mesa serve` on the owner's profile: 5.6 CPU-s and 470 child processes (10 `claude agents`) before, 3.1 CPU-s and 210 (no `claude agents`) after.
 
 ## Leaks, checked 2026-11-16
