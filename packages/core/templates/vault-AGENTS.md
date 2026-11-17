@@ -1,6 +1,6 @@
 # Vault schema
 
-Mesa laid out this vault. Agents that read or write it follow this file. Every note is a plain markdown file: write the file directly, since Obsidian only renders it and does not need to be open. Inside a Mesa session, save through the `mesa-vault` tools or `mesa vault save`, which keep the index, the log, and the history for you.
+Mesa laid out this vault. Agents that read or write it follow this file. Every note is a plain markdown file: write the file directly, since Obsidian only renders it and does not need to be open. Inside a Mesa session, save through `mesa vault save` (the `mesa-vault` skill), which keep the index, the log, and the history for you.
 
 ## Layout
 

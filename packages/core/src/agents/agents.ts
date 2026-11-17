@@ -34,14 +34,11 @@ import {
   type SessionModel,
 } from './launch-flags.js';
 import {
-  CLAUDE_VAULT_WRITES,
-  CODEX_VAULT_READ_ONLY,
-  claudeMcpConfig,
-  claudeMountArgs,
-  claudeMountTools,
-  codexMountOverrides,
-  type Mounts,
-} from './mesa-mount.js';
+  CLAUDE_MESA_ALLOW,
+  CLAUDE_MESA_SAVES,
+  CLAUDE_MESA_TOOLS,
+  VAULT_READ_ONLY_VAR,
+} from './mesa-commands.js';
 import { AGENT_NAMES, type Agent } from './names.js';
 
 /** A goal as the agent's first prompt: one shell word, so the shell hands it over byte for byte. */
@@ -69,18 +66,20 @@ const addDirs = (agent: Agent, dirs: readonly string[]) =>
 const claudeDeny = (rules: readonly string[]) =>
   rules.length ? ` ${shellWord(`--disallowedTools=${rules.join(',')}`)}` : '';
 
-/** Claude Code's mounts as shell words (mesa-mount.ts). */
-const claudeMount = (mounts: Mounts) => claudeMountArgs(mounts).map(shellWord).join(' ');
-/** Codex's mounts as four -c overrides each (mesa-mount.ts). */
-const codexMount = (mounts: Mounts) =>
-  codexMountOverrides(mounts)
-    .map((override) => `-c ${shellWord(override)}`)
-    .join(' ');
+/** Claude Code's allow rules for Mesa's commands, one shell word (mesa-commands.ts). */
+const claudeMesa = shellWord(CLAUDE_MESA_ALLOW);
+
+/**
+ * A read-only run's variable, before its agent, for every agent alike: `mesa vault save` refuses
+ * it however the agent calls it (another path, `env`, `bash -c`), which no tool rule covers.
+ */
+const readOnlyEnv = (may: HeadlessPermissions) =>
+  may.readOnlyVault ? `env ${VAULT_READ_ONLY_VAR}=1 ` : '';
 
 /**
  * How a headless run may act, from the profile's config `run` (CONTEXT.md, Profile), and with
- * `readOnlyVault`, without mesa-vault's write tools (a pipeline skill's run, whose output core lands);
- * `lean`, one of Mesa's own runs, with its own model, MCP server and effort and none of the
+ * `readOnlyVault`, refusing `mesa vault save` (a pipeline skill's run, whose output core lands);
+ * `lean`, one of Mesa's own runs, with its own model, vault access and effort and none of the
  * person's setup (claudeRunProfile), Claude Code's only.
  */
 type HeadlessPermissions = {
@@ -95,7 +94,7 @@ type HeadlessPermissions = {
 /**
  * The flags of one of Mesa's own runs (claudeRunProfile): its model and effort, and none of the
  * person's MCP servers, user settings, plugins or hooks, while the project's settings and skills
- * still load (ADR-0012 amendment). Its own server goes in its --mcp-config.
+ * still load (ADR-0012 amendment); no MCP server at all.
  */
 const claudeLeanRun = (lean: ClaudeRunProfile) => [
   `--model ${shellWord(lean.model)}`,
@@ -130,11 +129,11 @@ export const AGENTS = {
     ownSessionId: undefined,
     /**
      * The command a Mesa window runs, under the id Mesa chose, with the profile's launch
-     * defaults, mesa-vault mounted, the extra `dirs`, and the goal as the first prompt.
+     * defaults, Mesa's commands allowed (mesa-commands.ts), the extra `dirs`, and the goal as the
+     * first prompt.
      */
     start: (
       sessionId: string,
-      mounts: Mounts,
       defaults: SessionLaunch,
       goal?: string,
       mode?: 'plan',
@@ -142,27 +141,25 @@ export const AGENTS = {
       /** Claude Code's deny rules for this session: a review session's (prs/review-guard.ts). */
       disallowed: readonly string[] = [],
     ) =>
-      `claude --session-id ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)}${claudeDeny(disallowed)} ${claudeMount(mounts)}${addDirs('claude', dirs)}${goalWord(goal)}`,
+      `claude --session-id ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)}${claudeDeny(disallowed)} ${claudeMesa}${addDirs('claude', dirs)}${goalWord(goal)}`,
     /**
      * Reopens that conversation; run in the recorded project folder, which keys transcripts. The
-     * mount and the launch defaults are not part of the conversation, so they come again.
+     * allow rules and the launch defaults are not part of the conversation, so they come again.
      */
     resume: (
       sessionId: string,
       _folder: string,
-      mounts: Mounts,
       defaults: SessionLaunch,
       mode?: 'plan',
       dirs: readonly string[] = [],
       disallowed: readonly string[] = [],
     ) =>
-      `claude --resume ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)}${claudeDeny(disallowed)} ${claudeMount(mounts)}${addDirs('claude', dirs)}`,
+      `claude --resume ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)}${claudeDeny(disallowed)} ${claudeMesa}${addDirs('claude', dirs)}`,
     /**
      * The flags `mesa host` gives its stream-json claude (ADR-0029, agents/claude/stream) as
      * argv words: what start and resume give, without the session id or a goal.
      */
     hostArgs: (
-      mounts: Mounts,
       defaults: SessionLaunch,
       mode?: 'plan',
       dirs: readonly string[] = [],
@@ -171,7 +168,7 @@ export const AGENTS = {
       ...(mode ? ['--permission-mode', 'plan'] : []),
       ...launchFlags('claude', defaults, mode),
       ...(disallowed.length ? [`--disallowedTools=${disallowed.join(',')}`] : []),
-      ...claudeMountArgs(mounts),
+      CLAUDE_MESA_ALLOW,
       ...addDirArgs('claude', dirs),
     ],
     /** Its runner under `mesa host`, given hostArgs (agents/runner.ts). */
@@ -179,13 +176,12 @@ export const AGENTS = {
     fork: (
       sessionId: string,
       _folder: string,
-      mounts: Mounts,
       defaults: LaunchDefaults,
       mode?: 'plan',
       dirs: readonly string[] = [],
       disallowed: readonly string[] = [],
     ) =>
-      `claude --resume ${shellWord(sessionId)} --fork-session${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)}${claudeDeny(disallowed)} ${claudeMount(mounts)}${addDirs('claude', dirs)}`,
+      `claude --resume ${shellWord(sessionId)} --fork-session${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)}${claudeDeny(disallowed)} ${claudeMesa}${addDirs('claude', dirs)}`,
     /** Typed into the window to end the agent politely. */
     quit: '/exit',
     /** The pause between typed text and its Enter: none. */
@@ -195,37 +191,32 @@ export const AGENTS = {
       skillPrefix: '/',
       /**
        * `prompt` through `claude -p`, its JSON result on stdout, in the conversation Mesa chose,
-       * with the profile's permission mode, mesa-vault mounted, and its tools allowed before the
-       * profile's own; a read-only run disallows its write tools, which wins over the allow. The
-       * prompt and each tool are one shell word, as a rule such as `Bash(git log:*)` holds a
-       * space; --allowedTools takes every word after it, so it comes last. A `lean` run mounts
-       * only the server its profile names, mesa-vault or none.
+       * with the profile's permission mode, and Mesa's commands allowed before the profile's own
+       * rules; a read-only run disallows `mesa vault save`, which wins over the allow, and runs
+       * under readOnlyEnv, which the save refuses however it is called. The prompt
+       * and each rule are one shell word, as a rule such as `Bash(git log:*)` holds a space;
+       * --allowedTools takes every word after it, so it comes last. A `lean` run allows Mesa's
+       * commands only when its profile reads the vault.
        */
       command: (
         sessionId: string | undefined,
         prompt: string,
         may: HeadlessPermissions,
         _folder: string,
-        mounts: Mounts,
       ) => {
-        const runMounts = !may.lean
-          ? mounts
-          : may.lean.mcp === 'vault'
-            ? { vault: mounts.vault }
-            : undefined;
-        const allowed = [...(runMounts ? claudeMountTools(runMounts) : []), ...may.allowedTools];
+        const mesa = !may.lean || may.lean.vault ? CLAUDE_MESA_TOOLS : [];
+        const allowed = [...mesa, ...may.allowedTools];
         return [
-          'claude -p',
+          `${readOnlyEnv(may)}claude -p`,
           shellWord(prompt),
           `--session-id ${sessionId} --output-format json`,
           ...(may.lean ? claudeLeanRun(may.lean) : []),
           `--permission-mode ${shellWord(may.permissionMode)}`,
-          ...(runMounts ? [shellWord(claudeMcpConfig(runMounts))] : []),
           ...(may.readOnlyVault || may.textOnly
             ? [
                 '--disallowedTools',
                 ...[
-                  ...(may.readOnlyVault ? CLAUDE_VAULT_WRITES : []),
+                  ...(may.readOnlyVault ? CLAUDE_MESA_SAVES : []),
                   ...(may.textOnly ? CLAUDE_CHANGE_TOOLS : []),
                 ].map(shellWord),
               ]
@@ -265,66 +256,57 @@ export const AGENTS = {
     /** Codex picks its own thread id: a look at the board reads it from its rollouts. */
     ownSessionId: codexSessionId,
     /**
-     * The command a Mesa window runs, with mesa-vault mounted; `--` so a goal such as `review` is
-     * a prompt, not a subcommand.
+     * The command a Mesa window runs; `--` so a goal such as `review` is a prompt, not a
+     * subcommand. Mesa's commands are allowed by its rules file (mesa-commands.ts).
      */
-    start: (mounts: Mounts, defaults: SessionLaunch, goal?: string, dirs: readonly string[] = []) =>
-      `codex ${CODEX_EMBEDDED}${flags('codex', defaults, undefined, dirs)} ${codexMount(mounts)}${addDirs('codex', dirs)}${goal === undefined ? '' : ` --${goalWord(goal)}`}`,
+    start: (defaults: SessionLaunch, goal?: string, dirs: readonly string[] = []) =>
+      `codex ${CODEX_EMBEDDED}${flags('codex', defaults, undefined, dirs)}${addDirs('codex', dirs)}${goal === undefined ? '' : ` --${goalWord(goal)}`}`,
     /**
-     * Reopens that thread in `folder`, the recorded one, which -C picks with no prompt. The mount
-     * is not part of the thread, so it comes again.
+     * Reopens that thread in `folder`, the recorded one, which -C picks with no prompt.
      */
     resume: (
       sessionId: string,
       folder: string,
-      mounts: Mounts,
       defaults: SessionLaunch,
       _mode?: 'plan',
       dirs: readonly string[] = [],
     ) =>
-      `codex ${CODEX_EMBEDDED}${flags('codex', defaults, undefined, dirs)} ${codexMount(mounts)} resume ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs('codex', dirs)}`,
+      `codex ${CODEX_EMBEDDED}${flags('codex', defaults, undefined, dirs)} resume ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs('codex', dirs)}`,
     /**
      * The arguments `mesa host` gives `codex app-server` (ADR-0029, agents/codex/appserver) after
      * the subcommand: what start and resume give, as `-c` overrides, the only flags it takes.
      */
     hostArgs: (
-      mounts: Mounts,
       defaults: SessionLaunch,
       _mode?: 'plan',
       dirs: readonly string[] = [],
       _disallowed: readonly string[] = [],
-    ) =>
-      [...codexServerOverrides(defaults, dirs), ...codexMountOverrides(mounts)].flatMap((o) => [
-        '-c',
-        o,
-      ]),
+    ) => codexServerOverrides(defaults, dirs).flatMap((o) => ['-c', o]),
     host: startCodexHost,
     fork: (
       sessionId: string,
       folder: string,
-      mounts: Mounts,
       defaults: LaunchDefaults,
       _mode?: 'plan',
       dirs: readonly string[] = [],
     ) =>
-      `codex ${CODEX_EMBEDDED}${flags('codex', defaults, undefined, dirs)} ${codexMount(mounts)} fork ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs('codex', dirs)}`,
+      `codex ${CODEX_EMBEDDED}${flags('codex', defaults, undefined, dirs)} fork ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs('codex', dirs)}`,
     quit: '/exit',
     /** An Enter right after the text can land as a newline in the composer (docs/spikes/codex.md). */
     submitDelayMs: 300,
     headless: {
       skillPrefix: '$',
       /**
-       * A read-only run turns mesa-vault's write tools off with the server's `disabled_tools`; a
-       * text-only one runs in Codex's read-only sandbox.
+       * A read-only run sets VAULT_READ_ONLY_VAR, so `mesa vault save` refuses it; a text-only one
+       * runs in Codex's read-only sandbox.
        */
       command: (
         _sessionId: string | undefined,
         prompt: string,
         may: HeadlessPermissions,
         folder: string,
-        mounts: Mounts,
       ) =>
-        `codex exec --json -C ${shellWord(folder)} -c approval_policy=never -c sandbox_mode=${may.textOnly ? 'read-only' : 'workspace-write'} ${codexMount(mounts)}${may.readOnlyVault ? ` -c ${shellWord(CODEX_VAULT_READ_ONLY)}` : ''} ${shellWord(prompt)}`,
+        `${readOnlyEnv(may)}codex exec --json -C ${shellWord(folder)} -c approval_policy=never -c sandbox_mode=${may.textOnly ? 'read-only' : 'workspace-write'} ${shellWord(prompt)}`,
       result: readCodexResult,
     },
     /** Trusted hooks from the embedded Codex process. */
@@ -367,16 +349,14 @@ export const AGENTS = {
     submitDelayMs: 300,
     headless: {
       skillPrefix: '/',
-      /**
-       * No read-only run: agy mounts mesa-vault from its one global entry and takes no per-run
-       * tool rule, so its write tools stay on (CONTEXT.md, Skill run).
-       */
+      /** agy takes no per-run tool rule: a read-only run has only its variable (readOnlyEnv). */
       command: (
         _sessionId: string | undefined,
         prompt: string,
-        _may: HeadlessPermissions,
+        may: HeadlessPermissions,
         log: string,
-      ) => `agy --log-file ${shellWord(log)} --print ${shellWord(prompt)} --output-format json`,
+      ) =>
+        `${readOnlyEnv(may)}agy --log-file ${shellWord(log)} --print ${shellWord(prompt)} --output-format json`,
       result: readAntigravityResult,
     },
     hookState: undefined,
@@ -407,13 +387,12 @@ export const newSessionId = (agent: Agent, newUuid: IdSource) =>
 /**
  * A session's start command, its goal as the first prompt, under the agent session id Mesa
  * picked for it (newSessionId), which an agent that picks its own does not take, with the
- * profile's launch `defaults` and its own model and effort (`s`), `mounts` mounted for an agent that takes them per launch
- * (Antigravity's is global), and `dirs`, an additional project's worktree each, as extra folders
+ * profile's launch `defaults` and its own model and effort (`s`), and `dirs`, an additional
+ * project's worktree each, as extra folders
  * (sessions/start/additional.ts, additionalDirs).
  */
 export function startCommand(
   agent: Agent,
-  mounts: Mounts,
   defaults: LaunchDefaults,
   s: {
     id?: string;
@@ -432,9 +411,9 @@ export function startCommand(
     const log = prepareAntigravityLog(s.logs, s.id);
     return AGENTS.antigravity.start(s.goal, log, own, s.mode, dirs);
   }
-  if (agent === 'codex') return AGENTS.codex.start(mounts, own, s.goal, dirs);
+  if (agent === 'codex') return AGENTS.codex.start(own, s.goal, dirs);
   if (s.agentSessionId === undefined) {
     throw new MesaError('internal', `${agent} starts under an agent session id Mesa picks`);
   }
-  return AGENTS.claude.start(s.agentSessionId, mounts, own, s.goal, s.mode, dirs, s.disallowed);
+  return AGENTS.claude.start(s.agentSessionId, own, s.goal, s.mode, dirs, s.disallowed);
 }

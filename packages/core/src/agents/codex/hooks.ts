@@ -1,9 +1,12 @@
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { parse } from 'smol-toml';
 import { z } from 'zod';
+import { writeFileAtomic } from '../../lib/atomic-file.js';
 import { MesaError } from '../../lib/result.js';
 import * as hooks from '../hooks.js';
-import { codexConfig, codexHooks } from './paths.js';
+import { CODEX_MESA_RULES } from '../mesa-commands.js';
+import { codexConfig, codexHooks, codexMesaRules } from './paths.js';
 
 export const HOOK_EVENTS = [
   { event: 'SessionStart' },
@@ -22,7 +25,19 @@ export const TRUST_HINT =
 export type CodexHooksStatus = hooks.HookFileStatus & {
   trusted: Record<string, boolean>;
   hint: string;
+  /** Mesa's rules file, which lets a session run Mesa's commands unasked (ADR-0031). */
+  rulesPath: string;
+  rules: boolean;
 };
+
+/** Whether Mesa's rules file holds this mesa's rules. */
+function rulesInstalled(home: string) {
+  try {
+    return readFileSync(codexMesaRules(home), 'utf8') === CODEX_MESA_RULES;
+  } catch {
+    return false;
+  }
+}
 const file = (home: string): hooks.HookFile => ({
   path: codexHooks(home),
   agent: 'codex',
@@ -71,18 +86,32 @@ export function hooksStatus(home: string, self: readonly string[]): CodexHooksSt
       ];
     }),
   );
-  return { ...status, trusted, hint: Object.values(trusted).every(Boolean) ? '' : TRUST_HINT };
+  return {
+    ...status,
+    trusted,
+    hint: Object.values(trusted).every(Boolean) ? '' : TRUST_HINT,
+    rulesPath: codexMesaRules(home),
+    rules: rulesInstalled(home),
+  };
 }
 
+/** Mesa's hooks and its rules file; the rules need no trust, so only the hooks ask for it. */
 export function installHooks(home: string, self: readonly string[]) {
   const result = hooks.installHooks(file(home), self);
+  const rules = !rulesInstalled(home);
+  if (rules) {
+    mkdirSync(dirname(codexMesaRules(home)), { recursive: true });
+    writeFileAtomic(codexMesaRules(home), CODEX_MESA_RULES);
+  }
   return {
     ...hooksStatus(home, self),
     ...(result.changed ? { hint: TRUST_HINT } : {}),
-    changed: result.changed,
+    changed: result.changed || rules,
   };
 }
 export function uninstallHooks(home: string, self: readonly string[]) {
   const result = hooks.uninstallHooks(file(home), self);
-  return { ...hooksStatus(home, self), changed: result.changed };
+  const rules = existsSync(codexMesaRules(home));
+  rmSync(codexMesaRules(home), { force: true });
+  return { ...hooksStatus(home, self), changed: result.changed || rules };
 }

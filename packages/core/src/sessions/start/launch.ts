@@ -9,7 +9,6 @@ import { withMesaStatusLine } from '../../agents/claude/statusline.js';
 import { hooksStatus as codexHooks } from '../../agents/codex/hooks.js';
 import { codexHome } from '../../agents/codex/paths.js';
 import { sandboxOverride } from '../../agents/launch-flags.js';
-import { type Mounts, mountsPerLaunch } from '../../agents/mesa-mount.js';
 import { AGENT_NAMES } from '../../agents/names.js';
 import { readyAgent } from '../../doctor/probe.js';
 import type { Clock } from '../../lib/clock.js';
@@ -62,8 +61,6 @@ export type LaunchDeps = {
   clock: Clock;
   /** Links the project's enabled skills into the folder its agent runs in; throws on failure. */
   syncSkills: (project: string, folder: string) => void;
-  /** Mesa's servers every agent command mounts (agents/mesa-mount.ts), read at each launch. */
-  mounts: Mounts;
   /** For the locks a launch takes: a new worktree's, and the registry's. */
   lock: AsyncLockDeps;
 };
@@ -148,8 +145,6 @@ export async function startSession(
   start: Start,
 ): Promise<{ record: SessionRecord; warning?: string }> {
   let record = written;
-  // A background process started before this launch keeps the mount it was started with.
-  const attaching = Boolean(written.backgroundId);
   // A configured setup can create user data. A failed agent launch must leave it intact.
   const made = launchWorktrees(deps.run);
   let backgroundId: string | undefined;
@@ -208,7 +203,6 @@ export async function startSession(
       backgroundId = await startClaudeBackground(
         deps.run,
         cwd,
-        deps.mounts,
         windowEnv(record.id, deps.profileName),
         { ...deps.profile.config.agents, model: record.model, effort: record.effort },
         additionalDirs(record),
@@ -231,14 +225,6 @@ export async function startSession(
               config.sessions.statusLineCost
             ? withMesaStatusLine(start.command(given, deny), deps.self)
             : start.command(given, deny);
-    // What this launch mounts; a process it attaches to keeps what it was started with.
-    const decisionsMounted = deps.mounts.decisions ? (true as const) : undefined;
-    if (
-      !attaching &&
-      mountsPerLaunch(record.agent) &&
-      (!record.vaultMounted || record.decisionsMounted !== decisionsMounted)
-    )
-      record = deps.store.update(record.id, { vaultMounted: true, decisionsMounted });
     await deps.tmux[start.inPlace ? 'respawnWindow' : 'openWindow']({
       project: record.tmux.session,
       window: record.tmux.window,

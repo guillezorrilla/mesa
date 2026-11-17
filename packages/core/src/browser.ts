@@ -26,6 +26,7 @@ export {
   type UsageForm,
 } from './agents/claude/usage-form.js';
 export { CODEX_REVIEW_TITLE, HOOKS_UPDATE_DETAIL } from './agents/hooks-update.js';
+export { MESA_SESSION_COMMANDS } from './agents/mesa-commands.js';
 export {
   AGENT_CAPABILITIES,
   AGENT_EXECUTABLES,

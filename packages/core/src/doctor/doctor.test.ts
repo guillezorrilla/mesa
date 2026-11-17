@@ -146,7 +146,13 @@ test('hooks Mesa installed once say they need an update; never-installed ones sa
       profileDir: home,
       hooks: {
         claude: () => file(stale),
-        codex: () => ({ ...file(stale), trusted: { Stop: false }, hint: '' }),
+        codex: () => ({
+          ...file(stale),
+          trusted: { Stop: false },
+          hint: '',
+          rulesPath: '/h/.codex/rules/mesa.rules',
+          rules: true,
+        }),
         antigravity: () => ({ ...file(stale), events: { PreInvocation: false } }),
         tmux: async () => ({ socket: 'mesa-default', server: false, paneDied: false }),
       },

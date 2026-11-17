@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { AGENTS } from '../../agents/agents.js';
-import { launchMounts } from '../../agents/mesa-mount.js';
 import type { Spawner } from '../../lib/spawn.js';
 import { createMesa } from '../../mesa.js';
 import {
@@ -225,9 +224,8 @@ describe('mesa host for Codex', () => {
       '-c',
       'approval_policy="on-request"',
     ]);
-    expect(w.fake.spawns[0]?.args).toEqual(
-      expect.arrayContaining([expect.stringMatching(/^mcp_servers\./)]),
-    );
+    // No Mesa MCP server (ADR-0031): its commands are allowed by Mesa's Codex rules file.
+    expect(w.fake.spawns[0]?.args.join(' ')).not.toContain('mcp_servers');
     open(w.fake);
     expect(testStore(w.home).get(record.id).agentSessionId).toBe(THREAD);
     expect(w.fake.sent.find((m) => m.method === 'turn/start')).toMatchObject({
@@ -273,12 +271,7 @@ describe('mesa host for Codex', () => {
     host.stop();
     await host.done;
     // Terminal view resumes the same thread with Mesa's embedded codex, never a plain `codex resume`.
-    const terminal = AGENTS.codex.resume(
-      THREAD,
-      w.home,
-      launchMounts(['mesa'], { decisions: false }),
-      NATIVE_LAUNCH,
-    );
+    const terminal = AGENTS.codex.resume(THREAD, w.home, NATIVE_LAUNCH);
     expect(terminal).toMatch(/^codex -c mesa\.embedded=true /);
     expect(terminal).toContain(THREAD);
   });

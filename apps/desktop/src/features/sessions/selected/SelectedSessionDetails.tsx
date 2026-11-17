@@ -3,11 +3,16 @@ import type {
   InstructionStatus,
   KeptReport,
   ManagedRow,
-  McpTool,
   SessionRecord,
   Supervision,
 } from '@mesa/core';
-import { attentionScore, contextPercent, percent, sessionFolder } from '@mesa/core/browser';
+import {
+  attentionScore,
+  contextPercent,
+  MESA_SESSION_COMMANDS,
+  percent,
+  sessionFolder,
+} from '@mesa/core/browser';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
@@ -18,7 +23,6 @@ import { useCall } from '@/lib/useCommand';
 import { ContextRing } from './ContextRing';
 import { DecisionAssistancePanel } from './DecisionAssistancePanel';
 import { DecisionDeliveryField } from './DecisionDeliveryField';
-import { useDecisionDelivery } from './useDecisionDelivery';
 import { VaultCaptureField } from './VaultCaptureField';
 import { WorkerQuestionsPanel } from './WorkerQuestionsPanel';
 
@@ -64,12 +68,9 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
   >();
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
-  // The mesa-vault tools its agent's server lists (ADR-0011); a plain terminal has no agent.
-  const [tools, setTools] = useState<{ tools?: McpTool[]; error?: string }>({});
   // Decision assistance is read once the details open, as the rest is.
   const [opened, setOpened] = useState(false);
   const { row } = props;
-  const delivery = useDecisionDelivery(row.id, setRecord, setError);
   const agent = row.agent !== 'terminal';
   // The newer reading: a board look reads one after every turn, the details only when opened.
   const read = [row.context, record?.context].filter((c) => c !== undefined);
@@ -87,11 +88,6 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
           if (!event.currentTarget.open) return;
           setOpened(true);
           setLoading(true);
-          if (agent) {
-            void call('vault.tools').then((result) =>
-              setTools(result.ok ? { tools: result.data.tools } : { error: result.error.message }),
-            );
-          }
           void call('sessions.show', { id: row.id }).then((result) => {
             if (result.ok) {
               setRecord(result.data);
@@ -193,22 +189,21 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
             <dd title={record?.instructions.reason}>{statusText(record?.instructions)}</dd>
             <dt className="text-muted-foreground">Vault</dt>
             <dd title={record?.vault.reason}>{statusText(record?.vault)}</dd>
-            <dt className="text-muted-foreground">Vault tools</dt>
-            <dd data-testid="session-vault-tools">
+            <dt className="text-muted-foreground">Mesa commands</dt>
+            <dd data-testid="session-mesa-commands">
               {!agent ? (
                 'None: a plain terminal runs no agent'
-              ) : tools.tools ? (
+              ) : (
+                // What its agent runs without a prompt (ADR-0031): the vault's, and the Decision model's.
                 <ul className="flex flex-wrap gap-1">
-                  {tools.tools.map((tool) => (
-                    <li key={tool.name}>
-                      <Badge variant="outline" className="font-mono" title={tool.description}>
-                        {tool.name}
+                  {MESA_SESSION_COMMANDS.map((command) => (
+                    <li key={command}>
+                      <Badge variant="outline" className="font-mono">
+                        {command}
                       </Badge>
                     </li>
                   ))}
                 </ul>
-              ) : (
-                (tools.error ?? 'Open details to check')
               )}
             </dd>
             <dt className="text-muted-foreground">Vault capture</dt>
@@ -227,15 +222,7 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
                 'None: a plain terminal runs no agent'
               ) : opened ? (
                 <div className="grid gap-2">
-                  {record?.decisions && (
-                    <DecisionDeliveryField
-                      status={record.decisions}
-                      acting={delivery.acting}
-                      working={row.lastState.state === 'working'}
-                      onInstallHooks={delivery.installHooks}
-                      onRestart={delivery.restart}
-                    />
-                  )}
+                  {record?.decisions && <DecisionDeliveryField status={record.decisions} />}
                   <DecisionAssistancePanel session={row.id} />
                 </div>
               ) : (

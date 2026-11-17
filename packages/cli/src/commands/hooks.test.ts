@@ -114,7 +114,7 @@ test('SessionStart gives only the owning native session a bounded Mesa pointer',
   expect(start.stdout).toContain(`mesa show ${opened.id} --json`);
   expect(start.stdout).toContain('invoked here as /skill-name');
   expect(start.stdout).toContain(
-    'project_context, read_note, search_vault and session_goals when past work bears on it',
+    'Vault (the mesa-vault skill): when past work bears on it, mesa vault context lantern-cove --json; mesa vault search <words> --json',
   );
   // On demand: no first step to promise (#558).
   expect(start.stdout).not.toMatch(/\bfirst\b/);
@@ -190,7 +190,7 @@ test('Antigravity PreInvocation gives only the owning native conversation a tran
   expect(JSON.parse((await mesa('hook', 'antigravity')).stdout)).toEqual({});
 });
 
-test('show reports each mount; hooks manage Antigravity mesa-vault beside a user server and rule, and no mesa-decisions without a model', async () => {
+test("show reports the vault configured for every agent; hooks install removes Antigravity's old entries and only Mesa's", async () => {
   const world = cli.withTmux();
   await cli.withProject();
   cli.run = scriptedRunner({
@@ -204,78 +204,62 @@ test('show reports each mount; hooks manage Antigravity mesa-vault beside a user
   const vault = async (id: string) => (await mesa('show', id, '--full', '--json')).json.data.vault;
   const doctor = async () =>
     (await mesa('doctor', '--json')).json.data.checks.find(
-      (check: { name: string }) => check.name === 'antigravity vault',
+      (check: { name: string }) => check.name === 'antigravity mcp',
     );
-  const configured = { state: 'configured', reason: 'mesa-vault is mounted in its launch command' };
-  expect(await vault((await open()).id)).toEqual(configured);
-  expect(await vault((await open('--agent', 'codex')).id)).toEqual(configured);
+  // ADR-0031: every agent reaches the vault through the mesa CLI, with no mount to install.
+  const configured = {
+    state: 'configured',
+    reason: 'The mesa vault commands, through the mesa-vault skill',
+  };
+  for (const agent of ['claude', 'codex', 'antigravity'])
+    expect(await vault((await open('--agent', agent)).id)).toEqual(configured);
   expect((await vault((await open('--terminal')).id)).state).toBe('unsupported');
-  const agy = await open('--agent', 'antigravity');
-  expect(await vault(agy.id)).toEqual({ state: 'missing', reason: 'Run mesa hooks install' });
-  expect((await doctor()).status).toBe('warn');
+  expect((await doctor()).status).toBe('ok');
 
-  // An invented server and rule of the user's, which install and uninstall leave byte for byte.
+  // Mesa's old entries and rules beside an invented server and rule of the user's.
   const mcpFile = join(cli.home, '.gemini/config/mcp_config.json');
   const rulesFile = join(cli.home, '.gemini/antigravity-cli/settings.json');
-  const mcp = `${JSON.stringify({ mcpServers: { tide: { command: 'node', args: ['/opt/tide.js'] } } }, null, 2)}\n`;
+  const tide = { command: 'node', args: ['/opt/tide.js'] };
+  const mcp = `${JSON.stringify({ mcpServers: { tide } }, null, 2)}\n`;
   const rules = `${JSON.stringify({ permissions: { allow: ['command(git)'] } }, null, 2)}\n`;
   mkdirSync(dirname(mcpFile), { recursive: true });
   mkdirSync(dirname(rulesFile), { recursive: true });
+  const old = { command: '/usr/local/bin/mesa', args: ['vault', 'mcp'] };
+  writeFileSync(mcpFile, JSON.stringify({ mcpServers: { tide, 'mesa-vault': old } }));
+  writeFileSync(
+    rulesFile,
+    JSON.stringify({ permissions: { allow: ['command(git)', 'mcp(mesa-vault/*)'] } }),
+  );
+  expect((await doctor()).status).toBe('warn');
+  expect((await mesa('hooks', 'status')).stdout).toContain(
+    `${mcpFile}\nOLD  mesa-vault and mesa-decisions entries: mesa hooks install removes them\n`,
+  );
+  const installed = (await mesa('hooks', 'install', '--json')).json.data;
+  expect(installed.antigravityMounts).toMatchObject({ path: mcpFile, left: false, changed: true });
+  expect(installed.codex).toMatchObject({ rules: true });
+  expect(JSON.parse(readFileSync(mcpFile, 'utf8'))).toEqual({ mcpServers: { tide } });
+  expect(JSON.parse(readFileSync(rulesFile, 'utf8'))).toEqual({
+    permissions: { allow: ['command(git)'] },
+  });
+  expect((await doctor()).status).toBe('ok');
+  expect((await mesa('hooks', 'status')).stdout).toContain(
+    '--   no mesa-vault or mesa-decisions entries (sessions use the mesa CLI)',
+  );
   writeFileSync(mcpFile, mcp);
   writeFileSync(rulesFile, rules);
-  expect((await mesa('hooks', 'install', '--json')).json.data.antigravityVault).toMatchObject({
-    path: mcpFile,
-    rulePath: rulesFile,
-    installed: true,
-    changed: true,
-  });
-  // No Decision model: nothing of mesa-decisions is mounted (#463).
-  expect(JSON.parse(readFileSync(mcpFile, 'utf8')).mcpServers).toEqual({
-    tide: { command: 'node', args: ['/opt/tide.js'] },
-    'mesa-vault': { command: '/usr/local/bin/mesa', args: ['vault', 'mcp'] },
-  });
-  expect(JSON.parse(readFileSync(rulesFile, 'utf8')).permissions.allow).toEqual([
-    'command(git)',
-    'mcp(mesa-vault/*)',
-  ]);
-  expect(await vault(agy.id)).toEqual({
-    state: 'configured',
-    reason: 'Global mesa-vault entry and allow rule are configured',
-  });
-  expect((await mesa('hooks', 'status')).stdout).toContain(
-    `${mcpFile}\nok   mesa-vault entry\n${rulesFile}\nok   mesa-vault allow rule\n--   mesa-decisions entry: none without a Decision model\n`,
-  );
-  expect((await doctor()).status).toBe('ok');
-
-  expect((await mesa('hooks', 'uninstall', '--json')).json.data.antigravityVault).toMatchObject({
-    installed: false,
-    changed: true,
-  });
+  expect((await mesa('hooks', 'uninstall', '--json')).json.data.codex.rules).toBe(false);
   expect(readFileSync(mcpFile, 'utf8')).toBe(mcp);
   expect(readFileSync(rulesFile, 'utf8')).toBe(rules);
-  expect((await vault(agy.id)).state).toBe('missing');
 
-  // A server of the user's under Mesa's name is reported, never taken over.
-  const foreign = `${JSON.stringify({ mcpServers: { 'mesa-vault': { command: 'node', args: ['/opt/other.js'] } } })}\n`;
+  // A server of the user's under Mesa's name is reported, never taken.
+  const foreign = `${JSON.stringify({ mcpServers: { 'mesa-decisions': { command: 'node', args: ['/opt/advisor.js'] } } })}\n`;
   writeFileSync(mcpFile, foreign);
-  expect(await vault(agy.id)).toEqual({
-    state: 'conflicting',
-    reason: `${mcpFile}: mesa-vault belongs to another server; Mesa left it unchanged`,
-  });
-  expect((await mesa('hooks', 'install')).code).toBe(0);
-  expect(readFileSync(mcpFile, 'utf8')).toBe(foreign);
-  expect(readFileSync(rulesFile, 'utf8')).toBe(rules);
-  // So is one under mesa-decisions: both files stay as they were, and uninstall takes nothing.
-  const theirs = `${JSON.stringify({ mcpServers: { 'mesa-decisions': { command: 'node', args: ['/opt/advisor.js'] } } })}\n`;
-  writeFileSync(mcpFile, theirs);
-  const installed = (await mesa('hooks', 'install', '--json')).json.data;
-  expect(installed.antigravityDecisions.conflict).toBe(
+  const conflicted = (await mesa('hooks', 'install', '--json')).json.data;
+  expect(conflicted.antigravityMounts.conflict).toBe(
     `${mcpFile}: mesa-decisions belongs to another server; Mesa left it unchanged`,
   );
-  expect(installed.warning).toBe(installed.antigravityDecisions.conflict);
-  expect((await mesa('hooks', 'uninstall')).code).toBe(0);
-  expect(readFileSync(mcpFile, 'utf8')).toBe(theirs);
-  expect(readFileSync(rulesFile, 'utf8')).toBe(rules);
+  expect(conflicted.warning).toBe(conflicted.antigravityMounts.conflict);
+  expect(readFileSync(mcpFile, 'utf8')).toBe(foreign);
 });
 
 test('a malformed Antigravity file is that part conflicting; the other hooks carry on', async () => {
@@ -287,7 +271,7 @@ test('a malformed Antigravity file is that part conflicting; the other hooks car
 
   const status = await mesa('hooks', 'status', '--json');
   expect(status.code).toBe(0);
-  expect(status.json.data.antigravityVault).toMatchObject({ installed: false, conflict });
+  expect(status.json.data.antigravityMounts).toMatchObject({ left: false, conflict });
   expect((await mesa('hooks', 'status')).stdout).toContain(`${mcpFile}\nCONFLICT ${conflict}\n`);
 
   const installed = await mesa('hooks', 'install', '--json');
@@ -297,19 +281,19 @@ test('a malformed Antigravity file is that part conflicting; the other hooks car
     changed: true,
     codex: { installed: true },
     antigravity: { installed: true },
-    antigravityVault: { changed: false, conflict },
+    antigravityMounts: { changed: false, conflict },
     warning: conflict,
   });
   expect(readFileSync(mcpFile, 'utf8')).toBe('{broken');
   expect(existsSync(join(cli.home, '.gemini/antigravity-cli/settings.json'))).toBe(false);
   const check = (await mesa('doctor', '--json')).json.data.checks.find(
-    (c: { name: string }) => c.name === 'antigravity vault',
+    (c: { name: string }) => c.name === 'antigravity mcp',
   );
   expect(check).toMatchObject({ status: 'warn', hint: conflict });
 
   const removed = await mesa('hooks', 'uninstall', '--json');
   expect(removed.code).toBe(0);
-  expect(removed.json.data).toMatchObject({ installed: false, antigravityVault: { conflict } });
+  expect(removed.json.data).toMatchObject({ installed: false, antigravityMounts: { conflict } });
   expect(readFileSync(mcpFile, 'utf8')).toBe('{broken');
 });
 
@@ -325,7 +309,9 @@ test('General SessionStart points at profile skills without an unregistered proj
   const start = await mesa('hook', 'codex');
   expect(start.stdout).toContain('mesa skills list --json');
   expect(start.stdout).not.toContain('mesa skills list __mesa_general__');
-  expect(start.stdout).toContain('Without the tools: mesa vault context --general --json');
+  expect(start.stdout).toContain(
+    'when past work bears on it, mesa vault context --general --json;',
+  );
 });
 
 test.each([true, false])(
@@ -586,7 +572,7 @@ test.each(['startup', undefined])(
   },
 );
 
-test('with a Decision model a session mounts mesa-decisions, a prompt gets advice, and show tells configured from observed', async () => {
+test('with a Decision model a session may ask it, a prompt gets advice, and show tells configured from observed', async () => {
   await cli.withDecisionModels();
   const tmux = cli.withTmux();
   const note = join(cli.home, 'vault/wiki/decisions/retry-policy.md');
@@ -600,9 +586,8 @@ test('with a Decision model a session mounts mesa-decisions, a prompt gets advic
       .data;
   const show = async (id: string) => (await mesa('show', id, '--full', '--json')).json.data;
   const launch = (id: string) => tmux.windows.find((w) => w.window.endsWith(id))?.launch ?? '';
-  // No key: nothing of mesa-decisions is mounted, and show says why.
+  // No key: nothing is asked in the background, and show says why.
   const before = await open();
-  expect(launch(before.id)).not.toContain('mesa-decisions');
   expect(launch(before.id)).not.toContain('decisions prepare');
   expect((await show(before.id)).decisions.tool).toEqual({
     state: 'disabled',
@@ -610,36 +595,25 @@ test('with a Decision model a session mounts mesa-decisions, a prompt gets advic
   });
   cli.stdin = TEST_TYPESAFE_KEY;
   await mesa('decisions', 'key', 'set', 'typesafe');
-  // A session started before the key cannot gain the tool: show says how, never enabled.
-  expect((await show(before.id)).decisions.tool).toEqual({
-    state: 'missing',
-    reason: 'Started without mesa-decisions; stop it and resume through Mesa to mount it',
-    action: 'restart',
-  });
+  // The command needs no mount (ADR-0031): a session started before the key may ask it too.
+  const command = {
+    state: 'configured',
+    reason: 'mesa decisions evaluate, through the mesa skill',
+  };
+  expect((await show(before.id)).decisions.tool).toEqual(command);
   const opened = await open();
-  expect(launch(opened.id)).toContain('"mesa-decisions":{"type":"stdio"');
-  expect(launch(opened.id)).toContain('--allowedTools=mcp__mesa-vault,mcp__mesa-decisions');
+  expect(launch(opened.id)).not.toContain('mcp');
+  expect(launch(opened.id)).toContain('Bash(mesa decisions evaluate:*)');
   expect(launch(opened.id)).toMatch(/^\('\/usr\/local\/bin\/mesa' decisions prepare .*&\); /);
   expect(launch(opened.id)).toContain("'Make the feed import retry'");
   await mesa('hooks', 'install');
   // Relevance passed both gates: advice needs no experimental opt-in.
   expect((await show(opened.id)).decisions).toEqual({
-    tool: { state: 'configured', reason: 'mesa-decisions is mounted in its launch command' },
+    tool: command,
     advice: { state: 'configured', reason: 'UserPromptSubmit adds advice to the turn' },
   });
-  // With the model, install writes Antigravity's entry too; once there is none, it takes it away.
-  const agyServers = () =>
-    Object.keys(
-      JSON.parse(readFileSync(join(cli.home, '.gemini/config/mcp_config.json'), 'utf8')).mcpServers,
-    );
-  expect(agyServers()).toEqual(['mesa-vault', 'mesa-decisions']);
-  await mesa('decisions', 'use', 'none');
-  expect((await mesa('hooks', 'install')).stdout).not.toContain('mesa-decisions entries');
-  expect(agyServers()).toEqual(['mesa-vault']);
-  await mesa('decisions', 'use', 'jev');
-  expect((await mesa('hooks', 'status')).stdout).toContain('MISS mesa-decisions entry');
-  await mesa('hooks', 'install');
-  expect(agyServers()).toEqual(['mesa-vault', 'mesa-decisions']);
+  // Install writes no Antigravity entry, with a model or without one.
+  expect(existsSync(join(cli.home, '.gemini/config/mcp_config.json'))).toBe(false);
 
   // Inside the window: the prompt's hook prints additionalContext JSON, for its own conversation.
   cli.env = { MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' };

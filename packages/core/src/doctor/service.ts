@@ -39,7 +39,7 @@ export function doctorService(
           claude: () => hooksStatus(ctx.home, ctx.env, ctx.self),
           codex: () => codexHooksStatus(codexHome(ctx.home, ctx.env), ctx.self),
           antigravity: () => antigravityHooksStatus(ctx.home, ctx.self),
-          antigravityVault: () => mesaMountStatus(ctx.home, ctx.self),
+          antigravityMounts: () => mesaMountStatus(ctx.home),
           tmux: ctx.tmuxHook,
         },
         codexDaemon: codexDaemonSocket(codexHome(ctx.home, ctx.env)),

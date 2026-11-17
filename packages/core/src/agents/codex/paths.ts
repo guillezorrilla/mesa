@@ -16,6 +16,9 @@ export const codexSessionIndex = (codexHome: string) => join(codexHome, 'session
 export const codexDaemonSocket = (codexHome: string) =>
   join(codexHome, 'app-server-control', 'app-server-control.sock');
 
+/** Mesa's rules file, allowing its commands (agents/mesa-commands.ts), beside the user's own. */
+export const codexMesaRules = (home: string) => join(home, 'rules', 'mesa.rules');
+
 /** User hook definitions and the config where Codex records their trust. */
 export const codexHooks = (home: string) => join(home, 'hooks.json');
 export const codexConfig = (home: string) => join(home, 'config.toml');

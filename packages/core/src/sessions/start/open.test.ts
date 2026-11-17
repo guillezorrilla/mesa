@@ -16,8 +16,7 @@ import { promptGuarded, REVIEW_DENY } from '../../prs/review-guard.js';
 import { listReceipts } from '../../receipts/store.js';
 import {
   agentWorld,
-  CLAUDE_MOUNT,
-  CODEX_MOUNT,
+  CLAUDE_MESA,
   gitProject,
   gitRepo,
   profilePaths,
@@ -81,7 +80,7 @@ test('open starts claude with its session id in a new tmux session, then in a ne
     window: `claude-${first.id}`,
     path: dir,
     env: { MESA_SESSION_ID: first.id, MESA_PROFILE: 'default' },
-    launch: `unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000001 ${CLAUDE_MOUNT}`,
+    launch: `unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000001 ${CLAUDE_MESA}`,
     // Its output log, from the first byte.
     pipe: `cat >> '${join(profilePaths(home, 'default').logs, `${first.id}.log`)}'`,
   });
@@ -178,12 +177,12 @@ test('--model and --effort start claude and codex with their own flags, kept for
 
   await mesa.sessions.open('lantern-cove', { agent: 'codex', model: 'gpt-5.5', effort: 'high' });
   expect(launched(world)).toBe(
-    `codex -c mesa.embedded=true -m gpt-5.5 -c model_reasoning_effort=high ${CODEX_MOUNT}`,
+    `codex -c mesa.embedded=true -m gpt-5.5 -c model_reasoning_effort=high`,
   );
   // None: today's command line exactly.
   const plain = (await mesa.sessions.open('lantern-cove', { agent: 'codex' })).result;
   expect(plain).not.toHaveProperty('model');
-  expect(launched(world)).toBe(`codex -c mesa.embedded=true ${CODEX_MOUNT}`);
+  expect(launched(world)).toBe(`codex -c mesa.embedded=true`);
 
   for (const refused of [
     { agent: 'antigravity', model: 'sonnet' },
@@ -257,7 +256,6 @@ test('Claude background keeps its native process when the terminal closes, then 
     background: true,
     backgroundId: 'abcdef12',
     mode: 'plan',
-    vaultMounted: true,
   });
   expect(opened.agentSessionId).toBeUndefined();
   // The job's process has the supervisor's environment: the binding travels in its settings.
@@ -266,8 +264,7 @@ test('Claude background keeps its native process when the terminal closes, then 
     '--permission-mode',
     'plan',
     `--settings={"env":{"MESA_SESSION_ID":"${opened.id}","MESA_PROFILE":"default"}}`,
-    '--mcp-config={"mcpServers":{"mesa-vault":{"type":"stdio","command":"/usr/local/bin/mesa","args":["vault","mcp"]}}}',
-    '--allowedTools=mcp__mesa-vault',
+    CLAUDE_MESA.slice(1, -1),
     'Read the project',
   ]);
   for (const name of ['MESA_SESSION_ID', 'MESA_PROFILE', 'CLAUDECODE', 'NO_COLOR'])
@@ -284,12 +281,11 @@ test('Claude background keeps its native process when the terminal closes, then 
   expect(world.tmux.windows.at(-1)?.launch).toBe('unset NO_COLOR; exec claude attach abcdef12');
   expect((await mesa.sessions.stop(opened.id)).result.outcome).toBe('exited');
   const resumed = (await mesa.sessions.resume(opened.id)).result.record;
-  // Attached again to the process started with the mount.
+  // Attached again to the process it started.
   expect(resumed).toMatchObject({
     background: true,
     backgroundId: 'abcdef12',
     resumedFrom: opened.id,
-    vaultMounted: true,
   });
   expect(world.tmux.windows.at(-1)?.launch).toBe('unset NO_COLOR; exec claude attach abcdef12');
   exitAll(world);
@@ -371,11 +367,11 @@ test('open starts codex embedded, its goal after --, in window codex-<id>, with 
   });
   // Codex picks its own thread id: a look at the board reads it (agents/codex/).
   expect(result).not.toHaveProperty('agentSessionId');
-  expect(launched(world)).toBe(`codex -c mesa.embedded=true ${CODEX_MOUNT} -- 'review'`);
+  expect(launched(world)).toBe(`codex -c mesa.embedded=true -- 'review'`);
   expect(world.tmux.windows.at(-1)?.path).toBe(dir);
 
   await mesa.sessions.open('lantern-cove', { agent: 'codex' });
-  expect(launched(world)).toBe(`codex -c mesa.embedded=true ${CODEX_MOUNT}`);
+  expect(launched(world)).toBe(`codex -c mesa.embedded=true`);
 });
 
 test('show learns a Codex thread ID and its native context reading in the same look', async () => {
@@ -515,14 +511,14 @@ test('a goal is the first prompt: one shell word after the session id, kept on t
   const { result } = await mesa.sessions.open('lantern-cove', { goal });
   expect(launched(world)).toBe(
     // Single quotes keep $HOME and the double quotes literal; each ' becomes '\''.
-    String.raw`unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000001 ${CLAUDE_MOUNT} '/goal Print "ready" in $HOME, then '\''stop'\'''`,
+    String.raw`unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000001 ${CLAUDE_MESA} '/goal Print "ready" in $HOME, then '\''stop'\'''`,
   );
   expect(result.goal).toBe(goal);
   expect(mesa.sessions.goal(result.id)).toEqual({ id: result.id, goal });
 
   const { result: plain } = await mesa.sessions.open('lantern-cove');
   expect(launched(world)).toBe(
-    `unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000002 ${CLAUDE_MOUNT}`,
+    `unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000002 ${CLAUDE_MESA}`,
   );
   expect(() => mesa.sessions.goal(plain.id)).toThrow(
     expect.objectContaining({ code: 'not_found', message: `session ${plain.id} has no goal` }),
@@ -560,7 +556,7 @@ test('a goal file is read as UTF-8; a bad goal is refused without vault history'
   const { result } = await mesa.sessions.open('lantern-cove', { goalFile: file });
   expect(result.goal).toBe('/goal Keep going until `pnpm verify` is green.\nThen stop.\n');
   expect(launched(world)).toBe(
-    `unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000001 ${CLAUDE_MOUNT} '/goal Keep going until \`pnpm verify\` is green.\nThen stop.\n'`,
+    `unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000001 ${CLAUDE_MESA} '/goal Keep going until \`pnpm verify\` is green.\nThen stop.\n'`,
   );
 
   // A BOM an editor saved goes, so the goal still starts /goal.
@@ -589,7 +585,7 @@ test('a goal file is read as UTF-8; a bad goal is refused without vault history'
       // 4000 three-byte characters: 4002 UTF-16 units quoted, but 12002 bytes.
       { goal: '日'.repeat(4000) },
       'usage',
-      'the goal makes a 12230-byte command, over the 12000 Mesa passes to tmux: shorten it, or keep the long part in a file the goal names',
+      'the goal makes a 12285-byte command, over the 12000 Mesa passes to tmux: shorten it, or keep the long part in a file the goal names',
     ],
   ];
   cases.push(
@@ -624,7 +620,7 @@ test('resume keeps the goal on the new record but does not send it again', async
   exitAll(world);
   const { result } = await mesa.sessions.resume(first.id);
   expect(launched(world)).toBe(
-    `unset NO_COLOR; exec claude --resume ${first.agentSessionId} ${CLAUDE_MOUNT}`,
+    `unset NO_COLOR; exec claude --resume ${first.agentSessionId} ${CLAUDE_MESA}`,
   );
   expect(result.record.goal).toBe('Print ready');
 });
@@ -1388,7 +1384,7 @@ test('launch defaults reach new, resumed, and background sessions; a dangerous s
 
   // A flag that keeps the agent's checks on is emitted, with no receipt.
   const codex = await mesa.sessions.open('lantern-cove', { agent: 'codex' });
-  expect(launch()).toContain(' --sandbox=workspace-write ');
+  expect(launch()).toMatch(/ --sandbox=workspace-write( |$)/);
   expect(codex.receipt).toBeNull();
 
   exitAll(world);
@@ -1465,11 +1461,11 @@ test('each agent gets the additional worktrees as extra folders in its own form'
   };
   const claude = await opened('claude', 'c');
   expect(launch()).toBe(
-    `unset NO_COLOR; exec claude --session-id ${claude.agentSessionId} ${CLAUDE_MOUNT} '--add-dir=${claude.extra}' 'go'`,
+    `unset NO_COLOR; exec claude --session-id ${claude.agentSessionId} ${CLAUDE_MESA} '--add-dir=${claude.extra}' 'go'`,
   );
   const codex = await opened('codex', 'x');
   expect(launch()).toBe(
-    `codex -c mesa.embedded=true --sandbox=workspace-write ${CODEX_MOUNT} '--add-dir' '${codex.extra}' -- 'go'`,
+    `codex -c mesa.embedded=true --sandbox=workspace-write '--add-dir' '${codex.extra}' -- 'go'`,
   );
   const { extra: agy } = await opened('antigravity', 'a');
   expect(launch()).toContain(` '--add-dir=${agy}' --prompt-interactive 'go'`);
@@ -1491,7 +1487,7 @@ test("a read-only profile's Codex --with session gets workspace-write, a warning
   const { result, warning, receipt } = await open('r');
   const extra = result.additional?.[0]?.worktree.path ?? '';
   expect(launch()).toBe(
-    `codex -c mesa.embedded=true --sandbox=workspace-write ${CODEX_MOUNT} '--add-dir' '${extra}' -- 'go'`,
+    `codex -c mesa.embedded=true --sandbox=workspace-write '--add-dir' '${extra}' -- 'go'`,
   );
   expect(warning).toBe(
     'Codex runs read-only in this profile; this session gets workspace-write so it can change the other projects',
@@ -1505,7 +1501,7 @@ test("a read-only profile's Codex --with session gets workspace-write, a warning
 
   // Without --with, the configured read-only stays, with no override.
   const alone = await mesa.sessions.open('lantern-cove', { agent: 'codex' });
-  expect(launch()).toContain(' --sandbox=read-only ');
+  expect(launch()).toMatch(/ --sandbox=read-only( |$)/);
   expect(alone.warning).toBeUndefined();
   expect(alone.receipt).toBeNull();
 });
@@ -1529,9 +1525,7 @@ test("resume, handoff and swap carry a session's additional projects; a gone one
   exitAll(world);
   const { result: resumed } = await mesa.sessions.resume(first.id);
   expect(resumed.record.additional).toEqual(first.additional);
-  expect(launch()).toContain(
-    `--resume ${first.agentSessionId} ${CLAUDE_MOUNT} '--add-dir=${path}'`,
-  );
+  expect(launch()).toContain(`--resume ${first.agentSessionId} ${CLAUDE_MESA} '--add-dir=${path}'`);
 
   const note = join(home, 'note.md');
   writeFileSync(note, '## Left\n');

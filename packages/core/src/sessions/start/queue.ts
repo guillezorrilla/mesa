@@ -76,7 +76,6 @@ export async function startQueued(
           command: (r) =>
             startCommand(
               agent,
-              deps.mounts,
               deps.profile.config.agents,
               { ...r, logs: deps.profile.paths.logs },
               additionalDirs(r),

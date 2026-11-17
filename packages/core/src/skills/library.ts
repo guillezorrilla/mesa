@@ -37,17 +37,17 @@ export const SESSION_SUMMARY = 'session-summary';
  * How each of Mesa's own Claude skill runs starts, instead of with the person's default model and
  * full setup (ADR-0012 amendment, ADR-0023, docs/spikes/token-usage.md): `model`, the cheapest that
  * does the job (Haiku, about a twentieth of Opus's cost per run, for short text from given input;
- * Sonnet for import notes, which read and write several vault notes); `mcp`, the only MCP server
- * it mounts (`vault`: mesa-vault; `none`), with none of the person's servers, user settings,
- * plugins or hooks; and `effort`, low where it only writes short text. Any other skill runs as
+ * Sonnet for import notes, which read and write several vault notes); `vault`, whether it may run
+ * Mesa's vault commands unasked (mesa-commands.ts), with none of the person's MCP servers, user
+ * settings, plugins or hooks; and `effort`, low where it only writes short text. Any other skill runs as
  * the person's sessions do.
  */
-export type ClaudeRunProfile = { model: 'haiku' | 'sonnet'; mcp: 'vault' | 'none'; effort?: 'low' };
+export type ClaudeRunProfile = { model: 'haiku' | 'sonnet'; vault: boolean; effort?: 'low' };
 const RUN_PROFILES: Readonly<Record<string, ClaudeRunProfile>> = {
-  [VAULT_CAPTURE]: { model: 'haiku', mcp: 'vault' },
-  [GIT_TEXT]: { model: 'haiku', mcp: 'none', effort: 'low' },
-  [SESSION_SUMMARY]: { model: 'haiku', mcp: 'none', effort: 'low' },
-  [IMPORT_NOTES]: { model: 'sonnet', mcp: 'vault' },
+  [VAULT_CAPTURE]: { model: 'haiku', vault: true },
+  [GIT_TEXT]: { model: 'haiku', vault: false, effort: 'low' },
+  [SESSION_SUMMARY]: { model: 'haiku', vault: false, effort: 'low' },
+  [IMPORT_NOTES]: { model: 'sonnet', vault: true },
 };
 export const claudeRunProfile = (skill: string): ClaudeRunProfile | undefined =>
   Object.hasOwn(RUN_PROFILES, skill) ? RUN_PROFILES[skill] : undefined;

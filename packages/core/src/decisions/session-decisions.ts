@@ -34,7 +34,7 @@ export type DecisionUse = z.infer<typeof UseSchema>;
 const SessionDecisionsSchema = z
   .strictObject({
     off: z.literal(true).optional(),
-    /** When the agent last called decision_evaluate, and when a hook last sent it advice. */
+    /** When the agent last asked (`mesa decisions evaluate` from its window), and when a hook last sent it advice. */
     seen: z
       .strictObject({ tool: z.iso.datetime().optional(), advice: z.iso.datetime().optional() })
       .optional(),

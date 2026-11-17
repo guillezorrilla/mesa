@@ -5,7 +5,7 @@ import { codexHome, codexSessions } from '../../agents/codex/paths.js';
 import { createMesa } from '../../mesa.js';
 import { listReceipts } from '../../receipts/store.js';
 import {
-  CLAUDE_MOUNT,
+  CLAUDE_MESA,
   codexWorld,
   fakeTmux,
   newSession,
@@ -64,7 +64,7 @@ test('a live session is adopted into the project its folder is in, and reopened 
     {
       window: result.record.tmux.window,
       path: dir,
-      launch: `unset NO_COLOR; exec claude --resume ${LIVE} ${CLAUDE_MOUNT}`,
+      launch: `unset NO_COLOR; exec claude --resume ${LIVE} ${CLAUDE_MESA}`,
     },
   ]);
   expect(receipt).toBeNull();
@@ -87,7 +87,7 @@ test('a session on disk is found by its transcript, and reopened in the folder i
   expect(result.record).toMatchObject({ project: 'lantern-cove', cwd: sub });
   expect(world.windows.at(-1)).toMatchObject({
     path: sub,
-    launch: `unset NO_COLOR; exec claude --resume ${ON_DISK} ${CLAUDE_MOUNT}`,
+    launch: `unset NO_COLOR; exec claude --resume ${ON_DISK} ${CLAUDE_MESA}`,
   });
 });
 
@@ -180,16 +180,13 @@ test('--no-resume only records it; mesa resume then reopens it where it ran, sti
   expect(result.warning).toBe(WARNING);
   expect(world.windows).toEqual([]);
   expect(listReceipts(join(home, 'vault'))).toEqual([]);
-  // Only recorded: the conversation runs outside Mesa, with no mount.
-  expect((await mesa.sessions.show(result.record.id)).vault).toEqual({
-    state: 'missing',
-    reason: 'Resume through Mesa to mount the vault',
-  });
+  // Only recorded: its agent still reaches the vault through the mesa CLI (ADR-0031).
+  expect((await mesa.sessions.show(result.record.id)).vault.state).toBe('configured');
 
   const { result: resumed } = await mesa.sessions.resume(result.record.id);
   expect(resumed.record).toMatchObject({ adopted: true, name: 'docs', cwd: sub });
   expect(world.windows).toMatchObject([
-    { path: sub, launch: `unset NO_COLOR; exec claude --resume ${ON_DISK} ${CLAUDE_MOUNT}` },
+    { path: sub, launch: `unset NO_COLOR; exec claude --resume ${ON_DISK} ${CLAUDE_MESA}` },
   ]);
   expect((await mesa.sessions.show(resumed.record.id)).vault.state).toBe('configured');
 });

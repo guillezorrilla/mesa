@@ -1,10 +1,11 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
-import { assistedSession, projectProfile, scriptedRunner, testDeps } from '../testing/index.js';
-import { uninstallMesaMount } from './antigravity/mesa-mount.js';
+import { projectProfile, scriptedRunner, testDeps } from '../testing/index.js';
+import { antigravityMcpConfig } from './antigravity/paths.js';
 import { claudeSettings } from './claude/paths.js';
-import { DECISIONS_MOUNT } from './mesa-mount.js';
+import { codexHome, codexMesaRules } from './codex/paths.js';
 
 // Whether Mesa's hooks need an update (#678): only hooks Mesa installed once, that an install
 // would now change.
@@ -32,14 +33,26 @@ test('an event Mesa hooks now, missing from hooks it wrote, makes them stale', a
   });
 });
 
-test("a Decision model without Antigravity's mesa-decisions entry needs an update, once installed", async () => {
-  const { home, mesa } = await assistedSession();
-  expect((await mesa.hooks.status()).needsUpdate).toBe(false);
+test("Mesa's old Antigravity entries, or a missing Codex rules file, need an update once installed", async () => {
+  const { home, mesa } = projectProfile(scriptedRunner().run);
   mesa.hooks.install();
   expect((await mesa.hooks.status()).needsUpdate).toBe(false);
-  uninstallMesaMount(home, testDeps(home).self, DECISIONS_MOUNT);
+  rmSync(codexMesaRules(codexHome(home, {})));
+  expect(await mesa.hooks.status()).toMatchObject({ codex: { rules: false }, needsUpdate: true });
+  mesa.hooks.install();
+  expect(readFileSync(codexMesaRules(codexHome(home, {})), 'utf8')).toContain(
+    'prefix_rule(pattern=["mesa","vault","search"], decision="allow")',
+  );
+  const mcp = antigravityMcpConfig(home);
+  mkdirSync(dirname(mcp), { recursive: true });
+  writeFileSync(
+    mcp,
+    JSON.stringify({ mcpServers: { 'mesa-vault': { command: 'mesa', args: ['vault', 'mcp'] } } }),
+  );
   expect(await mesa.hooks.status()).toMatchObject({
-    antigravityDecisions: { wanted: true, installed: false },
+    antigravityMounts: { left: true },
     needsUpdate: true,
   });
+  mesa.hooks.install();
+  expect((await mesa.hooks.status()).needsUpdate).toBe(false);
 });

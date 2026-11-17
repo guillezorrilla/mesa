@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { listReceipts } from '../../receipts/store.js';
 import {
-  CLAUDE_MOUNT,
+  CLAUDE_MESA,
   codexWorld,
   countReads,
   datedTranscript,
@@ -122,7 +122,7 @@ test('with live, the folder running sessions are reopened, the warning said, and
   expect(world.windows).toMatchObject([
     {
       path: tide,
-      launch: `unset NO_COLOR; exec claude --resume ${ids.live} --dangerously-skip-permissions ${CLAUDE_MOUNT}`,
+      launch: `unset NO_COLOR; exec claude --resume ${ids.live} --dangerously-skip-permissions ${CLAUDE_MESA}`,
     },
   ]);
   // One receipt for the batch, kept for its dangerous launch flags.

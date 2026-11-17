@@ -2,7 +2,6 @@ import { AGENTS } from '../../agents/agents.js';
 import { runningConversation } from '../../agents/claude/listing.js';
 import { claudeTranscripts } from '../../agents/claude/paths.js';
 import { transcriptFile } from '../../agents/claude/transcripts.js';
-import type { Mounts } from '../../agents/mesa-mount.js';
 import type { AgentRunner } from '../../agents/runner.js';
 import type { Clock } from '../../lib/clock.js';
 import { usd } from '../../lib/format.js';
@@ -31,7 +30,6 @@ export type HostDeps = {
   /** The window's folder, where the launch started it (sessions/start/launch.ts). */
   cwd: string;
   clock: Clock;
-  mounts: Mounts;
 };
 
 export type Host = {
@@ -128,7 +126,6 @@ export async function hostSession(
       sessionId,
       resume,
       args: hostArgs(
-        deps.mounts,
         { ...config.agents, model: record.model, effort: record.effort },
         record.mode,
         additionalDirs(record),

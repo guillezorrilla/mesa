@@ -1,21 +1,23 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { PER_TURN_MS } from '../../decisions/models.js';
+import type { DecisionsModel } from '../../decisions/types.js';
+import type { Profile } from '../../profile/profile.js';
 import { decisionStatus } from '../../sessions/native/decision-status.js';
 import { instructionStatus } from '../../sessions/native/instructions.js';
 import { goalPreparing, sessionWindowCommand } from '../../sessions/start/window-command.js';
 import {
   ADVICE_MARKER,
   assistedAgent,
+  CLAUDE_MESA,
   MARKED_NOTE,
   NATIVE_LAUNCH as NATIVE,
 } from '../../testing/index.js';
 import { AGENTS } from '../agents.js';
-import { launchMounts } from '../mesa-mount.js';
 import { claudeSettings } from './paths.js';
 
-// Claude Code's decision assistance (#463, ADR-0019): mesa-decisions mounted per launch beside
-// mesa-vault while there is a Decision model, and a turn's advice as UserPromptSubmit
+// Claude Code's decision assistance (#463, ADR-0019): `mesa decisions evaluate` pre-approved on
+// every launch (ADR-0031), and a turn's advice as UserPromptSubmit
 // additionalContext, the event the #459 probe proved, for the native conversation Mesa holds only.
 
 const SELF = ['/opt/node', '/src/mesa.js'];
@@ -23,7 +25,6 @@ const ID = '360ed2a1-f255-4c2a-8f30-ba7b6ea349f5';
 const NATIVE_ID = '7d1e5a52-0b8c-4c43-9b7e-2f6a1c3d9e10';
 // The mesa testDeps runs as, which its hooks and mounts name.
 const MESA = ['/usr/local/bin/mesa'];
-const BOTH = `'--mcp-config={"mcpServers":{"mesa-vault":{"type":"stdio","command":"/opt/node","args":["/src/mesa.js","vault","mcp"]},"mesa-decisions":{"type":"stdio","command":"/opt/node","args":["/src/mesa.js","decisions","mcp"]}}}' '--allowedTools=mcp__mesa-vault,mcp__mesa-decisions'`;
 const prompt = (session_id: string, extra: object = {}) =>
   JSON.stringify({
     session_id,
@@ -33,35 +34,34 @@ const prompt = (session_id: string, extra: object = {}) =>
   });
 const contextOf = (advice: string) => JSON.parse(advice).hookSpecificOutput;
 
-test('mesa-decisions is mounted and pre-approved beside mesa-vault only with a Decision model', () => {
-  const on = launchMounts(SELF, { decisions: true });
-  // The goal stays the prompt, after the `=` forms; no --strict-mcp-config drops the user's servers.
-  expect(AGENTS.claude.start(ID, on, NATIVE, 'Map the tides')).toBe(
-    `claude --session-id ${ID} ${BOTH} 'Map the tides'`,
-  );
-  expect(AGENTS.claude.resume(ID, '/src', on, NATIVE)).toBe(`claude --resume ${ID} ${BOTH}`);
-  expect(
-    AGENTS.claude.headless.command(
-      ID,
-      '/tide',
-      { permissionMode: 'default', allowedTools: ['Read'] },
-      '/src',
-      on,
-    ),
-  ).toMatch(/--allowedTools 'mcp__mesa-vault' 'mcp__mesa-decisions' 'Read'$/);
-  const off = AGENTS.claude.start(
+test("every launch pre-approves the mesa commands, the Decision model's too, and mounts no server", () => {
+  // The goal stays the prompt, after the `=` form; no --strict-mcp-config drops the user's servers.
+  const start = AGENTS.claude.start(ID, NATIVE, 'Map the tides');
+  expect(start).toBe(`claude --session-id ${ID} ${CLAUDE_MESA} 'Map the tides'`);
+  expect(start).toContain('Bash(mesa decisions evaluate:*)');
+  expect(AGENTS.claude.resume(ID, '/src', NATIVE)).toBe(`claude --resume ${ID} ${CLAUDE_MESA}`);
+  const headless = AGENTS.claude.headless.command(
     ID,
-    launchMounts(SELF, { decisions: false }),
-    NATIVE,
-    'Map the tides',
+    '/tide',
+    { permissionMode: 'default', allowedTools: ['Read'] },
+    '/src',
   );
-  expect(off).not.toContain('mesa-decisions');
-  expect(off).not.toContain('strict-mcp-config');
+  expect(headless).toMatch(/'Bash\(mesa vault save:\*\)' 'Read'$/);
+  for (const command of [start, headless]) {
+    expect(command).not.toContain('--mcp-config');
+    expect(command).not.toContain('strict-mcp-config');
+  }
+});
+
+/** What goalPreparing reads: the profile's Decision model, and this mesa. */
+const withModel = (model: DecisionsModel) => ({
+  profile: { config: { decisions: { model } } } as Profile,
+  self: SELF,
 });
 
 test("the window asks for the goal's answer in the background while claude starts", () => {
-  const deps = { mounts: launchMounts(SELF, { decisions: true }), self: SELF };
-  const command = AGENTS.claude.start(ID, deps.mounts, NATIVE, 'Map the tides');
+  const deps = withModel('jev');
+  const command = AGENTS.claude.start(ID, NATIVE, 'Map the tides');
   expect(
     sessionWindowCommand(
       'claude',
@@ -74,13 +74,7 @@ test("the window asks for the goal's answer in the background while claude start
   );
   // No goal, no model, or a skill run: nothing in the background.
   expect(goalPreparing(deps, 'interactive')).toBe('');
-  expect(
-    goalPreparing(
-      { ...deps, mounts: launchMounts(SELF, { decisions: false }) },
-      'interactive',
-      'g',
-    ),
-  ).toBe('');
+  expect(goalPreparing(withModel('none'), 'interactive', 'g')).toBe('');
   expect(goalPreparing(deps, 'run', 'g')).toBe('');
 });
 
@@ -107,7 +101,7 @@ test("a prompt of the session's own conversation gets the source the model is su
   });
   expect(status.tool).toEqual({
     state: 'configured',
-    reason: 'mesa-decisions is mounted in its launch command',
+    reason: 'mesa decisions evaluate, through the mesa skill',
   });
   expect(status.advice).toMatchObject({ state: 'missing', observedAt: '2026-09-24T12:00:00.000Z' });
 });
@@ -192,33 +186,20 @@ test("the goal's answer prepared at launch is its first turn's ready answer", as
   expect(world.requests).toHaveLength(1);
 });
 
-test("SessionStart's pointer names the decision tool only while the session has it", async () => {
+test("SessionStart's pointer names mesa decisions evaluate only while the session can ask", async () => {
   const { mesa, session, person } = await assistedAgent('claude', NATIVE_ID);
   const start = JSON.stringify({ session_id: NATIVE_ID, hook_event_name: 'SessionStart' });
   const pointer = async () => {
     const event = await mesa.hookEvent('claude', start);
     return event && 'instruction' in event ? event.instruction : '';
   };
-  expect(await pointer()).toContain("Decisions: mesa-decisions' decision_evaluate");
+  expect(await pointer()).toContain('Decisions: mesa decisions evaluate --json');
   mesa.decisions.setOff(true);
   expect(await pointer()).not.toContain('Decisions:');
   mesa.decisions.setOff(false);
   await person.decisions.use('none');
   expect(await pointer()).not.toContain('Decisions:');
-  expect(session.decisionsMounted).toBe(true);
-});
-
-test("SessionStart's pointer names the CLI while the model is chosen but the tool is not mounted", async () => {
-  const { mesa } = await assistedAgent('claude', NATIVE_ID, {
-    session: { decisionsMounted: undefined },
-  });
-  const start = JSON.stringify({ session_id: NATIVE_ID, hook_event_name: 'SessionStart' });
-  const event = await mesa.hookEvent('claude', start);
-  const pointer = event && 'instruction' in event ? event.instruction : '';
-  expect(pointer).toContain(
-    'Decisions: no mesa-decisions tool here; mesa decisions evaluate --json',
-  );
-  expect(pointer).not.toContain('decision_evaluate');
+  expect(session.decisionsMounted).toBeUndefined();
 });
 
 test('installed hooks pass UserPromptSubmit output to Claude, and advice is then configured', async () => {

@@ -1,7 +1,7 @@
 import type { Env, Runner } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
 import { addDirArgs, launchFlags, type SessionLaunch } from '../launch-flags.js';
-import { claudeMountArgs, type Mounts } from '../mesa-mount.js';
+import { CLAUDE_MESA_ALLOW } from '../mesa-commands.js';
 
 const TIMEOUT_MS = 20_000;
 const ID = /backgrounded\s+[^\w\s]?\s*([0-9a-f]{8})\b/i;
@@ -9,17 +9,16 @@ const ID = /backgrounded\s+[^\w\s]?\s*([0-9a-f]{8})\b/i;
 export const claudeBackgroundAttach = (id: string) => `exec claude attach ${id}`;
 
 /**
- * Claude owns the background process, with the profile's launch defaults, Mesa's servers mounted, and
+ * Claude owns the background process, with the profile's launch defaults, Mesa's commands allowed, and
  * `dirs`, an additional project's worktree each (CONTEXT.md, Additional project). Its short ID
  * is the handle for attach and stop. The job runs in a process Claude's supervisor starts, with the supervisor's
  * environment, never `env`; so the session's `binding` (its window variables) goes in the
  * launch's settings `env`, which Claude applies to that process and keeps through its restarts,
- * for the mesa-vault server and the Mesa hooks to read (ADR-0012).
+ * for the mesa CLI and the Mesa hooks to read.
  */
 export async function startClaudeBackground(
   run: Runner,
   cwd: string,
-  mounts: Mounts,
   binding: Readonly<Record<string, string>>,
   defaults: SessionLaunch,
   dirs: readonly string[],
@@ -32,7 +31,7 @@ export async function startClaudeBackground(
     ...(mode ? ['--permission-mode', mode] : []),
     ...launchFlags('claude', defaults, mode),
     `--settings=${JSON.stringify({ env: binding })}`,
-    ...claudeMountArgs(mounts),
+    CLAUDE_MESA_ALLOW,
     ...addDirArgs('claude', dirs),
     ...(goal ? [goal] : []),
   ];

@@ -2,8 +2,7 @@ import { expect, test } from 'vitest';
 import { REVIEW_DENY } from '../../prs/review-guard.js';
 import {
   agentWorld,
-  CLAUDE_MOUNT,
-  CODEX_MOUNT,
+  CLAUDE_MESA,
   gitRepo,
   projectProfile,
   steppingClock,
@@ -23,13 +22,13 @@ test('Claude fork keeps the source and opens a new native conversation in the ch
   expect(same.agentSessionId).toBeUndefined();
   expect(world.tmux.windows.at(-1)).toMatchObject({
     path: dir,
-    launch: `unset NO_COLOR; exec claude --resume '${source.agentSessionId}' --fork-session --permission-mode plan ${CLAUDE_MOUNT}`,
+    launch: `unset NO_COLOR; exec claude --resume '${source.agentSessionId}' --fork-session --permission-mode plan ${CLAUDE_MESA}`,
   });
   const separate = (await mesa.sessions.fork(source.id, { branch: 'try/fork' })).result;
   expect(separate).toMatchObject({ parent: source.id, worktree: { branch: 'try/fork' } });
   expect(world.tmux.windows.at(-1)).toMatchObject({
     path: separate.worktree?.path,
-    launch: `unset NO_COLOR; exec claude --resume '${source.agentSessionId}' --fork-session --permission-mode plan ${CLAUDE_MOUNT}`,
+    launch: `unset NO_COLOR; exec claude --resume '${source.agentSessionId}' --fork-session --permission-mode plan ${CLAUDE_MESA}`,
   });
   expect((await mesa.sessions.show(source.id)).endedAt).toBeUndefined();
   expect((await mesa.sessions.show(source.id)).resumedBy).toBeUndefined();
@@ -75,7 +74,7 @@ test('Codex fork uses its native thread and refuses unqualified sources', async 
   const fork = (await mesa.sessions.fork(source.id)).result;
   expect(fork).toMatchObject({ parent: source.id, cwd: dir, agent: 'codex' });
   expect(world.tmux.windows.at(-1)?.launch).toBe(
-    `codex -c mesa.embedded=true ${CODEX_MOUNT} fork '${nativeId}' -C '${dir}'`,
+    `codex -c mesa.embedded=true fork '${nativeId}' -C '${dir}'`,
   );
   const terminal = (await mesa.sessions.open('lantern-cove', { terminal: true })).result;
   await expect(mesa.sessions.fork(terminal.id)).rejects.toMatchObject({ code: 'usage' });

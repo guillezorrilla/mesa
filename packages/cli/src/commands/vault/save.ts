@@ -18,19 +18,31 @@ const session = {
     'The Mesa session it is from (default: the Mesa window this runs in, on the project)',
 } as const;
 
-/** A save's text, given or in a file. */
+/** A save's text, given, in a file, or on stdin. */
 const textFlags = (what: string) =>
   ({
-    text: { type: 'string', description: `The ${what}` },
-    file: { type: 'string', description: `A file holding the ${what}` },
+    text: { type: 'string', description: `The ${what} (default: stdin, when it is no terminal)` },
+    file: {
+      type: 'string',
+      description: `A file holding the ${what}; from a session, one in its own folder or worktree`,
+    },
   }) as const;
+
+/** The text given: --text, else stdin when it is no terminal and no --file names one. */
+const givenText = async (
+  flags: { text?: string; file?: string },
+  { tty, stdin }: { tty: boolean; stdin: () => Promise<string> },
+) => flags.text ?? (flags.file === undefined && !tty ? (await stdin()) || undefined : undefined);
 
 export const vaultSaveDecision = defineCommand({
   name: 'vault save decision',
   summary:
     'Save a decision and its rationale in wiki/decisions/, with one decision receipt; the same save again adds nothing',
   flags: {
-    project: { type: 'string', required: true, description: 'The registered project it is for' },
+    project: {
+      type: 'string',
+      description: "The registered project it is for (default: the Mesa session's it runs in)",
+    },
     title: {
       type: 'string',
       required: true,
@@ -52,7 +64,7 @@ export const vaultSaveDecision = defineCommand({
   run: async ({ mesa, flags }) =>
     savedOutput(
       await mesa.vault.saveDecision({
-        project: flags.project,
+        ...(flags.project === undefined ? {} : { project: flags.project }),
         session: flags.session,
         title: flags.title,
         decision: flags.decision,
@@ -81,11 +93,11 @@ export const vaultSaveNote = defineCommand({
   },
   example:
     'mesa vault save note --project lantern-cove --title "Tide table sources" --file tide-sources.md',
-  run: async ({ mesa, flags }) =>
+  run: async ({ mesa, flags, ...io }) =>
     savedOutput(
       await mesa.vault.saveNote({
         title: flags.title,
-        body: flags.text,
+        body: await givenText(flags, io),
         file: flags.file,
         path: flags.path,
         project: flags.project,
@@ -99,15 +111,18 @@ export const vaultSaveSummary = defineCommand({
   summary:
     "Save a session's summary as wiki/sessions/<id>.md, with one vault-change receipt when it changed",
   flags: {
-    session: { type: 'string', required: true, description: 'The Mesa session it summarises' },
+    session: {
+      type: 'string',
+      description: 'The Mesa session it summarises (default: the Mesa window this runs in)',
+    },
     ...textFlags('summary'),
   },
   example: 'mesa vault save summary --session a1b2c3d4 --file summary.md',
-  run: async ({ mesa, flags }) =>
+  run: async ({ mesa, flags, ...io }) =>
     savedOutput(
       await mesa.vault.saveSummary({
         session: flags.session,
-        summary: flags.text,
+        summary: await givenText(flags, io),
         file: flags.file,
       }),
     ),

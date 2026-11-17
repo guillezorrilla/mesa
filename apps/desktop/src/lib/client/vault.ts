@@ -2,7 +2,6 @@ import type {
   BasesWritten,
   DailyResult,
   MapSaved,
-  McpTool,
   Opened,
   ProjectContext,
   ReceiptEntry,
@@ -79,6 +78,4 @@ export const vaultCommands = {
   /** Obsidian's vault manager, where "Open folder as vault" adds a vault it does not know. */
   'obsidian.manager': command<Opened>('obsidian', 'manager'),
   'vault.init': command<Recorded<{ path: string; created: string[] }>>('vault', 'init'),
-  /** The mesa-vault server's tool definitions, as it lists them to a live session (ADR-0011). */
-  'vault.tools': command<{ tools: McpTool[] }>('vault', 'mcp', '--tools'),
 };

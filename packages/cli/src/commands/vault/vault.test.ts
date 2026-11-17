@@ -1185,3 +1185,41 @@ test('vault mcp --tools prints the fixed tool definitions, one line each, withou
   expect(text.map((line) => line.split(' ')[0])).toEqual([...TOOLS, '']);
   expect(text[0]).toMatch(/^project_context {2}Project overview: hub, index, notes/);
 });
+
+// ADR-0031: a session reaches the vault through these commands, as its mesa-vault tools did.
+test('a session saves its own decision and summary with no --project or --session; a read-only run saves nothing', async () => {
+  const id = await liveSession();
+  cli.env = { MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
+  const decision = await mesa(
+    'vault',
+    'save',
+    'decision',
+    '--title',
+    'Fixed clock in tide tests',
+    '--decision',
+    'Tests take the clock as a parameter',
+    '--rationale',
+    'The flake was the wall clock at midnight',
+    '--json',
+  );
+  expect(decision.json.data.path).toMatch(/^wiki\/decisions\/.*fixed-clock-in-tide-tests\.md$/);
+  const { receipt } = (await mesa('receipts', '--json')).json.data[0];
+  expect(receipt).toMatchObject({ kind: 'decision', project: 'lantern-cove', session: id });
+  // The text on stdin, as a here-document gives it: no terminal.
+  cli.tty = false;
+  cli.stdin = 'Goal: fix the flake\nDone: fixed clock\n';
+  const summary = await mesa('vault', 'save', 'summary', '--json');
+  expect(summary.json.data.path).toBe(`wiki/sessions/${id}.md`);
+  expect(readFileSync(join(cli.home, 'vault', summary.json.data.path), 'utf8')).toContain(
+    'Done: fixed clock',
+  );
+  cli.stdin = '';
+  cli.env = { ...cli.env, MESA_VAULT_READ_ONLY: '1' };
+  const refused = await mesa('vault', 'save', 'note', '--title', 'Stray', '--text', 'x', '--json');
+  expect(refused.json.error.message).toContain('read-only run');
+  expect(existsSync(join(cli.home, 'vault/wiki/notes/stray.md'))).toBe(false);
+  // Outside a session the project and the session are still the caller's to name.
+  cli.env = {};
+  const general = await mesa('vault', 'save', 'summary', '--text', 'x', '--json');
+  expect(general.json.error.message).toBe('pass --session, or save it from that session');
+});

@@ -3,10 +3,9 @@ import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { afterAll, describe, expect, onTestFinished, test } from 'vitest';
 import { AGENTS } from '../../agents/agents.js';
-import { launchMounts } from '../../agents/mesa-mount.js';
 import { type Runner, shellWord } from '../../lib/process.js';
 import {
-  CLAUDE_MOUNT,
+  CLAUDE_MESA,
   lockDeps,
   NATIVE_LAUNCH,
   scriptedRunner,
@@ -269,13 +268,8 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     const out = join(cwd, 'goal.out');
     // The command open runs, with printf standing in for claude.
     const command = AGENTS.claude
-      .start(
-        'uuid',
-        launchMounts(['/usr/local/bin/mesa'], { decisions: false }),
-        NATIVE_LAUNCH,
-        goal,
-      )
-      .replace(`claude --session-id uuid ${CLAUDE_MOUNT}`, 'printf %s');
+      .start('uuid', NATIVE_LAUNCH, goal)
+      .replace(`claude --session-id uuid ${CLAUDE_MESA}`, 'printf %s');
     await open(lantern('claude-goal01'), `${command} > ${out}`);
     const written = () => Promise.resolve(existsSync(out) ? readFileSync(out, 'utf8') : '');
     expect(await eventually(written, /stop$/)).toBe(goal);

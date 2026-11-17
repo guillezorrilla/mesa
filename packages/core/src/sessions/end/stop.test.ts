@@ -4,7 +4,7 @@ import { expect, test } from 'vitest';
 import { profilePaths } from '../../profile/paths.js';
 import { listReceipts } from '../../receipts/store.js';
 import {
-  CLAUDE_MOUNT,
+  CLAUDE_MESA,
   CLAUDE_VERSION,
   type FakeWindow,
   fakeTmux,
@@ -190,7 +190,7 @@ test('resume reopens the conversation with claude --resume in a new window, link
     {
       window: `claude-${result.record.id}`,
       path: join(home, 'src/lantern-cove'),
-      launch: `unset NO_COLOR; exec claude --resume ${opened.agentSessionId} ${CLAUDE_MOUNT}`,
+      launch: `unset NO_COLOR; exec claude --resume ${opened.agentSessionId} ${CLAUDE_MESA}`,
     },
   ]);
   expect(receipts()).toEqual([]);

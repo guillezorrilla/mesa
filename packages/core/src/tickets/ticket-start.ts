@@ -53,7 +53,7 @@ const brief = (t: TicketBrief) =>
   [
     `Ticket: "${t.title}"`,
     `Link: ${t.url}`,
-    'Read it with the mesa-vault read_note tool:',
+    'Read it with mesa vault read <path> --json:',
     `- Snapshot: ${t.snapshot}`,
     ...(t.note ? [`- Notes: ${t.note}`] : []),
     `- An earlier investigation, if one was saved: ${investigationPath(t.project, t.key)}`,
@@ -103,7 +103,7 @@ Report, leading with the answer, each section as long as its content needs
 5. Proposed fix: where, and why there rather than where the symptom shows; the steps; the test that fails now and will pass after; what else uses that code; sized S, M, or L.
 6. Open questions, including anything that blocks proof and what would remove it.
 
-When the status is Confirmed, save the report with the mesa-vault save_note tool, titled "${t.key} investigation", at path ${findings}, replacing any earlier one. When it is Not proven, save nothing: the report stays in this session.
+When the status is Confirmed, save the report with mesa vault save note, titled "${t.key} investigation", at --path ${findings}, replacing any earlier one. When it is Not proven, save nothing: the report stays in this session.
 
 If you saved it and a fix is needed, offer to fix it in a new session, and stop. Once I agree, start it with:
 mesa open ${t.project} --from ${t.key} --as goal --branch ${ticketBranch(t.key, t.title)}-fix`;
@@ -120,7 +120,7 @@ const GOAL = (
 Whoever checks this goal sees only this conversation, so a result you do not show does not count.
 Stop with a message starting "Blocked:" only when something only I can settle stops the work (missing access, a check that cannot run here, a decision that changes the result, a ticket that needs Investigate first): say what you tried, what you found, and what you need. Make other choices yourself, note them, and keep going; a progress summary is not a stopping point.
 
-Change only what the ticket needs and commit only those files; leave changes already in the checkout alone. If an earlier investigation was saved, start from its reproduction and trust only what it marks Confirmed. Fix the code, not the check: never weaken, skip, or delete a test, or special-case test inputs, to get a pass; if a test is wrong, say so. If the code already does what the ticket asks, prove it and change nothing. Opening a pull request and changing the ticket wait for me. Save a vault note (save_note) only for something later work on this project needs, such as a decision or a trap you found. My rules at the end win where they differ.
+Change only what the ticket needs and commit only those files; leave changes already in the checkout alone. If an earlier investigation was saved, start from its reproduction and trust only what it marks Confirmed. Fix the code, not the check: never weaken, skip, or delete a test, or special-case test inputs, to get a pass; if a test is wrong, say so. If the code already does what the ticket asks, prove it and change nothing. Opening a pull request and changing the ticket wait for me. Save a vault note (mesa vault save note) only for something later work on this project needs, such as a decision or a trap you found. My rules at the end win where they differ.
 
 ${brief(t)}`;
 

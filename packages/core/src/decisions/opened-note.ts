@@ -6,7 +6,7 @@ import type { DecisionLog } from './log.js';
 // Vault server. Only notes advice gave the reading session are logged; other reads stay unlogged.
 
 /**
- * Logs that the agent of `session` opened `note` (`read_note`), when advice in the last
+ * Logs that the agent of `session` opened `note` (`mesa vault read` from its window), when advice in the last
  * ADVICE_DAYS named that note to this very session; once per advice, so a note advised again can
  * be opened again, and nothing for any other read.
  */

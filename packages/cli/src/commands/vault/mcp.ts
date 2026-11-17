@@ -5,7 +5,7 @@ import { columns } from '../../output/columns.js';
 export const vaultMcp = defineCommand({
   name: 'vault mcp',
   summary:
-    'Serve the mesa-vault tools over stdio to the live Mesa session in MESA_SESSION_ID; outside one, no tools',
+    'Deprecated: sessions use the mesa vault commands (ADR-0031); kept one release for sessions already running. Serve the mesa-vault tools over stdio to the live Mesa session in MESA_SESSION_ID; outside one, no tools',
   flags: {
     tools: { type: 'boolean', description: 'Print the tool definitions instead of serving them' },
   },

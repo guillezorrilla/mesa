@@ -1895,8 +1895,7 @@ test('selected session details read native context by exact id and keep unknown 
   );
 });
 
-test("selected session details list the vault server's tools for an agent session", async () => {
-  const schema = { type: 'object', properties: {}, additionalProperties: false };
+test('selected session details list the mesa commands an agent session runs unasked', async () => {
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),
     sessions: () => envelope([managedRow('aaaaaaaa', { agent: 'codex' })]),
@@ -1904,26 +1903,20 @@ test("selected session details list the vault server's tools for an agent sessio
       envelope({
         ...managedRow('aaaaaaaa', { agent: 'codex' }),
         instructions: { state: 'configured', reason: 'SessionStart hook is configured' },
-        vault: { state: 'configured', reason: 'mesa-vault is mounted in its launch command' },
-      }),
-    'vault mcp': () =>
-      envelope({
-        tools: [
-          { name: 'read_note', description: 'Read one invented item.', inputSchema: schema },
-          { name: 'save_note', description: 'Save one invented note.', inputSchema: schema },
-        ],
+        vault: {
+          state: 'configured',
+          reason: 'The mesa vault commands, through the mesa-vault skill',
+        },
       }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  const tools = byTestId('session-vault-tools')[0];
-  expect(tools?.textContent).toBe('Open details to check');
   await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
-  expect(calls).toContainEqual(['--json', 'vault', 'mcp', '--tools']);
-  expect([...(tools?.querySelectorAll('li') ?? [])].map((item) => item.textContent)).toEqual([
-    'read_note',
-    'save_note',
-  ]);
-  expect(tools?.querySelector('[title="Save one invented note."]')?.textContent).toBe('save_note');
+  const commands = byTestId('session-mesa-commands')[0];
+  const listed = [...(commands?.querySelectorAll('li') ?? [])].map((item) => item.textContent);
+  expect(listed).toContain('mesa vault search');
+  expect(listed).toContain('mesa decisions evaluate');
+  // No server to ask (ADR-0031).
+  expect(calls.filter((argv) => argv[1] === 'vault' && argv[2] === 'mcp')).toEqual([]);
   // Its decision assistance is read beside them (DecisionAssistancePanel).
   expect(calls).toContainEqual(['--json', 'decisions', 'status', '--session', 'aaaaaaaa']);
   expect(byTestId('session-decisions')[0]?.textContent).toContain('Off: no Decision model');
@@ -1938,7 +1931,7 @@ test("selected session details list the vault server's tools for an agent sessio
   ).toBe('Smarter decisions');
 });
 
-test('selected session details say a plain terminal has no vault tools, and ask for none', async () => {
+test('selected session details say a plain terminal runs no mesa commands', async () => {
   const row = managedRow('aaaaaaaa', { agent: 'terminal' });
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),
@@ -1952,10 +1945,10 @@ test('selected session details say a plain terminal has no vault tools, and ask 
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
-  expect(byTestId('session-vault-tools')[0]?.textContent).toBe(
+  expect(byTestId('session-mesa-commands')[0]?.textContent).toBe(
     'None: a plain terminal runs no agent',
   );
-  // The mount status sits beside the tools its server lists.
+  // The vault status sits beside the commands.
   expect(byTestId('selected-session-details')[0]?.textContent).toContain(
     'Vaultunsupported: A plain terminal runs no agent',
   );

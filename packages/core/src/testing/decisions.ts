@@ -99,8 +99,6 @@ export async function assistedAgent(
     session: {
       agent,
       agentSessionId,
-      vaultMounted: true,
-      decisionsMounted: true,
       ...options.session,
     },
   });

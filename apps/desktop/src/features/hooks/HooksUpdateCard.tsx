@@ -10,7 +10,7 @@ import { useUpdateHooks } from './useUpdateHooks';
 
 /**
  * The workspace card for hooks Mesa installed once that are now out of date (`needsUpdate`): after
- * an upgrade, or once a Decision model wants Antigravity's mesa-decisions entry. Update hooks
+ * an upgrade, or while Antigravity still holds Mesa's old MCP entries (ADR-0031). Update hooks
  * installs them and reads the status again; when that changed Codex's hooks, the card turns into
  * the one note on approving them in Codex. Closing either hides it until the app opens again.
  */
