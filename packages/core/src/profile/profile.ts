@@ -1,6 +1,5 @@
 import { existsSync, mkdirSync } from 'node:fs';
 import type { Clock } from '../lib/clock.js';
-import type { Env } from '../lib/process.js';
 import { writeYaml } from '../lib/yaml-file.js';
 import { acceptsMesaWrites, initVault } from '../vault/vault.js';
 import {
@@ -11,8 +10,6 @@ import {
   loadConfig,
 } from './config.js';
 import type { ProfilePaths } from './paths.js';
-
-const DEFAULT_PROFILE = 'default';
 
 declare const opened: unique symbol;
 
@@ -25,11 +22,6 @@ export type Profile = { paths: ProfilePaths; config: Config; readonly [opened]: 
 
 /** What `mesa profile` reports: the active profile's name and directory. */
 export type ProfileInfo = { profile: string; dir: string };
-
-/** The --profile flag wins over MESA_PROFILE, which wins over `default`. */
-export function resolveProfileName(flag: string | undefined, env: Env): string {
-  return flag ?? env.MESA_PROFILE ?? DEFAULT_PROFILE;
-}
 
 /** Loads an initialised profile; not_found with the `mesa init` hint otherwise. */
 export function openProfile(paths: ProfilePaths): Profile {

@@ -1,5 +1,8 @@
 import { join } from 'node:path';
 
+// Node builtins only: the `mesa` entrypoint reads it (`@mesa/core/paths`) before loading core
+// (ADR-0032).
+
 /**
  * Where a profile keeps its files, `<home>/.mesa/<profile>/`, and the name of its tmux socket. The
  * only module that knows the layout.
@@ -23,6 +26,11 @@ export type ProfilePaths = {
   journals: string;
   /** Each running host's socket, `<session id>.sock` (ADR-0029); short, as a unix socket path is capped. */
   hosts: string;
+  /**
+   * The Command server's socket, `run/serve.sock` (ADR-0032): the folder kept private (0700), as
+   * any process that reaches the socket runs commands as this user.
+   */
+  commandSocket: string;
   /** What each headless run's agent printed, `<session id>.json` each (CONTEXT.md, Skill run). */
   runs: string;
   /** `mesa check` output logs, whole, private to the profile (CONTEXT.md, Check). */
@@ -88,6 +96,15 @@ export type ProfilePaths = {
 /** Where every profile's folder lives. */
 export const profilesDir = (home: string) => join(home, '.mesa');
 
+/** The --profile flag wins over MESA_PROFILE, which wins over `default`. */
+export const resolveProfileName = (
+  flag: string | undefined,
+  env: Readonly<Record<string, string | undefined>>,
+): string => flag ?? env.MESA_PROFILE ?? 'default';
+
+/** Whether `path` fits a unix socket's address: 104 bytes with its NUL on macOS (sun_path). */
+export const fitsUnixSocket = (path: string) => Buffer.byteLength(path) <= 103;
+
 /**
  * The profile the app opens when no MESA_PROFILE is set (`mesa profile use`): one line, its name.
  * A dot file, so no profile can take its name; the app's launch (Rust, lib.rs) reads it too.
@@ -115,6 +132,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     logs: join(root, 'sessions', 'logs'),
     journals: join(root, 'sessions', 'journals'),
     hosts: join(root, 'hosts'),
+    commandSocket: join(root, 'run', 'serve.sock'),
     runs: join(root, 'sessions', 'runs'),
     checks: join(root, 'checks'),
     costs: join(root, 'sessions', 'costs'),

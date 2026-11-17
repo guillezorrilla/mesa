@@ -23,8 +23,8 @@ import {
   testStore,
 } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
-import { VERSION } from '../../cli.js';
 import { cliHarness } from '../../testing.js';
+import { VERSION } from '../../version.js';
 
 const cli = cliHarness();
 beforeEach(cli.reset);

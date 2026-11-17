@@ -1,5 +1,3 @@
-import { createRequire } from 'node:module';
-import { getAsset, isSea } from 'node:sea';
 import { parseArgs } from 'node:util';
 import {
   createMesa,
@@ -23,11 +21,8 @@ import {
   renamedUsage,
 } from './command.js';
 import { commandHelp, groupUsage, mainHelp, usage, usageWithSubcommands } from './help/usage.js';
-
-// Inside the app's single executable (ADR-0017) the version is an asset; elsewhere package.json's.
-export const VERSION: string = isSea()
-  ? getAsset('version', 'utf8')
-  : createRequire(import.meta.url)('../package.json').version;
+import type { RunOne } from './serve.js';
+import { VERSION } from './version.js';
 
 export type CliDeps = {
   commands: Command[];
@@ -44,6 +39,13 @@ export type CliDeps = {
   mesa: MesaDeps;
   /** A call `mesa serve` runs, whose stdout carries replies: a command that serves is refused. */
   served?: boolean;
+  /** A call the Command socket forwarded: a command that runs as its own process is refused too. */
+  forwarded?: boolean;
+  /**
+   * The processes a call starts, in `env` and `cwd`: a call the Command socket forwards starts
+   * them as its caller would (ADR-0032); none keeps these deps' own.
+   */
+  forEnv?: (env: Env, cwd: string) => Pick<MesaDeps, 'run' | 'spawn'>;
 };
 
 type CliResult = {
@@ -53,7 +55,16 @@ type CliResult = {
   exec?: string[];
   /** Run on the process's stdio, which nothing else was printed to. */
   serve?: (io: Stdio) => Promise<void>;
+  /** Refused under `mesa serve` as a command that runs in its own process. */
+  ownProcess?: true;
 };
+
+/** A command refused under `mesa serve` (Command.serves, and Command.ownProcess when forwarded). */
+class OwnProcess extends MesaError {
+  constructor(name: string) {
+    super('usage', `mesa serve: ${name} serves; run it as its own process`);
+  }
+}
 
 function parse(argv: string[], flags: Record<string, Flag>) {
   try {
@@ -123,23 +134,31 @@ async function dispatch(argv: string[], deps: CliDeps): Promise<Output> {
   if (values.help) return say(commandHelp(command, deps.commands, GLOBAL_FLAGS));
   const args = bindArgs(command, positionals.slice(command.name.split(' ').length), deps.commands);
   checkRequiredFlags(command, values);
-  if (deps.served && command.serves?.(values))
-    throw new MesaError(
-      'usage',
-      `mesa serve: ${command.name} serves its own stdio; run it as its own process`,
-    );
+  if (deps.served && (command.serves?.(values) || (deps.forwarded && command.ownProcess?.(values))))
+    throw new OwnProcess(command.name);
   const profile = resolveProfileName(values.profile as string | undefined, deps.env);
   const mesa = createMesa(profile, deps.mesa);
   const { tty, stdin, askSecret, commands } = deps;
   // No terminal and no one to ask; started now, with its own argv (receipts, hook budgets).
   const { confirm: _confirm, askSecret: _askSecret, ...unprompted } = deps;
-  const rerun = (next: string[], input: string) =>
+  const rerun: RunOne = (next, input, caller) =>
     runCli(next, {
       ...unprompted,
       tty: false,
       served: true,
-      stdin: async () => input,
-      mesa: { ...deps.mesa, argv: next, processStartedAt: deps.mesa.clock() },
+      forwarded: Boolean(caller),
+      stdin: typeof input === 'string' ? async () => input : input,
+      env: caller?.env ?? deps.env,
+      mesa: {
+        ...deps.mesa,
+        ...(caller && {
+          env: caller.env,
+          cwd: caller.cwd,
+          ...deps.forEnv?.(caller.env, caller.cwd),
+        }),
+        argv: next,
+        processStartedAt: caller?.startedAt ?? deps.mesa.clock(),
+      },
     });
   // A caller reading --json output is a program, which cannot answer a question.
   const confirm = values.json ? undefined : deps.confirm;
@@ -163,11 +182,13 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<CliResult> 
   const json = (end === -1 ? argv : argv.slice(0, end)).includes('--json');
   let result: Result<unknown>;
   let out: Output | undefined;
+  let own = {};
   try {
     out = await dispatch(argv, deps);
     result = ok(out.data);
   } catch (error) {
     result = toFail(error);
+    if (error instanceof OwnProcess) own = { ownProcess: true };
   }
   const code = out?.code ?? exitCode(result);
   const exec = result.ok ? out?.exec : undefined;
@@ -193,7 +214,7 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<CliResult> 
             }).then((ran) => ran.stdout),
         }),
     };
-  if (json) return { code, stdout: `${JSON.stringify(result)}\n`, stderr: '', exec };
+  if (json) return { code, stdout: `${JSON.stringify(result)}\n`, stderr: '', exec, ...own };
   if (result.ok) return { code, stdout: `${out?.text ?? ''}\n`, stderr: '', exec };
-  return { code, stdout: '', stderr: `${result.error.message}\n` };
+  return { code, stdout: '', stderr: `${result.error.message}\n`, ...own };
 }

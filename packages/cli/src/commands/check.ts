@@ -5,6 +5,8 @@ import { CHECKOUT_FLAG } from '../input/flags.js';
 /** Run by an agent instead of the raw build or test command: one line, or only the errors. */
 export const check = defineCommand({
   name: 'check',
+  // A project's check runs as long as its tests do.
+  ownProcess: () => true,
   summary:
     "Run the project's check (mesa.yaml check) and print one line when it passes, or only its errors and the log path when it fails",
   args: ['project'],

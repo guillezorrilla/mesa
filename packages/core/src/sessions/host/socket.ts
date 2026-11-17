@@ -6,6 +6,7 @@ import { CODEX_PRESET_IDS } from '../../agents/codex/presets.js';
 import { CLAUDE_PERMISSION_MODES } from '../../agents/names.js';
 import { lineSplitter } from '../../lib/lines.js';
 import { MesaError } from '../../lib/result.js';
+import { fitsUnixSocket } from '../../profile/paths.js';
 
 // A host's unix socket (ADR-0029): one JSON request per line in, one reply per line out. `mesa
 // send`, the app and the phone reach a Structured session's agent through it.
@@ -87,8 +88,7 @@ export function askHost(path: string, request: HostRequest): Promise<HostReply |
  * replaced; one a live host answers is refused, so one session has one host.
  */
 export async function serveHost(path: string, handle: (request: HostRequest) => HostReply) {
-  // A unix socket's path is capped at 104 bytes on macOS (sun_path).
-  if (Buffer.byteLength(path) > 103)
+  if (!fitsUnixSocket(path))
     throw new MesaError('usage', `the host socket path is too long for a unix socket: ${path}`);
   if (existsSync(path)) {
     if (await askHost(path, { type: 'ping' }))

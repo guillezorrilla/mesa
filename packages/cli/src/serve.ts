@@ -1,16 +1,31 @@
-import type { Stdio } from '@mesa/core';
+import type { Env, Stdio } from '@mesa/core';
 
-/** One CLI call: its argv and stdin, to its exit code and streams (runCli's). */
+/** Who a call forwarded over the Command socket runs as (ADR-0032): its caller's environment, folder and start. */
+export type Caller = { env: Env; cwd: string; startedAt: Date };
+
+/**
+ * A call's exit code and streams (runCli's); `exec`, what its process then becomes, and
+ * `ownProcess` when it was refused as one that serves (Command.serves).
+ */
+export type Reply = {
+  code: number;
+  stdout: string;
+  stderr: string;
+  exec?: string[];
+  ownProcess?: true;
+};
+
+/** One CLI call: its argv and stdin, as its caller when one forwarded it, to its reply. */
 export type RunOne = (
   argv: string[],
-  stdin: string,
-) => Promise<{ code: number; stdout: string; stderr: string }>;
+  stdin: string | (() => Promise<string>),
+  caller?: Caller,
+) => Promise<Reply>;
 
-type Reply = { code: number; stdout: string; stderr: string };
 type Request = { id: number | null; args?: string[]; stdin: string };
 
 /** A usage failure as the envelope a `--json` call prints, so the caller reads it like any other. */
-const refused = (message: string): Reply => ({
+export const refused = (message: string): Reply => ({
   code: 2,
   stdout: `${JSON.stringify({ ok: false, error: { code: 'usage', message } })}\n`,
   stderr: '',
@@ -47,7 +62,7 @@ function parseRequest(line: string): Request {
  * Ends when stdin ends and every call has answered.
  */
 export async function serveCommands(io: Stdio, runOne: RunOne): Promise<void> {
-  const reply = (id: number | null, out: Reply) =>
+  const reply = (id: number | null, out: Pick<Reply, 'code' | 'stdout' | 'stderr'>) =>
     io.write(`${JSON.stringify({ id, code: out.code, stdout: out.stdout, stderr: out.stderr })}\n`);
   const calls = new Set<Promise<void>>();
   for await (const line of io.lines) {

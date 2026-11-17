@@ -3,6 +3,8 @@ import { wholeNumber } from '../input/flags.js';
 
 export const wait = defineCommand({
   name: 'wait',
+  // Up to its timeout, 30 minutes by default.
+  ownProcess: () => true,
   summary:
     'Block until each session is idle, waiting on a person, or over (--any: one of them), for scripts that cannot end a turn; past --timeout it returns the states so far with timeout and exits 1',
   args: ['ids...'],
