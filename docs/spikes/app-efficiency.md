@@ -129,3 +129,12 @@ The board read with the listing kept for a minute over idle sessions, 10 `sessio
 - **`phone serve`: no JS leak.** Its footprint grew from 104 MB to 476 MB in about 7 hours. Through its inspector (SIGUSR1), a forced GC took the heap from 107 MB used to 36 MB, and 60 s of allocation sampling retained 0.7 MB. Its 28 open handles do not grow. The growth is V8 and malloc keeping pages after peaks: 205 MB of V8 pages and 214 MB of malloc against 33 and 29 MB in a fresh `mesa`. The peaks come from work it repeats while a phone watches. It looked at the board up to every 2.5 s, 3.7 CPU-s a minute, and each look ran the Claude listing until #1236. A watched session's detail parses its whole transcript on every write (`readTurns`, 7 MB for a long session). One real unbounded cache was fixed: `keptDiffs` kept every session's and pull request's last diff forever, and now drops each once it is a minute old, at the next diff read.
 - **Tried and dropped:** `--max-old-space-size=128` through NODE_OPTIONS. Over 30 looks peak RSS went from 360 to 320 MB but CPU from 10 to 31 s, as NODE_OPTIONS also reaches the agents' Node children.
 - **Steady:** the app's Rust process (72 MB, down from 129 MB at the first look), the tmux server (6 MB), and `mesa serve` (exits with the app).
+
+### Addendum: live transcript reads (#1228)
+
+A watched session's detail and the app's chat read a transcript's last 2 MiB (`MESSAGE_TAIL`; the "whole transcript" above was that tail of a 7 MB file) and parsed every line of it on each write. `liveTail` (packages/core/src/lib/live-tail.ts) now keeps each file's parsed lines, a process up to 4 files, each dropped 5 minutes after its last read, and reads only the bytes after its offset; a file that shrank, was replaced, or was rewritten in place is read anew. Results are unchanged, the window still sliding at 2 MiB. Measured on an invented 7.0 MiB transcript in the fixtures' shape (794 turns), 200 appends of one turn each with a read after each, one process per run, three runs:
+
+| | CPU for 200 reads | per read | peak RSS |
+| --- | --- | --- | --- |
+| Full tail parse (before) | 680 to 734 ms | 3.4 to 3.7 ms | 306 to 341 MB |
+| Incremental (after) | 62 to 76 ms | 0.3 to 0.4 ms | 111 to 112 MB |

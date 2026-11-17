@@ -1,7 +1,8 @@
 import { type Dirent, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileHead } from '../../lib/file-head.js';
-import { lastMatchingLine, tailLines } from '../../lib/file-tail.js';
+import { lastMatchingLine } from '../../lib/file-tail.js';
+import { liveTail } from '../../lib/live-tail.js';
 import { readTurns } from '../steps.js';
 import {
   type Block,
@@ -300,6 +301,9 @@ function messageIn(line: string) {
   return messageOf(entry.message, entry.timestamp, line);
 }
 
+/** What one line says to readTurns, parsed once and kept by liveTail. */
+const turnLine = (line: string) => ({ message: messageIn(line), events: claudeStepEvents(line) });
+
 /** Conversation `id`'s transcript. */
 const claudeFile = (where: Where, id: string) =>
   transcriptFile(claudeTranscripts(where.home, where.env), id);
@@ -311,8 +315,15 @@ export const claudeTranscriptReader: Transcripts<'claude'> = {
   name: (where, id, file = claudeFile(where, id)) => (file ? claudeName(file) : undefined),
   prompts: (file, count) => promptsIn(file, userText, count),
   messages: (file) => {
-    const { lines, truncated } = tailLines(file, MESSAGE_TAIL);
-    return { ...readTurns(lines, messageIn, claudeStepEvents), truncated };
+    const { values, truncated } = liveTail(file, MESSAGE_TAIL, turnLine);
+    return {
+      ...readTurns(
+        values,
+        (line) => line.message,
+        (line) => line.events,
+      ),
+      truncated,
+    };
   },
   branch: claudeBranch,
   folder: claudeFolder,
