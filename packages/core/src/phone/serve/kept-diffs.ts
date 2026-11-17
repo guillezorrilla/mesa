@@ -24,7 +24,10 @@ export function keptDiffs<A, T>(
     if (reuse && last && now() - last.at < DIFF_KEPT_MS) return last.read;
     const next = read(of);
     kept.set(key, { at: now(), read: next });
-    next.catch(() => kept.delete(key));
+    // A failed read is not kept, unless a newer read replaced it meanwhile.
+    next.catch(() => {
+      if (kept.get(key)?.read === next) kept.delete(key);
+    });
     return next;
   };
   /** How many reads it holds now. */

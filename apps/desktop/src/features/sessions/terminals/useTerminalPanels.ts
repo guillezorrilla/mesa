@@ -34,16 +34,19 @@ export function useTerminalPanels(
   useEffect(() => {
     const id = selectedSession;
     if (id && rows?.some((row) => row.id === id && row.managed && !exited(row))) {
-      recent.current = [...recent.current.filter((each) => each !== id), id];
+      // Only the latest few matter; the rest would only grow.
+      recent.current = [...recent.current.filter((each) => each !== id), id].slice(
+        -(KEPT_HIDDEN + 1),
+      );
       setPanels((open) => {
         const next = open.includes(id) ? open : [...open, id];
         if (gridMode) return next;
-        const kept = new Set([...recent.current.slice(-(KEPT_HIDDEN + 1)), zoomed]);
+        const kept = new Set(recent.current);
         const trimmed = next.filter((each) => kept.has(each));
         return trimmed.length === next.length ? next : trimmed;
       });
     }
-  }, [rows, selectedSession, gridMode, zoomed]);
+  }, [rows, selectedSession, gridMode]);
   return {
     panels,
     setPanels,
