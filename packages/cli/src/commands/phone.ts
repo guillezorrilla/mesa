@@ -55,6 +55,7 @@ export const phoneServe = defineCommand({
     'Answer the paired phone in the foreground: sessions, replies, output and live changes (the LaunchAgent runs this)',
   example: 'mesa phone serve',
   // Runs until the pairing ends or the process is stopped; a stopped one's lock is taken over.
+  serves: () => true,
   run: async ({ mesa }) => {
     const data = await mesa.phone.serve();
     const text =

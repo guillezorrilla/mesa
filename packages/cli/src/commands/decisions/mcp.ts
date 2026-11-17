@@ -1,6 +1,6 @@
-import { VERSION } from '../../cli.js';
 import { defineCommand } from '../../command.js';
 import { columns } from '../../output/columns.js';
+import { VERSION } from '../../version.js';
 
 export const decisionsMcp = defineCommand({
   name: 'decisions mcp',

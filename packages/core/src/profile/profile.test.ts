@@ -3,9 +3,9 @@ import { expect, test } from 'vitest';
 import { DEFAULT_COMMIT_RECIPE, DEFAULT_PULL_REQUEST_RECIPE } from '../git/recipes.js';
 import { lockDeps, tempDir, thrown } from '../testing/index.js';
 import { loadConfig, setConfigValue } from './config.js';
-import { profilePaths } from './paths.js';
+import { profilePaths, resolveProfileName } from './paths.js';
 import { DEFAULT_APPEARANCE, DEFAULT_TERMINAL_PREFERENCES } from './preferences.js';
-import { initProfile, openProfile, resolveProfileName } from './profile.js';
+import { initProfile, openProfile } from './profile.js';
 import { DEFAULT_SHORTCUTS } from './shortcuts.js';
 
 test('the flag wins over MESA_PROFILE, which wins over default', () => {
@@ -27,6 +27,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     logs: '/h/.mesa/work/sessions/logs',
     journals: '/h/.mesa/work/sessions/journals',
     hosts: '/h/.mesa/work/hosts',
+    commandSocket: '/h/.mesa/work/run/serve.sock',
     runs: '/h/.mesa/work/sessions/runs',
     checks: '/h/.mesa/work/checks',
     costs: '/h/.mesa/work/sessions/costs',

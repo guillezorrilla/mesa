@@ -134,8 +134,9 @@ export type Command = {
   /** One invocation an agent can copy; a test checks it parses as this command. */
   example: string;
   /**
-   * Whether a run with these flags serves its own stdio: `mesa serve` refuses it before it runs,
-   * since there stdout carries the replies.
+   * Whether a run with these flags serves, on its own stdio or until it is stopped: `mesa serve`
+   * refuses it before it runs, since there stdout carries the replies and a call is meant to end,
+   * and a forwarded call runs it in its caller's process instead (ADR-0032).
    */
   serves?: (flags: Record<string, unknown>) => boolean;
   run: (invocation: Invocation) => Output | Promise<Output>;

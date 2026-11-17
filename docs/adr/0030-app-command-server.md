@@ -1,6 +1,6 @@
 # ADR-0030: The app sends its commands to one long-lived mesa serve
 
-Status: accepted, amends ADR-0007
+Status: accepted, amends ADR-0007; amended 2026-11-16 (the Command socket, ADR-0032)
 Date: 2026-11-16
 
 ## Context
@@ -13,7 +13,7 @@ ADR-0007 has `run_mesa` spawn the CLI once per call. Each spawn of the bundled e
 
 - `mesa serve` is the Command server. It reads one JSON request a line on stdin, `{"id","args","stdin"}`, runs it with `runCli` exactly as a spawn of `mesa <args>` would (no terminal, no one to ask, the request's stdin, the request's argv, its start time now), and writes one reply a line, `{"id","code","stdout","stderr"}`, when that call ends. Calls overlap and answer in any order; a line that is no request gets a reply with id null. It ends when stdin closes and every call has answered.
 - `run_mesa` (`src-tauri/src/server.rs`) starts one `mesa serve` on its first call, with the same command, environment and `MESA_CLI` override a spawn uses, writes each call to it, and waits for the reply with that id. A call that never reached a server (it cannot start, or its stdin is closed) is spawned as before. A call in flight when the server exits fails with an error rather than being run again, since it may already have acted. The next call starts a new server. A server that ends without answering anything (a mesa without `serve`) is not started again, and every later call spawns.
-- Everything else that runs the CLI keeps spawning: the agents' hooks, tmux's pane-died hook, the notification helper, the updater and the terminal's attach.
+- Everything else that runs the CLI keeps spawning: the agents' hooks, tmux's pane-died hook, the notification helper, the updater and the terminal's attach. (Amended by ADR-0032: such a start forwards its call to this server's Command socket when one answers.)
 
 ## Evidence
 

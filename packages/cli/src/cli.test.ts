@@ -1,8 +1,9 @@
 import { tempDir } from '@mesa/core/testing';
 import { expect, test } from 'vitest';
-import { runCli, VERSION } from './cli.js';
+import { runCli } from './cli.js';
 import { defineCommand } from './command.js';
 import { cliDeps } from './testing.js';
+import { VERSION } from './version.js';
 
 let seen: { args: object; loud: boolean | undefined; profile: string } | undefined;
 const greet = defineCommand({

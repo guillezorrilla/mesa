@@ -33,6 +33,8 @@ export function profileService(ctx: MesaContext) {
   };
   return {
     info: (): ProfileInfo => ({ profile, dir: paths.root }),
+    /** Where `mesa serve` answers the calls a `mesa` start forwards (ADR-0032). */
+    commandSocket: () => paths.commandSocket,
     init: (input: { vault: string; agent?: string }) => {
       const vault = ctx.absolute(input.vault);
       return record(

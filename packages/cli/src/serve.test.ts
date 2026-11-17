@@ -45,12 +45,8 @@ test('mesa serve answers each request line with its call, and refuses what it ca
     'mesa serve: not a request line',
   ]);
   // Its stdout would be its own protocol's, not a reply: refused before it runs (no host started).
-  expect(refusal(byId.get(4)).message).toBe(
-    'mesa serve: serve serves its own stdio; run it as its own process',
-  );
-  expect(refusal(byId.get(5)).message).toBe(
-    'mesa serve: host serves its own stdio; run it as its own process',
-  );
+  expect(refusal(byId.get(4)).message).toBe('mesa serve: serve serves; run it as its own process');
+  expect(refusal(byId.get(5)).message).toBe('mesa serve: host serves; run it as its own process');
   // The same command printing, not serving, runs (the app's Session details).
   expect(JSON.parse(byId.get(6).stdout).ok).toBe(true);
 });
