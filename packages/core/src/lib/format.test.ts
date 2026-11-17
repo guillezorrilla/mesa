@@ -7,6 +7,7 @@ import {
   money,
   odds,
   percent,
+  plainLine,
   usd,
 } from './format.js';
 
@@ -49,4 +50,17 @@ test('sizes on disk read in powers of 1,000, one decimal past bytes', () => {
     '12.3 GB',
     '1.0 MB',
   ]);
+});
+
+test("a reply's preview line is plain text: no Markdown marks, snake_case kept", () => {
+  expect(plainLine('- **tide.ts** (`~/tide-pool/tide.ts`) is one line\nmore')).toBe(
+    'tide.ts (~/tide-pool/tide.ts) is one line',
+  );
+  expect(plainLine('## Done: see [the PR](https://example.com/1) and *note*')).toBe(
+    'Done: see the PR and note',
+  );
+  expect(plainLine('1. kept tide_table and 2 * 3 as written')).toBe(
+    'kept tide_table and 2 * 3 as written',
+  );
+  expect(plainLine('> __quoted__ line')).toBe('quoted line');
 });

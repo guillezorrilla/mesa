@@ -52,3 +52,15 @@ export function formatBytes(bytes: number): string {
 
 /** A text's first line, without its leading blank lines and spaces: a title or a one-line summary. */
 export const firstLine = (text: string) => text.trim().split(/\r?\n/, 1)[0] ?? '';
+
+/**
+ * A Markdown text's first line as plain text, for a one-line preview: no heading, list or quote
+ * marker, no bold, italic or code marks, and a link as its words. Snake_case and lone asterisks stay.
+ */
+export const plainLine = (text: string) =>
+  firstLine(text)
+    .replace(/^(?:#{1,6}\s+|>\s*|[-*+]\s+|\d+[.)]\s+)/, '')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/(\*\*|__)(?=\S)(.+?)(?<=\S)\1/g, '$2')
+    .replace(/(?<![\w*])\*(?=\S)([^*]+?)(?<=\S)\*(?![\w*])/g, '$1')
+    .replace(/`([^`]+)`/g, '$1');
