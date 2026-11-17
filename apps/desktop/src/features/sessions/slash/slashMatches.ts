@@ -12,10 +12,11 @@ export const slashQuery = (text: string) => (/^\/[^\s]*$/.test(text) ? text.slic
 /** Commands matching `query` (substring of name or description), grouped Built-in, Commands, Skills. */
 export function slashGroups(commands: SlashCommand[], query: string): SlashGroup[] {
   const q = query.toLowerCase();
-  // Name matches first (a prefix before the rest), then description-only matches.
+  // The name typed in full first (/usage before /usage-credits), then a prefix, then the rest,
+  // then description-only matches.
   const rank = (c: SlashCommand) => {
     const name = c.name.toLowerCase();
-    return name.startsWith(q) ? 0 : name.includes(q) ? 1 : 2;
+    return name === q ? 0 : name.startsWith(q) ? 1 : name.includes(q) ? 2 : 3;
   };
   const hit = commands
     .filter((c) => c.name.toLowerCase().includes(q) || c.description.toLowerCase().includes(q))
