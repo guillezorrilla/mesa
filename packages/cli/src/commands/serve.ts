@@ -17,6 +17,10 @@ export const serve = defineCommand({
     data: null,
     text: '',
     serve: async (io) => {
+      // Stdio first: the app writes its first calls the moment it starts this process, and a line
+      // read before anything iterates the lines is dropped, so a slow socket setup (a stale socket
+      // to probe) once lost them and left the app on its loading screen.
+      const served = serveCommands(io, rerun);
       const identity = { version: VERSION, build: BUILD };
       const socket = await listenCommands(mesa.commandSocket(), identity, rerun).catch(
         (error: unknown) => {
@@ -28,7 +32,7 @@ export const serve = defineCommand({
         },
       );
       try {
-        await serveCommands(io, rerun);
+        await served;
       } finally {
         await socket?.close();
       }

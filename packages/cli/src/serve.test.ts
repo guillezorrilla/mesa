@@ -1,3 +1,5 @@
+import { createInterface } from 'node:readline';
+import { PassThrough } from 'node:stream';
 import { tempDir } from '@mesa/core/testing';
 import { expect, test } from 'vitest';
 import { runCli } from './cli.js';
@@ -82,4 +84,22 @@ test('calls overlap: a quick one answers before a slow one sent first, each with
     { id: 3, code: 1, stdout: '', stderr: 'it broke\n' },
     { id: 1, code: 0, stdout: 'slow:first', stderr: '' },
   ]);
+});
+
+test('a call written the moment mesa serve starts is answered, while its socket is still being set up', async () => {
+  const out = await runCli(['serve'], cliDeps(tempDir()));
+  // As the entrypoint gives them: a line reader over stdin, reading from the start.
+  const stdin = new PassThrough();
+  const written: string[] = [];
+  const served = out.serve?.({
+    lines: createInterface({ input: stdin, crlfDelay: Number.POSITIVE_INFINITY }),
+    write: (text) => written.push(text),
+    log: () => {},
+  });
+  // The app writes at once, before the Command socket is set up.
+  stdin.write('{"id":1,"args":["--json","--version"]}\n');
+  for (let i = 0; i < 100 && written.length === 0; i++) await new Promise((r) => setTimeout(r, 10));
+  expect(written.map((line) => JSON.parse(line).id)).toEqual([1]);
+  stdin.end();
+  await served;
 });
