@@ -2,6 +2,56 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.7.0 - 2026-11-20
+
+### Added
+
+- Command cards in Chat: a slash command such as `/usage`, `/model` or Codex's `/status` shows its panel in the chat in its own colours, live while it is open, with Esc, arrow, Tab and Enter keys to drive it and Open in terminal for anything more. (#1176)
+- Chat mode for sessions: switch a Claude Code or Codex session between Terminal and Chat from its header or with Cmd+Shift+J, read its prompts and replies as a conversation with formatted Markdown, and type into the same running agent from the composer. Settings > Terminal chooses which view new sessions open in, and `mesa chat <id>` prints the conversation. (#1174)
+- Prompts and tool steps in chat: a permission or question prompt is answered from the chat, and what the agent did between replies shows as one row such as "Read 3 files, ran 2 commands" that opens to the steps. (#1175)
+- Slash commands in chat: typing `/` at the start of the composer lists the commands and skills your session's agent has, Claude Code or Codex, and `mesa commands` prints the same list. (#1173)
+- Leftover tmux servers in the Doctor: it lists the tmux servers left behind by profiles you deleted, and Stop them (or `mesa doctor --fix`) shuts them down, leaving alone any used within the last hour. (#1237)
+- Unread sessions stand out on the phone: in the Agents list a session with news you have not read is tinted green, as on the Mac, and opening it on the phone marks it read. (#1244)
+- Chat (beta) answers and stops from the keyboard: a permission or question card shows its options numbered, a number key selects one and Enter gives it, and while the agent works the Send button becomes Stop and Esc stops it, also from the CLI with `mesa interrupt`. (#1232)
+- Model, effort, mode, context and usage controls for Structured sessions: a row under Chat's composer shows what the agent confirmed and changes it while the session runs, and `mesa sessions model`, `mesa sessions mode` and `mesa sessions controls` do the same from the CLI (Codex takes a new model and effort from its next turn). (#1213)
+- Structured sessions on the phone: a session's screen shows the same chat as the Mac's, a reply growing as the agent writes it, and a reply sent from the phone reaches the agent through Mesa. (#1215)
+- Prompt suggestions in Structured chat: after a turn, the prompt Claude Code predicts you send next shows dim in the empty composer, Tab or the Right arrow takes it and typing replaces it, and `mesa chat --json` includes it as `suggestion`. (#1221)
+- Answer a Structured session's permission and question requests from Mesa: the card in the app, the phone and `mesa answer` allow (always, where Claude offers it) or deny with an optional reason, approve or decline a Codex command, and send an AskUserQuestion answer back as the chosen options or your typed text. (#1212)
+- Messages reach Structured sessions: `mesa send`, child reports and `mesa reports --deliver` go to the agent through Mesa, a message sent mid-turn says it is queued, `mesa chat` shows a reply as it streams, and `mesa chat --follow` prints each new or changed item as a JSON line. (#1208)
+- Settings and model cards in Structured chat: `/config` opens a searchable form of every setting the agent lists, with switches, choices and current values, and each change shows the agent's answer in the card; `/model` opens the same model and effort picker as the composer's footer, and `mesa sessions config` reads the current values from the CLI. (#1219)
+- Usage and context cards in Structured chat: `/usage` shows each limit as a bar with when it resets and what contributes to it in a collapsed list, `/context` shows the window used and each category's share, and each card keeps the raw text one click away; the usage popover under the composer shows the same bars. (#1220)
+- Structured view for Codex sessions: `mesa open --agent codex --view structured` (or Structured as the default in Settings) runs Codex through its app-server under Mesa, with its reply in `mesa chat` as it streams and a message sent mid-turn steering the turn, and the Terminal | Chat control (or `mesa sessions view`) switches it to Codex's own TUI on the same thread and back. (#1210)
+- Structured view for Claude Code sessions: `mesa open --view structured` (and `mesa worker --view structured`, or Structured as the default in Settings) runs the agent under Mesa in its window, streaming every event to a journal that `mesa logs` prints. (#1207)
+- Switch a Claude Code session between Structured and Terminal view: the Terminal | Chat control (or `mesa sessions view <id> structured|terminal`) stops one and resumes the same conversation in the same window, and while the agent is working it asks first, with Interrupt and switch or Cancel. (#1211)
+
+### Changed
+
+- Mesa uses far less CPU while it watches your sessions: the app now keeps one helper process for its commands instead of starting a new one for every refresh, about half the CPU and one process instead of dozens a minute. (#1230)
+- The Chat view is now labelled Chat (beta) in the session bar, the switch dialog and Settings; Terminal stays the default for new sessions. (#1223)
+- Chat mode reads like a designed chat: one wide column from the replies to a composer docked as a card at the foot, tables drawn as tables, inline code as chips, times on hover, a + to attach an image, and an Edited card after each turn that changed files, whose See all opens the diff. (#1180)
+- Mesa refreshes the board with about half the CPU: it asks Claude Code for its list of running sessions at most once a minute instead of on every refresh, and every Mesa command and hook starts faster. A Claude session started outside Mesa may take up to a minute to appear. (#1236)
+- Agent hooks and mesa commands run about four times lighter while the app is open: they hand their work to the app's helper process instead of loading all of Mesa each time, and still run on their own when the app is closed. `mesa phone serve` and the commands that wait (`mesa wait`, `run`, `check`, `sources connect`, `vault capture`, `import` and `import refresh`) always run as their own process. (#1242)
+- The /config card in Chat reads like a settings screen: one list grouped by topic, each setting with a readable name, a short description and one control, and settings at their default marked Default with a reset once changed, and Escape clears the search before it closes the card. (#1235)
+- Cheaper coordinator wakes: a child report now asks the coordinator to act in one batch of commands, and mesa worker, open, stop and progress no longer print the whole session record, goal included, back to an agent that just typed it. (#1167)
+- A session's chat and the phone's view of a watched session update with less work: each write to a long transcript reads only its new lines instead of the last 2 MB again, about ten times less CPU and a third of the memory peak. (#1241)
+- Work on the phone: tickets are grouped by status (In Progress, Ready, Merged and the rest, done ones folded) with a chip per followed view as on the Mac, pull requests get a counted chip per review status, and the app remembers the tab's PRs or Tickets choice, the project, the view and the Agents filters when you leave and come back. (#1165)
+- Quieter child reports: a coordinator is no longer woken just because a worker's turn ended without a report or a worker is waiting on you. That news arrives with the worker's next report, or alone after 15 idle minutes, which cut about a quarter of the tokens coordinators spent on reports. (#1166)
+- Lighter sessions: Claude Code, Codex and Antigravity sessions now read and save the vault and ask the Decision model through the mesa CLI and its skills, so each session no longer keeps two Mesa server processes of about 50 to 70 MB running. Run Update hooks once so Codex runs the mesa commands without asking and Antigravity drops Mesa's old server entries. (#1239)
+- Chat (beta) acts faster: sending, answering a permission or question, and changing the model, effort or mode now run inside the chat's open live stream instead of starting Mesa again each time, so an answer lands in under a tenth of a second and a model or mode change in about a third. (#1225)
+- Chat (beta) answers at once: a model, effort or mode you pick shows straight away with a spinner until the agent confirms, a prompt or slash command shows the moment you press Enter, a permission or question card appears as soon as the agent asks, and a slash command run again shows its card again. (#1224)
+- Chat (beta) picks its model and mode as Claude Desktop does: the footer opens a menu with the models by name and number keys 1 to 4, an Effort submenu and More models, and a Mode menu that names each mode and what it does, for Claude Code and now Codex too, whose approval presets can change mid-session; typing /model opens the menu instead of a card. (#1231)
+- Chat on the live stream for Structured sessions: a reply appears as it is written and settles in place, the slash menu lists the commands and skills the session's agent reported, and slash commands show their output as text instead of a card read off the terminal. (#1214)
+
+### Fixed
+
+- The app window no longer scrolls as a whole: a trackpad scroll or a focus change can't push the title bar out of view and leave empty space at the bottom. (#1217)
+- Session cards show the agent's last reply as plain text: no stray asterisks, backticks or list dashes from its Markdown. (#1248)
+- Slash commands in Chat put the command you typed in full first, so typing /usage and pressing Enter runs /usage, not /usage-credits. (#1247)
+- Switching a Claude Code session to Chat no longer ends it when Claude's experimental Code Mode is on: Claude resumes a Code Mode conversation only in its terminal, so Mesa now says so and keeps the session in Terminal view; restoring such a session reopens it in Terminal view. (#1250)
+- Switching a session between Terminal and Chat keeps it in the same window, so the app's Terminal goes on showing that session's agent instead of another session's. (#1226)
+- Copying from a session's terminal keeps box drawing, accents and other non-ASCII text intact, instead of pasting as garbled characters like `‚îÇ`. (#1216)
+- The app no longer grows in memory as you click through sessions: it keeps the selected session's terminal and the three you looked at most recently, and closes older hidden ones, which attach again with their history when you select them. (#1240)
+
 ## 0.6.0 - 2026-11-14
 
 ### Added
