@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { runningConversation } from '../../agents/claude/listing.js';
 import { claudeTranscripts } from '../../agents/claude/paths.js';
-import { transcriptFile } from '../../agents/claude/transcripts.js';
+import { inCodeMode, transcriptFile } from '../../agents/claude/transcripts.js';
 import { MesaError } from '../../lib/result.js';
 import { findProject } from '../../projects/projects.js';
 import { quitAgent, type StopDeps } from '../end/stop.js';
@@ -57,13 +57,16 @@ export async function switchView(
         ? 'has no conversation yet; send it a message first'
         : 'has no Claude session id to resume',
     );
+  const transcript =
+    agent === 'claude'
+      ? transcriptFile(claudeTranscripts(deps.home, deps.env), sessionId)
+      : undefined;
   // `claude --resume` needs a transcript; the host starts a new conversation without one.
-  if (
-    to === 'terminal' &&
-    agent === 'claude' &&
-    !transcriptFile(claudeTranscripts(deps.home, deps.env), sessionId)
-  )
+  if (to === 'terminal' && agent === 'claude' && !transcript)
     throw refuse('has no conversation yet; send it a message first');
+  // Refused before the TUI stops: the host's `claude -p` would fail on it and end the session.
+  if (to === 'structured' && transcript && inCodeMode(transcript))
+    throw refuse("runs in Claude's Code Mode, which only Terminal view can resume");
   const pane = await deps.tmux.findWindow(windowOf(found));
   if (!pane || pane.dead) throw refuse(`is not running; mesa resume ${id} first`);
   const project =
