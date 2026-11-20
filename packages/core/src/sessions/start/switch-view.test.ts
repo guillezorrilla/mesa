@@ -148,6 +148,24 @@ describe('switching a session between Structured and Terminal', () => {
     expect(after.switching).toBeUndefined();
   });
 
+  it("refuses Structured view for a conversation in Claude's Code Mode, leaving the TUI running", async () => {
+    const w = world();
+    const { result: plain } = await w.mesa.sessions.open('lantern-cove');
+    const id = plain.agentSessionId ?? '';
+    plantTranscript(w.home, id, w.home, [
+      { type: 'repl-mode', replMode: true, sessionId: id },
+      { type: 'user', sessionId: id, cwd: w.home, message: { role: 'user', content: 'Hello' } },
+    ]);
+    await expect(w.mesa.sessions.switchView(plain.id, 'structured')).rejects.toThrow(
+      /runs in Claude's Code Mode, which only Terminal view can resume/,
+    );
+    expect(w.agents.tmux.respawned).toEqual([]);
+    expect(w.agents.tmux.windows.find((x) => x.window === plain.tmux.window)?.dead).toBeFalsy();
+    const after = testStore(w.home).get(plain.id);
+    expect(after.view).toBeUndefined();
+    expect(after.switching).toBeUndefined();
+  });
+
   it('records the exit when the new process fails to start after the old one stopped', async () => {
     const w = world();
     const { result: plain } = await w.mesa.sessions.open('lantern-cove');

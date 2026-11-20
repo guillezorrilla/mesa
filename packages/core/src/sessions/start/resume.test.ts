@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import {
   agentWorld,
+  plantTranscript,
   profilePaths,
   projectProfile,
   steppingClock,
@@ -108,4 +109,19 @@ test('a resume whose start fails gives its claim back', async () => {
   world.tmux.failing = [];
   const { record } = (await mesa.sessions.resume(opened.id)).result;
   expect((await mesa.sessions.show(opened.id)).resumedBy).toBe(record.id);
+});
+
+test('resume reopens a Structured session in Code Mode in Terminal view, which alone resumes it', async () => {
+  const world = agentWorld();
+  const { mesa, home } = projectProfile(world.run);
+  const { result: opened } = await mesa.sessions.open('lantern-cove', { view: 'structured' });
+  const id = opened.agentSessionId ?? '';
+  plantTranscript(home, id, home, [
+    { type: 'repl-mode', replMode: true, sessionId: id },
+    { type: 'user', sessionId: id, cwd: home, message: { role: 'user', content: 'Hello' } },
+  ]);
+  await mesa.sessions.stop(opened.id, true);
+  const { record } = (await mesa.sessions.resume(opened.id)).result;
+  expect(record.view).toBeUndefined();
+  expect(world.tmux.windows.at(-1)?.launch).toContain(`claude --resume ${id}`);
 });

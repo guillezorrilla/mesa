@@ -2,13 +2,15 @@ import { existsSync } from 'node:fs';
 import { AGENTS } from '../../agents/agents.js';
 import { prepareAntigravityLog } from '../../agents/antigravity/log.js';
 import { claudeBackgroundAttach } from '../../agents/claude/background.js';
+import { claudeTranscripts } from '../../agents/claude/paths.js';
+import { inCodeMode, transcriptFile } from '../../agents/claude/transcripts.js';
 import { readyAgent } from '../../doctor/probe.js';
 import { MesaError, toFail } from '../../lib/result.js';
 import { findProject } from '../../projects/projects.js';
 import { joinWarnings } from '../../receipts/recorder.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import { requireOwnWorktree, resumerOf } from '../record/holders.js';
-import { carriedReview, ending, type SessionRecord } from '../record/record.js';
+import { carriedReview, ending, type SessionRecord, type View } from '../record/record.js';
 import { killIfThere, type TmuxBackend } from '../tmux/backend.js';
 import { windowOf } from '../window/window-name.js';
 import { additionalDirs } from './additional.js';
@@ -81,7 +83,7 @@ export async function resumeSession(
       model: old.model,
       effort: old.effort,
       background: old.background,
-      view: old.view,
+      view: resumedView(deps, old),
       backgroundId: old.backgroundId,
       agentSessionId: old.agentSessionId,
       // The same conversation, so the same goal; it is not typed in again.
@@ -126,6 +128,16 @@ export async function resumeSession(
     const why = `session ${id} not marked ended: ${toFail(error).error.message}`;
     return { record, from: old, warning: joinWarnings(warning, why) };
   }
+}
+
+/**
+ * The view a resume reopens `old` in: its own, except a Structured Claude conversation in Code
+ * Mode, which `claude -p` refuses to resume, reopens in Terminal view.
+ */
+function resumedView(deps: Pick<LaunchDeps, 'home' | 'env'>, old: SessionRecord): View | undefined {
+  if (old.view !== 'structured' || old.agent !== 'claude' || !old.agentSessionId) return old.view;
+  const file = transcriptFile(claudeTranscripts(deps.home, deps.env), old.agentSessionId);
+  return file && inCodeMode(file) ? undefined : old.view;
 }
 
 /**

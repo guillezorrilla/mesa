@@ -32,6 +32,22 @@ export function transcriptFile(transcripts: string, id: string): string | undefi
     .find((f) => existsSync(f));
 }
 
+/**
+ * Whether the conversation in transcript `file` runs in Claude's Code Mode (its last `repl-mode`
+ * line), which only the interactive TUI resumes: `claude -p --resume` refuses it.
+ */
+export function inCodeMode(file: string): boolean {
+  const mode = lastMatchingLine(file, (line) => {
+    if (!line.includes('"repl-mode"')) return undefined;
+    try {
+      return (JSON.parse(line) as { replMode?: unknown }).replMode === true;
+    } catch {
+      return undefined;
+    }
+  });
+  return mode ?? false;
+}
+
 /** The folder a transcript's session ran in: the first line naming one. */
 export function transcriptCwd(transcripts: string, id: string): string | undefined {
   const file = transcriptFile(transcripts, id);
