@@ -52,7 +52,8 @@ function levelLabel(name: string, count: number, dot?: string) {
  */
 export function LogsPanel(props: {
   watch: LogWatch;
-  onSend: (text: string) => void;
+  /** Puts text in the session's prompt field; none for a session with no agent to send to. */
+  onSend?: (text: string) => boolean;
   onHide: () => void;
   onClose: () => void;
 }) {
@@ -60,6 +61,8 @@ export function LogsPanel(props: {
   const [text, setText] = useState('');
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [intellij, setIntellij] = useState(false);
+  /** The session showed no prompt field for the last Send: the lines stay selected. */
+  const [unsent, setUnsent] = useState(false);
   const list = useRef<HTMLDivElement>(null);
   const atEnd = useRef(true);
   const entries = watch.entries ?? [];
@@ -82,13 +85,14 @@ export function LogsPanel(props: {
       return next;
     });
   const send = () => {
-    props.onSend(
+    const sent = props.onSend?.(
       logPrompt(
         source ? sourceLabel(source) : (watch.source ?? 'server'),
         entries.filter((entry) => picked.has(entry.key)),
       ),
     );
-    setPicked(new Set());
+    setUnsent(!sent);
+    if (sent) setPicked(new Set());
   };
   const noSources = watch.sources?.length === 0;
   return (
@@ -210,9 +214,13 @@ export function LogsPanel(props: {
       </div>
       <footer className="flex min-h-11 shrink-0 items-center gap-2 border-t px-3 py-2 text-xs text-muted-foreground">
         <span className="mr-auto" role="status">
-          {picked.size
-            ? `${picked.size} ${picked.size === 1 ? 'line' : 'lines'} selected`
-            : 'Click lines to select them'}
+          {!props.onSend
+            ? 'A terminal session has no agent to send lines to'
+            : unsent && picked.size
+              ? 'This session takes no prompt now; start or resume it first'
+              : picked.size
+                ? `${picked.size} ${picked.size === 1 ? 'line' : 'lines'} selected`
+                : 'Click lines to select them'}
         </span>
         <Button
           size="sm"
@@ -222,7 +230,7 @@ export function LogsPanel(props: {
         >
           Clear
         </Button>
-        <Button size="sm" disabled={!picked.size} onClick={send}>
+        <Button size="sm" disabled={!picked.size || !props.onSend} onClick={send}>
           <SendHorizontal aria-hidden /> Send to agent
         </Button>
       </footer>

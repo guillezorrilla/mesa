@@ -296,7 +296,12 @@ export function SessionsScreen(
           }}
           logs={
             logsShown
-              ? { watch: logs, send: insert.showAndInsert, hide: () => void hideLogs() }
+              ? {
+                  watch: logs,
+                  // A plain terminal has no prompt field to fill.
+                  send: selected?.agent === 'terminal' ? undefined : insert.showAndInsert,
+                  hide: () => void hideLogs(),
+                }
               : undefined
           }
         />

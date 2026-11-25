@@ -32,7 +32,7 @@ const entry = (
 });
 
 /** The panel over its stream, open or closed, and the dot the session bar would show. */
-function Harness(props: { onSend: (text: string) => void }) {
+function Harness(props: { onSend: (text: string) => boolean }) {
   const [open, setOpen] = useState(true);
   const watch = useLogWatch('lantern-cove', open);
   return (
@@ -61,7 +61,7 @@ test('the picked source streams in, errors tinted with their stack; picked lines
     'logs sources': () => envelope({ sources: SOURCES }),
     logs: (args) => envelope({ source: args.at(-1), entries }),
   });
-  const onSend = vi.fn();
+  const onSend = vi.fn(() => true);
   const byTestId = await renderWithMesa(<Harness onSend={onSend} />, bridge);
   await act(async () => vi.advanceTimersByTimeAsync(10));
   const rows = () => [...document.querySelectorAll<HTMLElement>('[role="option"]')];
@@ -110,7 +110,7 @@ test('a new error while the panel is closed lights the dot; showing Errors clear
     'logs sources': () => envelope({ sources: SOURCES }),
     logs: (args) => envelope({ source: args.at(-1), entries }),
   });
-  const byTestId = await renderWithMesa(<Harness onSend={() => {}} />, bridge);
+  const byTestId = await renderWithMesa(<Harness onSend={() => true} />, bridge);
   await click(byTestId('toggle')[0]);
   await act(async () => vi.advanceTimersByTimeAsync(LOGS_POLL_MS));
   expect(byTestId('dot')).toHaveLength(0);
@@ -144,7 +144,7 @@ test('with no source, the empty state says what to do and opens the IntelliJ ste
         entries: [entry('2026-01-02T10:11:12.345Z', 'error', 'boom')],
       }),
   });
-  const byTestId = await renderWithMesa(<Harness onSend={() => {}} />, bridge);
+  const byTestId = await renderWithMesa(<Harness onSend={() => true} />, bridge);
   await act(async () => vi.advanceTimersByTimeAsync(10));
   expect(document.body.textContent).toContain(
     'No running containers or server sessions for this project. Start the server with Docker or in a Mesa terminal session, or show IntelliJ logs.',

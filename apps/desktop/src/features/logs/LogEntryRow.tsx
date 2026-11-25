@@ -39,9 +39,11 @@ export const LogEntryRow = memo(function LogEntryRow(props: {
       <span data-level className="font-medium">
         {levelName(entry)}
       </span>
-      <span className="whitespace-pre-wrap break-words">
+      <span className="whitespace-pre-wrap [overflow-wrap:anywhere] [tab-size:2]">
         {entry.message}
-        {entry.stack && <span className="block text-muted-foreground">{entry.stack}</span>}
+        {entry.stack && (
+          <span className="block break-all text-muted-foreground">{entry.stack}</span>
+        )}
       </span>
     </div>
   );

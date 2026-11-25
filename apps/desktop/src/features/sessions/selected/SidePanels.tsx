@@ -12,7 +12,8 @@ import type { OpenPanel } from './useSidePanel';
 /** The Logs panel's stream (useLogWatch), its Send to agent, and its Hide for this project. */
 export type LogsActions = {
   watch: LogWatch;
-  send: (text: string) => void;
+  /** None for a session with no agent (a plain terminal). */
+  send?: (text: string) => boolean;
   hide: () => void;
 };
 

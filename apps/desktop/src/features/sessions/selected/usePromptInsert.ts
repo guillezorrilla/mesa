@@ -17,11 +17,16 @@ export function usePromptInsert(
     field.setRangeText(text, field.selectionStart, field.selectionEnd, 'end');
     field.focus();
   }, []);
-  /** Opens the Session actions menu the field sits in, so the text shows, and inserts it. */
+  /**
+   * Opens the Session actions menu the field sits in, so the text shows, and inserts it; false when
+   * the session shows no prompt field (a run, an exited agent).
+   */
   const showAndInsert = useCallback(
     (text: string) => {
       if (actionsMenu.current) actionsMenu.current.open = true;
+      if (!promptField.current) return false;
       insertPrompt(text);
+      return true;
     },
     [insertPrompt],
   );
