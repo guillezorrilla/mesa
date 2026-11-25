@@ -16,10 +16,11 @@ const REQUEST =
   /\b(?:req(?:uest)?[-_]?id|trace[-_]?id|x-request-id|correlation[-_]?id)["']?\s*[=:]\s*["']?([A-Za-z0-9][\w.-]{2,})/gi;
 /**
  * A status after a method and path (`GET /tides 500`), named (`status=503`), with its reason in
- * Spring's words (`500 INTERNAL_SERVER_ERROR`), or after an access log's request (`"GET /x HTTP/1.1" 500`).
+ * Spring's words (`500 INTERNAL_SERVER_ERROR`), after an access log's request (`"GET /x HTTP/1.1" 500`), or
+ * as Rails ends a request (`Completed 500 Internal Server Error`).
  */
 const STATUS =
-  /\b(?:(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+\S+\s+|[Ss]tatus(?:Code)?["']?\s*[=:]\s*["']?)([1-5]\d\d)\b|\b([1-5]\d\d)(?=\s+[A-Z]+_[A-Z_]+\b|\s+(?:NOT_FOUND|CONFLICT|FORBIDDEN|UNAUTHORIZED)\b)|HTTP\/[\d.]+"\s+([1-5]\d\d)\b/g;
+  /\b(?:(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+\S+\s+|[Ss]tatus(?:Code)?["']?\s*[=:]\s*["']?)([1-5]\d\d)\b|\b([1-5]\d\d)(?=\s+[A-Z]+_[A-Z_]+\b|\s+(?:NOT_FOUND|CONFLICT|FORBIDDEN|UNAUTHORIZED)\b)|HTTP\/[\d.]+"\s+([1-5]\d\d)\b|\bCompleted\s+([1-5]\d\d)\b/g;
 const DURATION = /\b(\d+(?:\.\d+)?)\s?(ms|s)\b/g;
 
 type Found = { start: number; end: number; part: Omit<MessagePart, 'text'> };

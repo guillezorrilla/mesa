@@ -58,13 +58,14 @@ export function useLogWatch(project: string | undefined, open: boolean) {
   }, [watchingErrors]);
 
   const reading = Boolean(project && source && focused && (!open || live));
-  const busy = useRef(false);
+  /** The source a read is out for: one for another source never holds a new one back. */
+  const busy = useRef<string>(undefined);
   useEffect(() => {
     if (!reading || !project || !source) return;
     let gone = false;
     const read = () => {
-      if (busy.current) return;
-      busy.current = true;
+      if (busy.current === source) return;
+      busy.current = source;
       void call('logs.read', { source, project, tail: TAIL })
         .then((result) => {
           if (gone) return;
@@ -84,7 +85,7 @@ export function useLogWatch(project: string | undefined, open: boolean) {
           setStream(shown.current);
         })
         .finally(() => {
-          busy.current = false;
+          if (busy.current === source) busy.current = undefined;
         });
     };
     read();

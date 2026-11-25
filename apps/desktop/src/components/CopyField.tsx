@@ -20,7 +20,7 @@ export function CopyField(props: {
   const [copied, setCopied] = useState(false);
   const { value } = props;
   return (
-    <div className="flex items-start gap-1 rounded-md border bg-muted/40 py-1 pr-1 pl-2.5">
+    <div className="flex min-w-0 items-start gap-1 rounded-md border bg-muted/40 py-1 pr-1 pl-2.5">
       {props.multiline ? (
         <pre
           data-testid={props.testId}

@@ -5,6 +5,7 @@ import { expect, test } from 'vitest';
 import { lockDeps, profilePaths, scriptedRunner, tempDir } from '../testing/index.js';
 import { changeLogFiles, fileSource, suggestedLogFiles } from './log-files.js';
 import { parseLog } from './parse.js';
+import { terminalLine } from './read.js';
 import { teeArgv } from './tee.js';
 
 test('mesa logs run passes a command through and appends what it printed, with its exit status', () => {
@@ -21,9 +22,9 @@ test('mesa logs run passes a command through and appends what it printed, with i
   expect(ran.stdout).toContain('ERROR boom');
   const lines = readFileSync(log, 'utf8').split('\n');
   expect(lines[0]).toBe('INFO before');
-  const entries = parseLog(lines.map((line) => line.replace(/\x1b\[[0-9;]*m|\r/g, '')));
+  const entries = parseLog(lines.map((line) => terminalLine(line).trimEnd()));
   expect(entries.filter((entry) => entry.level === 'error').map((entry) => entry.message)).toEqual([
-    expect.stringContaining('ERROR boom'),
+    'ERROR boom',
   ]);
   expect(entries.some((entry) => entry.message.includes("INFO it's up"))).toBe(true);
 });

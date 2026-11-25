@@ -240,8 +240,8 @@ export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
           project={watch.project}
           onFound={(id) => {
             setAddingSource(false);
-            void watch.refreshSources();
-            pickSource(id);
+            // Listed first, so the new source is picked rather than passed over as unknown.
+            void watch.refreshSources().then(() => pickSource(id));
           }}
           onClose={() => setAddingSource(false)}
         />

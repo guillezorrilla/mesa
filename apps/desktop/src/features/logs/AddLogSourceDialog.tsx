@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { LogFileGuide } from './LogFileGuide';
 import { ServiceLogGuide } from './ServiceLogGuide';
+import { useServiceName } from './useServiceName';
 
 type Kind = 'docker' | 'jetbrains' | 'terminal' | 'file';
 
@@ -34,9 +35,14 @@ export function AddLogSourceDialog(props: {
   onClose: () => void;
 }) {
   const [kind, setKind] = useState<Kind>('jetbrains');
+  const service = useServiceName(props.project);
   return (
     <Dialog open onOpenChange={(open) => !open && props.onClose()}>
-      <DialogContent data-testid="add-log-source-dialog" className="sm:max-w-xl">
+      <DialogContent
+        data-testid="add-log-source-dialog"
+        // Its rows may hold long paths: each grid child may shrink, so they truncate.
+        className="sm:max-w-xl [&>*]:min-w-0"
+      >
         <DialogHeader>
           <DialogTitle>Add a log source</DialogTitle>
           <DialogDescription>
@@ -59,7 +65,12 @@ export function AddLogSourceDialog(props: {
         ) : kind === 'file' ? (
           <LogFileGuide project={props.project} onFound={props.onFound} />
         ) : (
-          <ServiceLogGuide key={kind} project={props.project} kind={kind} onFound={props.onFound} />
+          <ServiceLogGuide
+            project={props.project}
+            kind={kind}
+            service={service}
+            onFound={props.onFound}
+          />
         )}
         <DialogFooter>
           <Button variant="outline" onClick={props.onClose}>

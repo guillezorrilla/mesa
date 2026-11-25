@@ -38,7 +38,7 @@ export function LogFileGuide(props: { project: string; onFound: (source: string)
   };
   const suggested = listed?.suggested;
   return (
-    <div className="grid gap-4 text-sm">
+    <div className="grid min-w-0 gap-4 text-sm">
       <Muted>
         Mesa reads it as it grows and keeps it in this profile, never in the repository.
       </Muted>
@@ -48,7 +48,10 @@ export function LogFileGuide(props: { project: string; onFound: (source: string)
           <Muted>Looking</Muted>
         ) : suggested.length ? (
           suggested.map((file) => (
-            <div key={file} className="flex items-center gap-2 rounded-md border px-2.5 py-1">
+            <div
+              key={file}
+              className="flex min-w-0 items-center gap-2 rounded-md border px-2.5 py-1"
+            >
               <FileText aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
               <CutStartText text={file} />
               <Button size="sm" variant="ghost" onClick={() => void add(file)}>
@@ -64,7 +67,10 @@ export function LogFileGuide(props: { project: string; onFound: (source: string)
         <section className="grid gap-1.5" aria-label="Kept log files">
           <SectionLabel>Read for this project</SectionLabel>
           {listed.files.map((file) => (
-            <div key={file} className="flex items-center gap-2 rounded-md border px-2.5 py-1">
+            <div
+              key={file}
+              className="flex min-w-0 items-center gap-2 rounded-md border px-2.5 py-1"
+            >
               <FileText aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
               <CutStartText text={file} />
               <Button size="sm" variant="ghost" onClick={() => void remove(file)}>

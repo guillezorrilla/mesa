@@ -29,6 +29,11 @@ test('request ids, 4xx and 5xx statuses and slow durations are parts of their ow
     { text: '500', status: 'failed' },
     { text: ' 145' },
   ]);
+  expect(messageParts('Completed 500 Internal Server Error in 12ms')).toEqual([
+    { text: 'Completed ' },
+    { text: '500', status: 'failed' },
+    { text: ' Internal Server Error in 12ms' },
+  ]);
   expect(messageParts('GET /tides 200 2ms took 999ms')).toEqual([
     { text: 'GET /tides 200 2ms took 999ms' },
   ]);

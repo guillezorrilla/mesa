@@ -41,6 +41,20 @@ export function sinceTime(since: string, now: Date) {
   return new Date(at).toISOString();
 }
 
+/**
+ * A line a terminal wrote (`mesa logs run`) as plain text: each backspace erases the character
+ * before it (script's `^D` then two backspaces), then escape sequences go (plainText).
+ */
+export function terminalLine(line: string) {
+  if (!line.includes('\b') && !line.includes('\x1b')) return line;
+  const kept: string[] = [];
+  for (const char of line) {
+    if (char === '\b') kept.pop();
+    else kept.push(char);
+  }
+  return plainText(kept.join(''));
+}
+
 /** A docker line, `<RFC 3339 time> <text>`, split into the time docker stamped and the text. */
 function stamped(line: string): RawLine {
   const space = line.indexOf(' ');
@@ -97,9 +111,7 @@ async function rawLines(
       const read = tailLines(file, bytes);
       if (!read.truncated || read.lines.length >= lines)
         // A terminal's file (mesa logs run) holds its escape sequences: read as plain text.
-        return read.lines
-          .slice(-lines)
-          .map((line) => ({ text: (line.includes('\x1b') ? plainText(line) : line).trimEnd() }));
+        return read.lines.slice(-lines).map((line) => ({ text: terminalLine(line).trimEnd() }));
     }
   }
   throw new MesaError(

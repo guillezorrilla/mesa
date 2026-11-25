@@ -162,7 +162,7 @@ test("logs.panel hides the Logs button for one project: the project's override, 
 });
 
 test("logs run hands the terminal to script with the command, keeping its output in the project's log folder", async () => {
-  const dir = await cli.withProject();
+  await cli.withProject();
   const ran = await mesa(
     'logs',
     'run',

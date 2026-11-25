@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { type ServiceName, useServiceName } from './useServiceName';
+import type { ServiceName } from './useServiceName';
 import { useSourceWait } from './useSourceWait';
 
 /** The service picker's last item, for a name that is not a module. */
@@ -153,14 +153,16 @@ function TerminalSteps(props: { service: ServiceName }) {
 export function ServiceLogGuide(props: {
   project: string;
   kind: 'jetbrains' | 'terminal';
+  /** The service's name and file (useServiceName), shared by both guides so a switch keeps them. */
+  service: ServiceName;
   onFound: (source: string) => void;
 }) {
-  const service = useServiceName(props.project);
+  const { service } = props;
   const source = service.waitingFor;
   const already = useSourceWait(props.project, source, props.onFound);
   const Steps = props.kind === 'jetbrains' ? JetBrainsSteps : TerminalSteps;
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 gap-4">
       <ServiceField service={service} />
       {service.file.error ? (
         <p role="alert" className="text-xs text-state-failed">
