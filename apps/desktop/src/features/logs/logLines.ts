@@ -1,5 +1,5 @@
-import type { LogSource, LogSourceKind, ServerLogEntry } from '@mesa/core';
-import { entryText, LEVEL_NAMES } from '@mesa/core/browser';
+import type { ServerLogEntry } from '@mesa/core';
+import { LEVEL_NAMES } from '@mesa/core/browser';
 
 /** Which entries the panel shows by level: every one, errors, or warnings. */
 export type LevelFilter = 'all' | 'error' | 'warn';
@@ -8,37 +8,50 @@ export type LevelFilter = 'all' | 'error' | 'warn';
 export type KeyedEntry = ServerLogEntry & { key: string };
 
 /**
- * `entries` keyed by their time, level and message, and which repeat of those it is.
+ * `entries` keyed by their time, level and message, and which repeat of those it is; an entry
+ * `previous` already holds is that same object, so its row does not render again.
  * shortcut: a repeat with no time is keyed by its count in the window read, so one sliding out of
  * the window renumbers the rest; fine while docker stamps its lines, revisit if untimed sources miss errors.
  */
-export function keyed(entries: readonly ServerLogEntry[]): KeyedEntry[] {
+export function keyed(
+  entries: readonly ServerLogEntry[],
+  previous: readonly KeyedEntry[] = [],
+): KeyedEntry[] {
+  const before = new Map(previous.map((entry) => [entry.key, entry]));
   const seen = new Map<string, number>();
   return entries.map((entry) => {
     const base = `${entry.time}|${entry.level}|${entry.message}`;
     const repeat = seen.get(base) ?? 0;
     seen.set(base, repeat + 1);
-    return { ...entry, key: `${base}#${repeat}` };
+    const key = `${base}#${repeat}`;
+    const kept = before.get(key);
+    return kept && kept.stack === entry.stack && kept.logger === entry.logger
+      ? kept
+      : { ...entry, key };
   });
 }
 
 /** How many entries each level filter shows. */
-export const levelCounts = (entries: readonly ServerLogEntry[]): Record<LevelFilter, number> => ({
-  all: entries.length,
-  error: entries.filter((entry) => entry.level === 'error').length,
-  warn: entries.filter((entry) => entry.level === 'warn').length,
-});
+export function levelCounts(entries: readonly ServerLogEntry[]): Record<LevelFilter, number> {
+  const counts = { all: entries.length, error: 0, warn: 0 };
+  for (const entry of entries)
+    if (entry.level === 'error' || entry.level === 'warn') counts[entry.level]++;
+  return counts;
+}
 
-/** The entries `level` and the words in `text` keep: in the message or the stack, any case. */
+/**
+ * The entries `level`, the words in `text` (in the message or the stack, any case) and `request`
+ * (an id the message names) keep.
+ */
 export function shownEntries<E extends ServerLogEntry>(
   entries: readonly E[],
-  level: LevelFilter,
-  text: string,
+  filter: { level: LevelFilter; text: string; request?: string },
 ) {
-  const words = text.trim().toLowerCase();
+  const words = filter.text.trim().toLowerCase();
   return entries.filter(
     (entry) =>
-      (level === 'all' || entry.level === level) &&
+      (filter.level === 'all' || entry.level === filter.level) &&
+      (!filter.request || entry.message.includes(filter.request)) &&
       (!words || `${entry.message}\n${entry.stack ?? ''}`.toLowerCase().includes(words)),
   );
 }
@@ -53,18 +66,3 @@ export function clockTime(time: string | null) {
 
 /** An entry's level as the panel prints it. */
 export const levelName = (entry: ServerLogEntry) => (entry.level ? LEVEL_NAMES[entry.level] : '');
-
-/** How a source is named in the picker and in what the agent is sent. */
-export const sourceLabel = (source: LogSource) => `${source.name} (${KIND_NAMES[source.kind]})`;
-const KIND_NAMES: Record<LogSourceKind, string> = {
-  docker: 'Docker',
-  session: 'session',
-  file: 'log file',
-};
-
-/** What Send to agent types into the composer: the source's name, then the lines in a code block. */
-export function logPrompt(sourceName: string, entries: readonly ServerLogEntry[]) {
-  const body = entries.map((entry) => entryText(entry, clockTime(entry.time))).join('\n');
-  const fence = body.includes('```') ? '~~~~' : '```';
-  return `These lines from the ${sourceName} log:\n${fence}\n${body}\n${fence}\n`;
-}

@@ -7,6 +7,7 @@ import {
   resumable,
   stoppable,
   supportsAgentCapability,
+  takesPrompt,
 } from '@mesa/core/browser';
 import {
   Download,
@@ -186,7 +187,7 @@ export function SessionActionsMenu({
                 : undefined
             }
           />
-          {!isRun(row) && row.kind !== 'terminal' && !exited(row) && (
+          {takesPrompt(row) && (
             <PromptComposer
               sessionId={row.id}
               acting={acting}

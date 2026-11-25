@@ -1,39 +1,32 @@
-import {
-  EyeOff,
-  FileText,
-  MoreHorizontal,
-  RefreshCw,
-  ScrollText,
-  SendHorizontal,
-  X,
-} from 'lucide-react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import type { LogAsk } from '@mesa/core';
+import { errorGroups, isMuted, logMessage, sourceLabel } from '@mesa/core/browser';
+import { ArrowDown, FileText, ScrollText, X } from 'lucide-react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
+import { ResizeHandle } from '@/components/ResizeHandle';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Switch } from '@/components/ui/switch';
+import { useKeptWidth } from '@/lib/useKeptWidth';
 import { useToggleSet } from '@/lib/useToggleSet';
 import { cn } from '@/lib/utils';
+import { ErrorGroupRow } from './ErrorGroupRow';
 import { IntelliJLogsDialog } from './IntelliJLogsDialog';
 import { LogEntryRow } from './LogEntryRow';
-import { type LevelFilter, levelCounts, logPrompt, shownEntries, sourceLabel } from './logLines';
-import type { LogWatch } from './useLogWatch';
+import { LogSourcePicker } from './LogSourcePicker';
+import { LogsFooter } from './LogsFooter';
+import { LogsMenu } from './LogsMenu';
+import { clockTime, type LevelFilter, levelCounts, shownEntries } from './logLines';
+import { useFollowEnd } from './useFollowEnd';
+import { useMutes } from './useMutes';
+import type { LogsActions } from './useSessionLogs';
 
-/** The picker's last item, which opens the IntelliJ setup rather than picking a source. */
-const INTELLIJ = '#intellij';
-/** Within this many pixels of the end, the list counts as scrolled to it and follows new entries. */
-const AT_END_PX = 40;
+/** The panel's width bounds beside the terminal, which always keeps TERMINAL_MIN pixels. */
+const LOGS_WIDTH = { min: 360, max: 1400, initial: 560, step: 32 };
+const TERMINAL_MIN = 256;
 
 /** A level filter's label: a dot in its colour, its name, and how many entries it holds. */
 function levelLabel(name: string, count: number, dot?: string) {
@@ -48,99 +41,97 @@ function levelLabel(name: string, count: number, dot?: string) {
 
 /**
  * A session's Logs panel (CONTEXT.md, Logs panel): its project's local servers' entries, level
- * coloured, with a source picker, All / Errors / Warn, a text filter and Live. Clicked entries are
- * selected; Send to agent puts them, with the source's name, in the session's prompt field.
+ * coloured, with a source picker, All / Errors (grouped) / Warn, a text filter, a request filter,
+ * mutes and Live. Picked entries go to the agent with an ask, or start a session.
  */
-export function LogsPanel(props: {
-  watch: LogWatch;
-  /** Puts text in the session's prompt field; none for a session with no agent to send to. */
-  onSend?: (text: string) => boolean;
-  onHide: () => void;
-  onClose: () => void;
-}) {
-  const { watch } = props;
+export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
+  const { watch } = props.logs;
+  const [width, resize] = useKeptWidth('mesa.logs.width', LOGS_WIDTH);
+  const mutes = useMutes(watch.project);
   const [text, setText] = useState('');
-  const [picked, toggle, setPicked] = useToggleSet();
+  const [request, setRequest] = useState<string>();
+  const [picked, , setPicked] = useToggleSet();
+  const [openGroups, toggleGroup] = useToggleSet();
   const [intellij, setIntellij] = useState(false);
-  /** The session showed no prompt field for the last Send: the lines stay selected. */
-  const [unsent, setUnsent] = useState(false);
-  const list = useRef<HTMLDivElement>(null);
-  const atEnd = useRef(true);
   const entries = watch.entries ?? [];
-  const shown = shownEntries(entries, watch.level, text);
-  const counts = levelCounts(entries);
+  const visible = useMemo(
+    () => entries.filter((entry) => !isMuted(entry, mutes.mutes)),
+    [entries, mutes.mutes],
+  );
+  const shown = useMemo(
+    () => shownEntries(visible, { level: watch.level, text, request }),
+    [visible, watch.level, text, request],
+  );
+  const groups = useMemo(
+    () => (watch.level === 'error' ? errorGroups(shown) : undefined),
+    [watch.level, shown],
+  );
+  const counts = levelCounts(visible);
+  const follow = useFollowEnd(shown);
   const source = watch.sources?.find((each) => each.id === watch.source);
-  useLayoutEffect(() => {
-    const box = list.current;
-    if (box && atEnd.current && shown.length) box.scrollTop = box.scrollHeight;
-  });
+  const onToggle = useCallback(
+    (key: string) =>
+      setPicked((now) => {
+        const next = new Set(now);
+        if (!next.delete(key)) next.add(key);
+        return next;
+      }),
+    [setPicked],
+  );
+  // Stable, so a poll re-renders only the rows that changed: the latest mutes, through a ref.
+  const mute = useRef(mutes.add);
+  mute.current = mutes.add;
+  const onMute = useCallback((pattern: string) => mute.current(pattern), []);
   const pickSource = (id: string) => {
-    if (id === INTELLIJ) return setIntellij(true);
     setPicked(new Set());
+    setRequest(undefined);
     watch.pick(id);
   };
-  const send = () => {
-    const sent = props.onSend?.(
-      logPrompt(
-        source ? sourceLabel(source) : (watch.source ?? 'server'),
-        entries.filter((entry) => picked.has(entry.key)),
-      ),
-    );
-    setUnsent(!sent);
-    if (sent) setPicked(new Set());
+  const ask = (asked: LogAsk) => {
+    const message = logMessage({
+      ask: asked,
+      source: source ? sourceLabel(source) : (watch.source ?? 'server'),
+      entries,
+      picked: entries.flatMap((entry, at) => (picked.has(entry.key) ? [at] : [])),
+      time: (entry) => clockTime(entry.time),
+    });
+    if (!props.logs.takesPrompt) props.logs.start(message);
+    else if (props.logs.send(message)) setPicked(new Set());
   };
-  const noSources = watch.sources?.length === 0;
-  const status = !props.onSend
-    ? 'A terminal session has no agent to send lines to'
-    : !picked.size
-      ? 'Click lines to select them'
-      : unsent
-        ? 'This session takes no prompt now; start or resume it first'
-        : `${picked.size} ${picked.size === 1 ? 'line' : 'lines'} selected`;
+  const actions = { onToggle, onRequest: setRequest, onMute };
   return (
     <aside
       aria-label="Logs"
-      className="flex h-full w-[30rem] min-h-0 shrink-0 flex-col border-l bg-card"
+      style={{ width }}
+      className="@container relative flex h-full min-h-0 max-w-full shrink-0 flex-col border-l bg-card"
     >
+      <ResizeHandle
+        label="Resize logs panel"
+        edge="left"
+        width={width}
+        bounds={LOGS_WIDTH}
+        keep={TERMINAL_MIN}
+        onWidth={resize}
+      />
       <header className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
         <ScrollText aria-hidden className="size-4 shrink-0 text-muted-foreground" />
         <span className="text-sm font-medium">Logs</span>
-        <NativeSelect
-          aria-label="Log source"
-          size="sm"
-          className="ml-auto max-w-60 text-xs"
-          value={watch.source ?? ''}
-          onChange={(event) => pickSource(event.currentTarget.value)}
-          onFocus={() => void watch.refreshSources()}
-        >
-          {!watch.source && <NativeSelectOption value="">No source</NativeSelectOption>}
-          {watch.source && !source && (
-            <NativeSelectOption value={watch.source}>{watch.source}</NativeSelectOption>
-          )}
-          {watch.sources?.map((each) => (
-            <NativeSelectOption key={each.id} value={each.id}>
-              {sourceLabel(each)}
-            </NativeSelectOption>
-          ))}
-          <NativeSelectOption value={INTELLIJ}>Show IntelliJ logs...</NativeSelectOption>
-        </NativeSelect>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <IconButton label="Logs menu" icon={MoreHorizontal} />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => void watch.refreshSources()}>
-              <RefreshCw aria-hidden /> Look for sources again
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setIntellij(true)}>
-              <FileText aria-hidden /> Show IntelliJ logs
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={props.onHide}>
-              <EyeOff aria-hidden /> Hide Logs for this project
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <LogSourcePicker
+          sources={watch.sources}
+          source={watch.source}
+          onPick={pickSource}
+          onIntelliJ={() => setIntellij(true)}
+          onOpen={() => void watch.refreshSources()}
+        />
+        <LogsMenu
+          filter={text}
+          mutes={mutes.mutes}
+          onRefresh={() => void watch.refreshSources()}
+          onIntelliJ={() => setIntellij(true)}
+          onMute={onMute}
+          onUnmute={mutes.remove}
+          onHide={props.logs.hide}
+        />
         <IconButton label="Close logs" icon={X} onClick={props.onClose} />
       </header>
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
@@ -154,82 +145,106 @@ export function LogsPanel(props: {
             ['warn', levelLabel('Warn', counts.warn, 'bg-state-waiting')],
           ]}
         />
-        <Input
-          aria-label="Filter lines"
-          placeholder="Filter, e.g. /orders"
-          className="h-7 min-w-24 flex-1 text-xs"
-          value={text}
-          onChange={(event) => setText(event.currentTarget.value)}
-        />
+        <div className="flex h-7 min-w-32 flex-1 items-center gap-1 rounded-md border border-input px-1 focus-within:ring-[3px] focus-within:ring-ring/50">
+          {request && (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded bg-state-working/12 py-0.5 pr-0.5 pl-1.5 font-mono text-[11px] text-state-working">
+              request {request}
+              <button
+                type="button"
+                aria-label="Show every request"
+                className="rounded-sm p-0.5 hover:bg-state-working/15"
+                onClick={() => setRequest(undefined)}
+              >
+                <X aria-hidden className="size-3" />
+              </button>
+            </span>
+          )}
+          <Input
+            aria-label="Filter lines"
+            placeholder="Filter, e.g. /orders"
+            className="h-6 min-w-16 flex-1 border-0 px-1 text-xs shadow-none focus-visible:ring-0 dark:bg-transparent"
+            value={text}
+            onChange={(event) => setText(event.currentTarget.value)}
+          />
+        </div>
         <Label className="gap-1.5 text-xs font-normal text-muted-foreground">
           <Switch checked={watch.live} onCheckedChange={watch.setLive} /> Live
         </Label>
       </div>
-      <div
-        ref={list}
-        role="listbox"
-        aria-label="Log lines"
-        aria-multiselectable
-        className="min-h-0 flex-1 overflow-auto py-1 font-mono text-[11.5px] leading-5"
-        onScroll={(event) => {
-          const box = event.currentTarget;
-          atEnd.current = box.scrollHeight - box.scrollTop - box.clientHeight < AT_END_PX;
-        }}
-      >
-        {watch.failure ? (
-          <p role="alert" className="px-3 py-4 font-sans text-xs text-state-failed">
-            {watch.failure}
-          </p>
-        ) : noSources ? (
-          <div className="grid gap-3 px-3 py-4 font-sans">
-            <Muted>
-              No running containers or server sessions for this project. Start the server with
-              Docker or in a Mesa terminal session, or show IntelliJ logs.
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          ref={follow.ref}
+          role="listbox"
+          aria-label="Log lines"
+          aria-multiselectable
+          className="min-h-0 flex-1 overflow-auto py-1 font-mono text-[11.5px] leading-5"
+          onScroll={follow.onScroll}
+        >
+          {watch.failure ? (
+            <p role="alert" className="px-3 py-4 font-sans text-xs text-state-failed">
+              {watch.failure}
+            </p>
+          ) : watch.sources?.length === 0 ? (
+            <div className="grid gap-3 px-3 py-4 font-sans">
+              <Muted>
+                No running containers or server sessions for this project. Start the server with
+                Docker or in a Mesa terminal session, or show IntelliJ logs.
+              </Muted>
+              <Button
+                size="sm"
+                variant="outline"
+                className="justify-self-start"
+                onClick={() => setIntellij(true)}
+              >
+                <FileText aria-hidden /> Show IntelliJ logs
+              </Button>
+            </div>
+          ) : !watch.entries ? (
+            <Muted className="px-3 py-4 font-sans">
+              {watch.source ? 'Reading' : 'Looking for sources'}
             </Muted>
-            <Button
-              size="sm"
-              variant="outline"
-              className="justify-self-start"
-              onClick={() => setIntellij(true)}
-            >
-              <FileText aria-hidden /> Show IntelliJ logs
-            </Button>
-          </div>
-        ) : !watch.entries ? (
-          <Muted className="px-3 py-4 font-sans">
-            {watch.source ? 'Reading' : 'Looking for sources'}
-          </Muted>
-        ) : !shown.length ? (
-          <Muted className="px-3 py-4 font-sans">
-            {entries.length ? 'No lines match this filter.' : 'Nothing logged yet.'}
-          </Muted>
-        ) : (
-          shown.map((entry) => (
-            <LogEntryRow
-              key={entry.key}
-              entry={entry}
-              selected={picked.has(entry.key)}
-              onToggle={() => toggle(entry.key)}
-            />
-          ))
+          ) : !shown.length ? (
+            <Muted className="px-3 py-4 font-sans">
+              {entries.length ? 'No lines match this filter.' : 'Nothing logged yet.'}
+            </Muted>
+          ) : groups ? (
+            groups.map((group) => (
+              <ErrorGroupRow
+                key={group.key}
+                group={group}
+                open={openGroups.has(group.key)}
+                onOpen={toggleGroup}
+                picked={picked}
+                {...actions}
+              />
+            ))
+          ) : (
+            shown.map((entry) => (
+              <LogEntryRow
+                key={entry.key}
+                entry={entry}
+                selected={picked.has(entry.key)}
+                {...actions}
+              />
+            ))
+          )}
+        </div>
+        {watch.live && follow.newCount > 0 && (
+          <Button
+            size="sm"
+            className="absolute bottom-3 left-1/2 h-7 -translate-x-1/2 rounded-full px-3 text-xs shadow-md"
+            onClick={follow.jump}
+          >
+            <ArrowDown aria-hidden /> {follow.newCount} new
+          </Button>
         )}
       </div>
-      <footer className="flex min-h-11 shrink-0 items-center gap-2 border-t px-3 py-2 text-xs text-muted-foreground">
-        <span className="mr-auto" role="status">
-          {status}
-        </span>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!picked.size}
-          onClick={() => setPicked(new Set())}
-        >
-          Clear
-        </Button>
-        <Button size="sm" disabled={!picked.size || !props.onSend} onClick={send}>
-          <SendHorizontal aria-hidden /> Send to agent
-        </Button>
-      </footer>
+      <LogsFooter
+        picked={picked.size}
+        takesPrompt={props.logs.takesPrompt}
+        onAsk={ask}
+        onClear={() => setPicked(new Set())}
+      />
       {intellij && watch.project && (
         <IntelliJLogsDialog
           project={watch.project}

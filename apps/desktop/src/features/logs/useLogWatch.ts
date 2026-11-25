@@ -25,6 +25,8 @@ export function useLogWatch(project: string | undefined, open: boolean) {
   const [kept, keep] = useKept(project && `mesa.logs.source.${project}`);
   const [sources, setSources] = useState<{ project: string; list: LogSource[] }>();
   const [stream, setStream] = useState<{ source: string; entries: KeyedEntry[] }>();
+  /** The last stream read, so a read reuses its entries' objects (keyed). */
+  const shown = useRef<{ source: string; entries: KeyedEntry[] }>(undefined);
   const [failure, setFailure] = useState<{ source: string; message: string }>();
   const [sourcesFailure, setSourcesFailure] = useState<string>();
   const [level, setLevel] = useState<LevelFilter>('all');
@@ -67,7 +69,8 @@ export function useLogWatch(project: string | undefined, open: boolean) {
         .then((result) => {
           if (gone) return;
           if (!result.ok) return setFailure({ source, message: result.error.message });
-          const entries = keyed(result.data.entries);
+          const last = shown.current?.source === source ? shown.current.entries : undefined;
+          const entries = keyed(result.data.entries, last);
           const now = new Set(entries.filter((e) => e.level === 'error').map((e) => e.key));
           const before = errors.current?.source === source ? errors.current.keys : undefined;
           if (before && [...now].some((key) => !before.has(key)) && !watchingRef.current)
@@ -75,13 +78,10 @@ export function useLogWatch(project: string | undefined, open: boolean) {
           errors.current = { source, keys: now };
           setFailure(undefined);
           // An idle log reads the same each time: keep the list, so nothing renders again.
-          setStream((last) =>
-            last?.source === source &&
-            last.entries.length === entries.length &&
-            last.entries.at(-1)?.key === entries.at(-1)?.key
-              ? last
-              : { source, entries },
-          );
+          if (last?.length === entries.length && entries.every((entry, at) => entry === last[at]))
+            return;
+          shown.current = { source, entries };
+          setStream(shown.current);
         })
         .finally(() => {
           busy.current = false;

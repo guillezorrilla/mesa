@@ -11,10 +11,14 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useCall } from '@/lib/useCommand';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { LOGS_POLL_MS } from './useLogWatch';
+
+/** The service picker's last item, for a name that is not a module. */
+const OTHER = '#other';
 
 /** One numbered step. */
 function Step(props: { n: number; children: React.ReactNode }) {
@@ -40,7 +44,19 @@ export function IntelliJLogsDialog(props: {
 }) {
   const call = useCall();
   const { clipboard } = usePlatform();
+  const [modules, setModules] = useState<string[]>();
   const [name, setName] = useState(props.project);
+  // The project's modules are the likely services: the first is the default.
+  useEffect(() => {
+    void call('logs.modules', { project: props.project }).then((found) => {
+      const list = found.ok ? found.data.modules : [];
+      setModules(list);
+      if (list[0]) setName(list[0]);
+    });
+  }, [call, props.project]);
+  const other = !modules?.length || !modules.includes(name);
+  const known = modules !== undefined;
+  const settled = name.trim();
   const service = useDebouncedValue(name.trim(), 300);
   /** The file `mesa logs file` named, or why it could not. */
   const [made, setMade] = useState<{ path?: string; source?: string; error?: string }>({});
@@ -52,7 +68,8 @@ export function IntelliJLogsDialog(props: {
     setMade({});
     setCopied(false);
     setWaiting(false);
-    if (!service) return;
+    // Once the modules are known and the name has settled, so a default or a keystroke is not asked for.
+    if (!service || !known || service !== settled) return;
     void call('logs.file', { name: service, project: props.project, make: false }).then(
       (result) => {
         if (!gone) setMade(result.ok ? result.data : { error: result.error.message });
@@ -61,7 +78,7 @@ export function IntelliJLogsDialog(props: {
     return () => {
       gone = true;
     };
-  }, [call, service, props.project]);
+  }, [call, service, settled, known, props.project]);
   const { path, error } = made;
   const source = waiting ? made.source : undefined;
   /** Makes the file's folder, so IntelliJ can write there, and starts the wait. */
@@ -105,18 +122,39 @@ export function IntelliJLogsDialog(props: {
         </DialogHeader>
         <div className="grid gap-1.5">
           <Label htmlFor="intellij-service">Service name</Label>
-          <Input
-            id="intellij-service"
-            value={name}
-            onChange={(event) => setName(event.currentTarget.value)}
-          />
+          {modules?.length ? (
+            <NativeSelect
+              id="intellij-service"
+              value={other ? OTHER : name}
+              onChange={(event) => {
+                const picked = event.currentTarget.value;
+                setName(picked === OTHER ? '' : picked);
+              }}
+            >
+              {modules.map((module) => (
+                <NativeSelectOption key={module} value={module}>
+                  {module}
+                </NativeSelectOption>
+              ))}
+              <NativeSelectOption value={OTHER}>Another name...</NativeSelectOption>
+            </NativeSelect>
+          ) : null}
+          {other && (
+            <Input
+              id={modules?.length ? undefined : 'intellij-service'}
+              aria-label={modules?.length ? 'Another service name' : undefined}
+              autoFocus={Boolean(modules?.length)}
+              value={name}
+              onChange={(event) => setName(event.currentTarget.value)}
+            />
+          )}
         </div>
         <ol className="grid gap-3 text-sm">
           <Step n={1}>
             In IntelliJ, open <b>Run &gt; Edit Configurations</b> and pick the service.
           </Step>
           <Step n={2}>
-            Click <b>Modify options &gt; Save console output to file</b>.
+            Click <b>Modify options &gt; Logs &gt; Save console output to file</b>.
           </Step>
           <Step n={3}>
             Paste this path:
@@ -129,10 +167,12 @@ export function IntelliJLogsDialog(props: {
                 <code
                   data-testid="intellij-log-path"
                   onCopy={copiedPath}
-                  className="min-w-0 flex-1 truncate font-mono text-xs"
+                  // Right to left, so a long path is cut at its start and its file name shows.
+                  dir="rtl"
+                  className="min-w-0 flex-1 truncate text-left font-mono text-xs"
                   title={path}
                 >
-                  {path ?? '...'}
+                  <bdi dir="ltr">{path ?? '...'}</bdi>
                 </code>
                 <Button
                   size="sm"

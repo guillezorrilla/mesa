@@ -86,16 +86,6 @@ export function SessionsScreen(
   });
   const side = useSidePanel(props.selectedSession);
   const view = useSessionView(selected, props.terminalPreferences?.sessionView ?? 'terminal', act);
-  const logs = useSessionLogs({
-    row: selected,
-    projects: props.projects,
-    open: side.open === 'logs',
-    insert: insert.showAndInsert,
-    onHidden: () => {
-      if (props.selectedSession) side.close(props.selectedSession);
-      props.onProjectsChanged?.();
-    },
-  });
   const chat = Boolean(props.selectedSession) && view.view === 'chat';
   const commands = useSessionCommands({
     act,
@@ -109,6 +99,17 @@ export function SessionsScreen(
     onSessions: props.onSessions,
   });
   useWakeShown(selected, commands.wake);
+  const logs = useSessionLogs({
+    row: selected,
+    projects: props.projects,
+    open: side.open === 'logs',
+    prompt: { put: insert.putPrompt, show: insert.showPrompt },
+    openSession: commands.open,
+    onHidden: () => {
+      if (props.selectedSession) side.close(props.selectedSession);
+      props.onProjectsChanged?.();
+    },
+  });
   const grid = useGrid({ panels, act, onGroupsChanged: props.onGridGroupsChanged });
 
   const emptyStart = !props.selectedSession && !props.gridMode;

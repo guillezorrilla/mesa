@@ -97,14 +97,14 @@ export * from './lib/result.js';
 export { keychainStore, type SecretStore } from './lib/secret-store.js';
 export { envSpawner, type Spawner } from './lib/spawn.js';
 export { localClock, localDay, obsidianDateTime } from './lib/time.js';
+export type { ErrorGroup } from './logs/groups.js';
+export type { LogAsk } from './logs/message.js';
 export {
   entryText,
   LOG_LEVELS,
   type LogLevel,
   type ServerLogEntry,
 } from './logs/parse.js';
-export type { ErrorGroup } from './logs/groups.js';
-export type { LogAsk } from './logs/message.js';
 export {
   type LogSource,
   type LogSourceKind,

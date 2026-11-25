@@ -15,7 +15,14 @@ function bridgeFor(logsPanel: boolean) {
     'logs sources': () =>
       envelope({
         sources: [
-          { id: 'docker:harbour-api', kind: 'docker', name: 'harbour-api', detail: 'alpine, Up' },
+          {
+            id: 'docker:harbour-api',
+            kind: 'docker',
+            name: 'harbour-api',
+            detail: 'alpine, Up',
+            state: 'live',
+            lastLine: null,
+          },
         ],
       }),
     logs: () =>
@@ -26,6 +33,7 @@ function bridgeFor(logsPanel: boolean) {
             time: '2026-05-06T07:08:10Z',
             level: 'error',
             message: 'POST /moorings 500',
+            logger: null,
             stack: null,
           },
         ],
@@ -33,7 +41,7 @@ function bridgeFor(logsPanel: boolean) {
   });
 }
 
-test("Logs opens beside a project's session; Send to agent fills its prompt field, unsent", async () => {
+test("Logs opens beside a project's session; Send to agent fills its prompt field, unsent, without opening its menu", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   try {
     const { bridge, calls } = bridgeFor(true);
@@ -50,7 +58,10 @@ test("Logs opens beside a project's session; Send to agent fills its prompt fiel
       ),
     );
     const field = document.querySelector<HTMLTextAreaElement>('[aria-label="Prompt for aaaaaaaa"]');
-    expect(field?.value).toContain('These lines from the harbour-api (Docker) log:');
+    expect(field?.value).toContain('Source: Docker · harbour-api');
+    // The field is filled where it is, its menu left closed; the toast offers to show it.
+    expect(field?.closest('details')?.open).toBe(false);
+    expect(document.body.textContent).toContain('Added the lines to the prompt');
     expect(field?.value).toContain('POST /moorings 500');
     expect(calls.some((argv) => argv[1] === 'send')).toBe(false);
   } finally {

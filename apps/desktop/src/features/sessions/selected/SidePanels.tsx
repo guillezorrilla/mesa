@@ -108,14 +108,7 @@ const SessionPanel = memo(function SessionPanel(props: {
           onClose={close}
         />
       )}
-      {props.logs && (
-        <LogsPanel
-          watch={props.logs.watch}
-          onSend={props.logs.send}
-          onHide={props.logs.hide}
-          onClose={close}
-        />
-      )}
+      {props.logs && <LogsPanel logs={props.logs} onClose={close} />}
       {props.managed && open.panel === 'browser' && (
         <BrowserPanel sessionId={id} initialUrl={open.browserTarget} onClose={close} />
       )}
