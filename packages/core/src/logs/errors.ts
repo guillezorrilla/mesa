@@ -3,6 +3,7 @@ import type { Http } from '../lib/http.js';
 import type { Runner } from '../lib/process.js';
 import type { MesaError } from '../lib/result.js';
 import { cloudLevel, splitMessage } from './cloud-entry.js';
+import type { Facet } from './facets.js';
 import { accessToken, type CloudWarning, eachProject, googleGet } from './gcloud.js';
 import {
   type CloudLogEntry,
@@ -14,6 +15,7 @@ import {
 } from './gcp.js';
 import type { GcpLogs } from './gcp-config.js';
 import { errorGroups } from './groups.js';
+import { groupStats, incidentsOf } from './incidents.js';
 import { sinceTime } from './since.js';
 
 // Errors mode (CONTEXT.md, Cloud Logs): the error groups Error Reporting keeps for each GCP
@@ -39,6 +41,10 @@ export type CloudErrorGroup = {
   samples?: CloudLogEntry[];
   /** A group made here that Error Reporting also keeps: its id and its count over every env. */
   reported?: { id: string; count: number };
+  /** From the entries read for it: counts over the range, its top message variants, its facets. */
+  spark?: number[];
+  variants?: { message: string; count: number }[];
+  facets?: Facet[];
 };
 
 export type ErrorDeps = { run: Runner; http: Http; now: () => Date };
@@ -60,6 +66,11 @@ function period(sinceMs: number) {
  * them (errorGroups): by exception and own frame, else by normalized message; most first.
  */
 export function groupErrors(project: string, entries: readonly CloudLogEntry[]): CloudErrorGroup[] {
+  return grouped(project, entries).map((g) => g.group);
+}
+
+/** groupErrors with each group's own entries, newest first, for its stats and its incidents. */
+function grouped(project: string, entries: readonly CloudLogEntry[]) {
   const asPanel = [...entries].reverse().map((entry) => {
     const { head, stack } = splitMessage(entry.message);
     return {
@@ -71,10 +82,16 @@ export function groupErrors(project: string, entries: readonly CloudLogEntry[]):
       whole: entry.message,
     };
   });
+  const plain = (list: typeof asPanel) =>
+    list.map(({ level: _, logger: __, stack: ___, whole, ...entry }) => ({
+      ...entry,
+      message: whole,
+    }));
   return errorGroups(asPanel)
-    .map((group): CloudErrorGroup => {
+    .map((group) => {
       const newest = group.entries.at(-1);
-      return {
+      const own = plain(group.entries).reverse();
+      const made: CloudErrorGroup = {
         project,
         id: group.key,
         message: group.title,
@@ -86,16 +103,11 @@ export function groupErrors(project: string, entries: readonly CloudLogEntry[]):
         // Only the range was read, so a group made here cannot tell new from old: no badge.
         badge: null,
         source: 'logs',
-        samples: group.entries
-          .slice(-5)
-          .reverse()
-          .map(({ level: _, logger: __, stack: ___, whole, ...entry }) => ({
-            ...entry,
-            message: whole,
-          })),
+        samples: own.slice(0, 5),
       };
+      return { group: made, entries: own };
     })
-    .sort((a, b) => b.count - a.count);
+    .sort((a, b) => b.group.count - a.group.count);
 }
 
 type GroupStat = {
@@ -172,6 +184,10 @@ function reportingNote(project: string, error: unknown): CloudWarning {
   };
 }
 
+/** A group's key across projects, as incidents and the app name it. */
+export const groupKey = (group: Pick<CloudErrorGroup, 'project' | 'id'>) =>
+  `${group.project} ${group.id}`;
+
 /** A message's group key as the core grouping makes it (errorGroups), so both sources' groups meet. */
 const keyOf = (project: string, message: string) =>
   groupErrors(project, [
@@ -235,6 +251,7 @@ function labelled(reported: CloudErrorGroup[], fromLogs: CloudErrorGroup[], proj
  */
 export async function cloudErrors(deps: ErrorDeps, config: GcpLogs, query: CloudQuery) {
   const since = query.since ?? '1h';
+  const range = { from: Date.parse(sinceTime(since, deps.now())), to: deps.now().getTime() };
   const env = envOf(config, query.env);
   const picked = servicesByProject(config, query.services);
   const projects = Object.keys(cloudFilters(config, query, deps.now()));
@@ -265,16 +282,42 @@ export async function cloudErrors(deps: ErrorDeps, config: GcpLogs, query: Cloud
       if (env || !reported.length) throw error;
       return { entries: [] };
     });
-    const fromLogs = groupErrors(project, read.entries);
-    const groups =
+    const made = grouped(project, read.entries);
+    const fromLogs = made.map((g) => g.group);
+    const listed =
       env || !reported.length
         ? withReported(fromLogs, reported, project)
         : labelled(reported, fromLogs, project);
+    // Each group's own entries: its logs group's, found by the same key for a reported one.
+    const byKey = new Map(made.map((g) => [g.group.id, g.entries]));
+    const entriesOf = (group: CloudErrorGroup) =>
+      byKey.get(group.id) ??
+      byKey.get(keyOf(project, group.sample || group.message) ?? '') ??
+      group.samples ??
+      [];
+    const groups = listed.map((group) => ({
+      group: { ...group, ...groupStats(entriesOf(group), range) },
+      entries: entriesOf(group),
+    }));
     return { groups, note };
   });
-  const groups = done.flatMap((d) => d.value.groups).sort((a, b) => b.count - a.count);
+  const all = done.flatMap((d) => d.value.groups).sort((a, b) => b.group.count - a.group.count);
   const notes = done.flatMap((d) => (d.value.note ? [d.value.note] : []));
-  return { env: env ?? null, groups, warnings: [...notes, ...warnings] };
+  const incidents = incidentsOf(
+    all.map(({ group, entries }) => ({
+      key: groupKey(group),
+      message: group.message,
+      services: group.services,
+      entries,
+    })),
+    range,
+  );
+  return {
+    env: env ?? null,
+    groups: all.map((g) => g.group),
+    incidents,
+    warnings: [...notes, ...warnings],
+  };
 }
 
 /** A few recent events of Error Reporting group `id` in `project`, their stacks whole. */

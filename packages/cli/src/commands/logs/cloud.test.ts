@@ -259,6 +259,22 @@ test('logs ask runs in General and cites entries; prod asks once per GCP project
   });
 });
 
+test('logs query turns a sentence into a checked Logging query from the field names, never their values', async () => {
+  const tmux = cli.withTmux({
+    onOpen: finishesRun({
+      output: claudeAnswer('```query\nseverity>=ERROR AND jsonPayload.company="Lantern Cove"\n```'),
+    }),
+  });
+  await cli.withProject();
+  withGcloud(() =>
+    JSON.stringify([{ ...ENTRIES[0], jsonPayload: { message: 'x', company: 'Lantern Cove' } }]),
+  );
+  await setUp();
+  const found = await mesa('logs', 'query', 'errors for Lantern Cove', '--env', 'beta', '--json');
+  expect(found.json.data.query).toBe('severity>=ERROR AND jsonPayload.company="Lantern Cove"');
+  expect(tmux.opened.at(-1)).toMatchObject({ project: '__mesa_general__' });
+});
+
 test("Ask's tools match only reads, and an agent in a Mesa window cannot repoint projects, unmask or confirm prod", async () => {
   const reads = ['logs gcp', 'logs errors', 'logs errors samples', 'logs counts'];
   const prefixes = (readOnlyTools('cloud-logs') ?? []).map(

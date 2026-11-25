@@ -25,6 +25,19 @@ export const logsAsk = defineCommand({
   },
 });
 
+export const logsQuery = defineCommand({
+  name: 'logs query',
+  summary:
+    'Turn a sentence into a Cloud Logging query with an agent in General (Ask in words): it reads the query shown and the context field names, never their values',
+  args: ['sentence'],
+  flags: QUERY_FLAGS,
+  example: 'mesa logs query "checkout errors for Lantern Cove since the deploy" --env beta',
+  run: async ({ mesa, args, flags }) => {
+    const found = await mesa.logs.query(args.sentence, queryOf(flags));
+    return { data: found, text: found.query };
+  },
+});
+
 export const logsAsks = defineCommand({
   name: 'logs asks',
   summary: 'List the kept Ask conversations, newest first, with their questions',

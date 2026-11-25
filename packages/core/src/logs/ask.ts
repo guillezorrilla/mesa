@@ -5,8 +5,10 @@ import { clip } from '../lib/clip.js';
 import { MesaError } from '../lib/result.js';
 import { GENERAL_PROJECT } from '../sessions/record/general.js';
 import { CLOUD_LOGS } from '../skills/library.js';
+import { answerParts } from './answer.js';
 import type { AskQuery, AskTurn } from './ask-history.js';
 import type { CloudLogEntry } from './gcp.js';
+import { filterProblem } from './gcp-config.js';
 
 // Ask (logs) (CONTEXT.md): a question about Cloud Logs entries, answered by a headless run of the
 // bundled `cloud-logs` skill in the General project. It reads the entries the filters picked and
@@ -114,4 +116,44 @@ export async function askCloudLogs(
   // entry one of its own queries read, so any id-shaped token counts.
   const cited = [...new Set([...answer.matchAll(/\[([\w-]{4,})\]/g)].map((m) => m[1] as string))];
   return { answer, cited, run };
+}
+
+/**
+ * A Logging query for `sentence`, written by a General `cloud-logs` run ("Ask in words"): it reads
+ * the sentence, the query shown and the context fields the entries carry (names only, never their
+ * values), and answers with one query in a `query` fence, which is checked to be one expression.
+ */
+export async function queryFromWords(
+  runText: GitTextRunner,
+  sentence: string,
+  context: { query: string; fields: readonly string[] },
+): Promise<{ query: string; run: GitTextRunInfo }> {
+  if (!sentence.trim()) throw new MesaError('usage', 'say in words what to find');
+  const input = [
+    'Write a query: answer with one Cloud Logging query in a fence tagged query, and nothing else.',
+    '',
+    'What to find:',
+    sentence.trim(),
+    '',
+    'The query shown now:',
+    dataFence('text', context.query || '(none)'),
+    '',
+    'Context fields the entries carry (jsonPayload.<name>):',
+    dataFence('text', context.fields.join(', ') || '(none)'),
+  ].join('\n');
+  const { result } = await runText(CLOUD_LOGS, { project: GENERAL_PROJECT, input });
+  const run: GitTextRunInfo = {
+    session: result.session,
+    durationMs: result.durationMs,
+    ...(result.costUsd === undefined ? {} : { costUsd: result.costUsd }),
+  };
+  const query = answerParts(result.output).query;
+  const problem = query ? filterProblem(query) : 'is missing';
+  if (!result.ok || !query || problem)
+    throw new MesaError(
+      'internal',
+      `the ${CLOUD_LOGS} run ${result.session} gave no usable query: it ${problem ?? result.reason}`,
+      { run },
+    );
+  return { query, run };
 }

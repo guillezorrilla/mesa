@@ -121,6 +121,17 @@ function fieldsOf(json: Record<string, unknown> | undefined): Record<string, str
   return fields;
 }
 
+/** The revision or deploy an entry came from (Cloud Run, App Engine, a GKE pod template), as a field. */
+function revisionOf(raw: Record<string, unknown>): { revision?: string } {
+  const labels = raw.labels as Record<string, unknown> | undefined;
+  const found = [
+    valueAt(raw, 'resource.labels.revision_name'),
+    valueAt(raw, 'resource.labels.version_id'),
+    labels?.['k8s-pod/pod-template-hash'],
+  ].find((value) => typeof value === 'string' && value);
+  return typeof found === 'string' ? { revision: found.slice(0, 200) } : {};
+}
+
 /** `value` inside a Logging filter's double quotes. */
 export const quoted = (value: string) =>
   `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
@@ -179,7 +190,7 @@ export function cloudEntry(
           ? raw.textPayload
           : JSON.stringify(json ?? raw.protoPayload ?? {}),
     trace: typeof raw.trace === 'string' ? raw.trace : null,
-    fields: fieldsOf(json),
+    fields: { ...fieldsOf(json), ...revisionOf(raw) },
   };
 }
 

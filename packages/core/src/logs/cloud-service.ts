@@ -5,7 +5,7 @@ import type { GitTextRunner } from '../git/message.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { callerOf } from '../sessions/window/caller.js';
-import { askCloudLogs, keepQuery, runQueries } from './ask.js';
+import { askCloudLogs, keepQuery, queryFromWords, runQueries } from './ask.js';
 import { keepTurn, readAsks } from './ask-history.js';
 import { cloudErrors, errorSamples } from './errors.js';
 import { type CloudQuery, cloudFilter, cloudFilters, cloudLogs, envOf } from './gcp.js';
@@ -242,6 +242,21 @@ export function cloudLogsService(
         ...asked,
         queries,
       };
+    },
+    /**
+     * A Logging query for `sentence` (queryFromWords), from the query shown and the context fields
+     * of the entries `query` picks (their names only).
+     */
+    query: async (sentence: string, query: CloudQuery = {}) => {
+      const config = gcpConfig();
+      const env = envOf(config, query.env);
+      const read = await cloudLogs(cloudDeps(), config, {
+        ...query,
+        env: env ?? ALL_ENVS,
+        limit: 200,
+      });
+      const fields = [...new Set(read.entries.flatMap((e) => Object.keys(e.fields)))];
+      return queryFromWords(deps.runText, sentence, { query: query.filter ?? '', fields });
     },
     /** The kept Ask conversations, newest first. */
     asks: () => ({ asks: readAsks(ctx.paths.cloudAsks) }),
