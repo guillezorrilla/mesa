@@ -1,4 +1,4 @@
-import type { LogSource, ServerLogEntry } from '@mesa/core';
+import type { LogSource, LogSourceKind, ServerLogEntry } from '@mesa/core';
 import { entryText, LEVEL_NAMES } from '@mesa/core/browser';
 
 /** Which entries the panel shows by level: every one, errors, or warnings. */
@@ -55,12 +55,12 @@ export function clockTime(time: string | null) {
 export const levelName = (entry: ServerLogEntry) => (entry.level ? LEVEL_NAMES[entry.level] : '');
 
 /** How a source is named in the picker and in what the agent is sent. */
-export const sourceLabel = (source: LogSource) =>
-  source.kind === 'docker'
-    ? `${source.name} (Docker)`
-    : source.kind === 'file'
-      ? `${source.name} (log file)`
-      : `${source.name} (session)`;
+export const sourceLabel = (source: LogSource) => `${source.name} (${KIND_NAMES[source.kind]})`;
+const KIND_NAMES: Record<LogSourceKind, string> = {
+  docker: 'Docker',
+  session: 'session',
+  file: 'log file',
+};
 
 /** What Send to agent types into the composer: the source's name, then the lines in a code block. */
 export function logPrompt(sourceName: string, entries: readonly ServerLogEntry[]) {

@@ -7,8 +7,6 @@ import type { SessionStore } from '../sessions/record/store.js';
 import { outputLog } from '../sessions/window/output-log.js';
 import { type LogSourceKind, sourceId } from './source-id.js';
 
-export type { LogSourceKind } from './source-id.js';
-
 // Where a project's local servers print (CONTEXT.md, Logs panel): running Docker containers, the
 // Output logs of its unended sessions, and the log files in its folder under the profile's logs.
 
@@ -83,15 +81,11 @@ function files(deps: LogSourceDeps, project: string): LogSource[] {
   const dir = join(deps.serverLogs, project);
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
-    .filter((file) => file.endsWith('.log') && FILE_NAME.test(file.slice(0, -4)))
-    .map((file) => ({ file, at: statSync(join(dir, file)).mtimeMs }))
+    .filter((file) => file.endsWith('.log'))
+    .map((file) => ({ name: file.slice(0, -4), at: statSync(join(dir, file)).mtimeMs }))
+    .filter(({ name }) => FILE_NAME.test(name))
     .sort((a, b) => b.at - a.at)
-    .map(({ file }) => ({
-      id: sourceId('file', file.slice(0, -4)),
-      kind: 'file',
-      name: file.slice(0, -4),
-      detail: 'log file',
-    }));
+    .map(({ name }) => ({ id: sourceId('file', name), kind: 'file', name, detail: 'log file' }));
 }
 
 /** Every source `project`'s local servers print to: containers, sessions, then log files. */

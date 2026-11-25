@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { usePlatform } from '@/lib/MesaRoot';
 import { useCall } from '@/lib/useCommand';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { LOGS_POLL_MS } from './useLogWatch';
@@ -38,23 +39,25 @@ export function IntelliJLogsDialog(props: {
   onClose: () => void;
 }) {
   const call = useCall();
+  const { clipboard } = usePlatform();
   const [name, setName] = useState(props.project);
   const service = useDebouncedValue(name.trim(), 300);
-  const [file, setFile] = useState<{ path: string; source: string } | { error: string }>();
+  /** The file `mesa logs file` named, or why it could not. */
+  const [made, setMade] = useState<{ path?: string; source?: string; error?: string }>({});
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     let gone = false;
-    setFile(undefined);
+    setMade({});
     setCopied(false);
     if (!service) return;
-    void call('logs.file', { name: service, project: props.project }).then((made) => {
-      if (!gone) setFile(made.ok ? made.data : { error: made.error.message });
+    void call('logs.file', { name: service, project: props.project }).then((result) => {
+      if (!gone) setMade(result.ok ? result.data : { error: result.error.message });
     });
     return () => {
       gone = true;
     };
   }, [call, service, props.project]);
-  const source = file && 'source' in file ? file.source : undefined;
+  const { path, source, error } = made;
   // The panel renders on every read; the latest callback, without restarting the wait.
   const onFound = useRef(props.onFound);
   onFound.current = props.onFound;
@@ -105,27 +108,25 @@ export function IntelliJLogsDialog(props: {
           </Step>
           <Step n={3}>
             Paste this path:
-            {file && 'error' in file ? (
+            {error ? (
               <p role="alert" className="mt-1.5 text-xs text-state-failed">
-                {file.error}
+                {error}
               </p>
             ) : (
               <div className="mt-1.5 flex items-center gap-1 rounded-md border bg-muted/40 py-1 pr-1 pl-2.5">
                 <code
                   data-testid="intellij-log-path"
                   className="min-w-0 flex-1 truncate font-mono text-xs"
-                  title={file?.path}
+                  title={path}
                 >
-                  {file?.path ?? '...'}
+                  {path ?? '...'}
                 </code>
                 <Button
                   size="sm"
                   variant="ghost"
-                  disabled={!file}
-                  onClick={() => {
-                    if (!file || !('path' in file)) return;
-                    void navigator.clipboard.writeText(file.path).then(() => setCopied(true));
-                  }}
+                  disabled={!path}
+                  // The app's pasteboard: WKWebView refuses navigator.clipboard.
+                  onClick={() => path && void clipboard.write(path).then(() => setCopied(true))}
                 >
                   {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
                   {copied ? 'Copied' : 'Copy'}
@@ -139,12 +140,14 @@ export function IntelliJLogsDialog(props: {
         </ol>
         <DialogFooter className="items-center sm:justify-between">
           <p role="status" className="flex items-center gap-2 text-xs text-muted-foreground">
-            {source && !already && <LoaderCircle aria-hidden className="size-3.5 animate-spin" />}
-            {already
-              ? 'IntelliJ already saves this service here.'
-              : source
-                ? 'Waiting for IntelliJ to write the first line'
-                : ''}
+            {already ? (
+              'IntelliJ already saves this service here.'
+            ) : source ? (
+              <>
+                <LoaderCircle aria-hidden className="size-3.5 animate-spin" />
+                Waiting for IntelliJ to write the first line
+              </>
+            ) : null}
           </p>
           <div className="flex gap-2">
             <Button variant="outline" onClick={props.onClose}>

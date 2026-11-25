@@ -140,18 +140,20 @@ test('a log file reads anew each time, so a rewritten file starts over', async (
   const file = logFile(deps.serverLogs, 'lantern-cove', 'tide-api');
   mkdirSync(join(deps.serverLogs, 'lantern-cove'), { recursive: true });
   writeFileSync(file, 'INFO one\nERROR two\n');
-  const read = () => readLog(deps, 'file:tide-api', { project: 'lantern-cove' });
+  const read = () => readLog(deps, 'file:tide-api', { project: () => 'lantern-cove' });
   expect((await read()).entries.map((entry) => entry.message)).toEqual(['INFO one', 'ERROR two']);
   writeFileSync(file, 'INFO fresh run\n');
   expect((await read()).entries.map((entry) => entry.message)).toEqual(['INFO fresh run']);
-  await expect(readLog(deps, 'file:../secrets', { project: 'lantern-cove' })).rejects.toMatchObject(
+  await expect(
+    readLog(deps, 'file:../secrets', { project: () => 'lantern-cove' }),
+  ).rejects.toMatchObject({
+    code: 'usage',
+  });
+  await expect(readLog(deps, 'file:gone', { project: () => 'lantern-cove' })).rejects.toMatchObject(
     {
-      code: 'usage',
+      code: 'not_found',
     },
   );
-  await expect(readLog(deps, 'file:gone', { project: 'lantern-cove' })).rejects.toMatchObject({
-    code: 'not_found',
-  });
   expect(existsSync(file)).toBe(true);
 });
 

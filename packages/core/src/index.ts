@@ -103,8 +103,8 @@ export {
   type LogLevel,
   type ServerLogEntry,
 } from './logs/parse.js';
-export { parseSourceId } from './logs/source-id.js';
-export type { LogSource, LogSourceKind } from './logs/sources.js';
+export { type LogSourceKind, parseSourceId } from './logs/source-id.js';
+export type { LogSource } from './logs/sources.js';
 export type { MapSaved } from './map/service.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
 export type { NotificationDelivery } from './notifications/background.js';

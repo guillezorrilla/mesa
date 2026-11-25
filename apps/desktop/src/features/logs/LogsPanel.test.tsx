@@ -3,7 +3,7 @@ import { act, useState } from 'react';
 import { afterEach, expect, test, vi } from 'vitest';
 import { choose, click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
 import { LogsPanel } from './LogsPanel';
-import { LOGS_POLL_MS, useLogWatch } from './useLogWatch';
+import { CLOSED_POLL_MS, LOGS_POLL_MS, useLogWatch } from './useLogWatch';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -112,10 +112,10 @@ test('a new error while the panel is closed lights the dot; showing Errors clear
   });
   const byTestId = await renderWithMesa(<Harness onSend={() => true} />, bridge);
   await click(byTestId('toggle')[0]);
-  await act(async () => vi.advanceTimersByTimeAsync(LOGS_POLL_MS));
+  await act(async () => vi.advanceTimersByTimeAsync(CLOSED_POLL_MS));
   expect(byTestId('dot')).toHaveLength(0);
   entries = [...entries, entry('2026-05-06T07:08:20Z', 'error', 'new boom')];
-  await act(async () => vi.advanceTimersByTimeAsync(LOGS_POLL_MS));
+  await act(async () => vi.advanceTimersByTimeAsync(CLOSED_POLL_MS));
   expect(byTestId('dot')).toHaveLength(1);
   await click(byTestId('toggle')[0]);
   expect(byTestId('dot')).toHaveLength(1);

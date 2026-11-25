@@ -5,16 +5,18 @@ import { useCall } from '@/lib/useCommand';
 import { useWindowFocused } from '@/lib/useWindowFocused';
 import { type KeyedEntry, keyed, type LevelFilter } from './logLines';
 
-/** How often the panel reads its source while Live, and while closed for the red dot. */
+/** How often the open panel reads its source while Live. */
 export const LOGS_POLL_MS = 2_000;
+/** How often a closed panel reads it, for the red dot only. */
+export const CLOSED_POLL_MS = 10_000;
 /** How many entries a read brings back. */
 const TAIL = 500;
 
 /**
  * The Logs panel's stream for the selected session's project (CONTEXT.md, Logs panel): its sources,
  * the source picked (kept per project), that source's entries read every 2 s, the level filter, and
- * the red dot. It reads while the window has focus: with the panel open while Live is on, and with
- * it closed once a source was picked, so an error that comes in lights the dot. An error new since
+ * the red dot. It reads while the window has focus: with the panel open while Live is on, and every
+ * 10 s with it closed once a source was picked, so an error that comes in lights the dot. An error new since
  * the last read lights it unless the panel shows Errors; showing Errors clears it.
  */
 export function useLogWatch(project: string | undefined, open: boolean) {
@@ -24,6 +26,7 @@ export function useLogWatch(project: string | undefined, open: boolean) {
   const [sources, setSources] = useState<{ project: string; list: LogSource[] }>();
   const [stream, setStream] = useState<{ source: string; entries: KeyedEntry[] }>();
   const [failure, setFailure] = useState<{ source: string; message: string }>();
+  const [sourcesFailure, setSourcesFailure] = useState<string>();
   const [level, setLevel] = useState<LevelFilter>('all');
   const [live, setLive] = useState(true);
   const [dot, setDot] = useState(false);
@@ -40,8 +43,8 @@ export function useLogWatch(project: string | undefined, open: boolean) {
   const refreshSources = useCallback(async () => {
     if (!project) return;
     const found = await call('logs.sources', { project });
+    setSourcesFailure(found.ok ? undefined : found.error.message);
     if (found.ok) setSources({ project, list: found.data.sources });
-    else setFailure({ source: '', message: found.error.message });
   }, [call, project]);
   useEffect(() => {
     if (open) void refreshSources();
@@ -73,19 +76,26 @@ export function useLogWatch(project: string | undefined, open: boolean) {
             setDot(true);
           errors.current = { source, keys: now };
           setFailure(undefined);
-          setStream({ source, entries });
+          // An idle log reads the same each time: keep the list, so nothing renders again.
+          setStream((last) =>
+            last?.source === source &&
+            last.entries.length === entries.length &&
+            last.entries.at(-1)?.key === entries.at(-1)?.key
+              ? last
+              : { source, entries },
+          );
         })
         .finally(() => {
           busy.current = false;
         });
     };
     read();
-    const timer = window.setInterval(read, LOGS_POLL_MS);
+    const timer = window.setInterval(read, open ? LOGS_POLL_MS : CLOSED_POLL_MS);
     return () => {
       gone = true;
       window.clearInterval(timer);
     };
-  }, [reading, call, project, source]);
+  }, [reading, open, call, project, source]);
 
   return {
     project,
@@ -95,8 +105,7 @@ export function useLogWatch(project: string | undefined, open: boolean) {
     /** Picks a source and keeps the choice for the project. */
     pick: keep,
     entries: stream && stream.source === source ? stream.entries : undefined,
-    failure:
-      failure && (failure.source === source || !failure.source) ? failure.message : undefined,
+    failure: sourcesFailure ?? (failure && failure.source === source ? failure.message : undefined),
     level,
     setLevel,
     live,

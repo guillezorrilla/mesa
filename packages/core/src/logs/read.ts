@@ -19,8 +19,10 @@ export type ReadOptions = {
 export type ReadDeps = LogSourceDeps & { lock: LockDeps; now: () => Date };
 
 const DEFAULT_TAIL = 200;
-/** How many raw lines a read looks at, at least: the filters pick from these. */
+/** How many raw lines a filtered read looks at, at least: the filters pick from these. */
 const LOOK = 2000;
+/** Bytes per line a file tail reads first, so most reads take one pass. */
+const LINE_BYTES = 200;
 const AGE = /^(\d+)(s|m|h|d)$/;
 const SECONDS = { s: 1, m: 60, h: 3600, d: 86400 };
 
@@ -65,7 +67,7 @@ async function dockerLines(deps: ReadDeps, name: string, lines: number, since?: 
 async function rawLines(
   deps: ReadDeps,
   source: string,
-  project: string | undefined,
+  project: (() => string) | undefined,
   lines: number,
   since?: string,
 ): Promise<RawLine[]> {
@@ -80,11 +82,12 @@ async function rawLines(
   }
   if (parsed?.kind === 'file') {
     if (!project) throw new MesaError('usage', `name the project whose log file ${parsed.name} is`);
-    const file = logFile(deps.serverLogs, project, parsed.name);
+    const named = project();
+    const file = logFile(deps.serverLogs, named, parsed.name);
     if (!existsSync(file))
-      throw new MesaError('not_found', `no log file ${parsed.name} in project ${project}`);
+      throw new MesaError('not_found', `no log file ${parsed.name} in project ${named}`);
     // Read anew each time, so a file IntelliJ rewrote on a new run starts over.
-    for (let bytes = 64 * 1024; ; bytes *= 2) {
+    for (let bytes = Math.max(64 * 1024, lines * LINE_BYTES); ; bytes *= 2) {
       const read = tailLines(file, bytes);
       if (!read.truncated || read.lines.length >= lines)
         return read.lines.slice(-lines).map((line) => ({ text: line.trimEnd() }));
@@ -98,17 +101,19 @@ async function rawLines(
 
 /**
  * `source`'s last entries (parseLog), at `level` or more severe and timed at or after `since`
- * when given: the last `tail` of those found in its last 2000 lines (or `tail`, if more). A
- * `file:` source is `project`'s. An entry with no time is left out when `since` is given.
+ * when given: the last `tail` of those found in its last 2000 lines (or `tail`, if more), or in
+ * its last 2 x `tail` lines unfiltered. A `file:` source is the project `project` resolves. An entry with no time is left out when `since` is given.
  */
 export async function readLog(
   deps: ReadDeps,
   source: string,
-  opts: ReadOptions & { project?: string } = {},
+  opts: ReadOptions & { project?: () => string } = {},
 ): Promise<{ source: string; entries: ServerLogEntry[] }> {
   const tail = opts.tail ?? DEFAULT_TAIL;
   const since = opts.since === undefined ? undefined : sinceTime(opts.since, deps.now());
-  const raw = await rawLines(deps, source, opts.project, Math.max(tail, LOOK), since);
+  // Unfiltered, twice the entries asked for leaves room for their folded stacks.
+  const look = opts.level || since ? Math.max(tail, LOOK) : tail * 2;
+  const raw = await rawLines(deps, source, opts.project, look, since);
   const entries = parseLog(raw).filter(
     (entry) =>
       atLeast(entry, opts.level) &&

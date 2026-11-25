@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Switch } from '@/components/ui/switch';
+import { useToggleSet } from '@/lib/useToggleSet';
 import { cn } from '@/lib/utils';
 import { IntelliJLogsDialog } from './IntelliJLogsDialog';
 import { LogEntryRow } from './LogEntryRow';
@@ -59,7 +60,7 @@ export function LogsPanel(props: {
 }) {
   const { watch } = props;
   const [text, setText] = useState('');
-  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  const [picked, toggle, setPicked] = useToggleSet();
   const [intellij, setIntellij] = useState(false);
   /** The session showed no prompt field for the last Send: the lines stay selected. */
   const [unsent, setUnsent] = useState(false);
@@ -78,12 +79,6 @@ export function LogsPanel(props: {
     setPicked(new Set());
     watch.pick(id);
   };
-  const toggle = (key: string) =>
-    setPicked((now) => {
-      const next = new Set(now);
-      if (!next.delete(key)) next.add(key);
-      return next;
-    });
   const send = () => {
     const sent = props.onSend?.(
       logPrompt(
@@ -95,6 +90,13 @@ export function LogsPanel(props: {
     if (sent) setPicked(new Set());
   };
   const noSources = watch.sources?.length === 0;
+  const status = !props.onSend
+    ? 'A terminal session has no agent to send lines to'
+    : !picked.size
+      ? 'Click lines to select them'
+      : unsent
+        ? 'This session takes no prompt now; start or resume it first'
+        : `${picked.size} ${picked.size === 1 ? 'line' : 'lines'} selected`;
   return (
     <aside
       aria-label="Logs"
@@ -214,13 +216,7 @@ export function LogsPanel(props: {
       </div>
       <footer className="flex min-h-11 shrink-0 items-center gap-2 border-t px-3 py-2 text-xs text-muted-foreground">
         <span className="mr-auto" role="status">
-          {!props.onSend
-            ? 'A terminal session has no agent to send lines to'
-            : unsent && picked.size
-              ? 'This session takes no prompt now; start or resume it first'
-              : picked.size
-                ? `${picked.size} ${picked.size === 1 ? 'line' : 'lines'} selected`
-                : 'Click lines to select them'}
+          {status}
         </span>
         <Button
           size="sm"

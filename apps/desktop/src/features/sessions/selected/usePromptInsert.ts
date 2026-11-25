@@ -23,8 +23,8 @@ export function usePromptInsert(
    */
   const showAndInsert = useCallback(
     (text: string) => {
-      if (actionsMenu.current) actionsMenu.current.open = true;
       if (!promptField.current) return false;
+      if (actionsMenu.current) actionsMenu.current.open = true;
       insertPrompt(text);
       return true;
     },
@@ -33,9 +33,7 @@ export function usePromptInsert(
   useEffect(() => {
     if (!request || request === handledPromptInsert.current || request.session !== selectedId)
       return;
-    if (!promptField.current) return;
-    showAndInsert(request.text);
-    handledPromptInsert.current = request;
+    if (showAndInsert(request.text)) handledPromptInsert.current = request;
   }, [request, selectedId, showAndInsert]);
   return { promptField, actionsMenu, insertPrompt, showAndInsert };
 }

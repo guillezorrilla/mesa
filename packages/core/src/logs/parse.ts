@@ -44,18 +44,16 @@ const LEVEL_WORDS: Record<string, LogLevel> = {
   trace: 'debug',
 };
 
+const PINO_LEVELS: readonly (readonly [number, LogLevel])[] = [
+  [50, 'error'],
+  [40, 'warn'],
+  [30, 'info'],
+  [10, 'debug'],
+];
+
 /** A level as a logger names it, or pino's number (50 error, 40 warn, 30 info, 20 and 10 debug). */
 function levelOf(value: unknown): LogLevel | null {
-  if (typeof value === 'number')
-    return value >= 50
-      ? 'error'
-      : value >= 40
-        ? 'warn'
-        : value >= 30
-          ? 'info'
-          : value >= 10
-            ? 'debug'
-            : null;
+  if (typeof value === 'number') return PINO_LEVELS.find(([floor]) => value >= floor)?.[1] ?? null;
   return typeof value === 'string' ? (LEVEL_WORDS[value.toLowerCase()] ?? null) : null;
 }
 

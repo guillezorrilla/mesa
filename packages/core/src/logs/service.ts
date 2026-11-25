@@ -6,7 +6,7 @@ import { projectOf } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
 import { callerOf } from '../sessions/window/caller.js';
 import { type ReadOptions, readLog } from './read.js';
-import { parseSourceId, sourceId } from './source-id.js';
+import { sourceId } from './source-id.js';
 import { logFile, logSources } from './sources.js';
 
 /** The Logs panel's side of Mesa (CONTEXT.md, Logs panel): a project's log sources and their entries. */
@@ -41,10 +41,7 @@ export function logsService(ctx: MesaContext) {
     }),
     /** A source's last entries (readLog); a `file:` source is the project's. */
     read: (source: string, opts: ReadOptions & { project?: string } = {}) =>
-      readLog(deps(), source, {
-        ...opts,
-        ...(parseSourceId(source)?.kind === 'file' ? { project: projectNamed(opts.project) } : {}),
-      }),
+      readLog(deps(), source, { ...opts, project: () => projectNamed(opts.project) }),
     /**
      * Where an IDE saves `project`'s service `name` console (the IntelliJ setup), its folder made:
      * the path, and the source it becomes once the file is there.
