@@ -1,7 +1,6 @@
 import { counted, firstLine, odds } from '../../lib/format.js';
 import type { SessionRow } from '../board/rows.js';
 import { projectLabel } from './general.js';
-import { exited } from './lifecycle.js';
 import type { SessionRecord, SessionReview } from './record.js';
 import { sessionProjects } from './session-projects.js';
 import { type SessionState, WAITING_STATES } from './states.js';
@@ -99,9 +98,6 @@ export const doingNow = (s: SessionRow) => {
 
 /** A Mesa session that runs a skill headlessly (CONTEXT.md, Skill run). */
 export const isRun = (s: SessionRow) => s.managed && s.kind === 'run';
-/** Whether the app shows the session a prompt field: an agent still running, not a run or a terminal. */
-export const takesPrompt = (s: SessionRow) =>
-  !exited(s) && (!s.managed || s.kind === 'interactive');
 
 /**
  * A Mesa session's additional projects as its row names them after its own, `+tide-pool,driftwood`

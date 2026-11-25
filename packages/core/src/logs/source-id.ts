@@ -1,6 +1,8 @@
 // A log source (CONTEXT.md, Logs panel): its id, `<kind>:<name>`, the one place that builds and
 // reads it, and how a person sees it named. Pure, so the app bundles it (`@mesa/core/browser`).
 
+import { timeAgo } from '../lib/ago.js';
+
 export const LOG_SOURCE_KINDS = ['docker', 'session', 'file'] as const;
 export type LogSourceKind = (typeof LOG_SOURCE_KINDS)[number];
 
@@ -42,3 +44,10 @@ export const sourceLabel = (source: Pick<LogSource, 'kind' | 'name'>) =>
 
 /** How long a source may go without a line and still read as live. */
 export const LIVE_MS = 60_000;
+
+/** A source's state in words: live, or when it printed last, and stopped when its container exited. */
+export function sourceStateText(source: Pick<LogSource, 'state' | 'lastLine'>, now: number) {
+  if (source.state === 'live') return 'live';
+  const last = source.lastLine ? `last line ${timeAgo(source.lastLine, now)}` : 'no lines yet';
+  return source.state === 'stopped' ? `stopped, ${last}` : last;
+}

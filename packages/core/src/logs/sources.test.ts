@@ -10,8 +10,9 @@ import {
   tempDir,
   testStore,
 } from '../testing/index.js';
+import { projectModules } from './modules.js';
 import { readLog, sinceTime } from './read.js';
-import { logFile, logSources, projectModules } from './sources.js';
+import { logFile, logSources } from './sources.js';
 
 const NOW = new Date('2026-05-06T07:10:00.000Z');
 

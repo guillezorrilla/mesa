@@ -1,5 +1,5 @@
 import type { ServerLogEntry } from '@mesa/core';
-import { LEVEL_NAMES } from '@mesa/core/browser';
+import { LEVEL_NAMES, namesRequest } from '@mesa/core/browser';
 
 /** Which entries the panel shows by level: every one, errors, or warnings. */
 export type LevelFilter = 'all' | 'error' | 'warn';
@@ -41,7 +41,7 @@ export function levelCounts(entries: readonly ServerLogEntry[]): Record<LevelFil
 
 /**
  * The entries `level`, the words in `text` (in the message or the stack, any case) and `request`
- * (an id the message names) keep.
+ * (an id the message names, namesRequest) keep.
  */
 export function shownEntries<E extends ServerLogEntry>(
   entries: readonly E[],
@@ -51,7 +51,7 @@ export function shownEntries<E extends ServerLogEntry>(
   return entries.filter(
     (entry) =>
       (filter.level === 'all' || entry.level === filter.level) &&
-      (!filter.request || entry.message.includes(filter.request)) &&
+      (!filter.request || namesRequest(entry.message, filter.request)) &&
       (!words || `${entry.message}\n${entry.stack ?? ''}`.toLowerCase().includes(words)),
   );
 }

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { messageParts, requestIds } from './tokens.js';
+import { messageParts, namesRequest, requestIds } from './tokens.js';
 
 test('request ids, 4xx and 5xx statuses and slow durations are parts of their own', () => {
   expect(messageParts('POST /moorings 500 1.24s reqId=7f3a slow')).toEqual([
@@ -17,6 +17,13 @@ test('request ids, 4xx and 5xx statuses and slow durations are parts of their ow
     { text: ' 12ms status=' },
     { text: '503', status: 'failed' },
   ]);
+  expect(messageParts('Completed 500 INTERNAL_SERVER_ERROR, 404 NOT_FOUND')).toEqual([
+    { text: 'Completed ' },
+    { text: '500', status: 'failed' },
+    { text: ' INTERNAL_SERVER_ERROR, ' },
+    { text: '404', status: 'waiting' },
+    { text: ' NOT_FOUND' },
+  ]);
   expect(messageParts('GET /tides 200 2ms took 999ms')).toEqual([
     { text: 'GET /tides 200 2ms took 999ms' },
   ]);
@@ -28,4 +35,6 @@ test('every way of naming a request is read', () => {
       'requestId: ab-12 traceId=c0ffee trace_id="d00d1" X-Request-Id: e-55 correlationId=f9f9',
     ),
   ).toEqual(['ab-12', 'c0ffee', 'd00d1', 'e-55', 'f9f9']);
+  expect(namesRequest('POST /moorings reqId=7f3a', '7f3a')).toBe(true);
+  expect(namesRequest('POST /moorings reqId=7f3ab', '7f3a')).toBe(false);
 });

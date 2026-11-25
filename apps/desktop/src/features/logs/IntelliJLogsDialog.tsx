@@ -54,9 +54,9 @@ export function IntelliJLogsDialog(props: {
       if (list[0]) setName(list[0]);
     });
   }, [call, props.project]);
-  const other = !modules?.length || !modules.includes(name);
-  const known = modules !== undefined;
-  const settled = name.trim();
+  const customName = !modules?.length || !modules.includes(name);
+  const modulesRead = modules !== undefined;
+  const typed = name.trim();
   const service = useDebouncedValue(name.trim(), 300);
   /** The file `mesa logs file` named, or why it could not. */
   const [made, setMade] = useState<{ path?: string; source?: string; error?: string }>({});
@@ -69,7 +69,7 @@ export function IntelliJLogsDialog(props: {
     setCopied(false);
     setWaiting(false);
     // Once the modules are known and the name has settled, so a default or a keystroke is not asked for.
-    if (!service || !known || service !== settled) return;
+    if (!service || !modulesRead || service !== typed) return;
     void call('logs.file', { name: service, project: props.project, make: false }).then(
       (result) => {
         if (!gone) setMade(result.ok ? result.data : { error: result.error.message });
@@ -78,7 +78,7 @@ export function IntelliJLogsDialog(props: {
     return () => {
       gone = true;
     };
-  }, [call, service, settled, known, props.project]);
+  }, [call, service, typed, modulesRead, props.project]);
   const { path, error } = made;
   const source = waiting ? made.source : undefined;
   /** Makes the file's folder, so IntelliJ can write there, and starts the wait. */
@@ -125,7 +125,7 @@ export function IntelliJLogsDialog(props: {
           {modules?.length ? (
             <NativeSelect
               id="intellij-service"
-              value={other ? OTHER : name}
+              value={customName ? OTHER : name}
               onChange={(event) => {
                 const picked = event.currentTarget.value;
                 setName(picked === OTHER ? '' : picked);
@@ -139,7 +139,7 @@ export function IntelliJLogsDialog(props: {
               <NativeSelectOption value={OTHER}>Another name...</NativeSelectOption>
             </NativeSelect>
           ) : null}
-          {other && (
+          {customName && (
             <Input
               id={modules?.length ? undefined : 'intellij-service'}
               aria-label={modules?.length ? 'Another service name' : undefined}

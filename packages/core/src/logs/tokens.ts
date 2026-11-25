@@ -14,9 +14,12 @@ export type MessagePart = {
 /** `reqId=7f3a`, `requestId: 7f3a`, `traceId=...`, `trace_id`, `X-Request-Id: ...`, `correlationId`. */
 const REQUEST =
   /\b(?:req(?:uest)?[-_]?id|trace[-_]?id|x-request-id|correlation[-_]?id)["']?\s*[=:]\s*["']?([A-Za-z0-9][\w.-]{2,})/gi;
-/** A status after a method and path (`GET /tides 500`), or named (`status=503`). */
+/**
+ * A status after a method and path (`GET /tides 500`), named (`status=503`), or with its reason in
+ * Spring's words (`500 INTERNAL_SERVER_ERROR`).
+ */
 const STATUS =
-  /\b(?:(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+\S+\s+|status(?:Code)?["']?\s*[=:]\s*["']?)([1-5]\d\d)\b/gi;
+  /\b(?:(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+\S+\s+|[Ss]tatus(?:Code)?["']?\s*[=:]\s*["']?)([1-5]\d\d)\b|\b([1-5]\d\d)(?=\s+[A-Z]+_[A-Z_]+\b|\s+(?:NOT_FOUND|CONFLICT|FORBIDDEN|UNAUTHORIZED)\b)/g;
 const DURATION = /\b(\d+(?:\.\d+)?)\s?(ms|s)\b/g;
 
 type Found = { start: number; end: number; part: Omit<MessagePart, 'text'> };
@@ -24,6 +27,9 @@ type Found = { start: number; end: number; part: Omit<MessagePart, 'text'> };
 /** The request ids `message` names, in order. */
 export const requestIds = (message: string) =>
   [...message.matchAll(REQUEST)].map((match) => match[1] ?? '').filter(Boolean);
+
+/** Whether `message` names request `id` (requestIds), exactly. */
+export const namesRequest = (message: string, id: string) => requestIds(message).includes(id);
 
 /** `message` split into plain text and the parts above, in order, never overlapping. */
 export function messageParts(message: string): MessagePart[] {
@@ -35,7 +41,7 @@ export function messageParts(message: string): MessagePart[] {
       part: { request: match[1] },
     });
   for (const match of message.matchAll(STATUS)) {
-    const code = match[1] ?? '';
+    const code = match[1] ?? match[2] ?? '';
     if (code < '400') continue;
     const end = match.index + match[0].length;
     found.push({ start: end - 3, end, part: { status: code >= '500' ? 'failed' : 'waiting' } });

@@ -7,8 +7,6 @@ import type { SessionStore } from '../sessions/record/store.js';
 import { outputLog } from '../sessions/window/output-log.js';
 import { LIVE_MS, type LogSource, type LogSourceState, sourceId } from './source-id.js';
 
-export type { LogSource } from './source-id.js';
-
 // Where a project's local servers print (CONTEXT.md, Logs panel): Docker containers running or
 // exited within the hour, the Output logs of its unended sessions, and the log files in its folder
 // under the profile's logs, each with when it printed its last line.
@@ -157,25 +155,4 @@ export async function logSources(deps: LogSourceDeps, project: string): Promise<
     ...sessions(deps, project),
     ...files(deps, project),
   ];
-}
-
-/** The build files that make a folder one of a project's modules. */
-const MODULE_FILES = ['build.gradle', 'build.gradle.kts', 'pom.xml', 'package.json'];
-
-/**
- * The project's modules: its top-level folders with a Gradle, Maven or npm build file, by name;
- * what the IntelliJ steps offer as service names.
- */
-export function projectModules(dir: string): string[] {
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir, { withFileTypes: true })
-    .filter(
-      (entry) =>
-        entry.isDirectory() &&
-        !entry.name.startsWith('.') &&
-        entry.name !== 'node_modules' &&
-        MODULE_FILES.some((build) => existsSync(join(dir, entry.name, build))),
-    )
-    .map((entry) => entry.name)
-    .sort();
 }

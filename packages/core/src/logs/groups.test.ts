@@ -35,7 +35,11 @@ test("a mute takes a line's path, else its normalized message, and hides the lin
   expect(muteKey('cache warm in 12ms')).toBe('cache warm in #ms');
   const health = { ...entry('GET /actuator/health 200 3ms', 'x'), level: 'info' as const };
   expect(isMuted(health, ['/actuator/health'])).toBe(true);
-  expect(isMuted(entry('cache warm in 40ms', 'x'), ['cache warm in #ms'])).toBe(true);
+  expect(
+    isMuted({ ...entry('cache warm in 40ms', 'x'), level: 'info' }, ['cache warm in #ms']),
+  ).toBe(true);
   expect(isMuted(entry('GET /tides 200', 'x'), ['/actuator/health'])).toBe(false);
   expect(isMuted(health, [])).toBe(false);
+  // A mute is for noise: the path's failures still show.
+  expect(isMuted(entry('GET /actuator/health 503 2ms', 'x'), ['/actuator/health'])).toBe(false);
 });

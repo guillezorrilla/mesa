@@ -50,9 +50,13 @@ export function errorGroups<E extends ServerLogEntry>(entries: readonly E[]): Er
 /** What one click mutes for a line: the path it names, else its normalized message. */
 export const muteKey = (message: string) => PATH.exec(message)?.[1] ?? normalizedMessage(message);
 
-/** Whether `entry` matches one of `mutes`, by its message or its normalized message. */
-export const isMuted = (entry: ServerLogEntry, mutes: readonly string[]) =>
-  mutes.length > 0 &&
-  mutes.some(
-    (mute) => entry.message.includes(mute) || normalizedMessage(entry.message).includes(mute),
-  );
+/**
+ * Whether `entry` matches one of `mutes`, by its message or its normalized message. An error is
+ * never muted: a mute is for noise, and a path muted for its health checks still shows its failures.
+ */
+export function isMuted(entry: ServerLogEntry, mutes: readonly string[]) {
+  if (!mutes.length || entry.level === 'error') return false;
+  if (mutes.some((mute) => entry.message.includes(mute))) return true;
+  const normalized = normalizedMessage(entry.message);
+  return mutes.some((mute) => normalized.includes(mute));
+}

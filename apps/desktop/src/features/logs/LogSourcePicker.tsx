@@ -1,5 +1,5 @@
 import type { LogSource } from '@mesa/core';
-import { sourceLabel, timeAgo } from '@mesa/core/browser';
+import { sourceLabel, sourceStateText } from '@mesa/core/browser';
 import { ChevronDown, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,13 +16,6 @@ const DOT = {
   quiet: 'bg-muted-foreground/40',
   stopped: 'border border-muted-foreground/60 bg-transparent',
 };
-
-/** A source's state in words: live, or when it printed last, and stopped when its container exited. */
-export function sourceState(source: LogSource, now = Date.now()) {
-  if (source.state === 'live') return 'live';
-  const last = source.lastLine ? `last line ${timeAgo(source.lastLine, now)}` : 'no lines yet';
-  return source.state === 'stopped' ? `stopped, ${last}` : last;
-}
 
 function StateDot(props: { source?: LogSource }) {
   return (
@@ -53,7 +46,7 @@ export function LogSourcePicker(props: {
           variant="outline"
           size="sm"
           aria-label="Log source"
-          title={current ? sourceState(current) : undefined}
+          title={current ? sourceStateText(current, Date.now()) : undefined}
           className="ml-auto h-7 min-w-0 max-w-72 gap-1.5 px-2 text-xs font-normal"
         >
           <StateDot source={current} />
@@ -73,7 +66,9 @@ export function LogSourcePicker(props: {
           >
             <StateDot source={each} />
             <span className="min-w-0 flex-1 truncate">{sourceLabel(each)}</span>
-            <span className="shrink-0 text-xs text-muted-foreground">{sourceState(each)}</span>
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {sourceStateText(each, Date.now())}
+            </span>
           </DropdownMenuItem>
         ))}
         {props.sources?.length ? <DropdownMenuSeparator /> : null}

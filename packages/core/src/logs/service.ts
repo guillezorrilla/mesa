@@ -5,9 +5,10 @@ import { MesaError } from '../lib/result.js';
 import { projectOf } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
 import { callerOf } from '../sessions/window/caller.js';
+import { projectModules } from './modules.js';
 import { type ReadOptions, readLog } from './read.js';
 import { sourceId } from './source-id.js';
-import { logFile, logSources, projectModules } from './sources.js';
+import { logFile, logSources } from './sources.js';
 
 /** The Logs panel's side of Mesa (CONTEXT.md, Logs panel): a project's log sources and their entries. */
 export function logsService(ctx: MesaContext) {
