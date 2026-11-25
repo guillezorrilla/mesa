@@ -1,4 +1,4 @@
-import { cloudLevel, splitMessage } from './cloud-entry.js';
+import { cloudLevel, serviceRefOf, splitMessage, traceIdOf } from './cloud-entry.js';
 import { type CopyFormat, copyText, groupSummaryText } from './copy.js';
 import type { CloudErrorGroup } from './errors.js';
 import type { CloudLogEntry } from './gcp.js';
@@ -70,7 +70,7 @@ const asLogEntry = (entry: CloudLogEntry): ServerLogEntry => {
 const besideOf = (entry: CloudLogEntry): Record<string, string> => ({
   project: entry.project,
   ...(entry.service ? { service: entry.service } : {}),
-  ...(entry.trace ? { trace: entry.trace.split('/').at(-1) as string } : {}),
+  ...(entry.trace ? { trace: traceIdOf(entry.trace) } : {}),
   insertId: entry.id,
   ...entry.fields,
 });
@@ -81,7 +81,7 @@ export function cloudCopyText(entries: readonly CloudLogEntry[], format: CopyFor
     return JSON.stringify(entries.length === 1 ? entries[0] : entries, null, 2);
   const byEntry = new Map(entries.map((e) => [asLogEntry(e), e]));
   return copyText([...byEntry.keys()], format, {
-    source: [...new Set(entries.map((e) => `${e.project}/${e.service ?? '-'}`))].join(', '),
+    source: [...new Set(entries.map(serviceRefOf))].join(', '),
     fields: (entry) => {
       const cloud = byEntry.get(entry);
       return cloud ? besideOf(cloud) : {};
@@ -105,6 +105,7 @@ export function cloudGroupSummary(group: CloudErrorGroup, entries: readonly Clou
       source: group.project,
       services: group.services.length ? group.services : [group.project],
       fields: () => (newest ? besideOf(newest) : {}),
+      firstSeen: group.firstSeen || null,
     },
-  ).replace(/^First seen: .*$/m, `First seen: ${group.firstSeen || 'unknown'}`);
+  );
 }

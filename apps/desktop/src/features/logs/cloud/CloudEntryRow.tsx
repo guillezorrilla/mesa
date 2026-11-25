@@ -23,6 +23,7 @@ export const CloudEntryRow = memo(function CloudEntryRow(props: {
   selected: boolean;
   cited: boolean;
   expanded: boolean;
+  onExpand: () => void;
   actions: EntryActions;
 }) {
   const { entry, actions } = props;
@@ -86,7 +87,7 @@ export const CloudEntryRow = memo(function CloudEntryRow(props: {
               label={props.expanded ? 'Close the payload' : 'Open the payload'}
               icon={ChevronDown}
               className={cn(props.expanded && 'rotate-180')}
-              onClick={act(() => actions.onExpand(entry))}
+              onClick={act(props.onExpand)}
             />
           </>
         }

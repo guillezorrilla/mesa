@@ -1,4 +1,4 @@
-import { splitMessage } from './cloud-entry.js';
+import { splitMessage, traceIdOf } from './cloud-entry.js';
 import { facetsOf } from './facets.js';
 import type { CloudLogEntry } from './gcp.js';
 import { normalizedMessage } from './groups.js';
@@ -55,7 +55,7 @@ const GATEWAY = /\b50[234]\b|bad gateway|gateway time-?out|upstream/i;
 const COUNT_BUCKETS = 3;
 const CORRELATION = 0.8;
 
-const traceOf = (entry: CloudLogEntry) => entry.trace?.split('/').at(-1) ?? null;
+const traceOf = (entry: CloudLogEntry) => (entry.trace ? traceIdOf(entry.trace) : null);
 
 /** The values `pick` gives `entries`, each with the share of entries that hold it. */
 function shares(entries: readonly CloudLogEntry[], pick: (e: CloudLogEntry) => string[]) {
@@ -91,78 +91,71 @@ export function perMinute(entries: readonly CloudLogEntry[], from: number, to: n
   return buckets;
 }
 
-/** Every link between two groups `a` and `b`; `all` is every group, to tell a broad value apart. */
-function linksBetween(
-  a: IncidentGroup,
-  b: IncidentGroup,
-  all: readonly IncidentGroup[],
-  range: { from: number; to: number },
-) {
+/** What linking reads of one group, worked out once. */
+type GroupIndex = {
+  group: IncidentGroup;
+  traces: Set<string>;
+  requests: Set<string>;
+  shares: Map<string, number>;
+  minutes: number[];
+  first: string;
+};
+
+const fieldPairs = (e: CloudLogEntry) =>
+  Object.entries(e.fields)
+    .filter(([key]) => !BROAD.has(key.toLowerCase()))
+    .map(([key, value]) => `${key}=${value}`);
+
+function indexOf(group: IncidentGroup, range: { from: number; to: number }): GroupIndex {
+  return {
+    group,
+    traces: new Set(group.entries.flatMap((e) => (traceOf(e) ? [traceOf(e) as string] : []))),
+    requests: new Set(group.entries.flatMap((e) => requestIds(e.message))),
+    shares: shares(group.entries, fieldPairs),
+    minutes: perMinute(group.entries, range.from, range.to),
+    first: group.entries.reduce(
+      (min, e) => (!min || Date.parse(e.time) < Date.parse(min) ? e.time : min),
+      '',
+    ),
+  };
+}
+
+/** Every link between groups `a` and `b`; `carriers` counts, per context value, the groups mostly carrying it. */
+function linksBetween(a: GroupIndex, b: GroupIndex, carriers: Map<string, number>, groups: number) {
   const links: IncidentLink[] = [];
   const add = (reason: LinkReason, detail: string, strength: number) =>
     links.push({
-      from: a.key,
-      to: b.key,
+      from: a.group.key,
+      to: b.group.key,
       reason,
       detail,
       strength: Math.round(strength * 100) / 100,
     });
-  const ids = (pick: (e: CloudLogEntry) => string[]) => {
-    const inB = new Set(b.entries.flatMap(pick));
-    return [...new Set(a.entries.flatMap(pick))].filter((id) => inB.has(id));
-  };
-  const traces = ids((e) => (traceOf(e) ? [traceOf(e) as string] : []));
-  if (traces.length)
-    add(
-      'trace',
-      `trace ${traces[0]}${traces.length > 1 ? ` and ${traces.length - 1} more` : ''}`,
-      0.9,
-    );
-  const requests = ids((e) => requestIds(e.message));
-  if (requests.length)
-    add(
-      'request',
-      `request ${requests[0]}${requests.length > 1 ? ` and ${requests.length - 1} more` : ''}`,
-      0.85,
-    );
-  // A context value both groups mostly carry, that most other groups do not.
-  const fieldPairs = (e: CloudLogEntry) =>
-    Object.entries(e.fields)
-      .filter(([key]) => !BROAD.has(key.toLowerCase()))
-      .map(([key, value]) => `${key}=${value}`);
-  const [sa, sb] = [shares(a.entries, fieldPairs), shares(b.entries, fieldPairs)];
-  // Broad: most of the other groups carry it too, so it tells nothing about these two.
-  const others = all.filter((g) => g.key !== a.key && g.key !== b.key);
-  const carriers = (pair: string) =>
-    others.filter((g) => (shares(g.entries, fieldPairs).get(pair) ?? 0) >= 0.5).length;
-  for (const [pair, share] of sa) {
-    const other = sb.get(pair) ?? 0;
+  const shared = (x: Set<string>, y: Set<string>) => [...x].filter((id) => y.has(id));
+  const more = (ids: string[]) => (ids.length > 1 ? ` and ${ids.length - 1} more` : '');
+  const traces = shared(a.traces, b.traces);
+  if (traces.length) add('trace', `trace ${traces[0]}${more(traces)}`, 0.9);
+  const requests = shared(a.requests, b.requests);
+  if (requests.length) add('request', `request ${requests[0]}${more(requests)}`, 0.85);
+  // A context value both groups mostly carry that most of the other groups do not.
+  const others = groups - 2;
+  for (const [pair, share] of a.shares) {
+    const other = b.shares.get(pair) ?? 0;
     if (share < 0.5 || other < 0.5) continue;
-    const broad = others.length > 0 && carriers(pair) / others.length > 0.5;
-    if (broad) continue;
-    const [key] = pair.split('=');
+    const rest = (carriers.get(pair) ?? 0) - 2;
+    if (others > 0 && rest / others > 0.5) continue;
+    const revision = pair.split('=')[0]?.toLowerCase() === 'revision';
     add(
-      key?.toLowerCase() === 'revision' ? 'revision' : 'context',
+      revision ? 'revision' : 'context',
       pair,
-      key?.toLowerCase() === 'revision' ? 0.45 : 0.5 + 0.2 * Math.min(share, other),
+      revision ? 0.45 : 0.5 + 0.2 * Math.min(share, other),
     );
   }
-  const [ca, cb] = [
-    perMinute(a.entries, range.from, range.to),
-    perMinute(b.entries, range.from, range.to),
-  ];
   const busy = (xs: number[]) => xs.filter(Boolean).length >= COUNT_BUCKETS;
-  const r = busy(ca) && busy(cb) ? correlation(ca, cb) : 0;
+  const r = busy(a.minutes) && busy(b.minutes) ? correlation(a.minutes, b.minutes) : 0;
   if (r >= CORRELATION) add('counts', `counts rise together (r ${r.toFixed(2)})`, 0.7 * r);
   return links;
 }
-
-/** The first time any of `group`'s entries was seen. */
-const firstOf = (group: IncidentGroup) =>
-  group.entries.reduce(
-    (min, e) => (!min || Date.parse(e.time) < Date.parse(min) ? e.time : min),
-    '',
-  );
 
 /**
  * The incidents among `groups`: groups whose links (linksBetween) reach LINK_THRESHOLD join one,
@@ -173,35 +166,49 @@ export function incidentsOf(
   groups: readonly IncidentGroup[],
   range: { from: number; to: number },
 ): Incident[] {
+  const index = groups.map((g) => indexOf(g, range));
+  const carriers = new Map<string, number>();
+  for (const { shares: own } of index)
+    for (const [pair, share] of own)
+      if (share >= 0.5) carriers.set(pair, (carriers.get(pair) ?? 0) + 1);
   const parent = new Map(groups.map((g) => [g.key, g.key]));
   const root = (key: string): string => {
     const up = parent.get(key) ?? key;
-    return up === key ? key : root(up);
+    if (up === key) return key;
+    const top = root(up);
+    parent.set(key, top);
+    return top;
   };
   const links: IncidentLink[] = [];
-  groups.forEach((a, i) => {
-    for (const b of groups.slice(i + 1)) {
-      const found = linksBetween(a, b, groups, range);
+  index.forEach((a, i) => {
+    for (const b of index.slice(i + 1)) {
+      const found = linksBetween(a, b, carriers, groups.length);
       links.push(...found);
-      if (found.some((l) => l.strength >= LINK_THRESHOLD)) parent.set(root(a.key), root(b.key));
+      if (found.some((l) => l.strength >= LINK_THRESHOLD))
+        parent.set(root(a.group.key), root(b.group.key));
     }
   });
-  const byRoot = new Map<string, IncidentGroup[]>();
-  for (const g of groups) byRoot.set(root(g.key), [...(byRoot.get(root(g.key)) ?? []), g]);
+  const byRoot = new Map<string, GroupIndex[]>();
+  for (const member of index) {
+    const top = root(member.group.key);
+    const list = byRoot.get(top) ?? [];
+    list.push(member);
+    byRoot.set(top, list);
+  }
   return [...byRoot.values()]
     .filter((members) => members.length > 1)
     .map((members) => {
-      const keys = new Set(members.map((m) => m.key));
-      const byTime = [...members].sort((x, y) => Date.parse(firstOf(x)) - Date.parse(firstOf(y)));
+      const keys = new Set(members.map((m) => m.group.key));
+      const byTime = [...members].sort((x, y) => Date.parse(x.first) - Date.parse(y.first));
       const origin =
-        byTime.find((m) => !GATEWAY.test(splitMessage(m.message).head)) ??
-        (byTime[0] as IncidentGroup);
+        byTime.find((m) => !GATEWAY.test(splitMessage(m.group.message).head)) ??
+        (byTime[0] as GroupIndex);
       return {
-        id: `incident:${origin.key}`,
-        groups: byTime.map((m) => m.key),
-        origin: origin.key,
-        started: firstOf(byTime[0] as IncidentGroup),
-        services: [...new Set(members.flatMap((m) => m.services))],
+        id: `incident:${origin.group.key}`,
+        groups: byTime.map((m) => m.group.key),
+        origin: origin.group.key,
+        started: byTime[0]?.first ?? '',
+        services: [...new Set(members.flatMap((m) => m.group.services))],
         links: links.filter(
           (l) => keys.has(l.from) && keys.has(l.to) && l.strength >= LINK_THRESHOLD,
         ),

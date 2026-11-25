@@ -1,6 +1,7 @@
 import type { CloudWarning } from '@mesa/core';
 import { TriangleAlert } from 'lucide-react';
 import { CopyField } from '@/components/CopyField';
+import { RetryAlert } from '@/components/RetryAlert';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { CommandError } from '@/lib/useCommand';
 
@@ -8,18 +9,18 @@ import type { CommandError } from '@/lib/useCommand';
 export function CloudReadAlert(props: {
   error?: CommandError;
   warnings?: readonly CloudWarning[];
+  /** Reads again, for a failure. */
+  onRetry?: () => void;
 }) {
   const fix = (props.error?.details as { fix?: string } | undefined)?.fix;
   if (props.error)
     return (
-      <Alert variant="destructive">
-        <TriangleAlert aria-hidden />
-        <AlertTitle>Cloud Logs could not be read</AlertTitle>
-        <AlertDescription className="grid gap-2">
-          <p>{props.error.message}</p>
-          {fix && <CopyField value={fix} />}
-        </AlertDescription>
-      </Alert>
+      <RetryAlert
+        title="Cloud Logs could not be read"
+        message={props.error.message}
+        fix={fix}
+        onRetry={props.onRetry}
+      />
     );
   if (!props.warnings?.length) return null;
   return (

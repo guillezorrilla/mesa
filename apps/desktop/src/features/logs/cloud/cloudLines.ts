@@ -55,13 +55,6 @@ export function citedParts(
     });
 }
 
-/** An entry's service as the picker and `--service` name it: `<project>/<name>`. */
-export const serviceRef = (entry: { project: string; service: string | null }) =>
-  `${entry.project}/${entry.service ?? '-'}`;
-
-/** A trace field's id, the part after `/traces/`, which a filter matches in every project. */
-export const traceId = (trace: string) => trace.split('/').at(-1) ?? trace;
-
 /** What the toolbar button says: the one project's id, else how many. */
 export const projectsLabel = (projects: readonly string[]) =>
   projects.length === 1 ? (projects[0] as string) : `${projects.length} projects`;

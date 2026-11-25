@@ -15,6 +15,13 @@ export function cloudLevel(severity: string): LogLevel | null {
   return severity === 'DEBUG' ? 'debug' : null;
 }
 
+/** A trace field's id, the part after `/traces/`, which a filter matches in every project. */
+export const traceIdOf = (trace: string) => trace.split('/').at(-1) ?? trace;
+
+/** An entry's service as the picker and `--service` name it: `<project>/<name>`. */
+export const serviceRefOf = (entry: { project: string; service: string | null }) =>
+  `${entry.project}/${entry.service ?? '-'}`;
+
 /** A message's first line, and the stack (the rest) it carries, null when none. */
 export function splitMessage(message: string): { head: string; stack: string | null } {
   const at = message.indexOf('\n');

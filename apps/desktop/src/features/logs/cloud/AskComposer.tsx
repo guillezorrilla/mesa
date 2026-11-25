@@ -4,7 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 const PROMPTS = [
   'Explain this',
-  'What changed since the deploy?',
+  'What changed in this range?',
   'Group these',
   'Find the first occurrence',
 ];

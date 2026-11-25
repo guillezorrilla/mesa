@@ -1,6 +1,7 @@
 import type { CloudErrorGroup } from '@mesa/core';
+import { groupKey } from '@mesa/core/browser';
 import { Sparkles } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CenteredState } from '@/components/CenteredState';
 import { ReadingBar } from '@/components/ReadingBar';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import { CloudErrorGroupRow } from './CloudErrorGroupRow';
 import { CloudProjectDialog } from './CloudProjectDialog';
 import { CloudReadAlert } from './CloudReadAlert';
 import { ErrorDetail } from './ErrorDetail';
-import { type ErrorSort, errorItems } from './errorOrder';
+import { type ErrorSort, errorItems, relatedOf } from './errorOrder';
 import { IncidentCard } from './IncidentCard';
 import { ProdAskDialog } from './ProdAskDialog';
 import { useFixInSession } from './useFixInSession';
@@ -22,7 +23,6 @@ import { useLogAsk } from './useLogAsk';
 
 const SUMMARISE =
   "Summarise this range's errors as incidents in a few lines: for each, what fails, which services, since when and its likely origin, citing one entry each.";
-const key = (g: CloudErrorGroup) => `${g.project} ${g.id}`;
 
 /**
  * Errors (CONTEXT.md, Cloud Logs), master and detail: incidents and the groups in none on the left,
@@ -42,28 +42,33 @@ export function CloudErrorsView(props: {
   const [summary, setSummary] = useState<CloudAsked>();
   const fixing = useFixInSession(props.onSession);
   const summarise = useLogAsk({ ...props.filters, severity: 'error' }, undefined, setSummary);
-  const groups = errors.data?.groups ?? [];
-  const incidents = errors.data?.incidents ?? [];
-  const byKey = new Map(groups.map((g) => [key(g), g]));
-  const items = errorItems(groups, incidents, sort, newOnly);
+  const groups = errors.data?.groups;
+  const incidents = errors.data?.incidents;
+  const byKey = useMemo(() => new Map((groups ?? []).map((g) => [groupKey(g), g])), [groups]);
+  const items = useMemo(
+    () => errorItems(byKey, incidents ?? [], sort, newOnly),
+    [byKey, incidents, sort, newOnly],
+  );
   const first = items[0];
-  const chosen =
-    (selected && byKey.get(selected)) ??
-    (first?.kind === 'incident' ? byKey.get(first.incident.origin) : first?.group);
-  const related = chosen
-    ? incidents
-        .flatMap((i) => i.links)
-        .filter((l) => l.from === key(chosen) || l.to === key(chosen))
-        .flatMap((link) => {
-          const other = link.from === key(chosen) ? link.to : link.from;
-          const group = byKey.get(other);
-          return group ? [{ link, other: group, key: other }] : [];
-        })
-    : [];
+  const chosenKey =
+    selected && byKey.has(selected)
+      ? selected
+      : first?.kind === 'incident'
+        ? first.incident.origin
+        : first?.key;
+  const chosen = chosenKey ? byKey.get(chosenKey) : undefined;
+  const related = useMemo(
+    () => (chosenKey ? relatedOf(chosenKey, incidents ?? [], byKey) : []),
+    [chosenKey, incidents, byKey],
+  );
   return (
     <div className="grid min-h-0 gap-3">
       {errors.busy && <ReadingBar />}
-      <CloudReadAlert error={errors.error} warnings={errors.data?.warnings} />
+      <CloudReadAlert
+        error={errors.error}
+        warnings={errors.data?.warnings}
+        onRetry={() => void errors.refresh()}
+      />
       <div className="grid min-h-[70vh] grid-cols-[minmax(20rem,26rem)_minmax(0,1fr)] overflow-hidden rounded-lg border bg-card">
         <div className="flex min-h-0 flex-col border-r">
           <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2 [&_[data-slot=native-select-wrapper]]:w-auto">
@@ -85,7 +90,7 @@ export function CloudErrorsView(props: {
               size="sm"
               variant="ghost"
               className="ml-auto h-7"
-              disabled={summarise.busy || !groups.length}
+              disabled={summarise.busy || !groups?.length}
               onClick={() => void summarise.ask(SUMMARISE)}
             >
               <Sparkles aria-hidden /> {summarise.busy ? 'Summarising' : 'Summarise'}
@@ -103,15 +108,15 @@ export function CloudErrorsView(props: {
                   <IncidentCard
                     key={item.incident.id}
                     incident={item.incident}
-                    groups={byKey}
-                    selected={chosen && key(chosen)}
+                    members={item.members}
+                    selected={chosenKey}
                     onSelect={setSelected}
                   />
                 ) : (
                   <li key={item.key} className="border-b last:border-b-0">
                     <CloudErrorGroupRow
                       group={item.group}
-                      selected={chosen === item.group}
+                      selected={chosenKey === item.key}
                       onSelect={() => setSelected(item.key)}
                     />
                   </li>
@@ -133,7 +138,7 @@ export function CloudErrorsView(props: {
         <div className="min-h-0 overflow-y-auto">
           {chosen ? (
             <ErrorDetail
-              key={key(chosen)}
+              key={chosenKey}
               group={chosen}
               related={related}
               filters={props.filters}

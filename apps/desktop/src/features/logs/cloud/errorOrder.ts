@@ -1,4 +1,4 @@
-import type { CloudErrorGroup, Incident } from '@mesa/core';
+import type { CloudErrorGroup, Incident, IncidentLink } from '@mesa/core';
 
 /** How the Errors list sorts: by count, newest last seen, or biggest rise over the range. */
 export type ErrorSort = 'count' | 'newest' | 'rise';
@@ -7,10 +7,8 @@ export type ErrorSort = 'count' | 'newest' | 'rise';
 export function rise(group: CloudErrorGroup) {
   const spark = group.spark ?? [];
   const cut = Math.max(1, Math.floor(spark.length * 0.75));
-  const before = spark.slice(0, cut);
-  const after = spark.slice(cut);
   const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
-  return mean(after) - mean(before);
+  return mean(spark.slice(cut)) - mean(spark.slice(0, cut));
 }
 
 const score = (sort: ErrorSort, groups: CloudErrorGroup[]) =>
@@ -20,38 +18,58 @@ const score = (sort: ErrorSort, groups: CloudErrorGroup[]) =>
       ? Math.max(...groups.map((g) => Date.parse(g.lastSeen) || 0))
       : Math.max(...groups.map(rise));
 
-/** An item of the Errors list: an incident with its groups, or a group alone. */
+/** A group with its key. */
+export type KeyedGroup = { key: string; group: CloudErrorGroup };
+/** An item of the Errors list: an incident with its groups (the origin first), or a group alone. */
 export type ErrorItem =
-  | { kind: 'incident'; incident: Incident; groups: CloudErrorGroup[] }
-  | { kind: 'group'; key: string; group: CloudErrorGroup };
+  | { kind: 'incident'; incident: Incident; members: KeyedGroup[] }
+  | ({ kind: 'group' } & KeyedGroup);
 
 /**
- * The Errors list: incidents and the groups in none, sorted by `sort`; with `newOnly`, only what
- * holds a New group.
+ * The Errors list: incidents and the groups in none, sorted by `sort` (each item scored once);
+ * with `newOnly`, only what holds a New group.
  */
 export function errorItems(
-  groups: CloudErrorGroup[],
+  byKey: ReadonlyMap<string, CloudErrorGroup>,
   incidents: Incident[],
   sort: ErrorSort,
   newOnly: boolean,
 ) {
-  const key = (g: CloudErrorGroup) => `${g.project} ${g.id}`;
-  const byKey = new Map(groups.map((g) => [key(g), g]));
   const linked = new Set(incidents.flatMap((i) => i.groups));
   const items: ErrorItem[] = [
     ...incidents.map((incident) => ({
       kind: 'incident' as const,
       incident,
-      groups: incident.groups.flatMap((k) =>
-        byKey.has(k) ? [byKey.get(k) as CloudErrorGroup] : [],
-      ),
+      members: incident.groups.flatMap((key) => {
+        const group = byKey.get(key);
+        return group ? [{ key, group }] : [];
+      }),
     })),
-    ...groups
-      .filter((g) => !linked.has(key(g)))
-      .map((group) => ({ kind: 'group' as const, key: key(group), group })),
+    ...[...byKey]
+      .filter(([key]) => !linked.has(key))
+      .map(([key, group]) => ({ kind: 'group' as const, key, group })),
   ];
-  const groupsOf = (item: ErrorItem) => (item.kind === 'incident' ? item.groups : [item.group]);
+  const groupsOf = (item: ErrorItem) =>
+    item.kind === 'incident' ? item.members.map((m) => m.group) : [item.group];
   return items
     .filter((item) => !newOnly || groupsOf(item).some((g) => g.badge === 'new'))
-    .sort((a, b) => score(sort, groupsOf(b)) - score(sort, groupsOf(a)));
+    .map((item) => ({ item, score: score(sort, groupsOf(item)) }))
+    .sort((a, b) => b.score - a.score)
+    .map(({ item }) => item);
+}
+
+/** The groups linked to `key` in `incidents`, each with the link that ties them. */
+export function relatedOf(
+  key: string,
+  incidents: Incident[],
+  byKey: ReadonlyMap<string, CloudErrorGroup>,
+) {
+  return incidents
+    .flatMap((i) => i.links)
+    .filter((link) => link.from === key || link.to === key)
+    .flatMap((link: IncidentLink) => {
+      const other = link.from === key ? link.to : link.from;
+      const group = byKey.get(other);
+      return group ? [{ link, other: group, key: other }] : [];
+    });
 }

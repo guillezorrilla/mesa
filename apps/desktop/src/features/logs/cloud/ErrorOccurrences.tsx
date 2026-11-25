@@ -1,14 +1,15 @@
 import type { CloudErrorGroup, CloudLogEntry } from '@mesa/core';
 import { groupText, occurrenceRuns, splitMessage } from '@mesa/core/browser';
-import { ChevronRight, ScanSearch } from 'lucide-react';
-import { useState } from 'react';
+import { ScanSearch } from 'lucide-react';
+import { useMemo } from 'react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import type { CloudFilters } from '@/lib/client/logs';
-import { useCall, useOptional } from '@/lib/useCommand';
-import { cn } from '@/lib/utils';
+import { useOptional } from '@/lib/useCommand';
 import { clockTime, dayTime } from '../shared/logLines';
 import { MessageBody } from '../shared/MessageBody';
+import { RepeatRun } from './RepeatRun';
+import { useOlderEntries } from './useOlderEntries';
 
 /** How many occurrences each read brings. */
 const PAGE = 50;
@@ -25,103 +26,70 @@ function occurrenceFilters(group: CloudErrorGroup, filters: CloudFilters): Cloud
   };
 }
 
-/** One run of identical occurrences: a row, or with several, "x10 between" and the rest on click. */
-function RunRow(props: { entries: CloudLogEntry[]; newest: string; oldest: string }) {
-  const [open, setOpen] = useState(false);
-  const [first, ...rest] = props.entries;
-  if (!first) return null;
+/** One occurrence: its time, its message with its stack folded. */
+function Occurrence(props: { entry: CloudLogEntry }) {
+  const { head, stack } = splitMessage(props.entry.message);
   return (
-    <li className="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-2">
-      <span className="text-muted-foreground tabular-nums">{clockTime(first.time)}</span>
-      <div className="grid min-w-0 gap-1">
-        <MessageBody {...splitMessage(first.message)} message={splitMessage(first.message).head} />
-        {rest.length > 0 && (
-          <button
-            type="button"
-            aria-expanded={open}
-            className="flex items-center gap-1 justify-self-start font-sans text-[11px] text-muted-foreground hover:text-foreground"
-            onClick={() => setOpen(!open)}
-          >
-            <ChevronRight
-              aria-hidden
-              className={cn('size-3 transition-transform', open && 'rotate-90')}
-            />
-            x{props.entries.length} between {clockTime(props.oldest)} and {clockTime(props.newest)}
-          </button>
-        )}
-        {open && (
-          <ol className="grid gap-1 border-l pl-2">
-            {rest.map((entry) => (
-              <li key={entry.id} className="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-2">
-                <span className="text-muted-foreground tabular-nums">{clockTime(entry.time)}</span>
-                <span className="truncate">{splitMessage(entry.message).head}</span>
-              </li>
-            ))}
-          </ol>
-        )}
-      </div>
-    </li>
+    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-2">
+      <span className="text-muted-foreground tabular-nums">{clockTime(props.entry.time)}</span>
+      <MessageBody message={head} stack={stack} />
+    </div>
   );
 }
 
 /**
  * An error group's occurrences (CONTEXT.md, Cloud Logs): read from Logging with the group's filter
- * (occurrenceFilters), newest first, identical neighbours as one run, "Showing n of count", Load
- * older for the next 50 before the oldest shown, and Open all in Explorer.
+ * (occurrenceFilters), newest first, identical neighbours as one run (RepeatRun), "Showing n of
+ * count", Load older for the next 50 before the oldest shown (useOlderEntries), and Open all in
+ * Explorer.
  */
 export function ErrorOccurrences(props: {
   group: CloudErrorGroup;
   filters: CloudFilters;
-  onExplore: (query: CloudFilters) => void;
+  onExplore: () => void;
 }) {
-  const query = occurrenceFilters(props.group, props.filters);
-  const first = useOptional('logs.gcp', { ...query, limit: PAGE });
-  const call = useCall();
-  const [older, setOlder] = useState<CloudLogEntry[]>([]);
-  const [end, setEnd] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const entries = [...(first.data?.entries ?? []), ...older];
-  const loadOlder = async () => {
-    const before = entries.at(-1)?.time;
-    if (!before) return;
-    setBusy(true);
-    const next = await call('logs.gcp', { ...query, before, limit: PAGE });
-    setBusy(false);
-    if (!next.ok) return;
-    setOlder((now) => [...now, ...next.data.entries]);
-    if (next.data.entries.length < PAGE) setEnd(true);
-  };
-  if (!entries.length)
+  const query = useMemo(
+    () => ({ ...occurrenceFilters(props.group, props.filters), limit: PAGE }),
+    [props.group, props.filters],
+  );
+  const first = useOptional('logs.gcp', query);
+  const older = useOlderEntries(first.data?.entries, query, PAGE);
+  const runs = useMemo(() => occurrenceRuns(older.entries), [older.entries]);
+  if (!older.entries.length)
     return (
       <Muted size="xs">
         {first.busy ? 'Reading occurrences' : 'No occurrences read in this range'}
       </Muted>
     );
-  const more = !end && (first.data?.entries.length ?? 0) >= PAGE;
   return (
     <div className="grid gap-2">
       <ol aria-label="Occurrences" className="grid gap-2 font-mono text-[11.5px] leading-5">
-        {occurrenceRuns(entries).map((run) => (
-          <RunRow key={run.entries[0]?.id} {...run} />
+        {runs.map((run) => (
+          <RepeatRun
+            key={run.entries[0]?.id}
+            {...run}
+            className="ml-[4.75rem]"
+            row={(entry) => <Occurrence key={entry.id} entry={entry} />}
+          />
         ))}
       </ol>
       <div className="flex flex-wrap items-center gap-2 font-sans">
         <Muted size="xs">
-          Showing {entries.length.toLocaleString()} of {props.group.count.toLocaleString()}
-          {entries.length ? `, back to ${dayTime(entries.at(-1)?.time ?? null)}` : ''}
+          Showing {older.entries.length.toLocaleString()} of {props.group.count.toLocaleString()},
+          back to {dayTime(older.entries.at(-1)?.time ?? null)}
         </Muted>
-        {more && (
+        {!older.end && (
           <Button
             size="sm"
             variant="ghost"
             className="h-7"
-            disabled={busy}
-            onClick={() => void loadOlder()}
+            disabled={older.busy}
+            onClick={() => void older.loadOlder()}
           >
-            {busy ? 'Reading' : 'Load older'}
+            {older.busy ? 'Reading' : 'Load older'}
           </Button>
         )}
-        <Button size="sm" variant="ghost" className="h-7" onClick={() => props.onExplore(query)}>
+        <Button size="sm" variant="ghost" className="h-7" onClick={props.onExplore}>
           <ScanSearch aria-hidden /> Open all in Explorer
         </Button>
       </div>

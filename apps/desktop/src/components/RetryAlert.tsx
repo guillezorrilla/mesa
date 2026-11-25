@@ -8,7 +8,8 @@ export function RetryAlert(props: {
   title: string;
   message: string;
   fix?: string;
-  onRetry: () => void;
+  /** Retry, when reading again can help. */
+  onRetry?: () => void;
   className?: string;
 }) {
   return (
@@ -17,9 +18,11 @@ export function RetryAlert(props: {
       <AlertDescription className="grid justify-items-start gap-2">
         <p>{props.message}</p>
         {props.fix && <CopyField value={props.fix} />}
-        <Button size="sm" variant="outline" onClick={props.onRetry}>
-          <RotateCw aria-hidden /> Retry
-        </Button>
+        {props.onRetry && (
+          <Button size="sm" variant="outline" onClick={props.onRetry}>
+            <RotateCw aria-hidden /> Retry
+          </Button>
+        )}
       </AlertDescription>
     </Alert>
   );

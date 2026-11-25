@@ -2,7 +2,8 @@ import { clip } from '../lib/clip.js';
 import type { Http } from '../lib/http.js';
 import type { Runner } from '../lib/process.js';
 import type { MesaError } from '../lib/result.js';
-import { cloudLevel, splitMessage } from './cloud-entry.js';
+import { grouped } from './error-groups.js';
+import { groupKey, keyOf, labelled, withReported } from './error-merge.js';
 import type { Facet } from './facets.js';
 import { accessToken, type CloudWarning, eachProject, googleGet } from './gcloud.js';
 import {
@@ -14,7 +15,6 @@ import {
   servicesByProject,
 } from './gcp.js';
 import type { GcpLogs } from './gcp-config.js';
-import { errorGroups } from './groups.js';
 import { groupStats, incidentsOf } from './incidents.js';
 import { sinceTime } from './since.js';
 
@@ -59,55 +59,6 @@ function period(sinceMs: number) {
   if (hours <= 24) return 'PERIOD_1_DAY';
   if (hours <= 24 * 7) return 'PERIOD_1_WEEK';
   return 'PERIOD_30_DAYS';
-}
-
-/**
- * Errors among `entries` (newest first, as a read gives them) grouped as the Logs panel groups
- * them (errorGroups): by exception and own frame, else by normalized message; most first.
- */
-export function groupErrors(project: string, entries: readonly CloudLogEntry[]): CloudErrorGroup[] {
-  return grouped(project, entries).map((g) => g.group);
-}
-
-/** groupErrors with each group's own entries, newest first, for its stats and its incidents. */
-function grouped(project: string, entries: readonly CloudLogEntry[]) {
-  const asPanel = [...entries].reverse().map((entry) => {
-    const { head, stack } = splitMessage(entry.message);
-    return {
-      ...entry,
-      level: cloudLevel(entry.severity),
-      message: head,
-      logger: entry.service,
-      stack,
-      whole: entry.message,
-    };
-  });
-  const plain = (list: typeof asPanel) =>
-    list.map(({ level: _, logger: __, stack: ___, whole, ...entry }) => ({
-      ...entry,
-      message: whole,
-    }));
-  return errorGroups(asPanel)
-    .map((group) => {
-      const newest = group.entries.at(-1);
-      const own = plain(group.entries).reverse();
-      const made: CloudErrorGroup = {
-        project,
-        id: group.key,
-        message: group.title,
-        sample: clip(newest?.whole ?? group.title, 4000),
-        count: group.count,
-        firstSeen: group.entries[0]?.time ?? '',
-        lastSeen: group.last ?? '',
-        services: [...new Set(group.entries.map((e) => e.service).filter((s): s is string => !!s))],
-        // Only the range was read, so a group made here cannot tell new from old: no badge.
-        badge: null,
-        source: 'logs',
-        samples: own.slice(0, 5),
-      };
-      return { group: made, entries: own };
-    })
-    .sort((a, b) => b.group.count - a.group.count);
 }
 
 type GroupStat = {
@@ -182,64 +133,6 @@ function reportingNote(project: string, error: unknown): CloudWarning {
         ? { fix: `gcloud services enable clouderrorreporting.googleapis.com --project ${project}` }
         : {}),
   };
-}
-
-/** A group's key across projects, as incidents and the app name it. */
-export const groupKey = (group: Pick<CloudErrorGroup, 'project' | 'id'>) =>
-  `${group.project} ${group.id}`;
-
-/** A message's group key as the core grouping makes it (errorGroups), so both sources' groups meet. */
-const keyOf = (project: string, message: string) =>
-  groupErrors(project, [
-    {
-      project,
-      id: '',
-      time: '',
-      severity: 'ERROR',
-      service: null,
-      message,
-      trace: null,
-      fields: {},
-    },
-  ])[0]?.id;
-
-/** A service name Error Reporting gives that is a resource type, not a service (`gke_instances`). */
-const RESOURCE_TYPE = /_instances?$/;
-
-const later = (a: string, b: string) => (Date.parse(b) > Date.parse(a) ? b : a);
-
-/**
- * `fromLogs` (grouped from a Logging read with every filter) with Error Reporting's badge, id and
- * count over every env merged into each group it also keeps: the groups when an env is picked, as
- * Error Reporting keeps no env.
- */
-function withReported(fromLogs: CloudErrorGroup[], reported: CloudErrorGroup[], project: string) {
-  const byKey = new Map(reported.map((g) => [keyOf(project, g.sample || g.message), g]));
-  return fromLogs.map((group) => {
-    const known = byKey.get(group.id);
-    return known
-      ? { ...group, badge: known.badge, reported: { id: known.id, count: known.count } }
-      : group;
-  });
-}
-
-/**
- * `reported` labelled with the services the logs name for the same group (container, Cloud Run
- * service or App Engine module), else Error Reporting's own less any resource type, and last seen
- * at the newest entry read when that is newer.
- */
-function labelled(reported: CloudErrorGroup[], fromLogs: CloudErrorGroup[], project: string) {
-  const byKey = new Map(fromLogs.map((g) => [g.id, g]));
-  return reported.map((group) => {
-    const seen = byKey.get(keyOf(project, group.sample || group.message) ?? '');
-    return {
-      ...group,
-      services: seen?.services.length
-        ? seen.services
-        : group.services.filter((s) => !RESOURCE_TYPE.test(s)),
-      lastSeen: seen ? later(group.lastSeen, seen.lastSeen) : group.lastSeen,
-    };
-  });
 }
 
 /**
@@ -336,3 +229,6 @@ export async function errorSamples(deps: ErrorDeps, project: string, id: string,
     message: event.message ?? '',
   }));
 }
+
+export { groupErrors } from './error-groups.js';
+export { groupKey } from './error-merge.js';

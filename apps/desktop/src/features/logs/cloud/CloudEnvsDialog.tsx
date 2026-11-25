@@ -1,7 +1,7 @@
 import type { GcpLogs } from '@mesa/core';
 import { ActionDialog } from '@/components/ActionDialog';
-import { useRun } from '@/lib/useCommand';
 import { CloudEnvPicker } from './CloudEnvPicker';
+import { useCloudLogsConfig } from './useCloudLogsConfig';
 import { useEnvRows } from './useEnvRows';
 
 /**
@@ -14,7 +14,7 @@ export function CloudEnvsDialog(props: {
   onCancel: () => void;
 }) {
   const { rows, setRows, suggested, envs } = useEnvRows(props.gcp.projects, props.gcp.envs);
-  const run = useRun();
+  const { setup } = useCloudLogsConfig();
   const count = Object.keys(envs).length;
   return (
     <ActionDialog
@@ -28,7 +28,7 @@ export function CloudEnvsDialog(props: {
         disabled: false,
       }}
       onSubmit={async () => {
-        if (await run('logs.gcpSetup', { projects: props.gcp.projects, envs })) props.onSaved();
+        if (await setup(props.gcp.projects, envs)) props.onSaved();
       }}
       onCancel={props.onCancel}
     >

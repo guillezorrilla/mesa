@@ -1,5 +1,5 @@
-import type { CloudAsk, CloudErrorGroup, CloudLogEntry } from '@mesa/core';
-import { facetsOf, splitMessage } from '@mesa/core/browser';
+import type { CloudAsk, CloudLogEntry } from '@mesa/core';
+import { entryGroup, facetsOf } from '@mesa/core/browser';
 import { PanelRightOpen } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { ReadingBar } from '@/components/ReadingBar';
@@ -7,6 +7,7 @@ import { useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import type { CloudAsked, CloudFilters } from '@/lib/client/logs';
 import { useCall, useOptional } from '@/lib/useCommand';
+import { cn } from '@/lib/utils';
 import { ClaudePanel } from './ClaudePanel';
 import { CloudProjectDialog } from './CloudProjectDialog';
 import { CloudReadAlert } from './CloudReadAlert';
@@ -19,20 +20,6 @@ import type { EntryActions } from './types';
 import { useCloudCopy } from './useCloudCopy';
 import { useFixInSession } from './useFixInSession';
 import { ViewFilterChips } from './ViewFilterChips';
-
-/** An entry as a group of one, for Fix in session. */
-const asGroup = (entry: CloudLogEntry): CloudErrorGroup => ({
-  project: entry.project,
-  id: entry.id,
-  message: splitMessage(entry.message).head,
-  sample: entry.message,
-  count: 1,
-  firstSeen: entry.time,
-  lastSeen: entry.time,
-  services: entry.service ? [entry.service] : [],
-  badge: null,
-  source: 'logs',
-});
 
 /**
  * The Explorer (CONTEXT.md, Cloud Logs), shaped like the Cloud Console's Logs Explorer with Claude
@@ -69,8 +56,13 @@ export function CloudExplorer(props: {
     props.onFilters({ ...props.filters, filter: next.trim() || undefined });
   };
   const add = (clause: string, exclude = false) => run(withClause(query, clause, exclude));
-  const cited = new Set(props.conversation?.turns.at(-1)?.cited ?? []);
-  const actions: EntryActions = useMemo(
+  const lastCited = props.conversation?.turns.at(-1)?.cited;
+  const cited = useMemo(() => new Set(lastCited ?? []), [lastCited]);
+  const picked = useMemo(() => [...selected], [selected]);
+  // The rows keep one actions object; what it calls is read from here at the time of the click.
+  const latest = useRef({ add, fix: fixing.fix, copy, copyText });
+  latest.current = { add, fix: fixing.fix, copy, copyText };
+  const actions = useMemo<EntryActions>(
     () => ({
       onSelect: (entry) =>
         setSelected((now) => {
@@ -78,21 +70,19 @@ export function CloudExplorer(props: {
           if (!next.delete(entry.id)) next.add(entry.id);
           return next;
         }),
-      onExpand: () => {},
-      onShow: (entry) => add(matchingClause(entry)),
-      onHide: (entry) => add(matchingClause(entry), true),
+      onShow: (entry) => latest.current.add(matchingClause(entry)),
+      onHide: (entry) => latest.current.add(matchingClause(entry), true),
       onAsk: (entry) => {
         setSelected(new Set([entry.id]));
         setClaude(true);
         setDraft(`Explain this entry [${entry.id}]`);
       },
-      onFix: (entry) => fixing.fix(asGroup(entry)),
-      onField: (key, value) => add(fieldClause(key, value)),
-      onCopy: (entry, format) => copy([entry], format),
-      onCopyText: copyText,
+      onFix: (entry) => latest.current.fix(entryGroup(entry)),
+      onField: (key, value) => latest.current.add(fieldClause(key, value)),
+      onCopy: (entry, format) => latest.current.copy([entry], format),
+      onCopyText: (text, what) => latest.current.copyText(text, what),
     }),
-    // biome-ignore lint/correctness/useExhaustiveDependencies: rebuilt as the query it adds to changes
-    [fixing.fix, copy, copyText, add],
+    [],
   );
   return (
     <div className="grid min-h-0 gap-3">
@@ -110,13 +100,16 @@ export function CloudExplorer(props: {
       />
       <ViewFilterChips filters={props.filters} onFilters={props.onFilters} />
       {read.busy && <ReadingBar />}
-      <CloudReadAlert error={read.error} warnings={read.data?.warnings} />
+      <CloudReadAlert
+        error={read.error}
+        warnings={read.data?.warnings}
+        onRetry={() => void read.refresh()}
+      />
       <div
-        className={
-          claude
-            ? 'grid h-[68vh] min-h-0 grid-cols-[13rem_minmax(0,1fr)_22rem] gap-3'
-            : 'grid h-[68vh] min-h-0 grid-cols-[13rem_minmax(0,1fr)] gap-3'
-        }
+        className={cn(
+          'grid h-[68vh] min-h-0 grid-cols-[13rem_minmax(0,1fr)] gap-3',
+          claude && 'grid-cols-[13rem_minmax(0,1fr)_22rem]',
+        )}
       >
         <div className="min-h-0 overflow-hidden rounded-lg border bg-card">
           <FieldsPane entries={entries ?? []} onAdd={add} />
@@ -147,7 +140,7 @@ export function CloudExplorer(props: {
             <ClaudePanel
               filters={props.filters}
               conversation={props.conversation}
-              selected={[...selected]}
+              selected={picked}
               draft={draft}
               onAsked={(asked) => {
                 setDraft(undefined);

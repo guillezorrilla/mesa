@@ -1,9 +1,10 @@
-import type { CloudErrorGroup, Incident } from '@mesa/core';
+import type { Incident } from '@mesa/core';
 import { plainTitle } from '@mesa/core/browser';
 import { Link2 } from 'lucide-react';
 import { dayTime } from '../shared/logLines';
 import { ServiceDot } from '../shared/ServiceDot';
 import { CloudErrorGroupRow } from './CloudErrorGroupRow';
+import type { KeyedGroup } from './errorOrder';
 
 /**
  * An incident in the Errors list (CONTEXT.md, Cloud Logs): its services, when it started and its
@@ -11,16 +12,13 @@ import { CloudErrorGroupRow } from './CloudErrorGroupRow';
  */
 export function IncidentCard(props: {
   incident: Incident;
-  groups: Map<string, CloudErrorGroup>;
+  members: KeyedGroup[];
   selected: string | undefined;
   onSelect: (key: string) => void;
 }) {
   const { incident } = props;
-  const origin = props.groups.get(incident.origin);
-  const members = incident.groups.flatMap((key) => {
-    const group = props.groups.get(key);
-    return group ? [{ key, group }] : [];
-  });
+  const { members } = props;
+  const origin = members.find((m) => m.key === incident.origin)?.group;
   return (
     <li aria-label="Incident" className="border-b last:border-b-0">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-state-failed/[0.05] px-3 pt-2 pb-1.5 text-[11px]">

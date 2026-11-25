@@ -6,7 +6,8 @@ import { usePlatform } from '@/lib/MesaRoot';
 
 /**
  * Copies log entries to the person's pasteboard as `copyText` writes them, or a group as its
- * summary, and says so in a toast; `source` names where they came from. Stable callbacks.
+ * summary, or any text (`put`, with what it is), and says so in a toast; `source` names where they
+ * came from. Stable callbacks.
  */
 export function useCopy(source: string) {
   const toast = useToast();
@@ -30,5 +31,5 @@ export function useCopy(source: string) {
       put(groupSummaryText(group, { source: latest.current.source }), 'the summary'),
     [put],
   );
-  return { copy, copyGroup };
+  return { copy, copyGroup, put };
 }

@@ -4,11 +4,11 @@ import { NumberedStep } from '@/components/NumberedStep';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { useOptional, useRun } from '@/lib/useCommand';
+import { useOptional } from '@/lib/useCommand';
 import { CloudEnvPicker } from './CloudEnvPicker';
 import { CloudProjectPicker } from './CloudProjectPicker';
+import { useCloudLogsConfig } from './useCloudLogsConfig';
 import { useEnvRows } from './useEnvRows';
-import { useImportMetrics } from './useImportMetrics';
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
@@ -24,8 +24,7 @@ export function CloudSetupPanel(props: { onSaved: () => void }) {
   const { rows, setRows, suggested, envs } = useEnvRows(picked);
   const [importing, setImporting] = useState(true);
   const [saving, setSaving] = useState(false);
-  const run = useRun();
-  const importMetrics = useImportMetrics();
+  const { setup, importMetrics } = useCloudLogsConfig();
   const current = found.data?.current;
   // The first setup starts from gcloud's default project.
   useEffect(() => {
@@ -35,7 +34,7 @@ export function CloudSetupPanel(props: { onSaved: () => void }) {
   const fix = (found.error?.details as { fix?: string } | undefined)?.fix;
   const save = async () => {
     setSaving(true);
-    const saved = await run('logs.gcpSetup', { projects: picked, envs });
+    const saved = await setup(picked, envs);
     if (saved && importing) await importMetrics(picked);
     setSaving(false);
     if (saved) props.onSaved();

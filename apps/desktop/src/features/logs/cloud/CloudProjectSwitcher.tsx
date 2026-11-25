@@ -12,10 +12,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { useCommand, useOptional, useRun } from '@/lib/useCommand';
+import { useOptional } from '@/lib/useCommand';
 import { CloudProjectPicker } from './CloudProjectPicker';
 import { projectsLabel } from './cloudLines';
-import { useImportMetrics } from './useImportMetrics';
+import { useCloudLogsConfig } from './useCloudLogsConfig';
 
 /**
  * The Logs toolbar's project switcher (CONTEXT.md, Cloud Logs), like the Cloud Console's Select a
@@ -54,33 +54,18 @@ export function CloudProjectSwitcher(props: { gcp: GcpLogs; onSwitched: () => vo
 
 function SwitchDialog(props: { gcp: GcpLogs; onClose: () => void; onSwitched: () => void }) {
   const found = useOptional('logs.gcpProjects', {});
-  const config = useCommand('config.get');
-  const run = useRun();
-  const importMetrics = useImportMetrics();
+  const { logs, setup, star, importMetrics } = useCloudLogsConfig();
   const [picked, setPicked] = useState(props.gcp.projects);
   const [importing, setImporting] = useState(true);
   const [busy, setBusy] = useState(false);
-  const { recentProjects = [], starredProjects = [] } = config.data?.logs ?? {};
+  const { recentProjects = [], starredProjects = [] } = logs ?? {};
   const added = (projects: string[]) => projects.filter((p) => !props.gcp.projects.includes(p));
   const apply = async (projects: string[]) => {
     setBusy(true);
-    const saved = await run('logs.gcpSetup', { projects, envs: props.gcp.envs });
+    const saved = await setup(projects, props.gcp.envs);
     if (saved && importing) await importMetrics(added(projects));
-    else if (saved) await config.refreshEverywhere();
     setBusy(false);
     if (saved) props.onSwitched();
-  };
-  const star = async (project: string, on: boolean) => {
-    config.mutate((data) => ({
-      ...data,
-      logs: {
-        ...data.logs,
-        starredProjects: on
-          ? [...data.logs.starredProjects, project]
-          : data.logs.starredProjects.filter((p) => p !== project),
-      },
-    }));
-    if (!(await run('logs.star', { project, on }))) void config.refresh();
   };
   const fix = (found.error?.details as { fix?: string } | undefined)?.fix;
   const unchanged =

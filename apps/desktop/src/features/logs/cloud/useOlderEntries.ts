@@ -1,7 +1,9 @@
 import type { CloudLogEntry } from '@mesa/core';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { CloudFilters } from '@/lib/client/logs';
 import { useCall } from '@/lib/useCommand';
+
+const NONE: { entries: CloudLogEntry[]; end: boolean } = { entries: [], end: false };
 
 /**
  * Pages back past `first` (the newest entries a read gave): each Load older reads `page` more
@@ -19,8 +21,8 @@ export function useOlderEntries(
     end: boolean;
   }>({ entries: [], end: false });
   const [busy, setBusy] = useState(false);
-  const mine = older.of === first ? older : { entries: [], end: false };
-  const entries = [...(first ?? []), ...mine.entries];
+  const mine = older.of === first ? older : NONE;
+  const entries = useMemo(() => [...(first ?? []), ...mine.entries], [first, mine.entries]);
   return {
     entries,
     busy,

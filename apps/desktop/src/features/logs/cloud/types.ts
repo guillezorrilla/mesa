@@ -10,7 +10,6 @@ export type CloudLogsView = { mode: CloudMode; query: CloudFilters; ask?: string
 /** What an entry row can do, one stable object for every row. */
 export type EntryActions = {
   onSelect: (entry: CloudLogEntry) => void;
-  onExpand: (entry: CloudLogEntry) => void;
   onShow: (entry: CloudLogEntry) => void;
   onHide: (entry: CloudLogEntry) => void;
   onAsk: (entry: CloudLogEntry) => void;

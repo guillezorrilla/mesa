@@ -1,11 +1,12 @@
 import type { CloudErrorGroup } from '@mesa/core';
-import { errorFixGoal } from '@mesa/core/browser';
+import { errorFixGoal, GENERAL_PROJECT, serviceRefOf } from '@mesa/core/browser';
 import { useState } from 'react';
+import { useRun } from '@/lib/useCommand';
 import { useCloudLogsConfig } from './useCloudLogsConfig';
-import { useCloudSession } from './useCloudSession';
 
 /** The service a group's fix is remembered for: `<project>/<service>`. */
-const refOf = (group: CloudErrorGroup) => `${group.project}/${group.services[0] ?? '-'}`;
+const refOf = (group: CloudErrorGroup) =>
+  serviceRefOf({ project: group.project, service: group.services[0] ?? null });
 
 /**
  * Fix in session (CONTEXT.md, Cloud Logs): a session with the group's errorFixGoal, in the project
@@ -13,11 +14,15 @@ const refOf = (group: CloudErrorGroup) => `${group.project}/${group.services[0] 
  */
 export function useFixInSession(onSession: (id: string) => void) {
   const { fixProjects, rememberFix } = useCloudLogsConfig();
-  const start = useCloudSession();
+  const run = useRun();
   const [picking, setPicking] = useState<CloudErrorGroup>();
   const fixIn = async (group: CloudErrorGroup, project: string) => {
-    const id = await start(project, errorFixGoal(group));
-    if (id) onSession(id);
+    const goal = errorFixGoal(group);
+    const session = await run(
+      'sessions.open',
+      project === GENERAL_PROJECT ? { general: true, goal } : { project, goal },
+    );
+    if (session?.id) onSession(session.id);
   };
   return {
     picking,

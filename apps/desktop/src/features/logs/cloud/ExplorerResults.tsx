@@ -1,51 +1,16 @@
 import type { CloudLogEntry } from '@mesa/core';
 import { occurrenceRuns } from '@mesa/core/browser';
-import { ChevronRight, History } from 'lucide-react';
+import { History } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { CenteredState } from '@/components/CenteredState';
 import { Button } from '@/components/ui/button';
 import type { CloudFilters } from '@/lib/client/logs';
-import { cn } from '@/lib/utils';
-import { clockTime } from '../shared/logLines';
 import { CloudEntryRow } from './CloudEntryRow';
 import { ExplorerChart } from './ExplorerChart';
+import { RepeatRun } from './RepeatRun';
 import type { EntryActions } from './types';
 import { useOlderEntries } from './useOlderEntries';
 import { useScrollToId } from './useScrollToId';
-
-/** A run of identical entries: its newest, then "x10 between" opening the rest. */
-function Run(props: {
-  entries: CloudLogEntry[];
-  newest: string;
-  oldest: string;
-  row: (entry: CloudLogEntry) => React.ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const [first, ...rest] = props.entries;
-  if (!first) return null;
-  return (
-    <li>
-      {props.row(first)}
-      {rest.length > 0 && (
-        <>
-          <button
-            type="button"
-            aria-expanded={open}
-            className="ml-[6.75rem] flex items-center gap-1 py-0.5 font-sans text-[11px] text-muted-foreground hover:text-foreground"
-            onClick={() => setOpen(!open)}
-          >
-            <ChevronRight
-              aria-hidden
-              className={cn('size-3 transition-transform', open && 'rotate-90')}
-            />
-            x{props.entries.length} between {clockTime(props.oldest)} and {clockTime(props.newest)}
-          </button>
-          {open && <div className="border-l-2 border-muted">{rest.map(props.row)}</div>}
-        </>
-      )}
-    </li>
-  );
-}
 
 /**
  * The Explorer's results (CONTEXT.md, Cloud Logs): a histogram of the entries read, then the
@@ -65,10 +30,6 @@ export function ExplorerResults(props: {
   const [open, setOpen] = useState<string>();
   const list = useRef<HTMLDivElement>(null);
   useScrollToId(list, props.focus);
-  const actions = {
-    ...props.actions,
-    onExpand: (entry: CloudLogEntry) => setOpen(open === entry.id ? undefined : entry.id),
-  };
   const row = (entry: CloudLogEntry) => (
     <CloudEntryRow
       key={`${entry.project} ${entry.id}`}
@@ -76,7 +37,8 @@ export function ExplorerResults(props: {
       selected={props.selected.has(entry.id)}
       cited={props.cited.has(entry.id)}
       expanded={open === entry.id}
-      actions={actions}
+      onExpand={() => setOpen(open === entry.id ? undefined : entry.id)}
+      actions={props.actions}
     />
   );
   return (
@@ -94,7 +56,12 @@ export function ExplorerResults(props: {
           <>
             <ol aria-label="Log entries" aria-busy={props.busy}>
               {occurrenceRuns(older.entries).map((run) => (
-                <Run key={`${run.entries[0]?.project} ${run.entries[0]?.id}`} {...run} row={row} />
+                <RepeatRun
+                  key={`${run.entries[0]?.project} ${run.entries[0]?.id}`}
+                  {...run}
+                  className="ml-[6.75rem]"
+                  row={row}
+                />
               ))}
             </ol>
             {!older.end && (

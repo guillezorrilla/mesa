@@ -75,11 +75,12 @@ export {
   entryConsoleUrl,
   groupQuery,
 } from './logs/cloud-copy.js';
-export { cloudLevel, splitMessage } from './logs/cloud-entry.js';
+export { cloudLevel, serviceRefOf, splitMessage, traceIdOf } from './logs/cloud-entry.js';
 export { copyText, groupSummaryText } from './logs/copy.js';
 export { ENV_WORDS, envNameOf, joinEnvs } from './logs/env-names.js';
+export { groupKey } from './logs/error-merge.js';
 export { type Facet, facetsOf } from './logs/facets.js';
-export { errorFixGoal } from './logs/fix-goal.js';
+export { entryGroup, errorFixGoal } from './logs/fix-goal.js';
 export { ALL_ENVS } from './logs/gcp-config.js';
 export { errorGroups, isMuted, muteKey, normalizedMessage } from './logs/groups.js';
 export { groupStats, type Incident, type IncidentLink, incidentsOf } from './logs/incidents.js';

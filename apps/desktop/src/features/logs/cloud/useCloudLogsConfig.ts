@@ -2,16 +2,17 @@ import type { CloudView } from '@mesa/core';
 import { useToast } from '@/components/Toast';
 import type { CloudFilters } from '@/lib/client/logs';
 import { usePlatform } from '@/lib/MesaRoot';
-import { useCommand, useRun } from '@/lib/useCommand';
+import { useCall, useCommand, useRun } from '@/lib/useCommand';
 
 /**
  * The Logs tab's side of the profile config (CONTEXT.md, Cloud Logs), the one place its components
- * change it: the saved views (save, remove, export and import as YAML), the project a service's
- * Fix in session starts in, and the tab itself. Each change is read again by every reader.
+ * change it: the projects and envs, the stars, the saved views (save, remove, export and import as
+ * YAML), the project a service's Fix in session starts in, and the tab itself. Each change is read again by every reader.
  */
 export function useCloudLogsConfig() {
   const config = useCommand('config.get');
   const run = useRun();
+  const call = useCall();
   const toast = useToast();
   const { pickFolder, pickFile } = usePlatform();
   const logs = config.data?.logs;
@@ -54,6 +55,39 @@ export function useCloudLogsConfig() {
       await config.refreshEverywhere();
     },
     hideTab: () => set('logs.cloudTab', false),
+    /**
+     * Imports each project's log-based metrics as saved views (logs.importMetrics), one after
+     * another; a project whose import fails toasts why. How many views came.
+     */
+    importMetrics: async (projects: readonly string[]) => {
+      let added = 0;
+      for (const project of projects) {
+        const done = await call('logs.importMetrics', { project });
+        if (done.ok) added += done.data.views.length;
+        else toast(`Saved views from ${project}'s metrics: ${done.error.message}`);
+      }
+      await config.refreshEverywhere();
+      return added;
+    },
+    /** Points Cloud Logs at `projects` with `envs` (logs.gcpSetup); true once saved. */
+    setup: async (projects: string[], envs: Record<string, string>) => {
+      const saved = await run('logs.gcpSetup', { projects, envs });
+      if (saved) await config.refreshEverywhere();
+      return Boolean(saved);
+    },
+    /** Stars a project in the switcher, shown at once and undone if it fails. */
+    star: async (project: string, on: boolean) => {
+      config.mutate((data) => ({
+        ...data,
+        logs: {
+          ...data.logs,
+          starredProjects: on
+            ? [...data.logs.starredProjects, project]
+            : data.logs.starredProjects.filter((p) => p !== project),
+        },
+      }));
+      if (!(await run('logs.star', { project, on }))) await config.refresh();
+    },
     fixProjects: logs?.fixProjects ?? {},
     rememberFix: (ref: string, project: string) =>
       set('logs.fixProjects', { ...(logs?.fixProjects ?? {}), [ref]: project }),
