@@ -17,7 +17,7 @@ import { useScrollToId } from './useScrollToId';
  * entries newest first, identical repeats folded into one, a cited one marked and scrolled to, and
  * Load older for the next page back.
  */
-export function ExplorerResults(props: {
+export function ExplorerResultsPanel(props: {
   read: readonly CloudLogEntry[] | undefined;
   busy: boolean;
   filters: CloudFilters;

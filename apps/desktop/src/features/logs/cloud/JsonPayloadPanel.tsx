@@ -1,5 +1,5 @@
 /** A JSON message as an open-able key and value list, never one raw string. */
-export function JsonPayload(props: {
+export function JsonPayloadPanel(props: {
   json: Record<string, unknown>;
   title: string;
   open?: boolean;

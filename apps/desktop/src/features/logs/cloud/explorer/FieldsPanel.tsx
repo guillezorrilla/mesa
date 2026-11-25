@@ -49,7 +49,7 @@ const counted = (values: readonly string[]) => {
  * The Explorer's fields (CONTEXT.md, Cloud Logs): services, severities and the context fields the
  * entries read carry, each value with its count; a click adds it to the query, Alt-click excludes it.
  */
-export function FieldsPane(props: {
+export function FieldsPanel(props: {
   entries: readonly CloudLogEntry[];
   onAdd: (clause: string, exclude: boolean) => void;
 }) {

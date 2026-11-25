@@ -17,7 +17,7 @@ const FILTER_PAST = 10;
  * log-based metrics in a From metrics group, closed until opened or a filter matches; a filter box
  * once there are more than 10.
  */
-export function CloudViewsList(props: {
+export function CloudViewsPanel(props: {
   views: CloudView[];
   onOpen: (query: CloudFilters) => void;
   onRemove: (name: string) => void;

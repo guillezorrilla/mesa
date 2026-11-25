@@ -9,7 +9,7 @@ import { CopyButton } from '../../shared/CopyButton';
 import { LevelBadge } from '../../shared/LevelBadge';
 import { LogRow } from '../../shared/LogRow';
 import { clockTime } from '../../shared/logLines';
-import { MessageView } from '../MessageView';
+import { MessagePanel } from '../MessagePanel';
 import type { EntryActions } from '../types';
 
 /**
@@ -43,7 +43,7 @@ export const CloudEntryRow = memo(function CloudEntryRow(props: {
         logger={entry.service}
       >
         <div className="min-w-0">
-          <MessageView message={entry.message} />
+          <MessagePanel message={entry.message} />
           {Object.keys(entry.fields).length > 0 && (
             <span className="mt-0.5 flex flex-wrap gap-1 font-sans text-[10.5px]">
               {Object.entries(entry.fields)

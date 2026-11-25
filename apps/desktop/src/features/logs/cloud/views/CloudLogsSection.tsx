@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import type { WorkspaceView } from '@/lib/workspaceView';
 import { CloudEnvsDialog } from '../setup/CloudEnvsDialog';
 import { useCloudLogsConfig } from '../useCloudLogsConfig';
-import { CloudViewsList } from './CloudViewsList';
+import { CloudViewsPanel } from './CloudViewsPanel';
 import { SaveViewDialog } from './SaveViewDialog';
 
 const ROW =
@@ -86,7 +86,7 @@ export function CloudLogsSection(props: {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <CloudViewsList
+        <CloudViewsPanel
           views={views}
           onOpen={(query) => props.onView({ kind: 'logs', mode: 'explorer', query })}
           onRemove={(name) => void removeView(name)}

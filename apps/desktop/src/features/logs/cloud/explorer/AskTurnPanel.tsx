@@ -1,7 +1,7 @@
 import type { AskTurn as Turn } from '@mesa/core';
 import { BookmarkPlus, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { AskAnswer } from '../AskAnswer';
+import { AskAnswerPanel } from '../AskAnswerPanel';
 
 type Own = NonNullable<Turn['queries'][number]['own']>;
 
@@ -9,7 +9,7 @@ type Own = NonNullable<Turn['queries'][number]['own']>;
  * One turn of a conversation: the question, the answer with its citations, and the queries it ran;
  * Run and Save as view take a query's own filters, so the view keeps its env and range.
  */
-export function AskTurn(props: {
+export function AskTurnPanel(props: {
   turn: Turn;
   onCite: (id: string) => void;
   onApply: (query: string) => void;
@@ -21,7 +21,7 @@ export function AskTurn(props: {
   return (
     <li className="grid gap-2">
       <p className="justify-self-end rounded-lg bg-muted px-3 py-1.5 text-sm">{turn.question}</p>
-      <AskAnswer
+      <AskAnswerPanel
         answer={turn.answer}
         cited={turn.cited}
         onCite={props.onCite}

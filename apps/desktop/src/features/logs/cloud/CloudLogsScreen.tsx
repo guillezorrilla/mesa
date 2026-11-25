@@ -10,8 +10,8 @@ import { useCommand } from '@/lib/useCommand';
 import type { CloudMode } from '@/lib/workspaceView';
 import { CloudFilterBar } from './CloudFilterBar';
 import { projectsLabel } from './cloudLines';
-import { CloudErrorsView } from './errors/CloudErrorsView';
-import { CloudExplorer } from './explorer/CloudExplorer';
+import { CloudErrorsPanel } from './errors/CloudErrorsPanel';
+import { CloudExplorerPanel } from './explorer/CloudExplorerPanel';
 import { CloudSetupPanel } from './setup/CloudSetupPanel';
 import type { CloudLogsView } from './types';
 import { useCloudLogsConfig } from './useCloudLogsConfig';
@@ -82,7 +82,7 @@ export function CloudLogsScreen(props: {
         </Muted>
       )}
       {mode === 'errors' ? (
-        <CloudErrorsView
+        <CloudErrorsPanel
           filters={filters}
           reading={`${projectsLabel(gcp.projects)}${env && env !== ALL_ENVS ? ` ${env}` : ''}`}
           onAsk={askAbout}
@@ -90,7 +90,7 @@ export function CloudLogsScreen(props: {
           onSession={props.onSession}
         />
       ) : (
-        <CloudExplorer
+        <CloudExplorerPanel
           key={props.ask ?? 'new'}
           filters={filters}
           conversation={asks.data?.asks.find((a) => a.id === props.ask)}

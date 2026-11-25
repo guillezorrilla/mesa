@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import type { CloudFilters } from '@/lib/client/logs';
 import { useOptional } from '@/lib/useCommand';
 import { clockTime, dayTime } from '../../shared/logLines';
-import { MessageView } from '../MessageView';
+import { MessagePanel } from '../MessagePanel';
 import { RepeatRun } from '../RepeatRun';
 import { useCloudLogsConfig } from '../useCloudLogsConfig';
 import { useOlderEntries } from '../useOlderEntries';
@@ -34,12 +34,12 @@ function occurrenceFilters(
   };
 }
 
-/** One occurrence: its time and its message (MessageView). */
+/** One occurrence: its time and its message (MessagePanel). */
 function Occurrence(props: { entry: CloudLogEntry }) {
   return (
     <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-2">
       <span className="text-muted-foreground tabular-nums">{clockTime(props.entry.time)}</span>
-      <MessageView message={props.entry.message} />
+      <MessagePanel message={props.entry.message} />
     </div>
   );
 }
@@ -50,7 +50,7 @@ function Occurrence(props: { entry: CloudLogEntry }) {
  * count", Load older for the next 50 before the oldest shown (useOlderEntries), and Open all in
  * Explorer.
  */
-export function ErrorOccurrences(props: {
+export function ErrorOccurrencesPanel(props: {
   group: CloudErrorGroup;
   filters: CloudFilters;
   onExplore: () => void;

@@ -13,7 +13,7 @@ const PROMPTS = [
  * Where the person asks Claude about the logs: quick prompts, a question (Cmd+Enter asks), and how
  * many selected entries go with it. `draft` starts the question when it changes (Ask about this).
  */
-export function AskComposer(props: {
+export function AskComposerField(props: {
   busy: boolean;
   selected: number;
   draft?: string;

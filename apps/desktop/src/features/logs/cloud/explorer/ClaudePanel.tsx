@@ -5,10 +5,10 @@ import { Muted } from '@/components/Muted';
 import type { CloudAsked, CloudFilters } from '@/lib/client/logs';
 import { ProdAskDialog } from '../ProdAskDialog';
 import { useLogAsk } from '../useLogAsk';
-import { AskComposer } from './AskComposer';
-import { AskTurn } from './AskTurn';
+import { AskComposerField } from './AskComposerField';
+import { AskTurnPanel } from './AskTurnPanel';
 
-type TurnProps = Parameters<typeof AskTurn>[0];
+type TurnProps = Parameters<typeof AskTurnPanel>[0];
 
 /**
  * Claude beside the Explorer (CONTEXT.md, Ask (logs)): a kept conversation whose context is the
@@ -66,7 +66,7 @@ export function ClaudePanel(props: {
         className="grid min-h-0 flex-1 content-start gap-5 overflow-y-auto p-3"
       >
         {turns.map((turn, i) => (
-          <AskTurn
+          <AskTurnPanel
             // biome-ignore lint/suspicious/noArrayIndexKey: a conversation's turns only grow
             key={i}
             turn={turn}
@@ -83,7 +83,7 @@ export function ClaudePanel(props: {
           </Muted>
         )}
       </ol>
-      <AskComposer
+      <AskComposerField
         busy={ask.busy}
         selected={props.selected.length}
         draft={props.draft}

@@ -9,7 +9,7 @@ import type { KeyedGroup } from './errorOrder';
  * An incident in the Errors list (CONTEXT.md, Cloud Logs), distinct but quiet: how many errors since
  * when, why they are linked in words, the likely origin, then its groups' rows, the origin first.
  */
-export function IncidentCard(props: {
+export function IncidentPanel(props: {
   incident: Incident;
   members: KeyedGroup[];
   selected: string | undefined;

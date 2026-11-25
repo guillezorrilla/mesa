@@ -11,18 +11,18 @@ import { Switch } from '@/components/ui/switch';
 import type { CloudAsked, CloudFilters } from '@/lib/client/logs';
 import { useOptional } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
-import { AskAnswer } from '../AskAnswer';
+import { AskAnswerPanel } from '../AskAnswerPanel';
 import { CloudReadAlert } from '../CloudReadAlert';
 import { CloudSessionDialogs } from '../CloudSessionDialogs';
 import { ProdAskDialog } from '../ProdAskDialog';
 import { useCloudSession } from '../useCloudSession';
 import { useLogAsk } from '../useLogAsk';
 import { CloudErrorGroupRow } from './CloudErrorGroupRow';
-import { ErrorDetail } from './ErrorDetail';
+import { ErrorDetailPanel } from './ErrorDetailPanel';
 import { ErrorsSkeleton } from './ErrorsSkeleton';
 import { ErrorsStatus } from './ErrorsStatus';
 import { type ErrorSort, errorItems, relatedOf } from './errorOrder';
-import { IncidentCard } from './IncidentCard';
+import { IncidentPanel } from './IncidentPanel';
 
 const SUMMARISE =
   "Summarise this range's errors as incidents in a few lines: for each, what fails, which services, since when and its likely origin, citing one entry each.";
@@ -30,11 +30,11 @@ const SUMMARISE =
 /**
  * Errors (CONTEXT.md, Cloud Logs), master and detail filling the tab: incidents and the groups in
  * none on the left, sorted by count, newest or biggest rise, New only on demand, Summarise and
- * Refresh; the selection's detail on the right (ErrorDetail); each pane scrolls on its own. While a
+ * Refresh; the selection's detail on the right (ErrorDetailPanel); each pane scrolls on its own. While a
  * read runs, the last result stays, dimmed, under a status line with Cancel; the first read shows
  * skeleton rows.
  */
-export function CloudErrorsView(props: {
+export function CloudErrorsPanel(props: {
   filters: CloudFilters;
   /** Names the read in the status line: its projects and env. */
   reading: string;
@@ -122,7 +122,7 @@ export function CloudErrorsView(props: {
               aria-label="Summary"
               className="shrink-0 border-b bg-state-working/[0.04] px-4 py-3"
             >
-              <AskAnswer answer={summary.answer} cited={summary.cited} />
+              <AskAnswerPanel answer={summary.answer} cited={summary.cited} />
             </section>
           )}
           <div
@@ -141,7 +141,7 @@ export function CloudErrorsView(props: {
               <ul aria-label="Error groups" className="divide-y">
                 {items.map((item) =>
                   item.kind === 'incident' ? (
-                    <IncidentCard
+                    <IncidentPanel
                       key={item.incident.id}
                       incident={item.incident}
                       members={item.members}
@@ -172,7 +172,7 @@ export function CloudErrorsView(props: {
         </section>
         <div className={cn('min-h-0 overflow-y-auto transition-opacity', stale && 'opacity-50')}>
           {chosen ? (
-            <ErrorDetail
+            <ErrorDetailPanel
               key={chosenKey}
               group={chosen}
               related={related}

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { expect, test } from 'vitest';
 import { attached, click, deferred, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
-import { CloudErrorsView } from './CloudErrorsView';
+import { CloudErrorsPanel } from './CloudErrorsPanel';
 
 const q = (selector: string) => document.querySelector<HTMLElement>(selector) ?? undefined;
 const GROUP = {
@@ -34,7 +34,7 @@ test('the first read shows skeleton rows and a status line naming what it reads;
       envelope({ projects: [], env: 'beta', envs: [], filters: {}, warnings: [], entries: [] }),
   });
   await renderWithMesa(
-    <CloudErrorsView
+    <CloudErrorsPanel
       filters={{ env: 'beta' }}
       reading="tide-tables-123 beta"
       onAsk={() => {}}

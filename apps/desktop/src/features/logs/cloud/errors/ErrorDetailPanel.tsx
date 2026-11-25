@@ -18,11 +18,11 @@ import { CopyButton } from '../../shared/CopyButton';
 import { dayTime } from '../../shared/logLines';
 import { ServiceDot } from '../../shared/ServiceDot';
 import { fieldClause } from '../explorer/explorerQuery';
-import { MessageView } from '../MessageView';
+import { MessagePanel } from '../MessagePanel';
 import { useCloudCopy } from '../useCloudCopy';
 import { useCloudLogsConfig } from '../useCloudLogsConfig';
 import { ErrorBadge } from './ErrorBadge';
-import { ErrorOccurrences } from './ErrorOccurrences';
+import { ErrorOccurrencesPanel } from './ErrorOccurrencesPanel';
 
 function Section(props: { title: string; children: React.ReactNode }) {
   return (
@@ -41,7 +41,7 @@ function Section(props: { title: string; children: React.ReactNode }) {
  * its occurrences, and Ask about this, Fix in session, Copy (with its summary, query and link) and
  * Open in Cloud Console.
  */
-export function ErrorDetail(props: {
+export function ErrorDetailPanel(props: {
   group: CloudErrorGroup;
   related: { links: IncidentLink[]; other: CloudErrorGroup; key: string }[];
   filters: CloudFilters;
@@ -133,7 +133,7 @@ export function ErrorDetail(props: {
       )}
       <Section title={json ? 'Payload' : 'Stack'}>
         <div className="rounded-md border bg-muted/20 px-3 py-2 font-mono text-[11.5px] leading-5">
-          <MessageView message={raw} open />
+          <MessagePanel message={raw} open />
         </div>
       </Section>
       {(group.variants?.length ?? 0) > 1 && (
@@ -202,7 +202,7 @@ export function ErrorDetail(props: {
         </Section>
       )}
       <Section title="Occurrences">
-        <ErrorOccurrences group={group} filters={props.filters} onExplore={() => explore()} />
+        <ErrorOccurrencesPanel group={group} filters={props.filters} onExplore={() => explore()} />
       </Section>
     </article>
   );

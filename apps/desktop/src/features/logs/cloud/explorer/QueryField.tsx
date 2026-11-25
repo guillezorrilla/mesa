@@ -34,7 +34,7 @@ function suggestionsFor(word: string, facets: readonly Facet[]) {
  * sentence into a query through the agent and puts it in the bar, highlighted (`written`), for the
  * person to read and Run.
  */
-export function QueryBar(props: {
+export function QueryField(props: {
   query: string;
   facets: readonly Facet[];
   busy: boolean;

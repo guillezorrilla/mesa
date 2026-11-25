@@ -8,7 +8,7 @@ import { useCloudCopy } from './useCloudCopy';
  * An answer from the cloud-logs agent: its text with each cited entry a button that shows it, and a
  * query it suggests with Apply query and Copy query.
  */
-export function AskAnswer(props: {
+export function AskAnswerPanel(props: {
   answer: string;
   cited: readonly string[];
   onCite?: (id: string) => void;

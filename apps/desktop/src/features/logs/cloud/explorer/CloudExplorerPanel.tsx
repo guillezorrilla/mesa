@@ -15,10 +15,10 @@ import { useCloudCopy } from '../useCloudCopy';
 import { useCloudSession } from '../useCloudSession';
 import { SaveViewDialog } from '../views/SaveViewDialog';
 import { ClaudePanel } from './ClaudePanel';
-import { ExplorerResults } from './ExplorerResults';
+import { ExplorerResultsPanel } from './ExplorerResultsPanel';
 import { fieldClause, matchingClause, withClause } from './explorerQuery';
-import { FieldsPane } from './FieldsPane';
-import { QueryBar } from './QueryBar';
+import { FieldsPanel } from './FieldsPanel';
+import { QueryField } from './QueryField';
 import { ViewFilterChips } from './ViewFilterChips';
 
 /** The filters of a query an Ask ran, as a person would set them. */
@@ -29,7 +29,7 @@ type Own = NonNullable<AskTurn['queries'][number]['own']>;
  * beside it: the query bar, the fields the entries carry, the results, and the Claude panel, whose
  * context is the query, its results and the selected entries.
  */
-export function CloudExplorer(props: {
+export function CloudExplorerPanel(props: {
   filters: CloudFilters;
   conversation: CloudAsk | undefined;
   draft?: string;
@@ -103,7 +103,7 @@ export function CloudExplorer(props: {
   );
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <QueryBar
+      <QueryField
         query={query}
         facets={facets}
         busy={read.busy}
@@ -131,10 +131,10 @@ export function CloudExplorer(props: {
         )}
       >
         <div className="min-h-0 overflow-hidden rounded-lg border bg-card">
-          <FieldsPane entries={entries ?? []} onAdd={add} />
+          <FieldsPanel entries={entries ?? []} onAdd={add} />
         </div>
         <div className="relative min-h-0">
-          <ExplorerResults
+          <ExplorerResultsPanel
             read={entries}
             busy={read.busy}
             filters={props.filters}
