@@ -1,0 +1,93 @@
+import { FileText, FolderOpen, Plus } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Muted } from '@/components/Muted';
+import { SectionLabel } from '@/components/SectionLabel';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { usePlatform } from '@/lib/MesaRoot';
+import { useCall } from '@/lib/useCommand';
+
+/**
+ * A log file the project's server writes anywhere on disk (Rails' log/development.log, Laravel's
+ * storage/logs/laravel.log): the gitignored `*.log` files Mesa finds in the checkout, one to add,
+ * or a path typed or picked. Adding keeps it in this profile, never in the repository, and hands
+ * its source back.
+ */
+export function LogFileGuide(props: { project: string; onFound: (source: string) => void }) {
+  const call = useCall();
+  const { pickFile } = usePlatform();
+  const [suggested, setSuggested] = useState<string[]>();
+  const [path, setPath] = useState('');
+  const [error, setError] = useState<string>();
+  useEffect(() => {
+    void call('logs.files', { project: props.project }).then((found) =>
+      setSuggested(found.ok ? found.data.suggested : []),
+    );
+  }, [call, props.project]);
+  const add = async (file: string) => {
+    const kept = await call('logs.keepFile', {
+      path: file.trim(),
+      project: props.project,
+      keep: true,
+    });
+    if (!kept.ok) return setError(kept.error.message);
+    props.onFound(`file:${kept.data.files.at(-1) ?? file.trim()}`);
+  };
+  return (
+    <div className="grid gap-4 text-sm">
+      <Muted>
+        Mesa reads it as it grows and keeps it in this profile, never in the repository.
+      </Muted>
+      <section className="grid gap-1.5" aria-label="Suggested log files">
+        <SectionLabel>In this project, ignored by git</SectionLabel>
+        {!suggested ? (
+          <Muted>Looking</Muted>
+        ) : suggested.length ? (
+          suggested.map((file) => (
+            <div key={file} className="flex items-center gap-2 rounded-md border px-2.5 py-1">
+              <FileText aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+              <code
+                dir="rtl"
+                className="min-w-0 flex-1 truncate text-left font-mono text-xs"
+                title={file}
+              >
+                <bdi dir="ltr">{file}</bdi>
+              </code>
+              <Button size="sm" variant="ghost" onClick={() => void add(file)}>
+                <Plus aria-hidden /> Add
+              </Button>
+            </div>
+          ))
+        ) : (
+          <Muted>No *.log files the checkout ignores.</Muted>
+        )}
+      </section>
+      <section className="grid gap-1.5" aria-label="Another log file">
+        <SectionLabel>Anywhere on disk</SectionLabel>
+        <div className="flex gap-2">
+          <Input
+            aria-label="Log file path"
+            placeholder="/path/to/server.log"
+            value={path}
+            onChange={(event) => setPath(event.currentTarget.value)}
+            onKeyDown={(event) => event.key === 'Enter' && path.trim() && void add(path)}
+          />
+          <Button
+            variant="outline"
+            onClick={() => void pickFile().then((picked) => picked && setPath(picked))}
+          >
+            <FolderOpen aria-hidden /> Choose
+          </Button>
+          <Button disabled={!path.trim()} onClick={() => void add(path)}>
+            Add
+          </Button>
+        </div>
+        {error && (
+          <p role="alert" className="text-xs text-state-failed">
+            {error}
+          </p>
+        )}
+      </section>
+    </div>
+  );
+}

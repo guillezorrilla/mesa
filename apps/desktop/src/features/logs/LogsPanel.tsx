@@ -1,6 +1,6 @@
 import type { LogAsk } from '@mesa/core';
 import { entryText, errorGroups, isMuted, logMessage, sourceLabel } from '@mesa/core/browser';
-import { ArrowDown, FileText } from 'lucide-react';
+import { ArrowDown, Plus } from 'lucide-react';
 import { type ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { ResizeHandle } from '@/components/ResizeHandle';
@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/button';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useToggleSet } from '@/lib/useToggleSet';
 import { cn } from '@/lib/utils';
+import { AddLogSourceDialog } from './AddLogSourceDialog';
 import { ErrorGroupRow } from './ErrorGroupRow';
-import { IntelliJLogsDialog } from './IntelliJLogsDialog';
 import { LogEntryRow } from './LogEntryRow';
 import { LogsFooter } from './LogsFooter';
 import { LogsToolbar } from './LogsToolbar';
@@ -45,7 +45,7 @@ export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
   const [request, setRequest] = useState<string>();
   const [picked, , setPicked] = useToggleSet();
   const [openGroups, toggleGroup] = useToggleSet();
-  const [intellij, setIntellij] = useState(false);
+  const [addingSource, setAddingSource] = useState(false);
   const entries = watch.entries ?? [];
   const visible = useMemo(
     () => entries.filter((entry) => !isMuted(entry, mutes.mutes)),
@@ -154,7 +154,7 @@ export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
         onLive={watch.setLive}
         onMaximize={layout.toggle}
         onRefresh={() => void watch.refreshSources()}
-        onIntelliJ={() => setIntellij(true)}
+        onAddSource={() => setAddingSource(true)}
         onMute={onMute}
         onUnmute={mutes.remove}
         onHide={props.logs.hide}
@@ -179,10 +179,10 @@ export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
             <Centred>
               <Muted className="max-w-sm">
                 No running containers or server sessions for this project. Start the server with
-                Docker or in a Mesa terminal session, or show IntelliJ logs.
+                Docker or in a Mesa terminal session, or add a log source.
               </Muted>
-              <Button size="sm" variant="outline" onClick={() => setIntellij(true)}>
-                <FileText aria-hidden /> Show IntelliJ logs
+              <Button size="sm" variant="outline" onClick={() => setAddingSource(true)}>
+                <Plus aria-hidden /> Add a log source
               </Button>
             </Centred>
           ) : !watch.entries ? (
@@ -235,15 +235,15 @@ export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
           onClear={() => setPicked(new Set())}
         />
       )}
-      {intellij && watch.project && (
-        <IntelliJLogsDialog
+      {addingSource && watch.project && (
+        <AddLogSourceDialog
           project={watch.project}
           onFound={(id) => {
-            setIntellij(false);
+            setAddingSource(false);
             void watch.refreshSources();
             pickSource(id);
           }}
-          onClose={() => setIntellij(false)}
+          onClose={() => setAddingSource(false)}
         />
       )}
     </aside>

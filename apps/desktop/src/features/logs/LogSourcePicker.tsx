@@ -1,6 +1,6 @@
 import type { LogSource } from '@mesa/core';
 import { sourceLabel, sourceStateText } from '@mesa/core/browser';
-import { ChevronDown, FileText } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -29,13 +29,13 @@ function StateDot(props: { source?: LogSource }) {
 
 /**
  * The Logs panel's source picker: each source as kind and name with a dot for its state (live,
- * quiet, stopped) and when it printed last, then Show IntelliJ logs. Opening it looks for sources again.
+ * quiet, stopped) and when it printed last, then Add a log source. Opening it looks for sources again.
  */
 export function LogSourcePicker(props: {
   sources?: readonly LogSource[];
   source?: string;
   onPick: (id: string) => void;
-  onIntelliJ: () => void;
+  onAddSource: () => void;
   onOpen: () => void;
 }) {
   const current = props.sources?.find((each) => each.id === props.source);
@@ -72,8 +72,8 @@ export function LogSourcePicker(props: {
           </DropdownMenuItem>
         ))}
         {props.sources?.length ? <DropdownMenuSeparator /> : null}
-        <DropdownMenuItem onSelect={props.onIntelliJ}>
-          <FileText aria-hidden /> Show IntelliJ logs...
+        <DropdownMenuItem onSelect={props.onAddSource}>
+          <Plus aria-hidden /> Add a log source...
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -42,7 +42,7 @@ export function LogsToolbar(props: {
   onLive: (live: boolean) => void;
   onMaximize: () => void;
   onRefresh: () => void;
-  onIntelliJ: () => void;
+  onAddSource: () => void;
   onMute: (pattern: string) => void;
   onUnmute: (pattern: string) => void;
   onHide: () => void;
@@ -55,7 +55,7 @@ export function LogsToolbar(props: {
         sources={props.sources}
         source={props.source}
         onPick={props.onPick}
-        onIntelliJ={props.onIntelliJ}
+        onAddSource={props.onAddSource}
         onOpen={props.onRefresh}
       />
       <SegmentedControl<LevelFilter>
@@ -110,7 +110,7 @@ export function LogsToolbar(props: {
           filter={props.text}
           mutes={props.mutes}
           onRefresh={props.onRefresh}
-          onIntelliJ={props.onIntelliJ}
+          onAddSource={props.onAddSource}
           onMute={props.onMute}
           onUnmute={props.onUnmute}
           onHide={props.onHide}

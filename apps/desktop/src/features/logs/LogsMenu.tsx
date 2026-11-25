@@ -1,4 +1,4 @@
-import { EyeOff, FileText, MoreHorizontal, RefreshCw, X } from 'lucide-react';
+import { EyeOff, MoreHorizontal, Plus, RefreshCw, X } from 'lucide-react';
 import { IconButton } from '@/components/IconButton';
 import {
   DropdownMenu,
@@ -10,14 +10,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 /**
- * The Logs panel's menu: look for sources again, Show IntelliJ logs, mute lines holding the filter
+ * The Logs panel's menu: look for sources again, Add a log source, mute lines holding the filter
  * text, the muted patterns (each one unmuted on a click), and Hide Logs for this project.
  */
 export function LogsMenu(props: {
   filter: string;
   mutes: readonly string[];
   onRefresh: () => void;
-  onIntelliJ: () => void;
+  onAddSource: () => void;
   onMute: (pattern: string) => void;
   onUnmute: (pattern: string) => void;
   onHide: () => void;
@@ -32,8 +32,8 @@ export function LogsMenu(props: {
         <DropdownMenuItem onSelect={props.onRefresh}>
           <RefreshCw aria-hidden /> Look for sources again
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={props.onIntelliJ}>
-          <FileText aria-hidden /> Show IntelliJ logs
+        <DropdownMenuItem onSelect={props.onAddSource}>
+          <Plus aria-hidden /> Add a log source
         </DropdownMenuItem>
         {filter && (
           <DropdownMenuItem onSelect={() => props.onMute(filter)}>
