@@ -1,10 +1,20 @@
 import type { ProjectRow } from '@mesa/core';
 import { currentTerminalTheme, TERMINAL_PALETTE_CHOICES } from '@mesa/core/browser';
-import { FolderGit2, GitBranch, Palette, Play, RefreshCw, ShieldAlert, Trash2 } from 'lucide-react';
+import {
+  FolderGit2,
+  GitBranch,
+  Palette,
+  Play,
+  RefreshCw,
+  ScrollText,
+  ShieldAlert,
+  Trash2,
+} from 'lucide-react';
 import { useState } from 'react';
 import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Switch } from '@/components/ui/switch';
 import { ProjectField } from '@/features/sessions/fields/ProjectField';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
@@ -118,6 +128,30 @@ export function ProjectSettingsPanel(props: { onChanged: () => void }) {
                     </NativeSelectOption>
                   ))}
                 </NativeSelect>
+              }
+            />
+          </SettingSection>
+          <SettingSection
+            id="project-logs"
+            title="Logs"
+            description="The Logs panel beside this project's sessions"
+          >
+            <SettingRow
+              icon={ScrollText}
+              title="Logs panel"
+              description={profileValue(config.logs.panel, 'on')}
+              keywords="project logs panel docker server intellij hide"
+              htmlFor="project-logs-panel"
+              control={
+                <Switch
+                  id="project-logs-panel"
+                  checked={project.logsPanel}
+                  disabled={acting}
+                  // The profile's value leaves the override out, so a later profile change applies.
+                  onCheckedChange={(shown) =>
+                    save('logs.panel', shown === config.logs.panel ? undefined : shown)
+                  }
+                />
               }
             />
           </SettingSection>

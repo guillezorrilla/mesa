@@ -3,7 +3,7 @@ import { tailLines } from '../lib/file-tail.js';
 import type { LockDeps } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { outputTail } from '../sessions/window/output-log.js';
-import { atLeast, type ServerLogEntry, type LogLevel, parseLog, type RawLine } from './parse.js';
+import { atLeast, type LogLevel, parseLog, type RawLine, type ServerLogEntry } from './parse.js';
 import { type LogSourceDeps, logFile } from './sources.js';
 
 export type ReadOptions = {
@@ -46,7 +46,13 @@ function stamped(line: string): RawLine {
 
 /** A container's last `lines` lines, stdout and stderr in the order docker kept them. */
 async function dockerLines(deps: ReadDeps, name: string, lines: number, since?: string) {
-  const args = ['--timestamps', '--tail', String(lines), ...(since ? ['--since', since] : []), name];
+  const args = [
+    '--timestamps',
+    '--tail',
+    String(lines),
+    ...(since ? ['--since', since] : []),
+    name,
+  ];
   // Through sh, so the container's stderr comes too: the runner keeps only stdout.
   const read = await deps.run('sh', ['-c', 'exec docker logs "$@" 2>&1', 'sh', ...args], 10_000);
   if (!read.ok)
@@ -75,7 +81,8 @@ async function rawLines(
   if (colon > 0 && name && kind === 'file') {
     if (!project) throw new MesaError('usage', `name the project whose log file ${name} is`);
     const file = logFile(deps.serverLogs, project, name);
-    if (!existsSync(file)) throw new MesaError('not_found', `no log file ${name} in project ${project}`);
+    if (!existsSync(file))
+      throw new MesaError('not_found', `no log file ${name} in project ${project}`);
     // Read anew each time, so a file IntelliJ rewrote on a new run starts over.
     for (let bytes = 64 * 1024; ; bytes *= 2) {
       const read = tailLines(file, bytes);
@@ -83,7 +90,10 @@ async function rawLines(
         return read.lines.slice(-lines).map((line) => ({ text: line.trimEnd() }));
     }
   }
-  throw new MesaError('usage', `${source} is not a log source: docker:<name>, session:<id> or file:<name>`);
+  throw new MesaError(
+    'usage',
+    `${source} is not a log source: docker:<name>, session:<id> or file:<name>`,
+  );
 }
 
 /**

@@ -134,6 +134,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
         density: 'comfortable',
         colorVision: 'normal',
       },
+      logs: { panel: true },
       terminal: { app: 'Terminal', ...DEFAULT_TERMINAL_PREFERENCES },
       editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
       worktrees: {

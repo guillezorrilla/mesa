@@ -82,7 +82,10 @@ test('logs sources lists containers, sessions with a log and log files; a source
   plantOutputLog(cli.home, id, 'WARN tide rising\r\n');
   const made = (await mesa('logs', 'file', 'tide-api', '--project', 'lantern-cove', '--json')).json
     .data;
-  expect(made).toEqual({ path: `${cli.home}/.mesa/default/logs/lantern-cove/tide-api.log`, source: 'file:tide-api' });
+  expect(made).toEqual({
+    path: `${cli.home}/.mesa/default/logs/lantern-cove/tide-api.log`,
+    source: 'file:tide-api',
+  });
   expect(existsSync(made.path)).toBe(false);
   writeFileSync(made.path, '2026-01-02T10:11:12.345Z ERROR 1 --- [demo] [main] c.e.Demo : boom\n');
 

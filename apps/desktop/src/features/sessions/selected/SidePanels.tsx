@@ -1,11 +1,20 @@
 import type { TreeRow } from '@mesa/core';
 import { diffable, GENERAL_PROJECT, sessionFolder } from '@mesa/core/browser';
 import { Activity, memo } from 'react';
+import { LogsPanel } from '@/features/logs/LogsPanel';
+import type { LogWatch } from '@/features/logs/useLogWatch';
 import { DiffPanel } from '../diff/DiffPanel';
 import { BrowserPanel } from '../review/BrowserPanel';
 import { RepliesPanel } from '../review/RepliesPanel';
 import { type CrewActions, CrewPanel } from './CrewPanel';
 import type { OpenPanel } from './useSidePanel';
+
+/** The Logs panel's stream (useLogWatch), its Send to agent, and its Hide for this project. */
+export type LogsActions = {
+  watch: LogWatch;
+  send: (text: string) => void;
+  hide: () => void;
+};
 
 /**
  * Each session's open side panel beside its terminal. Only the selected session's shows; the
@@ -20,6 +29,8 @@ export function SidePanels(props: {
   onClose: (session: string) => void;
   /** The Crew panel's Send and Stop; given only to a session whose Crew is open. */
   crew: CrewActions;
+  /** The selected session's Logs stream and actions, while its project shows the Logs panel. */
+  logs?: LogsActions;
 }) {
   return Object.entries(props.panels).map(([id, open]) => {
     const row = props.rows?.find((each) => each.id === id);
@@ -49,6 +60,7 @@ export function SidePanels(props: {
         state={row.lastState.state}
         crewStamp={crewStamp}
         crew={open.panel === 'crew' ? props.crew : undefined}
+        logs={open.panel === 'logs' && id === props.selectedSession ? props.logs : undefined}
         onClose={props.onClose}
       />
     );
@@ -68,6 +80,7 @@ const SessionPanel = memo(function SessionPanel(props: {
   state: string;
   crewStamp: string;
   crew?: CrewActions;
+  logs?: LogsActions;
   onClose: (session: string) => void;
 }) {
   const { id, open } = props;
@@ -99,6 +112,14 @@ const SessionPanel = memo(function SessionPanel(props: {
           project={props.project}
           stamp={props.crewStamp}
           actions={props.crew}
+          onClose={close}
+        />
+      )}
+      {props.logs && (
+        <LogsPanel
+          watch={props.logs.watch}
+          onSend={props.logs.send}
+          onHide={props.logs.hide}
           onClose={close}
         />
       )}

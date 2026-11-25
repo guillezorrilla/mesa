@@ -98,6 +98,7 @@ export function WorkspaceMain(props: {
           projects={projects.data ?? (needsProfileSetup ? [] : undefined)}
           projectsError={needsProfileSetup ? undefined : projects.error?.message}
           onRetryProjects={() => void projects.refresh()}
+          onProjectsChanged={() => void projects.refresh()}
           onRowsChange={props.onRowsChange}
           onLoaded={props.onSessionsLoaded}
           onSessions={() => navigate({ kind: 'sessions' })}

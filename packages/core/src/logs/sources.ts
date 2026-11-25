@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { MesaError } from '../lib/result.js';
 import type { Runner } from '../lib/process.js';
+import { MesaError } from '../lib/result.js';
 import { sessionTitle } from '../sessions/record/labels.js';
 import type { SessionStore } from '../sessions/record/store.js';
 import { outputLog } from '../sessions/window/output-log.js';
@@ -62,7 +62,9 @@ async function containers(run: Runner): Promise<LogSource[]> {
 function sessions(deps: LogSourceDeps, project: string): LogSource[] {
   return deps.store
     .list()
-    .filter((r) => r.project === project && !r.endedAt && existsSync(outputLog(deps.sessionLogs, r.id)))
+    .filter(
+      (r) => r.project === project && !r.endedAt && existsSync(outputLog(deps.sessionLogs, r.id)),
+    )
     .sort((a, b) => Number(b.agent === 'terminal') - Number(a.agent === 'terminal'))
     .map((r) => ({
       id: `session:${r.id}`,

@@ -28,7 +28,12 @@ test('a JSON line gives severity or level, message or msg, and its time', () => 
     ]),
   ).toEqual([
     { time: '2026-03-04T05:06:07Z', level: 'warn', message: 'buoy 7 drifting', stack: null },
-    { time: new Date(1772600000000).toISOString(), level: 'error', message: 'anchor lost', stack: null },
+    {
+      time: new Date(1772600000000).toISOString(),
+      level: 'error',
+      message: 'anchor lost',
+      stack: null,
+    },
     { time: null, level: 'info', message: 'harbour open', stack: 'Error: none\n    at open' },
     { time: null, level: null, message: '{"not":"a log line"}', stack: null },
   ]);

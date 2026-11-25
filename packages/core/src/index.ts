@@ -97,6 +97,12 @@ export * from './lib/result.js';
 export { keychainStore, type SecretStore } from './lib/secret-store.js';
 export { envSpawner, type Spawner } from './lib/spawn.js';
 export { localClock, localDay, obsidianDateTime } from './lib/time.js';
+export {
+  LOG_LEVELS,
+  type LogLevel,
+  type ServerLogEntry,
+} from './logs/parse.js';
+export type { LogSource, LogSourceKind } from './logs/sources.js';
 export type { MapSaved } from './map/service.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
 export type { NotificationDelivery } from './notifications/background.js';
@@ -117,12 +123,6 @@ export type { PrEvent, PrProblem } from './pr-events/pr-events.js';
 export { type Config, TERMINAL_APPS } from './profile/config.js';
 export { profilesDir, resolveProfileName } from './profile/paths.js';
 export type { ProfileInfo } from './profile/profile.js';
-export {
-  LOG_LEVELS,
-  type LogLevel,
-  type ServerLogEntry,
-} from './logs/parse.js';
-export type { LogSource, LogSourceKind } from './logs/sources.js';
 export type { ProfileRow } from './profile/profiles.js';
 export {
   DEFAULT_SHORTCUTS,

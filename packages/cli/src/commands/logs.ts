@@ -9,7 +9,12 @@ import { defineCommand } from '../command.js';
 import { wholeNumber } from '../input/flags.js';
 import { columns } from '../output/columns.js';
 
-const LEVEL_NAMES: Record<LogLevel, string> = { error: 'ERROR', warn: 'WARN', info: 'INFO', debug: 'DEBUG' };
+const LEVEL_NAMES: Record<LogLevel, string> = {
+  error: 'ERROR',
+  warn: 'WARN',
+  info: 'INFO',
+  debug: 'DEBUG',
+};
 
 function levelOf(value: string | undefined): LogLevel | undefined {
   if (value === undefined) return undefined;
@@ -22,7 +27,11 @@ function levelOf(value: string | undefined): LogLevel | undefined {
 const entryText = (entry: ServerLogEntry) =>
   [
     // A plain line's level word is already in its message.
-    [entry.time, entry.level && !entry.message.includes(LEVEL_NAMES[entry.level]) && LEVEL_NAMES[entry.level], entry.message]
+    [
+      entry.time,
+      entry.level && !entry.message.includes(LEVEL_NAMES[entry.level]) && LEVEL_NAMES[entry.level],
+      entry.message,
+    ]
       .filter(Boolean)
       .join(' '),
     entry.stack,
@@ -37,9 +46,18 @@ export const logs = defineCommand({
   args: ['source'],
   flags: {
     tail: { type: 'string', description: 'Print only the last N lines (entries for a source)' },
-    level: { type: 'string', description: "A source's entries at this level or worse: error, warn, info, debug" },
-    since: { type: 'string', description: "A source's entries since an ISO time or an age (10m, 2h)" },
-    project: { type: 'string', description: 'The project a file: source is in (default: this one)' },
+    level: {
+      type: 'string',
+      description: "A source's entries at this level or worse: error, warn, info, debug",
+    },
+    since: {
+      type: 'string',
+      description: "A source's entries since an ISO time or an age (10m, 2h)",
+    },
+    project: {
+      type: 'string',
+      description: 'The project a file: source is in (default: this one)',
+    },
   },
   example: 'mesa logs docker:api --level error --tail 50',
   run: async ({ mesa, args, flags }) => {

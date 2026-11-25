@@ -17,16 +17,22 @@ export function usePromptInsert(
     field.setRangeText(text, field.selectionStart, field.selectionEnd, 'end');
     field.focus();
   }, []);
+  /** Opens the Session actions menu the field sits in, so the text shows, and inserts it. */
+  const showAndInsert = useCallback(
+    (text: string) => {
+      if (actionsMenu.current) actionsMenu.current.open = true;
+      insertPrompt(text);
+    },
+    [insertPrompt],
+  );
   useEffect(() => {
     if (!request || request === handledPromptInsert.current || request.session !== selectedId)
       return;
     if (!promptField.current) return;
-    // The field sits in the Session actions menu: open it, so the inserted text shows.
-    if (actionsMenu.current) actionsMenu.current.open = true;
-    insertPrompt(request.text);
+    showAndInsert(request.text);
     handledPromptInsert.current = request;
-  }, [request, selectedId, insertPrompt]);
-  return { promptField, actionsMenu, insertPrompt };
+  }, [request, selectedId, showAndInsert]);
+  return { promptField, actionsMenu, insertPrompt, showAndInsert };
 }
 
 /** What `usePromptInsert` returns. */

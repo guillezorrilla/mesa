@@ -1,0 +1,107 @@
+import type { LogSource } from '@mesa/core';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useKept } from '@/lib/keptValue';
+import { useCall } from '@/lib/useCommand';
+import { useWindowFocused } from '@/lib/useWindowFocused';
+import { type KeyedEntry, keyed, type LevelFilter } from './logLines';
+
+/** How often the panel reads its source while Live, and while closed for the red dot. */
+export const LOGS_POLL_MS = 2_000;
+/** How many entries a read brings back. */
+const TAIL = 500;
+
+/**
+ * The Logs panel's stream for the selected session's project (CONTEXT.md, Logs panel): its sources,
+ * the source picked (kept per project), that source's entries read every 2 s, the level filter, and
+ * the red dot. It reads while the window has focus: with the panel open while Live is on, and with
+ * it closed once a source was picked, so an error that comes in lights the dot. An error new since
+ * the last read lights it unless the panel shows Errors; showing Errors clears it.
+ */
+export function useLogWatch(project: string | undefined, open: boolean) {
+  const call = useCall();
+  const focused = useWindowFocused();
+  const [kept, keep] = useKept(project && `mesa.logs.source.${project}`);
+  const [sources, setSources] = useState<{ project: string; list: LogSource[] }>();
+  const [stream, setStream] = useState<{ source: string; entries: KeyedEntry[] }>();
+  const [failure, setFailure] = useState<{ source: string; message: string }>();
+  const [level, setLevel] = useState<LevelFilter>('all');
+  const [live, setLive] = useState(true);
+  const [dot, setDot] = useState(false);
+  /** The error keys the source read last had; another source's starts anew, lighting nothing. */
+  const errors = useRef<{ source: string; keys: Set<string> }>(undefined);
+  const watchingErrors = open && level === 'error';
+  const watchingRef = useRef(watchingErrors);
+  watchingRef.current = watchingErrors;
+  const listed = sources?.project === project ? sources?.list : undefined;
+  // The kept choice while it is listed (or before the list is read), else the first source.
+  const source =
+    kept && (!listed || listed.some((each) => each.id === kept)) ? kept : listed?.[0]?.id;
+
+  const refreshSources = useCallback(async () => {
+    if (!project) return;
+    const found = await call('logs.sources', { project });
+    if (found.ok) setSources({ project, list: found.data.sources });
+    else setFailure({ source: '', message: found.error.message });
+  }, [call, project]);
+  useEffect(() => {
+    if (open) void refreshSources();
+  }, [open, refreshSources]);
+  useEffect(() => {
+    if (watchingErrors) setDot(false);
+  }, [watchingErrors]);
+
+  const reading = Boolean(project && source && focused && (open ? live : kept));
+  const busy = useRef(false);
+  useEffect(() => {
+    if (!reading || !project || !source) return;
+    let gone = false;
+    const read = () => {
+      if (busy.current) return;
+      busy.current = true;
+      void call('logs.read', { source, project, tail: TAIL })
+        .then((result) => {
+          if (gone) return;
+          if (!result.ok) return setFailure({ source, message: result.error.message });
+          const entries = keyed(result.data.entries);
+          const now = new Set(entries.filter((e) => e.level === 'error').map((e) => e.key));
+          const before = errors.current?.source === source ? errors.current.keys : undefined;
+          if (before && [...now].some((key) => !before.has(key)) && !watchingRef.current)
+            setDot(true);
+          errors.current = { source, keys: now };
+          setFailure(undefined);
+          setStream({ source, entries });
+        })
+        .finally(() => {
+          busy.current = false;
+        });
+    };
+    read();
+    const timer = window.setInterval(read, LOGS_POLL_MS);
+    return () => {
+      gone = true;
+      window.clearInterval(timer);
+    };
+  }, [reading, call, project, source]);
+
+  return {
+    project,
+    /** The project's sources, once read. */
+    sources: listed,
+    source,
+    /** Picks a source and keeps the choice for the project. */
+    pick: keep,
+    entries: stream && stream.source === source ? stream.entries : undefined,
+    failure:
+      failure && (failure.source === source || !failure.source) ? failure.message : undefined,
+    level,
+    setLevel,
+    live,
+    setLive,
+    /** An error came in that the panel has not shown under Errors. */
+    dot,
+    refreshSources,
+  };
+}
+
+/** What `useLogWatch` returns. */
+export type LogWatch = ReturnType<typeof useLogWatch>;

@@ -47,7 +47,15 @@ const LEVEL_NAMES: Record<string, LogLevel> = {
 /** A level as a logger names it, or pino's number (50 error, 40 warn, 30 info, 20 and 10 debug). */
 function levelOf(value: unknown): LogLevel | null {
   if (typeof value === 'number')
-    return value >= 50 ? 'error' : value >= 40 ? 'warn' : value >= 30 ? 'info' : value >= 10 ? 'debug' : null;
+    return value >= 50
+      ? 'error'
+      : value >= 40
+        ? 'warn'
+        : value >= 30
+          ? 'info'
+          : value >= 10
+            ? 'debug'
+            : null;
   return typeof value === 'string' ? (LEVEL_NAMES[value.toLowerCase()] ?? null) : null;
 }
 
@@ -82,7 +90,12 @@ function jsonEntry(text: string): ServerLogEntry | undefined {
 function entryOf(line: RawLine): ServerLogEntry {
   const spring = SPRING.exec(line.text);
   if (spring)
-    return { time: spring[1] ?? null, level: levelOf(spring[2]), message: spring[3] ?? '', stack: null };
+    return {
+      time: spring[1] ?? null,
+      level: levelOf(spring[2]),
+      message: spring[3] ?? '',
+      stack: null,
+    };
   const json = jsonEntry(line.text);
   if (json) return { ...json, time: json.time ?? line.time ?? null };
   const timed = LEADING_TIME.exec(line.text);
@@ -115,5 +128,4 @@ export function parseLog(lines: readonly (string | RawLine)[]): ServerLogEntry[]
 
 /** Whether `entry` is at `level` or more severe; every entry passes with no level. */
 export const atLeast = (entry: ServerLogEntry, level?: LogLevel) =>
-  !level ||
-  (entry.level !== null && LOG_LEVELS.indexOf(entry.level) <= LOG_LEVELS.indexOf(level));
+  !level || (entry.level !== null && LOG_LEVELS.indexOf(entry.level) <= LOG_LEVELS.indexOf(level));

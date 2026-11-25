@@ -16,13 +16,21 @@ import { logFile, logSources } from './sources.js';
 const NOW = new Date('2026-05-06T07:10:00.000Z');
 
 /** A profile with project lantern-cove's terminal and agent sessions, one ended, and docker as given. */
-function setUp(docker: Parameters<typeof scriptedRunner>[0] = {}, opts: Parameters<typeof scriptedRunner>[1] = {}) {
+function setUp(
+  docker: Parameters<typeof scriptedRunner>[0] = {},
+  opts: Parameters<typeof scriptedRunner>[1] = {},
+) {
   const home = tempDir();
   const store = testStore(home);
   const paths = profilePaths(home, 'default');
   const agent = store.create(() => newSession({ project: 'lantern-cove', name: 'fix the tides' }));
   const shell = store.create(() =>
-    newSession({ project: 'lantern-cove', agent: 'terminal', kind: 'terminal', name: 'harbour api' }),
+    newSession({
+      project: 'lantern-cove',
+      agent: 'terminal',
+      kind: 'terminal',
+      name: 'harbour api',
+    }),
   );
   const ended = store.create(() =>
     newSession({ project: 'lantern-cove', endedAt: '2026-05-06T06:00:00.000Z' }),
@@ -56,9 +64,24 @@ test("sources: running containers, the project's unended sessions with a log, te
   writeFileSync(join(deps.serverLogs, 'lantern-cove', 'notes.txt'), '');
   expect(await logSources(deps, 'lantern-cove')).toEqual([
     { id: 'docker:echo-logs', kind: 'docker', name: 'echo-logs', detail: 'alpine, Up 3 minutes' },
-    { id: 'docker:harbour-db', kind: 'docker', name: 'harbour-db', detail: 'postgres:17, Up 2 hours' },
-    { id: `session:${shell.id}`, kind: 'session', name: 'harbour api', detail: `terminal session ${shell.id}` },
-    { id: `session:${agent.id}`, kind: 'session', name: 'fix the tides', detail: `claude session ${agent.id}` },
+    {
+      id: 'docker:harbour-db',
+      kind: 'docker',
+      name: 'harbour-db',
+      detail: 'postgres:17, Up 2 hours',
+    },
+    {
+      id: `session:${shell.id}`,
+      kind: 'session',
+      name: 'harbour api',
+      detail: `terminal session ${shell.id}`,
+    },
+    {
+      id: `session:${agent.id}`,
+      kind: 'session',
+      name: 'fix the tides',
+      detail: `claude session ${agent.id}`,
+    },
     { id: 'file:tide-api', kind: 'file', name: 'tide-api', detail: 'log file' },
   ]);
 });
@@ -107,7 +130,9 @@ test("a container's logs come through docker, its stderr too, stamped by docker"
     '2026-05-06T07:08:09.1Z',
     '2026-05-06T07:09:59.2Z',
   ]);
-  expect((await readLog(deps, 'docker:echo-logs', { since: '2026-05-06T07:09:00Z' })).entries).toHaveLength(1);
+  expect(
+    (await readLog(deps, 'docker:echo-logs', { since: '2026-05-06T07:09:00Z' })).entries,
+  ).toHaveLength(1);
 });
 
 test('a log file reads anew each time, so a rewritten file starts over', async () => {
@@ -119,9 +144,11 @@ test('a log file reads anew each time, so a rewritten file starts over', async (
   expect((await read()).entries.map((entry) => entry.message)).toEqual(['INFO one', 'ERROR two']);
   writeFileSync(file, 'INFO fresh run\n');
   expect((await read()).entries.map((entry) => entry.message)).toEqual(['INFO fresh run']);
-  await expect(readLog(deps, 'file:../secrets', { project: 'lantern-cove' })).rejects.toMatchObject({
-    code: 'usage',
-  });
+  await expect(readLog(deps, 'file:../secrets', { project: 'lantern-cove' })).rejects.toMatchObject(
+    {
+      code: 'usage',
+    },
+  );
   await expect(readLog(deps, 'file:gone', { project: 'lantern-cove' })).rejects.toMatchObject({
     code: 'not_found',
   });
