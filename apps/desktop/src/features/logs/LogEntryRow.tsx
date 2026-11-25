@@ -29,7 +29,7 @@ function Part(props: { part: MessagePart; onRequest: (id: string) => void }) {
       <button
         type="button"
         title={`Show every line of request ${request}`}
-        className="rounded-sm text-state-working underline decoration-dotted underline-offset-2 hover:bg-state-working/10"
+        className="whitespace-nowrap rounded-sm text-state-working underline decoration-dotted underline-offset-2 hover:bg-state-working/10"
         onClick={(event) => {
           event.stopPropagation();
           props.onRequest(request);
@@ -51,7 +51,9 @@ function Part(props: { part: MessagePart; onRequest: (id: string) => void }) {
     );
   if (part.slow)
     return (
-      <span className="rounded-sm bg-state-waiting/15 px-0.5 text-state-waiting">{part.text}</span>
+      <span className="whitespace-nowrap rounded-sm bg-state-waiting/15 px-0.5 text-state-waiting">
+        {part.text}
+      </span>
     );
   return part.text;
 }
@@ -73,7 +75,7 @@ export const LogEntryRow = memo(function LogEntryRow(
       tabIndex={0}
       data-level={entry.level ?? undefined}
       className={cn(
-        'group grid cursor-pointer grid-cols-[4.25rem_2.75rem_minmax(0,1fr)] gap-x-2 border-l-2 border-transparent px-3 py-px outline-none hover:bg-accent focus-visible:bg-accent @min-[36rem]:grid-cols-[4.25rem_2.75rem_9rem_minmax(0,1fr)]',
+        'group grid cursor-pointer grid-cols-[4.25rem_2.75rem_minmax(0,1fr)] gap-x-2 border-l-2 border-transparent px-3 py-px outline-none hover:bg-accent focus-visible:bg-accent @min-[40rem]:grid-cols-[4.25rem_2.75rem_9rem_minmax(0,1fr)]',
         entry.level && TONE[entry.level],
         props.selected && 'border-l-state-working bg-state-working/12 hover:bg-state-working/15',
       )}
@@ -90,7 +92,7 @@ export const LogEntryRow = memo(function LogEntryRow(
       </span>
       <span
         data-testid="log-logger"
-        className="hidden truncate text-muted-foreground/70 @min-[36rem]:block"
+        className="hidden truncate text-muted-foreground/70 @min-[40rem]:block"
         title={entry.logger ?? undefined}
       >
         {entry.logger}
