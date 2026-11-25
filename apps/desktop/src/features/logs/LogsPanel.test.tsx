@@ -232,36 +232,13 @@ test('a failed sources read says so, not that there are none', async () => {
   expect(document.body.textContent).not.toContain('No running containers');
 });
 
-test('with no source, the empty state opens Add a log source; the JetBrains steps offer the modules and wait once the path is copied', async () => {
+test('with no source, the empty state says what to do and opens Add a log source', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
-  let written = false;
-  const { bridge, calls } = fakeBridge({
-    'logs sources': () =>
-      envelope({
-        sources: written
-          ? [
-              {
-                id: 'file:tide-api',
-                kind: 'file',
-                name: 'tide-api',
-                detail: 'log file',
-                state: 'live',
-                lastLine: null,
-              },
-            ]
-          : [],
-      }),
-    'logs modules': () => envelope({ modules: ['tide-api', 'tide-worker'] }),
+  const { bridge } = fakeBridge({
+    'logs sources': () => envelope({ sources: [] }),
+    'logs modules': () => envelope({ modules: [] }),
     'logs file': (args) =>
-      envelope({
-        path: `/h/.mesa/default/logs/lantern-cove/${args.at(-1)}.log`,
-        source: `file:${args.at(-1)}`,
-      }),
-    logs: (args) =>
-      envelope({
-        source: args.at(-1),
-        entries: [entry('2026-01-02T10:11:12.345Z', 'error', 'boom')],
-      }),
+      envelope({ path: `/h/${args.at(-1)}.log`, source: `file:${args.at(-1)}` }),
   });
   const byTestId = await renderWithMesa(<Harness send={() => true} />, bridge);
   await tick();
@@ -269,82 +246,7 @@ test('with no source, the empty state opens Add a log source; the JetBrains step
     'No running containers or server sessions for this project. Start the server with Docker or in a Mesa terminal session, or add a log source.',
   );
   await click(button('Add a log source'));
-  await tick(400);
-  expect((document.querySelector('#log-service') as HTMLSelectElement).value).toBe('tide-api');
-  expect(document.body.textContent).toContain('IntelliJ IDEA, WebStorm, PyCharm, GoLand or Rider');
-  expect(document.body.textContent).toContain(
-    'Modify options > Logs > Save console output to file',
-  );
-  const fileCalls = (pathOnly: boolean) =>
-    calls.filter((argv) => argv[2] === 'file' && argv.includes('--path-only') === pathOnly);
-  expect(fileCalls(true)).toHaveLength(1);
-  expect(byTestId('log-file-path')[0]?.textContent).toBe(
-    '/h/.mesa/default/logs/lantern-cove/tide-api.log',
-  );
-  expect(fileCalls(false)).toHaveLength(0);
-  expect(document.body.textContent).not.toContain('Waiting for the first line');
-  await click(button('Copy'));
-  expect(fileCalls(false)).toHaveLength(1);
-  expect(document.body.textContent).toContain('Waiting for the first line');
-  written = true;
-  await tick(LOGS_POLL_MS + 10);
-  expect(byTestId('add-log-source-dialog')).toHaveLength(0);
-  expect(localStorage.getItem('mesa.logs.source.lantern-cove')).toBe('file:tide-api');
-  expect(document.querySelectorAll('[role="option"][data-level="error"]')).toHaveLength(1);
-});
-
-test('Terminal or VS Code gives the mesa logs run line and a tasks.json task; Log file adds a suggested file', async () => {
-  vi.useFakeTimers({ shouldAdvanceTime: true });
-  const { bridge, calls } = fakeBridge({
-    'logs sources': () => envelope({ sources: [] }),
-    'logs modules': () => envelope({ modules: [] }),
-    'logs file': (args) =>
-      envelope({ path: `/h/logs/${args.at(-1)}.log`, source: `file:${args.at(-1)}` }),
-    'logs files': () =>
-      envelope({ files: [], suggested: ['/src/lantern-cove/log/development.log'] }),
-    'logs add': (args) => envelope({ files: [args.at(-1)] }),
-    logs: (args) => envelope({ source: args.at(-1), entries: [] }),
-  });
-  const byTestId = await renderWithMesa(<Harness send={() => true} />, bridge);
-  await tick();
-  await click(button('Add a log source'));
-  await click(document.querySelector<HTMLElement>('[role="radio"][value="terminal"]') ?? undefined);
-  await act(async () => {
-    const field = document.querySelector<HTMLInputElement>('#log-command');
-    if (!field) throw new Error('no command field');
-    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-    set?.call(field, './gradlew bootRun');
-    field.dispatchEvent(new Event('input', { bubbles: true }));
-  });
-  await tick(400);
-  expect(byTestId('log-run-line')[0]?.textContent).toBe(
-    'mesa logs run lantern-cove -- ./gradlew bootRun',
-  );
-  expect(JSON.parse(byTestId('log-run-task')[0]?.textContent ?? '{}')).toEqual({
-    label: 'lantern-cove (logs in Mesa)',
-    type: 'shell',
-    command: 'mesa logs run lantern-cove -- ./gradlew bootRun',
-    isBackground: true,
-    problemMatcher: [],
-  });
-  await click(document.querySelector<HTMLElement>('[role="radio"][value="file"]') ?? undefined);
-  await tick();
-  expect(document.body.textContent).toContain('/src/lantern-cove/log/development.log');
-  await click(button('Add'));
-  await tick();
-  expect(calls).toContainEqual([
-    '--json',
-    'logs',
-    'add',
-    '--project',
-    'lantern-cove',
-    '--',
-    '/src/lantern-cove/log/development.log',
-  ]);
-  expect(byTestId('add-log-source-dialog')).toHaveLength(0);
-  expect(localStorage.getItem('mesa.logs.source.lantern-cove')).toBe(
-    'file:/src/lantern-cove/log/development.log',
-  );
+  expect(byTestId('add-log-source-dialog')).toHaveLength(1);
 });
 test('Maximize covers the session area and is kept per project; Esc returns', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });

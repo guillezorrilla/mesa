@@ -194,3 +194,17 @@ test('Rails, Django, zap, structlog and bunyan lines read too', () => {
     },
   ]);
 });
+
+test('pino, winston and logrus JSON lines read too', () => {
+  expect(
+    parseLog([
+      '{"level":30,"time":1778051293500,"pid":1,"msg":"tide api listening"}',
+      '{"level":"warn","message":"berth almost full","timestamp":"2026-05-06T07:08:14.000Z"}',
+      '{"level":"error","msg":"anchor lost","time":"2026-05-06T07:08:15Z"}',
+    ]).map(({ level, message }) => [level, message]),
+  ).toEqual([
+    ['info', 'tide api listening'],
+    ['warn', 'berth almost full'],
+    ['error', 'anchor lost'],
+  ]);
+});

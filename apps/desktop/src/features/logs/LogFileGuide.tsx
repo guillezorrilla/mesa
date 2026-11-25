@@ -1,4 +1,5 @@
-import { FileText, FolderOpen, Plus } from 'lucide-react';
+import { sourceId } from '@mesa/core/browser';
+import { FileText, FolderOpen, Plus, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { CutStartText } from '@/components/CutStartText';
 import { Muted } from '@/components/Muted';
@@ -17,19 +18,25 @@ import { useCall } from '@/lib/useCommand';
 export function LogFileGuide(props: { project: string; onFound: (source: string) => void }) {
   const call = useCall();
   const { pickFile } = usePlatform();
-  const [suggested, setSuggested] = useState<string[]>();
+  const [listed, setListed] = useState<{ files: string[]; suggested: string[] }>();
   const [path, setPath] = useState('');
   const [error, setError] = useState<string>();
   useEffect(() => {
     void call('logs.files', { project: props.project }).then((found) =>
-      setSuggested(found.ok ? found.data.suggested : []),
+      setListed(found.ok ? found.data : { files: [], suggested: [] }),
     );
   }, [call, props.project]);
   const add = async (file: string) => {
     const kept = await call('logs.addFile', { path: file.trim(), project: props.project });
     if (!kept.ok) return setError(kept.error.message);
-    props.onFound(`file:${kept.data.files.at(-1) ?? file.trim()}`);
+    props.onFound(sourceId('file', kept.data.files.at(-1) ?? file.trim()));
   };
+  const remove = async (file: string) => {
+    const kept = await call('logs.removeFile', { path: file, project: props.project });
+    if (!kept.ok) return setError(kept.error.message);
+    setListed((now) => now && { ...now, files: kept.data.files });
+  };
+  const suggested = listed?.suggested;
   return (
     <div className="grid gap-4 text-sm">
       <Muted>
@@ -53,6 +60,20 @@ export function LogFileGuide(props: { project: string; onFound: (source: string)
           <Muted>No *.log files the checkout ignores.</Muted>
         )}
       </section>
+      {listed?.files.length ? (
+        <section className="grid gap-1.5" aria-label="Kept log files">
+          <SectionLabel>Read for this project</SectionLabel>
+          {listed.files.map((file) => (
+            <div key={file} className="flex items-center gap-2 rounded-md border px-2.5 py-1">
+              <FileText aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+              <CutStartText text={file} />
+              <Button size="sm" variant="ghost" onClick={() => void remove(file)}>
+                <X aria-hidden /> Remove
+              </Button>
+            </div>
+          ))}
+        </section>
+      ) : null}
       <section className="grid gap-1.5" aria-label="Another log file">
         <SectionLabel>Anywhere on disk</SectionLabel>
         <div className="flex gap-2">

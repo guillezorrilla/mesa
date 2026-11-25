@@ -3,8 +3,9 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { lockDeps, profilePaths, scriptedRunner, tempDir } from '../testing/index.js';
-import { changeLogFiles, fileSource, suggestedLogFiles, teeArgv } from './log-files.js';
+import { changeLogFiles, fileSource, suggestedLogFiles } from './log-files.js';
 import { parseLog } from './parse.js';
+import { teeArgv } from './tee.js';
 
 test('mesa logs run passes a command through and appends what it printed, with its exit status', () => {
   const dir = tempDir();

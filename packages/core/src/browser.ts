@@ -70,7 +70,7 @@ export { localClock, localDay, validLocalDay } from './lib/time.js';
 export { errorGroups, isMuted, muteKey, normalizedMessage } from './logs/groups.js';
 export { CONTEXT_LINES, logMessage } from './logs/message.js';
 export { entryText, LEVEL_NAMES } from './logs/parse.js';
-export { sourceLabel, sourceStateText } from './logs/source-id.js';
+export { sourceId, sourceLabel, sourceStateText } from './logs/source-id.js';
 export { ownFrame, stackSummary, stackView } from './logs/stack.js';
 export { messageParts, namesRequest } from './logs/tokens.js';
 export { mapSession } from './map/map.js';

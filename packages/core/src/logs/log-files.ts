@@ -1,37 +1,16 @@
 import { existsSync, statSync } from 'node:fs';
 import { basename, isAbsolute, join } from 'node:path';
 import type { LockDeps } from '../lib/lock-file.js';
-import { type Runner, shellWord } from '../lib/process.js';
+import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import { type RegistryEntry, updateRegistry } from '../projects/registry.js';
 import { LIVE_MS, type LogSource, type LogSourceState, sourceId } from './source-id.js';
 
 // Log files a project's servers write anywhere on disk (CONTEXT.md, Logs panel): the ones a person
-// added, kept in the profile's registry, the gitignored `*.log` files Mesa suggests, and the
-// `mesa logs run` line that tees any command's output into one.
+// added, kept in the profile's registry, and the gitignored `*.log` files Mesa suggests.
 
 /** How many suggestions Mesa offers. */
 const SUGGESTED = 20;
-
-/**
- * The argv that runs `command` in a pseudo-terminal with `script(1)`, so its colours, input,
- * Ctrl-C and exit status are its own, while every byte is appended to `file`: util-linux's
- * `script -c` where `script --version` answers, else the BSD form macOS has. A stdin that is no
- * terminal is read as empty.
- */
-export function teeArgv(file: string, command: readonly string[]) {
-  const line = command.map(shellWord).join(' ');
-  return [
-    'sh',
-    '-c',
-    // BSD script refuses a stdin that is no terminal (a pipe): it then reads none.
-    'log=$1; line=$2; shift 2; [ -t 0 ] || exec </dev/null; if script --version >/dev/null 2>&1; then exec script -q -a -e -f -c "$line" "$log"; fi; exec script -q -a -F "$log" "$@"',
-    'sh',
-    file,
-    line,
-    ...command,
-  ];
-}
 
 /** When `file` last changed, as an ISO time: when its writer printed its last line; null when it is gone. */
 export function changedAt(file: string) {

@@ -187,7 +187,6 @@ test("logs run hands the terminal to script with the command, keeping its output
   expect(await mesa('logs', 'run', 'tide-api', '--project', 'lantern-cove')).toMatchObject({
     code: 2,
   });
-  expect(dir).toBeTruthy();
 });
 
 test('logs add keeps a file anywhere for the project, logs files lists it, logs remove forgets it', async () => {

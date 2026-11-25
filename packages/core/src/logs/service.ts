@@ -5,11 +5,12 @@ import { MesaError } from '../lib/result.js';
 import { projectOf } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
 import { callerOf } from '../sessions/window/caller.js';
-import { changeLogFiles, suggestedLogFiles, teeArgv } from './log-files.js';
+import { changeLogFiles, suggestedLogFiles } from './log-files.js';
 import { projectModules } from './modules.js';
 import { type ReadOptions, readLog } from './read.js';
 import { sourceId } from './source-id.js';
 import { logFile, logSources } from './sources.js';
+import { teeArgv } from './tee.js';
 
 /** The Logs panel's side of Mesa (CONTEXT.md, Logs panel): a project's log sources and their entries. */
 export function logsService(ctx: MesaContext) {
@@ -39,6 +40,16 @@ export function logsService(ctx: MesaContext) {
     return entry;
   };
   const projectNamed = (project?: string) => projectEntry(project).name;
+  /**
+   * Where `project`'s service `name` keeps its output (a JetBrains IDE's console, or `mesa logs
+   * run`), its folder made unless `make` is false: the path, and the source it becomes.
+   */
+  const file = (name: string, project?: string, make = true) => {
+    const path = logFile(ctx.paths.serverLogs, projectNamed(project), name);
+    if (make) mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+    return { path, source: sourceId('file', name) };
+  };
+
   return {
     /** Every source `project`'s local servers print to (logSources). */
     sources: async (project?: string) => ({
@@ -53,9 +64,8 @@ export function logsService(ctx: MesaContext) {
      */
     run: (name: string, command: readonly string[], project?: string) => {
       if (!command.length) throw new MesaError('usage', 'name the command to run after --');
-      const path = logFile(ctx.paths.serverLogs, projectNamed(project), name);
-      mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-      return { path, source: sourceId('file', name), exec: teeArgv(path, command) };
+      const made = file(name, project);
+      return { ...made, exec: teeArgv(made.path, command) };
     },
     /** The log files the project keeps anywhere, and the gitignored `*.log` files Mesa suggests. */
     files: async (project?: string) => {
@@ -85,14 +95,6 @@ export function logsService(ctx: MesaContext) {
     }),
     /** The project's modules (projectModules), the service names the IntelliJ steps offer. */
     modules: (project?: string) => ({ modules: projectModules(projectEntry(project).path) }),
-    /**
-     * Where an IDE saves `project`'s service `name` console (the IntelliJ setup), its folder made
-     * unless `make` is false: the path, and the source it becomes once the file is there.
-     */
-    file: (name: string, project?: string, make = true) => {
-      const path = logFile(ctx.paths.serverLogs, projectNamed(project), name);
-      if (make) mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-      return { path, source: sourceId('file', name) };
-    },
+    file,
   };
 }

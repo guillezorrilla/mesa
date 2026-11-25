@@ -27,6 +27,9 @@ export const logsCommands = {
   'logs.addFile': commandWith<{ path: string; project: string }, { files: string[] }>(
     ({ path, project }) => ['logs', 'add', '--project', project, '--', path],
   ),
+  'logs.removeFile': commandWith<{ path: string; project: string }, { files: string[] }>(
+    ({ path, project }) => ['logs', 'remove', '--project', project, '--', path],
+  ),
   'logs.modules': commandWith<{ project: string }, { modules: string[] }>(({ project }) => [
     'logs',
     'modules',
