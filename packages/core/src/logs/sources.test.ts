@@ -159,6 +159,8 @@ test('since takes an age or an ISO time, and refuses anything else', async () =>
   expect(sinceTime('90s', NOW)).toBe('2026-05-06T07:08:30.000Z');
   expect(sinceTime('2026-05-06T00:00:00Z', NOW)).toBe('2026-05-06T00:00:00.000Z');
   expect(() => sinceTime('yesterday', NOW)).toThrow(/--since/);
-  await expect(readLog({} as never, 'docker:--privileged')).rejects.toMatchObject({ code: 'usage' });
+  await expect(readLog({} as never, 'docker:--privileged')).rejects.toMatchObject({
+    code: 'usage',
+  });
   await expect(readLog({} as never, 'nowhere')).rejects.toMatchObject({ code: 'usage' });
 });
