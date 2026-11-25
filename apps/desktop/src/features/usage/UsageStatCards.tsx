@@ -1,5 +1,5 @@
 import type { UsageReport } from '@mesa/core';
-import { excludedNote } from '@mesa/core/browser';
+import { excludedNote, counted as sessions } from '@mesa/core/browser';
 import { Info } from 'lucide-react';
 import { Cost } from './Cost';
 import { counted } from './format';
@@ -12,13 +12,18 @@ const PERIODS = [
 
 /**
  * Estimated spend today and over the last 7 and 30 local days, each with how many sessions it leaves
- * out, and one line naming them: models with no list price and sessions whose usage was not read.
+ * out, and one line naming them: models with no list price, and how many sessions were not read,
+ * by reason.
  */
 export function UsageStatCards(props: { report: UsageReport }) {
   const unpriced = props.report.breakdown
     .filter((row) => row.totals.estimatedCostUsd === null && counted(row))
     .map((row) => row.model);
-  const unread = props.report.unknown.map((item) => `${item.session} (${item.reason})`);
+  // A count per reason, not every id: a month can leave out hundreds of sessions.
+  const reasons = new Map<string, number>();
+  for (const { reason } of props.report.unknown)
+    reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
+  const unread = [...reasons].map(([reason, n]) => `${sessions(n, 'session')} (${reason})`);
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-3 divide-x rounded-lg border bg-background">

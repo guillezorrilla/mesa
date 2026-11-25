@@ -112,7 +112,7 @@ test('partial totals show what is priced, how many sessions they leave out, and 
   expect(panel).toContain('Last 30 days$0.27+excludes 2 sessions');
   expect(panel).not.toContain('Unknown');
   expect(panel).toContain(
-    'No list price: gpt-invented. Not read: abcdefgh (claude usage is unavailable).',
+    'No list price: gpt-invented. Not read: 1 session (claude usage is unavailable).',
   );
   const agents = document.querySelector('[aria-label="Cost by agent"]')?.textContent ?? '';
   expect(agents).not.toContain('<synthetic>');

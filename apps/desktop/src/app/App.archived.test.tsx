@@ -5,6 +5,7 @@ import {
   click,
   envelope,
   fakeBridge,
+  fill,
   managedRow,
   PROJECTS,
   renderWithMesa,
@@ -90,7 +91,10 @@ test('an archived session is found under Archived, and its Unarchive resumes it 
   expect(byTestId('archived-session')).toHaveLength(0);
   await click(byTestId('archived-toggle')[0]);
   const [row] = byTestId('archived-session');
-  expect(row?.textContent).toMatch(new RegExp(`^${NAME}lantern-cove, archived .+ ago$`));
+  expect(row?.closest<HTMLElement>('[data-testid="archived-project"]')?.dataset.project).toBe(
+    'lantern-cove',
+  );
+  expect(row?.textContent).toMatch(new RegExp(`^${NAME}archived .+ ago$`));
 
   await click(row?.querySelector<HTMLElement>('[aria-label="Unarchive"]') ?? undefined);
   expect(calls).toContainEqual(['--json', 'unarchive', '--resume', '--', ID]);
@@ -130,4 +134,44 @@ test('Delete permanently confirms with the Remove dialog, then runs mesa rm', as
   expect(calls).toContainEqual(['--json', 'rm', '--', ID]);
   expect(byTestId('remove-dialog')).toHaveLength(0);
   expect(count()).toBe('Archived0');
+});
+
+test('Archived groups its sessions by project, newest first, and its search narrows them', async () => {
+  const archived = (id: string, name: string, project: string, at: string) => ({
+    ...managedRow(id, { name, project, alive: false, endedAt: at }),
+    archivedAt: at,
+  });
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([]),
+    'sessions --archived': () =>
+      envelope([
+        archived('cccccccc', 'Chart the shoals', 'tide', '2026-10-05T12:00:00.000Z'),
+        archived('dddddddd', 'Trim the wick', 'lantern-cove', '2026-10-04T12:00:00.000Z'),
+        archived('eeeeeeee', 'Polish the lens', 'tide', '2026-10-03T12:00:00.000Z'),
+      ]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('archived-toggle')[0]);
+  const groups = () =>
+    byTestId('archived-project').map((group) => [
+      group.dataset.project,
+      [...group.querySelectorAll<HTMLElement>('[data-testid="archived-session"]')].map(
+        (row) => row.dataset.sessionId,
+      ),
+    ]);
+  expect(groups()).toEqual([
+    ['tide', ['cccccccc', 'eeeeeeee']],
+    ['lantern-cove', ['dddddddd']],
+  ]);
+  const search = document.querySelector<HTMLInputElement>(
+    '[aria-label="Search archived sessions"]',
+  );
+  await fill(search, 'wick');
+  expect(groups()).toEqual([['lantern-cove', ['dddddddd']]]);
+  await fill(search, 'tide');
+  expect(groups()).toEqual([['tide', ['cccccccc', 'eeeeeeee']]]);
+  await fill(search, 'no such session');
+  expect(groups()).toEqual([]);
+  expect(byTestId('archived-sessions')[0]?.textContent).toContain('No match');
 });
