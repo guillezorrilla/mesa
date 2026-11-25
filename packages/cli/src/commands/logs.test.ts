@@ -1,3 +1,5 @@
+import { existsSync, writeFileSync } from 'node:fs';
+import type { Runner } from '@mesa/core';
 import { plantOutputLog } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
@@ -55,4 +57,74 @@ test('a session with no output log says so, and why it may have none', async () 
     path: null,
     lines: [],
   });
+});
+
+/** The runner as it was, with docker answering `ps` and `sh` answering `docker logs`. */
+function withDocker(ps: string, logs: string) {
+  const base = cli.run;
+  const run: Runner = async (file, args, timeoutMs, options) =>
+    file === 'docker'
+      ? { ok: true, stdout: ps }
+      : file === 'sh'
+        ? { ok: true, stdout: logs }
+        : base(file, args, timeoutMs, options);
+  cli.run = run;
+}
+
+test('logs sources lists containers, sessions with a log and log files; a source reads as entries', async () => {
+  cli.withTmux();
+  await cli.withProject();
+  withDocker(
+    'echo-logs\talpine\tUp 1 minute\n',
+    '2026-05-06T07:08:09Z ERROR boom\n2026-05-06T07:08:10Z INFO fine\n2026-05-06T07:08:11Z ERROR boom\n',
+  );
+  const id = (await mesa('open', 'lantern-cove')).stdout.split('\n')[0] ?? '';
+  plantOutputLog(cli.home, id, 'WARN tide rising\r\n');
+  const made = (await mesa('logs', 'file', 'tide-api', '--project', 'lantern-cove', '--json')).json
+    .data;
+  expect(made).toEqual({ path: `${cli.home}/.mesa/default/logs/lantern-cove/tide-api.log`, source: 'file:tide-api' });
+  expect(existsSync(made.path)).toBe(false);
+  writeFileSync(made.path, '2026-01-02T10:11:12.345Z ERROR 1 --- [demo] [main] c.e.Demo : boom\n');
+
+  const sources = (await mesa('logs', 'sources', 'lantern-cove', '--json')).json.data.sources;
+  expect(sources.map((source: { id: string }) => source.id)).toEqual([
+    'docker:echo-logs',
+    `session:${id}`,
+    'file:tide-api',
+  ]);
+  expect(
+    (await mesa('logs', 'docker:echo-logs', '--level', 'error', '--tail', '50', '--json')).json
+      .data,
+  ).toEqual({
+    source: 'docker:echo-logs',
+    entries: [
+      { time: '2026-05-06T07:08:09Z', level: 'error', message: 'ERROR boom', stack: null },
+      { time: '2026-05-06T07:08:11Z', level: 'error', message: 'ERROR boom', stack: null },
+    ],
+  });
+  expect((await mesa('logs', `session:${id}`)).stdout).toBe('WARN tide rising\n');
+  expect((await mesa('logs', 'file:tide-api', '--project', 'lantern-cove')).stdout).toBe(
+    '2026-01-02T10:11:12.345Z ERROR boom\n',
+  );
+  expect(await mesa('logs', 'docker:echo-logs', '--level', 'loud')).toMatchObject({
+    code: 2,
+    stderr: '--level must be one of error, warn, info, debug, not loud\n',
+  });
+  expect(await mesa('logs', 'sources', 'no-such-project')).toMatchObject({ code: 3 });
+  expect(await mesa('logs', 'file', '../escape', '--project', 'lantern-cove')).toMatchObject({
+    code: 2,
+  });
+});
+
+test("logs.panel hides the Logs button for one project: the project's override, else the profile's", async () => {
+  await cli.withProject();
+  const shown = async () => (await mesa('projects', '--json')).json.data[0].logsPanel;
+  expect(await shown()).toBe(true);
+  expect((await mesa('projects', 'set', 'lantern-cove', 'logs.panel', 'false')).code).toBe(0);
+  expect(await shown()).toBe(false);
+  await mesa('projects', 'set', 'lantern-cove', 'logs.panel', '--unset');
+  await mesa('config', 'set', 'logs.panel', 'false');
+  expect(await shown()).toBe(false);
+  await mesa('projects', 'set', 'lantern-cove', 'logs.panel', 'true');
+  expect(await shown()).toBe(true);
 });

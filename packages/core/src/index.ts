@@ -117,6 +117,12 @@ export type { PrEvent, PrProblem } from './pr-events/pr-events.js';
 export { type Config, TERMINAL_APPS } from './profile/config.js';
 export { profilesDir, resolveProfileName } from './profile/paths.js';
 export type { ProfileInfo } from './profile/profile.js';
+export {
+  LOG_LEVELS,
+  type LogLevel,
+  type ServerLogEntry,
+} from './logs/parse.js';
+export type { LogSource, LogSourceKind } from './logs/sources.js';
 export type { ProfileRow } from './profile/profiles.js';
 export {
   DEFAULT_SHORTCUTS,

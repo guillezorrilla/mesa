@@ -22,6 +22,8 @@ export type ProfilePaths = {
   fetches: string;
   /** Sessions' output logs, one `<session id>.log` each: local only, never in the vault. */
   logs: string;
+  /** Each project's server log files, `<project>/<name>.log` (an IDE's saved console; CONTEXT.md, Logs panel). */
+  serverLogs: string;
   /** Structured sessions' journals, one `<session id>.jsonl` each: every event its host read or sent. */
   journals: string;
   /** Each running host's socket, `<session id>.sock` (ADR-0029); short, as a unix socket path is capped. */
@@ -130,6 +132,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     lineCounts: join(root, 'sessions', 'line-counts.json'),
     fetches: join(root, 'sessions', 'fetches.json'),
     logs: join(root, 'sessions', 'logs'),
+    serverLogs: join(root, 'logs'),
     journals: join(root, 'sessions', 'journals'),
     hosts: join(root, 'hosts'),
     commandSocket: join(root, 'run', 'serve.sock'),

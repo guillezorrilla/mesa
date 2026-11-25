@@ -340,6 +340,8 @@ const ConfigShape = z.strictObject({
       pullRequestRecipe: GIT_OVERRIDE_FIELDS.pullRequestRecipe.default(DEFAULT_PULL_REQUEST_RECIPE),
     })
     .prefault({}),
+  /** Whether a session with a project shows the Logs panel's button; a project's mesa.yaml overrides it. */
+  logs: z.strictObject({ panel: z.boolean().default(true) }).prefault({}),
   /** Which releases Mesa updates to (ADR-0018); unset follows the running version's channel. */
   update: z.strictObject({ channel: z.enum(UPDATE_CHANNELS).optional() }).prefault({}),
   /** Name to a literal value or an `env:VAR` reference. Never printed in the clear. */

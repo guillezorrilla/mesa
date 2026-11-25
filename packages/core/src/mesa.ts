@@ -32,6 +32,7 @@ import { prsService } from './prs/service.js';
 import { receiptsService } from './receipts/service.js';
 import { whatsNew } from './release/notes.js';
 import { reportsService } from './reports/report-delivery.js';
+import { logsService } from './logs/service.js';
 import { journalFile } from './sessions/host/journal.js';
 import { sessionsService } from './sessions/service/index.js';
 import { workingFolder } from './sessions/signals/readings.js';
@@ -215,6 +216,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
     ...dailyService(ctx),
     receipts: receiptsService(ctx),
     ...sessions,
+    /** The Logs panel's sources and entries (CONTEXT.md, Logs panel). */
+    logs: logsService(ctx),
     prEvents,
     reports,
     /** Planned work and what each part waits on (CONTEXT.md, Task graph). */

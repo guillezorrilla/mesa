@@ -1,0 +1,108 @@
+import { existsSync } from 'node:fs';
+import { tailLines } from '../lib/file-tail.js';
+import type { LockDeps } from '../lib/lock-file.js';
+import { MesaError } from '../lib/result.js';
+import { outputTail } from '../sessions/window/output-log.js';
+import { atLeast, type ServerLogEntry, type LogLevel, parseLog, type RawLine } from './parse.js';
+import { type LogSourceDeps, logFile } from './sources.js';
+
+export type ReadOptions = {
+  /** The last this many entries; 200 when not given. */
+  tail?: number;
+  /** Entries timed at or after it: an ISO time, or an age such as `30s`, `10m`, `2h`, `1d`. */
+  since?: string;
+  /** Entries at this level or more severe. */
+  level?: LogLevel;
+};
+
+export type ReadDeps = LogSourceDeps & { lock: LockDeps; now: () => Date };
+
+const DEFAULT_TAIL = 200;
+/** How many raw lines a read looks at, at least: the filters pick from these. */
+const LOOK = 2000;
+const AGE = /^(\d+)(s|m|h|d)$/;
+const SECONDS = { s: 1, m: 60, h: 3600, d: 86400 };
+
+/** `since` as an ISO time: an age is counted back from now; usage when it is neither. */
+export function sinceTime(since: string, now: Date) {
+  const age = AGE.exec(since);
+  if (age)
+    return new Date(
+      now.getTime() - Number(age[1]) * SECONDS[age[2] as keyof typeof SECONDS] * 1000,
+    ).toISOString();
+  const at = Date.parse(since);
+  if (Number.isNaN(at))
+    throw new MesaError('usage', `--since must be an ISO time or an age such as 10m, not ${since}`);
+  return new Date(at).toISOString();
+}
+
+/** A docker line, `<RFC 3339 time> <text>`, split into the time docker stamped and the text. */
+function stamped(line: string): RawLine {
+  const space = line.indexOf(' ');
+  return /^\d{4}-\d\d-\d\dT/.test(line) && space > 0
+    ? { time: line.slice(0, space), text: line.slice(space + 1) }
+    : { text: line };
+}
+
+/** A container's last `lines` lines, stdout and stderr in the order docker kept them. */
+async function dockerLines(deps: ReadDeps, name: string, lines: number, since?: string) {
+  const args = ['--timestamps', '--tail', String(lines), ...(since ? ['--since', since] : []), name];
+  // Through sh, so the container's stderr comes too: the runner keeps only stdout.
+  const read = await deps.run('sh', ['-c', 'exec docker logs "$@" 2>&1', 'sh', ...args], 10_000);
+  if (!read.ok)
+    throw new MesaError('not_found', `could not read docker logs of ${name}: ${read.detail}`);
+  return read.stdout.split('\n').map(stamped);
+}
+
+/** The raw lines of `source`, at least the last `lines`; not_found for one Mesa cannot read. */
+async function rawLines(
+  deps: ReadDeps,
+  source: string,
+  project: string | undefined,
+  lines: number,
+  since?: string,
+): Promise<RawLine[]> {
+  const colon = source.indexOf(':');
+  const kind = source.slice(0, colon);
+  const name = source.slice(colon + 1);
+  if (colon > 0 && name && kind === 'docker') return dockerLines(deps, name, lines, since);
+  if (colon > 0 && name && kind === 'session') {
+    deps.store.get(name);
+    const text = outputTail(deps.lock, deps.sessionLogs, name, lines);
+    if (!text) throw new MesaError('not_found', `session ${name} has no output log`);
+    return text.map((line) => ({ text: line }));
+  }
+  if (colon > 0 && name && kind === 'file') {
+    if (!project) throw new MesaError('usage', `name the project whose log file ${name} is`);
+    const file = logFile(deps.serverLogs, project, name);
+    if (!existsSync(file)) throw new MesaError('not_found', `no log file ${name} in project ${project}`);
+    // Read anew each time, so a file IntelliJ rewrote on a new run starts over.
+    for (let bytes = 64 * 1024; ; bytes *= 2) {
+      const read = tailLines(file, bytes);
+      if (!read.truncated || read.lines.length >= lines)
+        return read.lines.slice(-lines).map((line) => ({ text: line.trimEnd() }));
+    }
+  }
+  throw new MesaError('usage', `${source} is not a log source: docker:<name>, session:<id> or file:<name>`);
+}
+
+/**
+ * `source`'s last entries (parseLog), at `level` or more severe and timed at or after `since`
+ * when given: the last `tail` of those found in its last 2000 lines (or `tail`, if more). A
+ * `file:` source is `project`'s. An entry with no time is left out when `since` is given.
+ */
+export async function readLog(
+  deps: ReadDeps,
+  source: string,
+  opts: ReadOptions & { project?: string } = {},
+): Promise<{ source: string; entries: ServerLogEntry[] }> {
+  const tail = opts.tail ?? DEFAULT_TAIL;
+  const since = opts.since === undefined ? undefined : sinceTime(opts.since, deps.now());
+  const raw = await rawLines(deps, source, opts.project, Math.max(tail, LOOK), since);
+  const entries = parseLog(raw).filter(
+    (entry) =>
+      atLeast(entry, opts.level) &&
+      (!since || (entry.time !== null && Date.parse(entry.time) >= Date.parse(since))),
+  );
+  return { source, entries: tail ? entries.slice(-tail) : [] };
+}

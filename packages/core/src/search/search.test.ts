@@ -10,6 +10,7 @@ const project = (name: string, label: string): ProjectRow => ({
   path: `/src/${name}`,
   agent: 'claude',
   priority: 0.5,
+  logsPanel: true,
   skills: [],
   overrides: {},
   terminalTheme: 'follow',
