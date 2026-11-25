@@ -51,6 +51,26 @@ test('terminal.messageActions is on by default and config set turns it off', asy
   expect((await cli.mesa('config', 'set', 'terminal.messageActions', 'maybe')).code).toBe(4);
 });
 
+test('terminal.webLinks opens in Mesa by default and config set sends links to the default browser', async () => {
+  await cli.mesa('init', '--vault', 'vault');
+  const webLinks = async () => (await cli.mesa('config', '--json')).json.data.terminal.webLinks;
+  expect(await webLinks()).toBe('mesa');
+  expect(
+    (await cli.mesa('config', 'set', 'terminal.webLinks', 'default', '--json')).json.data,
+  ).toMatchObject({ path: 'terminal.webLinks', value: 'default' });
+  expect(await webLinks()).toBe('default');
+  expect((await cli.mesa('config', 'set', 'terminal.webLinks', 'safari')).code).toBe(4);
+});
+
+test('decisions.experimental is on by default and config set turns it off', async () => {
+  await cli.mesa('init', '--vault', 'vault');
+  const experimental = async () =>
+    (await cli.mesa('config', '--json')).json.data.decisions.experimental;
+  expect(await experimental()).toBe(true);
+  await cli.mesa('config', 'set', 'decisions.experimental', 'false', '--json');
+  expect(await experimental()).toBe(false);
+});
+
 test('terminal.newlineKey is shift-enter by default, and a profile that sets native keeps it', async () => {
   await cli.mesa('init', '--vault', 'vault');
   const newlineKey = async () => (await cli.mesa('config', '--json')).json.data.terminal.newlineKey;

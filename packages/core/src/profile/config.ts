@@ -33,6 +33,7 @@ import {
   PROJECT_SORTS,
   SESSION_VIEWS,
   TERMINAL_APPS,
+  WEB_LINK_TARGETS,
 } from './preferences.js';
 import { DEFAULT_SHORTCUTS, unbindTakenDefaults, validBinding } from './shortcuts.js';
 import { TERMINAL_COLOR, TERMINAL_COLOR_KEYS, TERMINAL_THEMES } from './terminal-palettes.js';
@@ -99,8 +100,9 @@ const ConfigShape = z.strictObject({
         model: DecisionsModelSchema.default('none'),
         threshold: z.number().min(0).max(1).default(0.7),
         // The person's opt-in to automatic decisions at the sites the model passed the quality
-        // gate at but not yet the paired-workflow gate, marked experimental (ADR-0019, sites.ts).
-        experimental: z.boolean().optional(),
+        // gate at but not yet the paired-workflow gate, marked experimental (ADR-0019, sites.ts);
+        // on unless turned off, so a chosen model acts wherever it passed the quality gate.
+        experimental: z.boolean().default(true),
         // CLEF's Cloudflare account ID: not a secret, unlike its API token.
         cloudflareAccount: z.string().trim().min(1).optional(),
       }),
@@ -216,6 +218,8 @@ const ConfigShape = z.strictObject({
       messageActions: z.boolean().default(DEFAULT_TERMINAL_PREFERENCES.messageActions),
       // How a session with no choice of its own opens: Terminal, or Chat over its transcript.
       sessionView: z.enum(SESSION_VIEWS).default(DEFAULT_TERMINAL_PREFERENCES.sessionView),
+      // Where a web link clicked in a session terminal opens.
+      webLinks: z.enum(WEB_LINK_TARGETS).default(DEFAULT_TERMINAL_PREFERENCES.webLinks),
       // The `custom` palette (terminal-palettes.ts), which needs all 20.
       colors: z
         .strictObject(

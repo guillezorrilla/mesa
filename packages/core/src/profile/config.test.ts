@@ -99,11 +99,11 @@ test('an invalid value or file is invalid_config with the failing field, and the
 
 test('a config that still names a backend or the removed adapter loads, with the rules alone', () => {
   writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  backend: adapter\n  adapter: codex\n');
-  expect(loadConfig(file).decisions).toEqual({ model: 'none', threshold: 0.7 });
+  expect(loadConfig(file).decisions).toEqual({ model: 'none', threshold: 0.7, experimental: true });
   writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  backend: rules\n  threshold: 0.5\n');
-  expect(loadConfig(file).decisions).toEqual({ model: 'none', threshold: 0.5 });
+  expect(loadConfig(file).decisions).toEqual({ model: 'none', threshold: 0.5, experimental: true });
   writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  adapter: claude\n  model: clef\n');
-  expect(loadConfig(file).decisions).toEqual({ model: 'clef', threshold: 0.7 });
+  expect(loadConfig(file).decisions).toEqual({ model: 'clef', threshold: 0.7, experimental: true });
   // Any other unknown field is dropped and named, as one a newer Mesa wrote (#1079).
   writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  temperature: 0\n');
   expect(readConfig(file)).toMatchObject({

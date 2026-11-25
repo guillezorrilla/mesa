@@ -448,6 +448,17 @@ test('Terminal & Editor has the message actions toggle, on by default, and saves
   expect(sets(calls)).toEqual([['terminal.messageActions', 'false']]);
 });
 
+test('Terminal & Editor opens web links in Mesa by default and saves the default browser', async () => {
+  const { bridge, calls } = fakeBridge({ 'config set': () => envelope({}) });
+  await render(bridge);
+  await click(nav('Terminal & Editor'));
+  const links = document.getElementById('web-links') as HTMLSelectElement;
+  expect(links.closest('[data-setting-row]')?.textContent).toContain('Open web links in');
+  expect(links.value).toBe('mesa');
+  await choose(links, 'default');
+  expect(sets(calls)).toEqual([['terminal.webLinks', '"default"']]);
+});
+
 test('Projects picks a project and edits its overrides, each row naming the profile value it inherits', async () => {
   const config = await base();
   const profile = {

@@ -82,6 +82,7 @@ export {
   INTERFACE_THEMES,
   SESSION_VIEWS,
   TERMINAL_APPS,
+  WEB_LINK_TARGETS,
 } from './profile/preferences.js';
 export { profileSlug, profileVault, validProfileName } from './profile/profile-name.js';
 export {

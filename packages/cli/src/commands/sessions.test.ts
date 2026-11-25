@@ -257,6 +257,7 @@ test('sessions asks only the rules, under a config and a record an older Mesa wr
   expect((await mesa('config', '--json')).json.data.decisions).toEqual({
     model: 'none',
     threshold: 0.7,
+    experimental: true,
   });
 });
 

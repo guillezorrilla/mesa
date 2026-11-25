@@ -95,7 +95,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
       vaultCapture: true,
       defaultAgent: 'claude',
       skills: [],
-      decisions: { model: 'none', threshold: 0.7 },
+      decisions: { model: 'none', threshold: 0.7, experimental: true },
       sessions: {
         log: true,
         statusLineCost: false,

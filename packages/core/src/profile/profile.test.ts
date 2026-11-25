@@ -72,7 +72,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
     vaultCapture: true,
     defaultAgent: 'claude',
     skills: ['mesa', 'mesa-handoff', 'mesa-vault'],
-    decisions: { model: 'none', threshold: 0.7 },
+    decisions: { model: 'none', threshold: 0.7, experimental: true },
     sessions: {
       log: true,
       statusLineCost: false,
