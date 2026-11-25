@@ -31,6 +31,8 @@ const RAILS = new RegExp(
 /** A time a plain line starts with. */
 const LEADING_TIME = new RegExp(`^\\[?(${TIME})\\]?\\s+`);
 const LEVEL_WORD = /\b(ERROR|FATAL|WARN|WARNING|INFO|DEBUG|TRACE)\b/;
+/** A level word a plain line starts with, bracketed or not, and the colon and space after it. */
+const LEADING_LEVEL = /^\[?(ERROR|FATAL|WARN|WARNING|INFO|DEBUG|TRACE)\]?:?\s+/;
 /** A stack line that belongs to the entry before it: an indented `at`, `Caused by:`, `... 3 more`, or a Java exception's name. */
 const STACK =
   /^(\s+at\s|\s*Caused by:|\s*Suppressed:|\s+\.\.\. \d+ (more|common frames omitted)|([a-z_$][\w$]*\.)+[\w$]*(Exception|Error|Throwable)\b)/;
@@ -119,10 +121,13 @@ function entryOf(line: RawLine): ServerLogEntry {
   const json = jsonEntry(line.text);
   if (json) return { ...json, time: json.time ?? line.time ?? null };
   const timed = LEADING_TIME.exec(line.text);
+  const level = levelOf(LEVEL_WORD.exec(line.text)?.[1]);
+  // A leading level word (`INFO ready`, `[WARN] slow`) is the level now, not the message's.
+  const word = LEADING_LEVEL.exec(line.text);
   return {
     time: timed?.[1] ?? line.time ?? null,
-    level: levelOf(LEVEL_WORD.exec(line.text)?.[1]),
-    message: line.text,
+    level,
+    message: word && levelOf(word[1]) === level ? line.text.slice(word[0].length) : line.text,
     logger: null,
     stack: null,
   };

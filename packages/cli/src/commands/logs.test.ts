@@ -111,14 +111,14 @@ test('logs sources lists containers, sessions with a log and log files; a source
       {
         time: '2026-05-06T07:08:09Z',
         level: 'error',
-        message: 'ERROR boom',
+        message: 'boom',
         logger: null,
         stack: null,
       },
       {
         time: '2026-05-06T07:08:11Z',
         level: 'error',
-        message: 'ERROR boom',
+        message: 'boom',
         logger: null,
         stack: null,
       },

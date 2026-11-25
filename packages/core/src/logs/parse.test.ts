@@ -64,6 +64,7 @@ test('any other line takes its level from an ERROR, WARN, INFO or DEBUG word, el
     parseLog([
       { text: 'ERROR boom', time: '2026-05-06T07:08:09.123456789Z' },
       '[2026-05-06T07:08:10Z] INFO ferry docked',
+      '[WARN] tide rising',
       'DEBUG cache warm',
       '  ready in 312 ms',
       '',
@@ -73,7 +74,7 @@ test('any other line takes its level from an ERROR, WARN, INFO or DEBUG word, el
     {
       time: '2026-05-06T07:08:09.123456789Z',
       level: 'error',
-      message: 'ERROR boom',
+      message: 'boom',
       logger: null,
       stack: null,
     },
@@ -84,7 +85,8 @@ test('any other line takes its level from an ERROR, WARN, INFO or DEBUG word, el
       logger: null,
       stack: null,
     },
-    { time: null, level: 'debug', message: 'DEBUG cache warm', logger: null, stack: null },
+    { time: null, level: 'warn', message: 'tide rising', logger: null, stack: null },
+    { time: null, level: 'debug', message: 'cache warm', logger: null, stack: null },
     { time: null, level: null, message: '  ready in 312 ms', logger: null, stack: null },
     {
       time: null,
@@ -120,7 +122,7 @@ test('stack lines fold into the entry before them', () => {
       ].join('\n'),
     ],
     ['TypeError: cannot read the chart', '    at readChart (src/chart.ts:88:31)'],
-    ['INFO next ship', null],
+    ['next ship', null],
   ]);
 });
 
@@ -167,7 +169,7 @@ test('Rails, Django, zap, structlog and bunyan lines read too', () => {
     {
       time: null,
       level: 'error',
-      message: 'ERROR 2026-05-06 07:08:12,345 log 4821 1234 Internal Server Error: /moorings',
+      message: '2026-05-06 07:08:12,345 log 4821 1234 Internal Server Error: /moorings',
       logger: null,
       stack: null,
     },

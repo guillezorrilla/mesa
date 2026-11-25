@@ -24,9 +24,9 @@ test('mesa logs run passes a command through and appends what it printed, with i
   expect(lines[0]).toBe('INFO before');
   const entries = parseLog(lines.map((line) => terminalLine(line).trimEnd()));
   expect(entries.filter((entry) => entry.level === 'error').map((entry) => entry.message)).toEqual([
-    'ERROR boom',
+    'boom',
   ]);
-  expect(entries.some((entry) => entry.message.includes("INFO it's up"))).toBe(true);
+  expect(entries.some((entry) => entry.message.includes("it's up"))).toBe(true);
 });
 
 test("suggestions are the checkout's gitignored *.log files, outside node_modules and not kept yet", async () => {

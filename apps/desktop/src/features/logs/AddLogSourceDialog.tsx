@@ -19,7 +19,8 @@ type Kind = 'docker' | 'jetbrains' | 'terminal' | 'file';
 const KINDS = [
   ['docker', 'Docker'],
   ['jetbrains', 'JetBrains IDEs'],
-  ['terminal', 'Terminal or VS Code'],
+  // VS Code is named in its guide, so every label stays on one line.
+  ['terminal', 'Terminal'],
   ['file', 'Log file'],
 ] as const;
 

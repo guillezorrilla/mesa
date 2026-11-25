@@ -173,11 +173,11 @@ test("a session's log reads as entries, filtered by level and cut to the last on
       {
         time: null,
         level: 'error',
-        message: 'ERROR boom',
+        message: 'boom',
         logger: null,
         stack: '    at dock (src/dock.ts:1:1)',
       },
-      { time: null, level: 'warn', message: 'WARN slow', logger: null, stack: null },
+      { time: null, level: 'warn', message: 'slow', logger: null, stack: null },
     ],
   });
   expect((await readLog(deps, `session:${shell.id}`, { tail: 1 })).entries).toHaveLength(1);
@@ -215,9 +215,9 @@ test('a log file reads anew each time, so a rewritten file starts over', async (
   mkdirSync(join(deps.serverLogs, 'lantern-cove'), { recursive: true });
   writeFileSync(file, 'INFO one\nERROR two\n');
   const read = () => readLog(deps, 'file:tide-api', { project: () => 'lantern-cove' });
-  expect((await read()).entries.map((entry) => entry.message)).toEqual(['INFO one', 'ERROR two']);
+  expect((await read()).entries.map((entry) => entry.message)).toEqual(['one', 'two']);
   writeFileSync(file, 'INFO fresh run\n');
-  expect((await read()).entries.map((entry) => entry.message)).toEqual(['INFO fresh run']);
+  expect((await read()).entries.map((entry) => entry.message)).toEqual(['fresh run']);
   await expect(
     readLog(deps, 'file:../secrets', { project: () => 'lantern-cove' }),
   ).rejects.toMatchObject({

@@ -25,7 +25,8 @@ export function CopyField(props: {
         <pre
           data-testid={props.testId}
           onCopy={props.onCopied}
-          className="min-w-0 flex-1 overflow-x-auto py-1 font-mono text-xs"
+          // Wrapped, so a long line shows whole rather than cut at the right.
+          className="min-w-0 flex-1 whitespace-pre-wrap break-all py-1 font-mono text-xs"
         >
           {value ?? '...'}
         </pre>
