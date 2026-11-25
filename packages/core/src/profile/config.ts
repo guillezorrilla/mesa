@@ -33,6 +33,7 @@ import {
   PROJECT_SORTS,
   SESSION_VIEWS,
   TERMINAL_APPS,
+  WEB_LINK_TARGETS,
 } from './preferences.js';
 import { DEFAULT_SHORTCUTS, unbindTakenDefaults, validBinding } from './shortcuts.js';
 import { TERMINAL_COLOR, TERMINAL_COLOR_KEYS, TERMINAL_THEMES } from './terminal-palettes.js';
@@ -78,6 +79,9 @@ const WithoutRemovedKeys = z
       : config,
   );
 
+/** Automatic decisions where the model is not proven yet: on unless the person turns them off. */
+export const DECISIONS_EXPERIMENTAL_DEFAULT = true;
+
 // Strict objects, so a typo in `mesa config set` is an error, not a silent no-op; one in the file
 // is dropped on load and named by `mesa doctor` (readConfig).
 const ConfigShape = z.strictObject({
@@ -100,7 +104,7 @@ const ConfigShape = z.strictObject({
         threshold: z.number().min(0).max(1).default(0.7),
         // The person's opt-in to automatic decisions at the sites the model passed the quality
         // gate at but not yet the paired-workflow gate, marked experimental (ADR-0019, sites.ts).
-        experimental: z.boolean().optional(),
+        experimental: z.boolean().default(DECISIONS_EXPERIMENTAL_DEFAULT),
         // CLEF's Cloudflare account ID: not a secret, unlike its API token.
         cloudflareAccount: z.string().trim().min(1).optional(),
       }),
@@ -216,6 +220,8 @@ const ConfigShape = z.strictObject({
       messageActions: z.boolean().default(DEFAULT_TERMINAL_PREFERENCES.messageActions),
       // How a session with no choice of its own opens: Terminal, or Chat over its transcript.
       sessionView: z.enum(SESSION_VIEWS).default(DEFAULT_TERMINAL_PREFERENCES.sessionView),
+      // Where a web link clicked in a session terminal opens.
+      webLinks: z.enum(WEB_LINK_TARGETS).default(DEFAULT_TERMINAL_PREFERENCES.webLinks),
       // The `custom` palette (terminal-palettes.ts), which needs all 20.
       colors: z
         .strictObject(

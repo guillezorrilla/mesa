@@ -2916,7 +2916,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
     vaultCapture: true,
     defaultAgent: 'claude',
     skills: [],
-    decisions: { model: 'none', threshold: 0.7 },
+    decisions: { model: 'none', threshold: 0.7, experimental: true },
     sessions: {
       log: true,
       statusLineCost: false,

@@ -3,6 +3,7 @@ import type { Agent } from '../agents/names.js';
 import { AGENT_STATES, type AgentState } from '../agents/states.js';
 import type { MesaContext } from '../context.js';
 import type { Clock } from '../lib/clock.js';
+import { DECISIONS_EXPERIMENTAL_DEFAULT } from '../profile/config.js';
 import {
   type Claim,
   type PlacementReply,
@@ -219,7 +220,7 @@ export function boardPlacing(ctx: MesaContext, models: Pick<DecisionModels, 'act
       model: () => ctx.configIfAny()?.decisions.model,
       backend: () => models.active(PER_TURN_MS),
       hasKey: models.hasKey,
-      tables: tables(ctx.configIfAny()?.decisions.experimental ?? false),
+      tables: tables(ctx.configIfAny()?.decisions.experimental ?? DECISIONS_EXPERIMENTAL_DEFAULT),
       clock: ctx.clock,
       log: ctx.decisionLog.append,
     });

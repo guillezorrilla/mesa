@@ -2,6 +2,7 @@ import { SESSION_VIEWS, TERMINAL_APPS } from '@mesa/core/browser';
 import {
   AppWindow,
   Gauge,
+  Globe,
   Keyboard,
   MessageSquare,
   MessageSquareQuote,
@@ -93,6 +94,24 @@ export function TerminalEditorSettingsPanel(props: { onShortcuts: () => void }) 
               id="message-actions"
               path="terminal.messageActions"
               checked={terminal.messageActions}
+            />
+          }
+        />
+        <SettingRow
+          icon={Globe}
+          title="Open web links in"
+          description="Where a link clicked in a session terminal opens: Mesa's Browser beside the session, or your default browser."
+          htmlFor="web-links"
+          keywords="browser url safari chrome external"
+          control={
+            <ChoiceField
+              id="web-links"
+              path="terminal.webLinks"
+              value={terminal.webLinks}
+              options={[
+                ['mesa', "Mesa's Browser"],
+                ['default', 'Default browser'],
+              ]}
             />
           }
         />

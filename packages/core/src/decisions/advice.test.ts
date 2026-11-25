@@ -130,7 +130,8 @@ test('turned off for a session, nothing is asked; the status shows each mode, th
     model: 'jev',
     off: false,
     // Each site passed the quality gate; relevance also passed the paired workflows (#465), so it
-    // is automatic, and the others stay on demand, each with its measured results.
+    // is automatic, and the others are automatic too, marked experimental, since the opt-in is on
+    // by default; each with its measured results.
     sites: [
       {
         site: 'relevance',
@@ -143,13 +144,15 @@ test('turned off for a session, nothing is asked; the status shows each mode, th
       },
       {
         site: 'next-step',
-        mode: 'on-demand',
+        mode: 'automatic',
+        experimental: true,
         acceptAt: 0.5,
         measured: { quality: { n: 30, accepted: 29, right: 29 } },
       },
       {
         site: 'evidence',
-        mode: 'on-demand',
+        mode: 'automatic',
+        experimental: true,
         acceptAt: 0.5,
         measured: { quality: { n: 30, accepted: 26, right: 26 } },
       },
@@ -171,16 +174,15 @@ test('turned off for a session, nothing is asked; the status shows each mode, th
       },
     ],
   });
-  // Opted into experimental automatic decisions: every site automatic, the unproven ones marked so.
-  person.config.set('decisions.experimental', 'true');
+  // Experimental automatic decisions turned off: only the proven site stays automatic.
+  person.config.set('decisions.experimental', 'false');
   expect(
     mesa.decisions.status().sites.map(({ mode, experimental }) => [mode, experimental]),
   ).toEqual([
     ['automatic', undefined],
-    ['automatic', true],
-    ['automatic', true],
+    ['on-demand', undefined],
+    ['on-demand', undefined],
   ]);
-  person.config.set('decisions.experimental', 'false');
   expect(person.decisions.setOff(true, session.id)).toEqual({
     session: session.id,
     off: true,

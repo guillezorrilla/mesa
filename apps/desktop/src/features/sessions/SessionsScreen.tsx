@@ -6,6 +6,7 @@ import { Muted } from '@/components/Muted';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
+import { useRun } from '@/lib/useCommand';
 import { PromptCard } from './answer/PromptCard';
 import { ChatPanel } from './chat/ChatPanel';
 import { SwitchViewDialog } from './chat/SwitchViewDialog';
@@ -68,6 +69,7 @@ export function SessionsScreen(
   useDialogRequest(props.archiveSessionRequest, data, 'archive', setDialog);
   useDialogRequest(props.dependencySessionRequest, data, 'dependency', setDialog);
   const close = () => setDialog(undefined);
+  const run = useRun();
   const panels = useTerminalPanels(data, props.selectedSession, props.gridMode);
   const selected = data?.find((row) => row.id === props.selectedSession);
   const insert = usePromptInsert(props.promptInsertRequest, selected?.id);
@@ -245,6 +247,10 @@ export function SessionsScreen(
           acting={acting}
           onFileLink={props.onFileLink}
           onWebLink={(session, url) => {
+            if (props.terminalPreferences?.webLinks === 'default') {
+              void run('browser.external', { url });
+              return;
+            }
             side.requestBrowser(session, url);
             props.onSelectSession?.(session);
           }}

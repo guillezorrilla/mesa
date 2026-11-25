@@ -45,7 +45,7 @@ export function AdvancedSettingsPanel(props: { onBackup: () => void; onUsage: ()
             <ToggleField
               id="decisions-experimental"
               path="decisions.experimental"
-              checked={config.decisions.experimental ?? false}
+              checked={config.decisions.experimental}
             />
           }
         />

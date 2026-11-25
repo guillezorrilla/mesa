@@ -153,15 +153,15 @@ test('one row per model, CLEF first: its status and cost, Connect, and how it pe
   const performed = row('Jev (TypeSafe)')?.querySelector('details');
   expect(performed?.open).toBe(false);
   expect(performed?.querySelector('summary')?.textContent).toBe('How it performed');
-  // Every site passed the held-out check for Jev (#638), none the paired workflows yet (#465): no
-  // site is automatic, and each shows what it measured.
+  // Every site passed the held-out check for Jev (#638), only relevance the paired workflows (#465):
+  // with the experimental opt-in on by default the others are automatic too, marked experimental.
   const notPaired = 'Paired workflows: not measured.';
   expect(document.querySelector('[data-testid="jev-sites"]')?.textContent).toBe(
     [
-      `Session state: offQuality: 100% right where it answered, on 87% of 30 held-out cases. ${notPaired}`,
+      `Session state: automatic (experimental)Quality: 100% right where it answered, on 87% of 30 held-out cases. ${notPaired}`,
       'Source relevance: automaticQuality: 100% right where it answered, on 93% of 30 held-out cases. Paired workflows: 12 of 12 tasks solved against 0 of 12 without, 18 s against unbounded per solved task (passed).',
-      `Next step: on demandQuality: 100% right where it answered, on 97% of 30 held-out cases. ${notPaired}`,
-      `Completion evidence: on demandQuality: 100% right where it answered, on 87% of 30 held-out cases. ${notPaired}`,
+      `Next step: automatic (experimental)Quality: 100% right where it answered, on 97% of 30 held-out cases. ${notPaired}`,
+      `Completion evidence: automatic (experimental)Quality: 100% right where it answered, on 87% of 30 held-out cases. ${notPaired}`,
     ].join(''),
   );
 });
@@ -316,13 +316,20 @@ test('Replace reuses the Connect dialog with the account ID prefilled and labell
   expect(calls.some((c) => c.includes('set'))).toBe(false);
 });
 
-test('Advanced holds the experimental switch, worded plainly', async () => {
+test('Advanced holds the experimental switch, on by default and worded plainly', async () => {
   const { calls } = await render({ category: 'advanced' });
   const toggle = document.querySelector<HTMLButtonElement>('#decisions-experimental');
-  expect(toggle?.getAttribute('aria-checked')).toBe('false');
+  expect(toggle?.getAttribute('aria-checked')).toBe('true');
   expect(document.querySelector('label[for="decisions-experimental"]')?.textContent).toBe(
     'Try unproven automatic decisions',
   );
   await click(toggle ?? undefined);
-  expect(calls).toContainEqual(['--json', 'config', 'set', '--', 'decisions.experimental', 'true']);
+  expect(calls).toContainEqual([
+    '--json',
+    'config',
+    'set',
+    '--',
+    'decisions.experimental',
+    'false',
+  ]);
 });

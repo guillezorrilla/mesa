@@ -21,7 +21,7 @@ export function DecisionSettingsPanel() {
   const { acting, act } = useAct();
   // The model whose Connect dialog is open, and whether it was connected already (Replace).
   const [connecting, setConnecting] = useState<{ model: SystemOneProvider; replacing: boolean }>();
-  const { model, cloudflareAccount, experimental = false } = config.decisions;
+  const { model, cloudflareAccount, experimental } = config.decisions;
   const changed = async () => {
     await Promise.all([keys.refresh(), reload()]);
   };

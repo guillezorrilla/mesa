@@ -17,6 +17,8 @@ export const PROJECT_SORTS = [
  */
 export const SESSION_VIEWS = ['terminal', 'chat', 'structured'] as const;
 export const TERMINAL_APPS = ['Terminal', 'iTerm', 'Ghostty', 'WezTerm'] as const;
+/** Where a web link clicked in a session terminal opens: Mesa's Browser panel or the default browser. */
+export const WEB_LINK_TARGETS = ['mesa', 'default'] as const;
 
 export const DEFAULT_APPEARANCE = {
   theme: 'system',
@@ -40,4 +42,5 @@ export const DEFAULT_TERMINAL_PREFERENCES = {
   wezTermNewTab: false,
   messageActions: true,
   sessionView: 'terminal',
+  webLinks: 'mesa',
 } as const;
