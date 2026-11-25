@@ -1,13 +1,12 @@
 import type { Config, GridGroup, ProjectRow, SavedPrompt, TreeRow } from '@mesa/core';
-import { diffable, GENERAL_PROJECT, setupSessionsOf } from '@mesa/core/browser';
+import { diffable, setupSessionsOf } from '@mesa/core/browser';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
-import { useLogWatch } from '@/features/logs/useLogWatch';
+import { useSessionLogs } from '@/features/logs/useSessionLogs';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
-import { useRun } from '@/lib/useCommand';
 import { PromptCard } from './answer/PromptCard';
 import { ChatPanel } from './chat/ChatPanel';
 import { SwitchViewDialog } from './chat/SwitchViewDialog';
@@ -87,25 +86,16 @@ export function SessionsScreen(
   });
   const side = useSidePanel(props.selectedSession);
   const view = useSessionView(selected, props.terminalPreferences?.sessionView ?? 'terminal', act);
-  // Logs, for a session with a project that shows them (logs.panel).
-  const logsProject =
-    selected?.managed && selected.project !== GENERAL_PROJECT ? selected.project : undefined;
-  const logsShown = Boolean(
-    props.projects?.find((project) => project.name === logsProject)?.logsPanel,
-  );
-  const logs = useLogWatch(logsShown ? logsProject : undefined, side.open === 'logs');
-  const run = useRun();
-  const hideLogs = async () => {
-    if (!logsProject || !props.selectedSession) return;
-    const hidden = await run('projects.set', {
-      name: logsProject,
-      path: 'logs.panel',
-      value: false,
-    });
-    if (!hidden) return;
-    side.close(props.selectedSession);
-    props.onProjectsChanged?.();
-  };
+  const logs = useSessionLogs({
+    row: selected,
+    projects: props.projects,
+    open: side.open === 'logs',
+    insert: insert.showAndInsert,
+    onHidden: () => {
+      if (props.selectedSession) side.close(props.selectedSession);
+      props.onProjectsChanged?.();
+    },
+  });
   const chat = Boolean(props.selectedSession) && view.view === 'chat';
   const commands = useSessionCommands({
     act,
@@ -152,7 +142,7 @@ export function SessionsScreen(
           view={view.available ? view.view : undefined}
           switching={view.switching}
           onView={view.choose}
-          logs={logsShown ? { dot: logs.dot } : undefined}
+          logs={logs.bar}
         >
           {selected && (
             <SessionActionsMenu
@@ -294,16 +284,7 @@ export function SessionsScreen(
             select: (id) => props.onSelectSession?.(id),
             setupsOf: (id) => setupSessionsOf(data ?? [], id),
           }}
-          logs={
-            logsShown
-              ? {
-                  watch: logs,
-                  // A plain terminal has no prompt field to fill.
-                  send: selected?.agent === 'terminal' ? undefined : insert.showAndInsert,
-                  hide: () => void hideLogs(),
-                }
-              : undefined
-          }
+          logs={logs.panel}
         />
       </div>
     </section>

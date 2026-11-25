@@ -1,4 +1,5 @@
 import type { LogSource, ServerLogEntry } from '@mesa/core';
+import { entryText, LEVEL_NAMES } from '@mesa/core/browser';
 
 /** Which entries the panel shows by level: every one, errors, or warnings. */
 export type LevelFilter = 'all' | 'error' | 'warn';
@@ -51,7 +52,7 @@ export function clockTime(time: string | null) {
 }
 
 /** An entry's level as the panel prints it. */
-export const levelName = (entry: ServerLogEntry) => entry.level?.toUpperCase() ?? '';
+export const levelName = (entry: ServerLogEntry) => (entry.level ? LEVEL_NAMES[entry.level] : '');
 
 /** How a source is named in the picker and in what the agent is sent. */
 export const sourceLabel = (source: LogSource) =>
@@ -63,21 +64,7 @@ export const sourceLabel = (source: LogSource) =>
 
 /** What Send to agent types into the composer: the source's name, then the lines in a code block. */
 export function logPrompt(sourceName: string, entries: readonly ServerLogEntry[]) {
-  const lines = entries.map((entry) =>
-    [
-      [
-        clockTime(entry.time),
-        entry.level && !entry.message.includes(levelName(entry)) && levelName(entry),
-        entry.message,
-      ]
-        .filter(Boolean)
-        .join(' '),
-      entry.stack,
-    ]
-      .filter(Boolean)
-      .join('\n'),
-  );
-  const body = lines.join('\n');
+  const body = entries.map((entry) => entryText(entry, clockTime(entry.time))).join('\n');
   const fence = body.includes('```') ? '~~~~' : '```';
   return `These lines from the ${sourceName} log:\n${fence}\n${body}\n${fence}\n`;
 }

@@ -5,11 +5,12 @@ import { MesaError } from '../lib/result.js';
 import { sessionTitle } from '../sessions/record/labels.js';
 import type { SessionStore } from '../sessions/record/store.js';
 import { outputLog } from '../sessions/window/output-log.js';
+import { type LogSourceKind, sourceId } from './source-id.js';
+
+export type { LogSourceKind } from './source-id.js';
 
 // Where a project's local servers print (CONTEXT.md, Logs panel): running Docker containers, the
 // Output logs of its unended sessions, and the log files in its folder under the profile's logs.
-
-export type LogSourceKind = 'docker' | 'session' | 'file';
 
 export type LogSource = {
   /** `docker:<container>`, `session:<id>` or `file:<name>`. */
@@ -27,6 +28,9 @@ export type LogSourceDeps = {
   /** Each project's log files, `<serverLogs>/<project>/<name>.log` (ProfilePaths.serverLogs). */
   serverLogs: string;
 };
+
+/** A container's name as docker allows it, so a typed id never reaches docker as a flag. */
+export const CONTAINER_NAME = /^[A-Za-z0-9][\w.-]*$/;
 
 /** A log file's name, as a `file:` source and the IntelliJ setup take it: no path in it. */
 const FILE_NAME = /^[A-Za-z0-9][\w.-]{0,99}$/;
@@ -54,7 +58,7 @@ async function containers(run: Runner): Promise<LogSource[]> {
     .filter((line) => line.trim())
     .map((line) => {
       const [name = '', image = '', status = ''] = line.split('\t');
-      return { id: `docker:${name}`, kind: 'docker', name, detail: `${image}, ${status}` };
+      return { id: sourceId('docker', name), kind: 'docker', name, detail: `${image}, ${status}` };
     });
 }
 
@@ -67,7 +71,7 @@ function sessions(deps: LogSourceDeps, project: string): LogSource[] {
     )
     .sort((a, b) => Number(b.agent === 'terminal') - Number(a.agent === 'terminal'))
     .map((r) => ({
-      id: `session:${r.id}`,
+      id: sourceId('session', r.id),
       kind: 'session',
       name: sessionTitle(r),
       detail: `${r.agent} session ${r.id}`,
@@ -83,7 +87,7 @@ function files(deps: LogSourceDeps, project: string): LogSource[] {
     .map((file) => ({ file, at: statSync(join(dir, file)).mtimeMs }))
     .sort((a, b) => b.at - a.at)
     .map(({ file }) => ({
-      id: `file:${file.slice(0, -4)}`,
+      id: sourceId('file', file.slice(0, -4)),
       kind: 'file',
       name: file.slice(0, -4),
       detail: 'log file',

@@ -50,6 +50,10 @@ export function useLogWatch(project: string | undefined, open: boolean) {
     if (watchingErrors) setDot(false);
   }, [watchingErrors]);
 
+  // The source the open panel shows becomes the kept one, so the dot watches it once closed.
+  useEffect(() => {
+    if (open && source && !kept) keep(source);
+  }, [open, source, kept, keep]);
   const reading = Boolean(project && source && focused && (open ? live : kept));
   const busy = useRef(false);
   useEffect(() => {

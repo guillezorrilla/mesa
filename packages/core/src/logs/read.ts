@@ -4,7 +4,8 @@ import type { LockDeps } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { outputTail } from '../sessions/window/output-log.js';
 import { atLeast, type LogLevel, parseLog, type RawLine, type ServerLogEntry } from './parse.js';
-import { type LogSourceDeps, logFile } from './sources.js';
+import { parseSourceId } from './source-id.js';
+import { CONTAINER_NAME, type LogSourceDeps, logFile } from './sources.js';
 
 export type ReadOptions = {
   /** The last this many entries; 200 when not given. */
@@ -68,21 +69,20 @@ async function rawLines(
   lines: number,
   since?: string,
 ): Promise<RawLine[]> {
-  const colon = source.indexOf(':');
-  const kind = source.slice(0, colon);
-  const name = source.slice(colon + 1);
-  if (colon > 0 && name && kind === 'docker') return dockerLines(deps, name, lines, since);
-  if (colon > 0 && name && kind === 'session') {
-    deps.store.get(name);
-    const text = outputTail(deps.lock, deps.sessionLogs, name, lines);
-    if (!text) throw new MesaError('not_found', `session ${name} has no output log`);
+  const parsed = parseSourceId(source);
+  if (parsed?.kind === 'docker' && CONTAINER_NAME.test(parsed.name))
+    return dockerLines(deps, parsed.name, lines, since);
+  if (parsed?.kind === 'session') {
+    deps.store.get(parsed.name);
+    const text = outputTail(deps.lock, deps.sessionLogs, parsed.name, lines);
+    if (!text) throw new MesaError('not_found', `session ${parsed.name} has no output log`);
     return text.map((line) => ({ text: line }));
   }
-  if (colon > 0 && name && kind === 'file') {
-    if (!project) throw new MesaError('usage', `name the project whose log file ${name} is`);
-    const file = logFile(deps.serverLogs, project, name);
+  if (parsed?.kind === 'file') {
+    if (!project) throw new MesaError('usage', `name the project whose log file ${parsed.name} is`);
+    const file = logFile(deps.serverLogs, project, parsed.name);
     if (!existsSync(file))
-      throw new MesaError('not_found', `no log file ${name} in project ${project}`);
+      throw new MesaError('not_found', `no log file ${parsed.name} in project ${project}`);
     // Read anew each time, so a file IntelliJ rewrote on a new run starts over.
     for (let bytes = 64 * 1024; ; bytes *= 2) {
       const read = tailLines(file, bytes);

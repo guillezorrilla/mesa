@@ -6,6 +6,7 @@ import { projectOf } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
 import { callerOf } from '../sessions/window/caller.js';
 import { type ReadOptions, readLog } from './read.js';
+import { parseSourceId, sourceId } from './source-id.js';
 import { logFile, logSources } from './sources.js';
 
 /** The Logs panel's side of Mesa (CONTEXT.md, Logs panel): a project's log sources and their entries. */
@@ -42,7 +43,7 @@ export function logsService(ctx: MesaContext) {
     read: (source: string, opts: ReadOptions & { project?: string } = {}) =>
       readLog(deps(), source, {
         ...opts,
-        ...(source.startsWith('file:') ? { project: projectNamed(opts.project) } : {}),
+        ...(parseSourceId(source)?.kind === 'file' ? { project: projectNamed(opts.project) } : {}),
       }),
     /**
      * Where an IDE saves `project`'s service `name` console (the IntelliJ setup), its folder made:
@@ -51,7 +52,7 @@ export function logsService(ctx: MesaContext) {
     file: (name: string, project?: string) => {
       const path = logFile(ctx.paths.serverLogs, projectNamed(project), name);
       mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-      return { path, source: `file:${name}` };
+      return { path, source: sourceId('file', name) };
     },
   };
 }

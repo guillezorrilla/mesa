@@ -28,7 +28,7 @@ const LEVEL_WORD = /\b(ERROR|FATAL|WARN|WARNING|INFO|DEBUG|TRACE)\b/;
 const STACK =
   /^(\s+at\s|\s*Caused by:|\s*Suppressed:|\s+\.\.\. \d+ (more|common frames omitted)|([a-z_$][\w$]*\.)+[\w$]*(Exception|Error|Throwable)\b)/;
 
-const LEVEL_NAMES: Record<string, LogLevel> = {
+const LEVEL_WORDS: Record<string, LogLevel> = {
   fatal: 'error',
   error: 'error',
   err: 'error',
@@ -56,7 +56,7 @@ function levelOf(value: unknown): LogLevel | null {
           : value >= 10
             ? 'debug'
             : null;
-  return typeof value === 'string' ? (LEVEL_NAMES[value.toLowerCase()] ?? null) : null;
+  return typeof value === 'string' ? (LEVEL_WORDS[value.toLowerCase()] ?? null) : null;
 }
 
 /** A JSON line with `severity` or `level` and `message` or `msg`, else undefined. */
@@ -129,3 +129,23 @@ export function parseLog(lines: readonly (string | RawLine)[]): ServerLogEntry[]
 /** Whether `entry` is at `level` or more severe; every entry passes with no level. */
 export const atLeast = (entry: ServerLogEntry, level?: LogLevel) =>
   !level || (entry.level !== null && LOG_LEVELS.indexOf(entry.level) <= LOG_LEVELS.indexOf(level));
+
+/** How a level is printed: its word in capitals. */
+export const LEVEL_NAMES: Record<LogLevel, string> = {
+  error: 'ERROR',
+  warn: 'WARN',
+  info: 'INFO',
+  debug: 'DEBUG',
+};
+
+/**
+ * An entry as text: `time` (the entry's own unless given, as the app shows a clock time), its
+ * level unless its message already holds the word, the message, and its stack on the lines under.
+ */
+export function entryText(entry: ServerLogEntry, time = entry.time) {
+  const level = entry.level && LEVEL_NAMES[entry.level];
+  const line = [time, level && !entry.message.includes(level) && level, entry.message]
+    .filter(Boolean)
+    .join(' ');
+  return entry.stack ? `${line}\n${entry.stack}` : line;
+}
