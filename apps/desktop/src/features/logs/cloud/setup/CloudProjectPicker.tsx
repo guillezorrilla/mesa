@@ -7,8 +7,8 @@ import { RetryAlert } from '@/components/RetryAlert';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import type { ProjectTab } from '../types';
 import { CloudProjectRow } from './CloudProjectRow';
-import type { ProjectTab } from './types';
 
 /** A row's height and how many show: the list draws only the rows in view, as there can be thousands. */
 const ROW_HEIGHT = 36;

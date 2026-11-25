@@ -1,7 +1,7 @@
 import type { AskTurn as Turn } from '@mesa/core';
 import { BookmarkPlus, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { AskAnswer } from './AskAnswer';
+import { AskAnswer } from '../AskAnswer';
 
 /** One turn of a conversation: the question, the answer with its citations, and the queries it ran. */
 export function AskTurn(props: {

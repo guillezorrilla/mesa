@@ -1,7 +1,7 @@
 import { ENV_WORDS, joinEnvs } from '@mesa/core/browser';
 import { useEffect, useState } from 'react';
 import { useOptional } from '@/lib/useCommand';
-import type { EnvRow } from './types';
+import type { EnvRow } from '../types';
 
 /**
  * The env rows of the setup and of Edit envs (CONTEXT.md, Cloud Logs): `kept` envs, then the

@@ -1,8 +1,8 @@
 import type { CloudLogEntry } from '@mesa/core';
 import type { CloudFilters } from '@/lib/client/logs';
 import { useOptional } from '@/lib/useCommand';
+import { CLOUD_RANGES, type CloudRange } from '../cloudLines';
 import { CloudLogsChart } from './CloudLogsChart';
-import { CLOUD_RANGES, type CloudRange } from './cloudLines';
 
 /** The chart from a log-based metric's counts (Cloud Monitoring), summed across the view's projects. */
 function MeteredChart(props: {

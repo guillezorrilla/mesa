@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Input } from '@/components/ui/input';
 import type { CloudFilters } from '@/lib/client/logs';
-import { useCloudLogsConfig } from './useCloudLogsConfig';
+import { useCloudLogsConfig } from '../useCloudLogsConfig';
 
 /** Names `filters` (or a query an Ask ran) as a saved view and saves it; one of the same name is replaced. */
 export function SaveViewDialog(props: { filters: CloudFilters; onDone: () => void }) {

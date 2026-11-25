@@ -58,18 +58,20 @@ export function errorItems(
     .map(({ item }) => item);
 }
 
-/** The groups linked to `key` in `incidents`, each with the link that ties them. */
+/** The groups linked to `key` in `incidents`, one each, with every link that ties it to `key`. */
 export function relatedOf(
   key: string,
   incidents: Incident[],
   byKey: ReadonlyMap<string, CloudErrorGroup>,
 ) {
-  return incidents
-    .flatMap((i) => i.links)
-    .filter((link) => link.from === key || link.to === key)
-    .flatMap((link: IncidentLink) => {
-      const other = link.from === key ? link.to : link.from;
-      const group = byKey.get(other);
-      return group ? [{ link, other: group, key: other }] : [];
-    });
+  const byOther = new Map<string, IncidentLink[]>();
+  for (const link of incidents.flatMap((i) => i.links)) {
+    if (link.from !== key && link.to !== key) continue;
+    const other = link.from === key ? link.to : link.from;
+    byOther.set(other, [...(byOther.get(other) ?? []), link]);
+  }
+  return [...byOther].flatMap(([other, links]) => {
+    const group = byKey.get(other);
+    return group ? [{ key: other, other: group, links }] : [];
+  });
 }

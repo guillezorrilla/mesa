@@ -13,9 +13,9 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useOptional } from '@/lib/useCommand';
+import { projectsLabel } from '../cloudLines';
+import { useCloudLogsConfig } from '../useCloudLogsConfig';
 import { CloudProjectPicker } from './CloudProjectPicker';
-import { projectsLabel } from './cloudLines';
-import { useCloudLogsConfig } from './useCloudLogsConfig';
 
 /**
  * The Logs toolbar's project switcher (CONTEXT.md, Cloud Logs), like the Cloud Console's Select a

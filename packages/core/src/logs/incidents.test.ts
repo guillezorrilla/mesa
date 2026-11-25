@@ -44,7 +44,7 @@ test('a shared trace links a gateway 502 to the API error behind it, and the API
     services: ['harbour-web', 'tide-api'],
   });
   expect(incident?.links).toEqual([
-    { from: 'p web', to: 'p api', reason: 'trace', detail: 'trace aa11', strength: 0.9 },
+    { from: 'p web', to: 'p api', reason: 'trace', detail: '2 entries', strength: 0.9 },
   ]);
 });
 
@@ -56,9 +56,7 @@ test('a shared request id, a shared context value and a shared revision each lin
     ],
     RANGE,
   );
-  expect(request[0]?.links.map((l) => [l.reason, l.detail])).toEqual([
-    ['request', 'request 9f2c4e6a'],
-  ]);
+  expect(request[0]?.links.map((l) => [l.reason, l.detail])).toEqual([['request', '2 entries']]);
   const context = incidentsOf(
     [
       group('a', 's1', [entry(1, 'quote failed', { fields: { company: 'Lantern Cove' } })]),
@@ -80,7 +78,11 @@ test('a shared request id, a shared context value and a shared revision each lin
     ],
     RANGE,
   );
-  expect(revision[0]?.links[0]).toMatchObject({ reason: 'revision', strength: 0.45 });
+  expect(revision[0]?.links[0]).toMatchObject({
+    reason: 'revision',
+    detail: 'tide-api-00042',
+    strength: 0.45,
+  });
 });
 
 test('counts that rise together link; a pair that only shares a broad value or flat noise does not', () => {
@@ -110,8 +112,8 @@ test('counts that rise together link; a pair that only shares a broad value or f
 test("a group's stats: counts over the range, message variants without their ids, facets", () => {
   const stats = groupStats(
     [
-      entry(1, 'no table for order 18233', { fields: { company: 'Lantern Cove' } }),
-      entry(2, 'no table for order 18240', { fields: { company: 'Quiet Reef' } }),
+      entry(1, 'no table for station LC-04', { fields: { company: 'Lantern Cove' } }),
+      entry(2, 'no table for station QR-02', { fields: { company: 'Quiet Reef' } }),
       entry(29, 'no cache', { fields: { company: 'Lantern Cove' } }),
     ],
     RANGE,
@@ -119,7 +121,7 @@ test("a group's stats: counts over the range, message variants without their ids
   );
   expect(stats.spark).toEqual([2, 0, 1]);
   expect(stats.variants).toEqual([
-    { message: 'no table for order 18233', count: 2 },
+    { message: 'no table for station LC-04', count: 2 },
     { message: 'no cache', count: 1 },
   ]);
   expect(stats.facets).toEqual([

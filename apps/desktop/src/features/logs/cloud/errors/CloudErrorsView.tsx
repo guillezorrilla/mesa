@@ -10,16 +10,16 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Switch } from '@/components/ui/switch';
 import type { CloudAsked, CloudFilters } from '@/lib/client/logs';
 import { useOptional } from '@/lib/useCommand';
-import { AskAnswer } from './AskAnswer';
+import { AskAnswer } from '../AskAnswer';
+import { CloudProjectDialog } from '../CloudProjectDialog';
+import { CloudReadAlert } from '../CloudReadAlert';
+import { ProdAskDialog } from '../ProdAskDialog';
+import { useFixInSession } from '../useFixInSession';
+import { useLogAsk } from '../useLogAsk';
 import { CloudErrorGroupRow } from './CloudErrorGroupRow';
-import { CloudProjectDialog } from './CloudProjectDialog';
-import { CloudReadAlert } from './CloudReadAlert';
 import { ErrorDetail } from './ErrorDetail';
 import { type ErrorSort, errorItems, relatedOf } from './errorOrder';
 import { IncidentCard } from './IncidentCard';
-import { ProdAskDialog } from './ProdAskDialog';
-import { useFixInSession } from './useFixInSession';
-import { useLogAsk } from './useLogAsk';
 
 const SUMMARISE =
   "Summarise this range's errors as incidents in a few lines: for each, what fails, which services, since when and its likely origin, citing one entry each.";

@@ -5,9 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useOptional } from '@/lib/useCommand';
+import { useCloudLogsConfig } from '../useCloudLogsConfig';
 import { CloudEnvPicker } from './CloudEnvPicker';
 import { CloudProjectPicker } from './CloudProjectPicker';
-import { useCloudLogsConfig } from './useCloudLogsConfig';
 import { useEnvRows } from './useEnvRows';
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;

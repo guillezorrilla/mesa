@@ -7,18 +7,18 @@ import { Sparkline } from '@/components/Sparkline';
 import { Button } from '@/components/ui/button';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import type { CloudFilters } from '@/lib/client/logs';
-import { CopyButton } from '../shared/CopyButton';
-import { dayTime } from '../shared/logLines';
-import { MessageBody } from '../shared/MessageBody';
-import { ServiceDot } from '../shared/ServiceDot';
+import { CopyButton } from '../../shared/CopyButton';
+import { dayTime } from '../../shared/logLines';
+import { MessageBody } from '../../shared/MessageBody';
+import { ServiceDot } from '../../shared/ServiceDot';
+import { useCloudCopy } from '../useCloudCopy';
 import { ErrorBadge } from './ErrorBadge';
 import { ErrorOccurrences } from './ErrorOccurrences';
-import { useCloudCopy } from './useCloudCopy';
 
 const REASON = {
-  trace: 'same trace',
-  request: 'same request',
-  context: 'same context',
+  trace: 'same trace in',
+  request: 'same request in',
+  context: 'same',
   revision: 'same revision',
   counts: 'counts rise together',
 } as const;
@@ -42,7 +42,7 @@ function Section(props: { title: string; children: React.ReactNode }) {
  */
 export function ErrorDetail(props: {
   group: CloudErrorGroup;
-  related: { link: IncidentLink; other: CloudErrorGroup; key: string }[];
+  related: { links: IncidentLink[]; other: CloudErrorGroup; key: string }[];
   filters: CloudFilters;
   onSelect: (key: string) => void;
   onAsk: (group: CloudErrorGroup) => void;
@@ -176,8 +176,8 @@ export function ErrorDetail(props: {
       {props.related.length > 0 && (
         <Section title="Related">
           <ul className="grid gap-1">
-            {props.related.map(({ link, other, key }) => (
-              <li key={`${key} ${link.reason}`}>
+            {props.related.map(({ links, other, key }) => (
+              <li key={key}>
                 <button
                   type="button"
                   className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs hover:bg-accent"
@@ -187,10 +187,10 @@ export function ErrorDetail(props: {
                     {plainTitle(other.message)}
                   </span>
                   <span className="shrink-0 text-muted-foreground">
-                    {REASON[link.reason]}: {link.detail}
+                    {links.map((link) => `${REASON[link.reason]} ${link.detail}`).join('; ')}
                   </span>
                   <span className="w-9 shrink-0 text-right text-muted-foreground tabular-nums">
-                    {Math.round(link.strength * 100)}%
+                    {Math.round(Math.max(...links.map((l) => l.strength)) * 100)}%
                   </span>
                 </button>
               </li>

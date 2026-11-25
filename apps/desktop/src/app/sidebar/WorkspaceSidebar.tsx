@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react';
 import { ResizeHandle } from '@/components/ResizeHandle';
 import { Button } from '@/components/ui/button';
 import { usePendingRuns } from '@/features/automations/usePendingRuns';
-import { CloudLogsSection } from '@/features/logs/cloud/CloudLogsSection';
+import { CloudLogsSection } from '@/features/logs/cloud/views/CloudLogsSection';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { ProjectsSection } from '@/features/projects/ProjectsSection';
 import { ReviewsSection } from '@/features/prs/ReviewsSection';

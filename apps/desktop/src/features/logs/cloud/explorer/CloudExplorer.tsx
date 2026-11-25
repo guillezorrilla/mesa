@@ -8,17 +8,17 @@ import { Button } from '@/components/ui/button';
 import type { CloudAsked, CloudFilters } from '@/lib/client/logs';
 import { useCall, useOptional } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
+import { CloudProjectDialog } from '../CloudProjectDialog';
+import { CloudReadAlert } from '../CloudReadAlert';
+import type { EntryActions } from '../types';
+import { useCloudCopy } from '../useCloudCopy';
+import { useFixInSession } from '../useFixInSession';
+import { SaveViewDialog } from '../views/SaveViewDialog';
 import { ClaudePanel } from './ClaudePanel';
-import { CloudProjectDialog } from './CloudProjectDialog';
-import { CloudReadAlert } from './CloudReadAlert';
 import { ExplorerResults } from './ExplorerResults';
 import { fieldClause, matchingClause, withClause } from './explorerQuery';
 import { FieldsPane } from './FieldsPane';
 import { QueryBar } from './QueryBar';
-import { SaveViewDialog } from './SaveViewDialog';
-import type { EntryActions } from './types';
-import { useCloudCopy } from './useCloudCopy';
-import { useFixInSession } from './useFixInSession';
 import { ViewFilterChips } from './ViewFilterChips';
 
 /**

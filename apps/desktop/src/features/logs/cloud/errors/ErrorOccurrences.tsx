@@ -6,10 +6,10 @@ import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import type { CloudFilters } from '@/lib/client/logs';
 import { useOptional } from '@/lib/useCommand';
-import { clockTime, dayTime } from '../shared/logLines';
-import { MessageBody } from '../shared/MessageBody';
-import { RepeatRun } from './RepeatRun';
-import { useOlderEntries } from './useOlderEntries';
+import { clockTime, dayTime } from '../../shared/logLines';
+import { MessageBody } from '../../shared/MessageBody';
+import { RepeatRun } from '../RepeatRun';
+import { useOlderEntries } from '../useOlderEntries';
 
 /** How many occurrences each read brings. */
 const PAGE = 50;

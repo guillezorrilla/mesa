@@ -31,8 +31,8 @@ export function CloudViewsList(props: {
   const open = metricsOpen || Boolean(term);
   if (!props.views.length)
     return (
-      <Muted size="xs" className="px-2">
-        No views yet: build a query in Explorer, then Save as view.
+      <Muted size="xs" className="px-2 break-words whitespace-normal">
+        No saved views yet. Save one from Explorer.
       </Muted>
     );
   const row = (view: CloudView) => {

@@ -7,9 +7,9 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Switch } from '@/components/ui/switch';
 import type { CloudFilters } from '@/lib/client/logs';
 import type { CloudMode } from '@/lib/workspaceView';
-import { CloudProjectSwitcher } from './CloudProjectSwitcher';
 import { CloudServiceField } from './CloudServiceField';
 import { CLOUD_RANGES, type CloudRange } from './cloudLines';
+import { CloudProjectSwitcher } from './setup/CloudProjectSwitcher';
 
 /**
  * The Logs tab's bar (CONTEXT.md, Cloud Logs): the projects read, Errors or Explorer, the env (All

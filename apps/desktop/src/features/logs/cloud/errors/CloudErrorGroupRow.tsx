@@ -3,8 +3,8 @@ import { plainTitle } from '@mesa/core/browser';
 import { CountPill } from '@/components/CountPill';
 import { Sparkline } from '@/components/Sparkline';
 import { cn } from '@/lib/utils';
-import { dayTime } from '../shared/logLines';
-import { ServiceDot } from '../shared/ServiceDot';
+import { dayTime } from '../../shared/logLines';
+import { ServiceDot } from '../../shared/ServiceDot';
 import { ErrorBadge } from './ErrorBadge';
 
 /**

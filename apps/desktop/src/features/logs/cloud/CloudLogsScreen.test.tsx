@@ -159,8 +159,15 @@ const INCIDENT = {
       from: 'harbour-web-456 message:GET /checkout # #ms',
       to: 'tide-tables-123 TideTableNotFoundException at TableStore.java:41',
       reason: 'trace',
-      detail: 'trace 4bf92f35',
+      detail: '212 entries',
       strength: 0.9,
+    },
+    {
+      from: 'harbour-web-456 message:GET /checkout # #ms',
+      to: 'tide-tables-123 TideTableNotFoundException at TableStore.java:41',
+      reason: 'counts',
+      detail: 'r 0.97',
+      strength: 0.68,
     },
   ],
 };
@@ -210,7 +217,9 @@ test('Errors: incidents and lone groups on the left, the origin open on the righ
   expect(detail?.textContent).toContain('at com.tides.TableStore.load');
   expect(q('[aria-label="Message variants"]')?.textContent).toContain('no cache');
   expect(q('[aria-label="Context"]')?.textContent).toContain('Lantern Cove 280');
-  expect(q('[aria-label="Related"]')?.textContent).toContain('same trace: trace 4bf92f35');
+  expect(q('[aria-label="Related"]')?.textContent).toContain(
+    'same trace in 212 entries; counts rise together r 0.97',
+  );
   expect(detail?.querySelector('a')?.getAttribute('href')).toContain(
     'https://console.cloud.google.com/logs/query;query=severity%3E%3DERROR',
   );
@@ -323,7 +332,11 @@ test('Explorer: fields add or exclude clauses, Show matching narrows, repeats fo
   );
   // Three lookups that differ only by order id fold into one row.
   expect(q('[aria-label="Log entries"]')?.textContent).toMatch(/x3 between/);
-  await click(q('[data-id="b1"] button[aria-label="Show matching"]'));
+  await click(q('[data-id="b1"] [role="option"]'));
+  await click(
+    button('Show matching', q('[data-id="b1"] [aria-label="Entry actions"]') ?? document),
+  );
+  await click(q('[data-id="b1"] [role="option"]'));
   await attached();
   expect(q<HTMLTextAreaElement>('[aria-label="Query"]')?.value).toContain('AND "checkout stalled"');
   await fill(q<HTMLInputElement>('[aria-label="Ask in words"]'), 'errors for Quiet Reef');

@@ -13,8 +13,8 @@ import {
 } from '@/lib/testing';
 import { HEALTHY } from '@/lib/testing/healthy';
 import type { CloudMode } from '@/lib/workspaceView';
+import { CloudLogsScreen } from '../CloudLogsScreen';
 import { CloudEnvsDialog } from './CloudEnvsDialog';
-import { CloudLogsScreen } from './CloudLogsScreen';
 
 const GCP = {
   projects: ['tide-tables-123'],

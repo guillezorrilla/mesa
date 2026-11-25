@@ -1,7 +1,6 @@
 import { splitMessage, traceIdOf } from './cloud-entry.js';
 import { facetsOf } from './facets.js';
 import type { CloudLogEntry } from './gcp.js';
-import { normalizedMessage } from './groups.js';
 import { requestIds } from './tokens.js';
 
 // Incidents (CONTEXT.md, Cloud Logs): error groups that belong to one failure, linked in core by
@@ -91,11 +90,18 @@ export function perMinute(entries: readonly CloudLogEntry[], from: number, to: n
   return buckets;
 }
 
+/** Each value in `values` with how many times it shows. */
+const counts = (values: readonly string[]) => {
+  const found = new Map<string, number>();
+  for (const value of values) found.set(value, (found.get(value) ?? 0) + 1);
+  return found;
+};
+
 /** What linking reads of one group, worked out once. */
 type GroupIndex = {
   group: IncidentGroup;
-  traces: Set<string>;
-  requests: Set<string>;
+  traces: Map<string, number>;
+  requests: Map<string, number>;
   shares: Map<string, number>;
   minutes: number[];
   first: string;
@@ -109,8 +115,8 @@ const fieldPairs = (e: CloudLogEntry) =>
 function indexOf(group: IncidentGroup, range: { from: number; to: number }): GroupIndex {
   return {
     group,
-    traces: new Set(group.entries.flatMap((e) => (traceOf(e) ? [traceOf(e) as string] : []))),
-    requests: new Set(group.entries.flatMap((e) => requestIds(e.message))),
+    traces: counts(group.entries.flatMap((e) => (traceOf(e) ? [traceOf(e) as string] : []))),
+    requests: counts(group.entries.flatMap((e) => [...new Set(requestIds(e.message))])),
     shares: shares(group.entries, fieldPairs),
     minutes: perMinute(group.entries, range.from, range.to),
     first: group.entries.reduce(
@@ -131,12 +137,14 @@ function linksBetween(a: GroupIndex, b: GroupIndex, carriers: Map<string, number
       detail,
       strength: Math.round(strength * 100) / 100,
     });
-  const shared = (x: Set<string>, y: Set<string>) => [...x].filter((id) => y.has(id));
-  const more = (ids: string[]) => (ids.length > 1 ? ` and ${ids.length - 1} more` : '');
-  const traces = shared(a.traces, b.traces);
-  if (traces.length) add('trace', `trace ${traces[0]}${more(traces)}`, 0.9);
-  const requests = shared(a.requests, b.requests);
-  if (requests.length) add('request', `request ${requests[0]}${more(requests)}`, 0.85);
+  // How many entries of both groups carry an id the other group carries too.
+  const sharing = (x: Map<string, number>, y: Map<string, number>) =>
+    [...x].reduce((n, [id, count]) => (y.has(id) ? n + count + (y.get(id) ?? 0) : n), 0);
+  const entries = (n: number) => `${n} ${n === 1 ? 'entry' : 'entries'}`;
+  const traces = sharing(a.traces, b.traces);
+  if (traces) add('trace', entries(traces), 0.9);
+  const requests = sharing(a.requests, b.requests);
+  if (requests) add('request', entries(requests), 0.85);
   // A context value both groups mostly carry that most of the other groups do not.
   const others = groups - 2;
   for (const [pair, share] of a.shares) {
@@ -145,11 +153,8 @@ function linksBetween(a: GroupIndex, b: GroupIndex, carriers: Map<string, number
     const rest = (carriers.get(pair) ?? 0) - 2;
     if (others > 0 && rest / others > 0.5) continue;
     const revision = pair.split('=')[0]?.toLowerCase() === 'revision';
-    add(
-      revision ? 'revision' : 'context',
-      pair,
-      revision ? 0.45 : 0.5 + 0.2 * Math.min(share, other),
-    );
+    if (revision) add('revision', pair.slice(pair.indexOf('=') + 1), 0.45);
+    else add('context', pair, 0.5 + 0.2 * Math.min(share, other));
   }
   const busy = (xs: number[]) => xs.filter(Boolean).length >= COUNT_BUCKETS;
   const r = busy(a.minutes) && busy(b.minutes) ? correlation(a.minutes, b.minutes) : 0;
@@ -216,6 +221,13 @@ export function incidentsOf(
     });
 }
 
+/** A message with each word that holds a digit (an id, a count, a station code) as one mark. */
+const variantKey = (head: string) =>
+  head
+    .split(/\s+/)
+    .map((word) => (/\d/.test(word) ? '#' : word))
+    .join(' ');
+
 /** A group's own story from its entries: counts over the range, its top message variants, its facets. */
 export function groupStats(
   entries: readonly CloudLogEntry[],
@@ -231,7 +243,7 @@ export function groupStats(
   const variants = new Map<string, { message: string; count: number }>();
   for (const entry of entries) {
     const head = splitMessage(entry.message).head;
-    const key = normalizedMessage(head);
+    const key = variantKey(head);
     const known = variants.get(key);
     if (known) known.count++;
     else variants.set(key, { message: head, count: 1 });

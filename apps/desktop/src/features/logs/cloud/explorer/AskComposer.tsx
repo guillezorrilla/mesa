@@ -69,7 +69,7 @@ export function AskComposer(props: {
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] text-muted-foreground">
           {props.selected
-            ? `${props.selected} selected go with it`
+            ? `Asks about the ${props.selected} selected ${props.selected === 1 ? 'entry' : 'entries'}`
             : 'Reads the query and its results'}
         </span>
         <Button type="submit" size="sm" disabled={props.busy || !question.trim()}>

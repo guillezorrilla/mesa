@@ -2,7 +2,7 @@ import type { CloudLogEntry } from '@mesa/core';
 import { facetsOf } from '@mesa/core/browser';
 import { useMemo } from 'react';
 import { Muted } from '@/components/Muted';
-import { ServiceDot } from '../shared/ServiceDot';
+import { ServiceDot } from '../../shared/ServiceDot';
 import { fieldClause } from './explorerQuery';
 
 type Row = { label: string; count: number; clause: string; service?: string };

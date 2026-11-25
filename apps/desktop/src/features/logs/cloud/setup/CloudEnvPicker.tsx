@@ -3,7 +3,7 @@ import { RetryAlert } from '@/components/RetryAlert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import type { EnvRow } from './types';
+import type { EnvRow } from '../types';
 
 const NAME = 'h-7 w-28 shrink-0 px-2 font-mono text-xs';
 

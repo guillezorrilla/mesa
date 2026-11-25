@@ -1,7 +1,7 @@
 import type { GcpLogs } from '@mesa/core';
 import { ActionDialog } from '@/components/ActionDialog';
+import { useCloudLogsConfig } from '../useCloudLogsConfig';
 import { CloudEnvPicker } from './CloudEnvPicker';
-import { useCloudLogsConfig } from './useCloudLogsConfig';
 import { useEnvRows } from './useEnvRows';
 
 /**

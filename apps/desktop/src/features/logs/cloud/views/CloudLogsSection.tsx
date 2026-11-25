@@ -21,10 +21,10 @@ import {
 import { useCommand } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import type { WorkspaceView } from '@/lib/workspaceView';
-import { CloudEnvsDialog } from './CloudEnvsDialog';
+import { CloudEnvsDialog } from '../setup/CloudEnvsDialog';
+import { useCloudLogsConfig } from '../useCloudLogsConfig';
 import { CloudViewsList } from './CloudViewsList';
 import { SaveViewDialog } from './SaveViewDialog';
-import { useCloudLogsConfig } from './useCloudLogsConfig';
 
 const ROW =
   'group flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring';

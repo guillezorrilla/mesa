@@ -1,5 +1,5 @@
 import type { CloudLogEntry } from '@mesa/core';
-import { BUCKET_MS, cloudBuckets } from './cloudLines';
+import { BUCKET_MS, cloudBuckets } from '../cloudLines';
 
 const clock = (ms: number) =>
   new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

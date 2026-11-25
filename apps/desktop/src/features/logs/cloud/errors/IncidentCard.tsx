@@ -1,8 +1,8 @@
 import type { Incident } from '@mesa/core';
 import { plainTitle } from '@mesa/core/browser';
 import { Link2 } from 'lucide-react';
-import { dayTime } from '../shared/logLines';
-import { ServiceDot } from '../shared/ServiceDot';
+import { dayTime } from '../../shared/logLines';
+import { ServiceDot } from '../../shared/ServiceDot';
 import { CloudErrorGroupRow } from './CloudErrorGroupRow';
 import type { KeyedGroup } from './errorOrder';
 

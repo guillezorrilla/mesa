@@ -3,10 +3,10 @@ import { PanelRightClose, SquarePen } from 'lucide-react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
 import type { CloudAsked, CloudFilters } from '@/lib/client/logs';
+import { ProdAskDialog } from '../ProdAskDialog';
+import { useLogAsk } from '../useLogAsk';
 import { AskComposer } from './AskComposer';
 import { AskTurn } from './AskTurn';
-import { ProdAskDialog } from './ProdAskDialog';
-import { useLogAsk } from './useLogAsk';
 
 /**
  * Claude beside the Explorer (CONTEXT.md, Ask (logs)): a kept conversation whose context is the

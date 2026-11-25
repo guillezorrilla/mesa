@@ -8,13 +8,13 @@ import { Button } from '@/components/ui/button';
 import type { CloudFilters } from '@/lib/client/logs';
 import { useCommand } from '@/lib/useCommand';
 import type { CloudMode } from '@/lib/workspaceView';
-import { CloudErrorsView } from './CloudErrorsView';
-import { CloudExplorer } from './CloudExplorer';
 import { CloudFilterBar } from './CloudFilterBar';
-import { CloudSetupPanel } from './CloudSetupPanel';
-import { SaveViewDialog } from './SaveViewDialog';
+import { CloudErrorsView } from './errors/CloudErrorsView';
+import { CloudExplorer } from './explorer/CloudExplorer';
+import { CloudSetupPanel } from './setup/CloudSetupPanel';
 import type { CloudLogsView } from './types';
 import { useCloudLogsConfig } from './useCloudLogsConfig';
+import { SaveViewDialog } from './views/SaveViewDialog';
 
 /**
  * The sidebar Logs tab's main area (CONTEXT.md, Cloud Logs): the setup until logs.gcp is set, then
