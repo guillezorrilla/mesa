@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import {
@@ -11,7 +11,7 @@ import {
   testStore,
 } from '../testing/index.js';
 import { readLog, sinceTime } from './read.js';
-import { logFile, logSources } from './sources.js';
+import { logFile, logSources, projectModules } from './sources.js';
 
 const NOW = new Date('2026-05-06T07:10:00.000Z');
 
@@ -55,35 +55,100 @@ function setUp(
   return { deps, calls, agent, shell };
 }
 
-test("sources: running containers, the project's unended sessions with a log, terminals first, then its log files", async () => {
-  const { deps, agent, shell } = setUp({
-    docker: 'echo-logs\talpine\tUp 3 minutes\nharbour-db\tpostgres:17\tUp 2 hours\n',
+test("sources: containers running or exited within the hour, the project's sessions with a log, terminals first, then its log files, each with its state", async () => {
+  const { deps, agent, shell, calls } = setUp({
+    docker: [
+      'echo-logs\talpine\tUp 3 minutes\trunning',
+      'harbour-db\tpostgres:17\tUp 2 hours\trunning',
+      'tide-worker\talpine\tExited (1) 5 minutes ago\texited',
+      'old-job\talpine\tExited (0) 3 days ago\texited',
+    ].join('\n'),
+    sh: (args) => (args.at(-1) === 'echo-logs' ? '2026-05-06T07:09:50.000Z ERROR boom\n' : ''),
   });
+  const ago = (seconds: number) => new Date(NOW.getTime() - seconds * 1000);
+  utimesSync(join(deps.sessionLogs, `${shell.id}.log`), ago(30), ago(30));
+  utimesSync(join(deps.sessionLogs, `${agent.id}.log`), ago(600), ago(600));
   mkdirSync(join(deps.serverLogs, 'lantern-cove'), { recursive: true });
-  writeFileSync(logFile(deps.serverLogs, 'lantern-cove', 'tide-api'), '');
+  const tide = logFile(deps.serverLogs, 'lantern-cove', 'tide-api');
+  writeFileSync(tide, '');
+  utimesSync(tide, ago(300), ago(300));
   writeFileSync(join(deps.serverLogs, 'lantern-cove', 'notes.txt'), '');
   expect(await logSources(deps, 'lantern-cove')).toEqual([
-    { id: 'docker:echo-logs', kind: 'docker', name: 'echo-logs', detail: 'alpine, Up 3 minutes' },
+    {
+      id: 'docker:echo-logs',
+      kind: 'docker',
+      name: 'echo-logs',
+      detail: 'alpine, Up 3 minutes',
+      state: 'live',
+      lastLine: '2026-05-06T07:09:50.000Z',
+    },
     {
       id: 'docker:harbour-db',
       kind: 'docker',
       name: 'harbour-db',
       detail: 'postgres:17, Up 2 hours',
+      state: 'quiet',
+      lastLine: null,
+    },
+    {
+      id: 'docker:tide-worker',
+      kind: 'docker',
+      name: 'tide-worker',
+      detail: 'alpine, Exited (1) 5 minutes ago',
+      state: 'stopped',
+      lastLine: null,
     },
     {
       id: `session:${shell.id}`,
       kind: 'session',
       name: 'harbour api',
       detail: `terminal session ${shell.id}`,
+      state: 'live',
+      lastLine: ago(30).toISOString(),
     },
     {
       id: `session:${agent.id}`,
       kind: 'session',
       name: 'fix the tides',
       detail: `claude session ${agent.id}`,
+      state: 'quiet',
+      lastLine: ago(600).toISOString(),
     },
-    { id: 'file:tide-api', kind: 'file', name: 'tide-api', detail: 'log file' },
+    {
+      id: 'file:tide-api',
+      kind: 'file',
+      name: 'tide-api',
+      detail: 'log file',
+      state: 'quiet',
+      lastLine: ago(300).toISOString(),
+    },
   ]);
+  expect(calls[0]?.args).toEqual([
+    'ps',
+    '--all',
+    '--filter',
+    'status=running',
+    '--filter',
+    'status=exited',
+    '--format',
+    '{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.State}}',
+  ]);
+});
+
+test("a project's modules are its top-level folders with a Gradle, Maven or npm build file", () => {
+  const dir = tempDir();
+  for (const [folder, build] of [
+    ['tide-api', 'build.gradle.kts'],
+    ['berth-service', 'pom.xml'],
+    ['harbour-web', 'package.json'],
+    ['docs', 'README.md'],
+    ['.gradle', 'build.gradle'],
+  ] as const) {
+    mkdirSync(join(dir, folder));
+    writeFileSync(join(dir, folder, build), '');
+  }
+  expect(projectModules(dir)).toEqual(['berth-service', 'harbour-web', 'tide-api']);
+  expect(projectModules(join(dir, 'gone'))).toEqual([]);
 });
 
 test('no containers, and no error, when docker is missing or its daemon is down', async () => {
@@ -102,8 +167,14 @@ test("a session's log reads as entries, filtered by level and cut to the last on
   expect(read).toEqual({
     source: `session:${shell.id}`,
     entries: [
-      { time: null, level: 'error', message: 'ERROR boom', stack: '    at dock (src/dock.ts:1:1)' },
-      { time: null, level: 'warn', message: 'WARN slow', stack: null },
+      {
+        time: null,
+        level: 'error',
+        message: 'ERROR boom',
+        logger: null,
+        stack: '    at dock (src/dock.ts:1:1)',
+      },
+      { time: null, level: 'warn', message: 'WARN slow', logger: null, stack: null },
     ],
   });
   expect((await readLog(deps, `session:${shell.id}`, { tail: 1 })).entries).toHaveLength(1);

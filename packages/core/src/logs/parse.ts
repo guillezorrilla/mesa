@@ -9,6 +9,8 @@ export type ServerLogEntry = {
   time: string | null;
   level: LogLevel | null;
   message: string;
+  /** The logger that wrote it, as Spring Boot or a JSON line names it; null when the line names none. */
+  logger: string | null;
   /** The stack trace lines folded under it, null when none followed. */
   stack: string | null;
 };
@@ -19,7 +21,7 @@ export type RawLine = { text: string; time?: string };
 const TIME = String.raw`\d{4}-\d\d-\d\d[T ]\d\d:\d\d:\d\d(?:[.,]\d+)?(?:Z|[+-]\d\d:?\d\d)?`;
 /** Spring Boot's default console line: time, level, pid, `---`, [app] [thread], logger ` : ` text. */
 const SPRING = new RegExp(
-  `^(${TIME})\\s+(TRACE|DEBUG|INFO|WARN|ERROR|FATAL)\\s+\\d+\\s+---\\s+(?:\\[[^\\]]*\\]\\s*)*\\S+\\s+:\\s(.*)$`,
+  `^(${TIME})\\s+(TRACE|DEBUG|INFO|WARN|ERROR|FATAL)\\s+\\d+\\s+---\\s+(?:\\[[^\\]]*\\]\\s*)*(\\S+)\\s+:\\s(.*)$`,
 );
 /** A time a plain line starts with. */
 const LEADING_TIME = new RegExp(`^\\[?(${TIME})\\]?\\s+`);
@@ -71,6 +73,7 @@ function jsonEntry(text: string): ServerLogEntry | undefined {
   if (typeof message !== 'string' || level === undefined) return undefined;
   const time = line.time ?? line.timestamp ?? line['@timestamp'] ?? line.ts;
   const stack = line.stack ?? line.stack_trace;
+  const logger = line.logger ?? line.logger_name;
   return {
     time:
       typeof time === 'string'
@@ -80,6 +83,7 @@ function jsonEntry(text: string): ServerLogEntry | undefined {
           : null,
     level: levelOf(level),
     message,
+    logger: typeof logger === 'string' ? logger : null,
     stack: typeof stack === 'string' && stack ? stack : null,
   };
 }
@@ -91,7 +95,8 @@ function entryOf(line: RawLine): ServerLogEntry {
     return {
       time: spring[1] ?? null,
       level: levelOf(spring[2]),
-      message: spring[3] ?? '',
+      message: spring[4] ?? '',
+      logger: spring[3] ?? null,
       stack: null,
     };
   const json = jsonEntry(line.text);
@@ -101,6 +106,7 @@ function entryOf(line: RawLine): ServerLogEntry {
     time: timed?.[1] ?? line.time ?? null,
     level: levelOf(LEVEL_WORD.exec(line.text)?.[1]),
     message: line.text,
+    logger: null,
     stack: null,
   };
 }

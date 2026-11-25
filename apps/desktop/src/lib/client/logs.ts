@@ -21,6 +21,12 @@ export const logsCommands = {
     '--',
     source,
   ]),
+  'logs.modules': commandWith<{ project: string }, { modules: string[] }>(({ project }) => [
+    'logs',
+    'modules',
+    '--',
+    project,
+  ]),
   /** `make: false` names the path only; the folder is made once the person copies it. */
   'logs.file': commandWith<
     { name: string; project: string; make?: boolean },

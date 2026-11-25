@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { atLeast, parseLog } from './parse.js';
 
-test("Spring Boot's console line gives its time, level and text", () => {
+test("Spring Boot's console line gives its time, level, logger and text", () => {
   expect(
     parseLog([
       '2026-01-02T10:11:12.345-08:00 ERROR 123 --- [lantern] [nio-8080-exec-1] c.e.TideController       : tide table missing',
@@ -12,9 +12,16 @@ test("Spring Boot's console line gives its time, level and text", () => {
       time: '2026-01-02T10:11:12.345-08:00',
       level: 'error',
       message: 'tide table missing',
+      logger: 'c.e.TideController',
       stack: null,
     },
-    { time: '2026-01-02 10:11:13.001', level: 'warn', message: 'slow start', stack: null },
+    {
+      time: '2026-01-02 10:11:13.001',
+      level: 'warn',
+      message: 'slow start',
+      logger: 'o.s.b.Harbour',
+      stack: null,
+    },
   ]);
 });
 
@@ -22,20 +29,33 @@ test('a JSON line gives severity or level, message or msg, and its time', () => 
   expect(
     parseLog([
       '{"severity":"WARNING","message":"buoy 7 drifting","timestamp":"2026-03-04T05:06:07Z"}',
-      '{"level":50,"msg":"anchor lost","time":1772600000000}',
+      '{"level":50,"msg":"anchor lost","time":1772600000000,"logger":"harbour.dock"}',
       '{"level":"info","msg":"harbour open","stack":"Error: none\\n    at open"}',
       '{"not":"a log line"}',
     ]),
   ).toEqual([
-    { time: '2026-03-04T05:06:07Z', level: 'warn', message: 'buoy 7 drifting', stack: null },
+    {
+      time: '2026-03-04T05:06:07Z',
+      level: 'warn',
+      message: 'buoy 7 drifting',
+      logger: null,
+      stack: null,
+    },
     {
       time: new Date(1772600000000).toISOString(),
       level: 'error',
       message: 'anchor lost',
+      logger: 'harbour.dock',
       stack: null,
     },
-    { time: null, level: 'info', message: 'harbour open', stack: 'Error: none\n    at open' },
-    { time: null, level: null, message: '{"not":"a log line"}', stack: null },
+    {
+      time: null,
+      level: 'info',
+      message: 'harbour open',
+      logger: null,
+      stack: 'Error: none\n    at open',
+    },
+    { time: null, level: null, message: '{"not":"a log line"}', logger: null, stack: null },
   ]);
 });
 
@@ -50,16 +70,29 @@ test('any other line takes its level from an ERROR, WARN, INFO or DEBUG word, el
       'an error in lower case is no level',
     ]),
   ).toEqual([
-    { time: '2026-05-06T07:08:09.123456789Z', level: 'error', message: 'ERROR boom', stack: null },
+    {
+      time: '2026-05-06T07:08:09.123456789Z',
+      level: 'error',
+      message: 'ERROR boom',
+      logger: null,
+      stack: null,
+    },
     {
       time: '2026-05-06T07:08:10Z',
       level: 'info',
       message: '[2026-05-06T07:08:10Z] INFO ferry docked',
+      logger: null,
       stack: null,
     },
-    { time: null, level: 'debug', message: 'DEBUG cache warm', stack: null },
-    { time: null, level: null, message: '  ready in 312 ms', stack: null },
-    { time: null, level: null, message: 'an error in lower case is no level', stack: null },
+    { time: null, level: 'debug', message: 'DEBUG cache warm', logger: null, stack: null },
+    { time: null, level: null, message: '  ready in 312 ms', logger: null, stack: null },
+    {
+      time: null,
+      level: null,
+      message: 'an error in lower case is no level',
+      logger: null,
+      stack: null,
+    },
   ]);
 });
 

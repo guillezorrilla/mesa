@@ -67,7 +67,12 @@ export {
 export { relativeAgo, shortAgo, timeAgo } from './lib/ago.js';
 export * from './lib/format.js';
 export { localClock, localDay, validLocalDay } from './lib/time.js';
+export { errorGroups, isMuted, muteKey, normalizedMessage } from './logs/groups.js';
+export { CONTEXT_LINES, logMessage } from './logs/message.js';
 export { entryText, LEVEL_NAMES } from './logs/parse.js';
+export { LIVE_MS, sourceLabel } from './logs/source-id.js';
+export { ownFrame, stackSummary, stackView } from './logs/stack.js';
+export { messageParts, requestIds } from './logs/tokens.js';
 export { mapSession } from './map/map.js';
 export { FINISHED_HOLD_MS } from './notifications/finished-hold.js';
 export { PHONE_PUSH_LABELS, PHONE_PUSH_MODES, type PhonePushMode } from './phone/away.js';

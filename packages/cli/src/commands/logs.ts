@@ -74,6 +74,18 @@ export const logsSources = defineCommand({
   },
 });
 
+export const logsModules = defineCommand({
+  name: 'logs modules',
+  summary:
+    "List a project's modules (top-level folders with a Gradle, Maven or npm build file), the service names the IntelliJ steps offer",
+  args: ['project?'],
+  example: 'mesa logs modules lantern-cove',
+  run: ({ mesa, args }) => {
+    const found = mesa.logs.modules(args.project);
+    return { data: found, text: found.modules.join('\n') || 'no modules' };
+  },
+});
+
 export const logsFile = defineCommand({
   name: 'logs file',
   summary:

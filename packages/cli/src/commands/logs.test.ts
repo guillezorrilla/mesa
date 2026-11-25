@@ -1,5 +1,5 @@
-import { existsSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import type { Runner } from '@mesa/core';
 import { plantOutputLog } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
@@ -76,7 +76,7 @@ test('logs sources lists containers, sessions with a log and log files; a source
   cli.withTmux();
   await cli.withProject();
   withDocker(
-    'echo-logs\talpine\tUp 1 minute\n',
+    'echo-logs\talpine\tUp 1 minute\trunning\n',
     '2026-05-06T07:08:09Z ERROR boom\n2026-05-06T07:08:10Z INFO fine\n2026-05-06T07:08:11Z ERROR boom\n',
   );
   const id = (await mesa('open', 'lantern-cove')).stdout.split('\n')[0] ?? '';
@@ -108,8 +108,20 @@ test('logs sources lists containers, sessions with a log and log files; a source
   ).toEqual({
     source: 'docker:echo-logs',
     entries: [
-      { time: '2026-05-06T07:08:09Z', level: 'error', message: 'ERROR boom', stack: null },
-      { time: '2026-05-06T07:08:11Z', level: 'error', message: 'ERROR boom', stack: null },
+      {
+        time: '2026-05-06T07:08:09Z',
+        level: 'error',
+        message: 'ERROR boom',
+        logger: null,
+        stack: null,
+      },
+      {
+        time: '2026-05-06T07:08:11Z',
+        level: 'error',
+        message: 'ERROR boom',
+        logger: null,
+        stack: null,
+      },
     ],
   });
   expect((await mesa('logs', `session:${id}`)).stdout).toBe('WARN tide rising\n');
@@ -123,6 +135,16 @@ test('logs sources lists containers, sessions with a log and log files; a source
   expect(await mesa('logs', 'sources', 'no-such-project')).toMatchObject({ code: 3 });
   expect(await mesa('logs', 'file', '../escape', '--project', 'lantern-cove')).toMatchObject({
     code: 2,
+  });
+});
+
+test('logs modules lists the top-level folders with a build file', async () => {
+  const dir = await cli.withProject();
+  mkdirSync(join(dir, 'tide-api'));
+  writeFileSync(join(dir, 'tide-api', 'build.gradle.kts'), '');
+  mkdirSync(join(dir, 'notes'));
+  expect((await mesa('logs', 'modules', 'lantern-cove', '--json')).json.data).toEqual({
+    modules: ['tide-api'],
   });
 });
 

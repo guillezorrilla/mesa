@@ -51,7 +51,7 @@ import { instructionsList, instructionsRead, instructionsWrite } from './instruc
 import { interrupt } from './interrupt.js';
 import { keys } from './keys.js';
 import { log } from './log.js';
-import { logs, logsFile, logsSources } from './logs.js';
+import { logs, logsFile, logsModules, logsSources } from './logs.js';
 import { map } from './map.js';
 import { merge } from './merge.js';
 import {
@@ -231,6 +231,7 @@ export const COMMANDS: Command[] = [
   log,
   logs,
   logsSources,
+  logsModules,
   logsFile,
   map,
   notifications,

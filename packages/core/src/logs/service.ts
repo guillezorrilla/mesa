@@ -7,7 +7,7 @@ import { readRegistry } from '../projects/registry.js';
 import { callerOf } from '../sessions/window/caller.js';
 import { type ReadOptions, readLog } from './read.js';
 import { sourceId } from './source-id.js';
-import { logFile, logSources } from './sources.js';
+import { logFile, logSources, projectModules } from './sources.js';
 
 /** The Logs panel's side of Mesa (CONTEXT.md, Logs panel): a project's log sources and their entries. */
 export function logsService(ctx: MesaContext) {
@@ -23,17 +23,18 @@ export function logsService(ctx: MesaContext) {
    * `project`, checked to be registered, else the project of the session whose window runs this
    * mesa, else the one the working folder is in; usage when there is none.
    */
-  const projectNamed = (project?: string) => {
+  const projectEntry = (project?: string) => {
     const registry = readRegistry(ctx.paths.registry);
     const name =
       project ??
       callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile }).session?.project ??
       projectOf(ctx.cwd, registry);
     if (!name) throw new MesaError('usage', 'name a project: mesa logs sources <project>');
-    if (!registry.some((entry) => entry.name === name))
-      throw new MesaError('not_found', `no project named ${name}; see mesa projects`);
-    return name;
+    const entry = registry.find((each) => each.name === name);
+    if (!entry) throw new MesaError('not_found', `no project named ${name}; see mesa projects`);
+    return entry;
   };
+  const projectNamed = (project?: string) => projectEntry(project).name;
   return {
     /** Every source `project`'s local servers print to (logSources). */
     sources: async (project?: string) => ({
@@ -42,6 +43,8 @@ export function logsService(ctx: MesaContext) {
     /** A source's last entries (readLog); a `file:` source is the project's. */
     read: (source: string, opts: ReadOptions & { project?: string } = {}) =>
       readLog(deps(), source, { ...opts, project: () => projectNamed(opts.project) }),
+    /** The project's modules (projectModules), the service names the IntelliJ steps offer. */
+    modules: (project?: string) => ({ modules: projectModules(projectEntry(project).path) }),
     /**
      * Where an IDE saves `project`'s service `name` console (the IntelliJ setup), its folder made
      * unless `make` is false: the path, and the source it becomes once the file is there.
