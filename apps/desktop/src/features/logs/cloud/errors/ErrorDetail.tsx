@@ -1,5 +1,12 @@
 import type { CloudErrorGroup, IncidentLink } from '@mesa/core';
-import { consoleUrl, groupQuery, jsonObject, plainTitle, splitMessage } from '@mesa/core/browser';
+import {
+  consoleUrl,
+  groupQuery,
+  jsonObject,
+  linkReason,
+  plainTitle,
+  splitMessage,
+} from '@mesa/core/browser';
 import { ExternalLink, MessageSquareText, Wrench } from 'lucide-react';
 import { CountPill } from '@/components/CountPill';
 import { ExternalLink as Link } from '@/components/ExternalLink';
@@ -14,14 +21,6 @@ import { useCloudCopy } from '../useCloudCopy';
 import { ErrorBadge } from './ErrorBadge';
 import { ErrorOccurrences } from './ErrorOccurrences';
 import { MessageView } from './MessageView';
-
-const REASON = {
-  trace: 'same trace in',
-  request: 'same request in',
-  context: 'same',
-  revision: 'same revision',
-  counts: 'counts rise together',
-} as const;
 
 function Section(props: { title: string; children: React.ReactNode }) {
   return (
@@ -181,17 +180,18 @@ export function ErrorDetail(props: {
               <li key={key}>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs hover:bg-accent"
+                  className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5 rounded px-2 py-1.5 text-left text-xs hover:bg-accent"
                   onClick={() => props.onSelect(key)}
                 >
-                  <span className="min-w-0 flex-1 truncate font-mono">
-                    {plainTitle(other.message)}
-                  </span>
-                  <span className="shrink-0 text-muted-foreground">
-                    {links.map((link) => `${REASON[link.reason]} ${link.detail}`).join('; ')}
-                  </span>
-                  <span className="w-9 shrink-0 text-right text-muted-foreground tabular-nums">
+                  <span className="truncate font-mono">{plainTitle(other.message)}</span>
+                  <span className="text-right text-muted-foreground tabular-nums">
                     {Math.round(Math.max(...links.map((l) => l.strength)) * 100)}%
+                  </span>
+                  <span className="col-span-2 text-muted-foreground">
+                    {[...links]
+                      .sort((a, b) => b.strength - a.strength)
+                      .map(linkReason)
+                      .join('; ')}
                   </span>
                 </button>
               </li>

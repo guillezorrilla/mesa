@@ -66,7 +66,6 @@ export const CloudEntryRow = memo(function CloudEntryRow(props: {
             </span>
           )}
           {props.selected && (
-            // biome-ignore lint/a11y/noStaticElementInteractions: keeps the row's click off its own actions
             <div
               aria-label="Entry actions"
               role="toolbar"
