@@ -5,7 +5,7 @@ import { pressed } from '@/lib/shortcutKeys';
 import { useKeptWidth } from '@/lib/useKeptWidth';
 
 /** The panel's width bounds beside the terminal, which always keeps TERMINAL_MIN pixels. */
-export const LOGS_WIDTH = { min: 360, max: 1400, initial: 560, step: 32 };
+export const LOGS_WIDTH = { min: 360, max: 1400, initial: 640, step: 32 };
 export const TERMINAL_MIN = 256;
 
 /**

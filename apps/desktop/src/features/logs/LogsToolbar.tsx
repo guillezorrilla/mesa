@@ -1,11 +1,9 @@
 import type { LogSource } from '@mesa/core';
 import { FIXED_SHORTCUTS } from '@mesa/core/browser';
-import { Maximize2, Minimize2, X } from 'lucide-react';
+import { Maximize2, Minimize2, Radio, X } from 'lucide-react';
 import { IconButton } from '@/components/IconButton';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { keyCaps } from '@/lib/shortcutKeys';
 import { cn } from '@/lib/utils';
 import { LogSourcePicker } from './LogSourcePicker';
@@ -52,7 +50,7 @@ export function LogsToolbar(props: {
 }) {
   const keys = keyCaps(FIXED_SHORTCUTS.maximizeLogs).join('');
   return (
-    <header className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-card px-2 py-1.5">
+    <header className="flex shrink-0 flex-wrap items-center gap-1.5 border-b bg-card px-2 py-1.5">
       <LogSourcePicker
         sources={props.sources}
         source={props.source}
@@ -64,14 +62,14 @@ export function LogsToolbar(props: {
         label="Level"
         value={props.level}
         onChange={props.onLevel}
-        className="h-7"
+        className="h-7 [&>button]:px-2"
         options={[
           ['all', levelLabel('All', props.counts.all)],
           ['error', levelLabel('Errors', props.counts.error, 'bg-state-failed')],
           ['warn', levelLabel('Warn', props.counts.warn, 'bg-state-waiting')],
         ]}
       />
-      <div className="flex h-7 min-w-36 flex-1 items-center gap-1 rounded-md border border-input px-1 focus-within:ring-[3px] focus-within:ring-ring/50">
+      <div className="flex h-7 min-w-24 flex-1 items-center gap-1 rounded-md border border-input px-1 focus-within:ring-[3px] focus-within:ring-ring/50">
         {props.request && (
           <span className="inline-flex shrink-0 items-center gap-1 rounded bg-state-working/12 py-0.5 pr-0.5 pl-1.5 font-mono text-[11px] text-state-working">
             request {props.request}
@@ -93,10 +91,13 @@ export function LogsToolbar(props: {
           onChange={(event) => props.onText(event.currentTarget.value)}
         />
       </div>
-      <Label className="gap-1.5 text-xs font-normal text-muted-foreground">
-        <Switch checked={props.live} onCheckedChange={props.onLive} /> Live
-      </Label>
       <div className="ml-auto flex items-center">
+        <IconButton
+          label={props.live ? 'Live: new lines every 2 s (pause)' : 'Paused (go live)'}
+          icon={Radio}
+          active={props.live}
+          onClick={() => props.onLive(!props.live)}
+        />
         <IconButton
           label={
             props.maximized ? `Back beside the terminal (Esc, ${keys})` : `Maximize logs (${keys})`
