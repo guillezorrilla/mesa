@@ -2,6 +2,7 @@ import type { MesaContext } from '../context.js';
 import { clip } from '../lib/clip.js';
 import { MesaError } from '../lib/result.js';
 import { daysBefore } from '../lib/time.js';
+import { DECISIONS_EXPERIMENTAL_DEFAULT } from '../profile/config.js';
 import type { Recorded } from '../receipts/recorder.js';
 import { projectLabel } from '../sessions/record/general.js';
 import type { SessionRecord } from '../sessions/record/record.js';
@@ -48,8 +49,8 @@ export type EvaluateOptions = {
 
 export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'decide'>) {
   const model = () => ctx.configIfAny()?.decisions.model ?? 'none';
-  /** The person's opt-in to automatic decisions where the model is not proven yet. */
-  const experimental = () => ctx.configIfAny()?.decisions.experimental ?? false;
+  const experimental = () =>
+    ctx.configIfAny()?.decisions.experimental ?? DECISIONS_EXPERIMENTAL_DEFAULT;
   const stateOf = (id: string) => sessionDecisions({ ...ctx, dir: ctx.paths.decisions }, id);
   /** The live session a call serves, or a usage error saying why none. */
   const bound = (given?: string): SessionRecord => {

@@ -4,6 +4,7 @@ import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
 import { automaticGate } from '../../decisions/site-mode.js';
 import { supervisingModel } from '../../decisions/supervision.js';
+import { DECISIONS_EXPERIMENTAL_DEFAULT } from '../../profile/config.js';
 import { projectPriorities } from '../../projects/projects.js';
 import { readRegistry } from '../../projects/registry.js';
 import { askingChildren, latestReports } from '../../reports/report-delivery.js';
@@ -33,7 +34,7 @@ export function boardLook(ctx: MesaContext, faro: Faro, elsewhere: () => Readonl
     const decisions = ctx.configIfAny()?.decisions;
     const provider = supervisingModel(
       decisions?.model,
-      automaticGate(decisions?.experimental ?? false),
+      automaticGate(decisions?.experimental ?? DECISIONS_EXPERIMENTAL_DEFAULT),
     );
     return listSessions(
       {

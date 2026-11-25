@@ -247,8 +247,10 @@ export function SessionsScreen(
           acting={acting}
           onFileLink={props.onFileLink}
           onWebLink={(session, url) => {
-            if (props.terminalPreferences?.webLinks === 'default')
-              return void run('browser.external', { url });
+            if (props.terminalPreferences?.webLinks === 'default') {
+              void run('browser.external', { url });
+              return;
+            }
             side.requestBrowser(session, url);
             props.onSelectSession?.(session);
           }}

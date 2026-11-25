@@ -79,6 +79,9 @@ const WithoutRemovedKeys = z
       : config,
   );
 
+/** Automatic decisions where the model is not proven yet: on unless the person turns them off. */
+export const DECISIONS_EXPERIMENTAL_DEFAULT = true;
+
 // Strict objects, so a typo in `mesa config set` is an error, not a silent no-op; one in the file
 // is dropped on load and named by `mesa doctor` (readConfig).
 const ConfigShape = z.strictObject({
@@ -100,9 +103,8 @@ const ConfigShape = z.strictObject({
         model: DecisionsModelSchema.default('none'),
         threshold: z.number().min(0).max(1).default(0.7),
         // The person's opt-in to automatic decisions at the sites the model passed the quality
-        // gate at but not yet the paired-workflow gate, marked experimental (ADR-0019, sites.ts);
-        // on unless turned off, so a chosen model acts wherever it passed the quality gate.
-        experimental: z.boolean().default(true),
+        // gate at but not yet the paired-workflow gate, marked experimental (ADR-0019, sites.ts).
+        experimental: z.boolean().default(DECISIONS_EXPERIMENTAL_DEFAULT),
         // CLEF's Cloudflare account ID: not a secret, unlike its API token.
         cloudflareAccount: z.string().trim().min(1).optional(),
       }),
