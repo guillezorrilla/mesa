@@ -160,3 +160,60 @@ test("logs.panel hides the Logs button for one project: the project's override, 
   await mesa('projects', 'set', 'lantern-cove', 'logs.panel', 'true');
   expect(await shown()).toBe(true);
 });
+
+test("logs run hands the terminal to script with the command, keeping its output in the project's log folder", async () => {
+  const dir = await cli.withProject();
+  const ran = await mesa(
+    'logs',
+    'run',
+    'tide-api',
+    '--project',
+    'lantern-cove',
+    '--',
+    'pnpm',
+    'dev',
+    '--port=4000',
+  );
+  const path = `${cli.home}/.mesa/default/logs/lantern-cove/tide-api.log`;
+  expect(ran.stdout).toBe(`mesa: keeping this output for the Logs panel in ${path}\n`);
+  expect(ran.exec?.slice(-5)).toEqual([
+    path,
+    "'pnpm' 'dev' '--port=4000'",
+    'pnpm',
+    'dev',
+    '--port=4000',
+  ]);
+  expect(existsSync(dirname(path))).toBe(true);
+  expect(await mesa('logs', 'run', 'tide-api', '--project', 'lantern-cove')).toMatchObject({
+    code: 2,
+  });
+  expect(dir).toBeTruthy();
+});
+
+test('logs add keeps a file anywhere for the project, logs files lists it, logs remove forgets it', async () => {
+  await cli.withProject();
+  const log = join(cli.home, 'development.log');
+  writeFileSync(log, 'I, [2026-05-06T07:08:09.1 #1]  INFO -- : Started GET "/tides"\n');
+  expect((await mesa('logs', 'add', log, '--project', 'lantern-cove', '--json')).json.data).toEqual(
+    {
+      files: [log],
+    },
+  );
+  const listed = (await mesa('logs', 'files', 'lantern-cove', '--json')).json.data;
+  expect(listed.files).toEqual([log]);
+  const sources = (await mesa('logs', 'sources', 'lantern-cove', '--json')).json.data.sources;
+  expect(sources.at(-1)).toMatchObject({ id: `file:${log}`, name: 'development.log' });
+  expect(
+    (await mesa('logs', `file:${log}`, '--project', 'lantern-cove', '--json')).json.data.entries[0],
+  ).toMatchObject({ level: 'info', message: 'Started GET "/tides"' });
+  expect(
+    (await mesa('logs', 'remove', log, '--project', 'lantern-cove', '--json')).json.data,
+  ).toEqual({
+    files: [],
+  });
+  expect(
+    await mesa('logs', 'add', join(cli.home, 'gone.log'), '--project', 'lantern-cove'),
+  ).toMatchObject({
+    code: 3,
+  });
+});

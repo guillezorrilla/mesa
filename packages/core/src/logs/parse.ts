@@ -1,5 +1,6 @@
 // Log entries (CONTEXT.md, Logs panel): what a local server printed, one entry per logged event,
-// read from Spring Boot's console line, a JSON line, or any other line.
+// read from Spring Boot's console line, Rails' (Ruby's Logger), a JSON line (pino, winston, bunyan,
+// zap, structlog, logrus), or any other line.
 
 export const LOG_LEVELS = ['error', 'warn', 'info', 'debug'] as const;
 export type LogLevel = (typeof LOG_LEVELS)[number];
@@ -22,6 +23,10 @@ const TIME = String.raw`\d{4}-\d\d-\d\d[T ]\d\d:\d\d:\d\d(?:[.,]\d+)?(?:Z|[+-]\d
 /** Spring Boot's default console line: time, level, pid, `---`, [app] [thread], logger ` : ` text. */
 const SPRING = new RegExp(
   `^(${TIME})\\s+(TRACE|DEBUG|INFO|WARN|ERROR|FATAL)\\s+\\d+\\s+---\\s+(?:\\[[^\\]]*\\]\\s*)*(\\S+)\\s+:\\s(.*)$`,
+);
+/** Ruby's Logger, as Rails writes it: `I, [time #pid]  INFO -- progname: text`. */
+const RAILS = new RegExp(
+  `^[DIWEFAU], \\[(${TIME})(?:\\s+#\\d+)?\\]\\s+(DEBUG|INFO|WARN|ERROR|FATAL|ANY|UNKNOWN)\\s+--\\s+([^:]*):\\s?(.*)$`,
 );
 /** A time a plain line starts with. */
 const LEADING_TIME = new RegExp(`^\\[?(${TIME})\\]?\\s+`);
@@ -68,18 +73,21 @@ function jsonEntry(text: string): ServerLogEntry | undefined {
   } catch {
     return undefined;
   }
-  const message = line.message ?? line.msg;
+  // `event` is structlog's.
+  const message = line.message ?? line.msg ?? line.event;
   const level = line.severity ?? line.level;
   if (typeof message !== 'string' || level === undefined) return undefined;
   const time = line.time ?? line.timestamp ?? line['@timestamp'] ?? line.ts;
-  const stack = line.stack ?? line.stack_trace;
+  // `stacktrace` is zap's.
+  const stack = line.stack ?? line.stack_trace ?? line.stacktrace;
   const logger = line.logger ?? line.logger_name;
   return {
     time:
       typeof time === 'string'
         ? time
         : typeof time === 'number'
-          ? new Date(time).toISOString()
+          ? // Seconds (zap's `ts`, a float) or milliseconds (pino, bunyan).
+            new Date(time < 1e12 ? time * 1000 : time).toISOString()
           : null,
     level: levelOf(level),
     message,
@@ -97,6 +105,15 @@ function entryOf(line: RawLine): ServerLogEntry {
       level: levelOf(spring[2]),
       message: spring[4] ?? '',
       logger: spring[3] ?? null,
+      stack: null,
+    };
+  const rails = RAILS.exec(line.text);
+  if (rails)
+    return {
+      time: rails[1] ?? null,
+      level: levelOf(rails[2]),
+      message: rails[4] ?? '',
+      logger: rails[3]?.trim() || null,
       stack: null,
     };
   const json = jsonEntry(line.text);

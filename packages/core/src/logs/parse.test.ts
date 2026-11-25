@@ -130,3 +130,67 @@ test('a level filter keeps that level and the more severe ones', () => {
     [error, warn, info, none].filter((entry) => entry && atLeast(entry, level)).length;
   expect([kept('error'), kept('warn'), kept('info'), kept(undefined)]).toEqual([1, 2, 3, 4]);
 });
+
+test('Rails, Django, zap, structlog and bunyan lines read too', () => {
+  expect(
+    parseLog([
+      'I, [2026-05-06T07:08:09.123456 #4821]  INFO -- : Started GET "/tides" for 127.0.0.1',
+      'E, [2026-05-06T07:08:10.000001 #4821] ERROR -- harbour: Moorings::BerthMissing',
+      '[06/May/2026 07:08:11] "POST /moorings HTTP/1.1" 500 145',
+      'ERROR 2026-05-06 07:08:12,345 log 4821 1234 Internal Server Error: /moorings',
+      '{"level":"error","ts":1778051293.5,"logger":"tide.api","caller":"api/server.go:88","msg":"request failed","stacktrace":"main.serve\\n\\t/src/api/server.go:88"}',
+      '{"event":"berth reserved","level":"info","timestamp":"2026-05-06T07:08:14Z","logger":"harbour"}',
+      '{"name":"tide","level":40,"msg":"slow tide","time":"2026-05-06T07:08:15.000Z"}',
+    ]),
+  ).toEqual([
+    {
+      time: '2026-05-06T07:08:09.123456',
+      level: 'info',
+      message: 'Started GET "/tides" for 127.0.0.1',
+      logger: null,
+      stack: null,
+    },
+    {
+      time: '2026-05-06T07:08:10.000001',
+      level: 'error',
+      message: 'Moorings::BerthMissing',
+      logger: 'harbour',
+      stack: null,
+    },
+    {
+      time: null,
+      level: null,
+      message: '[06/May/2026 07:08:11] "POST /moorings HTTP/1.1" 500 145',
+      logger: null,
+      stack: null,
+    },
+    {
+      time: null,
+      level: 'error',
+      message: 'ERROR 2026-05-06 07:08:12,345 log 4821 1234 Internal Server Error: /moorings',
+      logger: null,
+      stack: null,
+    },
+    {
+      time: new Date(1778051293500).toISOString(),
+      level: 'error',
+      message: 'request failed',
+      logger: 'tide.api',
+      stack: 'main.serve\n\t/src/api/server.go:88',
+    },
+    {
+      time: '2026-05-06T07:08:14Z',
+      level: 'info',
+      message: 'berth reserved',
+      logger: 'harbour',
+      stack: null,
+    },
+    {
+      time: '2026-05-06T07:08:15.000Z',
+      level: 'warn',
+      message: 'slow tide',
+      logger: null,
+      stack: null,
+    },
+  ]);
+});

@@ -17,6 +17,8 @@ export type RegistryEntry = {
   visits?: number;
   /** sha256 of the exact setup, teardown and check from its mesa.yaml this profile approved. */
   approved?: { setup?: string; teardown?: string; check?: string };
+  /** Log files anywhere on disk the Logs panel reads for it (CONTEXT.md, Logs panel), kept here, never in the repository. */
+  logFiles?: string[];
 };
 
 const RegistrySchema = z.strictObject({
@@ -46,6 +48,7 @@ const RegistrySchema = z.strictObject({
             .optional(),
         })
         .optional(),
+      logFiles: z.array(z.string()).optional(),
     }),
   ),
 });

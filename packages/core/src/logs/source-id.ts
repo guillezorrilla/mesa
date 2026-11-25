@@ -34,8 +34,8 @@ export type LogSource = {
 const KIND_NAMES: Record<LogSourceKind, string> = {
   docker: 'Docker',
   session: 'Session',
-  // A log file is an IDE's saved console, which the IntelliJ steps set up.
-  file: 'IntelliJ',
+  // An IDE's saved console, a terminal's (mesa logs run), or a log file anywhere.
+  file: 'File',
 };
 
 /** A source as a person reads it: its kind, then its name ("IntelliJ · api-2"). */

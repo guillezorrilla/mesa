@@ -21,6 +21,20 @@ export const logsCommands = {
     '--',
     source,
   ]),
+  'logs.files': commandWith<{ project: string }, { files: string[]; suggested: string[] }>(
+    ({ project }) => ['logs', 'files', '--', project],
+  ),
+  'logs.keepFile': commandWith<
+    { path: string; project: string; keep: boolean },
+    { files: string[] }
+  >(({ path, project, keep }) => [
+    'logs',
+    keep ? 'add' : 'remove',
+    '--project',
+    project,
+    '--',
+    path,
+  ]),
   'logs.modules': commandWith<{ project: string }, { modules: string[] }>(({ project }) => [
     'logs',
     'modules',

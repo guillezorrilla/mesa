@@ -24,6 +24,11 @@ test('request ids, 4xx and 5xx statuses and slow durations are parts of their ow
     { text: '404', status: 'waiting' },
     { text: ' NOT_FOUND' },
   ]);
+  expect(messageParts('[06/May/2026 07:08:11] "POST /moorings HTTP/1.1" 500 145')).toEqual([
+    { text: '[06/May/2026 07:08:11] "POST /moorings HTTP/1.1" ' },
+    { text: '500', status: 'failed' },
+    { text: ' 145' },
+  ]);
   expect(messageParts('GET /tides 200 2ms took 999ms')).toEqual([
     { text: 'GET /tides 200 2ms took 999ms' },
   ]);

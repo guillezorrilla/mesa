@@ -5,11 +5,12 @@ import { MesaError } from '../lib/result.js';
 import { sessionTitle } from '../sessions/record/labels.js';
 import type { SessionStore } from '../sessions/record/store.js';
 import { outputLog } from '../sessions/window/output-log.js';
+import { fileSource } from './log-files.js';
 import { LIVE_MS, type LogSource, type LogSourceState, sourceId } from './source-id.js';
 
 // Where a project's local servers print (CONTEXT.md, Logs panel): Docker containers running or
-// exited within the hour, the Output logs of its unended sessions, and the log files in its folder
-// under the profile's logs, each with when it printed its last line.
+// exited within the hour, the Output logs of its unended sessions, the log files in its folder
+// under the profile's logs and the ones it keeps anywhere, each with when it printed its last line.
 
 export type LogSourceDeps = {
   run: Runner;
@@ -19,6 +20,8 @@ export type LogSourceDeps = {
   /** Each project's log files, `<serverLogs>/<project>/<name>.log` (ProfilePaths.serverLogs). */
   serverLogs: string;
   now: () => Date;
+  /** The log files anywhere on disk a person added to the project (log-files.ts). */
+  logFiles: (project: string) => readonly string[];
 };
 
 /** Live with a line in the last minute, else quiet. */
@@ -148,11 +151,15 @@ function files(deps: LogSourceDeps, project: string): LogSource[] {
     }));
 }
 
-/** Every source `project`'s local servers print to: containers, sessions, then log files. */
+/**
+ * Every source `project`'s local servers print to: containers, sessions, the log files in its
+ * folder of the profile's logs, then the ones it keeps anywhere on disk.
+ */
 export async function logSources(deps: LogSourceDeps, project: string): Promise<LogSource[]> {
   return [
     ...(await containers(deps.run, deps.now())),
     ...sessions(deps, project),
     ...files(deps, project),
+    ...deps.logFiles(project).map((path) => fileSource(path, deps.now())),
   ];
 }

@@ -5,6 +5,7 @@ import { MesaError } from '../lib/result.js';
 import { projectOf } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
 import { callerOf } from '../sessions/window/caller.js';
+import { changeLogFiles, suggestedLogFiles, teeArgv } from './log-files.js';
 import { projectModules } from './modules.js';
 import { type ReadOptions, readLog } from './read.js';
 import { sourceId } from './source-id.js';
@@ -19,6 +20,8 @@ export function logsService(ctx: MesaContext) {
     now: ctx.clock,
     sessionLogs: ctx.paths.logs,
     serverLogs: ctx.paths.serverLogs,
+    logFiles: (project: string) =>
+      readRegistry(ctx.paths.registry).find((entry) => entry.name === project)?.logFiles ?? [],
   });
   /**
    * `project`, checked to be registered, else the project of the session whose window runs this
@@ -44,6 +47,32 @@ export function logsService(ctx: MesaContext) {
     /** A source's last entries (readLog); a `file:` source is the project's. */
     read: (source: string, opts: ReadOptions & { project?: string } = {}) =>
       readLog(deps(), source, { ...opts, project: () => projectNamed(opts.project) }),
+    /**
+     * The argv that runs `command` as it is, its output also appended to `project`'s log file
+     * `name` (teeArgv), its folder made: what `mesa logs run` hands the terminal to.
+     */
+    run: (name: string, command: readonly string[], project?: string) => {
+      if (!command.length) throw new MesaError('usage', 'name the command to run after --');
+      const path = logFile(ctx.paths.serverLogs, projectNamed(project), name);
+      mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+      return { path, source: sourceId('file', name), exec: teeArgv(path, command) };
+    },
+    /** The log files the project keeps anywhere, and the gitignored `*.log` files Mesa suggests. */
+    files: async (project?: string) => {
+      const entry = projectEntry(project);
+      const files = entry.logFiles ?? [];
+      return { files, suggested: await suggestedLogFiles(ctx.run, entry.path, files) };
+    },
+    /** Adds `path` (absolute, a file) to the project's log files, or removes it; its files after. */
+    keepFile: (path: string, keep: boolean, project?: string) => ({
+      files: changeLogFiles(
+        ctx,
+        ctx.paths.registry,
+        projectNamed(project),
+        ctx.absolute(path),
+        keep,
+      ),
+    }),
     /** The project's modules (projectModules), the service names the IntelliJ steps offer. */
     modules: (project?: string) => ({ modules: projectModules(projectEntry(project).path) }),
     /**

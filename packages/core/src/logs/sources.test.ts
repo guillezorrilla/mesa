@@ -52,6 +52,8 @@ function setUp(
     now: () => NOW,
     sessionLogs: paths.logs,
     serverLogs: paths.serverLogs,
+    kept: [] as string[],
+    logFiles: () => deps.kept,
   };
   return { deps, calls, agent, shell };
 }
@@ -237,4 +239,30 @@ test('since takes an age or an ISO time, and refuses anything else', async () =>
     code: 'usage',
   });
   await expect(readLog({} as never, 'nowhere')).rejects.toMatchObject({ code: 'usage' });
+});
+
+test('a log file kept anywhere is a source and reads by its path; one not kept is refused', async () => {
+  const { deps } = setUp();
+  const dir = tempDir();
+  const rails = join(dir, 'development.log');
+  writeFileSync(
+    rails,
+    'I, [2026-05-06T07:08:09.123456 #4821]  INFO -- : Started GET "/tides" for 127.0.0.1\n\x1b[31mE, [2026-05-06T07:08:10.000001 #4821] ERROR -- : boom\x1b[0m\n',
+  );
+  deps.kept = [rails];
+  const sources = await logSources(deps, 'lantern-cove');
+  expect(sources.at(-1)).toMatchObject({
+    id: `file:${rails}`,
+    kind: 'file',
+    name: 'development.log',
+    detail: rails,
+  });
+  const read = await readLog(deps, `file:${rails}`, { project: () => 'lantern-cove' });
+  expect(read.entries.map((entry) => [entry.level, entry.message])).toEqual([
+    ['info', 'Started GET "/tides" for 127.0.0.1'],
+    ['error', 'boom'],
+  ]);
+  await expect(
+    readLog(deps, `file:${join(dir, 'other.log')}`, { project: () => 'lantern-cove' }),
+  ).rejects.toMatchObject({ code: 'usage' });
 });

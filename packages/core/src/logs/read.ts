@@ -3,6 +3,7 @@ import { tailLines } from '../lib/file-tail.js';
 import type { LockDeps } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { outputTail } from '../sessions/window/output-log.js';
+import { plainText } from '../sessions/window/terminal-text.js';
 import { atLeast, type LogLevel, parseLog, type RawLine, type ServerLogEntry } from './parse.js';
 import { parseSourceId } from './source-id.js';
 import { CONTAINER_NAME, type LogSourceDeps, logFile } from './sources.js';
@@ -83,14 +84,20 @@ async function rawLines(
   if (parsed?.kind === 'file') {
     if (!project) throw new MesaError('usage', `name the project whose log file ${parsed.name} is`);
     const named = project();
-    const file = logFile(deps.serverLogs, named, parsed.name);
+    // A path is one of the files the project keeps (log-files.ts); a name, one in its folder.
+    if (parsed.name.startsWith('/') && !deps.logFiles(named).includes(parsed.name))
+      throw new MesaError('usage', `${parsed.name} is not one of project ${named}'s log files`);
+    const file = parsed.name.startsWith('/')
+      ? parsed.name
+      : logFile(deps.serverLogs, named, parsed.name);
     if (!existsSync(file))
       throw new MesaError('not_found', `no log file ${parsed.name} in project ${named}`);
     // Read anew each time, so a file IntelliJ rewrote on a new run starts over.
     for (let bytes = Math.max(64 * 1024, lines * LINE_BYTES); ; bytes *= 2) {
       const read = tailLines(file, bytes);
       if (!read.truncated || read.lines.length >= lines)
-        return read.lines.slice(-lines).map((line) => ({ text: line.trimEnd() }));
+        // A terminal's file (mesa logs run) holds its escape sequences: read as plain text.
+        return read.lines.slice(-lines).map((line) => ({ text: plainText(line).trimEnd() }));
     }
   }
   throw new MesaError(

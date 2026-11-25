@@ -74,6 +74,66 @@ export const logsSources = defineCommand({
   },
 });
 
+export const logsRun = defineCommand({
+  name: 'logs run',
+  summary:
+    "Run a command as it is (colours, input, Ctrl-C, exit status) and keep its output as one of this project's log sources",
+  args: ['name', 'command...'],
+  flags: {
+    project: { type: 'string', description: 'Its project (default: the one this folder is in)' },
+  },
+  example: 'mesa logs run tide-api -- ./gradlew bootRun',
+  run: ({ mesa, args, flags }) => {
+    const ran = mesa.logs.run(args.name, args.command, flags.project);
+    return {
+      data: ran,
+      text: `mesa: keeping this output for the Logs panel in ${ran.path}`,
+      exec: ran.exec,
+    };
+  },
+});
+
+export const logsFiles = defineCommand({
+  name: 'logs files',
+  summary:
+    'List the log files a project keeps anywhere on disk, and the gitignored *.log files in its checkout Mesa suggests',
+  args: ['project?'],
+  example: 'mesa logs files lantern-cove',
+  run: async ({ mesa, args }) => {
+    const found = await mesa.logs.files(args.project);
+    const text = [
+      ...found.files,
+      ...found.suggested.map((path) => `${path}  (suggested: mesa logs add ${path})`),
+    ].join('\n');
+    return { data: found, text: text || 'no log files' };
+  },
+});
+
+export const logsAdd = defineCommand({
+  name: 'logs add',
+  summary:
+    "Keep a log file anywhere on disk as one of a project's log sources (in this profile only)",
+  args: ['path'],
+  flags: { project: { type: 'string', description: 'Its project (default: this one)' } },
+  example: 'mesa logs add log/development.log',
+  run: ({ mesa, args, flags }) => {
+    const kept = mesa.logs.keepFile(args.path, true, flags.project);
+    return { data: kept, text: kept.files.join('\n') };
+  },
+});
+
+export const logsRemove = defineCommand({
+  name: 'logs remove',
+  summary: "Stop keeping a log file as one of a project's log sources; the file stays",
+  args: ['path'],
+  flags: { project: { type: 'string', description: 'Its project (default: this one)' } },
+  example: 'mesa logs remove log/development.log',
+  run: ({ mesa, args, flags }) => {
+    const kept = mesa.logs.keepFile(args.path, false, flags.project);
+    return { data: kept, text: kept.files.join('\n') || 'no log files kept' };
+  },
+});
+
 export const logsModules = defineCommand({
   name: 'logs modules',
   summary:

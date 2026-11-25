@@ -1,0 +1,91 @@
+import { existsSync, statSync } from 'node:fs';
+import { basename, isAbsolute, join } from 'node:path';
+import type { LockDeps } from '../lib/lock-file.js';
+import { type Runner, shellWord } from '../lib/process.js';
+import { MesaError } from '../lib/result.js';
+import { type RegistryEntry, updateRegistry } from '../projects/registry.js';
+import { LIVE_MS, type LogSource, sourceId } from './source-id.js';
+
+// Log files a project's servers write anywhere on disk (CONTEXT.md, Logs panel): the ones a person
+// added, kept in the profile's registry, the gitignored `*.log` files Mesa suggests, and the
+// `mesa logs run` line that tees any command's output into one.
+
+/** How many suggestions Mesa offers. */
+const SUGGESTED = 20;
+
+/**
+ * The argv that runs `command` in a pseudo-terminal with `script(1)`, so its colours, input,
+ * Ctrl-C and exit status are its own, while every byte is appended to `file`: util-linux's
+ * `script -c` where `script --version` answers, else the BSD form macOS has. A stdin that is no
+ * terminal is read as empty.
+ */
+export function teeArgv(file: string, command: readonly string[]) {
+  const line = command.map(shellWord).join(' ');
+  return [
+    'sh',
+    '-c',
+    // BSD script refuses a stdin that is no terminal (a pipe): it then reads none.
+    'log=$1; line=$2; shift 2; [ -t 0 ] || exec </dev/null; if script --version >/dev/null 2>&1; then exec script -q -a -e -f -c "$line" "$log"; fi; exec script -q -a -F "$log" "$@"',
+    'sh',
+    file,
+    line,
+    ...command,
+  ];
+}
+
+/** `path` as a source: its file's name, its path, and when it last changed (none when it is gone). */
+export function fileSource(path: string, now: Date): LogSource {
+  const there = existsSync(path);
+  const lastLine = there ? new Date(statSync(path).mtimeMs).toISOString() : null;
+  return {
+    id: sourceId('file', path),
+    kind: 'file',
+    name: basename(path),
+    detail: there ? path : `${path} (not there)`,
+    state: lastLine && now.getTime() - Date.parse(lastLine) < LIVE_MS ? 'live' : 'quiet',
+    lastLine,
+  };
+}
+
+/**
+ * The gitignored `*.log` files in `dir`'s checkout, by absolute path, outside `node_modules`:
+ * what Mesa suggests adding. None when git cannot tell.
+ */
+export async function suggestedLogFiles(run: Runner, dir: string, known: readonly string[]) {
+  const listed = await run(
+    'git',
+    ['-C', dir, 'ls-files', '--others', '--ignored', '--exclude-standard', '--', '*.log'],
+    5_000,
+  );
+  if (!listed.ok) return [];
+  return listed.stdout
+    .split('\n')
+    .filter((path) => path && !path.split('/').includes('node_modules'))
+    .map((path) => join(dir, path))
+    .filter((path) => !known.includes(path))
+    .slice(0, SUGGESTED);
+}
+
+/** Adds or removes `path` from project `name`'s log files in the registry; the list it has after. */
+export function changeLogFiles(
+  lock: LockDeps,
+  registry: string,
+  name: string,
+  path: string,
+  add: boolean,
+) {
+  if (!isAbsolute(path)) throw new MesaError('usage', `${path} is not an absolute path`);
+  if (add && (!existsSync(path) || !statSync(path).isFile()))
+    throw new MesaError('not_found', `no file at ${path}`);
+  let files: string[] = [];
+  updateRegistry(lock, registry, (entries: RegistryEntry[]) =>
+    entries.map((entry) => {
+      if (entry.name !== name) return entry;
+      const kept = (entry.logFiles ?? []).filter((each) => each !== path);
+      files = add ? [...kept, path] : kept;
+      const { logFiles: _old, ...rest } = entry;
+      return files.length ? { ...rest, logFiles: files } : rest;
+    }),
+  );
+  return files;
+}
