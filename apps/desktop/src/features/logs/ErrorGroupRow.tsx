@@ -18,7 +18,7 @@ export function ErrorGroupRow(
 ) {
   const { group } = props;
   return (
-    <div className="border-b border-border/60">
+    <div className="border-b border-l-2 border-b-border/60 border-l-state-failed/70">
       <button
         type="button"
         aria-expanded={props.open}
@@ -32,7 +32,7 @@ export function ErrorGroupRow(
             props.open && 'rotate-90',
           )}
         />
-        <span className="min-w-0 flex-1 truncate font-medium text-state-failed" title={group.title}>
+        <span className="min-w-0 flex-1 truncate font-medium text-foreground" title={group.title}>
           {group.title}
         </span>
         <span className="shrink-0 rounded bg-state-failed/12 px-1.5 font-sans text-[11px] font-medium tabular-nums text-state-failed">
@@ -51,6 +51,9 @@ export function ErrorGroupRow(
             onToggle={props.onToggle}
             onRequest={props.onRequest}
             onMute={props.onMute}
+            onCopy={props.onCopy}
+            onSendOne={props.onSendOne}
+            sendLabel={props.sendLabel}
           />
         ))}
     </div>

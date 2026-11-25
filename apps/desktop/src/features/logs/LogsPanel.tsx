@@ -1,53 +1,46 @@
 import type { LogAsk } from '@mesa/core';
-import { errorGroups, isMuted, logMessage, sourceLabel } from '@mesa/core/browser';
-import { ArrowDown, FileText, ScrollText, X } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { IconButton } from '@/components/IconButton';
+import { entryText, errorGroups, isMuted, logMessage, sourceLabel } from '@mesa/core/browser';
+import { ArrowDown, FileText } from 'lucide-react';
+import { type ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { ResizeHandle } from '@/components/ResizeHandle';
-import { SegmentedControl } from '@/components/SegmentedControl';
+import { useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { useKeptWidth } from '@/lib/useKeptWidth';
+import { usePlatform } from '@/lib/MesaRoot';
 import { useToggleSet } from '@/lib/useToggleSet';
 import { cn } from '@/lib/utils';
 import { ErrorGroupRow } from './ErrorGroupRow';
 import { IntelliJLogsDialog } from './IntelliJLogsDialog';
 import { LogEntryRow } from './LogEntryRow';
-import { LogSourcePicker } from './LogSourcePicker';
 import { LogsFooter } from './LogsFooter';
-import { LogsMenu } from './LogsMenu';
-import { clockTime, type LevelFilter, levelCounts, shownEntries } from './logLines';
+import { LogsToolbar } from './LogsToolbar';
+import { clockTime, type KeyedEntry, levelCounts, shownEntries } from './logLines';
 import { useFollowEnd } from './useFollowEnd';
+import { LOGS_WIDTH, TERMINAL_MIN, useLogsLayout } from './useLogsLayout';
 import { useMutes } from './useMutes';
 import type { LogsActions } from './useSessionLogs';
 
-/** The panel's width bounds beside the terminal, which always keeps TERMINAL_MIN pixels. */
-const LOGS_WIDTH = { min: 360, max: 1400, initial: 560, step: 32 };
-const TERMINAL_MIN = 256;
-
-/** A level filter's label: a dot in its colour, its name, and how many entries it holds. */
-function levelLabel(name: string, count: number, dot?: string) {
+/** A state in the middle of the list's space: loading, empty, or a failure. */
+function Centred(props: { children: ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 tabular-nums">
-      {dot && <span aria-hidden className={cn('size-1.5 rounded-full', dot)} />}
-      {name}
-      <span className="text-muted-foreground">{count}</span>
-    </span>
+    <div className="flex min-h-full flex-col items-center justify-center gap-3 p-6 text-center font-sans">
+      {props.children}
+    </div>
   );
 }
 
 /**
- * A session's Logs panel (CONTEXT.md, Logs panel): its project's local servers' entries, level
- * coloured, with a source picker, All / Errors (grouped) / Warn, a text filter, a request filter,
- * mutes and Live. Picked entries go to the agent with an ask, or start a session.
+ * A session's Logs panel (CONTEXT.md, Logs panel): its project's local servers' entries under one
+ * header row (source, levels, filter, Live, Maximize, menu), Errors grouped, mutes, a request
+ * filter; picked entries go to the agent with an ask, or start a session. Beside the terminal it
+ * is resizable; maximized it covers the session area (Esc to return).
  */
 export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
   const { watch } = props.logs;
-  const [width, resize] = useKeptWidth('mesa.logs.width', LOGS_WIDTH);
+  const layout = useLogsLayout(watch.project);
   const mutes = useMutes(watch.project);
+  const toast = useToast();
+  const { clipboard } = usePlatform();
   const [text, setText] = useState('');
   const [request, setRequest] = useState<string>();
   const [picked, , setPicked] = useToggleSet();
@@ -66,9 +59,31 @@ export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
     () => (watch.level === 'error' ? errorGroups(shown) : undefined),
     [watch.level, shown],
   );
-  const counts = levelCounts(visible);
   const follow = useFollowEnd(shown);
   const source = watch.sources?.find((each) => each.id === watch.source);
+  const pickSource = (id: string) => {
+    setPicked(new Set());
+    setRequest(undefined);
+    watch.pick(id);
+  };
+  /** Sends `keys`' entries with `asked`, or starts a session with them; true once they went. */
+  const askAbout = (asked: LogAsk, keys: ReadonlySet<string>) => {
+    const message = logMessage({
+      ask: asked,
+      source: source ? sourceLabel(source) : (watch.source ?? 'server'),
+      entries,
+      picked: entries.flatMap((entry, at) => (keys.has(entry.key) ? [at] : [])),
+      time: (entry) => clockTime(entry.time),
+    });
+    if (!props.logs.takesPrompt) {
+      props.logs.start(message);
+      return true;
+    }
+    return props.logs.send(message);
+  };
+  // Stable, so a poll re-renders only the rows that changed: the latest actions, through a ref.
+  const latest = useRef({ askAbout, mute: mutes.add, toast, clipboard });
+  latest.current = { askAbout, mute: mutes.add, toast, clipboard };
   const onToggle = useCallback(
     (key: string) =>
       setPicked((now) => {
@@ -78,99 +93,73 @@ export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
       }),
     [setPicked],
   );
-  // Stable, so a poll re-renders only the rows that changed: the latest mutes, through a ref.
-  const mute = useRef(mutes.add);
-  mute.current = mutes.add;
-  const onMute = useCallback((pattern: string) => mute.current(pattern), []);
-  const pickSource = (id: string) => {
-    setPicked(new Set());
-    setRequest(undefined);
-    watch.pick(id);
+  const onMute = useCallback((pattern: string) => latest.current.mute(pattern), []);
+  const onCopy = useCallback((entry: KeyedEntry) => {
+    const { clipboard, toast } = latest.current;
+    void clipboard
+      .write(entryText(entry, clockTime(entry.time)))
+      .then(() => toast('Copied the line', 'confirmation'));
+  }, []);
+  const onSendOne = useCallback(
+    (key: string) => void latest.current.askAbout({ kind: 'send' }, new Set([key])),
+    [],
+  );
+  const actions = {
+    onToggle,
+    onRequest: setRequest,
+    onMute,
+    onCopy,
+    onSendOne,
+    sendLabel: props.logs.takesPrompt ? 'Send to agent' : 'Start a session with this line',
   };
-  const ask = (asked: LogAsk) => {
-    const message = logMessage({
-      ask: asked,
-      source: source ? sourceLabel(source) : (watch.source ?? 'server'),
-      entries,
-      picked: entries.flatMap((entry, at) => (picked.has(entry.key) ? [at] : [])),
-      time: (entry) => clockTime(entry.time),
-    });
-    if (!props.logs.takesPrompt) props.logs.start(message);
-    else if (props.logs.send(message)) setPicked(new Set());
-  };
-  const actions = { onToggle, onRequest: setRequest, onMute };
+  const { maximized } = layout;
   return (
     <aside
       aria-label="Logs"
-      style={{ width }}
-      className="@container relative flex h-full min-h-0 max-w-full shrink-0 flex-col border-l bg-card"
+      data-maximized={maximized || undefined}
+      style={maximized ? undefined : { width: layout.width }}
+      className={cn(
+        '@container flex h-full min-h-0 flex-col border-l bg-card',
+        maximized ? 'absolute inset-0 z-20 border-l-0' : 'relative max-w-full shrink-0',
+      )}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && maximized && !event.defaultPrevented)
+          layout.setMaximized(false);
+      }}
     >
-      <ResizeHandle
-        label="Resize logs panel"
-        edge="left"
-        width={width}
-        bounds={LOGS_WIDTH}
-        keep={TERMINAL_MIN}
-        onWidth={resize}
+      {!maximized && (
+        <ResizeHandle
+          label="Resize logs panel"
+          edge="left"
+          width={layout.width}
+          bounds={LOGS_WIDTH}
+          keep={TERMINAL_MIN}
+          onWidth={layout.resize}
+        />
+      )}
+      <LogsToolbar
+        sources={watch.sources}
+        source={watch.source}
+        level={watch.level}
+        counts={levelCounts(visible)}
+        text={text}
+        request={request}
+        live={watch.live}
+        maximized={maximized}
+        mutes={mutes.mutes}
+        onPick={pickSource}
+        onLevel={watch.setLevel}
+        onText={setText}
+        onClearRequest={() => setRequest(undefined)}
+        onLive={watch.setLive}
+        onMaximize={layout.toggle}
+        onRefresh={() => void watch.refreshSources()}
+        onIntelliJ={() => setIntellij(true)}
+        onMute={onMute}
+        onUnmute={mutes.remove}
+        onHide={props.logs.hide}
+        onClose={props.onClose}
       />
-      <header className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
-        <ScrollText aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-        <span className="text-sm font-medium">Logs</span>
-        <LogSourcePicker
-          sources={watch.sources}
-          source={watch.source}
-          onPick={pickSource}
-          onIntelliJ={() => setIntellij(true)}
-          onOpen={() => void watch.refreshSources()}
-        />
-        <LogsMenu
-          filter={text}
-          mutes={mutes.mutes}
-          onRefresh={() => void watch.refreshSources()}
-          onIntelliJ={() => setIntellij(true)}
-          onMute={onMute}
-          onUnmute={mutes.remove}
-          onHide={props.logs.hide}
-        />
-        <IconButton label="Close logs" icon={X} onClick={props.onClose} />
-      </header>
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
-        <SegmentedControl<LevelFilter>
-          label="Level"
-          value={watch.level}
-          onChange={watch.setLevel}
-          options={[
-            ['all', levelLabel('All', counts.all)],
-            ['error', levelLabel('Errors', counts.error, 'bg-state-failed')],
-            ['warn', levelLabel('Warn', counts.warn, 'bg-state-waiting')],
-          ]}
-        />
-        <div className="flex h-7 min-w-32 flex-1 items-center gap-1 rounded-md border border-input px-1 focus-within:ring-[3px] focus-within:ring-ring/50">
-          {request && (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded bg-state-working/12 py-0.5 pr-0.5 pl-1.5 font-mono text-[11px] text-state-working">
-              request {request}
-              <button
-                type="button"
-                aria-label="Show every request"
-                className="rounded-sm p-0.5 hover:bg-state-working/15"
-                onClick={() => setRequest(undefined)}
-              >
-                <X aria-hidden className="size-3" />
-              </button>
-            </span>
-          )}
-          <Input
-            aria-label="Filter lines"
-            placeholder="Filter, e.g. /orders"
-            className="h-6 min-w-16 flex-1 border-0 px-1 text-xs shadow-none focus-visible:ring-0 dark:bg-transparent"
-            value={text}
-            onChange={(event) => setText(event.currentTarget.value)}
-          />
-        </div>
-        <Label className="gap-1.5 text-xs font-normal text-muted-foreground">
-          <Switch checked={watch.live} onCheckedChange={watch.setLive} /> Live
-        </Label>
-      </div>
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div
           ref={follow.ref}
@@ -181,32 +170,31 @@ export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
           onScroll={follow.onScroll}
         >
           {watch.failure ? (
-            <p role="alert" className="px-3 py-4 font-sans text-xs text-state-failed">
-              {watch.failure}
-            </p>
+            <Centred>
+              <p role="alert" className="max-w-md text-xs text-state-failed">
+                {watch.failure}
+              </p>
+            </Centred>
           ) : watch.sources?.length === 0 ? (
-            <div className="grid gap-3 px-3 py-4 font-sans">
-              <Muted>
+            <Centred>
+              <Muted className="max-w-sm">
                 No running containers or server sessions for this project. Start the server with
                 Docker or in a Mesa terminal session, or show IntelliJ logs.
               </Muted>
-              <Button
-                size="sm"
-                variant="outline"
-                className="justify-self-start"
-                onClick={() => setIntellij(true)}
-              >
+              <Button size="sm" variant="outline" onClick={() => setIntellij(true)}>
                 <FileText aria-hidden /> Show IntelliJ logs
               </Button>
-            </div>
+            </Centred>
           ) : !watch.entries ? (
-            <Muted className="px-3 py-4 font-sans">
-              {watch.source ? 'Reading' : 'Looking for sources'}
-            </Muted>
+            <Centred>
+              <Muted>{watch.source ? 'Reading' : 'Looking for sources'}</Muted>
+            </Centred>
           ) : !shown.length ? (
-            <Muted className="px-3 py-4 font-sans">
-              {entries.length ? 'No lines match this filter.' : 'Nothing logged yet.'}
-            </Muted>
+            <Centred>
+              <Muted>
+                {entries.length ? 'No lines match this filter.' : 'Nothing logged yet.'}
+              </Muted>
+            </Centred>
           ) : groups ? (
             groups.map((group) => (
               <ErrorGroupRow
@@ -239,12 +227,14 @@ export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
           </Button>
         )}
       </div>
-      <LogsFooter
-        picked={picked.size}
-        takesPrompt={props.logs.takesPrompt}
-        onAsk={ask}
-        onClear={() => setPicked(new Set())}
-      />
+      {picked.size > 0 && (
+        <LogsFooter
+          picked={picked.size}
+          takesPrompt={props.logs.takesPrompt}
+          onAsk={(asked) => askAbout(asked, picked) && setPicked(new Set())}
+          onClear={() => setPicked(new Set())}
+        />
+      )}
       {intellij && watch.project && (
         <IntelliJLogsDialog
           project={watch.project}

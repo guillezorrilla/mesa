@@ -12,7 +12,16 @@ const entry = (message: string, time: string, stack: string | null = null): Serv
 const NPE =
   'java.lang.NullPointerException: berth is null\n\tat com.example.MooringService.reserve(MooringService.java:88)';
 
-test('errors group by exception and own frame, else by normalized message, newest group last', () => {
+test('errors group by exception and own frame, else by normalized message titled by the newest, newest group last', () => {
+  const [timeouts] = errorGroups([
+    entry('timeout after 3000 ms on berth 12', '10:41:00'),
+    entry('timeout after 2500 ms on berth 7', '10:41:30'),
+  ]);
+  expect(timeouts).toMatchObject({
+    key: 'message:timeout after # ms on berth #',
+    title: 'timeout after 2500 ms on berth 7',
+    count: 2,
+  });
   const groups = errorGroups([
     entry('POST /moorings 500 reqId=7f3a', '10:42:03', NPE),
     entry('timeout after 3000 ms on berth 12', '10:42:05'),
@@ -20,7 +29,7 @@ test('errors group by exception and own frame, else by normalized message, newes
     entry('POST /moorings 500 reqId=a204', '10:42:12', NPE),
   ]);
   expect(groups.map(({ title, count, last }) => ({ title, count, last }))).toEqual([
-    { title: 'timeout after # ms on berth #', count: 1, last: '10:42:05' },
+    { title: 'timeout after 3000 ms on berth 12', count: 1, last: '10:42:05' },
     { title: 'NullPointerException at MooringService.java:88', count: 2, last: '10:42:12' },
   ]);
   expect(groups[1]?.entries.map((each) => each.message)).toEqual([

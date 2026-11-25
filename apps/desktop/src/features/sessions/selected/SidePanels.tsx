@@ -24,6 +24,8 @@ export function SidePanels(props: {
   crew: CrewActions;
   /** The selected session's Logs stream and actions, while its project shows the Logs panel. */
   logs?: LogsActions;
+  /** The selected session shows no terminal beside its panel (queued, ended, no window): it fills the area. */
+  fill?: boolean;
 }) {
   return Object.entries(props.panels).map(([id, open]) => {
     const row = props.rows?.find((each) => each.id === id);
@@ -54,11 +56,16 @@ export function SidePanels(props: {
         crewStamp={crewStamp}
         crew={open.panel === 'crew' ? props.crew : undefined}
         logs={open.panel === 'logs' && id === props.selectedSession ? props.logs : undefined}
+        fill={Boolean(props.fill) && id === props.selectedSession}
         onClose={props.onClose}
       />
     );
   });
 }
+
+/** A panel stretched over the whole session area: its width and resize edge set aside. */
+const FILL =
+  'flex min-w-0 flex-1 [&>aside]:flex-1 [&>aside]:w-auto! [&>aside]:max-w-none! [&>aside]:border-l-0 [&>aside>[role=separator]]:hidden';
 
 /** One session's panel, from plain values only, so it re-renders only when one of them changes. */
 const SessionPanel = memo(function SessionPanel(props: {
@@ -74,44 +81,48 @@ const SessionPanel = memo(function SessionPanel(props: {
   crewStamp: string;
   crew?: CrewActions;
   logs?: LogsActions;
+  fill: boolean;
   onClose: (session: string) => void;
 }) {
   const { id, open } = props;
   const close = () => props.onClose(id);
   return (
     <Activity mode={props.visible ? 'visible' : 'hidden'}>
-      {props.managed && open.panel === 'review' && (
-        <RepliesPanel
-          key={open.reviewResponse?.source ?? ''}
-          sessionId={id}
-          initialResponse={open.reviewResponse}
-          project={props.project}
-          checkout={props.checkout}
-        />
-      )}
-      {props.diffable && props.project && open.panel === 'diff' && (
-        <DiffPanel
-          sessionId={id}
-          project={props.project}
-          checkout={props.checkout}
-          branch={props.branch}
-          state={props.state}
-          onClose={close}
-        />
-      )}
-      {props.crew && open.panel === 'crew' && (
-        <CrewPanel
-          sessionId={id}
-          project={props.project}
-          stamp={props.crewStamp}
-          actions={props.crew}
-          onClose={close}
-        />
-      )}
-      {props.logs && <LogsPanel logs={props.logs} onClose={close} />}
-      {props.managed && open.panel === 'browser' && (
-        <BrowserPanel sessionId={id} initialUrl={open.browserTarget} onClose={close} />
-      )}
+      {/* With no terminal beside it, the panel takes the session area its fixed width would leave empty. */}
+      <div className={props.fill ? FILL : 'contents'}>
+        {props.managed && open.panel === 'review' && (
+          <RepliesPanel
+            key={open.reviewResponse?.source ?? ''}
+            sessionId={id}
+            initialResponse={open.reviewResponse}
+            project={props.project}
+            checkout={props.checkout}
+          />
+        )}
+        {props.diffable && props.project && open.panel === 'diff' && (
+          <DiffPanel
+            sessionId={id}
+            project={props.project}
+            checkout={props.checkout}
+            branch={props.branch}
+            state={props.state}
+            onClose={close}
+          />
+        )}
+        {props.crew && open.panel === 'crew' && (
+          <CrewPanel
+            sessionId={id}
+            project={props.project}
+            stamp={props.crewStamp}
+            actions={props.crew}
+            onClose={close}
+          />
+        )}
+        {props.logs && <LogsPanel logs={props.logs} onClose={close} />}
+        {props.managed && open.panel === 'browser' && (
+          <BrowserPanel sessionId={id} initialUrl={open.browserTarget} onClose={close} />
+        )}
+      </div>
     </Activity>
   );
 });

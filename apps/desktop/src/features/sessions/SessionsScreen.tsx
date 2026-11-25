@@ -286,6 +286,7 @@ export function SessionsScreen(
             setupsOf: (id) => setupSessionsOf(data ?? [], id),
           }}
           logs={logs.panel}
+          fill={!chat && !panels.liveRows.some((row) => row.id === props.selectedSession)}
         />
       </div>
     </section>

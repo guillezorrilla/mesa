@@ -47,7 +47,7 @@ export function LogSourcePicker(props: {
           size="sm"
           aria-label="Log source"
           title={current ? sourceStateText(current, Date.now()) : undefined}
-          className="ml-auto h-7 min-w-0 max-w-72 gap-1.5 px-2 text-xs font-normal"
+          className="h-7 min-w-0 max-w-64 gap-1.5 px-2 text-xs font-normal"
         >
           <StateDot source={current} />
           <span className="truncate">

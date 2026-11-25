@@ -142,9 +142,9 @@ test('a request id filters to its lines, Errors groups identical errors, and Mut
   const { bridge } = bridgeWith(() => entries);
   await renderWithMesa(<Harness send={() => true} />, bridge);
   await tick();
-  expect(document.querySelector('[data-level="error"] .text-state-failed')?.textContent).toBe(
-    '500',
-  );
+  expect(
+    document.querySelector('[data-level="error"] .min-w-0 .text-state-failed')?.textContent,
+  ).toBe('500');
 
   await click(button('reqId=7f3a'));
   expect(rows().map((row) => row.textContent)).toHaveLength(2);
@@ -166,7 +166,7 @@ test('a request id filters to its lines, Errors groups identical errors, and Mut
 
   await click(document.querySelector<HTMLElement>('[role="radio"][value="all"]') ?? undefined);
   await click(
-    rows()[0]?.querySelector<HTMLElement>('[aria-label="Mute lines like this"]') ?? undefined,
+    rows()[0]?.querySelector<HTMLElement>('[aria-label^="Mute lines like this"]') ?? undefined,
   );
   expect(rows()).toHaveLength(3);
   expect(localStorage.getItem('mesa.logs.mutes.lantern-cove')).toBe('["/actuator/health"]');
@@ -183,13 +183,14 @@ test('a session that takes no prompt starts a new one with the lines as its goal
   const start = vi.fn();
   await renderWithMesa(<Harness start={start} />, bridge);
   await tick();
+  expect(button('Start a session with these lines')).toBeUndefined();
   await click(rows()[0]);
+  expect(button('Start a session with these lines')).toBeDefined();
   await click(document.querySelector<HTMLElement>('[aria-label="More ways to ask"]') ?? undefined);
   await click(menuItem('Find the cause and fix'));
   expect(String(start.mock.calls[0]?.at(0))).toMatch(
     /^Find the cause of the error in these local server log lines, then fix it\.\n\nSource: Docker · harbour-api\nRequest: 7f3a/,
   );
-  expect(button('Start a session with these lines')).toBeDefined();
 });
 
 test('a new error while the panel is closed lights the dot; showing Errors clears it', async () => {
@@ -289,4 +290,37 @@ test('with no source, the empty state opens the IntelliJ steps, which offer the 
   expect(byTestId('intellij-logs-dialog')).toHaveLength(0);
   expect(localStorage.getItem('mesa.logs.source.lantern-cove')).toBe('file:tide-api');
   expect(document.querySelectorAll('[role="option"][data-level="error"]')).toHaveLength(1);
+});
+
+test('Maximize covers the session area and is kept per project; Esc returns', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const { bridge } = bridgeWith(() => [entry('2026-05-06T07:08:03Z', 'info', 'GET /tides 200')]);
+  await renderWithMesa(<Harness send={() => true} />, bridge);
+  await tick();
+  const panel = () => document.querySelector<HTMLElement>('aside[aria-label="Logs"]');
+  await click(document.querySelector<HTMLElement>('[aria-label^="Maximize logs"]') ?? undefined);
+  expect(panel()?.dataset.maximized).toBe('true');
+  expect(localStorage.getItem('mesa.logs.maximized.lantern-cove')).toBe('true');
+  await act(async () =>
+    panel()?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })),
+  );
+  expect(panel()?.dataset.maximized).toBeUndefined();
+  await act(async () =>
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'M', metaKey: true, shiftKey: true })),
+  );
+  expect(panel()?.dataset.maximized).toBe('true');
+});
+
+test("a row's hover actions copy it, send it alone, and mute lines like it", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const { bridge } = bridgeWith(() => [
+    entry('2026-05-06T07:08:03Z', 'error', 'POST /moorings 500 reqId=7f3a'),
+  ]);
+  const send = vi.fn(() => true);
+  await renderWithMesa(<Harness send={send} />, bridge);
+  await tick();
+  await click(rows()[0]?.querySelector<HTMLElement>('[aria-label="Send to agent"]') ?? undefined);
+  expect(String(send.mock.calls[0]?.at(0))).toContain('The lines (1):');
+  expect(rows()[0]?.getAttribute('aria-selected')).toBe('false');
+  expect(document.querySelector('footer')).toBeNull();
 });

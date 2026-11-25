@@ -16,8 +16,9 @@ const PATH = /(?:^|\s)(\/[\w/.-]+)/;
 export const normalizedMessage = (message: string) => message.replace(VARYING, '#');
 
 export type ErrorGroup<E extends ServerLogEntry> = {
+  /** What makes entries the same error: exception and own frame, else the normalized message. */
   key: string;
-  /** "NullPointerException at MooringService.java:88", else the normalized message. */
+  /** "NullPointerException at MooringService.java:88", else the newest entry's own message. */
   title: string;
   count: number;
   /** The newest entry's time. */
@@ -35,14 +36,16 @@ export function errorGroups<E extends ServerLogEntry>(entries: readonly E[]): Er
     if (entry.level !== 'error') continue;
     const type = EXCEPTION.exec(entry.stack ?? '')?.[1] ?? EXCEPTION.exec(entry.message)?.[1];
     const frame = ownFrame(entry.stack);
-    const title = type ? (frame ? `${type} at ${frame}` : type) : normalizedMessage(entry.message);
-    const group = groups.get(title) ?? { key: title, title, count: 0, last: null, entries: [] };
+    const named = type && (frame ? `${type} at ${frame}` : type);
+    const key = named || `message:${normalizedMessage(entry.message)}`;
+    const group = groups.get(key) ?? { key, title: '', count: 0, last: null, entries: [] };
+    group.title = named || entry.message;
     group.count++;
     group.last = entry.time ?? group.last;
     group.entries.push(entry);
     // Re-inserted, so the map's order is each group's newest entry.
-    groups.delete(title);
-    groups.set(title, group);
+    groups.delete(key);
+    groups.set(key, group);
   }
   return [...groups.values()];
 }
