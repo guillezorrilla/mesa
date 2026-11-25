@@ -1,5 +1,6 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
+import { NumberedStep } from '@/components/NumberedStep';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -10,28 +11,6 @@ import { useEnvRows } from './useEnvRows';
 import { useImportMetrics } from './useImportMetrics';
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
-
-/** One numbered section of the setup. */
-function Step(props: { n: number; title: string; hint: string; children: ReactNode }) {
-  return (
-    <section
-      aria-label={props.title}
-      className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-4 gap-y-3 border-t pt-6 first:border-t-0 first:pt-0"
-    >
-      <span
-        aria-hidden
-        className="grid size-6 place-items-center rounded-full bg-foreground font-mono text-[11px] font-semibold text-background"
-      >
-        {props.n}
-      </span>
-      <header className="grid gap-0.5">
-        <h3 className="text-sm leading-6 font-semibold">{props.title}</h3>
-        <Muted size="xs">{props.hint}</Muted>
-      </header>
-      <div className="col-start-2 min-w-0">{props.children}</div>
-    </section>
-  );
-}
 
 /**
  * Cloud Logs' first run (CONTEXT.md, Cloud Logs): the GCP projects (every one the account sees,
@@ -69,8 +48,12 @@ export function CloudSetupPanel(props: { onSaved: () => void }) {
           Mesa reads the projects with your own gcloud sign-in, so it keeps no Google token.
         </Muted>
       </header>
-      <div className="grid gap-6">
-        <Step n={1} title="Projects" hint="The GCP projects your services log to, read together.">
+      <ol className="grid gap-8">
+        <NumberedStep
+          n={1}
+          title="Projects"
+          line="The GCP projects your services log to, read together."
+        >
           <CloudProjectPicker
             projects={found.data?.projects}
             groups={found.data?.groups}
@@ -80,11 +63,11 @@ export function CloudSetupPanel(props: { onSaved: () => void }) {
             error={found.error && !found.busy ? { message: found.error.message, fix } : undefined}
             onRetry={() => void found.refresh()}
           />
-        </Step>
-        <Step
+        </NumberedStep>
+        <NumberedStep
           n={2}
           title="Envs"
-          hint="Optional. Each env is a Logging filter applied in every project; rows of one name join."
+          line="Optional. Each env is a Logging filter applied in every project; rows of one name join."
         >
           <CloudEnvPicker
             rows={rows}
@@ -93,18 +76,18 @@ export function CloudSetupPanel(props: { onSaved: () => void }) {
             onRetry={() => void suggested.refresh()}
             onRows={setRows}
           />
-        </Step>
-        <Step
+        </NumberedStep>
+        <NumberedStep
           n={3}
           title="Saved views"
-          hint="Filters you open in Explore; a log-based metric's view also counts over days."
+          line="Filters you open in Explore; a log-based metric's view also counts over days."
         >
           <Label className="gap-2 text-sm font-normal">
             <Checkbox checked={importing} onCheckedChange={(on) => setImporting(on === true)} />
             Turn each project's log-based metrics into saved views
           </Label>
-        </Step>
-      </div>
+        </NumberedStep>
+      </ol>
       <footer className="flex items-center gap-2 border-t pt-5">
         <Button disabled={!picked.length || saving} onClick={() => void save()}>
           {saving

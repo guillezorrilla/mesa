@@ -1,6 +1,7 @@
 import type { ProjectRow } from '@mesa/core/browser';
 import { NO_ORGANIZATION } from '@mesa/core/browser';
-import { Building2, ChevronRight, Folder, Star } from 'lucide-react';
+import { Building2, Folder, FolderOpen, Star } from 'lucide-react';
+import { TreeFolderRow } from '@/components/TreeFolderRow';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
@@ -23,38 +24,37 @@ export function CloudProjectRow(props: {
   onStar?: (on: boolean) => void;
 }) {
   const { row } = props;
-  if (row.kind === 'group')
+  if (row.kind === 'group') {
+    const folder = row.key.startsWith('folders/');
     return (
-      <button
-        type="button"
-        aria-expanded={row.open}
-        className="flex h-full w-full items-center gap-2 pr-3 text-left text-xs font-medium text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-        style={indent(row.depth)}
-        onClick={props.onFlip}
-      >
-        <ChevronRight
-          aria-hidden
-          className={cn('size-3.5 shrink-0 transition-transform', row.open && 'rotate-90')}
-        />
-        {row.key.startsWith('folders/') ? (
-          <Folder aria-hidden className="size-3.5 shrink-0" />
-        ) : row.key !== NO_ORGANIZATION ? (
-          <Building2 aria-hidden className="size-3.5 shrink-0" />
-        ) : null}
-        <span className="truncate text-foreground">{row.name}</span>
-        <span className="rounded bg-muted px-1.5 text-[10.5px] tabular-nums">
-          {row.count.toLocaleString()}
-        </span>
-        <span className={cn(TYPE, 'ml-auto font-normal')}>
-          {row.key.startsWith('folders/')
-            ? 'Folder'
+      <TreeFolderRow
+        expanded={row.open}
+        indent={12 + row.depth * 18}
+        className="h-full pr-3 text-xs font-medium text-muted-foreground hover:text-foreground"
+        icon={
+          folder
+            ? { open: FolderOpen, closed: Folder }
             : row.key !== NO_ORGANIZATION
-              ? 'Organization'
-              : ''}
-        </span>
-        <span className="w-6 shrink-0" />
-      </button>
+              ? { open: Building2, closed: Building2 }
+              : undefined
+        }
+        name={
+          <span className="inline-flex items-center gap-2">
+            <span className="text-foreground">{row.name}</span>
+            <span className="rounded bg-muted px-1.5 text-[10.5px] tabular-nums">
+              {row.count.toLocaleString()}
+            </span>
+          </span>
+        }
+        trailing={
+          <span className="mr-6 inline-block w-24">
+            {folder ? 'Folder' : row.key !== NO_ORGANIZATION ? 'Organization' : ''}
+          </span>
+        }
+        onClick={props.onFlip}
+      />
     );
+  }
   const name = <span className="min-w-0 truncate">{row.name}</span>;
   return (
     <div

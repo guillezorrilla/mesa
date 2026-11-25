@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { ProjectField } from '@/features/sessions/fields/ProjectField';
 import { useCommand } from '@/lib/useCommand';
 
 /**
@@ -31,18 +31,13 @@ export function CloudProjectDialog(props: {
       onCancel={props.onCancel}
     >
       <div className="grid gap-3">
-        <NativeSelect
+        <ProjectField
           aria-label="Project"
+          general
+          projects={projects.data}
           value={project}
           onChange={(event) => setProject(event.currentTarget.value)}
-        >
-          <NativeSelectOption value={GENERAL_PROJECT}>General</NativeSelectOption>
-          {projects.data?.map((row) => (
-            <NativeSelectOption key={row.name} value={row.name}>
-              {row.label}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+        />
         {props.remember && (
           <Label className="gap-2 text-xs font-normal text-muted-foreground">
             <Checkbox checked={remember} onCheckedChange={(on) => setRemember(on === true)} />

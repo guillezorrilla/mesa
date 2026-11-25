@@ -3,7 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import { PickMenu } from '@/components/PickMenu';
 import { Button } from '@/components/ui/button';
 import { useOptional } from '@/lib/useCommand';
-import { serviceColor } from './cloudLines';
+import { serviceColor } from '../shared/logLines';
 
 /** The value standing for every service: picking it clears the others. */
 const ALL = '';

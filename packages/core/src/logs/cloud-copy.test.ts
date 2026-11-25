@@ -1,5 +1,11 @@
 import { expect, test } from 'vitest';
-import { cloudCopyText, cloudGroupSummary, consoleUrl, entryConsoleUrl } from './cloud-copy.js';
+import {
+  cloudCopyText,
+  cloudGroupSummary,
+  consoleUrl,
+  entryConsoleUrl,
+  groupQuery,
+} from './cloud-copy.js';
 
 const ENTRY = {
   project: 'tide-tables-123',
@@ -36,6 +42,17 @@ test('Console links open the Logs Explorer on a query and range, or on one entry
   );
   expect(entryConsoleUrl(ENTRY)).toBe(
     'https://console.cloud.google.com/logs/query;query=insertId%3D%22aa11%22;cursorTimestamp=2026-05-06T07:09:00Z;duration=P1D?project=tide-tables-123',
+  );
+});
+
+test("a group's query reads its errors by service and the words of its message", () => {
+  expect(
+    groupQuery({
+      message: 'TideTableNotFound: no table for station LC-04',
+      services: ['tide-api'],
+    }),
+  ).toBe(
+    'severity>=ERROR AND (resource.labels.container_name="tide-api" OR resource.labels.service_name="tide-api" OR resource.labels.module_id="tide-api") AND "TideTableNotFound: no table for station"',
   );
 });
 

@@ -73,6 +73,7 @@ export {
   cloudGroupSummary,
   consoleUrl,
   entryConsoleUrl,
+  groupQuery,
 } from './logs/cloud-copy.js';
 export { cloudLevel, splitMessage } from './logs/cloud-entry.js';
 export { copyText, groupSummaryText } from './logs/copy.js';
@@ -83,7 +84,7 @@ export { ALL_ENVS } from './logs/gcp-config.js';
 export { errorGroups, isMuted, muteKey, normalizedMessage } from './logs/groups.js';
 export { groupStats, type Incident, type IncidentLink, incidentsOf } from './logs/incidents.js';
 export { CONTEXT_LINES, logMessage } from './logs/message.js';
-export { groupText, occurrenceRuns, type Run } from './logs/occurrences.js';
+export { groupText, occurrenceRuns, plainTitle, type Run } from './logs/occurrences.js';
 export { entryText, LEVEL_NAMES } from './logs/parse.js';
 export { NO_ORGANIZATION, type ProjectRow, projectRows } from './logs/project-rows.js';
 export { sourceId, sourceLabel, sourceStateText } from './logs/source-id.js';

@@ -22,6 +22,24 @@ export function groupText(message: string) {
   return text.slice(0, 80);
 }
 
+/** A source file and line in a frame (`TableStore.java:41`): kept, as it names the error, its line dropped. */
+const FILE_LINE = /^([\w.$-]+\.[a-z]{1,5}):\d+\)?$/i;
+
+/**
+ * An error's title for a compact row: its first line without the words that vary between
+ * occurrences (ids, numbers, times), a source file kept without its line number.
+ */
+export function plainTitle(message: string) {
+  const words = splitMessage(message)
+    .head.split(/\s+/)
+    .flatMap((word) => {
+      const file = FILE_LINE.exec(word);
+      if (file) return [file[1] as string];
+      return /\d/.test(word) ? [] : [word];
+    });
+  return words.join(' ').trim() || splitMessage(message).head;
+}
+
 /** A run of identical occurrences, newest first as read: one row, or one when it stands alone. */
 export type Run<E> = { entries: E[]; newest: string; oldest: string };
 

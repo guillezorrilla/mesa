@@ -2,14 +2,12 @@ import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Input } from '@/components/ui/input';
 import type { CloudFilters } from '@/lib/client/logs';
+import { useCloudLogsConfig } from './useCloudLogsConfig';
 
-/** Names the filters (or a query Ask ran) as a saved view; a view of the same name is replaced. */
-export function SaveViewDialog(props: {
-  filters: CloudFilters;
-  onSave: (name: string) => void;
-  onCancel: () => void;
-}) {
+/** Names `filters` (or a query an Ask ran) as a saved view and saves it; one of the same name is replaced. */
+export function SaveViewDialog(props: { filters: CloudFilters; onDone: () => void }) {
   const [name, setName] = useState('');
+  const { saveView } = useCloudLogsConfig();
   const what = [
     props.filters.env,
     ...(props.filters.services ?? []),
@@ -25,8 +23,11 @@ export function SaveViewDialog(props: {
       title="Save as view"
       description={what || 'Every service in every project.'}
       submit={{ label: 'Save view', testId: 'confirm-save-view', disabled: !name.trim() }}
-      onSubmit={() => props.onSave(name.trim())}
-      onCancel={props.onCancel}
+      onSubmit={async () => {
+        await saveView(name.trim(), props.filters);
+        props.onDone();
+      }}
+      onCancel={props.onDone}
     >
       <Input
         aria-label="View name"

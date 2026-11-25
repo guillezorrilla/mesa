@@ -112,6 +112,7 @@ export {
   type GcpLogs,
 } from './logs/gcp-config.js';
 export type { EnvSuggestion } from './logs/gcp-envs.js';
+export type { Incident, IncidentLink } from './logs/incidents.js';
 export type { CloudProject, CloudProjectGroup } from './logs/gcp-projects.js';
 export type { CloudService } from './logs/gcp-services.js';
 export type { ErrorGroup } from './logs/groups.js';

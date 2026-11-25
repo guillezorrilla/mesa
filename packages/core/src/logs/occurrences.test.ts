@@ -1,11 +1,15 @@
 import { expect, test } from 'vitest';
-import { groupText, occurrenceRuns } from './occurrences.js';
+import { groupText, occurrenceRuns, plainTitle } from './occurrences.js';
 
 test("a group's text stops before its first id or count; identical neighbours make one run", () => {
   expect(
     groupText('TideTableNotFoundException: no table for station LC-04 on 2026-11-25\n  at x'),
   ).toBe('TideTableNotFoundException: no table for station');
   expect(groupText('GET /checkout 502 1840ms')).toBe('GET /checkout');
+  expect(plainTitle('TideTableNotFoundException at TableStore.java:41')).toBe(
+    'TideTableNotFoundException at TableStore.java',
+  );
+  expect(plainTitle('GET /checkout 502 1840ms request_id=9f2c4e6a')).toBe('GET /checkout');
   const at = (time: string, message: string) => ({ time, message });
   const runs = occurrenceRuns([
     at('15:18:45', 'lookup failed for order 18240'),

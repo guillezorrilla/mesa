@@ -1,0 +1,61 @@
+import type { CloudView } from '@mesa/core';
+import { useToast } from '@/components/Toast';
+import type { CloudFilters } from '@/lib/client/logs';
+import { usePlatform } from '@/lib/MesaRoot';
+import { useCommand, useRun } from '@/lib/useCommand';
+
+/**
+ * The Logs tab's side of the profile config (CONTEXT.md, Cloud Logs), the one place its components
+ * change it: the saved views (save, remove, export and import as YAML), the project a service's
+ * Fix in session starts in, and the tab itself. Each change is read again by every reader.
+ */
+export function useCloudLogsConfig() {
+  const config = useCommand('config.get');
+  const run = useRun();
+  const toast = useToast();
+  const { pickFolder, pickFile } = usePlatform();
+  const logs = config.data?.logs;
+  const set = async (path: string, value: unknown) => {
+    const done = await run('config.set', { path, value });
+    await config.refreshEverywhere();
+    return Boolean(done);
+  };
+  const views: CloudView[] = logs?.views ?? [];
+  return {
+    loaded: Boolean(config.data),
+    logs,
+    gcp: logs?.gcp,
+    views,
+    refresh: config.refreshEverywhere,
+    /** Saves `filters` as view `name`, leaving out the moment's range, trace and noise switch. */
+    saveView: (name: string, filters: CloudFilters) => {
+      const { since: _, trace: __, all: ___, ...kept } = filters;
+      return set('logs.views', [...views.filter((v) => v.name !== name), { name, ...kept }]);
+    },
+    removeView: (name: string) =>
+      set(
+        'logs.views',
+        views.filter((v) => v.name !== name),
+      ),
+    /** Writes the views to a YAML file in a folder the person picks, to share them. */
+    exportViews: async () => {
+      const folder = await pickFolder();
+      if (!folder) return;
+      const done = await run('logs.viewsExport', { file: `${folder}/mesa-log-views.yaml` });
+      if (done) toast(`Wrote ${done.views} views to ${done.file}`);
+    },
+    /** Adds the views a YAML file the person picks holds; one of a kept name replaces it. */
+    importViews: async () => {
+      const file = await pickFile();
+      if (!file) return;
+      const done = await run('logs.viewsImport', { file });
+      if (!done) return;
+      toast(`Imported ${done.views.length} views`);
+      await config.refreshEverywhere();
+    },
+    hideTab: () => set('logs.cloudTab', false),
+    fixProjects: logs?.fixProjects ?? {},
+    rememberFix: (ref: string, project: string) =>
+      set('logs.fixProjects', { ...(logs?.fixProjects ?? {}), [ref]: project }),
+  };
+}

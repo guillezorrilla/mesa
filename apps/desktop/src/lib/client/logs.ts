@@ -10,6 +10,7 @@ import type {
   CloudWarning,
   EnvSuggestion,
   GcpLogs,
+  Incident,
   LogSource,
   ServerLogEntry,
 } from '@mesa/core';
@@ -139,9 +140,15 @@ export const logsCommands = {
     ...projects.map((project) => `--project=${project}`),
     ...Object.entries(envs).map(([name, filter]) => `--env=${name}=${filter}`),
   ]),
-  'logs.errors': commandWith<CloudFilters, { groups: CloudErrorGroup[]; warnings: CloudWarning[] }>(
-    (filters) => ['logs', 'errors', ...cloudFlags(filters)],
-  ),
+  'logs.errors': commandWith<
+    CloudFilters,
+    {
+      env: string | null;
+      groups: CloudErrorGroup[];
+      incidents: Incident[];
+      warnings: CloudWarning[];
+    }
+  >((filters) => ['logs', 'errors', ...cloudFlags(filters)]),
   'logs.errorSamples': commandWith<
     { project: string; id: string; since?: string },
     { events: { time: string; service: string | null; message: string }[] }
@@ -197,6 +204,9 @@ export const logsCommands = {
     question,
   ]),
   'logs.asks': command<{ asks: CloudAsk[] }>('logs', 'asks'),
+  'logs.query': commandWith<CloudFilters & { sentence: string }, { query: string }>(
+    ({ sentence, ...filters }) => ['logs', 'query', ...cloudFlags(filters), '--', sentence],
+  ),
   /** `make: false` names the path only; the folder is made once the person copies it. */
   'logs.file': commandWith<
     { name: string; project: string; make?: boolean },

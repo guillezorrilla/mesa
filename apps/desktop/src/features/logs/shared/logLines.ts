@@ -64,6 +64,13 @@ export function clockTime(time: string | null) {
   return at.toLocaleTimeString([], { hour12: false });
 }
 
+/** A stable colour for a service: the same `<project>/<name>` gets the same hue on every read. */
+export function serviceColor(ref: string) {
+  let hash = 0;
+  for (const char of ref) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return `hsl(${hash % 360} 60% 50%)`;
+}
+
 /**
  * `time` in local time: the clock today, else the day and minute ("Nov 24 17:40"), so a first and
  * last seen read right beside today's entries.

@@ -1,8 +1,7 @@
 import type { CloudLogEntry } from '@mesa/core';
 import { cloudLevel } from '@mesa/core/browser';
 
-// Cloud Logs entries as the Logs tab shows them: their service's colour, their facets and the
-// chart's buckets.
+// Cloud Logs entries as the Logs tab shows them: the chart's buckets, citations, service refs.
 
 /** The time ranges the tab offers, as `--since` takes them: each one's label and length. */
 export const CLOUD_RANGES = {
@@ -60,36 +59,9 @@ export function citedParts(
 export const serviceRef = (entry: { project: string; service: string | null }) =>
   `${entry.project}/${entry.service ?? '-'}`;
 
-/** A stable colour for a service: the same `<project>/<name>` gets the same hue on every read. */
-export function serviceColor(ref: string) {
-  let hash = 0;
-  for (const char of ref) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return `hsl(${hash % 360} 60% 50%)`;
-}
-
 /** A trace field's id, the part after `/traces/`, which a filter matches in every project. */
 export const traceId = (trace: string) => trace.split('/').at(-1) ?? trace;
 
-export type Facet = { key: string; values: { value: string; count: number }[] };
-
-/** The context fields entries carry, the most common first, each with its most common values. */
-export function facetsOf(entries: readonly CloudLogEntry[], keys = 6, values = 5): Facet[] {
-  const counts = new Map<string, Map<string, number>>();
-  for (const entry of entries)
-    for (const [key, value] of Object.entries(entry.fields)) {
-      const byValue = counts.get(key) ?? new Map<string, number>();
-      byValue.set(value, (byValue.get(value) ?? 0) + 1);
-      counts.set(key, byValue);
-    }
-  const total = (byValue: Map<string, number>) => [...byValue.values()].reduce((a, b) => a + b, 0);
-  return [...counts.entries()]
-    .sort((a, b) => total(b[1]) - total(a[1]))
-    .slice(0, keys)
-    .map(([key, byValue]) => ({
-      key,
-      values: [...byValue.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, values)
-        .map(([value, count]) => ({ value, count })),
-    }));
-}
+/** What the toolbar button says: the one project's id, else how many. */
+export const projectsLabel = (projects: readonly string[]) =>
+  projects.length === 1 ? (projects[0] as string) : `${projects.length} projects`;

@@ -1,22 +1,20 @@
 import type { CloudProject, CloudProjectGroup } from '@mesa/core';
 import { NO_ORGANIZATION, type ProjectRow, projectRows } from '@mesa/core/browser';
-import { RotateCw, Search, X } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
-import { CopyField } from '@/components/CopyField';
+import { FilterChip } from '@/components/FilterChip';
+import { RetryAlert } from '@/components/RetryAlert';
 import { SegmentedControl } from '@/components/SegmentedControl';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { CloudProjectRow } from './CloudProjectRow';
+import type { ProjectTab } from './types';
 
 /** A row's height and how many show: the list draws only the rows in view, as there can be thousands. */
 const ROW_HEIGHT = 36;
 const SHOWN = 9;
 const SPARE = 6;
 const ALL_ORGS = '';
-
-export type ProjectTab = 'recent' | 'starred' | 'all';
 
 /**
  * Every GCP project the account sees (CONTEXT.md, Cloud Logs), used by the setup and the project
@@ -107,17 +105,9 @@ export function CloudProjectPicker(props: {
         <ul aria-label="Picked projects" className="flex flex-wrap gap-1.5">
           {picked.map((id) => (
             <li key={id}>
-              <Badge variant="secondary" className="gap-1 py-0.5 pr-1 pl-2 font-normal">
-                <span>{names.get(id) ?? id}</span>
-                <button
-                  type="button"
-                  aria-label={`Remove ${id}`}
-                  className="rounded-full p-0.5 text-muted-foreground hover:bg-background hover:text-foreground"
-                  onClick={() => toggle(id)}
-                >
-                  <X aria-hidden className="size-3" />
-                </button>
-              </Badge>
+              <FilterChip removeLabel={`Remove ${id}`} onRemove={() => toggle(id)}>
+                {names.get(id) ?? id}
+              </FilterChip>
             </li>
           ))}
         </ul>
@@ -188,14 +178,13 @@ export function CloudProjectPicker(props: {
           onScroll={(event) => setTop(event.currentTarget.scrollTop)}
         >
           {props.error ? (
-            <div role="alert" className="grid justify-items-start gap-2 p-4 text-sm">
-              <p className="font-medium">gcloud could not list your projects</p>
-              <p className="text-xs text-muted-foreground">{props.error.message}</p>
-              {props.error.fix && <CopyField value={props.error.fix} />}
-              <Button size="sm" variant="outline" onClick={props.onRetry}>
-                <RotateCw aria-hidden /> Retry
-              </Button>
-            </div>
+            <RetryAlert
+              className="m-3 w-auto"
+              title="gcloud could not list your projects"
+              message={props.error.message}
+              fix={props.error.fix}
+              onRetry={props.onRetry}
+            />
           ) : !projects ? (
             <div role="status" aria-label="Loading projects" className="grid gap-px p-1">
               <p className="px-2 py-1.5 text-xs text-muted-foreground">

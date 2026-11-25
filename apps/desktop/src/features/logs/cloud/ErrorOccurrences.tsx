@@ -14,7 +14,7 @@ import { MessageBody } from '../shared/MessageBody';
 const PAGE = 50;
 
 /** The Logging read of `group`'s occurrences: its project, services and text, errors only. */
-export function occurrenceFilters(group: CloudErrorGroup, filters: CloudFilters): CloudFilters {
+function occurrenceFilters(group: CloudErrorGroup, filters: CloudFilters): CloudFilters {
   const text = groupText(group.message);
   return {
     ...filters,
@@ -67,7 +67,7 @@ function RunRow(props: { entries: CloudLogEntry[]; newest: string; oldest: strin
 /**
  * An error group's occurrences (CONTEXT.md, Cloud Logs): read from Logging with the group's filter
  * (occurrenceFilters), newest first, identical neighbours as one run, "Showing n of count", Load
- * older for the next 50 before the oldest shown, and Open all in Explore.
+ * older for the next 50 before the oldest shown, and Open all in Explorer.
  */
 export function ErrorOccurrences(props: {
   group: CloudErrorGroup;
@@ -122,7 +122,7 @@ export function ErrorOccurrences(props: {
           </Button>
         )}
         <Button size="sm" variant="ghost" className="h-7" onClick={() => props.onExplore(query)}>
-          <ScanSearch aria-hidden /> Open all in Explore
+          <ScanSearch aria-hidden /> Open all in Explorer
         </Button>
       </div>
     </div>

@@ -2,7 +2,7 @@ import type { CloudFilters } from './client/logs';
 import type { PrRef } from './client/prs';
 
 /** The Logs tab's modes: error groups first, then entries, then a conversation. */
-export type CloudMode = 'errors' | 'explore' | 'ask';
+export type CloudMode = 'errors' | 'explorer';
 
 export type WorkspaceView =
   | {
@@ -32,6 +32,6 @@ export type WorkspaceView =
   /** Connecting a project's PR provider (gh or twg) from the Reviews tab. */
   | { kind: 'prs-setup'; project: string }
   /** Cloud Logs in a mode, picked by `query`; Ask showing conversation `ask` when given. */
-  | { kind: 'logs'; mode?: CloudMode; query?: CloudFilters; ask?: string }
+  | { kind: 'logs'; mode?: CloudMode; query?: CloudFilters; ask?: string; prompt?: string }
   /** One pull request's detail, opened from a Reviews list. */
   | ({ kind: 'pr' } & PrRef);

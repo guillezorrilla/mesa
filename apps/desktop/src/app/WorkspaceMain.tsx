@@ -149,6 +149,7 @@ export function WorkspaceMain(props: {
           mode={view.mode ?? 'errors'}
           filters={view.query ?? {}}
           ask={view.ask}
+          prompt={view.prompt}
           onView={(next) => navigate({ kind: 'logs', ...next })}
           onSession={(id) => navigate({ kind: 'session', id })}
         />

@@ -1,22 +1,35 @@
 // @vitest-environment happy-dom
-import { useState } from 'react';
-import { expect, test, vi } from 'vitest';
+import { act, useState } from 'react';
+import { expect, test } from 'vitest';
 import type { CloudFilters } from '@/lib/client/logs';
-import { attached, click, envelope, fakeBridge, fill, renderWithMesa } from '@/lib/testing';
+import {
+  attached,
+  click,
+  envelope,
+  fakeBridge,
+  fakePlatform,
+  fill,
+  renderWithMesa,
+} from '@/lib/testing';
 import { HEALTHY } from '@/lib/testing/healthy';
 import type { CloudMode } from '@/lib/workspaceView';
 import { CloudLogsScreen } from './CloudLogsScreen';
+import type { CloudLogsView } from './types';
 
-const now = () => new Date().toISOString();
-const entry = (id: string, service: string, fields: Record<string, string> = {}) => ({
-  project: service === 'harbour-web' ? 'harbour-web-456' : 'tide-tables-123',
+const at = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString();
+const STACK =
+  '\n    at com.tides.TableStore.load(TableStore.java:41)\n    at com.tides.TideController.get(TideController.java:88)';
+/** An invented entry. */
+const entry = (id: string, minutesAgo: number, message: string, extra: object = {}) => ({
+  project: 'tide-tables-123',
   id,
-  time: now(),
+  time: at(minutesAgo),
   severity: 'ERROR',
-  service,
-  message: `${service} failed\n  at handler (app.ts:3)`,
-  trace: 'projects/tide-tables-123/traces/0f0f9',
-  fields,
+  service: 'tide-api',
+  message,
+  trace: null,
+  fields: {},
+  ...extra,
 });
 const GCP = { projects: ['tide-tables-123', 'harbour-web-456'], envs: { beta: 'x', prod: 'y' } };
 const config = (gcp?: object) => {
@@ -36,30 +49,31 @@ const config = (gcp?: object) => {
     },
   });
 };
-/** The last read of entries (not the service list). */
 const lastRead = (calls: string[][]) =>
   calls.filter((argv) => argv[2] === 'gcp' && !argv.includes('--services')).at(-1);
-const askButton = () =>
-  document.querySelector<HTMLElement>('form button[type="submit"]') ?? undefined;
-const button = (text: string) =>
-  [...document.querySelectorAll<HTMLElement>('button')].find((b) => b.textContent?.includes(text));
+const button = (text: string, within: ParentNode = document) =>
+  [...within.querySelectorAll<HTMLElement>('button')].find((b) => b.textContent?.includes(text));
+const q = <T extends Element = HTMLElement>(selector: string) =>
+  document.querySelector<T>(selector) ?? undefined;
 
-/** The screen with its view kept as the workspace would keep it. */
-function Harness(props: { mode: CloudMode }) {
-  const [view, setView] = useState<{ mode: CloudMode; query: CloudFilters; ask?: string }>({
-    mode: props.mode,
-    query: {},
-  });
+/** The screen with its view kept as the workspace would keep it, and the view shown for tests. */
+function Harness(props: { mode: CloudMode; query?: CloudFilters }) {
+  const [view, setView] = useState<CloudLogsView>({ mode: props.mode, query: props.query ?? {} });
   return (
-    <CloudLogsScreen
-      mode={view.mode}
-      filters={view.query}
-      ask={view.ask}
-      onView={setView}
-      onSession={() => {}}
-    />
+    <>
+      <output data-testid="view">{JSON.stringify(view)}</output>
+      <CloudLogsScreen
+        mode={view.mode}
+        filters={view.query}
+        ask={view.ask}
+        prompt={view.prompt}
+        onView={setView}
+        onSession={() => {}}
+      />
+    </>
   );
 }
+const view = () => JSON.parse(q('[data-testid="view"]')?.textContent ?? '{}') as CloudLogsView;
 
 test('without logs.gcp the tab is the setup; with setup it changes projects and envs, Cancel going back', async () => {
   const { bridge } = fakeBridge({
@@ -76,134 +90,88 @@ test('without logs.gcp the tab is the setup; with setup it changes projects and 
   expect(button('Cancel')).toBeUndefined();
 });
 
-test('Errors lists the groups; a group pages through its occurrences, identical ones as one run; Open all in Explore; Fix asks once which project', async () => {
-  const at = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString();
-  const twoDaysAgo = new Date(Date.now() - 2 * 86_400_000);
-  // 50 a page: ten identical lookups, then forty others, then an older page of two.
-  const occurrence = (id: string, minutesAgo: number, message: string) => ({
+const GROUPS = [
+  {
     project: 'tide-tables-123',
-    id,
-    time: at(minutesAgo),
-    severity: 'ERROR',
-    service: 'tide-api',
-    message,
-    trace: null,
-    fields: {},
-  });
-  const page = [
-    ...Array.from({ length: 10 }, (_, i) =>
-      occurrence(
-        `r${i}`,
-        i * 0.1,
-        `TideTableNotFound: station LC-${i}\n  at tides.load (tides.ts:9)`,
-      ),
-    ),
-    ...Array.from({ length: 40 }, (_, i) =>
-      occurrence(
-        `o${i}`,
-        2 + i,
-        i % 2 ? 'TideTableNotFound: no cache' : 'TideTableNotFound: timeout',
-      ),
-    ),
-  ];
+    id: 'TideTableNotFoundException at TableStore.java:41',
+    message: 'TideTableNotFoundException at TableStore.java:41',
+    sample: `TideTableNotFoundException: no table for station LC-04${STACK}`,
+    count: 412,
+    firstSeen: at(40),
+    lastSeen: at(1),
+    services: ['tide-api'],
+    badge: null,
+    source: 'logs',
+    spark: [0, 0, 1, 4, 9, 12],
+    variants: [
+      { message: 'TideTableNotFoundException: no table for station LC-04', count: 300 },
+      { message: 'TideTableNotFoundException: no cache', count: 112 },
+    ],
+    facets: [
+      {
+        key: 'company',
+        values: [
+          { value: 'Lantern Cove', count: 280 },
+          { value: 'Quiet Reef', count: 132 },
+        ],
+      },
+    ],
+    samples: [entry('s1', 1, `TideTableNotFoundException: no table for station LC-04${STACK}`)],
+  },
+  {
+    project: 'harbour-web-456',
+    id: 'message:GET /checkout # #ms',
+    message: 'GET /checkout 502 1840ms',
+    sample: '',
+    count: 188,
+    firstSeen: at(39),
+    lastSeen: at(2),
+    services: ['harbour-web'],
+    badge: 'new',
+    source: 'logs',
+    spark: [0, 0, 1, 3, 5, 6],
+  },
+  {
+    project: 'tide-tables-123',
+    id: 'message:mooring',
+    message: 'MooringSyncTimeoutException: berth service did not answer',
+    sample: '',
+    count: 23,
+    firstSeen: at(300),
+    lastSeen: at(0),
+    services: ['tide-worker'],
+    badge: null,
+    source: 'logs',
+    spark: [3, 4, 4, 4, 4, 4],
+  },
+];
+const INCIDENT = {
+  id: 'incident:tide-tables-123 TideTableNotFoundException at TableStore.java:41',
+  groups: [
+    'tide-tables-123 TideTableNotFoundException at TableStore.java:41',
+    'harbour-web-456 message:GET /checkout # #ms',
+  ],
+  origin: 'tide-tables-123 TideTableNotFoundException at TableStore.java:41',
+  started: at(40),
+  services: ['tide-api', 'harbour-web'],
+  links: [
+    {
+      from: 'harbour-web-456 message:GET /checkout # #ms',
+      to: 'tide-tables-123 TideTableNotFoundException at TableStore.java:41',
+      reason: 'trace',
+      detail: 'trace 4bf92f35',
+      strength: 0.9,
+    },
+  ],
+};
+
+test('Errors: incidents and lone groups on the left, the origin open on the right with its stack, variants, context, related groups and actions', async () => {
+  const platform = fakePlatform();
   const { bridge, calls } = fakeBridge({
     config: () => config(GCP),
-    'logs gcp': (args) =>
-      args.includes('--services')
-        ? envelope({ env: 'beta', services: [], warnings: [] })
-        : envelope({
-            projects: GCP.projects,
-            env: 'beta',
-            envs: ['beta', 'prod'],
-            filters: {},
-            warnings: [],
-            entries: args.some((a) => a.startsWith('--before='))
-              ? [
-                  occurrence('old1', 300, 'TideTableNotFound: x'),
-                  occurrence('old2', 301, 'TideTableNotFound: y'),
-                ]
-              : page,
-          }),
     'logs asks': () => envelope({ asks: [] }),
     'logs errors': () =>
-      envelope({
-        env: 'beta',
-        warnings: [],
-        groups: [
-          {
-            project: 'tide-tables-123',
-            id: 'g1',
-            message: 'TideTableNotFound: station LC-04',
-            sample: '',
-            count: 5233,
-            firstSeen: twoDaysAgo.toISOString(),
-            lastSeen: at(0),
-            services: ['tide-api'],
-            badge: 'new',
-            source: 'error-reporting',
-          },
-        ],
-      }),
-    projects: () => envelope([]),
-    open: () => envelope({ id: 'sess0001' }),
-  });
-  function ModeHarness() {
-    const [view, setView] = useState<{ mode: CloudMode; query: CloudFilters }>({
-      mode: 'errors',
-      query: {},
-    });
-    return (
-      <>
-        <span data-testid="mode">{view.mode}</span>
-        <CloudLogsScreen
-          mode={view.mode}
-          filters={view.query}
-          onView={setView}
-          onSession={() => {}}
-        />
-      </>
-    );
-  }
-  const byTestId = await renderWithMesa(<ModeHarness />, bridge);
-  await attached();
-  const groups = document.querySelector('[aria-label="Error groups"]');
-  expect(groups?.textContent).toContain('x5233');
-  expect(groups?.textContent).toContain('New');
-  await click(groups?.querySelector<HTMLElement>('button[aria-expanded]') ?? undefined);
-  await attached();
-  // A day not today shows its date: first seen two days ago reads "Mon D HH:MM".
-  const day = twoDaysAgo.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  expect(groups?.textContent).toContain(`first ${day}`);
-  expect(lastRead(calls)).toEqual(
-    expect.arrayContaining([
-      '--project=tide-tables-123',
-      '--service=tide-tables-123/tide-api',
-      '--severity=error',
-      '--text=TideTableNotFound: station',
-      '--limit=50',
-    ]),
-  );
-  expect(groups?.textContent).toContain('Showing 50 of 5,233');
-  expect(groups?.textContent).toMatch(/x10 between/);
-  await click(button('Load older'));
-  await attached();
-  expect(lastRead(calls)?.some((a) => a.startsWith('--before='))).toBe(true);
-  expect(groups?.textContent).toContain('Showing 52 of 5,233');
-  await click(button('Fix in session'));
-  expect(document.querySelector('[data-testid="cloud-project-dialog"]')).not.toBeNull();
-  await click(
-    document.querySelector<HTMLElement>(
-      '[data-testid="cloud-project-dialog"] button[type="button"]',
-    ) ?? undefined,
-  );
-  await click(button('Open all in Explore'));
-  expect(byTestId('mode')[0]?.textContent).toBe('explore');
-});
-
-test('Explore: a facet chip and a trace id each become a filter; Load older reads the next page', async () => {
-  const { bridge, calls } = fakeBridge({
-    config: () => config(GCP),
-    'logs asks': () => envelope({ asks: [] }),
+      envelope({ env: 'beta', warnings: [], groups: GROUPS, incidents: [INCIDENT] }),
     'logs gcp': (args) =>
       args.includes('--services')
         ? envelope({ env: 'beta', services: [], warnings: [] })
@@ -213,106 +181,205 @@ test('Explore: a facet chip and a trace id each become a filter; Load older read
             envs: ['beta', 'prod'],
             filters: {},
             warnings: [],
-            entries: [
-              entry('a1', 'tide-api', { company: 'Lantern Cove' }),
-              entry('b2', 'harbour-web', { company: 'Lantern Cove' }),
-            ],
+            entries: [entry('o1', 1, 'TideTableNotFoundException: no table for station LC-04')],
           }),
-  });
-  await renderWithMesa(<Harness mode="explore" />, bridge);
-  await attached();
-  expect(document.querySelectorAll('[aria-label="Log entries"] li')).toHaveLength(2);
-  await click(
-    [...document.querySelectorAll<HTMLElement>('fieldset button')].find((b) =>
-      b.textContent?.includes('company = Lantern Cove'),
-    ),
-  );
-  await attached();
-  expect(lastRead(calls)).toContain('--field=company=Lantern Cove');
-  await click(document.querySelector<HTMLElement>('button[title^="Show trace"]') ?? undefined);
-  await attached();
-  expect(lastRead(calls)).toContain('--trace=0f0f9');
-  await click(button('Load older'));
-  await attached();
-  expect(lastRead(calls)?.some((a) => a.startsWith('--before='))).toBe(true);
-});
-
-test('Ask keeps a conversation; prod asks once first; a query can be saved as a view', async () => {
-  vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {});
-  const turn = {
-    at: now(),
-    question: 'what fails?',
-    query: {},
-    answer: 'Lookups fail [a1].',
-    cited: ['a1'],
-    queries: [{ project: 'tide-tables-123', filter: 'severity>=ERROR' }],
-    session: 'run1',
-  };
-  let asked = false;
-  const { bridge, calls } = fakeBridge({
-    config: () => config(GCP),
-    'logs gcp': () => envelope({ env: 'prod', services: [], warnings: [] }),
-    'logs asks': () => envelope({ asks: asked ? [{ id: 'run1', turns: [turn] }] : [] }),
-    'logs ask': (args) => {
-      if (args.includes('--env=prod') && !args.includes('--allow-prod'))
-        return {
-          ok: false,
-          error: { code: 'needs_approval', message: 'confirm', details: { reason: 'prod_ask' } },
-        };
-      asked = true;
-      return envelope({
-        conversation: 'run1',
-        projects: GCP.projects,
-        env: 'prod',
+    'logs ask': () =>
+      envelope({
+        conversation: 'c1',
+        projects: [],
+        env: 'beta',
         filters: {},
         entries: [],
         warnings: [],
-        answer: turn.answer,
+        answer:
+          'One incident: tide-api cannot find tide tables [s1], and the web app shows it as 502s.',
+        cited: ['s1'],
+        queries: [],
+        run: { session: 'r1', durationMs: 1 },
+      }),
+    projects: () => envelope([]),
+  });
+  await renderWithMesa(<Harness mode="errors" />, bridge, platform);
+  await attached();
+  const list = q('[aria-label="Error groups"]');
+  expect(q('[aria-label="Incident"]')?.textContent).toContain(
+    'Likely origin: TideTableNotFoundException at TableStore.java',
+  );
+  expect(list?.textContent).toContain('MooringSyncTimeoutException');
+  const detail = q('[aria-label="Error detail"]');
+  expect(detail?.textContent).toContain('at com.tides.TableStore.load');
+  expect(q('[aria-label="Message variants"]')?.textContent).toContain('no cache');
+  expect(q('[aria-label="Context"]')?.textContent).toContain('Lantern Cove 280');
+  expect(q('[aria-label="Related"]')?.textContent).toContain('same trace: trace 4bf92f35');
+  expect(detail?.querySelector('a')?.getAttribute('href')).toContain(
+    'https://console.cloud.google.com/logs/query;query=severity%3E%3DERROR',
+  );
+  // Sorted by rise, the steady job error goes last; New only keeps the incident (its 502 is new).
+  const sort = q<HTMLSelectElement>('[aria-label="Sort errors"]');
+  if (sort) {
+    sort.value = 'newest';
+    sort.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  expect(list?.querySelector('[data-group]')?.getAttribute('data-group')).toBe(
+    'tide-tables-123 message:mooring',
+  );
+  await click(
+    q('[aria-label="Error groups"]')
+      ?.closest('div')
+      ?.parentElement?.querySelector<HTMLElement>('[role="switch"]') ?? undefined,
+  );
+  expect(list?.textContent).not.toContain('MooringSyncTimeoutException');
+  await click(button('Summarise'));
+  await attached();
+  expect(calls.find((argv) => argv[2] === 'ask')).toEqual(
+    expect.arrayContaining(['--severity=error']),
+  );
+  expect(q('[aria-label="Summary"]')?.textContent).toContain('One incident');
+  // The selection followed the sort, so the pane shown now is read again.
+  const shown = q('[aria-label="Error detail"]') ?? document;
+  await click(button('Copy', shown));
+  expect(platform.pasteboard.at(-1)).toContain('at com.tides.TableStore.load');
+  await click(button('Fix in session', shown));
+  expect(q('[data-testid="cloud-project-dialog"]')).toBeDefined();
+  await click(q('[data-testid="cloud-project-dialog"] button[type="button"]'));
+  await click(button('Ask about this'));
+  await attached();
+  expect(view()).toMatchObject({ mode: 'explorer', query: { projects: ['tide-tables-123'] } });
+  expect(q<HTMLTextAreaElement>('[aria-label="Query"]')?.value).toContain(
+    '"TideTableNotFoundException at"',
+  );
+  expect(q<HTMLTextAreaElement>('[aria-label="Question about the logs"]')?.value).toContain(
+    'Explain this error',
+  );
+});
+
+test('Explorer: fields add or exclude clauses, Show matching narrows, repeats fold, Ask in words writes the query, Claude reads the selection and its query applies', async () => {
+  const entries = [
+    entry('a1', 1, 'lookup failed for order 18240', { fields: { company: 'Lantern Cove' } }),
+    entry('a2', 1.1, 'lookup failed for order 18233', { fields: { company: 'Lantern Cove' } }),
+    entry('a3', 1.2, 'lookup failed for order 18100', { fields: { company: 'Quiet Reef' } }),
+    entry('b1', 3, 'checkout stalled', { service: 'harbour-web', project: 'harbour-web-456' }),
+  ];
+  let first = true;
+  const { bridge, calls } = fakeBridge({
+    config: () => config(GCP),
+    'logs asks': () => envelope({ asks: [] }),
+    'logs gcp': (args) =>
+      args.includes('--services')
+        ? envelope({ env: 'beta', services: [], warnings: [] })
+        : envelope({
+            projects: GCP.projects,
+            env: 'beta',
+            envs: ['beta', 'prod'],
+            filters: {},
+            warnings: [],
+            entries,
+          }),
+    'logs query': () => envelope({ query: 'severity>=ERROR AND jsonPayload.company="Quiet Reef"' }),
+    'logs ask': (args) => {
+      if (first && !args.includes('--allow-prod')) {
+        first = false;
+        return {
+          ok: false,
+          error: {
+            code: 'needs_approval',
+            message: 'confirm',
+            details: { reason: 'prod_ask', projects: ['tide-tables-123'] },
+          },
+        };
+      }
+      return envelope({
+        conversation: 'c1',
+        projects: [],
+        env: 'beta',
+        filters: {},
+        entries: [],
+        warnings: [],
+        answer:
+          'Lookups fail for one company [a1].\n\n```query\njsonPayload.company="Lantern Cove"\n```',
         cited: ['a1'],
-        queries: turn.queries,
-        run: { session: 'run1', durationMs: 1 },
+        queries: [],
+        run: { session: 'r1', durationMs: 1 },
       });
     },
-    'config set': () => envelope({ path: 'logs.views', value: [] }),
   });
-  function ProdHarness() {
-    const [view, setView] = useState<{ mode: CloudMode; query: CloudFilters; ask?: string }>({
-      mode: 'ask',
-      query: { env: 'prod' },
-    });
-    return (
-      <CloudLogsScreen
-        mode={view.mode}
-        filters={view.query}
-        ask={view.ask}
-        onView={setView}
-        onSession={() => {}}
-      />
-    );
-  }
-  await renderWithMesa(<ProdHarness />, bridge);
+  await renderWithMesa(<Harness mode="explorer" />, bridge);
   await attached();
-  await fill(
-    document.querySelector<HTMLTextAreaElement>('[aria-label="Question about the logs"]'),
-    'what fails?',
+  const fields = q('[aria-label="Fields"]');
+  expect(q('[aria-label="company"]')?.textContent).toContain('Lantern Cove2');
+  await click(button('Lantern Cove', fields ?? document));
+  await attached();
+  expect(q<HTMLTextAreaElement>('[aria-label="Query"]')?.value).toBe(
+    'jsonPayload.company="Lantern Cove"',
   );
-  await click(askButton());
+  expect(lastRead(calls)).toContain('--filter=jsonPayload.company="Lantern Cove"');
+  const quiet = button('Quiet Reef', q('[aria-label="Fields"]') ?? document);
+  await act(async () => {
+    quiet?.dispatchEvent(new MouseEvent('click', { bubbles: true, altKey: true }));
+  });
   await attached();
-  expect(document.querySelector('[data-testid="prod-ask-dialog"]')).not.toBeNull();
-  await click(document.querySelector<HTMLElement>('[data-testid="confirm-prod-ask"]') ?? undefined);
-  await attached();
-  expect(calls.some((argv) => argv[2] === 'ask' && argv.includes('--allow-prod'))).toBe(true);
-  expect(document.querySelector('[aria-label="Ask the logs"]')?.textContent).toContain(
-    'Lookups fail',
+  expect(q<HTMLTextAreaElement>('[aria-label="Query"]')?.value).toContain(
+    'AND NOT jsonPayload.company="Quiet Reef"',
   );
-  await click(document.querySelector<HTMLElement>('details summary') ?? undefined);
-  await click(button('Save as view'));
-  await fill(document.querySelector<HTMLInputElement>('[aria-label="View name"]'), 'tide errors');
-  await click(
-    document.querySelector<HTMLElement>('[data-testid="confirm-save-view"]') ?? undefined,
+  // Three lookups that differ only by order id fold into one row.
+  expect(q('[aria-label="Log entries"]')?.textContent).toMatch(/x3 between/);
+  await click(q('[data-id="b1"] button[aria-label="Show matching"]'));
+  await attached();
+  expect(q<HTMLTextAreaElement>('[aria-label="Query"]')?.value).toContain('AND "checkout stalled"');
+  await fill(q<HTMLInputElement>('[aria-label="Ask in words"]'), 'errors for Quiet Reef');
+  await click(button('Write query'));
+  await attached();
+  expect(q<HTMLTextAreaElement>('[aria-label="Query"]')?.value).toBe(
+    'severity>=ERROR AND jsonPayload.company="Quiet Reef"',
+  );
+  // Select an entry, then ask: the prod confirmation first, then the answer cites and suggests.
+  await click(q('[data-id="a1"] [role="option"]'));
+  await fill(q<HTMLTextAreaElement>('[aria-label="Question about the logs"]'), 'why?');
+  await click(button('Ask', q('[aria-label="Claude"]') ?? document));
+  await attached();
+  expect(q('[data-testid="prod-ask-dialog"]')?.textContent).toContain('tide-tables-123');
+  await click(q('[data-testid="confirm-prod-ask"]'));
+  await attached();
+  const asked = calls.filter((argv) => argv[2] === 'ask').at(-1) ?? [];
+  expect(asked).toContain('--allow-prod');
+  expect(asked.at(-1)).toBe('About the selected entries [a1]: why?');
+  expect(view().ask).toBe('c1');
+});
+
+test('a saved view opens in Explorer with its other filters as chips and its metric counts in the chart', async () => {
+  const { bridge, calls } = fakeBridge({
+    config: () => config(GCP),
+    'logs asks': () => envelope({ asks: [] }),
+    'logs gcp': (args) =>
+      args.includes('--services')
+        ? envelope({ env: 'beta', services: [], warnings: [] })
+        : envelope({
+            projects: GCP.projects,
+            env: 'beta',
+            envs: ['beta', 'prod'],
+            filters: {},
+            warnings: [],
+            entries: [],
+          }),
+    'logs counts': () => envelope({ counts: [{ start: at(10), count: 7 }], warnings: [] }),
+  });
+  await renderWithMesa(
+    <Harness
+      mode="explorer"
+      query={{
+        severity: 'error',
+        fields: { company: 'Lantern Cove' },
+        metric: 'tide-lookups',
+        projects: ['tide-tables-123'],
+      }}
+    />,
+    bridge,
   );
   await attached();
-  const set = calls.find((argv) => argv[1] === 'config' && argv[2] === 'set');
-  expect(set?.at(-1)).toContain('"filter":"severity>=ERROR"');
-  expect(set?.at(-1)).toContain('"name":"tide errors"');
+  expect(q('[aria-label="View filters"]')?.textContent).toContain('company = Lantern Cove');
+  expect(calls.find((argv) => argv[2] === 'counts')).toEqual(
+    expect.arrayContaining(['--metric=tide-lookups']),
+  );
+  await click(q('[aria-label="Remove severity >= error"]'));
+  expect(view().query.severity).toBeUndefined();
 });

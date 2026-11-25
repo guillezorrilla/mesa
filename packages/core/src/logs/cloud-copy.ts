@@ -2,6 +2,7 @@ import { cloudLevel, splitMessage } from './cloud-entry.js';
 import { type CopyFormat, copyText, groupSummaryText } from './copy.js';
 import type { CloudErrorGroup } from './errors.js';
 import type { CloudLogEntry } from './gcp.js';
+import { groupText } from './occurrences.js';
 import type { ServerLogEntry } from './parse.js';
 
 // Copy for Cloud Logs (CONTEXT.md, Cloud Logs): its entries and error groups through the shared
@@ -31,6 +32,24 @@ export function consoleUrl(
     `duration=${duration(options.since)}`,
   ];
   return `https://console.cloud.google.com/logs/query;${parts.join(';')}?project=${encodeURIComponent(project)}`;
+}
+
+/**
+ * The Logging query that reads `group`'s occurrences: errors from its services (under each kind's
+ * label) holding the words of its message before any id (groupText).
+ */
+export function groupQuery(group: Pick<CloudErrorGroup, 'message' | 'services'>) {
+  const text = groupText(group.message);
+  const services = group.services.flatMap((s) =>
+    ['container_name', 'service_name', 'module_id'].map(
+      (label) => `resource.labels.${label}=${JSON.stringify(s)}`,
+    ),
+  );
+  return [
+    'severity>=ERROR',
+    ...(services.length ? [`(${services.join(' OR ')})`] : []),
+    ...(text ? [JSON.stringify(text)] : []),
+  ].join(' AND ');
 }
 
 /** One entry's own link: its insert id at its time, in its project. */

@@ -14,11 +14,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { useCommand, useOptional, useRun } from '@/lib/useCommand';
 import { CloudProjectPicker } from './CloudProjectPicker';
+import { projectsLabel } from './cloudLines';
 import { useImportMetrics } from './useImportMetrics';
-
-/** What the toolbar button says: the one project's id, else how many. */
-export const projectsLabel = (projects: readonly string[]) =>
-  projects.length === 1 ? (projects[0] as string) : `${projects.length} projects`;
 
 /**
  * The Logs toolbar's project switcher (CONTEXT.md, Cloud Logs), like the Cloud Console's Select a
