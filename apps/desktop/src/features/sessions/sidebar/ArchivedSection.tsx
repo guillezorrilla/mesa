@@ -45,7 +45,9 @@ export function ArchivedSection(props: {
   for (const row of rows) {
     const project = projectLabel(row.project);
     if (!`${sessionTitle(row)} ${project} ${row.id}`.toLowerCase().includes(words)) continue;
-    byProject.set(project, [...(byProject.get(project) ?? []), row]);
+    const group = byProject.get(project);
+    if (group) group.push(row);
+    else byProject.set(project, [row]);
   }
   const [removing, setRemoving] = useState<ManagedRow>();
   const selectionVersion = useRef(0);
@@ -107,14 +109,13 @@ export function ArchivedSection(props: {
                     data-session-id={row.id}
                     className="flex items-center gap-1 rounded-md py-1 pr-0.5 pl-2 text-xs hover:bg-accent"
                   >
-                    <div
-                      className="min-w-0 flex-1"
-                      title={`${projectLabel(row.project)}: ${row.id}`}
-                    >
+                    <div className="min-w-0 flex-1" title={row.id}>
                       <p className="truncate font-medium">{sessionTitle(row)}</p>
-                      <p className="truncate text-muted-foreground empty:hidden">
-                        {row.archivedAt && `archived ${relativeAgo(row.archivedAt, now)}`}
-                      </p>
+                      {row.archivedAt && (
+                        <p className="truncate text-muted-foreground">
+                          archived {relativeAgo(row.archivedAt, now)}
+                        </p>
+                      )}
                     </div>
                     <IconButton
                       label="Unarchive"

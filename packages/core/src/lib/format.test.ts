@@ -8,6 +8,7 @@ import {
   odds,
   percent,
   plainLine,
+  unreadNote,
   usd,
 } from './format.js';
 
@@ -68,4 +69,11 @@ test("a reply's preview line is plain text: no Markdown marks, snake_case kept",
   plainLine(`[${'[\\'.repeat(50_000)}`);
   plainLine(`*${' *'.repeat(50_000)}`);
   expect(Date.now() - started).toBeLessThan(200);
+
+test('unread sessions read as a count per reason, not a list of ids', () => {
+  expect(unreadNote([])).toBe('');
+  const reason = 'claude usage is unavailable';
+  expect(unreadNote([{ reason }, { reason }, { reason: 'codex log is missing' }])).toBe(
+    `Not read: 2 sessions (${reason}), 1 session (codex log is missing).`,
+  );
 });
