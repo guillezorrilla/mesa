@@ -2,6 +2,17 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.7.1 - 2026-11-25
+
+### Added
+
+- Open web links in your default browser: Settings > Terminal & Editor > Open web links in sends a link clicked in a session terminal to your default browser instead of Mesa's Browser. (#1256)
+
+### Changed
+
+- The Sessions tab's Archived section groups archived sessions by project and adds a search over title, project and id. The Usage dialog's note now counts the sessions it could not read, by reason, instead of listing every id. (#1252)
+- Try unproven automatic decisions is on by default: with a Decision model chosen, it acts on its own at every site where it passed the quality check, its advice marked experimental. Turn it off in Settings > Advanced. (#1256)
+
 ## 0.7.0 - 2026-11-20
 
 ### Added
