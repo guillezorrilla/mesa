@@ -2,10 +2,10 @@ import type { CloudLogEntry } from '@mesa/core';
 import { cloudLevel, splitMessage } from '@mesa/core/browser';
 import { memo } from 'react';
 import { cn } from '@/lib/utils';
+import { LevelBadge } from '../shared/LevelBadge';
+import { clockTime } from '../shared/logLines';
+import { MessageBody } from '../shared/MessageBody';
 import { serviceColor, serviceRef, traceId } from './cloudLines';
-import { LEVEL_BADGE, MessageText } from './LogEntryRow';
-import { LogStack } from './LogStack';
-import { clockTime } from './logLines';
 
 /**
  * One Cloud Logs entry, looking like a Logs panel row (LogEntryRow): its time, its severity as a
@@ -46,15 +46,7 @@ export const CloudEntryRow = memo(function CloudEntryRow(props: {
       )}
     >
       <span className="text-muted-foreground tabular-nums">{clockTime(entry.time)}</span>
-      <span
-        title={entry.severity}
-        className={cn(
-          'mt-0.5 inline-flex h-4 w-12 items-center justify-center rounded font-sans text-[10px] font-semibold tracking-wide',
-          level ? LEVEL_BADGE[level] : 'text-muted-foreground/70',
-        )}
-      >
-        {entry.severity.slice(0, 5)}
-      </span>
+      <LevelBadge level={level} />
       {props.services && (
         <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground/70" title={ref}>
           <span
@@ -66,8 +58,7 @@ export const CloudEntryRow = memo(function CloudEntryRow(props: {
         </span>
       )}
       <div className="min-w-0">
-        <MessageText message={head} onRequest={props.onRequest} />
-        {stack && <LogStack stack={stack} />}
+        <MessageBody message={head} stack={stack} onRequest={props.onRequest} />
         {Object.keys(entry.fields).length > 0 && (
           <span className="mt-0.5 flex flex-wrap gap-1 font-sans text-[10.5px]">
             {Object.entries(entry.fields)

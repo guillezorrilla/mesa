@@ -7,9 +7,8 @@ import { Button } from '@/components/ui/button';
 import type { CloudFilters } from '@/lib/client/logs';
 import { useCall, useOptional } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
-import { MessageText } from './LogEntryRow';
-import { LogStack } from './LogStack';
-import { clockTime, dayTime } from './logLines';
+import { clockTime, dayTime } from '../shared/logLines';
+import { MessageBody } from '../shared/MessageBody';
 
 /** How many occurrences each read brings. */
 const PAGE = 50;
@@ -26,17 +25,6 @@ export function occurrenceFilters(group: CloudErrorGroup, filters: CloudFilters)
   };
 }
 
-/** An occurrence's message, its stack folded under it as a Logs panel row folds one (LogStack). */
-function Folded(props: { message: string }) {
-  const { head, stack } = splitMessage(props.message);
-  return (
-    <div className="min-w-0">
-      <MessageText message={head} onRequest={() => {}} />
-      {stack && <LogStack stack={stack} />}
-    </div>
-  );
-}
-
 /** One run of identical occurrences: a row, or with several, "x10 between" and the rest on click. */
 function RunRow(props: { entries: CloudLogEntry[]; newest: string; oldest: string }) {
   const [open, setOpen] = useState(false);
@@ -46,7 +34,7 @@ function RunRow(props: { entries: CloudLogEntry[]; newest: string; oldest: strin
     <li className="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-2">
       <span className="text-muted-foreground tabular-nums">{clockTime(first.time)}</span>
       <div className="grid min-w-0 gap-1">
-        <Folded message={first.message} />
+        <MessageBody {...splitMessage(first.message)} message={splitMessage(first.message).head} />
         {rest.length > 0 && (
           <button
             type="button"

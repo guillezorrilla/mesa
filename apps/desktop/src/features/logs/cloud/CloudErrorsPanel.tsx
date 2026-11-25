@@ -2,16 +2,16 @@ import type { CloudErrorGroup } from '@mesa/core';
 import { ChevronRight, Wrench } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
+import { ReadingBar } from '@/components/ReadingBar';
 import { Button } from '@/components/ui/button';
 import type { CloudFilters } from '@/lib/client/logs';
 import { useCommand, useOptional, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
+import { dayTime } from '../shared/logLines';
 import { CloudProjectDialog } from './CloudProjectDialog';
 import { CloudReadAlert } from './CloudReadAlert';
 import { serviceColor } from './cloudLines';
 import { ErrorOccurrences } from './ErrorOccurrences';
-import { dayTime } from './logLines';
-import { ReadingBar } from './ReadingBar';
 import { useCloudSession } from './useCloudSession';
 
 const BADGE = { new: 'New', back: 'Back again' } as const;

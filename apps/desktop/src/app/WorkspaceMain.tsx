@@ -9,7 +9,7 @@ import { DoctorScreen } from '@/features/doctor/DoctorScreen';
 import { HelpScreen } from '@/features/help/HelpScreen';
 import { HooksUpdateCard } from '@/features/hooks/HooksUpdateCard';
 import { ImpactScreen } from '@/features/impact/ImpactScreen';
-import { CloudLogsScreen } from '@/features/logs/CloudLogsScreen';
+import { CloudLogsScreen } from '@/features/logs/cloud/CloudLogsScreen';
 import { MapScreen } from '@/features/map/MapScreen';
 import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';

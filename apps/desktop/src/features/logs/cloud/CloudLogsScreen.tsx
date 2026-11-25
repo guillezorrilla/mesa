@@ -2,6 +2,7 @@ import { ALL_ENVS } from '@mesa/core/browser';
 import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
+import { ReadingBar } from '@/components/ReadingBar';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +20,6 @@ import { CloudReadAlert } from './CloudReadAlert';
 import { CloudServiceField } from './CloudServiceField';
 import { CloudSetupPanel } from './CloudSetupPanel';
 import { CLOUD_RANGES, type CloudRange } from './cloudLines';
-import { ReadingBar } from './ReadingBar';
 import { SaveViewDialog } from './SaveViewDialog';
 import { useSaveView } from './useSaveView';
 
