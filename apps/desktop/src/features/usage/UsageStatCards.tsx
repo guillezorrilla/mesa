@@ -1,5 +1,5 @@
 import type { UsageReport } from '@mesa/core';
-import { excludedNote } from '@mesa/core/browser';
+import { excludedNote, unreadNote } from '@mesa/core/browser';
 import { Info } from 'lucide-react';
 import { Cost } from './Cost';
 import { counted } from './format';
@@ -12,13 +12,14 @@ const PERIODS = [
 
 /**
  * Estimated spend today and over the last 7 and 30 local days, each with how many sessions it leaves
- * out, and one line naming them: models with no list price and sessions whose usage was not read.
+ * out, and one line naming them: models with no list price, and how many sessions were not read
+ * (unreadNote).
  */
 export function UsageStatCards(props: { report: UsageReport }) {
   const unpriced = props.report.breakdown
     .filter((row) => row.totals.estimatedCostUsd === null && counted(row))
     .map((row) => row.model);
-  const unread = props.report.unknown.map((item) => `${item.session} (${item.reason})`);
+  const unread = unreadNote(props.report.unknown);
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-3 divide-x rounded-lg border bg-background">
@@ -35,13 +36,13 @@ export function UsageStatCards(props: { report: UsageReport }) {
           </div>
         ))}
       </div>
-      {(unpriced.length > 0 || unread.length > 0) && (
+      {(unpriced.length > 0 || unread) && (
         <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
           <Info aria-hidden className="mt-px size-3.5 shrink-0" />
           <span>
             Totals cover priced usage only.
             {unpriced.length > 0 && ` No list price: ${unpriced.join(', ')}.`}
-            {unread.length > 0 && ` Not read: ${unread.join(', ')}.`}
+            {unread && ` ${unread}`}
           </span>
         </p>
       )}

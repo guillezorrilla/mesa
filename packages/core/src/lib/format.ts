@@ -27,6 +27,17 @@ export const money = (value: number | null) =>
 export const excludedNote = (sessions: number) =>
   sessions > 0 ? `excludes ${counted(sessions, 'session')}` : '';
 
+/**
+ * The sessions whose usage was not read, counted per reason rather than listed by id (a month can
+ * leave out hundreds): `Not read: 160 sessions (claude usage is unavailable).`; nothing when none.
+ */
+export function unreadNote(unread: readonly { reason: string }[]): string {
+  const reasons = new Map<string, number>();
+  for (const { reason } of unread) reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
+  const parts = [...reasons].map(([reason, n]) => `${counted(n, 'session')} (${reason})`);
+  return parts.length > 0 ? `Not read: ${parts.join(', ')}.` : '';
+}
+
 /** What a run or a decision cost at list price, as ` (list price $0.0123)`; nothing when free. */
 export const listPrice = (costUsd: number | undefined) =>
   costUsd === undefined ? '' : ` (list price ${usd(costUsd, 4)})`;
