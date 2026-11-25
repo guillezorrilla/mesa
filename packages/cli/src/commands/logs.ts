@@ -117,7 +117,7 @@ export const logsAdd = defineCommand({
   flags: { project: { type: 'string', description: 'Its project (default: this one)' } },
   example: 'mesa logs add log/development.log',
   run: ({ mesa, args, flags }) => {
-    const kept = mesa.logs.keepFile(args.path, true, flags.project);
+    const kept = mesa.logs.addFile(args.path, flags.project);
     return { data: kept, text: kept.files.join('\n') };
   },
 });
@@ -129,7 +129,7 @@ export const logsRemove = defineCommand({
   flags: { project: { type: 'string', description: 'Its project (default: this one)' } },
   example: 'mesa logs remove log/development.log',
   run: ({ mesa, args, flags }) => {
-    const kept = mesa.logs.keepFile(args.path, false, flags.project);
+    const kept = mesa.logs.removeFile(args.path, flags.project);
     return { data: kept, text: kept.files.join('\n') || 'no log files kept' };
   },
 });

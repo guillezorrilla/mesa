@@ -63,14 +63,24 @@ export function logsService(ctx: MesaContext) {
       const files = entry.logFiles ?? [];
       return { files, suggested: await suggestedLogFiles(ctx.run, entry.path, files) };
     },
-    /** Adds `path` (absolute, a file) to the project's log files, or removes it; its files after. */
-    keepFile: (path: string, keep: boolean, project?: string) => ({
+    /** Keeps `path` (a file) among the project's log files; its files after. */
+    addFile: (path: string, project?: string) => ({
       files: changeLogFiles(
         ctx,
         ctx.paths.registry,
         projectNamed(project),
         ctx.absolute(path),
-        keep,
+        true,
+      ),
+    }),
+    /** Stops keeping `path` among the project's log files; the file stays. Its files after. */
+    removeFile: (path: string, project?: string) => ({
+      files: changeLogFiles(
+        ctx,
+        ctx.paths.registry,
+        projectNamed(project),
+        ctx.absolute(path),
+        false,
       ),
     }),
     /** The project's modules (projectModules), the service names the IntelliJ steps offer. */

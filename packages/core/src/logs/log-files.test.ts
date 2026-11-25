@@ -29,7 +29,7 @@ test('mesa logs run passes a command through and appends what it printed, with i
 
 test("suggestions are the checkout's gitignored *.log files, outside node_modules and not kept yet", async () => {
   const { run, calls } = scriptedRunner({
-    git: 'log/development.log\nnode_modules/x/debug.log\nstorage/logs/laravel.log\n',
+    git: 'log/development.log\nstorage/logs/laravel.log\n',
   });
   expect(
     await suggestedLogFiles(run, '/src/harbour', ['/src/harbour/storage/logs/laravel.log']),
@@ -43,6 +43,7 @@ test("suggestions are the checkout's gitignored *.log files, outside node_module
     '--exclude-standard',
     '--',
     '*.log',
+    ':(exclude,glob)**/node_modules/**',
   ]);
   expect(await suggestedLogFiles(scriptedRunner({}, { failing: ['git'] }).run, '/x', [])).toEqual(
     [],

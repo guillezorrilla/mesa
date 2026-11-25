@@ -3,8 +3,9 @@ import { useCall } from '@/lib/useCommand';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 
 /**
- * A service's name for its log file, the project's modules offered (the first by default), and
- * its file (`mesa logs file --path-only`, which also checks the name) once the name has settled.
+ * A service's name for its log file, the project's modules offered (the first by default), its
+ * file (`mesa logs file --path-only`, which also checks the name) once the name has settled, and
+ * the wait for that file once its path or line is copied.
  */
 export function useServiceName(project: string) {
   const call = useCall();
@@ -33,15 +34,24 @@ export function useServiceName(project: string) {
       gone = true;
     };
   }, [call, service, settled, project]);
+  const named = file.source ? service : undefined;
+  /** The name whose path or line was copied: its folder is made and the wait for its file begins. */
+  const [copiedName, setCopiedName] = useState<string>();
   return {
     modules,
     name,
     setName,
     /** The settled name, once it names a file. */
-    service: file.source ? service : undefined,
+    service: named,
     file,
-    /** Makes the file's folder, so the IDE or `mesa logs run` can write there. */
-    makeFolder: () => void call('logs.file', { name: service, project }),
+    /** The source to wait for, once its path or line was copied. */
+    waitingFor: named && copiedName === named ? file.source : undefined,
+    /** Its path or line was copied: makes the file's folder, so the IDE or `mesa logs run` can write there. */
+    copied: () => {
+      if (!named || copiedName === named) return;
+      setCopiedName(named);
+      void call('logs.file', { name: named, project });
+    },
   };
 }
 

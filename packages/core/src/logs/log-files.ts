@@ -4,7 +4,7 @@ import type { LockDeps } from '../lib/lock-file.js';
 import { type Runner, shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import { type RegistryEntry, updateRegistry } from '../projects/registry.js';
-import { LIVE_MS, type LogSource, sourceId } from './source-id.js';
+import { LIVE_MS, type LogSource, type LogSourceState, sourceId } from './source-id.js';
 
 // Log files a project's servers write anywhere on disk (CONTEXT.md, Logs panel): the ones a person
 // added, kept in the profile's registry, the gitignored `*.log` files Mesa suggests, and the
@@ -33,16 +33,25 @@ export function teeArgv(file: string, command: readonly string[]) {
   ];
 }
 
+/** When `file` last changed, as an ISO time: when its writer printed its last line; null when it is gone. */
+export function changedAt(file: string) {
+  const stat = statSync(file, { throwIfNoEntry: false });
+  return stat ? new Date(stat.mtimeMs).toISOString() : null;
+}
+
+/** Live with a line in the last minute, else quiet. */
+export const stateAt = (lastLine: string | null, now: Date): LogSourceState =>
+  lastLine && now.getTime() - Date.parse(lastLine) < LIVE_MS ? 'live' : 'quiet';
+
 /** `path` as a source: its file's name, its path, and when it last changed (none when it is gone). */
 export function fileSource(path: string, now: Date): LogSource {
-  const there = existsSync(path);
-  const lastLine = there ? new Date(statSync(path).mtimeMs).toISOString() : null;
+  const lastLine = changedAt(path);
   return {
     id: sourceId('file', path),
     kind: 'file',
     name: basename(path),
-    detail: there ? path : `${path} (not there)`,
-    state: lastLine && now.getTime() - Date.parse(lastLine) < LIVE_MS ? 'live' : 'quiet',
+    detail: lastLine ? path : `${path} (not there)`,
+    state: stateAt(lastLine, now),
     lastLine,
   };
 }
@@ -54,17 +63,31 @@ export function fileSource(path: string, now: Date): LogSource {
 export async function suggestedLogFiles(run: Runner, dir: string, known: readonly string[]) {
   const listed = await run(
     'git',
-    ['-C', dir, 'ls-files', '--others', '--ignored', '--exclude-standard', '--', '*.log'],
+    // Git skips node_modules itself, so a large one does not run into the timeout.
+    [
+      '-C',
+      dir,
+      'ls-files',
+      '--others',
+      '--ignored',
+      '--exclude-standard',
+      '--',
+      '*.log',
+      ':(exclude,glob)**/node_modules/**',
+    ],
     5_000,
   );
   if (!listed.ok) return [];
   return listed.stdout
     .split('\n')
-    .filter((path) => path && !path.split('/').includes('node_modules'))
+    .filter(Boolean)
     .map((path) => join(dir, path))
     .filter((path) => !known.includes(path))
     .slice(0, SUGGESTED);
 }
+
+/** Whether a `file:` source names a file kept anywhere (an absolute path), not one in the project's folder. */
+export const keptAnywhere = (name: string) => isAbsolute(name);
 
 /** Adds or removes `path` from project `name`'s log files in the registry; the list it has after. */
 export function changeLogFiles(

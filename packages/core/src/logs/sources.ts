@@ -1,12 +1,12 @@
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import { sessionTitle } from '../sessions/record/labels.js';
 import type { SessionStore } from '../sessions/record/store.js';
 import { outputLog } from '../sessions/window/output-log.js';
-import { fileSource } from './log-files.js';
-import { LIVE_MS, type LogSource, type LogSourceState, sourceId } from './source-id.js';
+import { changedAt, fileSource, stateAt } from './log-files.js';
+import { type LogSource, sourceId } from './source-id.js';
 
 // Where a project's local servers print (CONTEXT.md, Logs panel): Docker containers running or
 // exited within the hour, the Output logs of its unended sessions, the log files in its folder
@@ -23,10 +23,6 @@ export type LogSourceDeps = {
   /** The log files anywhere on disk a person added to the project (log-files.ts). */
   logFiles: (project: string) => readonly string[];
 };
-
-/** Live with a line in the last minute, else quiet. */
-const stateAt = (lastLine: string | null, now: Date): LogSourceState =>
-  lastLine && now.getTime() - Date.parse(lastLine) < LIVE_MS ? 'live' : 'quiet';
 
 /** Docker's word for a container that exited within the hour (`Exited (1) 5 minutes ago`). */
 const EXITED_LATELY =
@@ -108,9 +104,6 @@ async function containers(run: Runner, now: Date): Promise<LogSource[]> {
   );
 }
 
-/** A file's last change as an ISO time: when its writer printed its last line. */
-const changedAt = (file: string) => new Date(statSync(file).mtimeMs).toISOString();
-
 /** `project`'s unended sessions with an Output log, plain terminals first. */
 function sessions(deps: LogSourceDeps, project: string): LogSource[] {
   return deps.store
@@ -140,7 +133,7 @@ function files(deps: LogSourceDeps, project: string): LogSource[] {
     .filter((file) => file.endsWith('.log'))
     .map((file) => ({ name: file.slice(0, -4), lastLine: changedAt(join(dir, file)) }))
     .filter(({ name }) => FILE_NAME.test(name))
-    .sort((a, b) => b.lastLine.localeCompare(a.lastLine))
+    .sort((a, b) => (b.lastLine ?? '').localeCompare(a.lastLine ?? ''))
     .map(({ name, lastLine }) => ({
       id: sourceId('file', name),
       kind: 'file',

@@ -1,5 +1,6 @@
 import { FileText, FolderOpen, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { CutStartText } from '@/components/CutStartText';
 import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
 import { Button } from '@/components/ui/button';
@@ -25,11 +26,7 @@ export function LogFileGuide(props: { project: string; onFound: (source: string)
     );
   }, [call, props.project]);
   const add = async (file: string) => {
-    const kept = await call('logs.keepFile', {
-      path: file.trim(),
-      project: props.project,
-      keep: true,
-    });
+    const kept = await call('logs.addFile', { path: file.trim(), project: props.project });
     if (!kept.ok) return setError(kept.error.message);
     props.onFound(`file:${kept.data.files.at(-1) ?? file.trim()}`);
   };
@@ -46,13 +43,7 @@ export function LogFileGuide(props: { project: string; onFound: (source: string)
           suggested.map((file) => (
             <div key={file} className="flex items-center gap-2 rounded-md border px-2.5 py-1">
               <FileText aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-              <code
-                dir="rtl"
-                className="min-w-0 flex-1 truncate text-left font-mono text-xs"
-                title={file}
-              >
-                <bdi dir="ltr">{file}</bdi>
-              </code>
+              <CutStartText text={file} />
               <Button size="sm" variant="ghost" onClick={() => void add(file)}>
                 <Plus aria-hidden /> Add
               </Button>

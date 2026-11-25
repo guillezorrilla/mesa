@@ -41,7 +41,8 @@ export function messageParts(message: string): MessagePart[] {
       part: { request: match[1] },
     });
   for (const match of message.matchAll(STATUS)) {
-    const code = match[1] ?? match[2] ?? match[3] ?? '';
+    // Each form captures the code in its own group: the one that matched.
+    const code = match.slice(1).find(Boolean) ?? '';
     if (code < '400') continue;
     const end = match.index + match[0].length;
     found.push({ start: end - 3, end, part: { status: code >= '500' ? 'failed' : 'waiting' } });

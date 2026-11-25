@@ -1,8 +1,9 @@
 import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { usePlatform } from '@/lib/MesaRoot';
 import { cn } from '@/lib/utils';
+import { CutStartText } from './CutStartText';
+import { Button } from './ui/button';
 
 /**
  * A value to paste elsewhere (a path, a command, a snippet) with Copy, on the app's pasteboard
@@ -29,16 +30,12 @@ export function CopyField(props: {
           {value ?? '...'}
         </pre>
       ) : (
-        <code
-          data-testid={props.testId}
+        <CutStartText
+          text={value}
+          testId={props.testId}
           onCopy={props.onCopied}
-          // Right to left, so a long path is cut at its start and its end shows.
-          dir="rtl"
-          className="min-w-0 flex-1 self-center truncate text-left font-mono text-xs"
-          title={value}
-        >
-          <bdi dir="ltr">{value ?? '...'}</bdi>
-        </code>
+          className="self-center"
+        />
       )}
       <Button
         size="sm"
