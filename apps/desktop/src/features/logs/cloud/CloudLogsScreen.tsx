@@ -9,6 +9,7 @@ import type { CloudFilters } from '@/lib/client/logs';
 import { useCommand } from '@/lib/useCommand';
 import type { CloudMode } from '@/lib/workspaceView';
 import { CloudFilterBar } from './CloudFilterBar';
+import { projectsLabel } from './cloudLines';
 import { CloudErrorsView } from './errors/CloudErrorsView';
 import { CloudExplorer } from './explorer/CloudExplorer';
 import { CloudSetupPanel } from './setup/CloudSetupPanel';
@@ -34,7 +35,12 @@ export function CloudLogsScreen(props: {
   const [saving, setSaving] = useState(false);
   const { mode } = props;
   if (!loaded) return <CenteredState message="Loading" />;
-  if (!gcp) return <CloudSetupPanel onSaved={() => void refresh()} />;
+  if (!gcp)
+    return (
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <CloudSetupPanel onSaved={() => void refresh()} />
+      </div>
+    );
   const env = props.filters.env ?? Object.keys(gcp.envs)[0];
   // The env is resolved once, so both views and the bar agree on it.
   const filters = { ...props.filters, env };
@@ -53,7 +59,7 @@ export function CloudLogsScreen(props: {
       prompt: `Explain this error and what likely causes it: ${plainTitle(group.message)}`,
     });
   return (
-    <section aria-label="Cloud Logs" className="grid min-w-0 gap-4">
+    <section aria-label="Cloud Logs" className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
       <CloudFilterBar
         gcp={gcp}
         mode={mode}
@@ -78,6 +84,7 @@ export function CloudLogsScreen(props: {
       {mode === 'errors' ? (
         <CloudErrorsView
           filters={filters}
+          reading={`${projectsLabel(gcp.projects)}${env && env !== ALL_ENVS ? ` ${env}` : ''}`}
           onAsk={askAbout}
           onExplore={(query) => go({ mode: 'explorer', query, ask: undefined })}
           onSession={props.onSession}

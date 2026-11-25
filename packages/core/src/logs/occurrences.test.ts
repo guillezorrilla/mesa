@@ -1,11 +1,8 @@
 import { expect, test } from 'vitest';
-import { groupText, occurrenceRuns, plainTitle } from './occurrences.js';
+import { groupTerms, occurrenceRuns, plainTitle } from './occurrences.js';
 
 test("a group's text stops before its first id or count; identical neighbours make one run", () => {
-  expect(
-    groupText('TideTableNotFoundException: no table for station LC-04 on 2026-11-25\n  at x'),
-  ).toBe('TideTableNotFoundException: no table for station');
-  expect(groupText('GET /checkout 502 1840ms')).toBe('GET /checkout');
+  expect(groupTerms('GET /checkout 502 1840ms')).toEqual(['GET /checkout']);
   expect(plainTitle('TideTableNotFoundException at TableStore.java:41')).toBe(
     'TideTableNotFoundException at TableStore.java',
   );

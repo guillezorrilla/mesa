@@ -48,7 +48,8 @@ test('Console links open the Logs Explorer on a query and range, or on one entry
 test("a group's query reads its errors by service and the words of its message", () => {
   expect(
     groupQuery({
-      message: 'TideTableNotFound: no table for station LC-04',
+      message: 'TideTableNotFound at tides.ts:9',
+      sample: 'TideTableNotFound: no table for station LC-04\n  at tides.load (tides.ts:9)',
       services: ['tide-api'],
     }),
   ).toBe(

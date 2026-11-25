@@ -1,26 +1,10 @@
 import { splitMessage } from './cloud-entry.js';
-import { normalizedMessage } from './groups.js';
+import { jsonObject, jsonTerms, jsonTitle } from './json-message.js';
+import { normalizedMessage } from './normalize.js';
 
 // An error group's occurrences in Errors mode (CONTEXT.md, Cloud Logs): the text that reads them
 // from Logging, and identical ones (differing only in times and ids) as one run. Pure, so the app
 // bundles it (`@mesa/core/browser`).
-
-/**
- * The words of an error group's message that every occurrence holds: its first line up to the
- * first word with a digit (an id, a count, a time), at most 80 characters; what `--text` reads its
- * occurrences with.
- */
-export function groupText(message: string) {
-  const words: string[] = [];
-  for (const word of splitMessage(message).head.split(/\s+/)) {
-    if (/\d/.test(word)) break;
-    words.push(word);
-  }
-  // Trailing separators trimmed by a loop: a regex anchored at the end is slow on long runs of them.
-  let text = words.join(' ');
-  while (text && ' :=,;([{-'.includes(text.at(-1) as string)) text = text.slice(0, -1);
-  return text.slice(0, 80);
-}
 
 /** A source file and line in a frame (`TableStore.java:41`): kept, as it names the error, its line dropped. */
 const FILE_LINE = /^([\w.$-]+\.[a-z]{1,5}):\d+\)?$/i;
@@ -30,6 +14,8 @@ const FILE_LINE = /^([\w.$-]+\.[a-z]{1,5}):\d+\)?$/i;
  * occurrences (ids, numbers, times), a source file kept without its line number.
  */
 export function plainTitle(message: string) {
+  const json = jsonObject(splitMessage(message).head);
+  if (json) return jsonTitle(json) ?? 'JSON message';
   const words = splitMessage(message)
     .head.split(/\s+/)
     .flatMap((word) => {
@@ -38,6 +24,35 @@ export function plainTitle(message: string) {
       return /\d/.test(word) ? [] : [word];
     });
   return words.join(' ').trim() || splitMessage(message).head;
+}
+
+const SEPARATORS = ' \t:=,;.()[]{}-"\'';
+
+/** `part` without separators at either end (a loop: an end-anchored regex is slow on long runs). */
+function trimSeparators(part: string) {
+  let start = 0;
+  let end = part.length;
+  while (start < end && SEPARATORS.includes(part[start] as string)) start++;
+  while (end > start && SEPARATORS.includes(part[end - 1] as string)) end--;
+  return part.slice(start, end);
+}
+
+/**
+ * The search terms every message of `message`'s group holds: a JSON message's naming values, else
+ * the longest literal parts between what varies (normalizedMessage), at most three.
+ */
+export function groupTerms(message: string) {
+  const head = splitMessage(message).head;
+  const json = jsonObject(head);
+  if (json) return jsonTerms(json);
+  // Stricter than grouping: a word with a digit anywhere (LC-04) is no term of the group.
+  const words = head.split(/\s+/).map((w) => (/\d/.test(w) ? '#' : w));
+  return normalizedMessage(words.join(' '))
+    .split('#')
+    .map(trimSeparators)
+    .filter((part) => part.length >= 4)
+    .sort((a, b) => b.length - a.length)
+    .slice(0, 3);
 }
 
 /** A run of identical occurrences, newest first as read: one row, or one when it stands alone. */

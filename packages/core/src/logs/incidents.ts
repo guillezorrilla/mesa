@@ -51,7 +51,9 @@ const BROAD = new Set([
 /** A message a gateway or proxy prints for an upstream's failure: a symptom, not an origin. */
 const GATEWAY = /\b50[234]\b|bad gateway|gateway time-?out|upstream/i;
 /** The per-minute counts two groups need to be compared, and how alike they must be. */
-const COUNT_BUCKETS = 3;
+const COUNT_BUCKETS = 6;
+/** And the events each group needs: two busy minutes giving r 1.00 is noise. */
+const COUNT_EVENTS = 10;
 const CORRELATION = 0.8;
 
 const traceOf = (entry: CloudLogEntry) => (entry.trace ? traceIdOf(entry.trace) : null);
@@ -78,6 +80,36 @@ function correlation(a: readonly number[], b: readonly number[]) {
     db += (y - mb) ** 2;
   });
   return da && db ? num / Math.sqrt(da * db) : 0;
+}
+
+/** The minutes from the first to the last minute either series counts anything in. */
+function spanMinutes(a: readonly number[], b: readonly number[]) {
+  const busy = a.flatMap((n, i) => (n || b[i] ? [i] : []));
+  return busy.length ? (busy.at(-1) as number) - (busy[0] as number) + 1 : 0;
+}
+
+/** A link as words after "they" ("share traces in 212 entries", "rise together, r 0.98 over 14 minutes"). */
+export function linkReason(link: Pick<IncidentLink, 'reason' | 'detail'>) {
+  switch (link.reason) {
+    case 'trace':
+      return `share traces in ${link.detail}`;
+    case 'request':
+      return `share requests in ${link.detail}`;
+    case 'context':
+      return `share ${link.detail}`;
+    case 'revision':
+      return `run revision ${link.detail}`;
+    case 'counts':
+      return `rise together, ${link.detail}`;
+  }
+}
+
+/** Why an incident's groups are linked, in one line: each kind of link once, the strongest. */
+export function incidentReasons(links: readonly IncidentLink[]) {
+  const strongest = new Map<LinkReason, IncidentLink>();
+  for (const link of [...links].sort((a, b) => b.strength - a.strength))
+    if (!strongest.has(link.reason)) strongest.set(link.reason, link);
+  return `Linked because they ${[...strongest.values()].map(linkReason).join(' and ')}`;
 }
 
 /** `entries` counted per minute between `from` and `to` (ms). */
@@ -156,9 +188,11 @@ function linksBetween(a: GroupIndex, b: GroupIndex, carriers: Map<string, number
     if (revision) add('revision', pair.slice(pair.indexOf('=') + 1), 0.45);
     else add('context', pair, 0.5 + 0.2 * Math.min(share, other));
   }
-  const busy = (xs: number[]) => xs.filter(Boolean).length >= COUNT_BUCKETS;
-  const r = busy(a.minutes) && busy(b.minutes) ? correlation(a.minutes, b.minutes) : 0;
-  if (r >= CORRELATION) add('counts', `r ${r.toFixed(2)}`, 0.7 * r);
+  const busy = (g: GroupIndex) =>
+    g.minutes.filter(Boolean).length >= COUNT_BUCKETS && g.group.entries.length >= COUNT_EVENTS;
+  const r = busy(a) && busy(b) ? correlation(a.minutes, b.minutes) : 0;
+  if (r >= CORRELATION)
+    add('counts', `r ${r.toFixed(2)} over ${spanMinutes(a.minutes, b.minutes)} minutes`, 0.7 * r);
   return links;
 }
 

@@ -2,7 +2,7 @@ import { cloudLevel, serviceRefOf, splitMessage, traceIdOf } from './cloud-entry
 import { type CopyFormat, copyText, groupSummaryText } from './copy.js';
 import type { CloudErrorGroup } from './errors.js';
 import type { CloudLogEntry } from './gcp.js';
-import { groupText } from './occurrences.js';
+import { groupTerms } from './occurrences.js';
 import type { ServerLogEntry } from './parse.js';
 
 // Copy for Cloud Logs (CONTEXT.md, Cloud Logs): its entries and error groups through the shared
@@ -36,10 +36,11 @@ export function consoleUrl(
 
 /**
  * The Logging query that reads `group`'s occurrences: errors from its services (under each kind's
- * label) holding the words of its message before any id (groupText).
+ * label) holding the terms every message of the group holds (groupTerms).
  */
-export function groupQuery(group: Pick<CloudErrorGroup, 'message' | 'services'>) {
-  const text = groupText(group.message);
+export function groupQuery(group: Pick<CloudErrorGroup, 'message' | 'sample' | 'services'>) {
+  // A real message, not the title ("X at File.java" is in no message as one phrase).
+  const terms = groupTerms(group.sample || group.message);
   const services = group.services.flatMap((s) =>
     ['container_name', 'service_name', 'module_id'].map(
       (label) => `resource.labels.${label}=${JSON.stringify(s)}`,
@@ -48,7 +49,7 @@ export function groupQuery(group: Pick<CloudErrorGroup, 'message' | 'services'>)
   return [
     'severity>=ERROR',
     ...(services.length ? [`(${services.join(' OR ')})`] : []),
-    ...(text ? [JSON.stringify(text)] : []),
+    ...terms.map((term) => JSON.stringify(term)),
   ].join(' AND ');
 }
 

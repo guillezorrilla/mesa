@@ -1,5 +1,5 @@
 import type { CloudErrorGroup, IncidentLink } from '@mesa/core';
-import { consoleUrl, groupQuery, plainTitle, splitMessage } from '@mesa/core/browser';
+import { consoleUrl, groupQuery, jsonObject, plainTitle, splitMessage } from '@mesa/core/browser';
 import { ExternalLink, MessageSquareText, Wrench } from 'lucide-react';
 import { CountPill } from '@/components/CountPill';
 import { ExternalLink as Link } from '@/components/ExternalLink';
@@ -9,11 +9,11 @@ import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import type { CloudFilters } from '@/lib/client/logs';
 import { CopyButton } from '../../shared/CopyButton';
 import { dayTime } from '../../shared/logLines';
-import { MessageBody } from '../../shared/MessageBody';
 import { ServiceDot } from '../../shared/ServiceDot';
 import { useCloudCopy } from '../useCloudCopy';
 import { ErrorBadge } from './ErrorBadge';
 import { ErrorOccurrences } from './ErrorOccurrences';
+import { MessageView } from './MessageView';
 
 const REASON = {
   trace: 'same trace in',
@@ -54,7 +54,8 @@ export function ErrorDetail(props: {
   const query = groupQuery(group);
   const url = consoleUrl(group.project, query, { since: props.filters.since });
   const samples = group.samples ?? [];
-  const sample = splitMessage(group.sample || samples[0]?.message || group.message);
+  const raw = group.sample || samples[0]?.message || group.message;
+  const json = jsonObject(splitMessage(raw).head);
   const explore = (extra?: string) =>
     props.onExplore({
       ...props.filters,
@@ -63,7 +64,7 @@ export function ErrorDetail(props: {
       filter: extra ? `${query} AND ${extra}` : query,
     });
   return (
-    <article aria-label="Error detail" className="grid content-start gap-5 p-5">
+    <article aria-label="Error detail" className="grid content-start gap-6 p-6">
       <header className="grid gap-2">
         <h2
           className="font-mono text-[13px] font-semibold [overflow-wrap:anywhere]"
@@ -129,9 +130,9 @@ export function ErrorDetail(props: {
           />
         </Section>
       )}
-      <Section title="Stack">
-        <div className="rounded-md border bg-card px-3 py-2 font-mono text-[11.5px] leading-5">
-          <MessageBody message={sample.head} stack={sample.stack} />
+      <Section title={json ? 'Payload' : 'Stack'}>
+        <div className="rounded-md border bg-muted/20 px-3 py-2 font-mono text-[11.5px] leading-5">
+          <MessageView message={raw} open />
         </div>
       </Section>
       {(group.variants?.length ?? 0) > 1 && (

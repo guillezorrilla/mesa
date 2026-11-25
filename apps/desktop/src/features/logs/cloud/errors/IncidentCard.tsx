@@ -1,14 +1,13 @@
 import type { Incident } from '@mesa/core';
-import { plainTitle } from '@mesa/core/browser';
+import { incidentReasons, plainTitle } from '@mesa/core/browser';
 import { Link2 } from 'lucide-react';
 import { dayTime } from '../../shared/logLines';
-import { ServiceDot } from '../../shared/ServiceDot';
 import { CloudErrorGroupRow } from './CloudErrorGroupRow';
 import type { KeyedGroup } from './errorOrder';
 
 /**
- * An incident in the Errors list (CONTEXT.md, Cloud Logs): its services, when it started and its
- * likely origin, over its groups' compact rows, the origin first.
+ * An incident in the Errors list (CONTEXT.md, Cloud Logs), distinct but quiet: how many errors since
+ * when, why they are linked in words, the likely origin, then its groups' rows, the origin first.
  */
 export function IncidentCard(props: {
   incident: Incident;
@@ -16,36 +15,35 @@ export function IncidentCard(props: {
   selected: string | undefined;
   onSelect: (key: string) => void;
 }) {
-  const { incident } = props;
-  const { members } = props;
+  const { incident, members } = props;
   const origin = members.find((m) => m.key === incident.origin)?.group;
   return (
-    <li aria-label="Incident" className="border-b last:border-b-0">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-state-failed/[0.05] px-3 pt-2 pb-1.5 text-[11px]">
-        <span className="inline-flex items-center gap-1 font-semibold tracking-wide text-state-failed uppercase">
-          <Link2 aria-hidden className="size-3.5" /> Incident
+    <li
+      aria-label="Incident"
+      className="border-y border-l-2 border-l-state-failed/50 bg-muted/25 first:border-t-0"
+    >
+      <div className="grid gap-0.5 px-4 pt-2.5 pb-2 text-[11px] text-muted-foreground">
+        <span className="flex items-center gap-1.5 font-medium text-foreground">
+          <Link2 aria-hidden className="size-3.5 text-state-failed" />
+          {members.length} related errors
+          <span className="font-normal text-muted-foreground">
+            since {dayTime(incident.started)}
+          </span>
         </span>
-        <span className="text-muted-foreground">
-          {members.length} errors, since {dayTime(incident.started)}
-        </span>
-        <span className="flex min-w-0 flex-wrap items-center gap-2 text-muted-foreground">
-          {incident.services.map((service) => (
-            <ServiceDot key={service} service={service} />
-          ))}
-        </span>
+        <span>{incidentReasons(incident.links)}.</span>
         {origin && (
-          <span className="basis-full truncate text-muted-foreground">
+          <span className="truncate">
             Likely origin:{' '}
             <span className="font-mono text-foreground">{plainTitle(origin.message)}</span>
           </span>
         )}
       </div>
-      <ul>
+      <ul className="divide-y bg-card">
         {members.map(({ key, group }) => (
           <li key={key}>
             <CloudErrorGroupRow
               group={group}
-              indent
+              nested
               selected={props.selected === key}
               onSelect={() => props.onSelect(key)}
             />

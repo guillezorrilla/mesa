@@ -85,7 +85,7 @@ export function CloudExplorer(props: {
     [],
   );
   return (
-    <div className="grid min-h-0 gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
       <QueryBar
         query={query}
         facets={facets}
@@ -107,7 +107,7 @@ export function CloudExplorer(props: {
       />
       <div
         className={cn(
-          'grid h-[68vh] min-h-0 grid-cols-[13rem_minmax(0,1fr)] gap-3',
+          'grid min-h-0 flex-1 grid-cols-[13rem_minmax(0,1fr)] gap-3',
           claude && 'grid-cols-[13rem_minmax(0,1fr)_22rem]',
         )}
       >

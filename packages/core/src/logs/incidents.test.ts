@@ -1,6 +1,12 @@
 import { expect, test } from 'vitest';
 import type { CloudLogEntry } from './gcp.js';
-import { groupStats, type IncidentGroup, incidentsOf } from './incidents.js';
+import {
+  groupStats,
+  type IncidentGroup,
+  incidentReasons,
+  incidentsOf,
+  linkReason,
+} from './incidents.js';
 
 const FROM = Date.parse('2026-05-06T07:00:00Z');
 const RANGE = { from: FROM, to: FROM + 30 * 60_000 };
@@ -85,17 +91,33 @@ test('a shared request id, a shared context value and a shared revision each lin
   });
 });
 
-test('counts that rise together link; a pair that only shares a broad value or flat noise does not', () => {
-  const burst = (minutes: number[], message: string) =>
-    minutes.flatMap((m) => Array.from({ length: m < 10 ? 1 : 6 }, () => entry(m, message)));
+test('counts that rise together over enough minutes and events link, with their reason in words; two bars, a broad value or flat noise do not', () => {
+  // Twelve busy minutes, more errors as they go, in both groups.
+  const rising = (message: string) =>
+    Array.from({ length: 12 }, (_, m) =>
+      Array.from({ length: 1 + m }, () => entry(5 + m, message)),
+    ).flat();
   const together = incidentsOf(
-    [
-      group('a', 's1', burst([2, 11, 12, 13], 'pool exhausted')),
-      group('b', 's2', burst([3, 11, 12, 13], 'quote timeout')),
-    ],
+    [group('a', 's1', rising('pool exhausted')), group('b', 's2', rising('quote timeout'))],
     RANGE,
   );
-  expect(together[0]?.links.map((l) => l.reason)).toEqual(['counts']);
+  expect(together[0]?.links.map((l) => [l.reason, l.detail])).toEqual([
+    ['counts', 'r 1.00 over 12 minutes'],
+  ]);
+  expect(incidentReasons(together[0]?.links ?? [])).toBe(
+    'Linked because they rise together, r 1.00 over 12 minutes',
+  );
+  // Two busy minutes each: r 1.00, but noise.
+  const twoBars = (message: string) => [
+    ...Array.from({ length: 6 }, () => entry(3, message)),
+    ...Array.from({ length: 6 }, () => entry(9, message)),
+  ];
+  expect(
+    incidentsOf(
+      [group('a', 's1', twoBars('disk full')), group('b', 's2', twoBars('bad token'))],
+      RANGE,
+    ),
+  ).toEqual([]);
   const apart = incidentsOf(
     [
       group('a', 's1', [
@@ -107,6 +129,9 @@ test('counts that rise together link; a pair that only shares a broad value or f
     RANGE,
   );
   expect(apart).toEqual([]);
+  expect(linkReason({ reason: 'trace', detail: '212 entries' })).toBe(
+    'share traces in 212 entries',
+  );
 });
 
 test("a group's stats: counts over the range, message variants without their ids, facets", () => {

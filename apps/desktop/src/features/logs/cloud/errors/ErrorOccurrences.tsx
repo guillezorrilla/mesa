@@ -1,5 +1,5 @@
 import type { CloudErrorGroup, CloudLogEntry } from '@mesa/core';
-import { groupText, occurrenceRuns, splitMessage } from '@mesa/core/browser';
+import { groupQuery, occurrenceRuns } from '@mesa/core/browser';
 import { ScanSearch } from 'lucide-react';
 import { useMemo } from 'react';
 import { Muted } from '@/components/Muted';
@@ -7,32 +7,28 @@ import { Button } from '@/components/ui/button';
 import type { CloudFilters } from '@/lib/client/logs';
 import { useOptional } from '@/lib/useCommand';
 import { clockTime, dayTime } from '../../shared/logLines';
-import { MessageBody } from '../../shared/MessageBody';
 import { RepeatRun } from '../RepeatRun';
 import { useOlderEntries } from '../useOlderEntries';
+import { MessageView } from './MessageView';
 
 /** How many occurrences each read brings. */
 const PAGE = 50;
 
-/** The Logging read of `group`'s occurrences: its project, services and text, errors only. */
+/**
+ * The Logging read of `group`'s occurrences: its project and the terms each of its messages holds
+ * (groupQuery), so the query finds its own group.
+ */
 function occurrenceFilters(group: CloudErrorGroup, filters: CloudFilters): CloudFilters {
-  const text = groupText(group.message);
-  return {
-    ...filters,
-    projects: [group.project],
-    services: group.services.map((service) => `${group.project}/${service}`),
-    severity: 'error',
-    ...(text ? { text } : {}),
-  };
+  const { text: _, severity: __, services: ___, fields: ____, ...rest } = filters;
+  return { ...rest, projects: [group.project], filter: groupQuery(group) };
 }
 
-/** One occurrence: its time, its message with its stack folded. */
+/** One occurrence: its time and its message (MessageView). */
 function Occurrence(props: { entry: CloudLogEntry }) {
-  const { head, stack } = splitMessage(props.entry.message);
   return (
     <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-2">
       <span className="text-muted-foreground tabular-nums">{clockTime(props.entry.time)}</span>
-      <MessageBody message={head} stack={stack} />
+      <MessageView message={props.entry.message} />
     </div>
   );
 }

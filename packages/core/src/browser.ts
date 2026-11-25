@@ -83,9 +83,17 @@ export { type Facet, facetsOf } from './logs/facets.js';
 export { entryGroup, errorFixGoal } from './logs/fix-goal.js';
 export { ALL_ENVS } from './logs/gcp-config.js';
 export { errorGroups, isMuted, muteKey, normalizedMessage } from './logs/groups.js';
-export { groupStats, type Incident, type IncidentLink, incidentsOf } from './logs/incidents.js';
+export {
+  groupStats,
+  type Incident,
+  type IncidentLink,
+  incidentReasons,
+  incidentsOf,
+  linkReason,
+} from './logs/incidents.js';
+export { jsonObject } from './logs/json-message.js';
 export { CONTEXT_LINES, logMessage } from './logs/message.js';
-export { groupText, occurrenceRuns, plainTitle, type Run } from './logs/occurrences.js';
+export { groupTerms, occurrenceRuns, plainTitle, type Run } from './logs/occurrences.js';
 export { entryText, LEVEL_NAMES } from './logs/parse.js';
 export { NO_ORGANIZATION, type ProjectRow, projectRows } from './logs/project-rows.js';
 export { sourceId, sourceLabel, sourceStateText } from './logs/source-id.js';

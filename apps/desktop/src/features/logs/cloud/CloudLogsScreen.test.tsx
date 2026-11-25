@@ -255,7 +255,7 @@ test('Errors: incidents and lone groups on the left, the origin open on the righ
   await attached();
   expect(view()).toMatchObject({ mode: 'explorer', query: { projects: ['tide-tables-123'] } });
   expect(q<HTMLTextAreaElement>('[aria-label="Query"]')?.value).toContain(
-    '"TideTableNotFoundException at"',
+    '"TideTableNotFoundException: no table for station"',
   );
   expect(q<HTMLTextAreaElement>('[aria-label="Question about the logs"]')?.value).toContain(
     'Explain this error',

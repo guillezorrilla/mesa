@@ -1,15 +1,16 @@
 import type { CloudErrorGroup } from '@mesa/core';
 import { groupKey } from '@mesa/core/browser';
-import { Sparkles } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { RefreshCw, Sparkles } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
 import { CenteredState } from '@/components/CenteredState';
-import { ReadingBar } from '@/components/ReadingBar';
+import { IconButton } from '@/components/IconButton';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Switch } from '@/components/ui/switch';
 import type { CloudAsked, CloudFilters } from '@/lib/client/logs';
 import { useOptional } from '@/lib/useCommand';
+import { cn } from '@/lib/utils';
 import { AskAnswer } from '../AskAnswer';
 import { CloudProjectDialog } from '../CloudProjectDialog';
 import { CloudReadAlert } from '../CloudReadAlert';
@@ -18,6 +19,8 @@ import { useFixInSession } from '../useFixInSession';
 import { useLogAsk } from '../useLogAsk';
 import { CloudErrorGroupRow } from './CloudErrorGroupRow';
 import { ErrorDetail } from './ErrorDetail';
+import { ErrorsSkeleton } from './ErrorsSkeleton';
+import { ErrorsStatus } from './ErrorsStatus';
 import { type ErrorSort, errorItems, relatedOf } from './errorOrder';
 import { IncidentCard } from './IncidentCard';
 
@@ -25,12 +28,16 @@ const SUMMARISE =
   "Summarise this range's errors as incidents in a few lines: for each, what fails, which services, since when and its likely origin, citing one entry each.";
 
 /**
- * Errors (CONTEXT.md, Cloud Logs), master and detail: incidents and the groups in none on the left,
- * sorted by count, newest or biggest rise, New only on demand, and Summarise; the selection's
- * detail on the right (ErrorDetail).
+ * Errors (CONTEXT.md, Cloud Logs), master and detail filling the tab: incidents and the groups in
+ * none on the left, sorted by count, newest or biggest rise, New only on demand, Summarise and
+ * Refresh; the selection's detail on the right (ErrorDetail); each pane scrolls on its own. While a
+ * read runs, the last result stays, dimmed, under a status line with Cancel; the first read shows
+ * skeleton rows.
  */
 export function CloudErrorsView(props: {
   filters: CloudFilters;
+  /** Names the read in the status line: its projects and env. */
+  reading: string;
   onAsk: (group: CloudErrorGroup) => void;
   onExplore: (query: CloudFilters) => void;
   onSession: (id: string) => void;
@@ -40,10 +47,18 @@ export function CloudErrorsView(props: {
   const [newOnly, setNewOnly] = useState(false);
   const [selected, setSelected] = useState<string>();
   const [summary, setSummary] = useState<CloudAsked>();
+  const [cancelled, setCancelled] = useState<string>();
   const fixing = useFixInSession(props.onSession);
   const summarise = useLogAsk({ ...props.filters, severity: 'error' }, undefined, setSummary);
-  const groups = errors.data?.groups;
-  const incidents = errors.data?.incidents;
+  // The last result stays shown, dimmed, while another reads (or after Cancel).
+  const readKey = JSON.stringify(props.filters);
+  const last = useRef(errors.data);
+  if (errors.data && cancelled !== readKey) last.current = errors.data;
+  const shown = cancelled === readKey ? last.current : (errors.data ?? last.current);
+  const waiting = errors.busy && cancelled !== readKey;
+  const stale = waiting && shown !== errors.data;
+  const groups = shown?.groups;
+  const incidents = shown?.incidents;
   const byKey = useMemo(() => new Map((groups ?? []).map((g) => [groupKey(g), g])), [groups]);
   const items = useMemo(
     () => errorItems(byKey, incidents ?? [], sort, newOnly),
@@ -61,17 +76,22 @@ export function CloudErrorsView(props: {
     () => (chosenKey ? relatedOf(chosenKey, incidents ?? [], byKey) : []),
     [chosenKey, incidents, byKey],
   );
+  const refresh = () => {
+    setCancelled(undefined);
+    void errors.refresh();
+  };
   return (
-    <div className="grid min-h-0 gap-3">
-      {errors.busy && <ReadingBar />}
-      <CloudReadAlert
-        error={errors.error}
-        warnings={errors.data?.warnings}
-        onRetry={() => void errors.refresh()}
-      />
-      <div className="grid min-h-[70vh] grid-cols-[minmax(20rem,26rem)_minmax(0,1fr)] overflow-hidden rounded-lg border bg-card">
-        <div className="flex min-h-0 flex-col border-r">
-          <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2 [&_[data-slot=native-select-wrapper]]:w-auto">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      {waiting && (
+        <ErrorsStatus
+          what={`Reading and grouping ${props.reading} errors`}
+          onCancel={() => setCancelled(readKey)}
+        />
+      )}
+      <CloudReadAlert error={errors.error} warnings={shown?.warnings} onRetry={refresh} />
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(22rem,30rem)_minmax(0,1fr)] overflow-hidden rounded-lg border bg-card">
+        <section aria-label="Errors list" className="flex min-h-0 flex-col border-r">
+          <div className="flex h-11 shrink-0 items-center gap-2 border-b px-3 [&_[data-slot=native-select-wrapper]]:w-auto">
             <NativeSelect
               aria-label="Sort errors"
               size="sm"
@@ -95,47 +115,62 @@ export function CloudErrorsView(props: {
             >
               <Sparkles aria-hidden /> {summarise.busy ? 'Summarising' : 'Summarise'}
             </Button>
+            <IconButton label="Refresh" icon={RefreshCw} onClick={refresh} />
           </div>
           {summary && (
-            <section aria-label="Summary" className="border-b bg-state-working/[0.04] px-3 py-2.5">
+            <section
+              aria-label="Summary"
+              className="shrink-0 border-b bg-state-working/[0.04] px-4 py-3"
+            >
               <AskAnswer answer={summary.answer} cited={summary.cited} />
             </section>
           )}
-          {items.length ? (
-            <ul aria-label="Error groups" className="min-h-0 flex-1 overflow-y-auto">
-              {items.map((item) =>
-                item.kind === 'incident' ? (
-                  <IncidentCard
-                    key={item.incident.id}
-                    incident={item.incident}
-                    members={item.members}
-                    selected={chosenKey}
-                    onSelect={setSelected}
-                  />
-                ) : (
-                  <li key={item.key} className="border-b last:border-b-0">
-                    <CloudErrorGroupRow
-                      group={item.group}
-                      selected={chosenKey === item.key}
-                      onSelect={() => setSelected(item.key)}
+          <div
+            className={cn(
+              'min-h-0 flex-1 overflow-y-auto transition-opacity',
+              stale && 'opacity-50',
+            )}
+          >
+            {!shown ? (
+              waiting ? (
+                <ErrorsSkeleton part="list" />
+              ) : (
+                <CenteredState message="Errors read here once the range is read." />
+              )
+            ) : items.length ? (
+              <ul aria-label="Error groups" className="divide-y">
+                {items.map((item) =>
+                  item.kind === 'incident' ? (
+                    <IncidentCard
+                      key={item.incident.id}
+                      incident={item.incident}
+                      members={item.members}
+                      selected={chosenKey}
+                      onSelect={setSelected}
                     />
-                  </li>
-                ),
-              )}
-            </ul>
-          ) : (
-            <CenteredState
-              message={
-                errors.busy
-                  ? 'Reading error groups'
-                  : newOnly
+                  ) : (
+                    <li key={item.key}>
+                      <CloudErrorGroupRow
+                        group={item.group}
+                        selected={chosenKey === item.key}
+                        onSelect={() => setSelected(item.key)}
+                      />
+                    </li>
+                  ),
+                )}
+              </ul>
+            ) : (
+              <CenteredState
+                message={
+                  newOnly
                     ? 'No new errors in this range.'
-                    : 'No errors in this range.'
-              }
-            />
-          )}
-        </div>
-        <div className="min-h-0 overflow-y-auto">
+                    : 'No errors in this range. Widen the range or pick another env.'
+                }
+              />
+            )}
+          </div>
+        </section>
+        <div className={cn('min-h-0 overflow-y-auto transition-opacity', stale && 'opacity-50')}>
           {chosen ? (
             <ErrorDetail
               key={chosenKey}
@@ -147,8 +182,12 @@ export function CloudErrorsView(props: {
               onFix={fixing.fix}
               onExplore={props.onExplore}
             />
+          ) : waiting && !shown ? (
+            <ErrorsSkeleton part="detail" />
           ) : (
-            <CenteredState message="Pick an error to see it here." />
+            <CenteredState
+              message={shown ? 'Pick an error on the left to see it here.' : 'Nothing read yet.'}
+            />
           )}
         </div>
       </div>

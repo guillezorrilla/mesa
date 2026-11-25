@@ -71,12 +71,16 @@ export function WorkspaceMain(props: {
   );
   const sessionView = view.kind === 'session';
   const startView = view.kind === 'sessions';
+  // The Logs tab fills the area; its panes scroll on their own.
+  const logsView = view.kind === 'logs';
   return (
     <main
       className={
         sessionView
           ? 'min-w-0 flex-1 overflow-hidden'
-          : cn('min-w-0 flex-1 overflow-auto px-6 py-5', startView && 'flex flex-col gap-4')
+          : logsView
+            ? 'flex min-w-0 flex-1 flex-col overflow-hidden px-6 py-5'
+            : cn('min-w-0 flex-1 overflow-auto px-6 py-5', startView && 'flex flex-col gap-4')
       }
     >
       {startView && (

@@ -1,19 +1,17 @@
+import { jsonKey, jsonObject, jsonTitle } from './json-message.js';
+import { normalizedMessage } from './normalize.js';
 import type { ServerLogEntry } from './parse.js';
 import { ownFrame } from './stack.js';
 
 // Grouping and muting log entries (CONTEXT.md, Logs panel): what makes two entries the same error,
 // and the same kind of line. Pure, so the app bundles it (`@mesa/core/browser`).
 
-/** Ids, hex, uuids and numbers, which differ between lines of one kind. */
-const VARYING =
-  /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b|\b(?=[0-9a-f]*\d)[0-9a-f]{4,}\b|\d+(?:\.\d+)?/gi;
 /** A Java or JS exception's name: `com.example.MooringException`, `TypeError`. */
 const EXCEPTION = /\b(?:[a-z_$][\w$]*\.)*([A-Z][\w$]*(?:Exception|Error|Throwable))\b/;
 /** A path in a message, such as an HTTP request's: `/actuator/health`. */
 const PATH = /(?:^|\s)(\/[\w/.-]+)/;
 
-/** `message` with what varies between lines of one kind (numbers, ids) as `#`. */
-export const normalizedMessage = (message: string) => message.replace(VARYING, '#');
+export { normalizedMessage } from './normalize.js';
 
 export type ErrorGroup<E extends ServerLogEntry> = {
   /** What makes entries the same error: exception and own frame, else the normalized message. */
@@ -37,9 +35,11 @@ export function errorGroups<E extends ServerLogEntry>(entries: readonly E[]): Er
     const type = EXCEPTION.exec(entry.stack ?? '')?.[1] ?? EXCEPTION.exec(entry.message)?.[1];
     const frame = ownFrame(entry.stack);
     const named = type && (frame ? `${type} at ${frame}` : type);
-    const key = named || `message:${normalizedMessage(entry.message)}`;
+    const json = named ? null : jsonObject(entry.message);
+    const key =
+      named || (json ? `json:${jsonKey(json)}` : `message:${normalizedMessage(entry.message)}`);
     const group = groups.get(key) ?? { key, title: '', count: 0, last: null, entries: [] };
-    group.title = named || entry.message;
+    group.title = named || (json && jsonTitle(json)) || entry.message;
     group.count++;
     group.last = entry.time ?? group.last;
     group.entries.push(entry);
