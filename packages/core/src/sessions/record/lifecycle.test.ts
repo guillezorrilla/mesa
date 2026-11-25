@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { sessionRow } from '../../testing/sessions.js';
+import { isRun } from './labels.js';
 import {
   activeSession,
   exited,
@@ -8,6 +9,7 @@ import {
   recoverable,
   resumable,
   reviewable,
+  takesPrompt,
   waitingForInput,
 } from './lifecycle.js';
 import type { SessionRecord } from './record.js';
@@ -90,4 +92,21 @@ test('an exited session not ended, hidden, resumed, queued or in the background 
     expect(recoverable(managed({ ...gone, ...extra }))).toBe(false);
   }
   expect(recoverable(foreign(gone))).toBe(false);
+});
+
+test("takesPrompt is the Session actions menu's old prompt-field condition, an unmanaged session included", () => {
+  const rows = [
+    managed({}),
+    managed({ kind: 'run' }),
+    managed({ kind: 'terminal', agent: 'terminal' }),
+    managed({ alive: false }),
+    managed({ ...state('done') }),
+    foreign({}),
+    foreign({ alive: false }),
+  ];
+  // What SessionActionsMenu checked before takesPrompt owned it.
+  const before = (row: (typeof rows)[number]) =>
+    !isRun(row) && (row as { kind?: string }).kind !== 'terminal' && !exited(row);
+  expect(rows.map(takesPrompt)).toEqual(rows.map(before));
+  expect(takesPrompt(foreign({}))).toBe(true);
 });

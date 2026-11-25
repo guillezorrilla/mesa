@@ -10,9 +10,12 @@ import {
   tempDir,
   testStore,
 } from '../testing/index.js';
+import { dockerLogsArgv } from './docker.js';
+import { logFile } from './log-files.js';
 import { projectModules } from './modules.js';
-import { readLog, sinceTime } from './read.js';
-import { logFile, logSources } from './sources.js';
+import { readLog } from './read.js';
+import { sinceTime } from './since.js';
+import { logSources } from './sources.js';
 
 const NOW = new Date('2026-05-06T07:10:00.000Z');
 
@@ -189,17 +192,18 @@ test("a container's logs come through docker, its stderr too, stamped by docker"
     sh: '2026-05-06T07:08:09.1Z ERROR boom\n2026-05-06T07:09:59.2Z ERROR again\n',
   });
   const read = await readLog(deps, 'docker:echo-logs', { level: 'error', tail: 3, since: '5m' });
-  expect(calls.at(-1)?.args).toEqual([
-    '-c',
-    'exec docker logs "$@" 2>&1',
-    'sh',
-    '--timestamps',
-    '--tail',
-    '2000',
-    '--since',
-    '2026-05-06T07:05:00.000Z',
-    'echo-logs',
-  ]);
+  // Through sh, so the container's stderr comes too.
+  expect(dockerLogsArgv(['x']).slice(0, 2)).toEqual(['-c', 'exec docker logs "$@" 2>&1']);
+  expect(calls.at(-1)?.args).toEqual(
+    dockerLogsArgv([
+      '--timestamps',
+      '--tail',
+      '2000',
+      '--since',
+      '2026-05-06T07:05:00.000Z',
+      'echo-logs',
+    ]),
+  );
   expect(read.entries.map((entry) => entry.time)).toEqual([
     '2026-05-06T07:08:09.1Z',
     '2026-05-06T07:09:59.2Z',

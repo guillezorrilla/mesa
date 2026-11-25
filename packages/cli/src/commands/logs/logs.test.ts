@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import type { Runner } from '@mesa/core';
 import { plantOutputLog } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
-import { cliHarness } from '../testing.js';
+import { cliHarness } from '../../testing.js';
 
 const cli = cliHarness();
 beforeEach(cli.reset);
@@ -27,6 +27,12 @@ test('logs prints the output log as plain text, --tail its last lines; rm remove
   expect((await mesa('logs', id, '--tail', '2')).stdout).toBe(
     'High water 06:12\nLow water 12:25\n',
   );
+  // A session id has no colon: `mesa logs <session>` keeps its old form, whole and with --tail.
+  expect((await mesa('logs', id, '--json')).json.data).toEqual({
+    session: id,
+    path: file,
+    lines: ['Reading the tide tables', 'High water 06:12', 'Low water 12:25'],
+  });
   expect((await mesa('logs', id, '--tail', '1', '--json')).json.data).toEqual({
     session: id,
     path: file,

@@ -1,12 +1,12 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { lockDeps, profilePaths, scriptedRunner, tempDir } from '../testing/index.js';
 import { changeLogFiles, fileSource, suggestedLogFiles } from './log-files.js';
 import { parseLog } from './parse.js';
-import { terminalLine } from './read.js';
 import { teeArgv } from './tee.js';
+import { terminalLine } from './terminal-line.js';
 
 test('mesa logs run passes a command through and appends what it printed, with its exit status', () => {
   const dir = tempDir();
@@ -19,6 +19,8 @@ test('mesa logs run passes a command through and appends what it printed, with i
   ]);
   const ran = spawnSync(file, args, { encoding: 'utf8' });
   expect(ran.status).toBe(3);
+  // A server's output may hold secrets: the file is the person's alone.
+  expect(statSync(log).mode & 0o777).toBe(0o600);
   expect(ran.stdout).toContain('ERROR boom');
   const lines = readFileSync(log, 'utf8').split('\n');
   expect(lines[0]).toBe('INFO before');

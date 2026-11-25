@@ -6,8 +6,29 @@ import { MesaError } from '../lib/result.js';
 import { type RegistryEntry, updateRegistry } from '../projects/registry.js';
 import { LIVE_MS, type LogSource, type LogSourceState, sourceId } from './source-id.js';
 
-// Log files a project's servers write anywhere on disk (CONTEXT.md, Logs panel): the ones a person
-// added, kept in the profile's registry, and the gitignored `*.log` files Mesa suggests.
+// Log files a project's servers write (CONTEXT.md, Logs panel): where its own folder's files are
+// (by name), the ones a person added anywhere, kept in the profile's registry, and the gitignored
+// `*.log` files Mesa suggests.
+
+/** A log file's name, as a `file:` source and the IntelliJ setup take it: no path in it. */
+const FILE_NAME = /^[A-Za-z0-9][\w.-]{0,99}$/;
+
+/** Whether `name` is a log file name in a project's folder (logFileName). */
+export const isLogFileName = (name: string) => FILE_NAME.test(name);
+
+/** The name, checked, of log file `name`; usage when it could reach outside its folder. */
+export function logFileName(name: string) {
+  if (!FILE_NAME.test(name) || name.endsWith('.log'))
+    throw new MesaError(
+      'usage',
+      `${name} is not a log file name: letters, digits, dots, dashes and underscores, without .log`,
+    );
+  return name;
+}
+
+/** Where `project`'s log file `name` is, in its folder of the profile's logs. */
+export const logFile = (serverLogs: string, project: string, name: string) =>
+  join(serverLogs, project, `${logFileName(name)}.log`);
 
 /** How many suggestions Mesa offers. */
 const SUGGESTED = 20;

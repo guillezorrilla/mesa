@@ -210,3 +210,20 @@ test('pino, winston and logrus JSON lines read too', () => {
     ['error', 'anchor lost'],
   ]);
 });
+
+test('a multi-megabyte line is matched on its start, quickly, and kept whole', () => {
+  const payload = 'x'.repeat(4 * 1024 * 1024);
+  const started = performance.now();
+  const [spring, plain] = parseLog([
+    `2026-01-02T10:11:12.345Z ERROR 1 --- [harbour] [main] c.e.Dock : body ${payload}`,
+    `WARN ${' '.repeat(3 * 1024 * 1024)}tide`,
+    `\tat ${'a.'.repeat(2 * 1024 * 1024)}`,
+  ]);
+  expect(performance.now() - started).toBeLessThan(1000);
+  expect(spring?.message).toHaveLength(`body ${payload}`.length);
+  expect(spring?.level).toBe('error');
+  expect(plain?.level).toBe('warn');
+  expect(spring?.stack).toBeNull();
+  // A huge `at` line still folds under the entry before it, whole.
+  expect(plain?.stack?.length).toBeGreaterThan(4 * 1024 * 1024);
+});

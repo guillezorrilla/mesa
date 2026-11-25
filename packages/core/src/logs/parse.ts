@@ -98,32 +98,43 @@ function jsonEntry(text: string): ServerLogEntry | undefined {
   };
 }
 
+/**
+ * How much of a line the patterns read: a multi-megabyte line (a dumped payload) is matched on its
+ * start only, while its whole text stays the message.
+ */
+const MATCHED = 4096;
+
+/** The rest of `text` from where `match`'s last group starts in its matched head: the whole message. */
+const restFrom = (text: string, match: RegExpExecArray) =>
+  text.slice(match[0].length - (match.at(-1)?.length ?? 0));
+
 /** One line as an entry: Spring Boot's, a JSON one, else any line with the level word it holds. */
 function entryOf(line: RawLine): ServerLogEntry {
-  const spring = SPRING.exec(line.text);
+  const head = line.text.slice(0, MATCHED);
+  const spring = SPRING.exec(head);
   if (spring)
     return {
       time: spring[1] ?? null,
       level: levelOf(spring[2]),
-      message: spring[4] ?? '',
+      message: restFrom(line.text, spring),
       logger: spring[3] ?? null,
       stack: null,
     };
-  const rails = RAILS.exec(line.text);
+  const rails = RAILS.exec(head);
   if (rails)
     return {
       time: rails[1] ?? null,
       level: levelOf(rails[2]),
-      message: rails[4] ?? '',
+      message: restFrom(line.text, rails),
       logger: rails[3]?.trim() || null,
       stack: null,
     };
   const json = jsonEntry(line.text);
   if (json) return { ...json, time: json.time ?? line.time ?? null };
-  const timed = LEADING_TIME.exec(line.text);
-  const level = levelOf(LEVEL_WORD.exec(line.text)?.[1]);
+  const timed = LEADING_TIME.exec(head);
+  const level = levelOf(LEVEL_WORD.exec(head)?.[1]);
   // A leading level word (`INFO ready`, `[WARN] slow`) is the level now, not the message's.
-  const word = LEADING_LEVEL.exec(line.text);
+  const word = LEADING_LEVEL.exec(head);
   return {
     time: timed?.[1] ?? line.time ?? null,
     level,
@@ -143,7 +154,7 @@ export function parseLog(lines: readonly (string | RawLine)[]): ServerLogEntry[]
     const line = typeof each === 'string' ? { text: each } : each;
     if (!line.text.trim()) continue;
     const last = entries.at(-1);
-    if (last && STACK.test(line.text)) {
+    if (last && STACK.test(line.text.slice(0, MATCHED))) {
       last.stack = last.stack ? `${last.stack}\n${line.text}` : line.text;
       continue;
     }

@@ -1,11 +1,11 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Runner } from '../lib/process.js';
-import { MesaError } from '../lib/result.js';
 import { sessionTitle } from '../sessions/record/labels.js';
 import type { SessionStore } from '../sessions/record/store.js';
 import { outputLog } from '../sessions/window/output-log.js';
-import { changedAt, fileSource, stateAt } from './log-files.js';
+import { dockerLogs } from './docker.js';
+import { changedAt, fileSource, isLogFileName, stateAt } from './log-files.js';
 import { type LogSource, sourceId } from './source-id.js';
 
 // Where a project's local servers print (CONTEXT.md, Logs panel): Docker containers running or
@@ -28,36 +28,12 @@ export type LogSourceDeps = {
 const EXITED_LATELY =
   /^Exited \(\d+\) (Less than a second|\d+ seconds?|About a minute|\d+ minutes?) ago$/;
 
-/** A container's name as docker allows it, so a typed id never reaches docker as a flag. */
-export const CONTAINER_NAME = /^[A-Za-z0-9][\w.-]*$/;
-
-/** A log file's name, as a `file:` source and the IntelliJ setup take it: no path in it. */
-const FILE_NAME = /^[A-Za-z0-9][\w.-]{0,99}$/;
-
-/** The name, checked, of log file `name`; usage when it could reach outside its folder. */
-export function logFileName(name: string) {
-  if (!FILE_NAME.test(name) || name.endsWith('.log'))
-    throw new MesaError(
-      'usage',
-      `${name} is not a log file name: letters, digits, dots, dashes and underscores, without .log`,
-    );
-  return name;
-}
-
-/** Where `project`'s log file `name` is. */
-export const logFile = (serverLogs: string, project: string, name: string) =>
-  join(serverLogs, project, `${logFileName(name)}.log`);
-
 /**
  * When container `name` printed its last line, from `docker logs --tail 1 --timestamps` (stderr
  * too, through sh, as the runner keeps only stdout); null when it printed none or docker failed.
  */
 async function lastDockerLine(run: Runner, name: string) {
-  const read = await run(
-    'sh',
-    ['-c', 'exec docker logs "$@" 2>&1', 'sh', '--timestamps', '--tail', '1', name],
-    5_000,
-  );
+  const read = await dockerLogs(run, ['--timestamps', '--tail', '1', name], 5_000);
   const stamp = read.ok ? read.stdout.trim().split(' ')[0] : undefined;
   return stamp && !Number.isNaN(Date.parse(stamp)) ? stamp : null;
 }
@@ -132,7 +108,7 @@ function files(deps: LogSourceDeps, project: string): LogSource[] {
   return readdirSync(dir)
     .filter((file) => file.endsWith('.log'))
     .map((file) => ({ name: file.slice(0, -4), lastLine: changedAt(join(dir, file)) }))
-    .filter(({ name }) => FILE_NAME.test(name))
+    .filter(({ name }) => isLogFileName(name))
     .sort((a, b) => (b.lastLine ?? '').localeCompare(a.lastLine ?? ''))
     .map(({ name, lastLine }) => ({
       id: sourceId('file', name),

@@ -3,11 +3,13 @@ import { tailLines } from '../lib/file-tail.js';
 import type { LockDeps } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { outputTail } from '../sessions/window/output-log.js';
-import { plainText } from '../sessions/window/terminal-text.js';
-import { keptAnywhere } from './log-files.js';
+import { CONTAINER_NAME, dockerLogs } from './docker.js';
+import { keptAnywhere, logFile } from './log-files.js';
 import { atLeast, type LogLevel, parseLog, type RawLine, type ServerLogEntry } from './parse.js';
+import { sinceTime } from './since.js';
 import { parseSourceId } from './source-id.js';
-import { CONTAINER_NAME, type LogSourceDeps, logFile } from './sources.js';
+import type { LogSourceDeps } from './sources.js';
+import { terminalLine } from './terminal-line.js';
 
 export type ReadOptions = {
   /** The last this many entries; 200 when not given. */
@@ -25,36 +27,6 @@ const DEFAULT_TAIL = 200;
 const LOOK = 2000;
 /** Bytes per line a file tail reads first, so most reads take one pass. */
 const LINE_BYTES = 200;
-const AGE = /^(\d+)(s|m|h|d)$/;
-const SECONDS = { s: 1, m: 60, h: 3600, d: 86400 };
-
-/** `since` as an ISO time: an age is counted back from now; usage when it is neither. */
-export function sinceTime(since: string, now: Date) {
-  const age = AGE.exec(since);
-  if (age)
-    return new Date(
-      now.getTime() - Number(age[1]) * SECONDS[age[2] as keyof typeof SECONDS] * 1000,
-    ).toISOString();
-  const at = Date.parse(since);
-  if (Number.isNaN(at))
-    throw new MesaError('usage', `--since must be an ISO time or an age such as 10m, not ${since}`);
-  return new Date(at).toISOString();
-}
-
-/**
- * A line a terminal wrote (`mesa logs run`) as plain text: each backspace erases the character
- * before it (script's `^D` then two backspaces), then escape sequences go (plainText).
- */
-export function terminalLine(line: string) {
-  if (!line.includes('\b') && !line.includes('\x1b')) return line;
-  const kept: string[] = [];
-  for (const char of line) {
-    if (char === '\b') kept.pop();
-    else kept.push(char);
-  }
-  return plainText(kept.join(''));
-}
-
 /** A docker line, `<RFC 3339 time> <text>`, split into the time docker stamped and the text. */
 function stamped(line: string): RawLine {
   const space = line.indexOf(' ');
@@ -72,8 +44,7 @@ async function dockerLines(deps: ReadDeps, name: string, lines: number, since?: 
     ...(since ? ['--since', since] : []),
     name,
   ];
-  // Through sh, so the container's stderr comes too: the runner keeps only stdout.
-  const read = await deps.run('sh', ['-c', 'exec docker logs "$@" 2>&1', 'sh', ...args], 10_000);
+  const read = await dockerLogs(deps.run, args, 10_000);
   if (!read.ok)
     throw new MesaError('not_found', `could not read docker logs of ${name}: ${read.detail}`);
   return read.stdout.split('\n').map(stamped);
