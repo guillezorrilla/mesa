@@ -1,6 +1,7 @@
 import { splitMessage, traceIdOf } from './cloud-entry.js';
 import { facetsOf } from './facets.js';
 import type { CloudLogEntry } from './gcp.js';
+import { strictNormalized } from './normalize.js';
 import { requestIds } from './tokens.js';
 
 // Incidents (CONTEXT.md, Cloud Logs): error groups that belong to one failure, linked in core by
@@ -88,13 +89,13 @@ function spanMinutes(a: readonly number[], b: readonly number[]) {
   return busy.length ? (busy.at(-1) as number) - (busy[0] as number) + 1 : 0;
 }
 
-/** A link as words after "they" ("share traces in 212 entries", "rise together, r 0.98 over 14 minutes"). */
+/** A link as words after "they" ("share 212 traces", "rise together, r 0.98 over 14 minutes"). */
 export function linkReason(link: Pick<IncidentLink, 'reason' | 'detail'>) {
   switch (link.reason) {
     case 'trace':
-      return `share traces in ${link.detail}`;
+      return `share ${link.detail} ${link.detail === '1' ? 'trace' : 'traces'}`;
     case 'request':
-      return `share requests in ${link.detail}`;
+      return `share ${link.detail} ${link.detail === '1' ? 'request' : 'requests'}`;
     case 'context':
       return `share ${link.detail}`;
     case 'revision':
@@ -169,14 +170,13 @@ function linksBetween(a: GroupIndex, b: GroupIndex, carriers: Map<string, number
       detail,
       strength: Math.round(strength * 100) / 100,
     });
-  // How many entries of both groups carry an id the other group carries too.
+  // How many ids (traces, requests) the two groups share.
   const sharing = (x: Map<string, number>, y: Map<string, number>) =>
-    [...x].reduce((n, [id, count]) => (y.has(id) ? n + count + (y.get(id) ?? 0) : n), 0);
-  const entries = (n: number) => `${n} ${n === 1 ? 'entry' : 'entries'}`;
+    [...x.keys()].filter((id) => y.has(id)).length;
   const traces = sharing(a.traces, b.traces);
-  if (traces) add('trace', entries(traces), 0.9);
+  if (traces) add('trace', String(traces), 0.9);
   const requests = sharing(a.requests, b.requests);
-  if (requests) add('request', entries(requests), 0.85);
+  if (requests) add('request', String(requests), 0.85);
   // A context value both groups mostly carry that most of the other groups do not.
   const others = groups - 2;
   for (const [pair, share] of a.shares) {
@@ -255,13 +255,6 @@ export function incidentsOf(
     });
 }
 
-/** A message with each word that holds a digit (an id, a count, a station code) as one mark. */
-const variantKey = (head: string) =>
-  head
-    .split(/\s+/)
-    .map((word) => (/\d/.test(word) ? '#' : word))
-    .join(' ');
-
 /** A group's own story from its entries: counts over the range, its top message variants, its facets. */
 export function groupStats(
   entries: readonly CloudLogEntry[],
@@ -277,7 +270,7 @@ export function groupStats(
   const variants = new Map<string, { message: string; count: number }>();
   for (const entry of entries) {
     const head = splitMessage(entry.message).head;
-    const key = variantKey(head);
+    const key = strictNormalized(head);
     const known = variants.get(key);
     if (known) known.count++;
     else variants.set(key, { message: head, count: 1 });

@@ -1,6 +1,6 @@
 import { splitMessage } from './cloud-entry.js';
 import { jsonObject, jsonTerms, jsonTitle } from './json-message.js';
-import { normalizedMessage } from './normalize.js';
+import { normalizedMessage, strictNormalized } from './normalize.js';
 
 // An error group's occurrences in Errors mode (CONTEXT.md, Cloud Logs): the text that reads them
 // from Logging, and identical ones (differing only in times and ids) as one run. Pure, so the app
@@ -46,8 +46,7 @@ export function groupTerms(message: string) {
   const json = jsonObject(head);
   if (json) return jsonTerms(json);
   // Stricter than grouping: a word with a digit anywhere (LC-04) is no term of the group.
-  const words = head.split(/\s+/).map((w) => (/\d/.test(w) ? '#' : w));
-  return normalizedMessage(words.join(' '))
+  return strictNormalized(head)
     .split('#')
     .map(trimSeparators)
     .filter((part) => part.length >= 4)

@@ -1,5 +1,5 @@
 import { jsonObject, plainTitle, splitMessage } from '@mesa/core/browser';
-import { MessageBody } from '../../shared/MessageBody';
+import { MessageBody } from '../shared/MessageBody';
 import { JsonPayload } from './JsonPayload';
 
 /** A message as Errors shows it: a JSON one as its title over its fields, else its text with the stack folded. */

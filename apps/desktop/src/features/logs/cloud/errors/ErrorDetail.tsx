@@ -17,10 +17,10 @@ import type { CloudFilters } from '@/lib/client/logs';
 import { CopyButton } from '../../shared/CopyButton';
 import { dayTime } from '../../shared/logLines';
 import { ServiceDot } from '../../shared/ServiceDot';
+import { MessageView } from '../MessageView';
 import { useCloudCopy } from '../useCloudCopy';
 import { ErrorBadge } from './ErrorBadge';
 import { ErrorOccurrences } from './ErrorOccurrences';
-import { MessageView } from './MessageView';
 
 function Section(props: { title: string; children: React.ReactNode }) {
   return (

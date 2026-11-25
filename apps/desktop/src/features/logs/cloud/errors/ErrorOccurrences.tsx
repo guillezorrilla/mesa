@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button';
 import type { CloudFilters } from '@/lib/client/logs';
 import { useOptional } from '@/lib/useCommand';
 import { clockTime, dayTime } from '../../shared/logLines';
+import { MessageView } from '../MessageView';
 import { RepeatRun } from '../RepeatRun';
 import { useOlderEntries } from '../useOlderEntries';
-import { MessageView } from './MessageView';
 
 /** How many occurrences each read brings. */
 const PAGE = 50;
@@ -19,8 +19,14 @@ const PAGE = 50;
  * (groupQuery), so the query finds its own group.
  */
 function occurrenceFilters(group: CloudErrorGroup, filters: CloudFilters): CloudFilters {
-  const { text: _, severity: __, services: ___, fields: ____, ...rest } = filters;
-  return { ...rest, projects: [group.project], filter: groupQuery(group) };
+  // The range, env and noise switch stay; the group's own query replaces every other filter.
+  return {
+    env: filters.env,
+    since: filters.since,
+    all: filters.all,
+    projects: [group.project],
+    filter: groupQuery(group),
+  };
 }
 
 /** One occurrence: its time and its message (MessageView). */

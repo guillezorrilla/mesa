@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
-import { errorGroups, isMuted, muteKey, normalizedMessage } from './groups.js';
+import { errorGroups, isMuted, muteKey } from './groups.js';
+import { normalizedMessage } from './normalize.js';
 import type { ServerLogEntry } from './parse.js';
 
 const entry = (message: string, time: string, stack: string | null = null): ServerLogEntry => ({

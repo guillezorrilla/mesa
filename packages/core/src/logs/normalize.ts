@@ -21,3 +21,12 @@ export const normalizedMessage = (message: string) =>
     .replace(UUID, '#')
     .replace(QUOTED, (_, lead: string | undefined) => `${lead ?? ''}#`)
     .replace(TOKEN, word);
+
+/** Stricter than normalizedMessage: every word that holds a digit (an id, a count, a station code like LC-04) as one `#`. */
+export const strictNormalized = (message: string) =>
+  normalizedMessage(
+    message
+      .split(/\s+/)
+      .map((w) => (/\d/.test(w) ? '#' : w))
+      .join(' '),
+  );

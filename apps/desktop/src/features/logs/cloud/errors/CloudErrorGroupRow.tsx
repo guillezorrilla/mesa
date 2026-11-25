@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { dayTime } from '../../shared/logLines';
 import { ServiceDot } from '../../shared/ServiceDot';
 import { ErrorBadge } from './ErrorBadge';
+import { ERROR_ROW } from './errorRow';
 
 /**
  * An error group in the Errors list, one fixed height: its title without ids and numbers over its
@@ -23,7 +24,8 @@ export function CloudErrorGroupRow(props: {
       aria-pressed={props.selected}
       data-group={groupKey(group)}
       className={cn(
-        'grid h-[3.75rem] w-full grid-cols-[minmax(0,1fr)_6.5rem] items-center gap-3 border-l-2 border-transparent px-4 text-left hover:bg-accent/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
+        ERROR_ROW,
+        'w-full border-l-2 border-transparent text-left hover:bg-accent/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
         props.nested && 'pl-6',
         props.selected &&
           'border-l-state-working bg-state-working/[0.08] hover:bg-state-working/10',

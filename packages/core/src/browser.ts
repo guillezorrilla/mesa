@@ -82,7 +82,7 @@ export { groupKey } from './logs/error-merge.js';
 export { type Facet, facetsOf } from './logs/facets.js';
 export { entryGroup, errorFixGoal } from './logs/fix-goal.js';
 export { ALL_ENVS } from './logs/gcp-config.js';
-export { errorGroups, isMuted, muteKey, normalizedMessage } from './logs/groups.js';
+export { errorGroups, isMuted, muteKey } from './logs/groups.js';
 export {
   groupStats,
   type Incident,
@@ -93,6 +93,7 @@ export {
 } from './logs/incidents.js';
 export { jsonObject } from './logs/json-message.js';
 export { CONTEXT_LINES, logMessage } from './logs/message.js';
+export { normalizedMessage } from './logs/normalize.js';
 export { groupTerms, occurrenceRuns, plainTitle, type Run } from './logs/occurrences.js';
 export { entryText, LEVEL_NAMES } from './logs/parse.js';
 export { NO_ORGANIZATION, type ProjectRow, projectRows } from './logs/project-rows.js';

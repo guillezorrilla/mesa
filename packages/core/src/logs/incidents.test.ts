@@ -50,7 +50,7 @@ test('a shared trace links a gateway 502 to the API error behind it, and the API
     services: ['harbour-web', 'tide-api'],
   });
   expect(incident?.links).toEqual([
-    { from: 'p web', to: 'p api', reason: 'trace', detail: '2 entries', strength: 0.9 },
+    { from: 'p web', to: 'p api', reason: 'trace', detail: '1', strength: 0.9 },
   ]);
 });
 
@@ -62,7 +62,7 @@ test('a shared request id, a shared context value and a shared revision each lin
     ],
     RANGE,
   );
-  expect(request[0]?.links.map((l) => [l.reason, l.detail])).toEqual([['request', '2 entries']]);
+  expect(request[0]?.links.map((l) => [l.reason, l.detail])).toEqual([['request', '1']]);
   const context = incidentsOf(
     [
       group('a', 's1', [entry(1, 'quote failed', { fields: { company: 'Lantern Cove' } })]),
@@ -129,9 +129,7 @@ test('counts that rise together over enough minutes and events link, with their 
     RANGE,
   );
   expect(apart).toEqual([]);
-  expect(linkReason({ reason: 'trace', detail: '212 entries' })).toBe(
-    'share traces in 212 entries',
-  );
+  expect(linkReason({ reason: 'trace', detail: '212' })).toBe('share 212 traces');
 });
 
 test("a group's stats: counts over the range, message variants without their ids, facets", () => {

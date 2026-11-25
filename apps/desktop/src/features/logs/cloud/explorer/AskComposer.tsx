@@ -53,7 +53,7 @@ export function AskComposer(props: {
         aria-label="Question about the logs"
         placeholder={
           props.selected
-            ? `Ask about the ${props.selected} selected entries`
+            ? `Ask about the ${props.selected} selected ${props.selected === 1 ? 'entry' : 'entries'}`
             : 'Ask about these entries'
         }
         className="min-h-16 text-sm"

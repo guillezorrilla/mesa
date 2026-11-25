@@ -1,5 +1,5 @@
 import type { CloudLogEntry } from '@mesa/core';
-import { cloudLevel, entryConsoleUrl, splitMessage } from '@mesa/core/browser';
+import { cloudLevel, entryConsoleUrl } from '@mesa/core/browser';
 import { ChevronDown, Eye, EyeOff, MessageSquareText, Wrench } from 'lucide-react';
 import { memo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { CopyButton } from '../../shared/CopyButton';
 import { LevelBadge } from '../../shared/LevelBadge';
 import { LogRow } from '../../shared/LogRow';
 import { clockTime } from '../../shared/logLines';
-import { MessageBody } from '../../shared/MessageBody';
+import { MessageView } from '../MessageView';
 import type { EntryActions } from '../types';
 
 /**
@@ -28,7 +28,6 @@ export const CloudEntryRow = memo(function CloudEntryRow(props: {
   actions: EntryActions;
 }) {
   const { entry, actions } = props;
-  const { head, stack } = splitMessage(entry.message);
   return (
     <div
       data-id={entry.id}
@@ -44,7 +43,7 @@ export const CloudEntryRow = memo(function CloudEntryRow(props: {
         logger={entry.service}
       >
         <div className="min-w-0">
-          <MessageBody message={head} stack={stack} />
+          <MessageView message={entry.message} />
           {Object.keys(entry.fields).length > 0 && (
             <span className="mt-0.5 flex flex-wrap gap-1 font-sans text-[10.5px]">
               {Object.entries(entry.fields)

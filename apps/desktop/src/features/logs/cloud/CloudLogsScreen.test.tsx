@@ -159,7 +159,7 @@ const INCIDENT = {
       from: 'harbour-web-456 message:GET /checkout # #ms',
       to: 'tide-tables-123 TideTableNotFoundException at TableStore.java:41',
       reason: 'trace',
-      detail: '212 entries',
+      detail: '212',
       strength: 0.9,
     },
     {
@@ -218,7 +218,7 @@ test('Errors: incidents and lone groups on the left, the origin open on the righ
   expect(q('[aria-label="Message variants"]')?.textContent).toContain('no cache');
   expect(q('[aria-label="Context"]')?.textContent).toContain('Lantern Cove 280');
   expect(q('[aria-label="Related"]')?.textContent).toContain(
-    'share traces in 212 entries; rise together, r 0.97',
+    'share 212 traces; rise together, r 0.97',
   );
   expect(detail?.querySelector('a')?.getAttribute('href')).toContain(
     'https://console.cloud.google.com/logs/query;query=severity%3E%3DERROR',

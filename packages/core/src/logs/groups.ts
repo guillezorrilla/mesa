@@ -11,8 +11,6 @@ const EXCEPTION = /\b(?:[a-z_$][\w$]*\.)*([A-Z][\w$]*(?:Exception|Error|Throwabl
 /** A path in a message, such as an HTTP request's: `/actuator/health`. */
 const PATH = /(?:^|\s)(\/[\w/.-]+)/;
 
-export { normalizedMessage } from './normalize.js';
-
 export type ErrorGroup<E extends ServerLogEntry> = {
   /** What makes entries the same error: exception and own frame, else the normalized message. */
   key: string;
