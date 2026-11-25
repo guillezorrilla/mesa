@@ -1,7 +1,7 @@
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import { valueAt } from '../lib/yaml-file.js';
-import { quoted, SERVICE_LABELS, servicePaths } from './filter-text.js';
+import { quoted, servicePaths } from './filter-text.js';
 import { eachProject, gcloud, jsonList } from './gcloud.js';
 import { ALL_ENVS, type CloudSeverity, filterProblem, type GcpLogs } from './gcp-config.js';
 import { OWN_SERVICES_FILTER } from './noise.js';

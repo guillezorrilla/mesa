@@ -1,4 +1,4 @@
-import type { CloudAsk, CloudLogEntry } from '@mesa/core';
+import type { AskTurn, CloudAsk, CloudLogEntry } from '@mesa/core';
 import { entryGroup, facetsOf } from '@mesa/core/browser';
 import { PanelRightOpen } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
@@ -8,11 +8,11 @@ import { Button } from '@/components/ui/button';
 import type { CloudAsked, CloudFilters } from '@/lib/client/logs';
 import { useCall, useOptional } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
-import { CloudProjectDialog } from '../CloudProjectDialog';
 import { CloudReadAlert } from '../CloudReadAlert';
+import { CloudSessionDialogs } from '../CloudSessionDialogs';
 import type { EntryActions } from '../types';
 import { useCloudCopy } from '../useCloudCopy';
-import { useFixInSession } from '../useFixInSession';
+import { useCloudSession } from '../useCloudSession';
 import { SaveViewDialog } from '../views/SaveViewDialog';
 import { ClaudePanel } from './ClaudePanel';
 import { ExplorerResults } from './ExplorerResults';
@@ -20,6 +20,9 @@ import { fieldClause, matchingClause, withClause } from './explorerQuery';
 import { FieldsPane } from './FieldsPane';
 import { QueryBar } from './QueryBar';
 import { ViewFilterChips } from './ViewFilterChips';
+
+/** The filters of a query an Ask ran, as a person would set them. */
+type Own = NonNullable<AskTurn['queries'][number]['own']>;
 
 /**
  * The Explorer (CONTEXT.md, Cloud Logs), shaped like the Cloud Console's Logs Explorer with Claude
@@ -39,13 +42,15 @@ export function CloudExplorer(props: {
   const call = useCall();
   const toast = useToast();
   const { copy, copyText } = useCloudCopy();
-  const fixing = useFixInSession(props.onSession);
+  const fixing = useCloudSession(props.filters.env, props.onSession);
   const [query, setQuery] = useState(props.filters.filter ?? '');
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [focus, setFocus] = useState<string>();
   const [claude, setClaude] = useState(true);
   const [draft, setDraft] = useState(props.draft);
-  const [saving, setSaving] = useState<string>();
+  const [saving, setSaving] = useState<CloudFilters>();
+  // A query written from the person's words waits in the bar, highlighted, until they run it.
+  const [written, setWritten] = useState(false);
   // The last entries read stay while the next query reads, so the panes do not blank.
   const last = useRef<CloudLogEntry[]>(undefined);
   if (read.data) last.current = read.data.entries;
@@ -53,9 +58,21 @@ export function CloudExplorer(props: {
   const facets = useMemo(() => facetsOf(entries ?? [], 20, 8), [entries]);
   const run = (next: string) => {
     setQuery(next);
+    setWritten(false);
     props.onFilters({ ...props.filters, filter: next.trim() || undefined });
   };
   const add = (clause: string, exclude = false) => run(withClause(query, clause, exclude));
+  // A query an Ask ran, as the person would set it: its own filters over this view, not its compiled env and range.
+  const withOwn = (own: Own): CloudFilters => ({
+    ...props.filters,
+    filter: undefined,
+    severity: undefined,
+    text: undefined,
+    fields: undefined,
+    services: undefined,
+    trace: undefined,
+    ...own,
+  });
   const lastCited = props.conversation?.turns.at(-1)?.cited;
   const cited = useMemo(() => new Set(lastCited ?? []), [lastCited]);
   const picked = useMemo(() => [...selected], [selected]);
@@ -90,12 +107,14 @@ export function CloudExplorer(props: {
         query={query}
         facets={facets}
         busy={read.busy}
+        written={written}
         onChange={setQuery}
         onRun={run}
         onWords={async (sentence) => {
           const found = await call('logs.query', { ...props.filters, sentence });
-          if (found.ok) run(found.data.query);
-          else toast(found.error.message);
+          if (!found.ok) return toast(found.error.message);
+          setQuery(found.data.query);
+          setWritten(true);
         }}
       />
       <ViewFilterChips filters={props.filters} onFilters={props.onFilters} />
@@ -149,26 +168,22 @@ export function CloudExplorer(props: {
               onNew={props.onNewConversation}
               onCite={setFocus}
               onApply={run}
-              onSaveView={setSaving}
+              onRunOwn={(own) => {
+                const next = withOwn(own);
+                setQuery(next.filter ?? '');
+                setWritten(false);
+                props.onFilters(next);
+              }}
+              onSaveView={(own) => setSaving(withOwn(own))}
+              onCarry={(id) => fixing.carry(id)}
               onClose={() => setClaude(false)}
             />
           </div>
         )}
       </div>
-      {fixing.picking && (
-        <CloudProjectDialog
-          title="Fix in which project?"
-          description="A session starts there with the entry and its query as its goal."
-          remember={fixing.pickingRef}
-          onCancel={fixing.cancel}
-          onPick={(project, remember) => void fixing.pick(project, remember)}
-        />
-      )}
+      <CloudSessionDialogs session={fixing} />
       {saving !== undefined && (
-        <SaveViewDialog
-          filters={{ ...props.filters, filter: saving }}
-          onDone={() => setSaving(undefined)}
-        />
+        <SaveViewDialog filters={saving} onDone={() => setSaving(undefined)} />
       )}
     </div>
   );

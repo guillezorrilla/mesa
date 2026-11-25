@@ -14,6 +14,7 @@ const upper = (text: string) => `${text.charAt(0).toUpperCase()}${text.slice(1)}
 const ACTIONS = {
   send: { label: 'Send anyway', icon: Send },
   run: { label: 'Run anyway', icon: Play },
+  start: { label: 'Start anyway', icon: Play },
 };
 
 /**

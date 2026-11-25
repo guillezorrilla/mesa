@@ -12,10 +12,10 @@ import type { CloudAsked, CloudFilters } from '@/lib/client/logs';
 import { useOptional } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { AskAnswer } from '../AskAnswer';
-import { CloudProjectDialog } from '../CloudProjectDialog';
 import { CloudReadAlert } from '../CloudReadAlert';
+import { CloudSessionDialogs } from '../CloudSessionDialogs';
 import { ProdAskDialog } from '../ProdAskDialog';
-import { useFixInSession } from '../useFixInSession';
+import { useCloudSession } from '../useCloudSession';
 import { useLogAsk } from '../useLogAsk';
 import { CloudErrorGroupRow } from './CloudErrorGroupRow';
 import { ErrorDetail } from './ErrorDetail';
@@ -48,7 +48,7 @@ export function CloudErrorsView(props: {
   const [selected, setSelected] = useState<string>();
   const [summary, setSummary] = useState<CloudAsked>();
   const [cancelled, setCancelled] = useState<string>();
-  const fixing = useFixInSession(props.onSession);
+  const fixing = useCloudSession(props.filters.env, props.onSession);
   const summarise = useLogAsk({ ...props.filters, severity: 'error' }, undefined, setSummary);
   // The last result stays shown, dimmed, while another reads (or after Cancel).
   const readKey = JSON.stringify(props.filters);
@@ -191,15 +191,7 @@ export function CloudErrorsView(props: {
           )}
         </div>
       </div>
-      {fixing.picking && (
-        <CloudProjectDialog
-          title="Fix in which project?"
-          description="A session starts there with the error, its samples and its query as its goal."
-          remember={fixing.pickingRef}
-          onCancel={fixing.cancel}
-          onPick={(project, remember) => void fixing.pick(project, remember)}
-        />
-      )}
+      <CloudSessionDialogs session={fixing} />
       {summarise.confirming && (
         <ProdAskDialog
           projects={summarise.confirming}

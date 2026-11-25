@@ -12,6 +12,7 @@ import {
   renderWithMesa,
 } from '@/lib/testing';
 import { HEALTHY } from '@/lib/testing/healthy';
+import { guardrailStopped } from '@/lib/testing/replies';
 import type { CloudMode } from '@/lib/workspaceView';
 import { CloudLogsScreen } from './CloudLogsScreen';
 import type { CloudLogsView } from './types';
@@ -57,8 +58,12 @@ const q = <T extends Element = HTMLElement>(selector: string) =>
   document.querySelector<T>(selector) ?? undefined;
 
 /** The screen with its view kept as the workspace would keep it, and the view shown for tests. */
-function Harness(props: { mode: CloudMode; query?: CloudFilters }) {
-  const [view, setView] = useState<CloudLogsView>({ mode: props.mode, query: props.query ?? {} });
+function Harness(props: { mode: CloudMode; query?: CloudFilters; ask?: string }) {
+  const [view, setView] = useState<CloudLogsView>({
+    mode: props.mode,
+    query: props.query ?? {},
+    ask: props.ask,
+  });
   return (
     <>
       <output data-testid="view">{JSON.stringify(view)}</output>
@@ -174,6 +179,7 @@ const INCIDENT = {
 
 test('Errors: incidents and lone groups on the left, the origin open on the right with its stack, variants, context, related groups and actions', async () => {
   const platform = fakePlatform();
+  const sent: string[] = [];
   const { bridge, calls } = fakeBridge({
     config: () => config(GCP),
     'logs asks': () => envelope({ asks: [] }),
@@ -205,6 +211,21 @@ test('Errors: incidents and lone groups on the left, the origin open on the righ
         run: { session: 'r1', durationMs: 1 },
       }),
     projects: () => envelope([]),
+    // A prod group asks first, then the guardrail asks about the goal, then the session starts.
+    'logs session': (args, stdin) => {
+      sent.push(stdin ?? '');
+      if (!args.includes('--allow-prod'))
+        return {
+          ok: false,
+          error: {
+            code: 'needs_approval',
+            message: 'confirm',
+            details: { reason: 'prod_ask', projects: ['tide-tables-123'] },
+          },
+        };
+      if (!args.includes('--yes')) return guardrailStopped('ask', 'the goal names a deploy');
+      return envelope({ session: { id: 's9' } });
+    },
   });
   await renderWithMesa(<Harness mode="errors" />, bridge, platform);
   await attached();
@@ -250,7 +271,19 @@ test('Errors: incidents and lone groups on the left, the origin open on the righ
   expect(platform.pasteboard.at(-1)).toContain('at com.tides.TableStore.load');
   await click(button('Fix in session', shown));
   expect(q('[data-testid="cloud-project-dialog"]')).toBeDefined();
-  await click(q('[data-testid="cloud-project-dialog"] button[type="button"]'));
+  await click(q('[data-testid="confirm-cloud-project"]'));
+  await attached();
+  expect(q('[data-testid="prod-ask-dialog"]')?.textContent).toContain('tide-tables-123');
+  await click(q('[data-testid="confirm-prod-ask"]'));
+  await attached();
+  expect(q('[data-testid="guardrail-dialog"]')?.textContent).toContain('names a deploy');
+  await click(q('[data-testid="guardrail-start"]'));
+  await attached();
+  const opens = calls.filter((argv) => argv[2] === 'session');
+  expect(opens).toHaveLength(3);
+  expect(opens[2]).toEqual(expect.arrayContaining(['--allow-prod', '--yes']));
+  // The group goes on stdin, for core to fence and mask; the app writes no goal of its own.
+  expect(JSON.parse(sent[2] ?? '{}')).toMatchObject({ project: 'tide-tables-123' });
   await click(button('Ask about this'));
   await attached();
   expect(view()).toMatchObject({ mode: 'explorer', query: { projects: ['tide-tables-123'] } });
@@ -342,9 +375,15 @@ test('Explorer: fields add or exclude clauses, Show matching narrows, repeats fo
   await fill(q<HTMLInputElement>('[aria-label="Ask in words"]'), 'errors for Quiet Reef');
   await click(button('Write query'));
   await attached();
-  expect(q<HTMLTextAreaElement>('[aria-label="Query"]')?.value).toBe(
-    'severity>=ERROR AND jsonPayload.company="Quiet Reef"',
-  );
+  const written = 'severity>=ERROR AND jsonPayload.company="Quiet Reef"';
+  // The written query waits in the bar, highlighted, until the person runs it.
+  expect(q<HTMLTextAreaElement>('[aria-label="Query"]')?.value).toBe(written);
+  expect(lastRead(calls)).not.toContain(`--filter=${written}`);
+  expect(document.body.textContent).toContain('Written from your words');
+  await click(q('button[title="Run (Cmd+Enter)"]'));
+  await attached();
+  expect(lastRead(calls)).toContain(`--filter=${written}`);
+  expect(document.body.textContent).not.toContain('Written from your words');
   // Select an entry, then ask: the prod confirmation first, then the answer cites and suggests.
   await click(q('[data-id="a1"] [role="option"]'));
   await fill(q<HTMLTextAreaElement>('[aria-label="Question about the logs"]'), 'why?');
@@ -357,6 +396,62 @@ test('Explorer: fields add or exclude clauses, Show matching narrows, repeats fo
   expect(asked).toContain('--allow-prod');
   expect(asked.at(-1)).toBe('About the selected entries [a1]: why?');
   expect(view().ask).toBe('c1');
+});
+
+test("an Ask's answer copies its query, a query it ran runs its own filters over the view, and the conversation opens in a session, General by default", async () => {
+  const platform = fakePlatform();
+  const turn = {
+    at: at(5),
+    question: 'why?',
+    query: {},
+    answer: 'Lookups fail [a1].\n\n```query\njsonPayload.company="Lantern Cove"\n```',
+    cited: ['a1'],
+    queries: [
+      {
+        project: 'tide-tables-123',
+        filter:
+          'resource.labels.cluster_name="harbour-beta" AND timestamp>="2026-05-06T07:00:00Z" AND severity>=ERROR',
+        own: { severity: 'error' },
+      },
+    ],
+    session: 'r1',
+  };
+  const { bridge, calls } = fakeBridge({
+    config: () => config(GCP),
+    'logs asks': () => envelope({ asks: [{ id: 'c1', turns: [turn] }] }),
+    'logs gcp': (args) =>
+      args.includes('--services')
+        ? envelope({ env: 'beta', services: [], warnings: [] })
+        : envelope({
+            projects: GCP.projects,
+            env: 'beta',
+            envs: ['beta', 'prod'],
+            filters: {},
+            warnings: [],
+            entries: [entry('a1', 1, 'lookup failed for order 18240')],
+          }),
+    'logs session': () => envelope({ session: { id: 's9' } }),
+    projects: () => envelope([]),
+  });
+  await renderWithMesa(<Harness mode="explorer" ask="c1" />, bridge, platform);
+  await attached();
+  const claude = q('[aria-label="Claude"]') ?? document;
+  await click(button('Copy query', claude));
+  expect(platform.pasteboard.at(-1)).toContain('jsonPayload.company="Lantern Cove"');
+  await click(button('Run', q('[aria-label="Claude"] details') ?? document));
+  await attached();
+  const read = lastRead(calls)?.join(' ') ?? '';
+  expect(read).toContain('--severity=error');
+  expect(read).not.toContain('timestamp');
+  expect(read).not.toContain('harbour-beta');
+  await click(q('[aria-label="Open in a session"]'));
+  expect(q('[data-testid="cloud-project-dialog"]')?.textContent).toContain(
+    'Open in which project?',
+  );
+  await click(q('[data-testid="confirm-cloud-project"]'));
+  await attached();
+  const open = calls.filter((argv) => argv[2] === 'session').at(-1);
+  expect(open).toEqual(expect.arrayContaining(['--conversation=c1', '__mesa_general__']));
 });
 
 test('a saved view opens in Explorer with its other filters as chips and its metric counts in the chart', async () => {

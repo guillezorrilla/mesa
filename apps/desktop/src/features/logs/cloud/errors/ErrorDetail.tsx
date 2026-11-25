@@ -17,8 +17,10 @@ import type { CloudFilters } from '@/lib/client/logs';
 import { CopyButton } from '../../shared/CopyButton';
 import { dayTime } from '../../shared/logLines';
 import { ServiceDot } from '../../shared/ServiceDot';
+import { fieldClause } from '../explorer/explorerQuery';
 import { MessageView } from '../MessageView';
 import { useCloudCopy } from '../useCloudCopy';
+import { useCloudLogsConfig } from '../useCloudLogsConfig';
 import { ErrorBadge } from './ErrorBadge';
 import { ErrorOccurrences } from './ErrorOccurrences';
 
@@ -50,7 +52,7 @@ export function ErrorDetail(props: {
 }) {
   const { group } = props;
   const { copy, copySummary, copyText } = useCloudCopy();
-  const query = groupQuery(group);
+  const query = groupQuery(group, useCloudLogsConfig().gcp);
   const url = consoleUrl(group.project, query, { since: props.filters.since });
   const samples = group.samples ?? [];
   const raw = group.sample || samples[0]?.message || group.message;
@@ -162,7 +164,7 @@ export function ErrorDetail(props: {
                       type="button"
                       title={`Open these with ${facet.key} = ${value} in Explorer`}
                       className="rounded bg-muted px-1.5 font-mono text-[11px] hover:bg-accent"
-                      onClick={() => explore(`jsonPayload.${facet.key}=${JSON.stringify(value)}`)}
+                      onClick={() => explore(fieldClause(facet.key, value))}
                     >
                       {value} <span className="text-muted-foreground">{count}</span>
                     </button>

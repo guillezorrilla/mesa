@@ -15,7 +15,10 @@ const QuerySchema = z.object({
   project: z.string().optional(),
   filter: z.string(),
   /** What the run asked for itself (no env, noise or time bounds): what Run applies. */
-  own: CloudViewSchema.omit({ name: true }).partial().optional(),
+  own: CloudViewSchema.omit({ name: true })
+    .extend({ trace: z.string().optional() })
+    .partial()
+    .optional(),
 });
 export type AskQuery = z.infer<typeof QuerySchema>;
 

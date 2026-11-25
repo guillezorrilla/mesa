@@ -1,8 +1,9 @@
 import type { CloudLogEntry } from '@mesa/core';
-import { facetsOf } from '@mesa/core/browser';
+import { facetsOf, serviceClause, servicePaths } from '@mesa/core/browser';
 import { useMemo } from 'react';
 import { Muted } from '@/components/Muted';
 import { ServiceDot } from '../../shared/ServiceDot';
+import { useCloudLogsConfig } from '../useCloudLogsConfig';
 import { fieldClause } from './explorerQuery';
 
 type Row = { label: string; count: number; clause: string; service?: string };
@@ -53,7 +54,9 @@ export function FieldsPane(props: {
   onAdd: (clause: string, exclude: boolean) => void;
 }) {
   const { entries } = props;
+  const service = useCloudLogsConfig().gcp?.service;
   const groups = useMemo(() => {
+    const paths = servicePaths({ service });
     const services = counted(
       entries.flatMap((e) => (e.service ? [`${e.project}/${e.service}`] : [])),
     ).map(([ref, count]) => {
@@ -62,7 +65,7 @@ export function FieldsPane(props: {
         label: name,
         count,
         service: ref,
-        clause: `(resource.labels.container_name=${JSON.stringify(name)} OR resource.labels.service_name=${JSON.stringify(name)} OR resource.labels.module_id=${JSON.stringify(name)})`,
+        clause: serviceClause(name, paths),
       };
     });
     const severities = counted(entries.map((e) => e.severity)).map(([severity, count]) => ({
@@ -79,7 +82,7 @@ export function FieldsPane(props: {
       })),
     }));
     return { services, severities, fields };
-  }, [entries]);
+  }, [entries, service]);
   if (!entries.length)
     return (
       <Muted size="xs" className="p-3">

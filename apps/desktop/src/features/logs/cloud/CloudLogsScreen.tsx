@@ -53,7 +53,7 @@ export function CloudLogsScreen(props: {
         ...props.filters,
         projects: [group.project],
         services: undefined,
-        filter: groupQuery(group),
+        filter: groupQuery(group, gcp),
       },
       ask: undefined,
       prompt: `Explain this error and what likely causes it: ${plainTitle(group.message)}`,

@@ -14,7 +14,7 @@ import type {
   LogSource,
   ServerLogEntry,
 } from '@mesa/core';
-import { command, commandWith } from './spec';
+import { command, commandWith, commandWithStdin } from './spec';
 
 /** What picks Cloud Logs entries, as the Logs tab and a saved view hold it. */
 export type CloudFilters = {
@@ -204,6 +204,30 @@ export const logsCommands = {
     question,
   ]),
   'logs.asks': command<{ asks: CloudAsk[] }>('logs', 'asks'),
+  /** A session from Cloud Logs (`mesa logs session`): a group's fix, sent on stdin, or an Ask carried on. */
+  'logs.session': commandWithStdin<
+    {
+      project: string;
+      group?: CloudErrorGroup;
+      conversation?: string;
+      env?: string;
+      allowProd?: boolean;
+      yes?: boolean;
+    },
+    { session: { id: string } }
+  >(
+    ({ project, conversation, env, allowProd, yes }) => [
+      'logs',
+      'session',
+      ...(conversation ? [`--conversation=${conversation}`] : []),
+      ...(env ? [`--env=${env}`] : []),
+      ...(allowProd ? ['--allow-prod'] : []),
+      ...(yes ? ['--yes'] : []),
+      '--',
+      project,
+    ],
+    ({ group }) => (group ? JSON.stringify(group) : ''),
+  ),
   'logs.query': commandWith<CloudFilters & { sentence: string }, { query: string }>(
     ({ sentence, ...filters }) => ['logs', 'query', ...cloudFlags(filters), '--', sentence],
   ),

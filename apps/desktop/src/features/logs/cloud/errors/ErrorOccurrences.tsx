@@ -9,6 +9,7 @@ import { useOptional } from '@/lib/useCommand';
 import { clockTime, dayTime } from '../../shared/logLines';
 import { MessageView } from '../MessageView';
 import { RepeatRun } from '../RepeatRun';
+import { useCloudLogsConfig } from '../useCloudLogsConfig';
 import { useOlderEntries } from '../useOlderEntries';
 
 /** How many occurrences each read brings. */
@@ -18,14 +19,18 @@ const PAGE = 50;
  * The Logging read of `group`'s occurrences: its project and the terms each of its messages holds
  * (groupQuery), so the query finds its own group.
  */
-function occurrenceFilters(group: CloudErrorGroup, filters: CloudFilters): CloudFilters {
+function occurrenceFilters(
+  group: CloudErrorGroup,
+  filters: CloudFilters,
+  config: { service?: string } | undefined,
+): CloudFilters {
   // The range, env and noise switch stay; the group's own query replaces every other filter.
   return {
     env: filters.env,
     since: filters.since,
     all: filters.all,
     projects: [group.project],
-    filter: groupQuery(group),
+    filter: groupQuery(group, config),
   };
 }
 
@@ -50,9 +55,10 @@ export function ErrorOccurrences(props: {
   filters: CloudFilters;
   onExplore: () => void;
 }) {
+  const { gcp } = useCloudLogsConfig();
   const query = useMemo(
-    () => ({ ...occurrenceFilters(props.group, props.filters), limit: PAGE }),
-    [props.group, props.filters],
+    () => ({ ...occurrenceFilters(props.group, props.filters, gcp), limit: PAGE }),
+    [props.group, props.filters, gcp],
   );
   const first = useOptional('logs.gcp', query);
   const older = useOlderEntries(first.data?.entries, query, PAGE);

@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
+import { fieldClause } from './explorerQuery';
 
 /** The last word being typed in `query` (what a suggestion completes). */
 const lastWord = (query: string) => /[^\s()]*$/.exec(query)?.[0] ?? '';
@@ -15,7 +17,7 @@ function suggestionsFor(word: string, facets: readonly Facet[]) {
   if (eq) {
     const values = facets.find((f) => f.key === eq[1])?.values ?? [];
     return values
-      .map((v) => `jsonPayload.${eq[1]}=${JSON.stringify(v.value)}`)
+      .map((v) => fieldClause(eq[1] ?? '', v.value))
       .filter((s) => s.startsWith(word))
       .slice(0, 8);
   }
@@ -29,12 +31,14 @@ function suggestionsFor(word: string, facets: readonly Facet[]) {
 /**
  * The Explorer's query (CONTEXT.md, Cloud Logs) in the Logging query language, with field and value
  * suggestions from the entries read; Run (Cmd+Enter, "/" to focus), and Ask in words, which turns a
- * sentence into a query through the agent and runs it.
+ * sentence into a query through the agent and puts it in the bar, highlighted (`written`), for the
+ * person to read and Run.
  */
 export function QueryBar(props: {
   query: string;
   facets: readonly Facet[];
   busy: boolean;
+  written?: boolean;
   onChange: (query: string) => void;
   onRun: (query: string) => void;
   onWords: (sentence: string) => Promise<void>;
@@ -66,7 +70,10 @@ export function QueryBar(props: {
           aria-label="Query"
           spellCheck={false}
           placeholder='severity>=ERROR AND jsonPayload.company="Lantern Cove"'
-          className="min-h-16 resize-y pr-28 font-mono text-[12px] leading-5"
+          className={cn(
+            'min-h-16 resize-y pr-28 font-mono text-[12px] leading-5',
+            props.written && 'ring-2 ring-state-working/60',
+          )}
           value={props.query}
           onChange={(event) => props.onChange(event.currentTarget.value)}
           onKeyDown={(event) => {
@@ -86,6 +93,11 @@ export function QueryBar(props: {
           <Play aria-hidden /> Run
         </Button>
       </div>
+      {props.written && (
+        <p className="text-[11px] text-state-working">
+          Written from your words: read it, then Run to read the entries.
+        </p>
+      )}
       {suggestions.length > 0 && (
         <ul aria-label="Suggestions" className="flex flex-wrap gap-1">
           {suggestions.map((suggestion) => (

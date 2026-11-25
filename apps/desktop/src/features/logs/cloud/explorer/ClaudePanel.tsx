@@ -1,5 +1,5 @@
 import type { CloudAsk } from '@mesa/core';
-import { PanelRightClose, SquarePen } from 'lucide-react';
+import { PanelRightClose, SquareArrowOutUpRight, SquarePen } from 'lucide-react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
 import type { CloudAsked, CloudFilters } from '@/lib/client/logs';
@@ -8,10 +8,13 @@ import { useLogAsk } from '../useLogAsk';
 import { AskComposer } from './AskComposer';
 import { AskTurn } from './AskTurn';
 
+type TurnProps = Parameters<typeof AskTurn>[0];
+
 /**
  * Claude beside the Explorer (CONTEXT.md, Ask (logs)): a kept conversation whose context is the
  * query, its results and the selected entries; answers cite entries that highlight in the results,
- * a suggested query has Apply query; masking and the first prod Ask's confirmation stay.
+ * a suggested query has Apply query; Open in a session carries the conversation on in a project the
+ * person picks; masking and the first prod Ask's confirmation stay.
  */
 export function ClaudePanel(props: {
   filters: CloudFilters;
@@ -22,7 +25,9 @@ export function ClaudePanel(props: {
   onNew: () => void;
   onCite: (id: string) => void;
   onApply: (query: string) => void;
-  onSaveView: (filter: string) => void;
+  onRunOwn: TurnProps['onRunOwn'];
+  onSaveView: TurnProps['onSaveView'];
+  onCarry: (conversation: string) => void;
   onClose: () => void;
 }) {
   const ask = useLogAsk(props.filters, props.conversation?.id, props.onAsked);
@@ -40,10 +45,18 @@ export function ClaudePanel(props: {
             ? `${turns.length} ${turns.length === 1 ? 'turn' : 'turns'}`
             : 'new conversation'}
         </span>
+        {props.conversation && (
+          <IconButton
+            label="Open in a session"
+            icon={SquareArrowOutUpRight}
+            className="ml-auto"
+            onClick={() => props.conversation && props.onCarry(props.conversation.id)}
+          />
+        )}
         <IconButton
           label="New conversation"
           icon={SquarePen}
-          className="ml-auto"
+          className={props.conversation ? undefined : 'ml-auto'}
           onClick={props.onNew}
         />
         <IconButton label="Close Claude" icon={PanelRightClose} onClick={props.onClose} />
@@ -59,6 +72,7 @@ export function ClaudePanel(props: {
             turn={turn}
             onCite={props.onCite}
             onApply={props.onApply}
+            onRunOwn={props.onRunOwn}
             onSaveView={props.onSaveView}
           />
         ))}

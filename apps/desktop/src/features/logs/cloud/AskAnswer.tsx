@@ -1,11 +1,12 @@
 import { answerParts } from '@mesa/core/browser';
-import { Play } from 'lucide-react';
+import { Copy, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { citedParts } from './cloudLines';
+import { useCloudCopy } from './useCloudCopy';
 
 /**
  * An answer from the cloud-logs agent: its text with each cited entry a button that shows it, and a
- * query it suggests with Apply query.
+ * query it suggests with Apply query and Copy query.
  */
 export function AskAnswer(props: {
   answer: string;
@@ -14,6 +15,7 @@ export function AskAnswer(props: {
   onApply?: (query: string) => void;
 }) {
   const { text, query } = answerParts(props.answer);
+  const { copyText } = useCloudCopy();
   return (
     <div className="grid gap-2">
       <p className="whitespace-pre-wrap text-sm leading-6">
@@ -37,16 +39,26 @@ export function AskAnswer(props: {
       {query && (
         <div className="grid gap-1.5 rounded-md border bg-muted/30 p-2">
           <code className="font-mono text-[11px] [overflow-wrap:anywhere]">{query}</code>
-          {props.onApply && (
+          <span className="flex gap-1">
+            {props.onApply && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7"
+                onClick={() => props.onApply?.(query)}
+              >
+                <Play aria-hidden /> Apply query
+              </Button>
+            )}
             <Button
               size="sm"
-              variant="outline"
-              className="h-7 justify-self-start"
-              onClick={() => props.onApply?.(query)}
+              variant="ghost"
+              className="h-7"
+              onClick={() => copyText(query, 'query')}
             >
-              <Play aria-hidden /> Apply query
+              <Copy aria-hidden /> Copy query
             </Button>
-          )}
+          </span>
         </div>
       )}
     </div>

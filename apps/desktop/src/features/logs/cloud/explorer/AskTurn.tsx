@@ -3,12 +3,19 @@ import { BookmarkPlus, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AskAnswer } from '../AskAnswer';
 
-/** One turn of a conversation: the question, the answer with its citations, and the queries it ran. */
+type Own = NonNullable<Turn['queries'][number]['own']>;
+
+/**
+ * One turn of a conversation: the question, the answer with its citations, and the queries it ran;
+ * Run and Save as view take a query's own filters, so the view keeps its env and range.
+ */
 export function AskTurn(props: {
   turn: Turn;
   onCite: (id: string) => void;
   onApply: (query: string) => void;
-  onSaveView: (filter: string) => void;
+  /** Sets the filters a query ran with, as the person would (its own part, not its compiled env and range). */
+  onRunOwn: (own: Own) => void;
+  onSaveView: (own: Own) => void;
 }) {
   const { turn } = props;
   return (
@@ -33,24 +40,26 @@ export function AskTurn(props: {
                   {query.project ? `${query.project}: ` : ''}
                   {query.filter}
                 </code>
-                <span className="flex gap-1">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6"
-                    onClick={() => props.onApply(query.filter)}
-                  >
-                    <Play aria-hidden /> Run
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6"
-                    onClick={() => props.onSaveView(query.filter)}
-                  >
-                    <BookmarkPlus aria-hidden /> Save as view
-                  </Button>
-                </span>
+                {query.own && (
+                  <span className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6"
+                      onClick={() => query.own && props.onRunOwn(query.own)}
+                    >
+                      <Play aria-hidden /> Run
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6"
+                      onClick={() => query.own && props.onSaveView(query.own)}
+                    >
+                      <BookmarkPlus aria-hidden /> Save as view
+                    </Button>
+                  </span>
+                )}
               </li>
             ))}
           </ol>
