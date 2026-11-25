@@ -1,8 +1,8 @@
 import type { TreeRow } from '@mesa/core';
 import { diffable, GENERAL_PROJECT, sessionFolder } from '@mesa/core/browser';
 import { Activity, memo } from 'react';
-import { LogsPanel } from '@/features/logs/LogsPanel';
-import type { LogsActions } from '@/features/logs/useSessionLogs';
+import { LogsPanel } from '@/features/logs/local/LogsPanel';
+import type { LogsActions } from '@/features/logs/local/useSessionLogs';
 import { DiffPanel } from '../diff/DiffPanel';
 import { BrowserPanel } from '../review/BrowserPanel';
 import { RepliesPanel } from '../review/RepliesPanel';

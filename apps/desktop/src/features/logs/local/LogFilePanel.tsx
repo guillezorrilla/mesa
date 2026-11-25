@@ -15,7 +15,7 @@ import { useCall } from '@/lib/useCommand';
  * or a path typed or picked. Adding keeps it in this profile, never in the repository, and hands
  * its source back.
  */
-export function LogFileGuide(props: { project: string; onFound: (source: string) => void }) {
+export function LogFilePanel(props: { project: string; onFound: (source: string) => void }) {
   const call = useCall();
   const { pickFile } = usePlatform();
   const [listed, setListed] = useState<{ files: string[]; suggested: string[] }>();

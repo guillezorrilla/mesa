@@ -10,8 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { LogFileGuide } from './LogFileGuide';
-import { ServiceLogGuide } from './ServiceLogGuide';
+import { LogFilePanel } from './LogFilePanel';
+import { ServiceLogPanel } from './ServiceLogPanel';
 import { useServiceName } from './useServiceName';
 
 type Kind = 'docker' | 'jetbrains' | 'terminal' | 'file';
@@ -64,9 +64,9 @@ export function AddLogSourceDialog(props: {
             <code className="font-mono">docker compose up</code>) and pick it in the source list.
           </Muted>
         ) : kind === 'file' ? (
-          <LogFileGuide project={props.project} onFound={props.onFound} />
+          <LogFilePanel project={props.project} onFound={props.onFound} />
         ) : (
-          <ServiceLogGuide
+          <ServiceLogPanel
             project={props.project}
             kind={kind}
             service={service}

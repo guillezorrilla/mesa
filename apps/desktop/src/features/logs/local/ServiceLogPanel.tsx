@@ -1,6 +1,7 @@
 import { LoaderCircle } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { useState } from 'react';
 import { CopyField } from '@/components/CopyField';
+import { NumberedStep } from '@/components/NumberedStep';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,18 +11,6 @@ import { useSourceWait } from './useSourceWait';
 
 /** The service picker's last item, for a name that is not a module. */
 const OTHER = '#other';
-
-/** One numbered step. */
-function Step(props: { n: number; children: ReactNode }) {
-  return (
-    <li className="grid grid-cols-[1.25rem_minmax(0,1fr)] gap-2">
-      <span className="flex size-5 items-center justify-center rounded-full bg-muted text-[11px] font-medium tabular-nums">
-        {props.n}
-      </span>
-      <div className="grid min-w-0 gap-1.5 pt-px">{props.children}</div>
-    </li>
-  );
-}
 
 /** The service's name: a pick of the project's modules, or a name typed. */
 function ServiceField(props: { service: ServiceName }) {
@@ -64,30 +53,30 @@ function ServiceField(props: { service: ServiceName }) {
 function JetBrainsSteps(props: { service: ServiceName }) {
   return (
     <ol className="grid gap-3 text-sm">
-      <Step n={1}>
+      <NumberedStep n={1}>
         <span>
           In IntelliJ IDEA, WebStorm, PyCharm, GoLand or Rider, open{' '}
           <b>Run &gt; Edit Configurations</b> and pick the service.
         </span>
-      </Step>
-      <Step n={2}>
+      </NumberedStep>
+      <NumberedStep n={2}>
         <span>
           Click <b>Modify options &gt; Logs &gt; Save console output to file</b>.
         </span>
-      </Step>
-      <Step n={3}>
+      </NumberedStep>
+      <NumberedStep n={3}>
         <span>Paste this path:</span>
         <CopyField
           value={props.service.file.path}
           testId="log-file-path"
           onCopied={props.service.copied}
         />
-      </Step>
-      <Step n={4}>
+      </NumberedStep>
+      <NumberedStep n={4}>
         <span>
           Click <b>Apply</b>, then run it.
         </span>
-      </Step>
+      </NumberedStep>
     </ol>
   );
 }
@@ -113,7 +102,7 @@ function TerminalSteps(props: { service: ServiceName }) {
   const line = `mesa logs run ${service.service ?? '<service>'} -- ${command.trim() || 'pnpm dev'}`;
   return (
     <ol className="grid gap-3 text-sm">
-      <Step n={1}>
+      <NumberedStep n={1}>
         <Label htmlFor="log-command">The command that starts it</Label>
         <Input
           id="log-command"
@@ -121,16 +110,16 @@ function TerminalSteps(props: { service: ServiceName }) {
           value={command}
           onChange={(event) => setCommand(event.currentTarget.value)}
         />
-      </Step>
-      <Step n={2}>
+      </NumberedStep>
+      <NumberedStep n={2}>
         <span>Run it through Mesa, in any terminal in the project folder:</span>
         <CopyField
           value={service.service && line}
           testId="log-run-line"
           onCopied={service.copied}
         />
-      </Step>
-      <Step n={3}>
+      </NumberedStep>
+      <NumberedStep n={3}>
         <span>
           Or as a VS Code task, in <code className="font-mono text-xs">.vscode/tasks.json</code>:
         </span>
@@ -140,7 +129,7 @@ function TerminalSteps(props: { service: ServiceName }) {
           testId="log-run-task"
           onCopied={service.copied}
         />
-      </Step>
+      </NumberedStep>
     </ol>
   );
 }
@@ -150,7 +139,7 @@ function TerminalSteps(props: { service: ServiceName }) {
  * name: a JetBrains IDE saving its console there, or a terminal running it through `mesa logs
  * run`. Once a path or a line is copied it waits for the file, and hands its source back.
  */
-export function ServiceLogGuide(props: {
+export function ServiceLogPanel(props: {
   project: string;
   kind: 'jetbrains' | 'terminal';
   /** The service's name and file (useServiceName), shared by both guides so a switch keeps them. */

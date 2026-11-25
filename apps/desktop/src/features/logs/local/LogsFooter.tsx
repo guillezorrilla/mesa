@@ -1,10 +1,11 @@
-import type { LogAsk } from '@mesa/core';
+import type { CopyFormat, LogAsk } from '@mesa/core';
 import { Lightbulb, MessageCircleQuestion, Play, SendHorizontal, Wrench } from 'lucide-react';
 import { useState } from 'react';
 import { SplitButton } from '@/components/SplitButton';
 import { Button } from '@/components/ui/button';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { CopyButton } from '../shared/CopyButton';
 
 /**
  * The Logs panel's footer: how many lines are picked, Clear, and what to do with them: Send to
@@ -16,6 +17,7 @@ export function LogsFooter(props: {
   /** The session shows a prompt field; else the lines start a new session. */
   takesPrompt: boolean;
   onAsk: (ask: LogAsk) => void;
+  onCopy: (format: CopyFormat) => void;
   onClear: () => void;
 }) {
   const [asking, setAsking] = useState(false);
@@ -60,6 +62,7 @@ export function LogsFooter(props: {
       <Button size="sm" variant="ghost" disabled={none} onClick={props.onClear}>
         Clear
       </Button>
+      <CopyButton size="sm" label="Copy" onCopy={props.onCopy} />
       <SplitButton
         disabled={none}
         menuLabel="More ways to ask"

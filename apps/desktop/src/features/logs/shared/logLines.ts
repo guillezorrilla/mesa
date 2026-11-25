@@ -1,5 +1,5 @@
 import type { ServerLogEntry } from '@mesa/core';
-import { LEVEL_NAMES, namesRequest } from '@mesa/core/browser';
+import { namesRequest } from '@mesa/core/browser';
 
 /** Which entries the panel shows by level: every one, errors, or warnings. */
 export type LevelFilter = 'all' | 'error' | 'warn';
@@ -63,6 +63,3 @@ export function clockTime(time: string | null) {
   if (Number.isNaN(at.getTime())) return /\d\d:\d\d:\d\d/.exec(time)?.[0] ?? '';
   return at.toLocaleTimeString([], { hour12: false });
 }
-
-/** An entry's level as the panel prints it. */
-export const levelName = (entry: ServerLogEntry) => (entry.level ? LEVEL_NAMES[entry.level] : '');

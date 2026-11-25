@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useKept } from '@/lib/keptValue';
 import { useCall } from '@/lib/useCommand';
 import { useWindowFocused } from '@/lib/useWindowFocused';
-import { type KeyedEntry, keyed, type LevelFilter } from './logLines';
+import { type KeyedEntry, keyed, type LevelFilter } from '../shared/logLines';
 
 /** How often the open panel reads its source while Live. */
 export const LOGS_POLL_MS = 2_000;

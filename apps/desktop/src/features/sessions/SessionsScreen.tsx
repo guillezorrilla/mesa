@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
-import { useSessionLogs } from '@/features/logs/useSessionLogs';
+import { useSessionLogs } from '@/features/logs/local/useSessionLogs';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { PromptCard } from './answer/PromptCard';
 import { ChatPanel } from './chat/ChatPanel';

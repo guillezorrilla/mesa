@@ -97,6 +97,7 @@ export * from './lib/result.js';
 export { keychainStore, type SecretStore } from './lib/secret-store.js';
 export { envSpawner, type Spawner } from './lib/spawn.js';
 export { localClock, localDay, obsidianDateTime } from './lib/time.js';
+export type { CopyContext, CopyFormat } from './logs/copy.js';
 export type { ErrorGroup } from './logs/groups.js';
 export type { LogAsk } from './logs/message.js';
 export {
