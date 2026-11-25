@@ -153,7 +153,7 @@ function linksBetween(a: GroupIndex, b: GroupIndex, carriers: Map<string, number
   }
   const busy = (xs: number[]) => xs.filter(Boolean).length >= COUNT_BUCKETS;
   const r = busy(a.minutes) && busy(b.minutes) ? correlation(a.minutes, b.minutes) : 0;
-  if (r >= CORRELATION) add('counts', `counts rise together (r ${r.toFixed(2)})`, 0.7 * r);
+  if (r >= CORRELATION) add('counts', `r ${r.toFixed(2)}`, 0.7 * r);
   return links;
 }
 
