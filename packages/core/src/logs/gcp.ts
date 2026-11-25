@@ -1,6 +1,7 @@
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import { valueAt } from '../lib/yaml-file.js';
+import { quoted, SERVICE_LABELS, servicePaths } from './filter-text.js';
 import { eachProject, gcloud, jsonList } from './gcloud.js';
 import { ALL_ENVS, type CloudSeverity, filterProblem, type GcpLogs } from './gcp-config.js';
 import { OWN_SERVICES_FILTER } from './noise.js';
@@ -61,17 +62,6 @@ const DEFAULT_SINCE = '1h';
 const DEFAULT_LIMIT = 200;
 export const CLOUD_MAX_LIMIT = 1000;
 
-/** Where each resource kind names its service, with the kind's label: GKE, Cloud Run, App Engine. */
-export const SERVICE_LABELS = [
-  ['resource.labels.container_name', 'k8s_container', 'GKE'],
-  ['resource.labels.service_name', 'cloud_run_revision', 'Cloud Run'],
-  ['resource.labels.module_id', 'gae_app', 'App Engine'],
-] as const;
-
-/** The label paths an entry's service is read from: the configured one, else each kind's. */
-export const servicePaths = (config: GcpLogs) =>
-  config.service ? [config.service] : SERVICE_LABELS.map(([path]) => path);
-
 /** The env `env` names, else the first; undefined with none or for every env (ALL_ENVS); usage for one there is not. */
 export function envOf(config: GcpLogs, env?: string): string | undefined {
   const names = Object.keys(config.envs);
@@ -131,10 +121,6 @@ function revisionOf(raw: Record<string, unknown>): { revision?: string } {
   ].find((value) => typeof value === 'string' && value);
   return typeof found === 'string' ? { revision: found.slice(0, 200) } : {};
 }
-
-/** `value` inside a Logging filter's double quotes. */
-export const quoted = (value: string) =>
-  `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 
 /**
  * The Logging filter for `query` in one project: its env's filter, then `names` (that project's

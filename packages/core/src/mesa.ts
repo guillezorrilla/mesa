@@ -35,6 +35,7 @@ import { receiptsService } from './receipts/service.js';
 import { whatsNew } from './release/notes.js';
 import { reportsService } from './reports/report-delivery.js';
 import { journalFile } from './sessions/host/journal.js';
+import { GENERAL_PROJECT } from './sessions/record/general.js';
 import { sessionsService } from './sessions/service/index.js';
 import { workingFolder } from './sessions/signals/readings.js';
 import { skillsService } from './skills/service.js';
@@ -223,6 +224,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
       ...cloudLogsService(ctx, {
         runText: sessions.sessions.run,
         setConfig: profileApi.config.set,
+        // Like a session a person starts from the phone: its goal passes the guardrail first.
+        openSession: (project, goal, yes) =>
+          project === GENERAL_PROJECT
+            ? sessions.sessions.open(undefined, { general: true, goal, guardrail: { yes } })
+            : sessions.sessions.open(project, { goal, guardrail: { yes } }),
       }),
     },
     prEvents,

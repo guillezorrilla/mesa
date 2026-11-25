@@ -4,15 +4,18 @@ import type { MesaContext } from '../context.js';
 import type { GitTextRunner } from '../git/message.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
+import { GENERAL_PROJECT } from '../sessions/record/general.js';
 import { callerOf } from '../sessions/window/caller.js';
 import { askCloudLogs, keepQuery, queryFromWords, runQueries } from './ask.js';
 import { keepTurn, readAsks } from './ask-history.js';
-import { cloudErrors, errorSamples } from './errors.js';
+import { type CloudErrorGroup, cloudErrors, errorSamples } from './errors.js';
+import { askSessionGoal, errorFixGoal } from './fix-goal.js';
 import { type CloudQuery, cloudFilter, cloudFilters, cloudLogs, envOf } from './gcp.js';
 import {
   ALL_ENVS,
   type CloudView,
   GCP_PROJECT,
+  type GcpLogs,
   GcpLogsSchema,
   PROD_ASK,
   PROD_ENV,
@@ -21,7 +24,7 @@ import {
 import { envSuggestions } from './gcp-envs.js';
 import { cloudProjects } from './gcp-projects.js';
 import { cloudServices } from './gcp-services.js';
-import { maskEntry, maskGroup, maskText } from './mask.js';
+import { maskEntry, maskErrors, maskText } from './mask.js';
 import { metricCounts, metricViews } from './metrics.js';
 import { exportViews, importViews, mergeViews } from './views.js';
 
@@ -29,6 +32,20 @@ import { exportViews, importViews, mergeViews } from './views.js';
  * The Logs tab's side of Mesa (CONTEXT.md, Cloud Logs; Ask (logs)): the profile's GCP projects'
  * entries, error groups and metric counts, its setup and saved views, and Ask.
  */
+/** An error group as Fix in session takes it: what its goal reads. */
+const FixGroupSchema = z.object({
+  project: GCP_PROJECT,
+  id: z.string(),
+  message: z.string(),
+  sample: z.string(),
+  count: z.number(),
+  firstSeen: z.string(),
+  lastSeen: z.string(),
+  services: z.array(z.string()),
+  badge: z.enum(['new', 'back']).nullable(),
+  source: z.enum(['error-reporting', 'logs']),
+});
+
 /** How many GCP projects the switcher's Recent keeps. */
 const RECENT = 12;
 
@@ -39,6 +56,8 @@ export function cloudLogsService(
     runText: GitTextRunner;
     /** The profile's config set, with its receipt and guards. */
     setConfig: (dotted: string, value: string) => unknown;
+    /** Opens a session in registered `project` (or General) with `goal`, past the guardrail (`yes` answers its ask). */
+    openSession: (project: string, goal: string, yes: boolean) => Promise<unknown>;
   },
 ) {
   /** The profile's `logs.gcp`; not_found, which the Logs tab shows as its setup, when unset. */
@@ -69,13 +88,54 @@ export function cloudLogsService(
   const caller = () => callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile });
   /** What an agent reads is masked unless logs.mask is off (mask.ts). */
   const forAgent = () => caller().inMesaWindow && ctx.open().config.logs.mask;
+  /**
+   * The first read of prod from each GCP project is needs_approval until a person confirms it
+   * (`allowProd`, kept in logs.prodAsk; the config's guard refuses that from a Mesa window).
+   * Prod is the env named prod, or a filter (or a metric) that names prod, in the projects read.
+   */
+  const prodGate = async (filters: Record<string, string>, prodEnv: boolean, allowProd = false) => {
+    const { prodAsk } = ctx.open().config.logs;
+    const prod = prodEnv || Object.values(filters).some((f) => PROD_WORD.test(f));
+    const unasked = Object.keys(filters).filter((project) => !prodAsk.includes(project));
+    if (!prod || !unasked.length) return;
+    if (!allowProd)
+      throw new MesaError(
+        'needs_approval',
+        `${PROD_ASK}: confirm once for ${unasked.join(', ')} with --allow-prod`,
+        {
+          reason: 'prod_ask',
+          projects: unasked,
+        },
+      );
+    await deps.setConfig('logs.prodAsk', JSON.stringify([...prodAsk, ...unasked]));
+  };
+  /** An agent's read of prod passes prodGate first, as Ask's does; a person's read needs none. */
+  const agentProdGate = async (config: GcpLogs, query: CloudQuery, env: string | undefined) => {
+    if (!caller().inMesaWindow) return;
+    await prodGate(
+      cloudFilters(config, { ...query, env: env ?? ALL_ENVS }, ctx.clock()),
+      env === PROD_ENV,
+    );
+  };
+  /** What a query asked for itself, which an Ask's Run applies: no env, noise or time bounds. */
+  const ownOf = (query: CloudQuery) =>
+    Object.fromEntries(
+      Object.entries({
+        filter: query.filter,
+        severity: query.severity,
+        text: query.text,
+        fields: query.fields,
+        services: query.services,
+        trace: query.trace,
+      }).filter(([, v]) => v !== undefined),
+    );
   /** Where an Ask's run keeps the queries it ran, one JSON line each (ask.ts, runQueries). */
   const queriesFile = (session: string) => join(ctx.paths.runs, `${session}.queries.jsonl`);
-  const keepQueries = (filters: Record<string, string>) => {
+  const keepQueries = (filters: Record<string, string>, query: CloudQuery) => {
     const run = caller().session;
     if (run?.kind !== 'run') return;
     for (const [project, filter] of Object.entries(filters))
-      keepQuery(queriesFile(run.id), { project, filter });
+      keepQuery(queriesFile(run.id), { project, filter, own: ownOf(query) });
   };
   /** `views` merged into the saved views (mergeViews). */
   const saveViews = (views: CloudView[]) =>
@@ -89,8 +149,9 @@ export function cloudLogsService(
     gcp: async (query: CloudQuery = {}) => {
       const config = gcpConfig();
       const env = envOf(config, query.env);
+      await agentProdGate(config, query, env);
       const read = await cloudLogs(cloudDeps(), config, { ...query, env: env ?? ALL_ENVS });
-      keepQueries(read.filters);
+      keepQueries(read.filters, query);
       return {
         projects: config.projects,
         env: env ?? null,
@@ -139,6 +200,7 @@ export function cloudLogsService(
     errors: async (query: CloudQuery = {}) => {
       const config = gcpConfig();
       const env = envOf(config, query.env);
+      await agentProdGate(config, query, env);
       const found = await cloudErrors(errorDeps(), config, { ...query, env: env ?? ALL_ENVS });
       // An Ask's run keeps the errors read it made as the Logging filter it stands for.
       const errorsOnly = cloudFilter(
@@ -148,11 +210,9 @@ export function cloudLogsService(
       );
       keepQueries(
         Object.fromEntries((query.projects ?? config.projects).map((p) => [p, errorsOnly])),
+        { ...query, severity: 'error' },
       );
-      return {
-        ...found,
-        groups: forAgent() ? found.groups.map(maskGroup) : found.groups,
-      };
+      return forAgent() ? maskErrors(found) : found;
     },
     /** A few recent events of Error Reporting group `id` in GCP `project` (errorSamples). */
     errorSamples: async (project: string, id: string, since?: string) => {
@@ -163,8 +223,13 @@ export function cloudLogsService(
       };
     },
     /** Log-based metric `metric`'s count per 5 minutes in GCP `project` (metricCounts). */
-    counts: (projects: string[], metric: string, since = '1h') =>
-      metricCounts(errorDeps(), configuredProjects(projects), metric, since),
+    counts: async (projects: string[], metric: string, since = '1h') => {
+      configuredProjects(projects);
+      // An agent's count of a prod metric passes the same gate as its reads.
+      if (caller().inMesaWindow)
+        await prodGate(Object.fromEntries(projects.map((p) => [p, `${p} ${metric}`])), false);
+      return metricCounts(errorDeps(), projects, metric, since);
+    },
     /** Saved views: the log-based metrics of a project imported, and views shared as YAML. */
     views: {
       importMetrics: async (project: string) => {
@@ -195,33 +260,30 @@ export function cloudLogsService(
     ) => {
       const config = gcpConfig();
       const env = envOf(config, query.env);
-      const { prodAsk, mask } = ctx.open().config.logs;
+      const { mask } = ctx.open().config.logs;
       // Prod is what the Ask reads: the env named prod, or filters that name prod, in the projects
       // its services and projects pick; only those projects are confirmed.
-      const filters = cloudFilters(config, { ...query, env: env ?? ALL_ENVS }, ctx.clock());
-      const prod = env === PROD_ENV || Object.values(filters).some((f) => PROD_WORD.test(f));
-      const unasked = Object.keys(filters).filter((project) => !prodAsk.includes(project));
-      if (prod && unasked.length) {
-        if (!query.allowProd)
-          throw new MesaError(
-            'needs_approval',
-            `${PROD_ASK}: confirm once for ${unasked.join(', ')} with --allow-prod`,
-            { reason: 'prod_ask', projects: unasked },
-          );
-        // The config's guard refuses it from a Mesa window: a person confirms (profile/service.ts).
-        await deps.setConfig('logs.prodAsk', JSON.stringify([...prodAsk, ...unasked]));
-      }
+      await prodGate(
+        cloudFilters(config, { ...query, env: env ?? ALL_ENVS }, ctx.clock()),
+        env === PROD_ENV,
+        query.allowProd,
+      );
       const { allowProd: _, conversation, limit: __, ...kept } = query;
       const earlier = readAsks(ctx.paths.cloudAsks).find((a) => a.id === conversation)?.turns ?? [];
       // Read afresh rather than trust entries a caller sends: the model sees only what gcloud gave.
       const read = await cloudLogs(cloudDeps(), config, { ...query, env: env ?? ALL_ENVS });
+      // What the person typed in a filter (an email in --text) is masked like the entries.
       const filter = Object.entries(read.filters)
-        .map(([project, each]) => `${project}: ${each}`)
+        .map(([project, each]) => `${project}: ${mask ? maskText(each) : each}`)
         .join('\n');
       const entries = mask ? read.entries.map(maskEntry) : read.entries;
       const asked = await askCloudLogs(deps.runText, question, { filter, entries }, earlier);
       const queries = [
-        ...Object.entries(read.filters).map(([project, each]) => ({ project, filter: each })),
+        ...Object.entries(read.filters).map(([project, each]) => ({
+          project,
+          filter: each,
+          own: ownOf(kept),
+        })),
         ...runQueries(queriesFile(asked.run.session)),
       ];
       const turn = {
@@ -239,6 +301,7 @@ export function cloudLogsService(
         projects: config.projects,
         env: env ?? null,
         ...read,
+        entries: forAgent() ? read.entries.map(maskEntry) : read.entries,
         ...asked,
         queries,
       };
@@ -257,6 +320,38 @@ export function cloudLogsService(
       });
       const fields = [...new Set(read.entries.flatMap((e) => Object.keys(e.fields)))];
       return queryFromWords(deps.runText, sentence, { query: query.filter ?? '', fields });
+    },
+    /**
+     * A session in registered `target` (or General) that fixes error `group`, or carries Ask
+     * `conversation` on: its goal fences the log text as data and is masked unless logs.mask is
+     * off (fix-goal.ts); a group read from prod passes the prod gate; the goal passes the guardrail
+     * (`yes` answers its ask).
+     */
+    session: async (
+      target: string,
+      input: { group?: unknown; conversation?: string },
+      opts: { env?: string; allowProd?: boolean; yes?: boolean } = {},
+    ) => {
+      const config = gcpConfig();
+      const mask = ctx.open().config.logs.mask ? maskText : undefined;
+      let goal: string;
+      if (input.conversation) {
+        const ask = readAsks(ctx.paths.cloudAsks).find((a) => a.id === input.conversation);
+        if (!ask) throw new MesaError('not_found', `no Ask conversation ${input.conversation}`);
+        goal = askSessionGoal(ask.turns, mask);
+      } else {
+        const group = parseWith(FixGroupSchema, input.group, 'group') as CloudErrorGroup;
+        configuredProjects([group.project]);
+        const env = envOf(config, opts.env);
+        await prodGate(
+          cloudFilters(config, { env: env ?? ALL_ENVS, projects: [group.project] }, ctx.clock()),
+          env === PROD_ENV,
+          opts.allowProd,
+        );
+        goal = errorFixGoal(group, mask);
+      }
+      const project = target === 'general' ? GENERAL_PROJECT : target;
+      return { session: await deps.openSession(project, goal, Boolean(opts.yes)) };
     },
     /** The kept Ask conversations, newest first. */
     asks: () => ({ asks: readAsks(ctx.paths.cloudAsks) }),

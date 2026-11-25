@@ -80,7 +80,8 @@ export { copyText, groupSummaryText } from './logs/copy.js';
 export { ENV_WORDS, envNameOf, joinEnvs } from './logs/env-names.js';
 export { groupKey } from './logs/error-merge.js';
 export { type Facet, facetsOf } from './logs/facets.js';
-export { entryGroup, errorFixGoal } from './logs/fix-goal.js';
+export { quoted, serviceClause, servicePaths } from './logs/filter-text.js';
+export { entryGroup } from './logs/fix-goal.js';
 export { ALL_ENVS } from './logs/gcp-config.js';
 export { errorGroups, isMuted, muteKey } from './logs/groups.js';
 export {

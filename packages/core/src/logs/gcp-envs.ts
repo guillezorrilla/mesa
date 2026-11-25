@@ -1,7 +1,7 @@
 import type { Runner } from '../lib/process.js';
 import { ENV_WORDS, envNameOf } from './env-names.js';
+import { quoted } from './filter-text.js';
 import { gcloud, jsonList } from './gcloud.js';
-import { quoted } from './gcp.js';
 
 // The envs the Cloud Logs setup suggests for the GCP projects picked (CONTEXT.md, Cloud Logs).
 

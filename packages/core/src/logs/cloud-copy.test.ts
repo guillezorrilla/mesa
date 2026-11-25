@@ -41,7 +41,7 @@ test('Console links open the Logs Explorer on a query and range, or on one entry
     'https://console.cloud.google.com/logs/query;query=severity%3E%3DERROR%20AND%20textPayload%3A%22x%22;duration=PT6H?project=tide-tables-123',
   );
   expect(entryConsoleUrl(ENTRY)).toBe(
-    'https://console.cloud.google.com/logs/query;query=insertId%3D%22aa11%22;cursorTimestamp=2026-05-06T07:09:00Z;duration=P1D?project=tide-tables-123',
+    'https://console.cloud.google.com/logs/query;query=insertId%3D%22aa11%22;cursorTimestamp=2026-05-06T07%3A09%3A00Z;duration=P1D?project=tide-tables-123',
   );
 });
 
@@ -55,6 +55,15 @@ test("a group's query reads its errors by service and the words of its message",
   ).toBe(
     'severity>=ERROR AND (resource.labels.container_name="tide-api" OR resource.labels.service_name="tide-api" OR resource.labels.module_id="tide-api") AND "TideTableNotFound: no table for station"',
   );
+});
+
+test("a group's query names its service under logs.gcp.service when one is set", () => {
+  expect(
+    groupQuery(
+      { message: 'x', sample: 'lookup failed for berth', services: ['tide-api'] },
+      { service: 'labels.app' },
+    ),
+  ).toBe('severity>=ERROR AND labels.app="tide-api" AND "lookup failed for berth"');
 });
 
 test('a group summary names its count, first and last seen, services and its newest entry whole', () => {

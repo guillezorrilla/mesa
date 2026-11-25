@@ -1,7 +1,7 @@
 import type { Runner } from '../lib/process.js';
 import type { ErrorDeps } from './errors.js';
+import { quoted } from './filter-text.js';
 import { eachProject, gcloud, googleGet, jsonList } from './gcloud.js';
-import { quoted } from './gcp.js';
 import type { CloudView } from './gcp-config.js';
 import { sinceTime } from './since.js';
 

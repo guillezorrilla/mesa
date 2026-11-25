@@ -1,11 +1,6 @@
+import { SERVICE_LABELS, servicePaths } from './filter-text.js';
 import { eachProject, gcloud, jsonList } from './gcloud.js';
-import {
-  CLOUD_MAX_LIMIT,
-  type CloudDeps,
-  cloudFilter,
-  SERVICE_LABELS,
-  servicePaths,
-} from './gcp.js';
+import { CLOUD_MAX_LIMIT, type CloudDeps, cloudFilter } from './gcp.js';
 import type { GcpLogs } from './gcp-config.js';
 
 // The services the Logs tab's picker offers (CONTEXT.md, Cloud Logs): what each GCP project's

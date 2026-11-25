@@ -11,7 +11,12 @@ import { CloudViewSchema } from './gcp-config.js';
 const KEPT = 20;
 
 /** A Logging query an Ask ran: the filter, and the project when it read one only. */
-const QuerySchema = z.object({ project: z.string().optional(), filter: z.string() });
+const QuerySchema = z.object({
+  project: z.string().optional(),
+  filter: z.string(),
+  /** What the run asked for itself (no env, noise or time bounds): what Run applies. */
+  own: CloudViewSchema.omit({ name: true }).partial().optional(),
+});
 export type AskQuery = z.infer<typeof QuerySchema>;
 
 const TurnSchema = z.object({
