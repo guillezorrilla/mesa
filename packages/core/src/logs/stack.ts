@@ -18,9 +18,22 @@ const FRAMEWORK = [
   'node:',
   'node_modules/',
 ];
-const FRAME = /^\s*at\s+(.*)$/;
+/** What a frame line calls (`com.example.Dock.moor(Dock.java:42)`), or undefined for no `at` line. */
+function frameTarget(text: string) {
+  const line = text.trimStart();
+  // String work, not a regex, as log lines are untrusted and a backtracking pattern could hang.
+  return /^at\s/.test(line) ? line.slice(3).trimStart() : undefined;
+}
+
 /** A frame's file and line, as Java (`(Dock.java:88)`) or Node (`(src/dock.ts:88:31)`) prints it. */
-const LOCATION = /\(([^()]*?)([^()/\\:]+):(\d+)(?::\d+)?\)\s*$/;
+function location(text: string) {
+  const open = text.lastIndexOf('(');
+  const close = text.lastIndexOf(')');
+  if (open < 0 || close < open) return undefined;
+  const [path = '', line = ''] = text.slice(open + 1, close).split(':');
+  const file = path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1);
+  return file && /^\d+$/.test(line) ? `${file}:${line}` : undefined;
+}
 
 export type StackLine = {
   text: string;
@@ -47,11 +60,11 @@ const isFramework = (target: string) =>
 /** `stack`'s lines, marked frame or not and framework or not. */
 export function stackLines(stack: string): StackLine[] {
   return stack.split('\n').map((text) => {
-    const frame = FRAME.exec(text);
+    const target = frameTarget(text);
     return {
       text,
-      frame: Boolean(frame),
-      framework: Boolean(frame && isFramework(frame[1] ?? '')),
+      frame: target !== undefined,
+      framework: target !== undefined && isFramework(target),
     };
   });
 }
@@ -69,8 +82,7 @@ export function stackView(stack: string): StackView {
 /** Where the first frame of the project's own code is, as `File.java:88`; undefined with none. */
 export function ownFrame(stack: string | null) {
   const own = stack && stackLines(stack).find((line) => line.frame && !line.framework);
-  const at = own ? LOCATION.exec(own.text) : null;
-  return at ? `${at[2]}:${at[3]}` : undefined;
+  return own ? location(own.text) : undefined;
 }
 
 /**

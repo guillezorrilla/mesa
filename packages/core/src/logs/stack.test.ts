@@ -21,6 +21,14 @@ test("a stack folds to its exception and the project's first own frame; framewor
     ownFrame('    at readChart (node:internal/fs:12:3)\n    at chart (src/chart.ts:88:31)'),
   ).toBe('chart.ts:88');
   expect(ownFrame(null)).toBeUndefined();
+  expect(ownFrame('\tat com.example.Dock.moor(Unknown Source)')).toBeUndefined();
+});
+
+test('a hostile frame line folds at once, with no backtracking', () => {
+  const started = performance.now();
+  stackView(`at${'\t'.repeat(50_000)}x\n(${"'".repeat(50_000)}`);
+  ownFrame(`\tat x(${'('.repeat(50_000)}a:1)`);
+  expect(performance.now() - started).toBeLessThan(200);
 });
 
 test('for an agent, runs of framework frames become one line', () => {
