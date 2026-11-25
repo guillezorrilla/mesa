@@ -21,7 +21,17 @@ export const logsCommands = {
     '--',
     source,
   ]),
-  'logs.file': commandWith<{ name: string; project: string }, { path: string; source: string }>(
-    ({ name, project }) => ['logs', 'file', '--project', project, '--', name],
-  ),
+  /** `make: false` names the path only; the folder is made once the person copies it. */
+  'logs.file': commandWith<
+    { name: string; project: string; make?: boolean },
+    { path: string; source: string }
+  >(({ name, project, make }) => [
+    'logs',
+    'file',
+    '--project',
+    project,
+    ...(make === false ? ['--path-only'] : []),
+    '--',
+    name,
+  ]),
 };

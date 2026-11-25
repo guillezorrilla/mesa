@@ -1,4 +1,5 @@
 import { existsSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import type { Runner } from '@mesa/core';
 import { plantOutputLog } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
@@ -80,8 +81,14 @@ test('logs sources lists containers, sessions with a log and log files; a source
   );
   const id = (await mesa('open', 'lantern-cove')).stdout.split('\n')[0] ?? '';
   plantOutputLog(cli.home, id, 'WARN tide rising\r\n');
+  const named = (
+    await mesa('logs', 'file', 'tide-api', '--project', 'lantern-cove', '--path-only', '--json')
+  ).json.data;
+  expect(existsSync(dirname(named.path))).toBe(false);
   const made = (await mesa('logs', 'file', 'tide-api', '--project', 'lantern-cove', '--json')).json
     .data;
+  expect(made).toEqual(named);
+  expect(existsSync(dirname(made.path))).toBe(true);
   expect(made).toEqual({
     path: `${cli.home}/.mesa/default/logs/lantern-cove/tide-api.log`,
     source: 'file:tide-api',

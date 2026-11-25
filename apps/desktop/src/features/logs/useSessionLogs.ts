@@ -1,8 +1,15 @@
 import type { ProjectRow, TreeRow } from '@mesa/core';
 import { GENERAL_PROJECT } from '@mesa/core/browser';
-import type { LogsActions } from '@/features/sessions/selected/SidePanels';
 import { useRun } from '@/lib/useCommand';
-import { useLogWatch } from './useLogWatch';
+import { type LogWatch, useLogWatch } from './useLogWatch';
+
+/** The Logs panel's stream (useLogWatch), its Send to agent, and its Hide for this project. */
+export type LogsActions = {
+  watch: LogWatch;
+  /** None for a session with no agent (a plain terminal). */
+  send?: (text: string) => boolean;
+  hide: () => void;
+};
 
 /**
  * The selected session's Logs (CONTEXT.md, Logs panel): for a session with a project whose

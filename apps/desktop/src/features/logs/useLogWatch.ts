@@ -16,7 +16,7 @@ const TAIL = 500;
  * The Logs panel's stream for the selected session's project (CONTEXT.md, Logs panel): its sources,
  * the source picked (kept per project), that source's entries read every 2 s, the level filter, and
  * the red dot. It reads while the window has focus: with the panel open while Live is on, and every
- * 10 s with it closed once a source was picked, so an error that comes in lights the dot. An error new since
+ * 10 s with it closed, the kept source or else the first, so an error that comes in lights the dot. An error new since
  * the last read lights it unless the panel shows Errors; showing Errors clears it.
  */
 export function useLogWatch(project: string | undefined, open: boolean) {
@@ -46,18 +46,16 @@ export function useLogWatch(project: string | undefined, open: boolean) {
     setSourcesFailure(found.ok ? undefined : found.error.message);
     if (found.ok) setSources({ project, list: found.data.sources });
   }, [call, project]);
+  // Open, it reads them each time; closed, once per project, so the dot has a source to watch.
+  const unlisted = !listed;
   useEffect(() => {
-    if (open) void refreshSources();
-  }, [open, refreshSources]);
+    if (open || unlisted) void refreshSources();
+  }, [open, unlisted, refreshSources]);
   useEffect(() => {
     if (watchingErrors) setDot(false);
   }, [watchingErrors]);
 
-  // The source the open panel shows becomes the kept one, so the dot watches it once closed.
-  useEffect(() => {
-    if (open && source && !kept) keep(source);
-  }, [open, source, kept, keep]);
-  const reading = Boolean(project && source && focused && (open ? live : kept));
+  const reading = Boolean(project && source && focused && (!open || live));
   const busy = useRef(false);
   useEffect(() => {
     if (!reading || !project || !source) return;

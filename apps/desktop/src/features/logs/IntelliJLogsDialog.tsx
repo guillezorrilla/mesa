@@ -30,8 +30,8 @@ function Step(props: { n: number; children: React.ReactNode }) {
 
 /**
  * Shows an IntelliJ run configuration's console in the Logs panel: four steps to save it to the
- * file Mesa names (`mesa logs file`, which makes its folder), then it waits for the file, and
- * once it is there closes and hands its source back.
+ * file Mesa names (`mesa logs file`); once the path is copied it makes its folder and waits for the
+ * file, and once the file is there closes and hands its source back.
  */
 export function IntelliJLogsDialog(props: {
   project: string;
@@ -45,19 +45,31 @@ export function IntelliJLogsDialog(props: {
   /** The file `mesa logs file` named, or why it could not. */
   const [made, setMade] = useState<{ path?: string; source?: string; error?: string }>({});
   const [copied, setCopied] = useState(false);
+  /** The path was copied (Copy, or selected and copied): its folder is made and the wait begins. */
+  const [waiting, setWaiting] = useState(false);
   useEffect(() => {
     let gone = false;
     setMade({});
     setCopied(false);
+    setWaiting(false);
     if (!service) return;
-    void call('logs.file', { name: service, project: props.project }).then((result) => {
-      if (!gone) setMade(result.ok ? result.data : { error: result.error.message });
-    });
+    void call('logs.file', { name: service, project: props.project, make: false }).then(
+      (result) => {
+        if (!gone) setMade(result.ok ? result.data : { error: result.error.message });
+      },
+    );
     return () => {
       gone = true;
     };
   }, [call, service, props.project]);
-  const { path, source, error } = made;
+  const { path, error } = made;
+  const source = waiting ? made.source : undefined;
+  /** Makes the file's folder, so IntelliJ can write there, and starts the wait. */
+  const copiedPath = () => {
+    if (!service || waiting) return;
+    setWaiting(true);
+    void call('logs.file', { name: service, project: props.project });
+  };
   // The panel renders on every read; the latest callback, without restarting the wait.
   const onFound = useRef(props.onFound);
   onFound.current = props.onFound;
@@ -116,6 +128,7 @@ export function IntelliJLogsDialog(props: {
               <div className="mt-1.5 flex items-center gap-1 rounded-md border bg-muted/40 py-1 pr-1 pl-2.5">
                 <code
                   data-testid="intellij-log-path"
+                  onCopy={copiedPath}
                   className="min-w-0 flex-1 truncate font-mono text-xs"
                   title={path}
                 >
@@ -126,7 +139,11 @@ export function IntelliJLogsDialog(props: {
                   variant="ghost"
                   disabled={!path}
                   // The app's pasteboard: WKWebView refuses navigator.clipboard.
-                  onClick={() => path && void clipboard.write(path).then(() => setCopied(true))}
+                  onClick={() => {
+                    if (!path) return;
+                    copiedPath();
+                    void clipboard.write(path).then(() => setCopied(true));
+                  }}
                 >
                   {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
                   {copied ? 'Copied' : 'Copy'}

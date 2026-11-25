@@ -43,12 +43,12 @@ export function logsService(ctx: MesaContext) {
     read: (source: string, opts: ReadOptions & { project?: string } = {}) =>
       readLog(deps(), source, { ...opts, project: () => projectNamed(opts.project) }),
     /**
-     * Where an IDE saves `project`'s service `name` console (the IntelliJ setup), its folder made:
-     * the path, and the source it becomes once the file is there.
+     * Where an IDE saves `project`'s service `name` console (the IntelliJ setup), its folder made
+     * unless `make` is false: the path, and the source it becomes once the file is there.
      */
-    file: (name: string, project?: string) => {
+    file: (name: string, project?: string, make = true) => {
       const path = logFile(ctx.paths.serverLogs, projectNamed(project), name);
-      mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+      if (make) mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
       return { path, source: sourceId('file', name) };
     },
   };

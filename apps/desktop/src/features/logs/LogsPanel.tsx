@@ -176,7 +176,11 @@ export function LogsPanel(props: {
           atEnd.current = box.scrollHeight - box.scrollTop - box.clientHeight < AT_END_PX;
         }}
       >
-        {noSources ? (
+        {watch.failure ? (
+          <p role="alert" className="px-3 py-4 font-sans text-xs text-state-failed">
+            {watch.failure}
+          </p>
+        ) : noSources ? (
           <div className="grid gap-3 px-3 py-4 font-sans">
             <Muted>
               No running containers or server sessions for this project. Start the server with
@@ -191,10 +195,6 @@ export function LogsPanel(props: {
               <FileText aria-hidden /> Show IntelliJ logs
             </Button>
           </div>
-        ) : watch.failure ? (
-          <p role="alert" className="px-3 py-4 font-sans text-xs text-state-failed">
-            {watch.failure}
-          </p>
         ) : !watch.entries ? (
           <Muted className="px-3 py-4 font-sans">
             {watch.source ? 'Reading' : 'Looking for sources'}

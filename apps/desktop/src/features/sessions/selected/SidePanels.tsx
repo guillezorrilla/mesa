@@ -2,20 +2,12 @@ import type { TreeRow } from '@mesa/core';
 import { diffable, GENERAL_PROJECT, sessionFolder } from '@mesa/core/browser';
 import { Activity, memo } from 'react';
 import { LogsPanel } from '@/features/logs/LogsPanel';
-import type { LogWatch } from '@/features/logs/useLogWatch';
+import type { LogsActions } from '@/features/logs/useSessionLogs';
 import { DiffPanel } from '../diff/DiffPanel';
 import { BrowserPanel } from '../review/BrowserPanel';
 import { RepliesPanel } from '../review/RepliesPanel';
 import { type CrewActions, CrewPanel } from './CrewPanel';
 import type { OpenPanel } from './useSidePanel';
-
-/** The Logs panel's stream (useLogWatch), its Send to agent, and its Hide for this project. */
-export type LogsActions = {
-  watch: LogWatch;
-  /** None for a session with no agent (a plain terminal). */
-  send?: (text: string) => boolean;
-  hide: () => void;
-};
 
 /**
  * Each session's open side panel beside its terminal. Only the selected session's shows; the
