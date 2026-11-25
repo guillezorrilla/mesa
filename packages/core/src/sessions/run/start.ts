@@ -7,7 +7,12 @@ import type { IdSource } from '../../lib/ids.js';
 import type { LockDeps } from '../../lib/lock-file.js';
 import { shellWord } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
-import { claudeRunProfile, isPipelineSkill, isTextOnlySkill } from '../../skills/library.js';
+import {
+  claudeRunProfile,
+  isPipelineSkill,
+  isTextOnlySkill,
+  readOnlyTools,
+} from '../../skills/library.js';
 import type { SkillRow } from '../../skills/sync.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import type { SessionRecord } from '../record/record.js';
@@ -59,8 +64,8 @@ type RunDeps = LaunchDeps & {
   lock: LockDeps;
   /** Text as it leaves the profile's logs for an agent (redactWhole). */
   redact: (text: string) => string;
-  /** The skills a project sees, enabled or not (the skills service's list). */
-  skills: (project: string) => SkillRow[];
+  /** The skills a project sees, enabled or not (the skills service's list); General's when none is named. */
+  skills: (project?: string) => SkillRow[];
   /** The guardrail: throws guardrail_blocked, or returns the override that let it through. */
   guard: (action: Guarded) => Promise<Override | undefined>;
 };
@@ -87,30 +92,47 @@ export async function startRun(deps: RunDeps, input: RunInput) {
     throw new MesaError('usage', `session ${about.id} is General; skill runs require a project`);
   }
   const named = input.project ?? about?.project;
+  // A General run has no project folder: it runs in the profile's own, with only its skill there.
+  const general = named === GENERAL_PROJECT;
+  if (general && !isPipelineSkill(input.skill)) {
+    throw new MesaError(
+      'usage',
+      `only Mesa's own pipeline skills run in General, not ${input.skill}`,
+    );
+  }
   if (named === undefined) {
     throw new MesaError(
       'usage',
       "pass --project <name>, or --session <id> to run it on that session's project",
     );
   }
-  const { entry, project } = launchProject(deps.profile, named);
-  if (about && entry.name !== about.project) {
+  const { entry, project } = general
+    ? { entry: null, project: undefined }
+    : launchProject(deps.profile, named);
+  const folder = entry?.path ?? deps.profile.paths.generalRuns;
+  if (about && entry?.name !== about.project) {
     throw new MesaError(
       'usage',
-      `session ${about.id} is on ${about.project}, not ${entry.name}: a run about a session runs on its project`,
+      `session ${about.id} is on ${about.project}, not ${entry?.name}: a run about a session runs on its project`,
     );
   }
-  requireSkill(deps.skills(entry.name), input.skill, entry.name);
+  requireSkill(deps.skills(entry?.name), input.skill, entry?.name ?? 'General');
   const { agent, spec } = await launchAgent(deps, project, input.agent);
   const given = input.input ?? (about && aboutInput(deps, about));
   const prompt = runPrompt(spec.headless.skillPrefix, input.skill, input.args);
   const agentSessionId = newSessionId(agent, deps.newUuid);
   const lean = claudeRunProfile(input.skill);
   const textOnly = isTextOnlySkill(input.skill);
+  const readTools = readOnlyTools(input.skill);
   const may = {
     // A text-only run reads a recipe and patch anyone could have written: it gets none of the
-    // profile's allowed tools, and nothing that edits a file or runs a command (agents.ts).
-    ...(textOnly ? { permissionMode: 'default', allowedTools: [] } : deps.profile.config.run),
+    // profile's allowed tools, and nothing that edits a file or runs a command (agents.ts); a
+    // read-only run gets its own few read commands only.
+    ...(textOnly
+      ? { permissionMode: 'default', allowedTools: [] }
+      : readTools
+        ? { permissionMode: 'default', allowedTools: [...readTools] }
+        : deps.profile.config.run),
     // A pipeline skill's output is landed by core (ADR-0006), so its run gets no vault writes.
     readOnlyVault: isPipelineSkill(input.skill),
     ...(textOnly ? { textOnly } : {}),
@@ -124,7 +146,7 @@ export async function startRun(deps: RunDeps, input: RunInput) {
           may,
           antigravityLog(deps.logs, id),
         )
-      : spec.headless.command(agentSessionId, prompt, may, entry.path);
+      : spec.headless.command(agentSessionId, prompt, may, folder);
   const stdin = (id: string) => (given ? shellWord(runInput(deps.runs, id)) : '/dev/null');
   const line = (id: string) =>
     `exec ${command(id)} <${stdin(id)} >${shellWord(runOutput(deps.runs, id))}`;
@@ -135,9 +157,13 @@ export async function startRun(deps: RunDeps, input: RunInput) {
     action: 'run',
     target: input.skill,
     text: prompt,
-    project: entry.name,
+    project: entry?.name,
   });
   mkdirSync(deps.runs, { recursive: true, mode: 0o700 });
+  if (general) {
+    mkdirSync(folder, { recursive: true, mode: 0o700 });
+    deps.syncSkills(undefined, folder);
+  }
   const parent = deps.caller().session?.id;
   let written: string | undefined;
   try {
@@ -146,6 +172,7 @@ export async function startRun(deps: RunDeps, input: RunInput) {
       {
         kind: 'run',
         project: entry,
+        ...(general ? { cwd: folder } : {}),
         agent,
         agentSessionId,
         goal: prompt,

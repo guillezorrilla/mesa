@@ -97,7 +97,23 @@ export * from './lib/result.js';
 export { keychainStore, type SecretStore } from './lib/secret-store.js';
 export { envSpawner, type Spawner } from './lib/spawn.js';
 export { localClock, localDay, obsidianDateTime } from './lib/time.js';
+export type { AskTurn, CloudAsk } from './logs/ask-history.js';
 export type { CopyContext, CopyFormat } from './logs/copy.js';
+export type { CloudErrorGroup } from './logs/errors.js';
+export {
+  CLOUD_MAX_LIMIT,
+  type CloudLogEntry,
+  type CloudWarning,
+} from './logs/gcp.js';
+export {
+  CLOUD_SEVERITIES,
+  type CloudSeverity,
+  type CloudView,
+  type GcpLogs,
+} from './logs/gcp-config.js';
+export type { EnvSuggestion } from './logs/gcp-envs.js';
+export type { CloudProject, CloudProjectGroup } from './logs/gcp-projects.js';
+export type { CloudService } from './logs/gcp-services.js';
 export type { ErrorGroup } from './logs/groups.js';
 export type { LogAsk } from './logs/message.js';
 export {
@@ -282,6 +298,7 @@ export type { SessionLog } from './sessions/window/output-log.js';
 export { plainText } from './sessions/window/terminal-text.js';
 export type { Viewed } from './sessions/window/view.js';
 export type { SkillInventoryRow } from './skills/inventory.js';
+export { readOnlyTools } from './skills/library.js';
 export type { SkillRow, SkillSync } from './skills/sync.js';
 export { type BrowseChild, type BrowseResult, DESCENDANTS_CAP } from './sources/browse.js';
 export { type CallbackListen, loopbackListener } from './sources/callback-listener.js';

@@ -18,6 +18,9 @@ struct Reply {
     code: i32,
     stdout: String,
     stderr: String,
+    /// Handed back unrun: the server's code is older than the CLI on disk (a dev rebuild).
+    #[serde(default)]
+    here: bool,
 }
 
 /// The calls waiting for a reply; None once the server's stdout has ended, so no call can wait on
@@ -97,6 +100,13 @@ impl Server {
             }
         }
         Some(match rx.recv() {
+            Ok(reply) if reply.here => {
+                // Never run, so the caller may spawn it; the next call starts a server of the new code.
+                if let Ok(mut live) = self.live.lock() {
+                    *live = None;
+                }
+                return None;
+            }
             Ok(reply) => crate::bridge::interpret(
                 Some(reply.code),
                 reply.stdout.as_bytes(),
@@ -234,6 +244,24 @@ mod tests {
                 "{later:?}"
             );
         }
+        assert!(!server.broken.load(std::sync::atomic::Ordering::Relaxed));
+    }
+
+    #[test]
+    fn a_call_handed_back_is_spawned_and_the_next_starts_a_new_server() {
+        let server = Server::new(|| {
+            let mut cmd = Command::new("/bin/sh");
+            cmd.arg("-c").arg(
+                r#"while read -r line; do
+                     id=$(printf '%s' "$line" | sed 's/.*"id":\([0-9]*\).*/\1/')
+                     printf '{"id":%s,"here":true,"code":0,"stdout":"","stderr":""}\n' "$id"
+                   done"#,
+            );
+            Ok(cmd)
+        });
+        assert!(server.call(&["x".into()], None).is_none());
+        assert!(server.live.lock().unwrap().is_none());
+        assert!(server.call(&["x".into()], None).is_none());
         assert!(!server.broken.load(std::sync::atomic::Ordering::Relaxed));
     }
 

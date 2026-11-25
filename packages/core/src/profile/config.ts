@@ -15,6 +15,7 @@ import { REDACTED } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { readKnownYaml, setYamlPath, valueAt } from '../lib/yaml-file.js';
+import { CloudViewSchema, GcpLogsSchema } from '../logs/gcp-config.js';
 import { PHONE_PUSH_FIELDS } from '../phone/away.js';
 import {
   GIT_OVERRIDE_FIELDS,
@@ -340,8 +341,27 @@ const ConfigShape = z.strictObject({
       pullRequestRecipe: GIT_OVERRIDE_FIELDS.pullRequestRecipe.default(DEFAULT_PULL_REQUEST_RECIPE),
     })
     .prefault({}),
-  /** Whether a session with a project shows the Logs panel's button; a project's mesa.yaml overrides it. */
-  logs: z.strictObject({ panel: z.boolean().default(true) }).prefault({}),
+  logs: z
+    .strictObject({
+      /** Whether a session with a project shows the Logs panel's button; a project's mesa.yaml overrides it. */
+      panel: z.boolean().default(true),
+      /** Whether the sidebar shows the Logs tab (CONTEXT.md, Cloud Logs). */
+      cloudTab: z.boolean().default(true),
+      /** Where Cloud Logs reads; unset, the Logs tab shows its setup. */
+      gcp: GcpLogsSchema.optional(),
+      views: z.array(CloudViewSchema).default([]),
+      /** The GCP projects whose prod entries a person let Ask send to the model (logs/ask.ts). */
+      prodAsk: z.array(z.string()).default([]),
+      /** Whether emails and IP addresses are masked in what Ask sends to the model (logs/mask.ts). */
+      mask: z.boolean().default(true),
+      /** The registered project each service's Fix in session starts in, by `<project>/<name>`. */
+      fixProjects: z.record(z.string(), z.string()).default({}),
+      /** The GCP projects Cloud Logs read last, newest first (the project switcher's Recent). */
+      recentProjects: z.array(z.string()).default([]),
+      /** The GCP projects starred in the project switcher. */
+      starredProjects: z.array(z.string()).default([]),
+    })
+    .prefault({}),
   /** Which releases Mesa updates to (ADR-0018); unset follows the running version's channel. */
   update: z.strictObject({ channel: z.enum(UPDATE_CHANNELS).optional() }).prefault({}),
   /** Name to a literal value or an `env:VAR` reference. Never printed in the clear. */

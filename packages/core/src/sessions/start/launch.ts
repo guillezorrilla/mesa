@@ -59,8 +59,11 @@ export type LaunchDeps = {
   home: string;
   self: readonly string[];
   clock: Clock;
-  /** Links the project's enabled skills into the folder its agent runs in; throws on failure. */
-  syncSkills: (project: string, folder: string) => void;
+  /**
+   * Links the project's enabled skills (General's, the profile's alone, when none is named) into
+   * the folder its agent runs in; throws on failure.
+   */
+  syncSkills: (project: string | undefined, folder: string) => void;
   /** For the locks a launch takes: a new worktree's, and the registry's. */
   lock: AsyncLockDeps;
 };

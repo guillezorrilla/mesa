@@ -20,10 +20,14 @@ const stamp = (path: string) => {
 };
 
 /**
- * Which build of this version runs, so a Command server and a client of different code never mix
+ * Which build of this version is on disk now, so a Command server and a client of different code never mix
  * (ADR-0032): the executable's build number and when it was written, or for a dev run when tsc
  * last wrote the CLI and core (every build rewrites each file it emits).
  */
-export const BUILD: string = isSea()
-  ? `${getAsset('build', 'utf8')}:${stamp(process.execPath)}`
-  : `${stamp(fileURLToPath(import.meta.url))}:${stamp(fileURLToPath(new URL('../../core/dist/index.js', import.meta.url)))}`;
+export const currentBuild = (): string =>
+  isSea()
+    ? `${getAsset('build', 'utf8')}:${stamp(process.execPath)}`
+    : `${stamp(fileURLToPath(import.meta.url))}:${stamp(fileURLToPath(new URL('../../core/dist/index.js', import.meta.url)))}`;
+
+/** The build this process loaded. */
+export const BUILD: string = currentBuild();

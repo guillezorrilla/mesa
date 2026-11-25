@@ -1,7 +1,7 @@
 import { defineCommand } from '../command.js';
 import { listenCommands } from '../command-socket.js';
 import { serveCommands } from '../serve.js';
-import { BUILD, VERSION } from '../version.js';
+import { BUILD, currentBuild, VERSION } from '../version.js';
 
 /**
  * The Command server the app sends its commands to (ADR-0030); the app starts it, a person need
@@ -20,7 +20,8 @@ export const serve = defineCommand({
       // Stdio first: the app writes its first calls the moment it starts this process, and a line
       // read before anything iterates the lines is dropped, so a slow socket setup (a stale socket
       // to probe) once lost them and left the app on its loading screen.
-      const served = serveCommands(io, rerun);
+      // A rebuild on disk hands calls back, so the app never runs code older than the CLI's.
+      const served = serveCommands(io, rerun, () => currentBuild() !== BUILD);
       const identity = { version: VERSION, build: BUILD };
       const socket = await listenCommands(mesa.commandSocket(), identity, rerun).catch(
         (error: unknown) => {

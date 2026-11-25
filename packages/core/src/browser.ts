@@ -67,10 +67,15 @@ export {
 export { relativeAgo, shortAgo, timeAgo } from './lib/ago.js';
 export * from './lib/format.js';
 export { localClock, localDay, validLocalDay } from './lib/time.js';
+export { cloudLevel, splitMessage } from './logs/cloud-entry.js';
 export { copyText, groupSummaryText } from './logs/copy.js';
+export { ENV_WORDS, envNameOf, joinEnvs } from './logs/env-names.js';
+export { ALL_ENVS } from './logs/gcp-config.js';
 export { errorGroups, isMuted, muteKey, normalizedMessage } from './logs/groups.js';
 export { CONTEXT_LINES, logMessage } from './logs/message.js';
+export { groupText, occurrenceRuns, type Run } from './logs/occurrences.js';
 export { entryText, LEVEL_NAMES } from './logs/parse.js';
+export { NO_ORGANIZATION, type ProjectRow, projectRows } from './logs/project-rows.js';
 export { sourceId, sourceLabel, sourceStateText } from './logs/source-id.js';
 export { ownFrame, stackSummary, stackView } from './logs/stack.js';
 export { messageParts, namesRequest } from './logs/tokens.js';

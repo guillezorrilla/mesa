@@ -63,3 +63,16 @@ export function clockTime(time: string | null) {
   if (Number.isNaN(at.getTime())) return /\d\d:\d\d:\d\d/.exec(time)?.[0] ?? '';
   return at.toLocaleTimeString([], { hour12: false });
 }
+
+/**
+ * `time` in local time: the clock today, else the day and minute ("Nov 24 17:40"), so a first and
+ * last seen read right beside today's entries.
+ */
+export function dayTime(time: string | null, now = new Date()) {
+  if (!time) return '';
+  const at = new Date(time);
+  if (Number.isNaN(at.getTime())) return clockTime(time);
+  if (at.toDateString() === now.toDateString()) return clockTime(time);
+  const day = at.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return `${day} ${at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+}

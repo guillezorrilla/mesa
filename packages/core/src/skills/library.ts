@@ -15,11 +15,19 @@ export const VAULT_CAPTURE = 'vault-capture';
 /** The skill whose run writes git text: a commit message (skills/git-text). */
 export const GIT_TEXT = 'git-text';
 
+/** The skill whose run answers a question about Cloud Logs entries (skills/cloud-logs). */
+export const CLOUD_LOGS = 'cloud-logs';
+
 /**
  * Skills Mesa's own pipelines run (an Import's notes, a Vault capture): enabled for their own
  * Skill run whatever the skills lists say, and for nothing else.
  */
-export const PIPELINE_SKILLS: readonly string[] = [IMPORT_NOTES, VAULT_CAPTURE, GIT_TEXT];
+export const PIPELINE_SKILLS: readonly string[] = [
+  IMPORT_NOTES,
+  VAULT_CAPTURE,
+  GIT_TEXT,
+  CLOUD_LOGS,
+];
 
 /** Whether `skill` is one of Mesa's own pipeline skills. */
 export const isPipelineSkill = (skill: string) => PIPELINE_SKILLS.includes(skill);
@@ -29,6 +37,16 @@ export const isPipelineSkill = (skill: string) => PIPELINE_SKILLS.includes(skill
  * command: git-text, whose stdin holds a patch anyone could have written.
  */
 export const isTextOnlySkill = (skill: string) => skill === GIT_TEXT;
+
+/**
+ * The only tools a skill's run may use, when it is one of Mesa's read-only runs: cloud-logs, whose
+ * stdin holds log entries anyone could have made a service print, may run Cloud Logs reads and
+ * nothing else.
+ */
+export const readOnlyTools = (skill: string): readonly string[] | undefined =>
+  skill === CLOUD_LOGS
+    ? ['Bash(mesa logs gcp:*)', 'Bash(mesa logs errors:*)', 'Bash(mesa logs counts:*)']
+    : undefined;
 
 /** The skill whose run summarises a session's output log (skills/session-summary). */
 export const SESSION_SUMMARY = 'session-summary';
@@ -48,6 +66,8 @@ const RUN_PROFILES: Readonly<Record<string, ClaudeRunProfile>> = {
   [GIT_TEXT]: { model: 'haiku', vault: false, effort: 'low' },
   [SESSION_SUMMARY]: { model: 'haiku', vault: false, effort: 'low' },
   [IMPORT_NOTES]: { model: 'sonnet', vault: true },
+  // Sonnet: it reasons over up to 60 KB of entries rather than writing short text.
+  [CLOUD_LOGS]: { model: 'sonnet', vault: false, effort: 'low' },
 };
 export const claudeRunProfile = (skill: string): ClaudeRunProfile | undefined =>
   Object.hasOwn(RUN_PROFILES, skill) ? RUN_PROFILES[skill] : undefined;

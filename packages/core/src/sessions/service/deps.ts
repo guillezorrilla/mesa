@@ -83,12 +83,12 @@ export function sessionDeps(
   const runDeps = (skill: string, guard: (action: Guarded) => Promise<Override | undefined>) => ({
     ...openDeps(),
     // A pipeline skill is enabled, and linked, for its own run (skills service).
-    syncSkills: (on: string, folder: string) => skills.linkInto(on, folder, skill),
+    syncSkills: (on: string | undefined, folder: string) => skills.linkInto(on, folder, skill),
     runs: paths.runs,
     logs: paths.logs,
     lock: ctx,
     redact: (text: string) => redactWhole(text, ctx.home, secrets()),
-    skills: (on: string) => skills.list(on, skill),
+    skills: (on?: string) => skills.list(on, skill),
     guard,
   });
   /** A background session's tmux view, recreated on demand (background-view.ts). */

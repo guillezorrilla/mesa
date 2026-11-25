@@ -2928,7 +2928,16 @@ test('shortcut settings validate conflicts and update the active profile key', a
       keepAwake: 'off',
     },
     usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
-    logs: { panel: true },
+    logs: {
+      panel: true,
+      cloudTab: true,
+      views: [],
+      prodAsk: [],
+      mask: true,
+      fixProjects: {},
+      recentProjects: [],
+      starredProjects: [],
+    },
     notifications: {
       quiet: false,
       visualAlert: true,

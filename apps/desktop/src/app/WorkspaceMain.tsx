@@ -9,6 +9,7 @@ import { DoctorScreen } from '@/features/doctor/DoctorScreen';
 import { HelpScreen } from '@/features/help/HelpScreen';
 import { HooksUpdateCard } from '@/features/hooks/HooksUpdateCard';
 import { ImpactScreen } from '@/features/impact/ImpactScreen';
+import { CloudLogsScreen } from '@/features/logs/CloudLogsScreen';
 import { MapScreen } from '@/features/map/MapScreen';
 import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
@@ -143,6 +144,15 @@ export function WorkspaceMain(props: {
           <Muted>Project unavailable. Choose another project from the sidebar.</Muted>
         ))}
       {view.kind === 'doctor' && <DoctorScreen doctor={props.doctor} />}
+      {view.kind === 'logs' && (
+        <CloudLogsScreen
+          mode={view.mode ?? 'errors'}
+          filters={view.query ?? {}}
+          ask={view.ask}
+          onView={(next) => navigate({ kind: 'logs', ...next })}
+          onSession={(id) => navigate({ kind: 'session', id })}
+        />
+      )}
       {view.kind === 'prs-setup' && (
         <PrSetupScreen
           key={view.project}

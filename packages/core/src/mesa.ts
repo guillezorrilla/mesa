@@ -17,6 +17,7 @@ import { gitService } from './git/service.js';
 import { impactService } from './impact/service.js';
 import { installsService } from './installs/service.js';
 import { instructionsService } from './instructions/service.js';
+import { cloudLogsService } from './logs/cloud-service.js';
 import { logsService } from './logs/service.js';
 import { mapService } from './map/service.js';
 import { backgroundDelivery } from './notifications/background.js';
@@ -217,7 +218,13 @@ export function createMesa(profile: string, deps: MesaDeps) {
     receipts: receiptsService(ctx),
     ...sessions,
     /** The Logs panel's sources and entries (CONTEXT.md, Logs panel). */
-    logs: logsService(ctx),
+    logs: {
+      ...logsService(ctx),
+      ...cloudLogsService(ctx, {
+        runText: sessions.sessions.run,
+        setConfig: profileApi.config.set,
+      }),
+    },
     prEvents,
     reports,
     /** Planned work and what each part waits on (CONTEXT.md, Task graph). */

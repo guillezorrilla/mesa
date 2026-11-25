@@ -73,6 +73,15 @@ export function useNewFailureAlert() {
  * ponytail: unbounded, one entry per command and arguments read; an LRU if that ever grows large.
  */
 const replies = new WeakMap<Client, Map<string, unknown>>();
+/** Every mounted reader of each command and its arguments, per client, so one reply reaches them all. */
+const readers = new WeakMap<Client, Map<string, Set<(data: unknown) => void>>>();
+function readersOf(client: Client, key: string) {
+  const byKey = readers.get(client) ?? new Map<string, Set<(data: unknown) => void>>();
+  readers.set(client, byKey);
+  const found = byKey.get(key) ?? new Set();
+  byKey.set(key, found);
+  return found;
+}
 /** Cached reads belong to the folder they read, even when their command arguments stay the same. */
 export const CommandScope = createContext<string | undefined>(undefined);
 function repliesOf(client: Client) {
@@ -88,6 +97,11 @@ export type CommandState<T> = {
   error?: CommandError;
   busy: boolean;
   refresh: () => Promise<void>;
+  /**
+   * refresh, its reply shown by every reader of the same command and arguments too (a sidebar after
+   * a write elsewhere); a reader that keeps its order on purpose is refreshed only by its own.
+   */
+  refreshEverywhere: () => Promise<void>;
   /**
    * Changes the data in place, before the command would say so (a change already saved, or about
    * to be); a read still in flight is dropped, so it cannot bring back what this replaced.
@@ -126,7 +140,8 @@ function useRead<K extends CommandName>(
 ): CommandState<DataOf<K>> {
   const call = useCall();
   const alertNew = useNewFailureAlert();
-  const cached = repliesOf(useClient());
+  const client = useClient();
+  const cached = repliesOf(client);
   // By value: a caller passes a fresh object each render.
   const key = JSON.stringify([name, args, useContext(CommandScope)]);
   const currentKey = useRef(key);
@@ -144,26 +159,52 @@ function useRead<K extends CommandName>(
     data: cached.get(key) as DataOf<K> | undefined,
     busy: false,
   });
+  // A reply another reader of the same read shares (refreshEverywhere) shows here too.
+  const hear = useRef<(data: unknown) => void>(undefined);
+  useEffect(() => {
+    const heard = (data: unknown) => {
+      request.current++;
+      setState({ key, data: data as DataOf<K>, busy: false });
+    };
+    hear.current = heard;
+    const all = readersOf(client, key);
+    all.add(heard);
+    return () => {
+      all.delete(heard);
+    };
+  }, [client, key]);
+  const tell = useCallback(
+    (data: unknown) => {
+      for (const other of readersOf(client, key)) if (other !== hear.current) other(data);
+    },
+    [client, key],
+  );
 
-  const refresh = useCallback(async () => {
-    const id = ++request.current;
-    setState((last) => ({
-      key,
-      data: last.key === key ? last.data : (cached.get(key) as DataOf<K> | undefined),
-      error: last.key === key ? last.error : undefined,
-      busy: true,
-    }));
-    const result = await call(name, ...(JSON.parse(key)[1] as CallArgs<K>));
-    if (id !== request.current || key !== currentKey.current) return;
-    if (result.ok) {
-      cached.set(key, result.data);
-      setState({ key, data: result.data, busy: false });
-      alertNew(undefined);
-    } else {
-      setState((last) => ({ ...last, error: result.error, busy: false }));
-      if (toastMissing || result.error.code !== 'not_found') alertNew(result.error);
-    }
-  }, [call, alertNew, cached, name, key, toastMissing]);
+  const load = useCallback(
+    async (share: boolean) => {
+      const id = ++request.current;
+      setState((last) => ({
+        key,
+        data: last.key === key ? last.data : (cached.get(key) as DataOf<K> | undefined),
+        error: last.key === key ? last.error : undefined,
+        busy: true,
+      }));
+      const result = await call(name, ...(JSON.parse(key)[1] as CallArgs<K>));
+      if (id !== request.current || key !== currentKey.current) return;
+      if (result.ok) {
+        cached.set(key, result.data);
+        setState({ key, data: result.data, busy: false });
+        if (share) tell(result.data);
+        alertNew(undefined);
+      } else {
+        setState((last) => ({ ...last, error: result.error, busy: false }));
+        if (toastMissing || result.error.code !== 'not_found') alertNew(result.error);
+      }
+    },
+    [call, alertNew, cached, name, key, toastMissing, tell],
+  );
+  const refresh = useCallback(() => load(false), [load]);
+  const refreshEverywhere = useCallback(() => load(true), [load]);
 
   const mutate = useCallback(
     (update: (data: DataOf<K>) => DataOf<K>) => {
@@ -191,6 +232,7 @@ function useRead<K extends CommandName>(
     error: state.key === key ? state.error : undefined,
     busy: state.key === key && state.busy,
     refresh,
+    refreshEverywhere,
     mutate,
   };
 }

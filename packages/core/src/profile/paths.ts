@@ -35,6 +35,10 @@ export type ProfilePaths = {
   commandSocket: string;
   /** What each headless run's agent printed, `<session id>.json` each (CONTEXT.md, Skill run). */
   runs: string;
+  /** Where a General Skill run's agent runs, with only its own skill linked (sessions/run/start.ts). */
+  generalRuns: string;
+  /** The newest Cloud Logs Asks, their questions and answers (logs/ask-history.ts). */
+  cloudAsks: string;
   /** `mesa check` output logs, whole, private to the profile (CONTEXT.md, Check). */
   checks: string;
   /** Each Claude session's running estimated cost for its status line, `<session id>.json` each. */
@@ -137,6 +141,8 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     hosts: join(root, 'hosts'),
     commandSocket: join(root, 'run', 'serve.sock'),
     runs: join(root, 'sessions', 'runs'),
+    generalRuns: join(root, 'sessions', 'general-runs'),
+    cloudAsks: join(root, 'cloud-asks.json'),
     checks: join(root, 'checks'),
     costs: join(root, 'sessions', 'costs'),
     decisions: join(root, 'sessions', 'decisions'),
