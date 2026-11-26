@@ -17,9 +17,9 @@ type Own = Partial<Record<OwnKey, unknown>>;
 
 /** `query`'s own filters: those of OWN_FILTERS it sets. */
 export const ownOf = <Q extends Own>(query: Q) =>
-  Object.fromEntries(
-    OWN_KEYS.flatMap((k) => (query[k] === undefined ? [] : [[k, query[k]]])),
-  ) as Pick<Q, OwnKey>;
+  Object.fromEntries(OWN_KEYS.flatMap((k) => (query[k] === undefined ? [] : [[k, query[k]]]))) as {
+    [K in OwnKey & keyof Q]?: Q[K];
+  };
 
 /** `view` with its own filters replaced by `own`'s; its env, range and projects stay. */
 export const withOwn = <V extends Own>(view: V, own: Partial<Pick<V, OwnKey>>): V => ({
