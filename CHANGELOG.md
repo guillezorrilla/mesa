@@ -2,6 +2,21 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.8.1 - 2026-11-26
+
+0.8.1 also carries everything listed under 0.8.0 (Cloud Logs, the Logs panel and sidebar tabs), which was tagged but never published on its own.
+
+### Added
+
+- Deploys in Cloud Logs: the Explorer's histogram and an error's chart mark each Cloud Run, App Engine or GKE deploy in its service's colour, an error that started soon after a deploy says which one, and `mesa logs deploys` lists them. The query bar now suggests real field names and their most common values. (#1269)
+- Ask in Cloud Logs now investigates like a backend developer: it reads a summary of the whole range (error groups, counts per service, deploys), keeps each stack's Caused by chain, opens the code a stack names in the project its services map to, streams its answer with the model, time and cost under it, and Fix in session hands the whole investigation, queries and cited entries to the new session. (#1270)
+- Whole requests in the Logs panel: a request id's menu, on the request chip or a line that names one, shows every line of that request across the project's containers, terminal sessions and log files in time order, or sends them all to the agent with their sources named. (#1268)
+
+### Fixed
+
+- The Logs panel no longer shows an agent session's own screen as a server log: only plain terminal sessions, containers and log files are sources, and with no source picked for a project the panel lists them and asks which to show. (#1264)
+- Labels in the sidebar tab bar now shows at the sidebar's usual widths: each tab gets an equal share, long names end in an ellipsis with the full name in a tooltip, and counts sit as small badges on the icons. When the sidebar is too narrow even for that, the tab style picker says "Needs a wider sidebar" under the style it could not fit. (#1272)
+
 ## 0.8.0 - 2026-11-26
 
 ### Added
