@@ -12,7 +12,12 @@ export const logsAsk = defineCommand({
     code: {
       type: 'string',
       description:
-        'The registered project whose code it reads, or general for none; else the one the services map to (logs.fixProjects)',
+        'The registered project whose code it reads, or general for none; else the one the services map to (logs.fixProjects); a person only',
+    },
+    stream: {
+      type: 'string',
+      description:
+        'A token of your own (8 to 64 letters, digits, _ or -) that mesa logs asking reads its answer by while it runs',
     },
     'allow-prod': {
       type: 'boolean',
@@ -25,6 +30,7 @@ export const logsAsk = defineCommand({
       ...queryOf(flags),
       conversation: flags.conversation,
       code: flags.code,
+      stream: flags.stream,
       allowProd: flags['allow-prod'],
     });
     return { data: asked, text: asked.answer };
@@ -34,17 +40,12 @@ export const logsAsk = defineCommand({
 export const logsAsking = defineCommand({
   name: 'logs asking',
   summary:
-    'What the Ask running now has answered so far, as it streams; --since leaves out runs started before it; nothing when no Ask runs',
-  flags: {
-    since: {
-      type: 'string',
-      description: 'Only an Ask whose run started at or after this ISO time',
-    },
-  },
-  example: 'mesa logs asking',
-  run: ({ mesa, flags }) => {
-    const live = mesa.logs.asking(flags.since);
-    return { data: live, text: live.text || 'no Ask is running' };
+    'What the Ask started with --stream <token> has answered so far, while it runs; nothing once it has ended or before it starts',
+  args: ['token'],
+  example: 'mesa logs asking ask-7f3c2a9e',
+  run: ({ mesa, args }) => {
+    const live = mesa.logs.asking(args.token);
+    return { data: live, text: live.text || 'no answer yet' };
   },
 });
 

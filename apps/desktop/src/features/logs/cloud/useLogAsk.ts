@@ -13,45 +13,49 @@ type Asked = { question: string; over?: CloudFilters };
 
 /**
  * Ask (CONTEXT.md, Ask (logs)) for one conversation: asks with `filters`, streams the answer as it
- * comes (`asking`), asks once which project's code to read when a service asked about maps to none
- * (`picking`, kept in logs.fixProjects), and owns the first prod Ask's confirmation (`confirming`
- * names the GCP projects until the person confirms or cancels).
+ * comes (`asking`, read by the Ask's own stream token), asks once which project's code to read
+ * (`picking`, kept in logs.fixProjects) when a service asked about maps to none, or, with none
+ * asked, when none of the services of the entries shown (`shown`) does, and owns the first prod
+ * Ask's confirmation (`confirming` names the GCP projects until the person confirms or cancels).
  */
 export function useLogAsk(
   filters: CloudFilters,
   conversation: string | undefined,
   onAsked: (asked: CloudAsked) => void,
+  shown: readonly string[] = [],
 ) {
   const call = useCall();
   const toast = useToast();
   const { fixProjects, rememberFix } = useCloudLogsConfig();
-  const [asking, setAsking] = useState<{ question: string; since: string; text: string }>();
+  const [asking, setAsking] = useState<{ question: string; stream: string; text: string }>();
   const [confirming, setConfirming] = useState<Asked & { projects: string[] }>();
   const [picking, setPicking] = useState<Asked & { refs: string[] }>();
-  const since = asking?.since;
+  const stream = asking?.stream;
   useEffect(() => {
-    if (!since) return;
+    if (!stream) return;
     // One read at a time: a slow read is not overlapped by the next tick.
     let reading = false;
     const timer = window.setInterval(async () => {
       if (reading) return;
       reading = true;
-      const live = await call('logs.asking', { since });
+      const live = await call('logs.asking', { stream });
       reading = false;
       const text = live.ok ? live.data.text : '';
       if (text)
-        setAsking((now) => (now?.since === since && now.text !== text ? { ...now, text } : now));
+        setAsking((now) => (now?.stream === stream && now.text !== text ? { ...now, text } : now));
     }, STREAM_MS);
     return () => window.clearInterval(timer);
-  }, [since, call]);
+  }, [stream, call]);
   const send = async ({ question, over }: Asked, allowProd = false) => {
-    setAsking({ question, since: new Date().toISOString(), text: '' });
+    const token = crypto.randomUUID();
+    setAsking({ question, stream: token, text: '' });
     const result = await call('logs.ask', {
       ...filters,
       ...over,
       question,
       conversation,
       allowProd,
+      stream: token,
     });
     setAsking(undefined);
     if (result.ok) {
@@ -66,9 +70,12 @@ export function useLogAsk(
   };
   const ask = async (question: string, over?: CloudFilters) => {
     if (!question.trim()) return false;
-    const unmapped = (over?.services ?? filters.services ?? []).filter(
-      (ref) => !mappedProject(fixProjects, ref),
-    );
+    const asked = over?.services ?? filters.services ?? [];
+    const unmapped = asked.length
+      ? asked.filter((ref) => !mappedProject(fixProjects, ref))
+      : shown.some((ref) => mappedProject(fixProjects, ref))
+        ? []
+        : [...new Set(shown)];
     if (unmapped.length) {
       setPicking({ question, over, refs: unmapped });
       return true;

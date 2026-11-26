@@ -52,6 +52,33 @@ export const readOnlyTools = (skill: string): readonly string[] | undefined =>
 /** The built-in tools a read-only run has at all: no edit, write, web or subagent tool exists for it. */
 export const READ_ONLY_RUN_TOOLS: readonly string[] = ['Bash', 'Read', 'Grep', 'Glob'];
 
+/** Files of a project a read-only run never reads, however its code folder is read: its secrets. */
+const SECRET_FILES = [
+  '.env*',
+  '*.pem',
+  '*.key',
+  '*.p12',
+  '*.pfx',
+  '*.keystore',
+  '*.jks',
+  'id_rsa*',
+  'id_ed25519*',
+  '*credentials*',
+  'secrets/**',
+  '.git/config',
+  '.npmrc',
+  '.netrc',
+  '.pgpass',
+];
+
+/** The deny rules that keep a read-only run's file tools off the secrets under `folder`. */
+export const secretDenies = (folder: string) =>
+  // Glob only lists names; Read and Grep would show what the files hold.
+  ['Read', 'Grep'].flatMap((tool) =>
+    // `//` starts an absolute path in a Claude Code rule.
+    SECRET_FILES.map((file) => `${tool}(/${folder}/**/${file})`),
+  );
+
 /** The skill whose run summarises a session's output log (skills/session-summary). */
 export const SESSION_SUMMARY = 'session-summary';
 

@@ -22,6 +22,8 @@ import { foldedMessage } from './stack.js';
 const MESSAGE_LIMIT = 1000;
 /** The most text a run reads on its stdin about the logs: the summary, samples, then entries. */
 const LOGS_LIMIT_BYTES = 60_000;
+/** The most of the budget the range summary takes, so the entries always keep a share. */
+const SUMMARY_SHARE = 1 / 2;
 /** The share of what the summary leaves that samples may take; the page of entries gets the rest. */
 const SAMPLES_SHARE = 1 / 3;
 /** The most earlier turns a follow-up carries. */
@@ -71,7 +73,7 @@ export type AskRead = {
   entries: readonly CloudLogEntry[];
   range?: RangeFacts;
   /** The registered project whose code the run may read, and its checkout's folder. */
-  code?: { project: string; path: string };
+  code?: { name: string; path: string };
 };
 
 /**
@@ -79,15 +81,20 @@ export type AskRead = {
  * summary, a few samples per error group and the page of entries, within LOGS_LIMIT_BYTES.
  */
 export function askInput(question: string, read: AskRead, earlier: readonly AskTurn[] = []) {
-  const summary = read.range ? rangeSummary(read.range) : '';
+  const lines = read.range ? rangeSummary(read.range).split('\n') : [];
+  const kept = fitting(lines, LOGS_LIMIT_BYTES * SUMMARY_SHARE).lines;
+  const summary = [
+    ...kept,
+    ...(kept.length < lines.length ? ['... (the summary was cut here)'] : []),
+  ].join('\n');
   const allSamples =
     read.range && !readFailed(read.range.errors) ? groupSamples(read.range.errors.groups) : [];
   const left = LOGS_LIMIT_BYTES - Buffer.byteLength(summary);
   const samples = fitting(allSamples, left * SAMPLES_SHARE);
-  const { lines } = fitting(
+  const page = fitting(
     read.entries.map((entry) => JSON.stringify(modelEntry(entry))),
     left - samples.bytes,
-  );
+  ).lines;
   const turns = earlier.slice(-TURNS_KEPT);
   return [
     ...(turns.length
@@ -102,7 +109,7 @@ export function askInput(question: string, read: AskRead, earlier: readonly AskT
     '',
     ...(read.code
       ? [
-          `The code of ${read.code.project}, the project behind these services, is in ${read.code.path}: read it there with Read, Grep and Glob (pass that folder as the path).`,
+          `The code of ${read.code.name}, the project behind these services, is in ${read.code.path}: read it there with Read, Grep and Glob (pass that folder as the path).`,
           '',
         ]
       : []),
@@ -119,8 +126,8 @@ export function askInput(question: string, read: AskRead, earlier: readonly AskT
     'The Cloud Logging filter the entries were read with, per GCP project:',
     dataFence('text', read.filter),
     '',
-    `The entries, newest first, one JSON object a line (${lines.length} of ${read.entries.length}):`,
-    dataFence('jsonl', lines.join('\n') || '(none)'),
+    `The entries, newest first, one JSON object a line (${page.length} of ${read.entries.length}):`,
+    dataFence('jsonl', page.join('\n') || '(none)'),
   ].join('\n');
 }
 
@@ -145,20 +152,21 @@ export function runQueries(file: string): AskQuery[] {
 
 /**
  * The answer a General `cloud-logs` run gives to `question` about what it `read`, after the
- * `earlier` turns, and the ids of the entries it cites; with `code`, it reads that registered
- * project's code, and `model` answers.
+ * `earlier` turns, and the ids of the entries it cites; with `read.code`, it reads that registered
+ * project's code; `model` answers, and `onStart` hears its run's session id once it starts.
  */
 export async function askCloudLogs(
   runText: GitTextRunner,
   question: string,
   read: AskRead,
   earlier: readonly AskTurn[] = [],
-  how: { code?: string; model?: string } = {},
+  how: { model?: string; onStart?: (session: string) => void } = {},
 ): Promise<{ answer: string; cited: string[]; run: GitTextRunInfo & { model?: string } }> {
   if (!question.trim()) throw new MesaError('usage', 'ask a question about the logs');
   const { result } = await runText(CLOUD_LOGS, {
     project: GENERAL_PROJECT,
     input: askInput(question, read, earlier),
+    ...(read.code ? { code: read.code } : {}),
     ...how,
   });
   const run = {

@@ -1,14 +1,15 @@
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { MesaContext } from '../context.js';
 import type { GitTextRunner } from '../git/message.js';
+import { writeFileAtomic } from '../lib/atomic-file.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { findProject } from '../projects/projects.js';
 import { GENERAL_PROJECT } from '../sessions/record/general.js';
-import { liveRunText } from '../sessions/run/live.js';
+import { streamedText } from '../sessions/run/live.js';
 import { callerOf } from '../sessions/window/caller.js';
-import { CLOUD_LOGS } from '../skills/library.js';
 import {
   askCloudLogs,
   codeProject,
@@ -40,6 +41,7 @@ import { cloudServices } from './gcp-services.js';
 import { maskEntry, maskErrors, maskText } from './mask.js';
 import { metricCounts, metricViews } from './metrics.js';
 import { ownOf } from './own-filters.js';
+import { readRange } from './range-read.js';
 import { exportViews, importViews, mergeViews } from './views.js';
 import { cloudVolume } from './volume.js';
 
@@ -59,6 +61,11 @@ const FixGroupSchema = z.object({
   badge: z.enum(['new', 'back']).nullable(),
   source: z.enum(['error-reporting', 'logs']),
 });
+
+/** A caller's token for one Ask's streamed answer. */
+const STREAM_TOKEN = z
+  .string()
+  .regex(/^[\w-]{8,64}$/, 'a token of 8 to 64 letters, digits, _ or -');
 
 /** How many GCP projects the switcher's Recent keeps. */
 const RECENT = 12;
@@ -150,6 +157,12 @@ export function cloudLogsService(
       readsProd(config, env),
     );
   };
+  /**
+   * Where an Ask started with stream token `stream` (one its caller made) names its run once it has
+   * started, so asking reads that run's answer and no other Ask's.
+   */
+  const streamFile = (stream: string) =>
+    join(ctx.paths.runs, `${parseWith(STREAM_TOKEN, stream, '--stream')}.ask`);
   /** Where an Ask's run keeps the queries it ran, one JSON line each (ask.ts, runQueries). */
   const queriesFile = (session: string) => join(ctx.paths.runs, `${session}.queries.jsonl`);
   const keepQueries = (filters: Record<string, string>, query: CloudQuery) => {
@@ -316,7 +329,12 @@ export function cloudLogsService(
      */
     ask: async (
       question: string,
-      query: CloudQuery & { allowProd?: boolean; conversation?: string; code?: string } = {},
+      query: CloudQuery & {
+        allowProd?: boolean;
+        conversation?: string;
+        code?: string;
+        stream?: string;
+      } = {},
     ) => {
       const config = gcpConfig();
       const env = envOf(config, query.env);
@@ -328,27 +346,20 @@ export function cloudLogsService(
         readsProd(config, env),
         query.allowProd,
       );
-      const { allowProd: _, conversation, limit: __, code: named, ...kept } = query;
+      const { allowProd: _, conversation, limit: __, code: named, stream, ...kept } = query;
+      const streamed = stream === undefined ? undefined : streamFile(stream);
+      // Which repo's code Ask reads is a person's call, as logs.fixProjects is.
+      if (named !== undefined) personOnly('Naming the code an Ask reads (--code)');
       const earlier = readAsks(ctx.paths.cloudAsks).find((a) => a.id === conversation)?.turns ?? [];
-      const ranged = { ...kept, env: env ?? ALL_ENVS };
-      // A read of the range that fails is a note in its summary, never the Ask's error.
-      const failed = (error: unknown) => ({
-        failed: error instanceof Error ? error.message : String(error),
-      });
       // Read afresh rather than trust entries a caller sends: the model sees only what gcloud gave.
-      const [read, errors, volume, deploys] = await Promise.all([
+      const [read, range] = await Promise.all([
         cloudLogs(cloudDeps(), config, { ...query, env: env ?? ALL_ENVS }),
-        cloudErrors(errorDeps(), config, ranged).then(
-          (found) => ({ groups: mask ? maskErrors(found).groups : found.groups }),
-          failed,
-        ),
-        cloudVolume(errorDeps(), config, ranged).catch(failed),
-        cloudDeploys(
-          cloudDeps(),
+        readRange(
+          errorDeps(),
           config,
-          { env: ranged.env, projects: kept.projects, services: kept.services, since: kept.since },
-          { file: ctx.paths.cloudDeploys, lock: ctx },
-        ).catch(failed),
+          { ...kept, env: env ?? ALL_ENVS },
+          { mask, deployCache: { file: ctx.paths.cloudDeploys, lock: ctx } },
+        ),
       ]);
       // The code it reads (codeProject): the one named, else the asked services', else the entries'.
       const code = codeProject(
@@ -361,19 +372,23 @@ export function cloudLogsService(
         .map(([project, each]) => `${project}: ${mask ? maskText(each) : each}`)
         .join('\n');
       const entries = mask ? read.entries.map(maskEntry) : read.entries;
+      // The project's one lookup: its folder goes to the run and on its stdin; not_found when unregistered.
+      const codeEntry = code ? findProject(ctx.open(), code) : undefined;
       const asked = await askCloudLogs(
         deps.runText,
         question,
         {
           filter,
           entries,
-          range: { since: query.since ?? '1h', errors, volume, deploys },
-          // Where its code is, so it can open the frames a stack names; not_found when unregistered.
-          ...(code ? { code: { project: code, path: findProject(ctx.open(), code).path } } : {}),
+          range,
+          ...(codeEntry ? { code: { name: codeEntry.name, path: codeEntry.path } } : {}),
         },
         earlier,
-        { ...(code ? { code } : {}), model: askModel },
-      );
+        {
+          model: askModel,
+          ...(streamed ? { onStart: (session) => writeFileAtomic(streamed, session, 0o600) } : {}),
+        },
+      ).finally(() => streamed && rmSync(streamed, { force: true }));
       const queries = [
         ...Object.entries(read.filters).map(([project, each]) => ({
           project,
@@ -414,7 +429,13 @@ export function cloudLogsService(
      */
     // shortcut: the newest live cloud-logs run is taken as the Ask's; two Asks at once in one
     // profile would show one's text in both until they end. Key runs by a caller token if that bites.
-    asking: (since?: string) => liveRunText(ctx.store.list(), ctx.paths.runs, CLOUD_LOGS, since),
+    asking: (stream: string) => {
+      const file = streamFile(stream);
+      const session = existsSync(file) ? readFileSync(file, 'utf8').trim() : '';
+      return session
+        ? { session, text: streamedText(ctx.paths.runs, session) }
+        : { session: null, text: '' };
+    },
     /**
      * A Logging query for `sentence` (queryFromWords), from the query shown and the context fields
      * of the entries `query` picks (their names only).

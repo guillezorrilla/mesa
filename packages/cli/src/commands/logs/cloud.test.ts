@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type Runner, readOnlyTools } from '@mesa/core';
 import { claudeAnswer, finishesRun } from '@mesa/core/testing';
@@ -292,7 +292,12 @@ test('logs ask reads the code of the project the asked services map to, added re
   // Its range summary reads the range's deploys (cloudDeploys): App Engine's versions among them.
   expect(calls.some((args) => args[0] === 'app' && args[1] === 'versions')).toBe(true);
   expect(tmux.opened.at(-1)).toMatchObject({ project: '__mesa_general__' });
-  expect(tmux.opened.at(-1)?.launch).toContain(`--add-dir '${dir}'`);
+  const launch = tmux.opened.at(-1)?.launch ?? '';
+  expect(launch).toContain(`--add-dir '${dir}'`);
+  // Its secrets stay unread: deny rules on the code folder, and every Bash call passes the guard.
+  expect(launch).toContain(`'Read(/${dir}/**/.env*)'`);
+  expect(launch).toContain(`'Grep(/${dir}/**/*.pem)'`);
+  expect(launch).toContain('hook ask-guard');
   // With no service named, the entries read decide: most map to lantern-cove.
   expect((await mesa('logs', 'ask', 'why?', '--env', 'beta', '--json')).json.data.code).toBe(
     'lantern-cove',
@@ -300,7 +305,30 @@ test('logs ask reads the code of the project the asked services map to, added re
   const none = await mesa('logs', 'ask', 'why?', '--env', 'beta', '--code', 'general', '--json');
   expect(none.json.data.code).toBeUndefined();
   expect(tmux.opened.at(-1)?.launch).not.toContain('--add-dir');
-  expect((await mesa('logs', 'asking', '--json')).json.data).toEqual({ session: null, text: '' });
+  expect((await mesa('logs', 'asking', 'ask-token-1', '--json')).json.data).toEqual({
+    session: null,
+    text: '',
+  });
+  // Once an Ask with that token names its run, asking reads that run's stream and no other's.
+  const runs = join(cli.paths.root, 'sessions', 'runs');
+  writeFileSync(join(runs, 'ask-token-2.ask'), 'runaaaa1');
+  writeFileSync(
+    join(runs, 'runaaaa1.json'),
+    [
+      { type: 'stream_event', event: { type: 'message_start' } },
+      {
+        type: 'stream_event',
+        event: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Berth 7 ' } },
+      },
+    ]
+      .map((e) => JSON.stringify(e))
+      .join('\n'),
+  );
+  expect((await mesa('logs', 'asking', 'ask-token-2', '--json')).json.data).toEqual({
+    session: 'runaaaa1',
+    text: 'Berth 7 ',
+  });
+  expect(await mesa('logs', 'asking', 'x;y', '--json')).toMatchObject({ code: 4 });
 });
 
 test('logs query turns a sentence into a checked Logging query from the field names, never their values', async () => {

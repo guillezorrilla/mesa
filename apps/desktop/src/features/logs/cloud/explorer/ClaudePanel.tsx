@@ -7,7 +7,7 @@ import { CloudProjectDialog } from '../CloudProjectDialog';
 import { ProdAskDialog } from '../ProdAskDialog';
 import { useLogAsk } from '../useLogAsk';
 import { AskComposerField } from './AskComposerField';
-import { AskPendingTurn } from './AskPendingTurn';
+import { AskPendingPanel } from './AskPendingPanel';
 import { AskTurnPanel } from './AskTurnPanel';
 import { askInvestigations } from './askInvestigations';
 
@@ -22,6 +22,8 @@ export function ClaudePanel(props: {
   filters: CloudFilters;
   conversation: CloudAsk | undefined;
   selected: readonly string[];
+  /** The services of the entries shown (`<project>/<service>`), for which code to read. */
+  shown: readonly string[];
   /** The selected entry the company or user investigation reads its field from. */
   entry?: CloudLogEntry;
   draft?: string;
@@ -36,7 +38,7 @@ export function ClaudePanel(props: {
   onFix: (conversation: string, code?: string) => void;
   onClose: () => void;
 }) {
-  const ask = useLogAsk(props.filters, props.conversation?.id, props.onAsked);
+  const ask = useLogAsk(props.filters, props.conversation?.id, props.onAsked, props.shown);
   const turns = props.conversation?.turns ?? [];
   const withSelection = (question: string) =>
     props.selected.length
@@ -83,7 +85,7 @@ export function ClaudePanel(props: {
             onFix={() => props.conversation && props.onFix(props.conversation.id, turn.code)}
           />
         ))}
-        {ask.asking && <AskPendingTurn question={ask.asking.question} text={ask.asking.text} />}
+        {ask.asking && <AskPendingPanel question={ask.asking.question} text={ask.asking.text} />}
         {!turns.length && !ask.asking && (
           <Muted size="xs">
             Ask about the entries shown: Claude reads the query, its results and the entries you

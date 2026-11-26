@@ -1,5 +1,5 @@
 import type { CloudAsk, CloudLogEntry } from '@mesa/core';
-import { entryGroup, queryFields, withOwn } from '@mesa/core/browser';
+import { entryGroup, queryFields, serviceRefOf, withOwn } from '@mesa/core/browser';
 import { PanelLeftOpen, PanelRightOpen } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { ReadingBar } from '@/components/ReadingBar';
@@ -105,6 +105,7 @@ export function CloudExplorerPanel(props: {
   const lastCited = props.conversation?.turns.at(-1)?.cited;
   const cited = useMemo(() => new Set(lastCited ?? []), [lastCited]);
   const picked = useMemo(() => [...selected], [selected]);
+  const shown = useMemo(() => [...new Set((entries ?? []).map(serviceRefOf))], [entries]);
   // The rows keep one actions object; what it calls is read from here at the time of the click.
   const latest = useRef({ add, fix: cloudSession.fix, copy, copyText, setClaude });
   latest.current = { add, fix: cloudSession.fix, copy, copyText, setClaude };
@@ -245,6 +246,7 @@ export function CloudExplorerPanel(props: {
               filters={props.filters}
               conversation={props.conversation}
               selected={picked}
+              shown={shown}
               entry={entries?.find((e) => selected.has(e.id))}
               draft={draft}
               onAsked={(asked) => {

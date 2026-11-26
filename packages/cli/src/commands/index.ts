@@ -39,7 +39,7 @@ import { guardrailCheck } from './guardrail.js';
 import { handoff } from './handoff.js';
 import { help } from './help.js';
 import { history, historySearch } from './history.js';
-import { hook, hookTmux } from './hook.js';
+import { hook, hookAskGuard, hookTmux } from './hook.js';
 import { hooksInstall, hooksStatus, hooksUninstall } from './hooks.js';
 import { host } from './host.js';
 import { imagePreview, imageSend } from './image.js';
@@ -214,6 +214,7 @@ export const COMMANDS: Command[] = [
   help,
   hook,
   hookTmux,
+  hookAskGuard,
   host,
   hooksInstall,
   hooksStatus,

@@ -39,11 +39,36 @@ test("the run's stdin puts the range summary first, then samples, then the page 
   expect(input).toContain('"id":"e0"');
 });
 
+test('an oversized range summary is cut, so the page of entries keeps its share of the budget', () => {
+  const groups = Array.from({ length: 20 }, (_, i) => ({
+    project: 'tide-tables-123',
+    id: `g${i}`,
+    message: 'DockFailed',
+    sample: 'DockFailed',
+    count: 1,
+    firstSeen: '',
+    lastSeen: '',
+    services: Array.from({ length: 300 }, (_, s) => `tide-worker-${s}`),
+    badge: null,
+    source: 'logs' as const,
+  }));
+  const entries = Array.from({ length: 50 }, (_, i) => entry(`e${i}`, 'x'.repeat(200)));
+  const input = askInput('why?', {
+    filter: '',
+    entries,
+    range: { ...RANGE, errors: { groups } },
+  });
+  expect(input).toContain('... (the summary was cut here)');
+  expect(input).toMatch(/The entries, newest first, one JSON object a line \((\d+) of 50\)/);
+  expect(Number(/\((\d+) of 50\)/.exec(input)?.[1])).toBeGreaterThan(20);
+  expect(Buffer.byteLength(input)).toBeLessThan(62_000);
+});
+
 test('the run is told which folder holds the code it may read', () => {
   const input = askInput('why?', {
     filter: '',
     entries: [],
-    code: { project: 'lantern-cove', path: '/src/lantern-cove' },
+    code: { name: 'lantern-cove', path: '/src/lantern-cove' },
   });
   expect(input).toContain(
     'The code of lantern-cove, the project behind these services, is in /src/lantern-cove',
@@ -89,11 +114,14 @@ test('the code an Ask reads is the project most of the services map to, never Ge
   expect(codeProject(map, ['tide-tables-123/tide-api'], 'general')).toBeUndefined();
 });
 
-test('Ask runs cloud-logs in General with the project whose code it reads and the model the profile names', async () => {
+test('Ask runs cloud-logs in General with the code folder it reads, the model the profile names, and says its run once started', async () => {
   const calls: unknown[] = [];
+  const started: string[] = [];
+  const code = { name: 'lantern-cove', path: '/src/lantern-cove' };
   const done = await askCloudLogs(
     async (skill, opts) => {
       calls.push({ skill, project: opts.project, code: opts.code, model: opts.model });
+      opts.onStart?.('run7');
       return {
         result: {
           session: 'run7',
@@ -105,18 +133,14 @@ test('Ask runs cloud-logs in General with the project whose code it reads and th
       };
     },
     'why?',
-    { filter: '', entries: [entry('a1', 'DockFailed')] },
+    { filter: '', entries: [entry('a1', 'DockFailed')], code },
     [],
-    { code: 'lantern-cove', model: 'claude-opus-5-5' },
+    { model: 'claude-opus-5-5', onStart: (session) => started.push(session) },
   );
   expect(calls).toEqual([
-    {
-      skill: 'cloud-logs',
-      project: '__mesa_general__',
-      code: 'lantern-cove',
-      model: 'claude-opus-5-5',
-    },
+    { skill: 'cloud-logs', project: '__mesa_general__', code, model: 'claude-opus-5-5' },
   ]);
+  expect(started).toEqual(['run7']);
   expect(done.run).toEqual({
     session: 'run7',
     durationMs: 4200,

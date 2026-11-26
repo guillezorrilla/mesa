@@ -34,7 +34,7 @@ const entry = (id: string, minutesAgo: number, message: string, extra: object = 
   ...extra,
 });
 const GCP = { projects: ['tide-tables-123', 'harbour-web-456'], envs: { beta: 'x', prod: 'y' } };
-const config = (gcp?: object) => {
+const config = (gcp?: object, fixProjects: Record<string, string> = {}) => {
   const base = (HEALTHY.config as (args: string[]) => { data: object })([]).data;
   return envelope({
     ...base,
@@ -44,7 +44,7 @@ const config = (gcp?: object) => {
       views: [],
       prodAsk: [],
       mask: true,
-      fixProjects: {},
+      fixProjects,
       askModel: 'claude-opus-5-5',
       recentProjects: [],
       starredProjects: [],
@@ -519,6 +519,13 @@ test('Explorer: fields add or exclude clauses, Show matching narrows, repeats fo
   await fill(q<HTMLTextAreaElement>('[aria-label="Question about the logs"]'), 'why?');
   await click(button('Ask', q('[aria-label="Claude"]') ?? document));
   await attached();
+  // No service shown maps to a project yet: which code to read is asked once, and kept.
+  expect(q('[data-testid="cloud-project-dialog"]')?.textContent).toContain(
+    'Read code from which project?',
+  );
+  await click(q('[data-testid="confirm-cloud-project"]'));
+  await attached();
+  expect(calls.some((argv) => argv.join(' ').includes('logs.fixProjects'))).toBe(true);
   expect(q('[data-testid="prod-ask-dialog"]')?.textContent).toContain('tide-tables-123');
   await click(q('[data-testid="confirm-prod-ask"]'));
   await attached();
@@ -598,7 +605,7 @@ test("an Ask's answer copies its query, a query it ran runs its own filters over
 test('a quick investigation asks with its own range, and the answer streams into the panel as it comes', async () => {
   let finish: (value: unknown) => void = () => {};
   const { bridge, calls } = fakeBridge({
-    config: () => config(GCP),
+    config: () => config(GCP, { 'tide-tables-123/tide-api': 'lantern-cove' }),
     'logs asks': () => envelope({ asks: [] }),
     'logs gcp': (args) =>
       args.includes('--services')
@@ -611,7 +618,11 @@ test('a quick investigation asks with its own range, and the answer streams into
             warnings: [],
             entries: [entry('a1', 1, 'lookup failed for order 18240')],
           }),
-    'logs asking': () => envelope({ session: 'r2', text: 'Two groups are new since' }),
+    'logs asking': (args) =>
+      envelope({
+        session: 'r2',
+        text: args.at(-1)?.length === 36 ? 'Two groups are new since' : '',
+      }),
     'logs ask': () =>
       new Promise((resolve) => {
         finish = resolve;
@@ -629,6 +640,9 @@ test('a quick investigation asks with its own range, and the answer streams into
   });
   const asked = calls.filter((argv) => argv[2] === 'ask').at(-1) ?? [];
   expect(asked).toContain('--since=1d');
+  // The panel reads the answer by the Ask's own stream token, never another Ask's.
+  const token = asked.find((arg) => arg.startsWith('--stream='))?.slice('--stream='.length);
+  expect(calls.some((argv) => argv[2] === 'asking' && argv.at(-1) === token)).toBe(true);
   expect(calls.some((argv) => argv[2] === 'asking')).toBe(true);
   finish(
     envelope({

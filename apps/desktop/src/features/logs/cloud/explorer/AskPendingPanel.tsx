@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
  * The turn being answered: the question, and the answer as it streams in, kept in view, or what
  * the run is doing while nothing has come yet.
  */
-export function AskPendingTurn(props: { question: string; text: string }) {
+export function AskPendingPanel(props: { question: string; text: string }) {
   const turn = useRef<HTMLLIElement>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: each new piece of the answer scrolls it into view
   useEffect(() => {

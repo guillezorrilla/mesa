@@ -366,7 +366,13 @@ const ConfigShape = z.strictObject({
        */
       fixProjects: z.record(z.string(), z.string()).default({}),
       /** The model Ask's run answers with (logs/ask.ts): a capable one, as it reads code and a range. */
-      askModel: z.string().min(1).default('claude-opus-5-5'),
+      askModel: z
+        .string()
+        .regex(
+          /^(?:opus|sonnet|haiku|claude-[a-z0-9-]+)$/,
+          'a Claude model: opus, sonnet, haiku or claude-<id>',
+        )
+        .default('claude-opus-5-5'),
       /** The GCP projects Cloud Logs read last, newest first (the project switcher's Recent). */
       recentProjects: z.array(z.string()).default([]),
       /** The GCP projects starred in the project switcher. */
