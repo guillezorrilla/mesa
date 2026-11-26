@@ -1,10 +1,11 @@
 import type { DoctorReport, ProjectRow } from '@mesa/core';
+import type { SidebarTabId } from '@mesa/core/browser';
 import { Coffee, DollarSign, Search } from 'lucide-react';
 import type { RefObject } from 'react';
 import { Kbd } from '@/components/Kbd';
 import { Button } from '@/components/ui/button';
 import { HelpMenu } from '@/features/help/HelpMenu';
-import { NotificationsMenu } from '@/features/notifications/NotificationsMenu';
+import { type HiddenCount, NotificationsMenu } from '@/features/notifications/NotificationsMenu';
 import { ProfileMenu } from '@/features/profile/ProfileMenu';
 import { COMMAND_ICONS } from '@/features/search/hitIcon';
 import { PortsMenu } from '@/features/sessions/PortsMenu';
@@ -34,6 +35,9 @@ export function TitleBar(props: {
   profileMenu: RefObject<HTMLDetailsElement | null>;
   /** The app holds the Mac's idle-sleep assertion (Keep awake). */
   awake: boolean;
+  /** Hidden sidebar tabs' counts, shown in the Inbox, and what opens one. */
+  hiddenCounts?: HiddenCount[];
+  onTab?: (tab: SidebarTabId) => void;
 }) {
   const { view, navigate } = props;
   return (
@@ -117,6 +121,8 @@ export function TitleBar(props: {
           onRecheck={props.onRecheck}
           doctor={props.doctor}
           session={view.kind === 'session' ? view.id : undefined}
+          hiddenCounts={props.hiddenCounts}
+          onTab={props.onTab}
         />
       </nav>
       <ProfileMenu

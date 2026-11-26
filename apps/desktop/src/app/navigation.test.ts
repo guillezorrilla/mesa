@@ -11,4 +11,7 @@ test('an Impact hit opens Impact on its project or session; the destination open
     { kind: 'impact', session: 'a1b2c3d4' },
   );
   expect(paletteView(hit({ kind: 'navigation', id: 'impact' }))).toEqual({ kind: 'impact' });
+  // Logs is a view; Reviews, a sidebar tab only, the app opens itself.
+  expect(paletteView(hit({ kind: 'navigation', id: 'logs' }))).toEqual({ kind: 'logs' });
+  expect(paletteView(hit({ kind: 'navigation', id: 'reviews' }))).toBeUndefined();
 });

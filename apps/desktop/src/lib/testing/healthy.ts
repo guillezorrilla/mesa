@@ -134,6 +134,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
         density: 'comfortable',
         colorVision: 'normal',
       },
+      sidebar: { tabStyle: 'compact' },
       logs: {
         panel: true,
         cloudTab: true,

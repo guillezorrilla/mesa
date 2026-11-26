@@ -123,6 +123,7 @@ import {
   sessionsView,
 } from './sessions.js';
 import { show } from './show.js';
+import { sidebarTabsCommand } from './sidebar.js';
 import { skillsList, skillsRead, skillsSet, skillsSync, skillsWrite } from './skills.js';
 import { sleep } from './sleep.js';
 import { sourcesBrowse, sourcesConnect, sourcesDisconnect, sourcesList } from './sources.js';
@@ -301,6 +302,7 @@ export const COMMANDS: Command[] = [
   panel,
   sessions,
   sessionsView,
+  sidebarTabsCommand,
   sessionsControls,
   sessionsConfig,
   sessionsModel,

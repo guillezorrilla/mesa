@@ -7,7 +7,7 @@ import { useCall, useCommand, useRun } from '@/lib/useCommand';
 /**
  * The Logs tab's side of the profile config (CONTEXT.md, Cloud Logs), the one place its components
  * change it: the projects and envs, the stars, the saved views (save, remove, export and import as
- * YAML), the project a service's Fix in session starts in, and the tab itself. Each change is read again by every reader.
+ * YAML), and the project a service's Fix in session starts in. Each change is read again by every reader.
  */
 export function useCloudLogsConfig() {
   const config = useCommand('config.get');
@@ -54,7 +54,6 @@ export function useCloudLogsConfig() {
       toast(`Imported ${done.views.length} views`);
       await config.refreshEverywhere();
     },
-    hideTab: () => set('logs.cloudTab', false),
     /**
      * Imports each project's log-based metrics as saved views (logs.importMetrics), one after
      * another; a project whose import fails toasts why. How many views came.

@@ -8,11 +8,13 @@ import {
   CalendarClock,
   CircleHelp,
   Folder,
+  GitPullRequest,
   Grid2X2,
   Keyboard,
   type LucideIcon,
   MessageSquareText,
   Plus,
+  ScrollText,
   Search,
   SlidersHorizontal,
   Sparkles,
@@ -28,6 +30,8 @@ import {
  */
 export const COMMAND_ICONS: Record<CommandId, LucideIcon> = {
   sessions: TerminalSquare,
+  reviews: GitPullRequest,
+  logs: ScrollText,
   grid: Grid2X2,
   automations: CalendarClock,
   impact: Activity,

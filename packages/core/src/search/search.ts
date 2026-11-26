@@ -24,6 +24,8 @@ export type SearchHit = (
 /** The fixed hits' ids: the app picks their icons and actions by these. */
 export type CommandId =
   | 'sessions'
+  | 'reviews'
+  | 'logs'
   | 'grid'
   | 'automations'
   | 'impact'
@@ -49,6 +51,14 @@ function commands(shortcuts: Shortcuts, canStart: boolean): SearchHit[] {
       detail: 'Open session workspace',
       shortcut: shortcuts.board,
     },
+    // The sidebar's optional tabs, reachable here while hidden (sidebar-tabs.ts).
+    {
+      kind: 'navigation',
+      id: 'reviews',
+      label: 'Reviews',
+      detail: 'Pull requests that ask something of you',
+    },
+    { kind: 'navigation', id: 'logs', label: 'Logs', detail: 'Cloud Logs for your GCP projects' },
     {
       kind: 'navigation',
       id: 'grid',

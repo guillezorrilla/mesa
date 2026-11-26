@@ -140,6 +140,17 @@ export {
   validShortcut,
 } from './profile/shortcuts.js';
 export {
+  denserTabStyle,
+  SIDEBAR_TAB_STYLES,
+  SIDEBAR_TABS,
+  type SidebarTab,
+  type SidebarTabId,
+  type SidebarTabStyle,
+  sidebarTabs,
+  withTabOrder,
+  withTabShown,
+} from './profile/sidebar-tabs.js';
+export {
   currentTerminalTheme,
   TERMINAL_COLOR_GROUPS,
   TERMINAL_COLOR_KEYS,

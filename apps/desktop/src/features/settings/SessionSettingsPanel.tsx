@@ -2,7 +2,6 @@ import { AGENT_LABELS, AGENT_NAMES, KEEP_AWAKE_LABELS, KEEP_AWAKE_MODES } from '
 import {
   BookMarked,
   CircleDollarSign,
-  Cloud,
   Coffee,
   EyeOff,
   GraduationCap,
@@ -163,16 +162,6 @@ export function SessionSettingsPanel(props: { onSavedPrompts: () => void }) {
           htmlFor="logs-panel"
           keywords="logs docker server intellij panel errors"
           control={<ToggleField id="logs-panel" path="logs.panel" checked={config.logs.panel} />}
-        />
-        <SettingRow
-          icon={Cloud}
-          title="Logs tab"
-          description="Show the sidebar's Logs tab: Google Cloud Logging for your GCP projects, read with your own gcloud. Hidden, nothing is read."
-          htmlFor="logs-cloud-tab"
-          keywords="logs cloud gcp google gcloud errors sidebar"
-          control={
-            <ToggleField id="logs-cloud-tab" path="logs.cloudTab" checked={config.logs.cloudTab} />
-          }
         />
         <SettingRow
           icon={EyeOff}
