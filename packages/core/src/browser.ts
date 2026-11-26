@@ -84,7 +84,7 @@ export {
   traceIdOf,
 } from './logs/cloud-entry.js';
 export { copyText, groupSummaryText } from './logs/copy.js';
-export { deployName, deploysOf, revisionLabel, startedAfter } from './logs/deploy-marks.js';
+export { deployName, deploysOf, startedAfter } from './logs/deploy-marks.js';
 export { ENV_WORDS, envNameOf, joinEnvs } from './logs/env-names.js';
 export { groupKey } from './logs/error-merge.js';
 export { type FieldStat, fieldStats } from './logs/facets.js';

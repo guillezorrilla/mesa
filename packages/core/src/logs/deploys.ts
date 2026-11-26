@@ -53,7 +53,7 @@ const FRESH_MS = 2 * 60_000;
 
 /** A source gcloud says this project does not use (no App Engine app, the Cloud Run API off): no deploys, no note. */
 const NOT_USED =
-  /does not contain an App Engine application|Apps instance .* not found|run\.googleapis\.com|has not been used in project|SERVICE_DISABLED/i;
+  /does not contain an App Engine application|Apps instance .* not found|has not been used in project|SERVICE_DISABLED/i;
 
 type Row = Record<string, unknown>;
 const text = (value: unknown) => (typeof value === 'string' && value ? value : undefined);
