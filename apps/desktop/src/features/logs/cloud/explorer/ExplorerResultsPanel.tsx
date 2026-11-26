@@ -1,4 +1,4 @@
-import type { CloudLogEntry, CloudVolume } from '@mesa/core';
+import type { CloudDeploy, CloudLogEntry, CloudVolume } from '@mesa/core';
 import { occurrenceRuns } from '@mesa/core/browser';
 import { History } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -25,6 +25,8 @@ export function ExplorerResultsPanel(props: {
   older: ReturnType<typeof useOlderEntries>;
   /** The range's counts from Cloud Monitoring, for the histogram when the query allows it. */
   volume?: CloudVolume;
+  /** The range's deploys, marked on the histogram. */
+  deploys?: readonly CloudDeploy[];
   busy: boolean;
   filters: CloudFilters;
   selected: ReadonlySet<string>;
@@ -60,6 +62,7 @@ export function ExplorerResultsPanel(props: {
         onOlder={older.end ? undefined : () => void older.loadOlder()}
         olderBusy={older.busy}
         volume={props.volume}
+        deploys={props.deploys}
       />
       <div
         ref={list}

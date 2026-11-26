@@ -1,5 +1,6 @@
-import type { CloudErrorGroup } from '@mesa/core';
-import { groupKey, plainTitle } from '@mesa/core/browser';
+import type { CloudDeploy, CloudErrorGroup } from '@mesa/core';
+import { groupKey, plainTitle, startedAfter } from '@mesa/core/browser';
+import { Rocket } from 'lucide-react';
 import { Sparkline } from '@/components/Sparkline';
 import { cn } from '@/lib/utils';
 import { dayTime } from '../../shared/logLines';
@@ -9,15 +10,18 @@ import { ERROR_ROW } from './errorRow';
 
 /**
  * An error group in the Errors list, one fixed height: its title without ids and numbers over its
- * service, badge and last seen; its count and a sparkline of the range in one right-hand column.
+ * service, badge, the deploy it started soon after and last seen; its count and a sparkline of the range in one right-hand column.
  */
 export function CloudErrorGroupRow(props: {
   group: CloudErrorGroup;
   selected: boolean;
   nested?: boolean;
+  /** The range's deploys, for the one it started soon after (startedAfter). */
+  deploys: readonly CloudDeploy[];
   onSelect: () => void;
 }) {
   const { group } = props;
+  const afterDeploy = startedAfter(group, props.deploys);
   return (
     <button
       type="button"
@@ -50,6 +54,11 @@ export function CloudErrorGroupRow(props: {
           )}
           {group.services.length > 1 && <span>+{group.services.length - 1}</span>}
           {group.badge && <ErrorBadge badge={group.badge} />}
+          {afterDeploy && (
+            <span role="img" aria-label={afterDeploy} title={afterDeploy}>
+              <Rocket aria-hidden className="size-3 text-state-waiting" />
+            </span>
+          )}
           <span className="ml-auto shrink-0 tabular-nums">{dayTime(group.lastSeen)}</span>
         </span>
       </span>

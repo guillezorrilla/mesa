@@ -8,6 +8,7 @@ import { GENERAL_PROJECT } from '../sessions/record/general.js';
 import { callerOf } from '../sessions/window/caller.js';
 import { askCloudLogs, keepQuery, queryFromWords, runQueries } from './ask.js';
 import { keepTurn, readAsks } from './ask-history.js';
+import { cloudDeploys, type DeployQuery } from './deploys.js';
 import { type CloudErrorGroup, cloudErrors, errorSamples } from './errors.js';
 import { askSessionGoal, errorFixGoal } from './fix-goal.js';
 import { accessToken, enableErrorReporting, gcloudLogin } from './gcloud.js';
@@ -263,6 +264,20 @@ export function cloudLogsService(
       const env = envOf(config, query.env);
       await agentProdGate(config, query, env);
       return cloudVolume(errorDeps(), config, { ...query, env: env ?? ALL_ENVS });
+    },
+    /** Each deploy of the services `query` shows over its range (cloudDeploys), reused for two minutes. */
+    deploys: async (query: DeployQuery = {}) => {
+      const config = gcpConfig();
+      const env = envOf(config, query.env);
+      // Its GKE deploys come from the entries, so an agent's read passes the same gate as theirs.
+      await agentProdGate(config, query, env);
+      await signedIn();
+      return cloudDeploys(
+        cloudDeps(),
+        config,
+        { ...query, env: env ?? ALL_ENVS },
+        { file: ctx.paths.cloudDeploys, lock: ctx },
+      );
     },
     /** Saved views: the log-based metrics of a project imported, and views shared as YAML. */
     views: {

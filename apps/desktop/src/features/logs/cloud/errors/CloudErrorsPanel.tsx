@@ -16,6 +16,7 @@ import { CloudReadAlert } from '../CloudReadAlert';
 import { CloudSessionDialogs } from '../CloudSessionDialogs';
 import { ProdAskDialog } from '../ProdAskDialog';
 import { useCloudSession } from '../useCloudSession';
+import { useDeploys } from '../useDeploys';
 import { useLogAsk } from '../useLogAsk';
 import { useLogsKept } from '../useLogsKept';
 import { CloudErrorGroupRow } from './CloudErrorGroupRow';
@@ -44,6 +45,7 @@ export function CloudErrorsPanel(props: {
   onSession: (id: string) => void;
 }) {
   const errors = useOptional('logs.errors', props.filters);
+  const deploys = useDeploys(props.filters);
   // Kept per profile: the sort, New only and the group open come back after a restart.
   const [keptSort, setSort] = useLogsKept<ErrorSort>('errors.sort', 'count');
   const sort: ErrorSort = ERROR_SORTS.includes(keptSort) ? keptSort : 'count';
@@ -149,6 +151,7 @@ export function CloudErrorsPanel(props: {
                       incident={item.incident}
                       members={item.members}
                       selected={chosenKey}
+                      deploys={deploys}
                       onSelect={setSelected}
                     />
                   ) : (
@@ -156,6 +159,7 @@ export function CloudErrorsPanel(props: {
                       <CloudErrorGroupRow
                         group={item.group}
                         selected={chosenKey === item.key}
+                        deploys={deploys}
                         onSelect={() => setSelected(item.key)}
                       />
                     </li>
@@ -180,6 +184,7 @@ export function CloudErrorsPanel(props: {
               group={chosen}
               related={related}
               filters={props.filters}
+              deploys={deploys}
               onSelect={setSelected}
               onAsk={props.onAsk}
               onFix={cloudSession.fix}

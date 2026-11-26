@@ -1,4 +1,4 @@
-import type { Incident } from '@mesa/core';
+import type { CloudDeploy, Incident } from '@mesa/core';
 import { incidentReasons, plainTitle } from '@mesa/core/browser';
 import { Link2 } from 'lucide-react';
 import { dayTime } from '../../shared/logLines';
@@ -13,6 +13,7 @@ export function IncidentPanel(props: {
   incident: Incident;
   members: KeyedGroup[];
   selected: string | undefined;
+  deploys: readonly CloudDeploy[];
   onSelect: (key: string) => void;
 }) {
   const { incident, members } = props;
@@ -44,6 +45,7 @@ export function IncidentPanel(props: {
             <CloudErrorGroupRow
               group={group}
               nested
+              deploys={props.deploys}
               selected={props.selected === key}
               onSelect={() => props.onSelect(key)}
             />

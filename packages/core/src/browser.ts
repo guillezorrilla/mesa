@@ -84,6 +84,7 @@ export {
   traceIdOf,
 } from './logs/cloud-entry.js';
 export { copyText, groupSummaryText } from './logs/copy.js';
+export { deployBefore, deployName, revisionLabel, startedAfter } from './logs/deploy-marks.js';
 export { ENV_WORDS, envNameOf, joinEnvs } from './logs/env-names.js';
 export { groupKey } from './logs/error-merge.js';
 export { type Facet, type FieldStat, facetsOf, fieldStats } from './logs/facets.js';
@@ -112,6 +113,7 @@ export { groupTerms, occurrenceRuns, plainTitle, type Run } from './logs/occurre
 export { withOwn } from './logs/own-filters.js';
 export { entryText, LEVEL_NAMES } from './logs/parse.js';
 export { NO_ORGANIZATION, type ProjectRow, projectRows } from './logs/project-rows.js';
+export { type QueryField, queryFields } from './logs/query-fields.js';
 export { sourceId, sourceLabel, sourceStateText } from './logs/source-id.js';
 export { ownFrame, stackSummary, stackView } from './logs/stack.js';
 export { messageParts, namesRequest } from './logs/tokens.js';
