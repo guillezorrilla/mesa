@@ -5,7 +5,7 @@ import type { LogLevel } from './parse.js';
 // app bundles it (`@mesa/core/browser`).
 
 /** Cloud Logging's severities, the worst first. */
-const SEVERITIES = [
+export const SEVERITIES = [
   'EMERGENCY',
   'ALERT',
   'CRITICAL',

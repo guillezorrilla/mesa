@@ -4,12 +4,11 @@ const ELLIPSIS = String.fromCharCode(0x2026);
 
 /**
  * `value` in at most `max` characters: a dotted name (a Java logger) keeps its last segments
- * (`...webhook.domain.TideWebhookService`), a service its suffix, any other value its start and
- * end around an ellipsis.
+ * (`...webhook.domain.TideWebhookService`), any other value (a service, an id) its start and end
+ * around an ellipsis (`harbour-we...rope-beta`).
  */
-export function shortValue(value: string, max: number, kind: 'service' | 'value' = 'value') {
+export function shortValue(value: string, max: number) {
   if (value.length <= max) return value;
-  if (kind === 'service') return ELLIPSIS + value.slice(-(max - 1));
   if (/^[\w$]+(\.[\w$]+){2,}$/.test(value)) {
     const segments = value.split('.');
     let kept = segments.at(-1) ?? '';

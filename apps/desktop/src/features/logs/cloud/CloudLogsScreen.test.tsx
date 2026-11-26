@@ -663,6 +663,82 @@ test('the fields pane: app fields first, plumbing under More, ids only when sear
   localStorage.clear();
 });
 
+test('Service and Severity count the whole range from Cloud Monitoring: an ERROR the page lacks shows and is a click; context fields say they count the page', async () => {
+  const minute = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+  let counted = true;
+  const { bridge, calls } = fakeBridge({
+    config: () => config(GCP),
+    'logs asks': () => envelope({ asks: [] }),
+    'logs volume': () =>
+      envelope(
+        counted
+          ? {
+              counted: true,
+              severities: [
+                { severity: 'ERROR', count: 37 },
+                { severity: 'INFO', count: 5120 },
+              ],
+              services: [
+                { project: 'tide-tables-123', name: 'tide-api', kind: 'GKE', count: 5157 },
+              ],
+              series: [
+                { start: minute(30), count: 2600, errors: 30 },
+                { start: minute(10), count: 2557, errors: 7 },
+              ],
+              stepMs: 60_000,
+              warnings: [],
+            }
+          : {
+              counted: false,
+              why: 'the query searches text, a trace or fields, which Cloud Monitoring does not count',
+              severities: [],
+              series: [],
+              stepMs: 0,
+              warnings: [],
+            },
+      ),
+    'logs gcp': (args) =>
+      args.includes('--services')
+        ? envelope({ env: 'beta', services: [], warnings: [] })
+        : envelope({
+            projects: GCP.projects,
+            env: 'beta',
+            envs: ['beta', 'prod'],
+            filters: {},
+            warnings: [],
+            entries: [
+              entry('p1', 1, 'tide table loaded', {
+                severity: 'INFO',
+                fields: { company: 'Lantern Cove' },
+              }),
+            ],
+          }),
+  });
+  await renderWithMesa(<Harness mode="explorer" />, bridge);
+  await attached();
+  const severity = q('[aria-label="Severity"]');
+  expect(severity?.textContent).toContain('last 1 h');
+  expect(severity?.textContent).toMatch(/ERROR37/);
+  // Every severity is listed, the ones with none muted, still a click.
+  expect(severity?.querySelector('li[class*="opacity-50"]')?.textContent).toContain('CRIT');
+  expect(q('[aria-label="Service"]')?.textContent).toContain('GKE');
+  expect(q('[aria-label="company"]')?.textContent).toContain('in the 1 entry shown');
+  expect(q('[aria-label="Entries over time"]')?.textContent).toContain(
+    '5157 entries over the range',
+  );
+  await click(button('ERROR', severity ?? document));
+  await attached();
+  expect(lastRead(calls)).toContain('--filter=severity=ERROR');
+  counted = false;
+  await fill(q<HTMLTextAreaElement>('[aria-label="Query"]'), '"tide"');
+  await click(q('button[title="Run (Cmd+Enter)"]'));
+  await attached();
+  expect(q('[aria-label="Fields"]')?.textContent).toContain(
+    'Service and severity counts are of the entries shown',
+  );
+  expect(q('[aria-label="Severity"]')?.textContent).toContain('in the 1 entry shown');
+});
+
 test('a saved view opens in Explorer with its other filters as chips and its metric counts in the chart', async () => {
   const { bridge, calls } = fakeBridge({
     config: () => config(GCP),

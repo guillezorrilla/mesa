@@ -67,3 +67,23 @@ export const logsCounts = defineCommand({
     };
   },
 });
+
+export const logsVolume = defineCommand({
+  name: 'logs volume',
+  summary:
+    "Count the query's entries over its whole range by severity, service and time, from Cloud Monitoring's log_entry_count; a query Monitoring cannot apply (text, fields, a trace) says why it is not counted",
+  flags: QUERY_FLAGS,
+  example: 'mesa logs volume --env prod --since 6h',
+  run: async ({ mesa, flags }) => {
+    const found = await mesa.logs.volume(queryOf(flags));
+    return {
+      data: found,
+      text: found.counted
+        ? [
+            ...found.warnings.map((w) => `warning: ${w.message}`),
+            ...found.severities.map((s) => `${s.severity} ${s.count}`),
+          ].join('\n')
+        : `not counted: ${found.why}`,
+    };
+  },
+});

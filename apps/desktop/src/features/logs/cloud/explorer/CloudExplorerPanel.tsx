@@ -14,6 +14,7 @@ import type { EntryActions } from '../types';
 import { useCloudCopy } from '../useCloudCopy';
 import { useCloudSession } from '../useCloudSession';
 import { useLogsKept } from '../useLogsKept';
+import { useOlderEntries } from '../useOlderEntries';
 import { SaveViewDialog } from '../views/SaveViewDialog';
 import { ClaudePanel } from './ClaudePanel';
 import { ExplorerResultsPanel } from './ExplorerResultsPanel';
@@ -66,6 +67,10 @@ export function CloudExplorerPanel(props: {
   if (read.data) last.current = read.data.entries;
   const entries = read.data?.entries ?? last.current;
   const facets = useMemo(() => facetsOf(entries ?? [], 20, 8), [entries]);
+  // The pages read, which the results list and the fields pane's context counts share.
+  const older = useOlderEntries(entries, props.filters);
+  // The range's counts by severity, service and time, from Cloud Monitoring where the query allows.
+  const volume = useOptional('logs.volume', props.filters);
   const apply = (filters: CloudFilters) => {
     setQuery(filters.filter ?? '');
     setWritten(false);
@@ -151,7 +156,9 @@ export function CloudExplorerPanel(props: {
         {!pane.hidden && (
           <div className="relative min-h-0 min-w-0 overflow-hidden rounded-lg border bg-card">
             <FieldsPanel
-              entries={entries ?? []}
+              entries={older.entries}
+              volume={volume.data}
+              since={props.filters.since}
               query={ran}
               env={props.filters.env}
               width={pane.width}
@@ -175,6 +182,8 @@ export function CloudExplorerPanel(props: {
         <div className="relative min-h-0 min-w-0 overflow-hidden">
           <ExplorerResultsPanel
             read={entries}
+            older={older}
+            volume={volume.data}
             busy={read.busy}
             filters={props.filters}
             selected={selected}

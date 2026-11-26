@@ -49,6 +49,18 @@ const SYSTEM_CONTAINERS = [
   'esp',
 ];
 
+const listOf = (values: readonly string[]) => `one_of(${values.map((v) => `"${v}"`).join(', ')})`;
+
+/** The same leaving out in Cloud Monitoring's terms, for the log_entry_count metric (volume.ts). */
+export const OWN_SERVICES_MONITORING = [
+  `NOT resource.type = ${listOf(NOISY_RESOURCES)}`,
+  `NOT metric.labels.log = ${listOf(NOISY_LOGS)}`,
+  'NOT metric.labels.log = starts_with("cloudaudit.googleapis.com")',
+  `NOT resource.labels.namespace_name = ${listOf(SYSTEM_NAMESPACES)}`,
+  'NOT resource.labels.namespace_name = starts_with("gke-")',
+  `NOT resource.labels.container_name = ${listOf(SYSTEM_CONTAINERS)}`,
+].join(' AND ');
+
 const anyOf = (values: readonly string[]) => `(${values.map((v) => `"${v}"`).join(' OR ')})`;
 
 /** The Logging filter clause that keeps only a person's own services' entries. */

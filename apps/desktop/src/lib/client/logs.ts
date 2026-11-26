@@ -7,6 +7,7 @@ import type {
   CloudService,
   CloudSeverity,
   CloudView,
+  CloudVolume,
   CloudWarning,
   EnvSuggestion,
   GcpLogs,
@@ -149,6 +150,12 @@ export const logsCommands = {
       warnings: CloudWarning[];
     }
   >((filters) => ['logs', 'errors', ...cloudFlags(filters)]),
+  /** The query's entries over its whole range by severity, service and time (`mesa logs volume`). */
+  'logs.volume': commandWith<CloudFilters, CloudVolume>((filters) => [
+    'logs',
+    'volume',
+    ...cloudFlags(filters),
+  ]),
   'logs.errorSamples': commandWith<
     { project: string; id: string; since?: string },
     { events: { time: string; service: string | null; message: string }[] }

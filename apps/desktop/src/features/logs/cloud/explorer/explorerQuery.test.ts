@@ -24,13 +24,11 @@ test('the chips are the clauses the fields pane wrote; removing one takes its li
   expect(withoutClause(company, company)).toBe('');
 });
 
-test('a long value keeps what identifies it: a logger its class, a service its suffix, an id both ends', () => {
+test('a long value keeps what identifies it: a logger its class, a service or an id both ends', () => {
   expect(shortValue('com.tides.harbour.webhook.domain.TideWebhookService', 36)).toBe(
     '\u{2026}webhook.domain.TideWebhookService',
   );
-  expect(shortValue('harbour-web-frontend-europe-beta', 14, 'service')).toBe(
-    '\u{2026}d-europe-beta',
-  );
+  expect(shortValue('harbour-web-frontend-europe-beta', 15)).toBe('harbour\u{2026}pe-beta');
   expect(shortValue('9f8e7d6c5b4a39281706f5e4d3c2b1a0', 11)).toBe('9f8e7\u{2026}2b1a0');
   expect(shortValue('short', 11)).toBe('short');
 });

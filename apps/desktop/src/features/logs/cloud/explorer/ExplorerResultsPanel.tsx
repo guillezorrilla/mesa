@@ -1,4 +1,4 @@
-import type { CloudLogEntry } from '@mesa/core';
+import type { CloudLogEntry, CloudVolume } from '@mesa/core';
 import { occurrenceRuns } from '@mesa/core/browser';
 import { History } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -8,7 +8,7 @@ import type { CloudFilters } from '@/lib/client/logs';
 import { cn } from '@/lib/utils';
 import { RepeatRun } from '../RepeatRun';
 import type { EntryActions } from '../types';
-import { useOlderEntries } from '../useOlderEntries';
+import type { useOlderEntries } from '../useOlderEntries';
 import { CloudEntryRow } from './CloudEntryRow';
 import { ExplorerChart } from './ExplorerChart';
 import { useScrollToId } from './useScrollToId';
@@ -21,6 +21,10 @@ import { useScrollToId } from './useScrollToId';
  */
 export function ExplorerResultsPanel(props: {
   read: readonly CloudLogEntry[] | undefined;
+  /** The entries read and the pages before them (useOlderEntries, which the fields pane counts too). */
+  older: ReturnType<typeof useOlderEntries>;
+  /** The range's counts from Cloud Monitoring, for the histogram when the query allows it. */
+  volume?: CloudVolume;
   busy: boolean;
   filters: CloudFilters;
   selected: ReadonlySet<string>;
@@ -32,7 +36,7 @@ export function ExplorerResultsPanel(props: {
   stale?: boolean;
   actions: EntryActions;
 }) {
-  const older = useOlderEntries(props.read, props.filters);
+  const { older } = props;
   const [open, setOpen] = useState<string>();
   const list = useRef<HTMLDivElement>(null);
   useScrollToId(list, props.focus);
@@ -55,6 +59,7 @@ export function ExplorerResultsPanel(props: {
         filters={props.filters}
         onOlder={older.end ? undefined : () => void older.loadOlder()}
         olderBusy={older.busy}
+        volume={props.volume}
       />
       <div
         ref={list}

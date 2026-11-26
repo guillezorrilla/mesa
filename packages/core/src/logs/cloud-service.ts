@@ -29,6 +29,7 @@ import { maskEntry, maskErrors, maskText } from './mask.js';
 import { metricCounts, metricViews } from './metrics.js';
 import { ownOf } from './own-filters.js';
 import { exportViews, importViews, mergeViews } from './views.js';
+import { cloudVolume } from './volume.js';
 
 /** Ids and service names, the only words of a group its goal puts outside the log fence. */
 const NAME = z.string().regex(/^[\w.:@/-]{1,200}$/);
@@ -255,6 +256,13 @@ export function cloudLogsService(
       if (caller().inMesaWindow)
         await prodGate(Object.fromEntries(projects.map((p) => [p, `${p} ${metric}`])), false);
       return metricCounts(errorDeps(), projects, metric, since);
+    },
+    /** `query`'s entries over its whole range by severity, service and time (cloudVolume). */
+    volume: async (query: CloudQuery = {}) => {
+      const config = gcpConfig();
+      const env = envOf(config, query.env);
+      await agentProdGate(config, query, env);
+      return cloudVolume(errorDeps(), config, { ...query, env: env ?? ALL_ENVS });
     },
     /** Saved views: the log-based metrics of a project imported, and views shared as YAML. */
     views: {

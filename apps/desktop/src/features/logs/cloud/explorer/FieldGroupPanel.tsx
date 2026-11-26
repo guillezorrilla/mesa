@@ -14,6 +14,8 @@ export type FieldValue = {
   clause: string;
   label: ReactNode;
   state?: ClauseState;
+  /** The tooltip, when it says more than the value (a service's kind). */
+  title?: string;
 };
 
 /**
@@ -22,7 +24,11 @@ export type FieldValue = {
  */
 export function FieldGroupPanel(props: {
   name: string;
+  /** What the counts cover, in the header: `last 1 h`, or `in the 200 entries shown`. */
+  note?: string;
   values: readonly FieldValue[];
+  /** Every value at once, no Show all (Severity). */
+  all?: boolean;
   /** The entries read, for each value's share. */
   total: number;
   open: boolean;
@@ -34,12 +40,12 @@ export function FieldGroupPanel(props: {
 }) {
   const { open } = props;
   const [all, setAll] = useState(false);
-  const shown = all ? props.values : props.values.slice(0, TOP);
+  const shown = all || props.all ? props.values : props.values.slice(0, TOP);
   // A click on a value in the query takes it out; + and - set it, or take it out when already so.
   const set = (value: FieldValue, state: ClauseState) =>
     props.onSet(value.clause, value.state === state ? undefined : state);
   return (
-    <section aria-label={props.name} className="grid">
+    <section aria-label={props.name} className="grid min-w-0 grid-cols-[minmax(0,1fr)]">
       <div className="group/field flex h-7 items-center gap-1 px-1">
         <button
           type="button"
@@ -58,6 +64,11 @@ export function FieldGroupPanel(props: {
           <span className="ml-1 shrink-0 text-[10.5px] font-normal text-muted-foreground tabular-nums">
             {props.values.length}
           </span>
+          {props.note && (
+            <span className="min-w-0 shrink-[4] truncate text-[10px] font-normal text-muted-foreground">
+              {props.note}
+            </span>
+          )}
         </button>
         {props.onPin && (
           <button
@@ -76,21 +87,22 @@ export function FieldGroupPanel(props: {
         )}
       </div>
       {open && (
-        <ul className="grid gap-px pl-3">
+        <ul className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-px pl-3">
           {shown.map((value) => (
             <FieldValueRow
               key={value.clause}
               label={value.label}
-              title={value.value}
+              title={value.title ?? value.value}
               count={value.count}
               share={value.count / Math.max(1, props.total)}
+              muted={value.count === 0}
               state={value.state}
               onToggle={() => props.onSet(value.clause, value.state ? undefined : 'in')}
               onInclude={() => set(value, 'in')}
               onExclude={() => set(value, 'out')}
             />
           ))}
-          {props.values.length > TOP && (
+          {!props.all && props.values.length > TOP && (
             <li>
               <button
                 type="button"

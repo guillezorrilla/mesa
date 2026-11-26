@@ -132,6 +132,7 @@ export {
 } from './logs/source-id.js';
 export type { StackLine, StackView } from './logs/stack.js';
 export type { MessagePart } from './logs/tokens.js';
+export type { CloudVolume } from './logs/volume.js';
 export type { MapSaved } from './map/service.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
 export type { NotificationDelivery } from './notifications/background.js';
