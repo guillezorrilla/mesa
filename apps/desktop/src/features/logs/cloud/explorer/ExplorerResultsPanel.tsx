@@ -49,7 +49,7 @@ export function ExplorerResultsPanel(props: {
     />
   );
   return (
-    <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-2">
+    <div className="grid h-full min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-2">
       <ExplorerChart
         entries={older.entries}
         filters={props.filters}

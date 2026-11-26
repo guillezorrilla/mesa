@@ -108,7 +108,7 @@ export function CloudExplorerPanel(props: {
     [],
   );
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
       <QueryField
         query={query}
         facets={facets}
@@ -137,17 +137,19 @@ export function CloudExplorerPanel(props: {
         onRetry={() => void read.refresh()}
       />
       <div
-        className="grid min-h-0 flex-1 gap-3"
+        // One row the height left, each pane scrolling on its own. On a narrow window the side panes
+        // give way first and the results keep 24rem, so nothing is wider than the window.
+        className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)] gap-3"
         style={{
           gridTemplateColumns: [
-            pane.hidden ? '' : `${pane.width}px`,
-            'minmax(0,1fr)',
-            claude ? '22rem' : '',
+            pane.hidden ? '' : `minmax(0, ${pane.width}px)`,
+            'minmax(min(24rem, 100%), 1fr)',
+            claude ? 'minmax(0, 22rem)' : '',
           ].join(' '),
         }}
       >
         {!pane.hidden && (
-          <div className="relative min-h-0 rounded-lg border bg-card">
+          <div className="relative min-h-0 min-w-0 overflow-hidden rounded-lg border bg-card">
             <FieldsPanel
               entries={entries ?? []}
               query={ran}
@@ -170,7 +172,7 @@ export function CloudExplorerPanel(props: {
             />
           </div>
         )}
-        <div className="relative min-h-0">
+        <div className="relative min-h-0 min-w-0 overflow-hidden">
           <ExplorerResultsPanel
             read={entries}
             busy={read.busy}
@@ -204,7 +206,7 @@ export function CloudExplorerPanel(props: {
           )}
         </div>
         {claude && (
-          <div className="min-h-0 overflow-hidden rounded-lg border">
+          <div className="min-h-0 min-w-0 overflow-hidden rounded-lg border">
             <ClaudePanel
               filters={props.filters}
               conversation={props.conversation}

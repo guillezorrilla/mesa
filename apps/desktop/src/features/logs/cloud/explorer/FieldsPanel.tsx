@@ -8,7 +8,7 @@ import {
   severityRank,
 } from '@mesa/core/browser';
 import { PanelLeftClose, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
 import { Input } from '@/components/ui/input';
@@ -58,9 +58,19 @@ export function FieldsPanel(props: {
 }) {
   const { entries, query } = props;
   const [search, setSearch] = useState('');
+  // The width the pane is drawn at, which a narrow window holds below the kept one.
+  const nav = useRef<HTMLElement>(null);
+  const [drawn, setDrawn] = useState(props.width);
+  useEffect(() => {
+    const element = nav.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([seen]) => seen && setDrawn(seen.contentRect.width));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   const config = useCloudLogsConfig().gcp;
   const kinds = useOptional('logs.gcpServices', { env: props.env });
-  const fit = Math.max(10, Math.floor((props.width - ROW_CHROME_PX) / CHAR_PX));
+  const fit = Math.max(10, Math.floor((Math.min(drawn, props.width) - ROW_CHROME_PX) / CHAR_PX));
   const stats = useMemo(() => fieldStats(entries), [entries]);
   const groups = useMemo(() => {
     const kindOf = new Map(
@@ -148,7 +158,7 @@ export function FieldsPanel(props: {
     .filter((g): g is Group => Boolean(g));
   const hidden = groups.fields.filter((f) => f.tier === 'unique').length;
   return (
-    <nav aria-label="Fields" className="flex h-full min-h-0 flex-col">
+    <nav ref={nav} aria-label="Fields" className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-1 border-b p-1.5">
         <div className="relative min-w-0 flex-1">
           <Search

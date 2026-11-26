@@ -35,7 +35,7 @@ export function ClaudePanel(props: {
       ? `About the selected entries ${props.selected.map((id) => `[${id}]`).join(' ')}: ${question}`
       : question;
   return (
-    <aside aria-label="Claude" className="flex min-h-0 flex-col border-l bg-card">
+    <aside aria-label="Claude" className="flex h-full min-h-0 min-w-0 flex-col border-l bg-card">
       <header className="flex items-center gap-1 border-b px-3 py-2">
         <span className="text-sm font-semibold">Claude</span>
         <span className="truncate text-[11px] text-muted-foreground">

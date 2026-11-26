@@ -65,7 +65,7 @@ export function QueryField(props: {
     box.current?.focus();
   };
   return (
-    <div className="grid gap-2">
+    <div className="grid min-w-0 gap-2">
       <div className="relative">
         <Textarea
           ref={box}
@@ -121,7 +121,7 @@ export function QueryField(props: {
         </ul>
       )}
       <form
-        className="flex items-center gap-2"
+        className="flex min-w-0 items-center gap-2"
         onSubmit={async (event) => {
           event.preventDefault();
           if (!words.trim()) return;
@@ -134,7 +134,7 @@ export function QueryField(props: {
         <Input
           aria-label="Ask in words"
           placeholder="Ask in words, for example: errors for one customer since the last deploy"
-          className="h-8 text-xs"
+          className="min-w-0 h-8 text-xs"
           value={words}
           onChange={(event) => setWords(event.currentTarget.value)}
         />

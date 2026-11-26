@@ -60,9 +60,9 @@ export function CloudLogsChart(props: {
           </div>
         ))}
       </div>
-      <figcaption className="mt-1.5 flex items-center justify-between gap-3 text-[11px] text-muted-foreground tabular-nums">
+      <figcaption className="mt-1.5 flex min-w-0 items-center justify-between gap-3 text-[11px] text-muted-foreground tabular-nums">
         <span className="shrink-0">{buckets.length ? clock(first, seconds) : ''}</span>
-        <span className="flex items-center gap-2 text-center">
+        <span className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 text-center">
           {metered
             ? 'per 5 min over the range, counted by the log-based metric'
             : read
