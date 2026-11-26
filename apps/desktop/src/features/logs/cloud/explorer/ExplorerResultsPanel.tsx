@@ -5,6 +5,7 @@ import { useRef, useState } from 'react';
 import { CenteredState } from '@/components/CenteredState';
 import { Button } from '@/components/ui/button';
 import type { CloudFilters } from '@/lib/client/logs';
+import { cn } from '@/lib/utils';
 import { RepeatRun } from '../RepeatRun';
 import type { EntryActions } from '../types';
 import { useOlderEntries } from '../useOlderEntries';
@@ -13,7 +14,8 @@ import { ExplorerChart } from './ExplorerChart';
 import { useScrollToId } from './useScrollToId';
 
 /**
- * The Explorer's results (CONTEXT.md, Cloud Logs): a histogram of the entries read, then the
+ * The Explorer's results (CONTEXT.md, Cloud Logs): a histogram of the entries read (over the span
+ * they cover), then the
  * entries newest first, identical repeats folded into one, a cited one marked and scrolled to, and
  * Load older for the next page back.
  */
@@ -24,6 +26,10 @@ export function ExplorerResultsPanel(props: {
   selected: ReadonlySet<string>;
   cited: ReadonlySet<string>;
   focus?: string;
+  /** The context fields pinned as columns. */
+  columns: readonly string[];
+  /** The query shown is not the one these entries were read with: they dim until Run. */
+  stale?: boolean;
   actions: EntryActions;
 }) {
   const older = useOlderEntries(props.read, props.filters);
@@ -37,16 +43,25 @@ export function ExplorerResultsPanel(props: {
       selected={props.selected.has(entry.id)}
       cited={props.cited.has(entry.id)}
       expanded={open === entry.id}
+      columns={props.columns}
       onExpand={() => setOpen(open === entry.id ? undefined : entry.id)}
       actions={props.actions}
     />
   );
   return (
     <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-2">
-      <ExplorerChart entries={older.entries} filters={props.filters} />
+      <ExplorerChart
+        entries={older.entries}
+        filters={props.filters}
+        onOlder={older.end ? undefined : () => void older.loadOlder()}
+        olderBusy={older.busy}
+      />
       <div
         ref={list}
-        className="@container min-h-0 overflow-y-auto rounded-lg border bg-card py-1 font-mono text-[11.5px] leading-5"
+        className={cn(
+          '@container min-h-0 overflow-y-auto rounded-lg border bg-card py-1 font-mono text-[11.5px] leading-5 transition-opacity',
+          props.stale && 'opacity-50',
+        )}
       >
         {!props.read ? (
           <CenteredState message={props.busy ? 'Reading' : 'Run a query to read entries.'} />

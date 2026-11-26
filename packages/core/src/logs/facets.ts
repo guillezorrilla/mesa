@@ -5,12 +5,20 @@ import type { CloudLogEntry } from './gcp.js';
 
 export type Facet = { key: string; values: { value: string; count: number }[] };
 
-/** The context fields `entries` carry, the most common first, each with its most common values. */
-export function facetsOf(
-  entries: readonly Pick<CloudLogEntry, 'fields'>[],
-  keys = 6,
-  values = 5,
-): Facet[] {
+/**
+ * A field as the Explorer's fields pane shows it: how many entries carry it, its distinct values
+ * (all, the most common first), and its tier: `main` (the app's own context, such as company or
+ * status), `more` (plumbing such as a logger, a revision or a host), or `unique` (nearly every value
+ * its own, such as an id or a timestamp), shown only when searched for.
+ */
+export type FieldStat = Facet & { present: number; tier: 'main' | 'more' | 'unique' };
+
+/** Keys that name where an entry came from rather than what it is about. */
+const PLUMBING =
+  /logger|thread|revision|version|host|pod|instance|class|caller|file|line|source|level|severity|context|process|pid/i;
+
+/** Each field `entries` carry, with every value's count. */
+function counted(entries: readonly Pick<CloudLogEntry, 'fields'>[]) {
   const counts = new Map<string, Map<string, number>>();
   for (const entry of entries)
     for (const [key, value] of Object.entries(entry.fields)) {
@@ -18,15 +26,40 @@ export function facetsOf(
       byValue.set(value, (byValue.get(value) ?? 0) + 1);
       counts.set(key, byValue);
     }
-  const total = (byValue: Map<string, number>) => [...byValue.values()].reduce((a, b) => a + b, 0);
-  return [...counts.entries()]
-    .sort((a, b) => total(b[1]) - total(a[1]))
+  return [...counts.entries()].map(([key, byValue]) => ({
+    key,
+    present: [...byValue.values()].reduce((a, b) => a + b, 0),
+    values: [...byValue.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([value, count]) => ({ value, count })),
+  }));
+}
+
+/** The context fields `entries` carry, the most common first, each with its most common values. */
+export function facetsOf(
+  entries: readonly Pick<CloudLogEntry, 'fields'>[],
+  keys = 6,
+  values = 5,
+): Facet[] {
+  return counted(entries)
+    .sort((a, b) => b.present - a.present)
     .slice(0, keys)
-    .map(([key, byValue]) => ({
-      key,
-      values: [...byValue.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, values)
-        .map(([value, count]) => ({ value, count })),
-    }));
+    .map(({ key, values: all }) => ({ key, values: all.slice(0, values) }));
+}
+
+const TIERS = ['main', 'more', 'unique'] as const;
+
+/** Every field `entries` carry, by tier (main, more, unique), then by how many carry it. */
+export function fieldStats(entries: readonly Pick<CloudLogEntry, 'fields'>[]): FieldStat[] {
+  return counted(entries)
+    .map((field) => ({
+      ...field,
+      tier:
+        field.values.length > 10 && field.values.length >= 0.9 * field.present
+          ? ('unique' as const)
+          : PLUMBING.test(field.key)
+            ? ('more' as const)
+            : ('main' as const),
+    }))
+    .sort((a, b) => TIERS.indexOf(a.tier) - TIERS.indexOf(b.tier) || b.present - a.present);
 }

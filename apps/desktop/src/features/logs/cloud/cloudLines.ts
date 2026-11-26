@@ -16,29 +16,33 @@ export const BUCKET_MS = 5 * 60_000;
 
 export type CloudBucket = { start: number; count: number; errors: number };
 
+/** The bar widths the Explorer's histogram picks from, smallest first. */
+const STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600].map((s) => s * 1000);
+
 /**
- * The entries per 5 minutes over the `rangeMs` before `now`, oldest first, each with how many
- * are errors; an entry outside the range or with no time is left out.
+ * The entries read over the span they cover, not the whole range: about `bars` bars of a round
+ * width (`stepMs`), oldest first, each with its errors; `from` and `to` bound the bars.
  */
-export function cloudBuckets(
-  entries: readonly CloudLogEntry[],
-  rangeMs: number,
-  now: number,
-): CloudBucket[] {
-  const end = Math.ceil(now / BUCKET_MS) * BUCKET_MS;
-  const start = end - Math.ceil(rangeMs / BUCKET_MS) * BUCKET_MS;
-  const buckets = Array.from({ length: (end - start) / BUCKET_MS }, (_, i) => ({
-    start: start + i * BUCKET_MS,
+export function spanBuckets(entries: readonly CloudLogEntry[], bars = 40) {
+  const times = entries.map((e) => Date.parse(e.time)).filter((t) => !Number.isNaN(t));
+  if (!times.length) return { buckets: [] as CloudBucket[], stepMs: 0, from: 0, to: 0 };
+  const oldest = Math.min(...times);
+  const newest = Math.max(...times);
+  const stepMs = STEPS.find((step) => step * bars >= newest - oldest) ?? (STEPS.at(-1) as number);
+  const from = Math.floor(oldest / stepMs) * stepMs;
+  const count = Math.floor((newest - from) / stepMs) + 1;
+  const buckets = Array.from({ length: count }, (_, i) => ({
+    start: from + i * stepMs,
     count: 0,
     errors: 0,
   }));
   for (const entry of entries) {
-    const bucket = buckets[Math.floor((Date.parse(entry.time) - start) / BUCKET_MS)];
+    const bucket = buckets[Math.floor((Date.parse(entry.time) - from) / stepMs)];
     if (!bucket) continue;
     bucket.count++;
     if (cloudLevel(entry.severity) === 'error') bucket.errors++;
   }
-  return buckets;
+  return { buckets, stepMs, from, to: from + count * stepMs };
 }
 
 /** An answer split into its text and the cited entry ids in `[id]` it holds. */

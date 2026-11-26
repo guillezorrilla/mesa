@@ -1,13 +1,11 @@
 import type { CloudLogEntry } from '@mesa/core';
 import type { CloudFilters } from '@/lib/client/logs';
 import { useOptional } from '@/lib/useCommand';
-import { CLOUD_RANGES, type CloudRange } from '../cloudLines';
 import { CloudLogsChart } from './CloudLogsChart';
 
 /** The chart from a log-based metric's counts (Cloud Monitoring), summed across the view's projects. */
 function MeteredChart(props: {
   entries: readonly CloudLogEntry[];
-  rangeMs: number;
   projects: string[];
   metric: string;
   since?: string;
@@ -17,24 +15,23 @@ function MeteredChart(props: {
     metric: props.metric,
     since: props.since,
   });
-  return (
-    <CloudLogsChart entries={props.entries} rangeMs={props.rangeMs} counts={counts.data?.counts} />
-  );
+  return <CloudLogsChart entries={props.entries} counts={counts.data?.counts} />;
 }
 
-/** The Explorer's histogram: a view's metric counts when it maps to one, else the entries read. */
-export function ExplorerChart(props: { entries: readonly CloudLogEntry[]; filters: CloudFilters }) {
-  const range = CLOUD_RANGES[(props.filters.since ?? '1h') as CloudRange]?.[1] ?? 3_600_000;
+/**
+ * The Explorer's histogram: a view's metric counts over the range when it maps to one, else the
+ * entries read over the span they cover, with Load older (`onOlder`).
+ */
+export function ExplorerChart(props: {
+  entries: readonly CloudLogEntry[];
+  filters: CloudFilters;
+  onOlder?: () => void;
+  olderBusy?: boolean;
+}) {
   const { metric, projects, since } = props.filters;
   return metric && projects?.length ? (
-    <MeteredChart
-      entries={props.entries}
-      rangeMs={range}
-      projects={projects}
-      metric={metric}
-      since={since}
-    />
+    <MeteredChart entries={props.entries} projects={projects} metric={metric} since={since} />
   ) : (
-    <CloudLogsChart entries={props.entries} rangeMs={range} />
+    <CloudLogsChart entries={props.entries} onOlder={props.onOlder} olderBusy={props.olderBusy} />
   );
 }

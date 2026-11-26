@@ -39,6 +39,8 @@ export function QueryField(props: {
   facets: readonly Facet[];
   busy: boolean;
   written?: boolean;
+  /** Edited since it last ran: the results are still the last query's. */
+  edited?: boolean;
   onChange: (query: string) => void;
   onRun: (query: string) => void;
   onWords: (sentence: string) => Promise<void>;
@@ -69,9 +71,9 @@ export function QueryField(props: {
           ref={box}
           aria-label="Query"
           spellCheck={false}
-          placeholder='severity>=ERROR AND jsonPayload.company="Lantern Cove"'
+          placeholder="Logging query, for example severity>=WARNING"
           className={cn(
-            'min-h-16 resize-y pr-28 font-mono text-[12px] leading-5',
+            'min-h-16 resize-y pr-28 font-mono text-[12px] leading-5 placeholder:font-sans placeholder:text-muted-foreground/60 placeholder:italic',
             props.written && 'ring-2 ring-state-working/60',
           )}
           value={props.query}
@@ -93,6 +95,11 @@ export function QueryField(props: {
           <Play aria-hidden /> Run
         </Button>
       </div>
+      {props.edited && (
+        <p className="text-[11px] text-muted-foreground">
+          Edited, not run yet: the entries below are the last query's. Run to read with this one.
+        </p>
+      )}
       {props.written && (
         <p className="text-[11px] text-state-working">
           Written from your words: read it, then Run to read the entries.
@@ -126,7 +133,7 @@ export function QueryField(props: {
         <Sparkles aria-hidden className="size-3.5 shrink-0 text-state-working" />
         <Input
           aria-label="Ask in words"
-          placeholder="Ask in words: checkout errors for Lantern Cove since the deploy"
+          placeholder="Ask in words, for example: errors for one customer since the last deploy"
           className="h-8 text-xs"
           value={words}
           onChange={(event) => setWords(event.currentTarget.value)}

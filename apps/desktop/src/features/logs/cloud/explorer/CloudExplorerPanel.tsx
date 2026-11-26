@@ -1,13 +1,13 @@
 import type { CloudAsk, CloudLogEntry } from '@mesa/core';
 import { entryGroup, facetsOf, withOwn } from '@mesa/core/browser';
-import { PanelRightOpen } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { PanelLeftOpen, PanelRightOpen } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ReadingBar } from '@/components/ReadingBar';
+import { ResizeHandle } from '@/components/ResizeHandle';
 import { useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import type { CloudAsked, CloudFilters } from '@/lib/client/logs';
 import { useCall, useOptional } from '@/lib/useCommand';
-import { cn } from '@/lib/utils';
 import { CloudReadAlert } from '../CloudReadAlert';
 import { CloudSessionDialogs } from '../CloudSessionDialogs';
 import type { EntryActions } from '../types';
@@ -16,15 +16,18 @@ import { useCloudSession } from '../useCloudSession';
 import { SaveViewDialog } from '../views/SaveViewDialog';
 import { ClaudePanel } from './ClaudePanel';
 import { ExplorerResultsPanel } from './ExplorerResultsPanel';
-import { fieldClause, matchingClause, withClause } from './explorerQuery';
+import { matchingClause, withClause, withoutClause } from './explorerQuery';
 import { FieldsPanel } from './FieldsPanel';
 import { QueryField } from './QueryField';
+import { useFieldsPane } from './useFieldsPane';
 import { ViewFilterChips } from './ViewFilterChips';
 
 /**
  * The Explorer (CONTEXT.md, Cloud Logs), shaped like the Cloud Console's Logs Explorer with Claude
- * beside it: the query bar, the fields the entries carry, the results, and the Claude panel, whose
- * context is the query, its results and the selected entries.
+ * beside it: the query bar, the fields the entries carry (resizable and hidable, kept), the chips of
+ * the clauses the pane wrote, the results, and the Claude panel, whose context is the query, its
+ * results and the selected entries. The bar follows the query that ran; one edited and not run yet
+ * says so and dims the results, so what shows always matches the query that read it.
  */
 export function CloudExplorerPanel(props: {
   filters: CloudFilters;
@@ -41,6 +44,10 @@ export function CloudExplorerPanel(props: {
   const { copy, copyText } = useCloudCopy();
   const cloudSession = useCloudSession(props.filters.env, props.onSession);
   const [query, setQuery] = useState(props.filters.filter ?? '');
+  const ran = props.filters.filter ?? '';
+  // A query set from outside (a view, a chip, Ask about this) shows in the bar.
+  useEffect(() => setQuery(ran), [ran]);
+  const pane = useFieldsPane();
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [focus, setFocus] = useState<string>();
   const [claude, setClaude] = useState(true);
@@ -60,6 +67,12 @@ export function CloudExplorerPanel(props: {
   };
   const run = (next: string) => apply({ ...props.filters, filter: next.trim() || undefined });
   const add = (clause: string, exclude = false) => run(withClause(query, clause, exclude));
+  // A clause the fields pane sets: in, excluded, or taken out, on its own line.
+  const setClause = (clause: string, state?: 'in' | 'out') => {
+    const rest = withoutClause(query, clause);
+    run(state ? withClause(rest, clause, state === 'out') : rest);
+  };
+  const edited = !written && query.trim() !== ran.trim();
   const lastCited = props.conversation?.turns.at(-1)?.cited;
   const cited = useMemo(() => new Set(lastCited ?? []), [lastCited]);
   const picked = useMemo(() => [...selected], [selected]);
@@ -82,7 +95,6 @@ export function CloudExplorerPanel(props: {
         setDraft(`Explain this entry [${entry.id}]`);
       },
       onFix: (entry) => latest.current.fix(entryGroup(entry)),
-      onField: (key, value) => latest.current.add(fieldClause(key, value)),
       onCopy: (entry, format) => latest.current.copy([entry], format),
       onCopyText: (text, what) => latest.current.copyText(text, what),
     }),
@@ -95,6 +107,7 @@ export function CloudExplorerPanel(props: {
         facets={facets}
         busy={read.busy}
         written={written}
+        edited={edited}
         onChange={setQuery}
         onRun={run}
         onWords={async (sentence) => {
@@ -104,7 +117,12 @@ export function CloudExplorerPanel(props: {
           setWritten(true);
         }}
       />
-      <ViewFilterChips filters={props.filters} onFilters={props.onFilters} />
+      <ViewFilterChips
+        filters={props.filters}
+        query={ran}
+        onFilters={props.onFilters}
+        onQuery={run}
+      />
       {read.busy && <ReadingBar />}
       <CloudReadAlert
         error={read.error}
@@ -112,14 +130,37 @@ export function CloudExplorerPanel(props: {
         onRetry={() => void read.refresh()}
       />
       <div
-        className={cn(
-          'grid min-h-0 flex-1 grid-cols-[13rem_minmax(0,1fr)] gap-3',
-          claude && 'grid-cols-[13rem_minmax(0,1fr)_22rem]',
-        )}
+        className="grid min-h-0 flex-1 gap-3"
+        style={{
+          gridTemplateColumns: [
+            pane.hidden ? '' : `${pane.width}px`,
+            'minmax(0,1fr)',
+            claude ? '22rem' : '',
+          ].join(' '),
+        }}
       >
-        <div className="min-h-0 overflow-hidden rounded-lg border bg-card">
-          <FieldsPanel entries={entries ?? []} onAdd={add} />
-        </div>
+        {!pane.hidden && (
+          <div className="relative min-h-0 rounded-lg border bg-card">
+            <FieldsPanel
+              entries={entries ?? []}
+              query={ran}
+              env={props.filters.env}
+              width={pane.width}
+              columns={pane.columns}
+              onSet={setClause}
+              onPin={pane.pin}
+              onHide={() => pane.setHidden(true)}
+            />
+            <ResizeHandle
+              label="Resize fields"
+              edge="right"
+              width={pane.width}
+              bounds={pane.bounds}
+              keep={480}
+              onWidth={pane.setWidth}
+            />
+          </div>
+        )}
         <div className="relative min-h-0">
           <ExplorerResultsPanel
             read={entries}
@@ -128,8 +169,20 @@ export function CloudExplorerPanel(props: {
             selected={selected}
             cited={cited}
             focus={focus}
+            columns={pane.columns}
+            stale={edited}
             actions={actions}
           />
+          {pane.hidden && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="absolute top-2 left-2 h-7"
+              onClick={() => pane.setHidden(false)}
+            >
+              <PanelLeftOpen aria-hidden /> Fields
+            </Button>
+          )}
           {!claude && (
             <Button
               size="sm"

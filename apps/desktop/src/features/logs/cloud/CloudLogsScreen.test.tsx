@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, useState } from 'react';
+import { useState } from 'react';
 import { expect, test } from 'vitest';
 import type { CloudFilters } from '@/lib/client/logs';
 import {
@@ -355,14 +355,21 @@ test('Explorer: fields add or exclude clauses, Show matching narrows, repeats fo
     'jsonPayload.company="Lantern Cove"',
   );
   expect(lastRead(calls)).toContain('--filter=jsonPayload.company="Lantern Cove"');
-  const quiet = button('Quiet Reef', q('[aria-label="Fields"]') ?? document);
-  await act(async () => {
-    quiet?.dispatchEvent(new MouseEvent('click', { bubbles: true, altKey: true }));
-  });
+  // The value in the query shows checked; - excludes another; each is a chip that takes it out.
+  expect(q('[aria-label="company"] li[data-state="in"]')?.textContent).toContain('Lantern Cove');
+  await click(q('[aria-label="Not Quiet Reef"]'));
   await attached();
   expect(q<HTMLTextAreaElement>('[aria-label="Query"]')?.value).toContain(
     'AND NOT jsonPayload.company="Quiet Reef"',
   );
+  expect(q('[aria-label="company"] li[data-state="out"]')?.textContent).toContain('Quiet Reef');
+  expect(q('[aria-label="View filters"]')?.textContent).toContain('not company = Quiet Reef');
+  await click(q('[aria-label="Remove company = Lantern Cove"]'));
+  await attached();
+  expect(q<HTMLTextAreaElement>('[aria-label="Query"]')?.value).toBe(
+    'NOT jsonPayload.company="Quiet Reef"',
+  );
+  expect(lastRead(calls)).toContain('--filter=NOT jsonPayload.company="Quiet Reef"');
   // Three lookups that differ only by order id fold into one row.
   expect(q('[aria-label="Log entries"]')?.textContent).toMatch(/x3 between/);
   await click(q('[data-id="b1"] [role="option"]'));
@@ -452,6 +459,83 @@ test("an Ask's answer copies its query, a query it ran runs its own filters over
   await attached();
   const open = calls.filter((argv) => argv[2] === 'session').at(-1);
   expect(open).toEqual(expect.arrayContaining(['--conversation=c1', '__mesa_general__']));
+});
+
+test('the fields pane: app fields first, plumbing under More, ids only when searched; a pinned field is a column; every row has its badge; long messages fold; the histogram spans what was read', async () => {
+  const entries = Array.from({ length: 24 }, (_, i) =>
+    entry(
+      `e${i}`,
+      i / 60,
+      i === 0
+        ? `{"action":"sync",\n"step":1,\n"of":4,\n"ok":false,\n"why":"late"}`
+        : `${['tide lookup', 'berth sync', 'mooring check', 'harbour scan'][i % 4]} ${i}`,
+      {
+        severity: ['ERROR', 'NOTICE', 'DEFAULT', 'INFO'][i % 4],
+        fields: {
+          company: i % 2 ? 'Lantern Cove' : 'Quiet Reef',
+          status: String(200 + (i % 6)),
+          logger: 'com.tides.harbour.webhook.domain.TideWebhookService',
+          requestId: `req-${i}`,
+        },
+      },
+    ),
+  );
+  const { bridge, calls } = fakeBridge({
+    config: () => config(GCP),
+    'logs asks': () => envelope({ asks: [] }),
+    'logs gcp': (args) =>
+      args.includes('--services')
+        ? envelope({
+            env: 'beta',
+            services: [{ project: 'tide-tables-123', name: 'tide-api', kind: 'GKE' }],
+            warnings: [],
+          })
+        : envelope({
+            projects: GCP.projects,
+            env: 'beta',
+            envs: ['beta', 'prod'],
+            filters: {},
+            warnings: [],
+            entries,
+          }),
+  });
+  await renderWithMesa(<Harness mode="explorer" />, bridge);
+  await attached();
+  const fields = q('[aria-label="Fields"]') ?? document;
+  const names = [...fields.querySelectorAll('section')].map((s) => s.getAttribute('aria-label'));
+  expect(names.slice(0, 4)).toEqual(['Service', 'Severity', 'company', 'status']);
+  expect(fields.querySelector('details')?.open).toBe(false);
+  expect(names).not.toContain('requestId');
+  expect(q('[aria-label="Service"]')?.textContent).toContain('GKE');
+  expect(q('[aria-label="status"]')?.textContent).toContain('Show all (6)');
+  await fill(q<HTMLInputElement>('[aria-label="Search fields"]'), 'req-1');
+  expect(q('[aria-label="requestId"]')?.textContent).toContain('req-1');
+  await fill(q<HTMLInputElement>('[aria-label="Search fields"]'), '');
+  await click(q('[aria-label="Show company as column"]'));
+  expect(q('[data-id="e1"] [data-column="company"]')?.textContent).toBe('Lantern Cove');
+  expect(localStorage.getItem('mesa.logs.fields.columns')).toBe('company');
+  // Every row has its badge, DEFAULT and NOTICE too; a 5-line message shows 3 with more.
+  expect(q('[data-id="e1"] span[data-level]')?.textContent).toBe('NOTICE');
+  expect(q('[data-id="e2"] span[data-level]')?.textContent).toBe('DEFAULT');
+  expect(button('more', q('[data-id="e0"]') ?? document)).toBeDefined();
+  expect(q('[aria-label="Entries over time"]')?.textContent).toMatch(
+    /24 entries read, .* per (1|2) s/,
+  );
+  // An edited query that has not run says so; the placeholder is a generic example.
+  const bar = q<HTMLTextAreaElement>('[aria-label="Query"]');
+  expect(bar?.placeholder).toBe('Logging query, for example severity>=WARNING');
+  await fill(bar, 'severity>=ERROR');
+  expect(document.body.textContent).toContain('Edited, not run yet');
+  const entryReads = () =>
+    calls.filter((argv) => argv[2] === 'gcp' && !argv.includes('--services')).length;
+  const reads = entryReads();
+  await click(q('[aria-label="Hide fields"]'));
+  expect(q('[aria-label="Fields"]')).toBeUndefined();
+  expect(localStorage.getItem('mesa.logs.fields.hidden')).toBe('1');
+  await click(button('Fields'));
+  expect(q('[aria-label="Fields"]')).toBeDefined();
+  expect(entryReads()).toBe(reads);
+  localStorage.clear();
 });
 
 test('a saved view opens in Explorer with its other filters as chips and its metric counts in the chart', async () => {

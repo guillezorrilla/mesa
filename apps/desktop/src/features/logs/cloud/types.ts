@@ -14,7 +14,6 @@ export type EntryActions = {
   onHide: (entry: CloudLogEntry) => void;
   onAsk: (entry: CloudLogEntry) => void;
   onFix: (entry: CloudLogEntry) => void;
-  onField: (key: string, value: string) => void;
   onCopy: (entry: CloudLogEntry, format: CopyFormat) => void;
   onCopyText: (text: string, what: string) => void;
 };
