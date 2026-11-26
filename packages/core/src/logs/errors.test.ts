@@ -160,10 +160,11 @@ test('Error Reporting that cannot be read is a warning with its fix, and the err
         'Error Reporting could not be read for tide-tables-123 (the Error Reporting API is off',
       ),
       fix: 'gcloud services enable clouderrorreporting.googleapis.com --project tide-tables-123',
+      action: 'enable',
     },
     expect.objectContaining({ project: 'harbour-web-456' }),
   ]);
-  // Signed out: the token itself fails, and the fix is to sign in.
+  // Signed out: the token itself fails, once, and the read is that error, whose fix is to sign in.
   const signedOut = scriptedRunner({
     gcloud: (args) =>
       args[0] === 'auth'
@@ -175,8 +176,11 @@ test('Error Reporting that cannot be read is a warning with its fix, and the err
           }
         : '[]',
   }).run;
-  const out = await cloudErrors({ run: signedOut, http, now: () => NOW }, CONFIG, {});
-  expect(out.warnings[0]).toMatchObject({ fix: 'gcloud auth login' });
+  await expect(
+    cloudErrors({ run: signedOut, http, now: () => NOW }, CONFIG, {}),
+  ).rejects.toMatchObject({
+    details: { reason: 'signed_out', fix: 'gcloud auth login', action: 'login' },
+  });
 });
 
 test("Error Reporting's groups follow the picked services: one through its service filter, several filtered here", async () => {

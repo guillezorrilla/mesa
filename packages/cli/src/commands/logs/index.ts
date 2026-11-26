@@ -6,6 +6,7 @@ import { logsAdd, logsFiles, logsRemove } from './files.js';
 import { logs } from './read.js';
 import { logsRun } from './run.js';
 import { logsSession } from './session.js';
+import { logsEnable, logsLogin } from './signin.js';
 import { logsFile, logsModules, logsSources } from './sources.js';
 import { logsViewsExport, logsViewsImport, logsViewsImportMetrics } from './views.js';
 
@@ -24,6 +25,8 @@ export const LOGS_COMMANDS: Command[] = [
   logsProjects,
   logsEnvs,
   logsStar,
+  logsLogin,
+  logsEnable,
   logsErrors,
   logsErrorSamples,
   logsCounts,

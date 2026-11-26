@@ -87,6 +87,7 @@ export {
   servicePaths,
 } from './logs/filter-text.js';
 export { entryGroup } from './logs/fix-goal.js';
+export { LOGIN_COMMAND } from './logs/gcloud-actions.js';
 export { ALL_ENVS } from './logs/gcp-config.js';
 export { errorGroups, isMuted, muteKey } from './logs/groups.js';
 export {

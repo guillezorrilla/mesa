@@ -204,6 +204,12 @@ export const logsCommands = {
     question,
   ]),
   'logs.asks': command<{ asks: CloudAsk[] }>('logs', 'asks'),
+  /** Signs gcloud in (`mesa logs login`): gcloud opens the browser; the call ends when the person finishes. */
+  'logs.login': command<{ signedIn: true }>('logs', 'login'),
+  /** Turns on the Error Reporting API in a configured GCP project (`mesa logs enable`). */
+  'logs.enable': commandWith<{ project: string }, { project: string; enabled: string }>(
+    ({ project }) => ['logs', 'enable', '--', project],
+  ),
   /** A session from Cloud Logs (`mesa logs session`): a group's fix, sent on stdin, or an Ask carried on. */
   'logs.session': commandWithStdin<
     {

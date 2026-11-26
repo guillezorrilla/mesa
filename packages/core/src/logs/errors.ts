@@ -5,7 +5,8 @@ import type { MesaError } from '../lib/result.js';
 import { grouped } from './error-groups.js';
 import { groupKey, keyOf, labelled, withReported } from './error-merge.js';
 import type { Facet } from './facets.js';
-import { accessToken, type CloudWarning, eachProject, googleGet } from './gcloud.js';
+import { accessToken, type CloudWarning, eachProject, googleGet, needsSignIn } from './gcloud.js';
+import type { GcloudAction } from './gcloud-actions.js';
 import {
   type CloudLogEntry,
   type CloudQuery,
@@ -117,7 +118,8 @@ async function reportedGroups(
 /** Why Error Reporting could not be read for `project`, and what fixes it, as a warning. */
 function reportingNote(project: string, error: unknown): CloudWarning {
   const status = ((error as MesaError).details as { status?: number } | undefined)?.status;
-  const fix = ((error as MesaError).details as { fix?: string } | undefined)?.fix;
+  const { fix, action } =
+    ((error as MesaError).details as { fix?: string; action?: GcloudAction } | undefined) ?? {};
   const why =
     status === 403
       ? 'the Error Reporting API is off for it, or the account lacks Error Reporting Viewer'
@@ -128,9 +130,12 @@ function reportingNote(project: string, error: unknown): CloudWarning {
     project,
     message: `Error Reporting could not be read for ${project} (${why}): its errors are grouped from the logs instead, with no New or Back again badges`,
     ...(fix
-      ? { fix }
+      ? { fix, ...(action ? { action } : {}) }
       : status === 403
-        ? { fix: `gcloud services enable clouderrorreporting.googleapis.com --project ${project}` }
+        ? {
+            fix: `gcloud services enable clouderrorreporting.googleapis.com --project ${project}`,
+            action: 'enable' as const,
+          }
         : {}),
   };
 }
@@ -148,10 +153,14 @@ export async function cloudErrors(deps: ErrorDeps, config: GcpLogs, query: Cloud
   const env = envOf(config, query.env);
   const picked = servicesByProject(config, query.services);
   const projects = Object.keys(cloudFilters(config, query, deps.now()));
-  // One token for every project's call: each costs a gcloud start.
+  // One token for every project's call: each costs a gcloud start. A sign-in failure stops the
+  // read here, once, rather than as a warning for each project.
   const token = await accessToken(deps.run).then(
     (value) => ({ value }),
-    (error: unknown) => ({ error }),
+    (error: unknown) => {
+      if (needsSignIn(error)) throw error;
+      return { error };
+    },
   );
   const { done, warnings } = await eachProject(projects, async (project) => {
     let note: CloudWarning | undefined;

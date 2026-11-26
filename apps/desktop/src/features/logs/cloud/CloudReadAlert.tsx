@@ -1,26 +1,30 @@
-import type { CloudWarning } from '@mesa/core';
+import type { CloudWarning, GcloudAction } from '@mesa/core';
 import { TriangleAlert } from 'lucide-react';
-import { CopyField } from '@/components/CopyField';
 import { RetryAlert } from '@/components/RetryAlert';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { CommandError } from '@/lib/useCommand';
+import { GcloudFixPanel } from './GcloudFixPanel';
 
-/** A failed read with its fix, or the projects that could not be read while the others were. */
+/**
+ * A failed read with its fix (GcloudFixPanel), or the projects that could not be read while the
+ * others were, each with its own.
+ */
 export function CloudReadAlert(props: {
   error?: CommandError;
   warnings?: readonly CloudWarning[];
-  /** Reads again, for a failure. */
+  /** Reads again, for a failure and once a fix is done. */
   onRetry?: () => void;
 }) {
-  const fix = (props.error?.details as { fix?: string } | undefined)?.fix;
+  const details = props.error?.details as { fix?: string; action?: GcloudAction } | undefined;
   if (props.error)
     return (
       <RetryAlert
         title="Cloud Logs could not be read"
         message={props.error.message}
-        fix={fix}
         onRetry={props.onRetry}
-      />
+      >
+        <GcloudFixPanel action={details?.action} fix={details?.fix} onFixed={props.onRetry} />
+      </RetryAlert>
     );
   if (!props.warnings?.length) return null;
   return (
@@ -31,7 +35,12 @@ export function CloudReadAlert(props: {
         {props.warnings.map((w) => (
           <div key={`${w.project} ${w.message}`} className="grid gap-1">
             <p>{w.message}</p>
-            {w.fix && <CopyField value={w.fix} />}
+            <GcloudFixPanel
+              action={w.action}
+              fix={w.fix}
+              project={w.project}
+              onFixed={props.onRetry}
+            />
           </div>
         ))}
       </AlertDescription>

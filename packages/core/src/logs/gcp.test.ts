@@ -197,6 +197,7 @@ test('a project that fails is a warning with its fix while the others read; ever
       project: 'harbour-web-456',
       message: expect.stringContaining('cannot read the logs of harbour-web-456'),
       fix: 'gcloud auth login',
+      action: 'login',
     },
   ]);
   const none = scriptedRunner({}, { missing: ['gcloud'] }).run;
@@ -422,8 +423,39 @@ test('missing gcloud, no signed-in account and no access are each an error that 
     ),
   ).rejects.toMatchObject({
     code: 'invalid_config',
-    message: 'gcloud has no signed-in account: run gcloud auth login',
-    details: { reason: 'signed_out', fix: 'gcloud auth login' },
+    message: 'gcloud has no signed-in account: sign in to Google Cloud',
+    details: { reason: 'signed_out', fix: 'gcloud auth login', action: 'login' },
+  });
+  // Google's reauthentication, which a call with no terminal cannot answer, is not "signed out";
+  // a refresh that failed says gcloud's own words.
+  await expect(
+    cloudLogs(
+      deps(
+        failing(
+          'ERROR: (gcloud.logging.read) There was a problem refreshing your current auth tokens: Reauthentication failed. cannot prompt during non-interactive execution.',
+        ),
+      ),
+      ONE,
+      {},
+    ),
+  ).rejects.toMatchObject({
+    message: expect.stringContaining('Google asks you to sign in to gcloud again'),
+    details: { reason: 'reauth', action: 'login' },
+  });
+  await expect(
+    cloudLogs(
+      deps(
+        failing(
+          "ERROR: (gcloud.logging.read) There was a problem refreshing your current auth tokens: ('invalid_grant: Bad Request')",
+        ),
+      ),
+      ONE,
+      {},
+    ),
+  ).rejects.toMatchObject({
+    message:
+      "gcloud could not refresh its sign-in (There was a problem refreshing your current auth tokens: ('invalid_grant: Bad Request')): sign in to Google Cloud again",
+    details: { reason: 'refresh_failed', action: 'login' },
   });
   const garbled = scriptedRunner({ gcloud: '[{"insertId": "aa' }).run;
   await expect(cloudLogs(deps(garbled), ONE, {})).rejects.toMatchObject({

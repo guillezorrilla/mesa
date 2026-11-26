@@ -33,3 +33,12 @@ Whichever Mesa picks, every project's `mesa.yaml` and every person's sign-in fol
 - Mesa inherits `gcloud`'s speed and output format. A change to `gcloud logging read --format json` would break the parser; the fields read (`insertId`, `timestamp`, `severity`, `jsonPayload`, `textPayload`, `trace`) are the Logging API's own LogEntry fields.
 - A Broker source for Google stays possible later, for people without `gcloud`, beside this rather than instead of it; the `logs.gcp` config would not change.
 - Error Reporting and Cloud Monitoring are reached over REST with a token minted per call; an API answering 403 (not enabled, no role) falls back to grouping errors from a Logging read, or to counting the page read, with a note.
+
+## Addendum, 2026-11-26: signing in from Mesa
+
+The Logs tab reported "no signed-in account" while the same shell's `gcloud` worked. gcloud's own log (`~/.config/gcloud/logs`) on the owner's machine shows why: every failing call, `logging read` and `auth print-access-token` alike, ended with "There was a problem refreshing your current auth tokens: Reauthentication failed. cannot prompt during non-interactive execution." The organisation's session policy asks for reauthentication, which gcloud can answer only at a terminal, and a terminal's gcloud then works. Twelve parallel `gcloud auth print-access-token` calls all succeeded with a valid token, so concurrency was not the cause. `gcloudError` matched "reauthenticat" and "refresh" under signed out. It now names the three causes apart (reauth, refresh failed, signed out), each with `action: login`.
+
+- Each read mints one access token before its parallel gcloud calls, so they do not all refresh at once when the token has expired, and a sign-in failure is one error.
+- Mesa may run two fixed commands for a person, never text taken from an error, and an agent in a Mesa window is refused both:
+  - `gcloud auth login` (`mesa logs login`): it opens the browser, waits up to 3 minutes, and answers reauthentication too. It changes only the person's own gcloud sign-in, which they finish in the browser.
+  - `gcloud services enable clouderrorreporting.googleapis.com --project <id>` (`mesa logs enable`): it changes the GCP project, so it runs only after a confirmation that names the project.

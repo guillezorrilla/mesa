@@ -1,6 +1,7 @@
 import type { Http } from '../lib/http.js';
 import type { Runner, RunResult } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
+import { type GcloudAction, LOGIN_COMMAND } from './gcloud-actions.js';
 
 // The person's own `gcloud` (ADR-0033), the one way Cloud Logs reaches Google: its calls as an
 // argv, what a failure means, a read in every GCP project at once, and a REST call made with the
@@ -11,7 +12,42 @@ export const GCLOUD_TIMEOUT_MS = 30_000;
 const INSTALL_URL = 'https://cloud.google.com/sdk/docs/install';
 
 /** A GCP project that could not be read, while the others were, with the fix when one is known. */
-export type CloudWarning = { project: string; message: string; fix?: string };
+export type CloudWarning = {
+  project: string;
+  message: string;
+  fix?: string;
+  action?: GcloudAction;
+};
+
+/** gcloud's own words for a failure: its first ERROR line without the command it names. */
+const gcloudWords = (said: string) =>
+  (said.split('\n').find((line) => line.startsWith('ERROR')) ?? said.trim().split('\n')[0] ?? '')
+    .replace(/^ERROR:\s*(\([\w.-]+\)\s*)?/, '')
+    .trim();
+
+/**
+ * Why gcloud could not act for the person, as gcloud said it (ADR-0033): Google asks to sign in
+ * again (reauthentication, which a call with no terminal cannot answer), the sign-in could not be
+ * refreshed, or no account is signed in; undefined for any other failure.
+ */
+function signInProblem(said: string) {
+  if (/reauthenticat/i.test(said))
+    return {
+      reason: 'reauth',
+      message:
+        'Google asks you to sign in to gcloud again, which a read in the background cannot answer: sign in to Google Cloud',
+    };
+  if (/problem refreshing|invalid_grant|refresh.*token/i.test(said))
+    return {
+      reason: 'refresh_failed',
+      message: `gcloud could not refresh its sign-in (${gcloudWords(said)}): sign in to Google Cloud again`,
+    };
+  if (/active account|credentialed accounts|auth login|credentials/i.test(said))
+    return {
+      reason: 'signed_out',
+      message: 'gcloud has no signed-in account: sign in to Google Cloud',
+    };
+}
 
 /** What a failed gcloud call means, with its fix: missing gcloud, no signed-in account, no access. */
 export function gcloudError(read: Extract<RunResult, { ok: false }>, project: string): MesaError {
@@ -31,21 +67,19 @@ export function gcloudError(read: Extract<RunResult, { ok: false }>, project: st
     new MesaError(
       'invalid_config',
       `the signed-in gcloud account cannot read the logs of ${project}: run gcloud auth login with an account that has Logs Viewer on it, or fix logs.gcp.projects`,
-      { reason: 'permission_denied', fix: 'gcloud auth login' },
+      { reason: 'permission_denied', fix: LOGIN_COMMAND, action: 'login' },
     );
   // Google's own denial codes first: their text can mention credentials too.
   if (/PERMISSION_DENIED|USER_PROJECT_DENIED/.test(said)) return denied();
-  if (/active account|auth login|reauthenticat|refresh.*tokens|credentials/i.test(said))
-    return new MesaError(
-      'invalid_config',
-      'gcloud has no signed-in account: run gcloud auth login',
-      {
-        reason: 'signed_out',
-        fix: 'gcloud auth login',
-      },
-    );
+  const signIn = signInProblem(said);
+  if (signIn)
+    return new MesaError('invalid_config', signIn.message, {
+      reason: signIn.reason,
+      fix: LOGIN_COMMAND,
+      action: 'login',
+    });
   if (/not found or deleted|permission/i.test(said)) return denied();
-  return new MesaError('internal', `gcloud failed: ${said.trim().split('\n')[0]}`);
+  return new MesaError('internal', `gcloud failed: ${gcloudWords(said)}`);
 }
 
 /** `gcloud <args>` for `project`: its stdout, or a gcloudError. */
@@ -83,11 +117,14 @@ export async function eachProject<T>(
     if (result.status === 'fulfilled') done.push({ project, value: result.value });
     else {
       const error = result.reason;
-      const fix = (error as MesaError).details as { fix?: string } | undefined;
+      const details = (error as MesaError).details as
+        | { fix?: string; action?: GcloudAction }
+        | undefined;
       warnings.push({
         project,
         message: error instanceof Error ? error.message : String(error),
-        ...(fix?.fix ? { fix: fix.fix } : {}),
+        ...(details?.fix ? { fix: details.fix } : {}),
+        ...(details?.action ? { action: details.action } : {}),
       });
     }
   });
@@ -120,3 +157,42 @@ export async function googleGet(
     );
   return (await response.json()) as Record<string, unknown>;
 }
+
+/** Whether `error` is gcloud's sign-in failure, which signing in again fixes. */
+export const needsSignIn = (error: unknown) =>
+  ((error as MesaError | undefined)?.details as { action?: GcloudAction } | undefined)?.action ===
+  'login';
+
+/** How long `gcloud auth login` waits for the person to finish in the browser. */
+export const LOGIN_TIMEOUT_MS = 180_000;
+
+/**
+ * `gcloud auth login`, Mesa's fixed argv: gcloud opens the browser and waits for the person, who
+ * signs in (or answers Google's reauthentication); it ends by itself past LOGIN_TIMEOUT_MS.
+ */
+export async function gcloudLogin(run: Runner) {
+  const done = await run('gcloud', ['auth', 'login'], LOGIN_TIMEOUT_MS);
+  if (done.ok) return;
+  if (done.reason === 'missing') throw gcloudError(done, '');
+  if (done.reason === 'timeout')
+    throw new MesaError(
+      'timeout',
+      `the sign-in was not finished in the browser within ${LOGIN_TIMEOUT_MS / 60_000} minutes`,
+      { fix: LOGIN_COMMAND },
+    );
+  throw new MesaError(
+    'internal',
+    `gcloud auth login failed: ${gcloudWords(done.output || done.detail)}`,
+    { fix: LOGIN_COMMAND },
+  );
+}
+
+/** Turns on the Error Reporting API in GCP `project`, a change to that project. */
+export const enableErrorReporting = (run: Runner, project: string) =>
+  gcloud(run, project, [
+    'services',
+    'enable',
+    'clouderrorreporting.googleapis.com',
+    '--project',
+    project,
+  ]);

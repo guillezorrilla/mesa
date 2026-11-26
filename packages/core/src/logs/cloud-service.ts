@@ -10,6 +10,7 @@ import { askCloudLogs, keepQuery, queryFromWords, runQueries } from './ask.js';
 import { keepTurn, readAsks } from './ask-history.js';
 import { type CloudErrorGroup, cloudErrors, errorSamples } from './errors.js';
 import { askSessionGoal, errorFixGoal } from './fix-goal.js';
+import { accessToken, enableErrorReporting, gcloudLogin } from './gcloud.js';
 import { type CloudQuery, cloudFilter, cloudFilters, cloudLogs, envOf } from './gcp.js';
 import {
   ALL_ENVS,
@@ -90,6 +91,17 @@ export function cloudLogsService(
   const errorDeps = () => ({ run: ctx.run, http: ctx.http, now: ctx.clock });
   /** The session whose window runs this mesa, when it is one: an agent, an Ask's run among them. */
   const caller = () => callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile });
+  /** What only a person does to Google Cloud: an agent in a Mesa window is refused. */
+  const personOnly = (what: string) => {
+    if (caller().inMesaWindow)
+      throw new MesaError(
+        'usage',
+        `${what} is a person's to do: from the app, or a terminal outside a Mesa session`,
+      );
+  };
+  // One sign-in refresh before the parallel reads, so the gcloud calls do not each refresh it at
+  // once, and a sign-in failure is one error rather than one per project.
+  const signedIn = () => accessToken(ctx.run);
   /** What an agent reads is masked unless logs.mask is off (mask.ts). */
   const forAgent = () => caller().inMesaWindow && ctx.open().config.logs.mask;
   /**
@@ -146,6 +158,7 @@ export function cloudLogsService(
       const config = gcpConfig();
       const env = envOf(config, query.env);
       await agentProdGate(config, query, env);
+      await signedIn();
       const read = await cloudLogs(cloudDeps(), config, { ...query, env: env ?? ALL_ENVS });
       keepQueries(read.filters, query);
       return {
@@ -160,7 +173,21 @@ export function cloudLogsService(
     gcpServices: async (env?: string) => {
       const config = gcpConfig();
       const name = envOf(config, env);
+      await signedIn();
       return { env: name ?? null, ...(await cloudServices(cloudDeps(), config, name)) };
+    },
+    /** Signs gcloud in (gcloudLogin): the browser opens and the call waits for the person. */
+    login: async () => {
+      personOnly('Signing in to Google Cloud');
+      await gcloudLogin(ctx.run);
+      return { signedIn: true };
+    },
+    /** Turns on the Error Reporting API in configured GCP `project`: a change to that project. */
+    enableErrorReporting: async (project: string) => {
+      personOnly('Turning on an API in a GCP project');
+      configuredProjects([project]);
+      await enableErrorReporting(ctx.run, project);
+      return { project, enabled: 'clouderrorreporting.googleapis.com' };
     },
     /** gcloud's default project and every project the account sees, or with `search` those holding it. */
     gcpProjects: (search?: string) => cloudProjects(ctx.run, search),

@@ -100,6 +100,7 @@ export { localClock, localDay, obsidianDateTime } from './lib/time.js';
 export type { AskOwn, AskTurn, CloudAsk } from './logs/ask-history.js';
 export type { CopyContext, CopyFormat } from './logs/copy.js';
 export type { CloudErrorGroup } from './logs/errors.js';
+export type { GcloudAction } from './logs/gcloud-actions.js';
 export {
   CLOUD_MAX_LIMIT,
   type CloudLogEntry,
