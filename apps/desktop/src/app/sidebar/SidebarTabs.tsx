@@ -26,13 +26,19 @@ const TONE = {
   muted: 'bg-muted text-foreground',
   accent: 'bg-state-working text-background',
 };
-/** Each style's count: Labels' and Icons' a small badge on the icon's corner, taking no width. */
+/** A count or dot on the icon's corner, taking no width. */
+const CORNER = 'absolute rounded-full px-0.5 text-center text-[9px] tabular-nums';
+/** Each style's count: Labels' and Icons' a small badge on the icon's corner, Compact's a pill. */
 const BADGE: Record<SidebarTabStyle, string> = {
-  labels:
-    'absolute -top-1.5 -right-1.5 min-w-3 rounded-full px-0.5 text-center text-[9px] leading-3 tabular-nums',
+  labels: cn(CORNER, '-top-1.5 -right-1.5 min-w-3 leading-3'),
   compact: 'rounded px-1',
-  icons:
-    'absolute top-0.5 right-0 min-w-3.5 rounded-full px-0.5 text-center text-[9px] leading-3.5 tabular-nums',
+  icons: cn(CORNER, 'top-0.5 right-0 min-w-3.5 leading-3.5'),
+};
+/** Each style's waiting dot: beside the count in Compact, on the icon's corner otherwise. */
+const DOT: Record<SidebarTabStyle, string> = {
+  labels: 'absolute -right-1 -bottom-0.5 size-1.5 ring-2 ring-card',
+  compact: '',
+  icons: 'absolute bottom-1 right-0.5 size-1.5 ring-2 ring-card',
 };
 
 /**
@@ -70,11 +76,7 @@ function Tab(props: {
           data-testid="sessions-waiting"
           role="img"
           aria-label={`${waiting} waiting for input`}
-          className={cn(
-            'inline-block size-2 rounded-full bg-state-waiting',
-            icons && 'absolute bottom-1 right-0.5 size-1.5 ring-2 ring-card',
-            labels && 'absolute -right-1 -bottom-0.5 size-1.5 ring-2 ring-card',
-          )}
+          className={cn('inline-block size-2 rounded-full bg-state-waiting', DOT[style])}
         />
       )}
     </>
@@ -92,15 +94,11 @@ function Tab(props: {
       )}
       onClick={props.onClick}
     >
-      {labels ? (
-        // The count and dot sit on the icon's corner, so a tab is as narrow with them as without.
-        <span className={cn('relative flex shrink-0', counted && 'mr-1')}>
-          <Icon aria-hidden className="size-3.5" />
-          {marks}
-        </span>
-      ) : (
-        <Icon aria-hidden className="size-3.5 shrink-0" />
-      )}
+      {/* Labels' count and dot sit on the icon's corner, so a tab is as narrow with them as without. */}
+      <span className={cn('flex shrink-0', labels && 'relative', labels && counted && 'mr-1')}>
+        <Icon aria-hidden className="size-3.5" />
+        {labels && marks}
+      </span>
       <span
         className={cn(
           !showsLabel(style, on) && 'sr-only',

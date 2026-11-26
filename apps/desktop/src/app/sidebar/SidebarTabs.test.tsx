@@ -79,6 +79,24 @@ afterEach(() => {
     delete (HTMLElement.prototype as unknown as Record<string, number>)[key];
 });
 
+// Widths measured in Chromium with two counts: the bar is 187px in the default 264px sidebar and
+// 123px in the 200px minimum; Labels needs 176px (each tab's label cut to 3 characters), Compact
+// 205px, Icons 126px.
+const NEED: Record<string, number> = { labels: 176, compact: 205, icons: 126 };
+/** Lays the bar out `client` px wide, each style needing its `need`. */
+function barOf(client: number, need = NEED) {
+  Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
+    configurable: true,
+    get(this: HTMLElement) {
+      return need[this.dataset.style ?? ''] ?? 0;
+    },
+  });
+  Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+    configurable: true,
+    get: () => client,
+  });
+}
+
 test('Labels labels every tab, Compact only the active one, Icons none with counts as badges', async () => {
   const { bridge } = bridgeWith({ tabStyle: 'labels' });
   await renderWithMesa(<Bar tab="projects" />, bridge);
@@ -98,16 +116,7 @@ test('Labels labels every tab, Compact only the active one, Icons none with coun
 test('a style too wide for the bar falls back to the next denser one by itself', async () => {
   // The test DOM lays nothing out: Labels needs 400px, Compact 260px, Icons 120px, of 200px.
   const need: Record<string, number> = { labels: 400, compact: 260, icons: 120 };
-  Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
-    configurable: true,
-    get(this: HTMLElement) {
-      return need[this.dataset.style ?? ''] ?? 0;
-    },
-  });
-  Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
-    configurable: true,
-    get: () => 200,
-  });
+  barOf(200, need);
   const { bridge } = bridgeWith({ tabStyle: 'labels' });
   await renderWithMesa(<Bar />, bridge);
   expect(bar()?.dataset.style).toBe('icons');
@@ -117,23 +126,6 @@ test('a style too wide for the bar falls back to the next denser one by itself',
   await renderWithMesa(<Bar />, other);
   expect(bar()?.dataset.style).toBe('compact');
 });
-
-// Widths measured in Chromium with two counts: the bar is 187px in the default 264px sidebar and
-// 123px in the 200px minimum; Labels needs 176px (each tab's label cut to 3 characters), Compact
-// 205px, Icons 126px.
-const NEED: Record<string, number> = { labels: 176, compact: 205, icons: 126 };
-function barOf(client: number) {
-  Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
-    configurable: true,
-    get(this: HTMLElement) {
-      return NEED[this.dataset.style ?? ''] ?? 0;
-    },
-  });
-  Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
-    configurable: true,
-    get: () => client,
-  });
-}
 
 test('Labels shows every tab in the default sidebar, its option with no note', async () => {
   barOf(187);
