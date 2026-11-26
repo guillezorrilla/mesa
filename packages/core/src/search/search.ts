@@ -1,5 +1,6 @@
 import { matchSorter, rankings } from 'match-sorter';
 import { DEFAULT_SHORTCUTS, FIXED_SHORTCUTS, type Shortcuts } from '../profile/shortcuts.js';
+import { SIDEBAR_TAB_LABELS } from '../profile/sidebar-tabs.js';
 import type { ProjectRow } from '../projects/projects.js';
 import type { SavedPrompt } from '../prompts/prompts.js';
 import type { TreeRow } from '../sessions/board/tree.js';
@@ -55,10 +56,15 @@ function commands(shortcuts: Shortcuts, canStart: boolean): SearchHit[] {
     {
       kind: 'navigation',
       id: 'reviews',
-      label: 'Reviews',
+      label: SIDEBAR_TAB_LABELS.reviews,
       detail: 'Pull requests that ask something of you',
     },
-    { kind: 'navigation', id: 'logs', label: 'Logs', detail: 'Cloud Logs for your GCP projects' },
+    {
+      kind: 'navigation',
+      id: 'logs',
+      label: SIDEBAR_TAB_LABELS.logs,
+      detail: 'Cloud Logs for your GCP projects',
+    },
     {
       kind: 'navigation',
       id: 'grid',

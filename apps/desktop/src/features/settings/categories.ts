@@ -42,7 +42,6 @@ export const CATEGORIES: {
       ['application', 'Application'],
       ['vault', 'Vault'],
       ['appearance', 'Appearance'],
-      ['sidebar', 'Sidebar'],
       ['terminal-palette', 'Terminal palette'],
       ['accessibility', 'Accessibility'],
       ['doctor', 'Doctor'],

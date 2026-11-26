@@ -141,16 +141,10 @@ export function AppearanceSettingsPanel() {
             />
           }
         />
-      </SettingSection>
-      <SettingSection
-        id="sidebar"
-        title="Sidebar"
-        description="The tabs the sidebar shows, their order, and how they look"
-      >
         <SettingRow
           icon={PanelLeft}
-          title="Sidebar tabs"
-          description="Sessions and Projects always show. Drag a tab by its handle to move it; a style too wide for the sidebar falls back to a denser one. Right-click the tab bar for the same."
+          title="Sidebar"
+          description="The sidebar's tabs, their order, and how they look. Sessions and Projects always show; drag a tab by its handle to move it; a style too wide for the sidebar falls back to a denser one. Right-click the tab bar for the same."
           keywords="sidebar tabs tab bar reviews logs hide show order labels compact icons style"
         >
           <div className="max-w-sm">

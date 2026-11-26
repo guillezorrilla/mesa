@@ -24,6 +24,16 @@ test('sidebar tabs lists the tabs in order, and --hide and --show change an opti
     { id: 'logs', shown: true },
   ]);
   expect(await shown('--show', 'reviews')).toContain('reviews:on');
+  expect(await shown('--order', 'logs,reviews')).toEqual([
+    'sessions:on',
+    'projects:on',
+    'logs:on',
+    'reviews:on',
+  ]);
+  expect((await mesa('config', '--json')).json.data.sidebar.tabs).toEqual([
+    { id: 'logs', shown: true },
+    { id: 'reviews', shown: true },
+  ]);
   await mesa('config', 'set', 'sidebar.tabStyle', 'icons');
   const text = (await mesa('sidebar', 'tabs')).stdout;
   expect(text).toMatch(/^sessions +shown +always$/m);
@@ -31,12 +41,14 @@ test('sidebar tabs lists the tabs in order, and --hide and --show change an opti
   expect((await mesa('help', '--agent')).stdout).toContain('mesa sidebar tabs');
 });
 
-test('sidebar tabs refuses a fixed or unknown tab, and both flags at once', async () => {
+test('sidebar tabs refuses a fixed or unknown tab, and two flags at once', async () => {
   await mesa('init', '--vault', 'vault');
   for (const args of [
     ['--hide', 'sessions'],
     ['--show', 'timeline'],
     ['--show', 'logs', '--hide', 'reviews'],
+    ['--order', 'sessions,logs'],
+    ['--order', 'logs', '--hide', 'reviews'],
   ]) {
     const refused = await mesa('sidebar', 'tabs', ...args, '--json');
     expect(refused.code).toBe(2);

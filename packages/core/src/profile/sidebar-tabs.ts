@@ -86,6 +86,12 @@ export function withTabShown(
   id: string,
   shown: boolean,
 ): StoredSidebarTab[] {
+  optionalTab(tabs, id);
+  return stored(tabs.map((each) => (each.id === id ? { ...each, shown } : each)));
+}
+
+/** The optional tab `id`; a usage error for a fixed or unknown one. */
+function optionalTab(tabs: readonly SidebarTab[], id: string): SidebarTab {
   const tab = tabs.find((each) => each.id === id);
   if (!tab) {
     const optional = tabs.filter((each) => !each.fixed).map((each) => each.id);
@@ -94,15 +100,19 @@ export function withTabShown(
       `no sidebar tab ${id}; the optional ones are ${optional.join(', ')}`,
     );
   }
-  if (tab.fixed) throw new MesaError('usage', `${tab.label} always shows`);
-  return stored(tabs.map((each) => (each.id === id ? { ...each, shown } : each)));
+  if (tab.fixed) throw new MesaError('usage', `${tab.label} always shows, first`);
+  return tab;
 }
 
-/** The `sidebar.tabs` value with the optional tabs in `order` (their ids); one it leaves out keeps its place after. */
+/**
+ * The `sidebar.tabs` value with the optional tabs in `order` (their ids); one it leaves out keeps
+ * its place after. A usage error for a fixed or unknown id.
+ */
 export function withTabOrder(
   tabs: readonly SidebarTab[],
   order: readonly string[],
 ): StoredSidebarTab[] {
+  for (const id of order) optionalTab(tabs, id);
   const rank = (tab: SidebarTab) => {
     const at = order.indexOf(tab.id);
     return at < 0 ? order.length : at;

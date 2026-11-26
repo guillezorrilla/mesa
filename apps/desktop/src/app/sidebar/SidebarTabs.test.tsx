@@ -24,9 +24,21 @@ function bridgeWith(sidebar: Sidebar) {
 }
 
 function Bar(props: { tab?: SidebarTabId }) {
+  const settings = useSidebarTabs();
+  return (
+    <>
+      <button type="button" onClick={() => void settings.setOrder(['logs', 'reviews'])}>
+        Logs first
+      </button>
+      <BarOnly settings={settings} tab={props.tab} />
+    </>
+  );
+}
+
+function BarOnly(props: { settings: ReturnType<typeof useSidebarTabs>; tab?: SidebarTabId }) {
   return (
     <SidebarTabs
-      settings={useSidebarTabs()}
+      settings={props.settings}
       tab={props.tab ?? 'sessions'}
       counts={{ sessions: 2, reviews: 3 }}
       waiting={0}
@@ -140,4 +152,31 @@ test('right-click opens the controls: Sessions and Projects locked, a switch hid
       { id: 'reviews', shown: false },
     ]),
   ]);
+});
+
+test("a new order (the drag's setOrder) shows at once, is saved, and holds after a reload", async () => {
+  const { bridge, calls } = bridgeWith({ tabStyle: 'compact' });
+  await renderWithMesa(<Bar />, bridge);
+  expect(tabs().map((tab) => tab.title)).toEqual(['Sessions', 'Projects', 'Reviews', 'Logs']);
+  await click(
+    [...document.querySelectorAll<HTMLElement>('button')].find(
+      (button) => button.textContent === 'Logs first',
+    ),
+  );
+  expect(tabs().map((tab) => tab.title)).toEqual(['Sessions', 'Projects', 'Logs', 'Reviews']);
+  expect(calls).toContainEqual([
+    '--json',
+    'config',
+    'set',
+    '--',
+    'sidebar.tabs',
+    JSON.stringify([
+      { id: 'logs', shown: true },
+      { id: 'reviews', shown: true },
+    ]),
+  ]);
+  // A restart: a fresh app over the same saved config.
+  document.body.innerHTML = '';
+  await renderWithMesa(<Bar />, bridge);
+  expect(tabs().map((tab) => tab.title)).toEqual(['Sessions', 'Projects', 'Logs', 'Reviews']);
 });

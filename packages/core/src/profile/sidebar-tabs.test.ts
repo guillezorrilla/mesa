@@ -54,6 +54,7 @@ test('withTabShown and withTabOrder write the optional tabs only, and refuse a f
   ]);
   expect(thrown(() => withTabShown(tabs, 'sessions', false))).toMatchObject({ code: 'usage' });
   expect(thrown(() => withTabShown(tabs, 'timeline', true))).toMatchObject({ code: 'usage' });
+  expect(thrown(() => withTabOrder(tabs, ['logs', 'projects']))).toMatchObject({ code: 'usage' });
 });
 
 test('each style falls back to the next denser one, icons to none', () => {
