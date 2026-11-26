@@ -1,6 +1,7 @@
 import type { CloudDeploy, CloudLogEntry, CloudVolume } from '@mesa/core';
 import type { CloudFilters } from '@/lib/client/logs';
 import { useOptional } from '@/lib/useCommand';
+import { useDeploys } from '../useDeploys';
 import { CloudLogsChart } from './CloudLogsChart';
 
 /** The chart from a log-based metric's counts (Cloud Monitoring), summed across the view's projects. */
@@ -32,16 +33,16 @@ export function ExplorerChart(props: {
   onOlder?: () => void;
   olderBusy?: boolean;
   volume?: CloudVolume;
-  deploys?: readonly CloudDeploy[];
 }) {
   const { metric, projects, since } = props.filters;
+  const deploys = useDeploys(props.filters);
   return metric && projects?.length ? (
     <MeteredChart
       entries={props.entries}
       projects={projects}
       metric={metric}
       since={since}
-      deploys={props.deploys}
+      deploys={deploys}
     />
   ) : props.volume?.counted && props.volume.series.length ? (
     <CloudLogsChart
@@ -49,14 +50,14 @@ export function ExplorerChart(props: {
       counts={props.volume.series}
       stepMs={props.volume.stepMs}
       counter="volume"
-      deploys={props.deploys}
+      deploys={deploys}
     />
   ) : (
     <CloudLogsChart
       entries={props.entries}
       onOlder={props.onOlder}
       olderBusy={props.olderBusy}
-      deploys={props.deploys}
+      deploys={deploys}
     />
   );
 }

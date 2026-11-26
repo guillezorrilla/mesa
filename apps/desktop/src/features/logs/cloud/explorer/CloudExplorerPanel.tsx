@@ -14,7 +14,6 @@ import type { EntryActions } from '../types';
 import { useCloudCopy } from '../useCloudCopy';
 import { useCloudLogsConfig } from '../useCloudLogsConfig';
 import { useCloudSession } from '../useCloudSession';
-import { useDeploys } from '../useDeploys';
 import { useLogsKept } from '../useLogsKept';
 import { useOlderEntries } from '../useOlderEntries';
 import { SaveViewDialog } from '../views/SaveViewDialog';
@@ -79,7 +78,6 @@ export function CloudExplorerPanel(props: {
     () => queryFields(older.entries, (ref) => kinds.get(ref) ?? undefined, { service }),
     [older.entries, kinds, service],
   );
-  const deploys = useDeploys(props.filters);
   const apply = (filters: CloudFilters) => {
     setQuery(filters.filter ?? '');
     setWritten(false);
@@ -193,7 +191,6 @@ export function CloudExplorerPanel(props: {
             read={entries}
             older={older}
             volume={volume.data}
-            deploys={deploys}
             busy={read.busy}
             filters={props.filters}
             selected={selected}

@@ -18,28 +18,29 @@ export function revisionLabel(deploy: Pick<CloudDeploy, 'service' | 'revision'>)
 export const deployName = (deploy: Pick<CloudDeploy, 'service' | 'revision'>) =>
   `${deploy.service} rev ${revisionLabel(deploy)}`;
 
-/** The latest deploy of one of `group`'s services that its first error came within 15 minutes of. */
-export function deployBefore(
-  group: { project: string; services: readonly string[]; firstSeen: string },
+/** An error group as its deploys are matched: its project, services and first error. */
+type DeployGroup = { project: string; services: readonly string[]; firstSeen: string };
+
+/** The deploys of `group`'s services. */
+export const deploysOf = (
+  group: Pick<DeployGroup, 'project' | 'services'>,
   deploys: readonly CloudDeploy[],
-): CloudDeploy | undefined {
+) => deploys.filter((d) => d.project === group.project && group.services.includes(d.service));
+
+/** The latest deploy of one of `group`'s services that its first error came within 15 minutes of. */
+export function deployBefore(group: DeployGroup, deploys: readonly CloudDeploy[]) {
   const first = Date.parse(group.firstSeen);
-  return deploys
+  return deploysOf(group, deploys)
     .filter((d) => {
       const after = first - Date.parse(d.at);
-      return (
-        d.project === group.project &&
-        group.services.includes(d.service) &&
-        after >= 0 &&
-        after <= DEPLOY_WINDOW_MS
-      );
+      return after >= 0 && after <= DEPLOY_WINDOW_MS;
     })
     .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
 }
 
 /** `started 2 min after api-2 rev 00213` when `group` started soon after a deploy of its service. */
 export function startedAfter(
-  group: { project: string; services: readonly string[]; firstSeen: string },
+  group: DeployGroup,
   deploys: readonly CloudDeploy[],
 ): string | undefined {
   const deploy = deployBefore(group, deploys);

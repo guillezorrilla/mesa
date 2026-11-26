@@ -1,10 +1,12 @@
 import type { CloudDeploy, CloudErrorGroup, IncidentLink } from '@mesa/core';
 import {
   consoleUrl,
+  deploysOf,
   groupQuery,
   jsonObject,
   linkReason,
   plainTitle,
+  sinceTime,
   splitMessage,
   startedAfter,
 } from '@mesa/core/browser';
@@ -18,7 +20,6 @@ import type { CloudFilters } from '@/lib/client/logs';
 import { CopyButton } from '../../shared/CopyButton';
 import { dayTime } from '../../shared/logLines';
 import { ServiceDot } from '../../shared/ServiceDot';
-import { CLOUD_RANGES, type CloudRange } from '../cloudLines';
 import { DeployMarkers } from '../DeployMarkers';
 import { fieldClause } from '../explorer/explorerQuery';
 import { MessagePanel } from '../MessagePanel';
@@ -36,13 +37,6 @@ function Section(props: { title: string; children: React.ReactNode }) {
       {props.children}
     </section>
   );
-}
-
-/** The span `since` reads up to now, in ms: a range's length, or from an ISO time. */
-function spanOf(since = '1h', now = Date.now()) {
-  const length = CLOUD_RANGES[since as CloudRange]?.[1];
-  const from = length ? now - length : Date.parse(since);
-  return Number.isNaN(from) ? undefined : { from, to: now };
 }
 
 /**
@@ -72,10 +66,9 @@ export function ErrorDetailPanel(props: {
   const raw = group.sample || samples[0]?.message || group.message;
   const json = jsonObject(splitMessage(raw).head);
   const afterDeploy = startedAfter(group, props.deploys);
-  const span = spanOf(props.filters.since);
-  const ownDeploys = props.deploys.filter(
-    (d) => d.project === group.project && group.services.includes(d.service),
-  );
+  // The range the chart spans, as core counts it: `since` back from now.
+  const to = Date.now();
+  const from = Date.parse(sinceTime(props.filters.since ?? '1h', new Date(to)));
   const explore = (extra?: string) =>
     props.onExplore({
       ...props.filters,
@@ -154,7 +147,7 @@ export function ErrorDetailPanel(props: {
               className="h-12 gap-0.5 [&>span]:w-2"
               label={`${group.count} errors over the range`}
             />
-            {span && <DeployMarkers deploys={ownDeploys} from={span.from} to={span.to} />}
+            <DeployMarkers deploys={deploysOf(group, props.deploys)} from={from} to={to} />
           </div>
         </Section>
       )}

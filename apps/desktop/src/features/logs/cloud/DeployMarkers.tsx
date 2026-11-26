@@ -1,5 +1,5 @@
 import type { CloudDeploy } from '@mesa/core';
-import { deployName } from '@mesa/core/browser';
+import { deployName, serviceRefOf } from '@mesa/core/browser';
 import { dayTime, serviceColor } from '../shared/logLines';
 
 /**
@@ -17,11 +17,11 @@ export function DeployMarkers(props: {
   return props.deploys.map((deploy) => {
     const x = (Date.parse(deploy.at) - props.from) / span;
     if (!(x >= 0 && x <= 1)) return null;
-    const color = serviceColor(`${deploy.project}/${deploy.service}`);
+    const color = serviceColor(serviceRefOf(deploy));
     const name = `Deploy ${deployName(deploy)}, ${dayTime(deploy.at)}`;
     return (
       <span
-        key={`${deploy.project}/${deploy.service}/${deploy.revision}`}
+        key={`${serviceRefOf(deploy)}/${deploy.revision}`}
         role="img"
         aria-label={name}
         title={`${name} (${deploy.revision})`}

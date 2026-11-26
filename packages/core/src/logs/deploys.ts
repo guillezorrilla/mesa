@@ -2,12 +2,14 @@ import { z } from 'zod';
 import { changeJson, readCache } from '../lib/json-file.js';
 import type { LockDeps } from '../lib/lock-file.js';
 import type { MesaError } from '../lib/result.js';
+import { serviceRefOf } from './cloud-entry.js';
 import { type CloudWarning, GCLOUD_TIMEOUT_MS, gcloudError, jsonList } from './gcloud.js';
 import {
   CLOUD_MAX_LIMIT,
   type CloudDeps,
   type CloudLogEntry,
   type CloudQuery,
+  cloudFilters,
   cloudLogs,
   servicesByProject,
 } from './gcp.js';
@@ -109,7 +111,7 @@ export function entryDeploys(
   for (const entry of oldestFirst) {
     const revision = entry.fields.revision;
     if (!revision || !entry.service) continue;
-    const ref = `${entry.project}/${entry.service}`;
+    const ref = serviceRefOf(entry);
     if (skip(ref)) continue;
     const known = seen.get(ref);
     if (!known) seen.set(ref, new Set([revision]));
@@ -148,52 +150,50 @@ async function readDeploys(
   const from = Date.parse(sinceTime(query.since ?? '1h', now));
   const picked = servicesByProject(config, query.services);
   const notes: CloudWarning[] = [];
-  // The entries give the services shown (when none are picked) and the GKE deploys.
-  const read = await cloudLogs(deps, config, { ...query, limit: CLOUD_MAX_LIMIT }).catch(
-    (error) => {
-      notes.push(noteOf(config.projects.join(', '), 'the entries', error));
+  const projects = Object.keys(cloudFilters(config, query, now));
+  // The entries give the services shown (when none are picked) and the GKE deploys; the
+  // listings need only the projects, so both are read at once.
+  const [read, lists] = await Promise.all([
+    cloudLogs(deps, config, { ...query, limit: CLOUD_MAX_LIMIT }).catch((error) => {
+      notes.push(noteOf(projects.join(', '), 'the entries', error));
       return undefined;
-    },
-  );
+    }),
+    Promise.all(
+      projects.flatMap((project) =>
+        SOURCES.map(async ([source, what, argv, rowOf]) => {
+          try {
+            return (await listed(deps, project, argv(project)))
+              .map(rowOf)
+              .flatMap((row) =>
+                row.service && row.revision && row.at
+                  ? [{ project, source, ...row } as CloudDeploy]
+                  : [],
+              );
+          } catch (error) {
+            notes.push(noteOf(project, what, error));
+            return [];
+          }
+        }),
+      ),
+    ),
+  ]);
   notes.push(
     ...(read?.warnings ?? []).map((w) => ({ ...w, message: `the entries: ${w.message}` })),
   );
-  const projects = read
-    ? Object.keys(read.filters)
-    : config.projects.filter(
-        (p) =>
-          (!picked || picked.has(p)) && (!query.projects?.length || query.projects.includes(p)),
-      );
   const entries = read?.entries ?? [];
-  const logged = new Set(entries.flatMap((e) => (e.service ? [`${e.project}/${e.service}`] : [])));
-  const shown = (project: string, service: string) =>
-    picked ? Boolean(picked.get(project)?.includes(service)) : logged.has(`${project}/${service}`);
-  const lists = await Promise.all(
-    projects.flatMap((project) =>
-      SOURCES.map(async ([source, what, argv, rowOf]) => {
-        try {
-          return (await listed(deps, project, argv(project)))
-            .map(rowOf)
-            .flatMap((row) =>
-              row.service && row.revision && row.at
-                ? [{ project, source, ...row } as CloudDeploy]
-                : [],
-            );
-        } catch (error) {
-          notes.push(noteOf(project, what, error));
-          return [];
-        }
-      }),
-    ),
-  );
+  const logged = new Set(entries.flatMap((e) => (e.service ? [serviceRefOf(e)] : [])));
+  const shown = (deploy: CloudDeploy) =>
+    picked
+      ? Boolean(picked.get(deploy.project)?.includes(deploy.service))
+      : logged.has(serviceRefOf(deploy));
   const listedDeploys = lists.flat();
   // A service a listing names is its listing's, so traffic split over old revisions is no deploy.
-  const covered = new Set(listedDeploys.map((d) => `${d.project}/${d.service}`));
+  const covered = new Set(listedDeploys.map(serviceRefOf));
   const byKey = new Map<string, CloudDeploy>();
   for (const deploy of [...entryDeploys(entries, (ref) => covered.has(ref)), ...listedDeploys]) {
     const at = Date.parse(deploy.at);
-    if (at >= from && at <= now.getTime() && shown(deploy.project, deploy.service))
-      byKey.set(`${deploy.project}/${deploy.service}/${deploy.revision}`, deploy);
+    if (at >= from && at <= now.getTime() && shown(deploy))
+      byKey.set(`${serviceRefOf(deploy)}/${deploy.revision}`, deploy);
   }
   return {
     deploys: [...byKey.values()].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)),
