@@ -160,6 +160,12 @@ export {
   shortcutFromKeys,
   validShortcut,
 } from './profile/shortcuts.js';
+export {
+  type SidebarTab,
+  sidebarTabs,
+  withTabOrder,
+  withTabShown,
+} from './profile/sidebar-tabs.js';
 export type { Checkout } from './projects/checkout.js';
 export type { DiscoveredProject } from './projects/discover.js';
 export type { Project } from './projects/project-file.js';

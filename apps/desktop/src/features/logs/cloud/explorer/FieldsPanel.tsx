@@ -8,11 +8,12 @@ import {
   severityRank,
 } from '@mesa/core/browser';
 import { PanelLeftClose, Search } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
 import { Input } from '@/components/ui/input';
 import { useOptional } from '@/lib/useCommand';
+import { useElementWidth } from '@/lib/useElementWidth';
 import { LevelBadge } from '../../shared/LevelBadge';
 import { ServiceDot } from '../../shared/ServiceDot';
 import { CLOUD_RANGES, type CloudRange } from '../cloudLines';
@@ -77,14 +78,7 @@ export function FieldsPanel(props: {
   const [search, setSearch] = useState('');
   // The width the pane is drawn at, which a narrow window holds below the kept one.
   const nav = useRef<HTMLElement>(null);
-  const [drawn, setDrawn] = useState(props.width);
-  useEffect(() => {
-    const element = nav.current;
-    if (!element || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(([seen]) => seen && setDrawn(seen.contentRect.width));
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
+  const drawn = useElementWidth(nav, props.width);
   const config = useCloudLogsConfig().gcp;
   const kinds = useOptional('logs.gcpServices', { env: props.env });
   const fit = Math.max(10, Math.floor((Math.min(drawn, props.width) - ROW_CHROME_PX) / CHAR_PX));

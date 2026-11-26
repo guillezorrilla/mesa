@@ -1,5 +1,6 @@
 import { matchSorter, rankings } from 'match-sorter';
 import { DEFAULT_SHORTCUTS, FIXED_SHORTCUTS, type Shortcuts } from '../profile/shortcuts.js';
+import { SIDEBAR_TAB_LABELS } from '../profile/sidebar-tabs.js';
 import type { ProjectRow } from '../projects/projects.js';
 import type { SavedPrompt } from '../prompts/prompts.js';
 import type { TreeRow } from '../sessions/board/tree.js';
@@ -24,6 +25,8 @@ export type SearchHit = (
 /** The fixed hits' ids: the app picks their icons and actions by these. */
 export type CommandId =
   | 'sessions'
+  | 'reviews'
+  | 'logs'
   | 'grid'
   | 'automations'
   | 'impact'
@@ -48,6 +51,19 @@ function commands(shortcuts: Shortcuts, canStart: boolean): SearchHit[] {
       label: 'Sessions',
       detail: 'Open session workspace',
       shortcut: shortcuts.board,
+    },
+    // The sidebar's optional tabs, reachable here while hidden (sidebar-tabs.ts).
+    {
+      kind: 'navigation',
+      id: 'reviews',
+      label: SIDEBAR_TAB_LABELS.reviews,
+      detail: 'Pull requests that ask something of you',
+    },
+    {
+      kind: 'navigation',
+      id: 'logs',
+      label: SIDEBAR_TAB_LABELS.logs,
+      detail: 'Cloud Logs for your GCP projects',
     },
     {
       kind: 'navigation',

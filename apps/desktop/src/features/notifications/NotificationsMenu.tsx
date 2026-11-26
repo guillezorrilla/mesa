@@ -1,17 +1,23 @@
 import type { DoctorReport, InboxFix, InboxItem } from '@mesa/core';
+import type { SidebarTabId } from '@mesa/core/browser';
 import { Bell, Settings2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { CountPill } from '@/components/CountPill';
 import { Muted } from '@/components/Muted';
 import { useToast, warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { codexReviewMessage, useUpdateHooks } from '@/features/hooks/useUpdateHooks';
+import { SIDEBAR_TAB_ICONS } from '@/features/sidebar/sidebarTabIcons';
 import { useAct } from '@/lib/useAct';
 import { useCall, useCommand, useRun } from '@/lib/useCommand';
 import { ClearNotificationsDialog } from './ClearNotificationsDialog';
 import { NotificationRow } from './NotificationRow';
 
-/** The bell and its dropdown of notices, newest first. */
+/** A hidden sidebar tab's count, which its tab would show. */
+export type HiddenCount = { id: SidebarTabId; label: string; count: number };
+
+/** The bell and its dropdown of notices, newest first, after any hidden sidebar tab's count. */
 export function NotificationsMenu(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -25,7 +31,11 @@ export function NotificationsMenu(props: {
   doctor?: DoctorReport;
   /** The session open in the window: its notice is read, as the user has gone back to it. */
   session?: string;
+  hiddenCounts?: HiddenCount[];
+  /** Opens a hidden tab from its count. */
+  onTab?: (tab: SidebarTabId) => void;
 }) {
+  const hidden = props.hiddenCounts ?? [];
   const inbox = useCommand('notifications.list');
   const run = useRun();
   const call = useCall();
@@ -120,12 +130,16 @@ export function NotificationsMenu(props: {
             variant="ghost"
             size="icon-sm"
             data-testid="nav-inbox"
-            aria-label={unread.length ? `Notifications, ${unread.length} unread` : 'Notifications'}
+            aria-label={
+              unread.length || hidden.length
+                ? `Notifications, ${unread.length} unread${hidden.map((tab) => `, ${tab.count} in ${tab.label}`).join('')}`
+                : 'Notifications'
+            }
             title="Notifications"
             className="relative text-muted-foreground hover:text-foreground"
           >
             <Bell aria-hidden className="size-4" />
-            {unread.length > 0 && (
+            {(unread.length > 0 || hidden.length > 0) && (
               <span className="absolute top-1 right-1 size-2 rounded-full bg-state-working ring-2 ring-background" />
             )}
           </Button>
@@ -170,6 +184,32 @@ export function NotificationsMenu(props: {
             </p>
           )}
           <ul className="max-h-[60vh] overflow-y-auto">
+            {hidden.map((tab) => {
+              const Icon = SIDEBAR_TAB_ICONS[tab.id];
+              return (
+                <li key={tab.id} className="border-b">
+                  <button
+                    type="button"
+                    data-testid={`inbox-tab-${tab.id}`}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-accent"
+                    onClick={() => {
+                      props.onOpenChange(false);
+                      props.onTab?.(tab.id);
+                    }}
+                  >
+                    <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block">{tab.label}</span>
+                      <Muted size="xs">Its tab is hidden; open it here</Muted>
+                    </span>
+                    <CountPill
+                      count={tab.count}
+                      className="rounded bg-state-working px-1 text-background"
+                    />
+                  </button>
+                </li>
+              );
+            })}
             {items.map((item) => (
               <NotificationRow
                 key={item.id}
@@ -187,7 +227,7 @@ export function NotificationsMenu(props: {
                 }}
               />
             ))}
-            {inbox.data && !items.length && (
+            {inbox.data && !items.length && !hidden.length && (
               <li className="px-4 py-8 text-center text-sm text-muted-foreground">
                 No notices yet.
               </li>

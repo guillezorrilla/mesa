@@ -4,8 +4,10 @@ import {
   INTERFACE_FONTS,
   INTERFACE_THEMES,
 } from '@mesa/core/browser';
-import { Eye, Palette, Type } from 'lucide-react';
+import { Eye, Palette, PanelLeft, Type } from 'lucide-react';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { SidebarTabsPanel } from '@/features/sidebar/SidebarTabsPanel';
+import { useSidebarTabs } from '@/features/sidebar/useSidebarTabs';
 import { ChoiceField } from './controls/ChoiceField';
 import { options } from './controls/options';
 import { RangeField } from './controls/RangeField';
@@ -19,6 +21,7 @@ import { useSettings } from './useSettings';
 export function AppearanceSettingsPanel() {
   const { config, save } = useSettings();
   const { appearance, terminal } = config;
+  const tabBar = useSidebarTabs();
   return (
     <>
       <SettingSection
@@ -138,6 +141,16 @@ export function AppearanceSettingsPanel() {
             />
           }
         />
+        <SettingRow
+          icon={PanelLeft}
+          title="Sidebar"
+          description="The sidebar's tabs, their order, and how they look. Sessions and Projects always show; drag a tab by its handle to move it; a style too wide for the sidebar falls back to a denser one. Right-click the tab bar for the same."
+          keywords="sidebar tabs tab bar reviews logs hide show order labels compact icons style"
+        >
+          <div className="max-w-sm">
+            <SidebarTabsPanel settings={tabBar} />
+          </div>
+        </SettingRow>
       </SettingSection>
       <TerminalPaletteSection />
       <SettingSection

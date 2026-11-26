@@ -37,6 +37,7 @@ import {
   WEB_LINK_TARGETS,
 } from './preferences.js';
 import { DEFAULT_SHORTCUTS, unbindTakenDefaults, validBinding } from './shortcuts.js';
+import { SidebarSettingsSchema } from './sidebar-tabs.js';
 import { TERMINAL_COLOR, TERMINAL_COLOR_KEYS, TERMINAL_THEMES } from './terminal-palettes.js';
 
 /** The terminal apps `mesa attach --app` can open. */
@@ -305,6 +306,8 @@ const ConfigShape = z.strictObject({
         }, 'shortcuts must be unique'),
     )
     .prefault({}),
+  /** The sidebar's tab bar: its optional tabs, their order and its style (sidebar-tabs.ts). */
+  sidebar: SidebarSettingsSchema,
   // The sidebar's project order, and `mesa projects` without --sort.
   projects: z.strictObject({ sort: z.enum(PROJECT_SORTS).default('name') }).prefault({}),
   grid: z
@@ -345,7 +348,10 @@ const ConfigShape = z.strictObject({
     .strictObject({
       /** Whether a session with a project shows the Logs panel's button; a project's mesa.yaml overrides it. */
       panel: z.boolean().default(true),
-      /** Whether the sidebar shows the Logs tab (CONTEXT.md, Cloud Logs). */
+      /**
+       * Retired for `sidebar.tabs`: read as the Logs tab's shown only until `sidebar.tabs` names
+       * it (sidebarTabs), and accepted and ignored after (ADR-0013's deprecation).
+       */
       cloudTab: z.boolean().default(true),
       /** Where Cloud Logs reads; unset, the Logs tab shows its setup. */
       gcp: GcpLogsSchema.optional(),

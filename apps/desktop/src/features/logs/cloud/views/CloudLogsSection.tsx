@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useSidebarTabs } from '@/features/sidebar/useSidebarTabs';
 import { useCommand } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import type { WorkspaceView } from '@/lib/workspaceView';
@@ -33,14 +34,14 @@ const ROW =
  * The sidebar side of the Logs tab (CONTEXT.md, Cloud Logs): the saved views, which open in
  * the Explorer, with Add view for the filters shown; the newest Ask conversations; and a menu that
  * edits the envs, exports and imports the views as YAML, and hides the tab
- * (logs.cloudTab).
+ * (sidebar.tabs).
  */
 export function CloudLogsSection(props: {
   view: WorkspaceView;
   onView: (view: WorkspaceView) => void;
 }) {
-  const { views, gcp, refresh, removeView, exportViews, importViews, hideTab } =
-    useCloudLogsConfig();
+  const { views, gcp, refresh, removeView, exportViews, importViews } = useCloudLogsConfig();
+  const tabBar = useSidebarTabs();
   const asks = useCommand('logs.asks');
   const [adding, setAdding] = useState(false);
   const [editingEnvs, setEditingEnvs] = useState(false);
@@ -79,7 +80,8 @@ export function CloudLogsSection(props: {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onSelect={() => void hideTab().then(() => props.onView({ kind: 'sessions' }))}
+                // The sidebar moves to Sessions once the tab hides.
+                onSelect={() => void tabBar.setShown('logs', false)}
               >
                 <EyeOff aria-hidden /> Hide Logs tab
               </DropdownMenuItem>

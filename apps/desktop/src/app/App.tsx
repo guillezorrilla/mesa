@@ -1,5 +1,5 @@
 import type { TreeRow } from '@mesa/core';
-import { DEFAULT_SHORTCUTS, GENERAL_PROJECT } from '@mesa/core/browser';
+import { DEFAULT_SHORTCUTS, GENERAL_PROJECT, type SidebarTabId } from '@mesa/core/browser';
 import { useRef, useState } from 'react';
 import { warningOf } from '@/components/Toast';
 import { UnsavedFilesDialog } from '@/features/files/UnsavedFilesDialog';
@@ -25,6 +25,7 @@ import { useRestoreSessions } from '@/features/sessions/useRestoreSessions';
 import { useSleepIdle } from '@/features/sessions/useSleepIdle';
 import { UnreadContext, useUnread } from '@/features/sessions/useUnread';
 import { OpenSettingsContext } from '@/features/settings/useOpenSettings';
+import { useSidebarTabs } from '@/features/sidebar/useSidebarTabs';
 import { useCostAlerts } from '@/features/usage/useCostAlerts';
 import { AddVaultProvider } from '@/features/vault/AddVaultProvider';
 import { useOpenInObsidian } from '@/features/vault/useOpenInObsidian';
@@ -70,6 +71,8 @@ function AppShell() {
   }>();
   const [cloneLink, setCloneLink] = useState<{ url: string; request: number }>();
   const [projectAdd, setProjectAdd] = useState<ProjectAddRequest>();
+  const [openTab, setOpenTab] = useState<{ tab: SidebarTabId; at: number }>();
+  const openSidebarTab = (tab: SidebarTabId) => setOpenTab({ tab, at: Date.now() });
   const profileMenu = useRef<HTMLDetailsElement>(null);
   const run = useRun();
   const { openVault } = useOpenInObsidian();
@@ -79,6 +82,11 @@ function AppShell() {
   const prompts = useCommand('prompts.list');
   const projects = useCommand('projects.list');
   const prs = usePrs();
+  const tabBar = useSidebarTabs();
+  // A hidden tab's count reaches the Inbox instead.
+  const hiddenCounts = tabBar.tabs
+    .filter((tab) => !tab.shown && tab.id === 'reviews' && prs.toAct > 0)
+    .map((tab) => ({ id: tab.id, label: tab.label, count: prs.toAct }));
   const project =
     view.kind === 'project' ? projects.data?.find((p) => p.name === view.name) : undefined;
   const sorted = useSortedProjects(
@@ -199,6 +207,8 @@ function AppShell() {
           onRecheck={doctor.refresh}
           profileMenu={profileMenu}
           awake={awake}
+          hiddenCounts={hiddenCounts}
+          onTab={openSidebarTab}
         />
         {linkGuidance && (
           <p role="status" data-testid="mesa-link-guidance" className="px-6 py-2 text-sm">
@@ -226,6 +236,8 @@ function AppShell() {
                 lastSession={workspace.lastSession}
                 lastProject={workspace.lastProject}
                 lastPr={workspace.lastPr}
+                tabBar={tabBar}
+                openTab={openTab}
                 onNewSession={(project, location, parent) =>
                   requestNewSession({
                     ...(project === GENERAL_PROJECT ? { general: true } : { project }),
@@ -301,6 +313,7 @@ function AppShell() {
               if (saved) setPromptInsertRequest({ session: view.id, text: saved.text });
             } else if (target) navigate(target);
             else if (hit.id === 'new-session') requestNewSession();
+            else if (hit.id === 'reviews') openSidebarTab('reviews');
             else if (hit.id === 'smarter-decisions') workspace.openSettings('decisions');
             else if (hit.id === 'open-vault') {
               void act(async () => warningOf(await openVault()));
