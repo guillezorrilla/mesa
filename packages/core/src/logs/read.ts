@@ -47,7 +47,8 @@ async function dockerLines(deps: ReadDeps, name: string, lines: number, since?: 
   const read = await dockerLogs(deps.run, args, 10_000);
   if (!read.ok)
     throw new MesaError('not_found', `could not read docker logs of ${name}: ${read.detail}`);
-  return read.stdout.split('\n').map(stamped);
+  // Without its last newline, so a full read counts exactly the lines asked for.
+  return read.stdout.replace(/\n$/, '').split('\n').map(stamped);
 }
 
 /** The raw lines of `source`, at least the last `lines`; not_found for one Mesa cannot read. */
@@ -92,15 +93,14 @@ async function rawLines(
 }
 
 /**
- * `source`'s last entries (parseLog), at `level` or more severe and timed at or after `since`
- * when given: the last `tail` of those found in its last 2000 lines (or `tail`, if more), or in
- * its last 2 x `tail` lines unfiltered. A `file:` source is the project `project` resolves. An entry with no time is left out when `since` is given.
+ * readLog, and whether the source may hold older entries than the ones looked at: its read came
+ * back with every line asked for, or the tail cut entries off.
  */
-export async function readLog(
+export async function readEntries(
   deps: ReadDeps,
   source: string,
   opts: ReadOptions & { project?: () => string } = {},
-): Promise<{ source: string; entries: ServerLogEntry[] }> {
+): Promise<{ source: string; entries: ServerLogEntry[]; truncated: boolean }> {
   const tail = opts.tail ?? DEFAULT_TAIL;
   const since = opts.since === undefined ? undefined : sinceTime(opts.since, deps.now());
   // Unfiltered, twice the entries asked for leaves room for their folded stacks.
@@ -111,5 +111,20 @@ export async function readLog(
       atLeast(entry, opts.level) &&
       (!since || (entry.time !== null && Date.parse(entry.time) >= Date.parse(since))),
   );
-  return { source, entries: tail ? entries.slice(-tail) : [] };
+  const kept = tail ? entries.slice(-tail) : [];
+  return { source, entries: kept, truncated: raw.length >= look || kept.length < entries.length };
+}
+
+/**
+ * `source`'s last entries (parseLog), at `level` or more severe and timed at or after `since`
+ * when given: the last `tail` of those found in its last 2000 lines (or `tail`, if more), or in
+ * its last 2 x `tail` lines unfiltered. A `file:` source is the project `project` resolves. An entry with no time is left out when `since` is given.
+ */
+export async function readLog(
+  deps: ReadDeps,
+  source: string,
+  opts: ReadOptions & { project?: () => string } = {},
+): Promise<{ source: string; entries: ServerLogEntry[] }> {
+  const { truncated: _, ...read } = await readEntries(deps, source, opts);
+  return read;
 }

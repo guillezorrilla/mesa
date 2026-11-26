@@ -2,7 +2,10 @@ import type { CopyFormat, ErrorGroup, LogAsk, ServerLogEntry } from '@mesa/core'
 import { useCallback, useMemo, useRef } from 'react';
 import type { KeyedEntry } from '../shared/logLines';
 
-/** What a row does: select it, filter by a request, and its hover actions Copy, Send and Mute. */
+/**
+ * What a row does: select it, filter by a request, and its hover actions Copy, Send, Mute and its
+ * request's Show and Send across sources.
+ */
 export type RowActions = {
   onToggle: (key: string) => void;
   onRequest: (id: string) => void;
@@ -11,6 +14,10 @@ export type RowActions = {
   onSendOne: (key: string) => void;
   /** Copies a group of identical errors as its summary (groupSummaryText). */
   onCopyGroup: (group: ErrorGroup<KeyedEntry>) => void;
+  /** Shows every line of a request across the project's sources. */
+  onShowRequest: (id: string) => void;
+  /** Sends every line of a request across the project's sources. */
+  onSendRequest: (id: string) => void;
   /** What Send does for this session: "Send to agent", or "Start a session with this line". */
   sendLabel: string;
 };
@@ -28,6 +35,8 @@ export function useRowActions(props: {
   /** Copies entries (useCopy). */
   copy: (entries: readonly ServerLogEntry[], format: CopyFormat) => void;
   copyGroup: (group: ErrorGroup<KeyedEntry>) => void;
+  showRequest: (id: string) => void;
+  sendRequest: (id: string) => void;
 }): RowActions {
   const latest = useRef(props);
   latest.current = props;
@@ -45,6 +54,8 @@ export function useRowActions(props: {
     (key: string) => void latest.current.askAbout({ kind: 'send' }, new Set([key])),
     [],
   );
+  const onShowRequest = useCallback((id: string) => latest.current.showRequest(id), []);
+  const onSendRequest = useCallback((id: string) => latest.current.sendRequest(id), []);
   return useMemo(
     () => ({
       onToggle: (key: string) =>
@@ -58,8 +69,20 @@ export function useRowActions(props: {
       onCopy,
       onSendOne,
       onCopyGroup,
+      onShowRequest,
+      onSendRequest,
       sendLabel: takesPrompt ? 'Send to agent' : 'Start a session with this line',
     }),
-    [setPicked, setRequest, onMute, onCopy, onSendOne, onCopyGroup, takesPrompt],
+    [
+      setPicked,
+      setRequest,
+      onMute,
+      onCopy,
+      onSendOne,
+      onCopyGroup,
+      onShowRequest,
+      onSendRequest,
+      takesPrompt,
+    ],
   );
 }

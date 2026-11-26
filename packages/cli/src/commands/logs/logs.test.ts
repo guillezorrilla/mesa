@@ -145,6 +145,36 @@ test('logs sources lists containers, sessions with a log and log files; a source
   });
 });
 
+test("logs request merges every line of one request across the project's sources, in time order", async () => {
+  await cli.withProject();
+  withDocker(
+    'tide-gateway\talpine\tUp 1 minute\trunning\n',
+    '2026-05-06T07:08:09Z INFO GET /moorings reqId=7f3a\n2026-05-06T07:08:12Z WARN slow reqId=11bb\n',
+  );
+  const made = (await mesa('logs', 'file', 'tide-api', '--project', 'lantern-cove', '--json')).json
+    .data;
+  writeFileSync(made.path, '2026-05-06T07:08:10Z ERROR mooring failed reqId=7f3a\n');
+
+  const found = (await mesa('logs', 'request', '7f3a', '--project', 'lantern-cove', '--json')).json
+    .data;
+  expect(found.entries.map((entry: { source: string; message: string }) => entry.source)).toEqual([
+    'docker:tide-gateway',
+    'file:tide-api',
+  ]);
+  expect(found.failed).toEqual([]);
+  expect((await mesa('logs', 'request', '7f3a', '--project', 'lantern-cove')).stdout).toBe(
+    'docker:tide-gateway 2026-05-06T07:08:09Z INFO GET /moorings reqId=7f3a\nfile:tide-api 2026-05-06T07:08:10Z ERROR mooring failed reqId=7f3a\n',
+  );
+  expect((await mesa('logs', 'request', 'none42', '--project', 'lantern-cove')).stdout).toBe(
+    'no lines name request none42\n',
+  );
+  // An id after -- is never read as a flag.
+  expect(await mesa('logs', 'request', '--project', 'lantern-cove', '--', '-7f3a')).toMatchObject({
+    code: 0,
+    stdout: 'no lines name request -7f3a\n',
+  });
+});
+
 test('logs modules lists the top-level folders with a build file', async () => {
   const dir = await cli.withProject();
   mkdirSync(join(dir, 'tide-api'));

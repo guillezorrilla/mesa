@@ -8,11 +8,13 @@ import { cn } from '@/lib/utils';
  */
 export function LogRow(props: {
   level: LogLevel | null;
-  selected: boolean;
-  onSelect: () => void;
+  /** Absent for a row that is only read (a request's merged view). */
+  selected?: boolean;
+  onSelect?: () => void;
   time: ReactNode;
   badge: ReactNode;
-  logger?: string | null;
+  /** The logger, or any node in its column (a source's dot and name). */
+  logger?: ReactNode;
   /** Show the logger column at any width (Cloud Logs' service), so every row has the same columns. */
   loggerAlways?: boolean;
   children: ReactNode;
@@ -21,18 +23,19 @@ export function LogRow(props: {
   return (
     <div
       role="option"
-      aria-selected={props.selected}
+      aria-selected={props.selected ?? false}
       tabIndex={0}
       data-level={props.level ?? undefined}
       className={cn(
-        'group relative grid cursor-pointer grid-cols-[4.25rem_3rem_minmax(0,1fr)] items-start gap-x-2 border-l-2 border-transparent py-px pr-3 pl-2.5 outline-none hover:bg-accent/60 focus-visible:bg-accent/60 @min-[40rem]:grid-cols-[4.25rem_3rem_9rem_minmax(0,1fr)]',
+        'group relative grid grid-cols-[4.25rem_3rem_minmax(0,1fr)] items-start gap-x-2 border-l-2 border-transparent py-px pr-3 pl-2.5 outline-none hover:bg-accent/60 focus-visible:bg-accent/60 @min-[40rem]:grid-cols-[4.25rem_3rem_9rem_minmax(0,1fr)]',
+        props.onSelect && 'cursor-pointer',
         props.loggerAlways && 'grid-cols-[4.25rem_3rem_7.5rem_minmax(0,1fr)]',
         props.level === 'error' && 'border-l-state-failed/70 bg-state-failed/[0.04]',
         props.selected && 'border-l-state-working bg-state-working/10 hover:bg-state-working/12',
       )}
       onClick={props.onSelect}
       onKeyDown={(event) => {
-        if (event.key !== 'Enter' && event.key !== ' ') return;
+        if (!props.onSelect || (event.key !== 'Enter' && event.key !== ' ')) return;
         event.preventDefault();
         props.onSelect();
       }}
@@ -45,7 +48,7 @@ export function LogRow(props: {
           'hidden truncate text-muted-foreground/70 @min-[40rem]:block',
           props.loggerAlways && 'block',
         )}
-        title={props.logger ?? undefined}
+        title={typeof props.logger === 'string' ? props.logger : undefined}
       >
         {props.logger}
       </span>

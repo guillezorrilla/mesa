@@ -1,8 +1,10 @@
+import { ChevronDown } from 'lucide-react';
 import { FilterChip } from '@/components/FilterChip';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import type { LevelFilter } from '../shared/logLines';
+import { RequestMenu } from './RequestMenu';
 
 /** A level filter's label: a dot in its colour, its name, and how many entries it holds. */
 function levelLabel(name: string, count: number, dot?: string) {
@@ -15,7 +17,10 @@ function levelLabel(name: string, count: number, dot?: string) {
   );
 }
 
-/** The Logs panel's filters: All / Errors / Warn with counts, and the text filter with its request chip. */
+/**
+ * The Logs panel's filters: All / Errors / Warn with counts, and the text filter with its request
+ * chip, whose menu shows or sends that request across the project's sources (RequestMenu).
+ */
 export function LogFilters(props: {
   level: LevelFilter;
   counts: Record<LevelFilter, number>;
@@ -24,6 +29,8 @@ export function LogFilters(props: {
   onLevel: (level: LevelFilter) => void;
   onText: (text: string) => void;
   onClearRequest: () => void;
+  onShowRequest: (id: string) => void;
+  onSendRequest: (id: string) => void;
 }) {
   return (
     <>
@@ -41,7 +48,20 @@ export function LogFilters(props: {
       <div className="flex h-7 min-w-24 flex-1 items-center gap-1 rounded-md border border-input px-1 focus-within:ring-[3px] focus-within:ring-ring/50">
         {props.request && (
           <FilterChip removeLabel="Show every request" onRemove={props.onClearRequest}>
-            request {props.request}
+            <RequestMenu
+              ids={[props.request]}
+              onShow={props.onShowRequest}
+              onSend={props.onSendRequest}
+            >
+              <button
+                type="button"
+                aria-label={`Request ${props.request}`}
+                className="inline-flex items-center gap-0.5 rounded-sm hover:underline"
+              >
+                request {props.request}
+                <ChevronDown aria-hidden className="size-3" />
+              </button>
+            </RequestMenu>
           </FilterChip>
         )}
         <Input

@@ -13,6 +13,7 @@ import type {
   GcpLogs,
   Incident,
   LogSource,
+  RequestLines,
   ServerLogEntry,
 } from '@mesa/core';
 import { command, commandWith, commandWithStdin } from './spec';
@@ -89,6 +90,14 @@ export const logsCommands = {
     String(tail),
     '--',
     source,
+  ]),
+  'logs.request': commandWith<{ id: string; project: string }, RequestLines>(({ id, project }) => [
+    'logs',
+    'request',
+    '--project',
+    project,
+    '--',
+    id,
   ]),
   'logs.files': commandWith<{ project: string }, { files: string[]; suggested: string[] }>(
     ({ project }) => ['logs', 'files', '--', project],

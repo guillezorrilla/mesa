@@ -8,6 +8,7 @@ import { callerOf } from '../sessions/window/caller.js';
 import { changeLogFiles, logFile, suggestedLogFiles } from './log-files.js';
 import { projectModules } from './modules.js';
 import { type ReadOptions, readLog } from './read.js';
+import { requestLines } from './request.js';
 import { sourceId } from './source-id.js';
 import { logSources } from './sources.js';
 import { teeArgv } from './tee.js';
@@ -58,6 +59,17 @@ export function logsService(ctx: MesaContext) {
     /** A source's last entries (readLog); a `file:` source is the project's. */
     read: (source: string, opts: ReadOptions & { project?: string } = {}) =>
       readLog(deps(), source, { ...opts, project: () => projectNamed(opts.project) }),
+    /** Every line of request `id` across all of `project`'s sources, in time order (requestLines). */
+    request: async (id: string, project?: string) => {
+      const name = projectNamed(project);
+      const sources = await logSources(deps(), name);
+      return requestLines(
+        deps(),
+        name,
+        id,
+        sources.map((source) => source.id),
+      );
+    },
     /**
      * The argv that runs `command` as it is, its output also appended to `project`'s log file
      * `name` (teeArgv), its folder made: what `mesa logs run` hands the terminal to.

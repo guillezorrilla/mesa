@@ -16,15 +16,18 @@ import { LogsFooter } from './LogsFooter';
 import { LogsLayoutButtons } from './LogsLayoutButtons';
 import { LogsMenu } from './LogsMenu';
 import { LogsToolbar } from './LogsToolbar';
+import { RequestView } from './RequestView';
 import { LOGS_WIDTH, TERMINAL_MIN, useLogsLayout } from './useLogsLayout';
 import { useMutes } from './useMutes';
 import { useRowActions } from './useRowActions';
 import type { LogsActions } from './useSessionLogs';
+import { useWholeRequest } from './useWholeRequest';
 
 /**
  * A session's Logs panel (CONTEXT.md, Logs panel): its project's local servers' entries under one
  * header row (source, levels, filter, Live, Maximize, menu), Errors grouped, mutes, a request
- * filter; picked entries go to the agent with an ask, or start a session. Beside the terminal it
+ * filter, a request shown or sent across the project's sources; picked entries go to the agent
+ * with an ask, or start a session. Beside the terminal it
  * is resizable; maximized it covers the session area (Esc to return).
  */
 export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
@@ -53,26 +56,32 @@ export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
     [watch.level, shown],
   );
   const source = watch.sources?.find((each) => each.id === watch.source);
-  const pickSource = (id: string) => {
-    setPicked(new Set());
-    setRequest(undefined);
-    watch.pick(id);
-  };
-  /** Sends `keys`' entries with `asked`, or starts a session with them; true once they went. */
-  const askAbout = (asked: LogAsk, keys: ReadonlySet<string>) => {
-    const message = logMessage({
-      ask: asked,
-      source: source ? sourceLabel(source) : (watch.source ?? 'server'),
-      entries,
-      picked: entries.flatMap((entry, at) => (keys.has(entry.key) ? [at] : [])),
-      time: (entry) => clockTime(entry.time),
-    });
+  /** Sends `message` to the agent, or starts a session with it; true once it went. */
+  const deliver = (message: string) => {
     if (!props.logs.takesPrompt) {
       props.logs.start(message);
       return true;
     }
     return props.logs.send(message);
   };
+  const whole = useWholeRequest({ project: watch.project, sources: watch.sources, deliver });
+  const pickSource = (id: string) => {
+    setPicked(new Set());
+    setRequest(undefined);
+    whole.close();
+    watch.pick(id);
+  };
+  /** Sends `keys`' entries with `asked`, or starts a session with them; true once they went. */
+  const askAbout = (asked: LogAsk, keys: ReadonlySet<string>) =>
+    deliver(
+      logMessage({
+        ask: asked,
+        source: source ? sourceLabel(source) : (watch.source ?? 'server'),
+        entries,
+        picked: entries.flatMap((entry, at) => (keys.has(entry.key) ? [at] : [])),
+        time: (entry) => clockTime(entry.time),
+      }),
+    );
   const { copy, copyGroup } = useCopy(source ? sourceLabel(source) : (watch.source ?? 'server'));
   const actions = useRowActions({
     takesPrompt: props.logs.takesPrompt,
@@ -82,6 +91,8 @@ export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
     askAbout,
     copy,
     copyGroup,
+    showRequest: (id) => void whole.show(id),
+    sendRequest: (id) => void whole.send(id),
   });
   /** The picked entries, in the stream's order. */
   const pickedEntries = () => entries.filter((entry) => picked.has(entry.key));
@@ -140,6 +151,8 @@ export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
             onLevel={watch.setLevel}
             onText={setText}
             onClearRequest={() => setRequest(undefined)}
+            onShowRequest={actions.onShowRequest}
+            onSendRequest={actions.onSendRequest}
           />
         }
         layout={
@@ -163,17 +176,27 @@ export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
         }
         onClose={props.onClose}
       />
-      <LogList
-        watch={watch}
-        shown={shown}
-        groups={groups}
-        picked={picked}
-        openGroups={openGroups}
-        onOpenGroup={toggleGroup}
-        actions={actions}
-        onAddSource={() => setAddingSource(true)}
-        onPickSource={pickSource}
-      />
+      {whole.shown ? (
+        <RequestView
+          request={whole.shown}
+          label={whole.label}
+          name={whole.name}
+          onSend={(id) => void whole.send(id)}
+          onClose={whole.close}
+        />
+      ) : (
+        <LogList
+          watch={watch}
+          shown={shown}
+          groups={groups}
+          picked={picked}
+          openGroups={openGroups}
+          onOpenGroup={toggleGroup}
+          actions={actions}
+          onAddSource={() => setAddingSource(true)}
+          onPickSource={pickSource}
+        />
+      )}
       {picked.size > 0 && (
         <LogsFooter
           picked={picked.size}

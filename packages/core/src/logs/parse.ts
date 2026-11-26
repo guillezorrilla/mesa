@@ -176,12 +176,17 @@ export const LEVEL_NAMES: Record<LogLevel, string> = {
 };
 
 /**
- * An entry as text: `time` (the entry's own unless given, as the app shows a clock time), its
- * level unless its message already holds the word, the message, and its stack on the lines under.
+ * An entry as text: `time` (the entry's own unless given, as the app shows a clock time) unless
+ * the message starts with it (a plain line keeps its own), its level unless its message already
+ * holds the word, the message, and its stack on the lines under.
  */
 export function entryText(entry: ServerLogEntry, time = entry.time) {
   const level = entry.level && LEVEL_NAMES[entry.level];
-  const line = [time, level && !entry.message.includes(level) && level, entry.message]
+  const line = [
+    time && !entry.message.startsWith(time) && time,
+    level && !entry.message.includes(level) && level,
+    entry.message,
+  ]
     .filter(Boolean)
     .join(' ');
   return entry.stack ? `${line}\n${entry.stack}` : line;

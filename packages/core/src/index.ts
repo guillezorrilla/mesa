@@ -124,6 +124,7 @@ export {
   type LogLevel,
   type ServerLogEntry,
 } from './logs/parse.js';
+export type { RequestEntry, RequestLines } from './logs/request.js';
 export {
   type LogSource,
   type LogSourceKind,
