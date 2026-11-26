@@ -14,6 +14,9 @@ export const isOver = (r: Pick<SessionRecord, 'endedAt' | 'lastState'>) =>
 /** Its agent has exited: stopped, its window gone, or its pane dead (done or failed). */
 export const exited = (s: SessionRow) =>
   !asleep(s) && (!s.alive || FINAL_STATES.has(s.lastState.state));
+/** Whether the app shows the session a prompt field: an agent still running, not a run or a terminal. */
+export const takesPrompt = (s: SessionRow) =>
+  !exited(s) && (!s.managed || s.kind === 'interactive');
 /** A Mesa session put to sleep: no agent runs, but it has not exited (CONTEXT.md, Sleeping session). */
 export const asleep = (s: SessionRow) => s.managed && Boolean(s.sleeping) && !s.endedAt;
 /** A Mesa session Stop ends or cancels: running, queued, or asleep. */

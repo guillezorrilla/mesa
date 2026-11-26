@@ -22,6 +22,8 @@ export const FIXED_SHORTCUTS = {
   sendFeedback: 'Mod+Enter',
   // orca's chat toggle key (terminal.toggleNativeChat).
   toggleChat: 'Mod+Shift+J',
+  // The Logs panel over the whole session area, and back (CONTEXT.md, Logs panel).
+  maximizeLogs: 'Mod+Shift+M',
 } as const;
 
 const RESERVED = new Set(['Mod+Q', 'Mod+W', 'Mod+R', 'Mod+H', 'Mod+M']);

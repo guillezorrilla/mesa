@@ -34,11 +34,14 @@ export function ResizeHandle(props: {
   const startDrag = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.button !== 0) return;
     event.preventDefault();
+    const handle = event.currentTarget;
     const start = event.clientX;
-    const { from, most } = measure(event.currentTarget);
+    const { from, most } = measure(handle);
+    handle.dataset.dragging = '';
     const move = (moved: PointerEvent) =>
       onWidth(Math.min(most, from + sign * (moved.clientX - start)));
     const stop = () => {
+      delete handle.dataset.dragging;
       document.removeEventListener('pointermove', move);
       document.removeEventListener('pointerup', stop);
       document.removeEventListener('pointercancel', stop);
@@ -69,8 +72,9 @@ export function ResizeHandle(props: {
       onDoubleClick={(event) =>
         onWidth(Math.min(measure(event.currentTarget).most, bounds.initial))
       }
+      // A 1px line over the panel's border, lit only while hovered, dragged or focused by keyboard.
       className={cn(
-        'absolute inset-y-0 z-10 w-2 cursor-col-resize outline-none transition-colors hover:bg-border focus-visible:bg-ring',
+        'absolute inset-y-0 z-10 w-2 cursor-col-resize outline-none after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:transition-colors hover:after:bg-ring/70 focus-visible:after:bg-ring data-[dragging]:after:bg-ring',
         props.edge === 'right' ? '-right-1' : '-left-1',
       )}
     />

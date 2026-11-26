@@ -1,8 +1,9 @@
 import type { Config } from '@mesa/core';
 import { linkQr, PHONE_BETA_URL } from '@mesa/core/browser';
 import { ArrowUpRight, Smartphone } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { useState } from 'react';
 import { ExternalLink } from '@/components/ExternalLink';
+import { NumberedStep } from '@/components/NumberedStep';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -82,28 +83,32 @@ function PhoneBetaDialog(props: { onClose: () => void; onPhoneSettings: () => vo
               </DialogDescription>
             </DialogHeader>
             <ol className="grid gap-5">
-              <Step
+              <NumberedStep
                 n={1}
                 title="Request an invite"
                 line="Send your email and TestFlight invites you to the beta."
               >
-                {/* An empty className drops the link's underline, so the Button's look applies. */}
-                <Button asChild size="sm">
-                  <ExternalLink href={PHONE_BETA_URL} className="">
-                    Request TestFlight access
-                    <ArrowUpRight aria-hidden />
-                  </ExternalLink>
-                </Button>
-              </Step>
-              <Step
+                <div>
+                  {/* An empty className drops the link's underline, so the Button's look applies. */}
+                  <Button asChild size="sm">
+                    <ExternalLink href={PHONE_BETA_URL} className="">
+                      Request TestFlight access
+                      <ArrowUpRight aria-hidden />
+                    </ExternalLink>
+                  </Button>
+                </div>
+              </NumberedStep>
+              <NumberedStep
                 n={2}
                 title="Pair it with this Mac"
                 line="Install the app from the invite, then press Pair phone in Settings > Phone and scan the QR code with it."
               >
-                <Button size="sm" variant="secondary" onClick={props.onPhoneSettings}>
-                  Open Settings &gt; Phone
-                </Button>
-              </Step>
+                <div>
+                  <Button size="sm" variant="secondary" onClick={props.onPhoneSettings}>
+                    Open Settings &gt; Phone
+                  </Button>
+                </div>
+              </NumberedStep>
             </ol>
           </div>
           <figure className="flex flex-col items-center justify-center gap-3 border-t bg-muted/40 p-6 sm:border-t-0 sm:border-l">
@@ -124,26 +129,5 @@ function PhoneBetaDialog(props: { onClose: () => void; onPhoneSettings: () => vo
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-/** A numbered step: its title, one line, and the action that does it. */
-function Step(props: { n: number; title: string; line: string; children: ReactNode }) {
-  return (
-    <li className="flex gap-3">
-      <span
-        aria-hidden
-        className="mt-px grid size-5 shrink-0 place-items-center rounded-full border text-[11px] font-medium text-muted-foreground tabular-nums"
-      >
-        {props.n}
-      </span>
-      <div className="grid min-w-0 justify-items-start gap-2">
-        <div className="grid gap-0.5">
-          <p className="text-sm font-medium">{props.title}</p>
-          <p className="text-sm text-muted-foreground">{props.line}</p>
-        </div>
-        {props.children}
-      </div>
-    </li>
   );
 }

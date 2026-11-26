@@ -31,6 +31,7 @@ test('register, projects, unregister', async () => {
       skills: [],
       overrides: {},
       terminalTheme: 'follow',
+      logsPanel: true,
       unapproved: {},
       exists: true,
       pinned: false,

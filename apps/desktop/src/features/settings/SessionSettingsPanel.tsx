@@ -150,6 +150,20 @@ export function SessionSettingsPanel(props: { onSavedPrompts: () => void }) {
         />
       </SettingSection>
       <SettingSection
+        id="logs"
+        title="Logs"
+        description="The output of a project's local servers, beside its sessions"
+      >
+        <SettingRow
+          icon={ScrollText}
+          title="Logs panel"
+          description="Show the Logs button on sessions with a project: running Docker containers, server sessions and IntelliJ log files. A project can override it in Settings > Projects."
+          htmlFor="logs-panel"
+          keywords="logs docker server intellij panel errors"
+          control={<ToggleField id="logs-panel" path="logs.panel" checked={config.logs.panel} />}
+        />
+      </SettingSection>
+      <SettingSection
         id="guidelines"
         title="Guidelines"
         description="Habits Mesa teaches the agents in its sessions"

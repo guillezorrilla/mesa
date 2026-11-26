@@ -119,3 +119,24 @@ test('a hidden Browser hides its native view and shows it again as it was; closi
   expect(document.querySelector('[aria-label="Session browser"]')).toBeNull();
   expect(log.slice(mark)).toEqual(['hide aaaaaaaa', 'close aaaaaaaa']);
 });
+
+test("with no terminal beside it, the selected session's panel fills the session area", async () => {
+  const { bridge } = fakeBridge({ diff: () => sessionDiff() });
+  const render = (fill: boolean) =>
+    renderWithMesa(
+      <SidePanels
+        rows={[managedRow('aaaaaaaa')]}
+        panels={{ aaaaaaaa: { panel: 'diff' } }}
+        selectedSession="aaaaaaaa"
+        onClose={() => {}}
+        crew={NO_CREW}
+        fill={fill}
+      />,
+      bridge,
+    );
+  await render(true);
+  const wrapper = () => document.querySelector('[aria-label="Session changes"]')?.parentElement;
+  expect(wrapper()?.className).toContain('flex-1');
+  await render(false);
+  expect(wrapper()?.className).toBe('contents');
+});

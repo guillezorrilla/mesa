@@ -11,6 +11,7 @@ import { impactCommands } from './impact';
 import { importsCommands } from './imports';
 import { installsCommands } from './installs';
 import { instructionsCommands } from './instructions';
+import { logsCommands } from './logs';
 import { notificationsCommands } from './notifications';
 import { phoneCommands } from './phone';
 import { projectsCommands } from './projects';
@@ -41,6 +42,7 @@ const COMMANDS = {
   ...automationsCommands,
   ...decisionsCommands,
   ...sessionsCommands,
+  ...logsCommands,
   ...reviewCommands,
   ...projectsCommands,
   ...filesCommands,

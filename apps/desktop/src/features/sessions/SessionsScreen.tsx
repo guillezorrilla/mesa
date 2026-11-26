@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
+import { useSessionLogs } from '@/features/logs/local/useSessionLogs';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { useRun } from '@/lib/useCommand';
 import { PromptCard } from './answer/PromptCard';
@@ -40,6 +41,8 @@ export function SessionsScreen(
     projects?: readonly ProjectRow[];
     projectsError?: string;
     onRetryProjects?: () => void;
+    /** Reads the projects again, after the Logs panel hides itself for one. */
+    onProjectsChanged?: () => void;
     onRowsChange?: (rows: TreeRow[]) => void;
     /** Called once the first look has answered, rows or a failure. */
     onLoaded?: () => void;
@@ -97,6 +100,17 @@ export function SessionsScreen(
     onSessions: props.onSessions,
   });
   useWakeShown(selected, commands.wake);
+  const logs = useSessionLogs({
+    row: selected,
+    projects: props.projects,
+    open: side.open === 'logs',
+    prompt: { put: insert.putPrompt, show: insert.showPrompt },
+    openSession: commands.open,
+    onHidden: () => {
+      if (props.selectedSession) side.close(props.selectedSession);
+      props.onProjectsChanged?.();
+    },
+  });
   const grid = useGrid({ panels, act, onGroupsChanged: props.onGridGroupsChanged });
 
   const emptyStart = !props.selectedSession && !props.gridMode;
@@ -130,6 +144,7 @@ export function SessionsScreen(
           view={view.available ? view.view : undefined}
           switching={view.switching}
           onView={view.choose}
+          logs={logs.bar}
         >
           {selected && (
             <SessionActionsMenu
@@ -271,6 +286,8 @@ export function SessionsScreen(
             select: (id) => props.onSelectSession?.(id),
             setupsOf: (id) => setupSessionsOf(data ?? [], id),
           }}
+          logs={logs.panel}
+          fill={!chat && !panels.liveRows.some((row) => row.id === props.selectedSession)}
         />
       </div>
     </section>
