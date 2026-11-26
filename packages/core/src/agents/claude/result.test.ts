@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { claudeResult } from '../../testing/index.js';
-import { readClaudeResult } from './result.js';
+import { readClaudeResult, readClaudeStream } from './result.js';
 
 const ID = '00000000-0000-4000-8000-000000000001';
 
@@ -49,4 +49,34 @@ test('output that is not a result says why, and never throws', () => {
     read: false,
     reason: 'claude printed JSON that is not a result',
   });
+});
+
+/** A stream-json run's lines: two assistant messages, a tool call between, the result last. */
+const delta = (text: string, parent: string | null = null) =>
+  JSON.stringify({
+    type: 'stream_event',
+    parent_tool_use_id: parent,
+    event: { type: 'content_block_delta', delta: { type: 'text_delta', text } },
+  });
+const start = JSON.stringify({ type: 'stream_event', event: { type: 'message_start' } });
+const STREAM = [
+  JSON.stringify({ type: 'system', subtype: 'init' }),
+  start,
+  delta('Checking the '),
+  delta('errors.'),
+  start,
+  delta('noise', 'toolu_1'),
+  delta('Berth 7 '),
+  delta('is missing.'),
+];
+
+test('a streaming run shows its newest message so far, a subagent left out, and its result reads from the last line', () => {
+  expect(readClaudeStream(STREAM.slice(0, 4).join('\n'))).toBe('Checking the errors.');
+  expect(readClaudeStream(`${STREAM.join('\n')}\n{"type":"stream_ev`)).toBe('Berth 7 is missing.');
+  expect(readClaudeStream('')).toBe('');
+  const result = readClaudeResult(
+    [...STREAM, JSON.stringify(JSON.parse(claudeResult('success')))].join('\n'),
+  );
+  expect(result).toMatchObject({ read: true, ok: true });
+  expect(readClaudeResult(STREAM.join('\n'))).toMatchObject({ read: false });
 });

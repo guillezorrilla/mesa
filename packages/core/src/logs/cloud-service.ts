@@ -1,13 +1,26 @@
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { readClaudeStream } from '../agents/claude/result.js';
 import type { MesaContext } from '../context.js';
 import type { GitTextRunner } from '../git/message.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { GENERAL_PROJECT } from '../sessions/record/general.js';
+import { runOutput } from '../sessions/run/files.js';
+import { skillOfRun } from '../sessions/run/start.js';
 import { callerOf } from '../sessions/window/caller.js';
-import { askCloudLogs, keepQuery, queryFromWords, runQueries } from './ask.js';
+import { CLOUD_LOGS } from '../skills/library.js';
+import {
+  askCloudLogs,
+  codeProject,
+  keepQuery,
+  modelEntry,
+  queryFromWords,
+  runQueries,
+} from './ask.js';
 import { keepTurn, readAsks } from './ask-history.js';
+import { serviceRefOf } from './cloud-entry.js';
 import { cloudDeploys, type DeployQuery } from './deploys.js';
 import { type CloudErrorGroup, cloudErrors, errorSamples } from './errors.js';
 import { askSessionGoal, errorFixGoal } from './fix-goal.js';
@@ -29,6 +42,7 @@ import { cloudServices } from './gcp-services.js';
 import { maskEntry, maskErrors, maskText } from './mask.js';
 import { metricCounts, metricViews } from './metrics.js';
 import { ownOf } from './own-filters.js';
+import type { RangeDeploy } from './range-summary.js';
 import { exportViews, importViews, mergeViews } from './views.js';
 import { cloudVolume } from './volume.js';
 
@@ -305,11 +319,11 @@ export function cloudLogsService(
      */
     ask: async (
       question: string,
-      query: CloudQuery & { allowProd?: boolean; conversation?: string } = {},
+      query: CloudQuery & { allowProd?: boolean; conversation?: string; code?: string } = {},
     ) => {
       const config = gcpConfig();
       const env = envOf(config, query.env);
-      const { mask } = ctx.open().config.logs;
+      const { mask, fixProjects, askModel } = ctx.open().config.logs;
       // Prod is what the Ask reads: the env named prod, or filters that name prod, in the projects
       // its services and projects pick; only those projects are confirmed.
       await prodGate(
@@ -317,16 +331,47 @@ export function cloudLogsService(
         readsProd(config, env),
         query.allowProd,
       );
-      const { allowProd: _, conversation, limit: __, ...kept } = query;
+      const { allowProd: _, conversation, limit: __, code: named, ...kept } = query;
       const earlier = readAsks(ctx.paths.cloudAsks).find((a) => a.id === conversation)?.turns ?? [];
+      const ranged = { ...kept, env: env ?? ALL_ENVS };
+      // A read of the range that fails is a note in its summary, never the Ask's error.
+      const failed = (error: unknown) => ({
+        failed: error instanceof Error ? error.message : String(error),
+      });
       // Read afresh rather than trust entries a caller sends: the model sees only what gcloud gave.
-      const read = await cloudLogs(cloudDeps(), config, { ...query, env: env ?? ALL_ENVS });
+      const [read, errors, volume] = await Promise.all([
+        cloudLogs(cloudDeps(), config, { ...query, env: env ?? ALL_ENVS }),
+        cloudErrors(errorDeps(), config, ranged).then(
+          (found) => ({ groups: mask ? maskErrors(found).groups : found.groups }),
+          failed,
+        ),
+        cloudVolume(errorDeps(), config, ranged).catch(failed),
+      ]);
+      // The deploy markers' deploys() plugs in here once it lands; none are known until then.
+      const deploys: RangeDeploy[] = [];
+      // The code it reads: the one named (general for none), else the project the asked services
+      // map to (logs.fixProjects), else the one most of the entries read map to.
+      const code =
+        named === undefined
+          ? codeProject(
+              fixProjects,
+              kept.services?.length ? kept.services : read.entries.map(serviceRefOf),
+            )
+          : named === 'general' || named === GENERAL_PROJECT
+            ? undefined
+            : named;
       // What the person typed in a filter (an email in --text) is masked like the entries.
       const filter = Object.entries(read.filters)
         .map(([project, each]) => `${project}: ${mask ? maskText(each) : each}`)
         .join('\n');
       const entries = mask ? read.entries.map(maskEntry) : read.entries;
-      const asked = await askCloudLogs(deps.runText, question, { filter, entries }, earlier);
+      const asked = await askCloudLogs(
+        deps.runText,
+        question,
+        { filter, entries, range: { since: query.since ?? '1h', errors, volume, deploys } },
+        earlier,
+        { ...(code ? { code } : {}), model: askModel },
+      );
       const queries = [
         ...Object.entries(read.filters).map(([project, each]) => ({
           project,
@@ -343,6 +388,11 @@ export function cloudLogsService(
         cited: asked.cited,
         queries,
         session: asked.run.session,
+        ...(code ? { code } : {}),
+        model: askModel,
+        durationMs: asked.run.durationMs,
+        ...(asked.run.costUsd === undefined ? {} : { costUsd: asked.run.costUsd }),
+        entries: entries.filter((e) => asked.cited.includes(e.id)).map(modelEntry),
       };
       const ask = keepTurn(ctx.paths.cloudAsks, conversation ?? asked.run.session, turn, ctx);
       return {
@@ -353,6 +403,31 @@ export function cloudLogsService(
         entries: forAgent() ? read.entries.map(maskEntry) : read.entries,
         ...asked,
         queries,
+        ...(code ? { code } : {}),
+      };
+    },
+    /**
+     * What an Ask's run started at or after `since` has answered so far, while it runs: the text
+     * its stream holds (readClaudeStream); none when no Ask runs.
+     */
+    // shortcut: the newest live cloud-logs run is taken as the Ask's; two Asks at once in one
+    // profile would show one's text in both until they end. Key runs by a caller token if that bites.
+    asking: (since?: string) => {
+      const run = ctx.store
+        .list()
+        .filter(
+          (r) =>
+            r.kind === 'run' &&
+            !r.endedAt &&
+            skillOfRun(r) === CLOUD_LOGS &&
+            (!since || r.startedAt >= since),
+        )
+        .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
+      if (!run) return { session: null, text: '' };
+      const file = runOutput(ctx.paths.runs, run.id);
+      return {
+        session: run.id,
+        text: existsSync(file) ? readClaudeStream(readFileSync(file, 'utf8')) : '',
       };
     },
     /**

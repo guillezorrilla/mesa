@@ -8,6 +8,7 @@ import { useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import type { CloudAsked, CloudFilters } from '@/lib/client/logs';
 import { useCall, useOptional } from '@/lib/useCommand';
+import { clampWidth, type WidthBounds } from '@/lib/useKeptWidth';
 import { CloudReadAlert } from '../CloudReadAlert';
 import { CloudSessionDialogs } from '../CloudSessionDialogs';
 import type { EntryActions } from '../types';
@@ -25,6 +26,9 @@ import { QueryField } from './QueryField';
 import { useFieldsPane } from './useFieldsPane';
 import { useServiceKinds } from './useServiceKinds';
 import { ViewFilterChips } from './ViewFilterChips';
+
+/** The Claude panel's width bounds; its widest is half the window, set when it draws. */
+const CLAUDE_WIDTH: WidthBounds = { min: 288, max: 1200, initial: 352, step: 32 };
 
 /**
  * The Explorer (CONTEXT.md, Cloud Logs), shaped like the Cloud Console's Logs Explorer with Claude
@@ -60,6 +64,12 @@ export function CloudExplorerPanel(props: {
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [focus, setFocus] = useState<string>();
   const [claude, setClaude] = useLogsKept('explorer.claude', true);
+  const [claudeKept, keepClaude] = useLogsKept('claude.width', CLAUDE_WIDTH.initial);
+  const claudeBounds = {
+    ...CLAUDE_WIDTH,
+    max: Math.max(CLAUDE_WIDTH.min, Math.round(window.innerWidth / 2)),
+  };
+  const claudeWidth = clampWidth(claudeBounds, claudeKept);
   const [draft, setDraft] = useState(props.draft);
   const [saving, setSaving] = useState<CloudFilters>();
   // A query written from the person's words waits in the bar, highlighted, until they run it.
@@ -156,7 +166,7 @@ export function CloudExplorerPanel(props: {
           gridTemplateColumns: [
             pane.hidden ? '' : `minmax(0, ${pane.width}px)`,
             'minmax(min(24rem, 100%), 1fr)',
-            claude ? 'minmax(0, 22rem)' : '',
+            claude ? `minmax(0, ${claudeWidth}px)` : '',
           ].join(' '),
         }}
       >
@@ -222,11 +232,20 @@ export function CloudExplorerPanel(props: {
           )}
         </div>
         {claude && (
-          <div className="min-h-0 min-w-0 overflow-hidden rounded-lg border">
+          <div className="relative min-h-0 min-w-0 overflow-hidden rounded-lg border">
+            <ResizeHandle
+              label="Resize Claude"
+              edge="left"
+              width={claudeWidth}
+              bounds={claudeBounds}
+              keep={384 + (pane.hidden ? 0 : pane.width + 12) + 24}
+              onWidth={(next) => keepClaude(clampWidth(claudeBounds, next))}
+            />
             <ClaudePanel
               filters={props.filters}
               conversation={props.conversation}
               selected={picked}
+              entry={entries?.find((e) => selected.has(e.id))}
               draft={draft}
               onAsked={(asked) => {
                 setDraft(undefined);
@@ -238,6 +257,7 @@ export function CloudExplorerPanel(props: {
               onRunOwn={(own) => apply(withOwn(props.filters, own))}
               onSaveView={(own) => setSaving(withOwn(props.filters, own))}
               onCarry={cloudSession.carry}
+              onFix={cloudSession.fixAsk}
               onClose={() => setClaude(false)}
             />
           </div>

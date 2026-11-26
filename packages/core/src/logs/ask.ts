@@ -1,7 +1,6 @@
 import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import type { GitTextRunInfo, GitTextRunner } from '../git/message.js';
 import { dataFence } from '../git/recipes.js';
-import { clip } from '../lib/clip.js';
 import { MesaError } from '../lib/result.js';
 import { GENERAL_PROJECT } from '../sessions/record/general.js';
 import { CLOUD_LOGS } from '../skills/library.js';
@@ -9,43 +8,72 @@ import { answerParts } from './answer.js';
 import type { AskQuery, AskTurn } from './ask-history.js';
 import type { CloudLogEntry } from './gcp.js';
 import { filterProblem } from './gcp-config.js';
+import { groupSamples, type RangeFacts, rangeSummary } from './range-summary.js';
+import { foldedMessage } from './stack.js';
 
 // Ask (logs) (CONTEXT.md): a question about Cloud Logs entries, answered by a headless run of the
-// bundled `cloud-logs` skill in the General project. It reads the entries the filters picked and
-// the conversation so far on its stdin, may run read-only `mesa logs` queries of its own, and
-// cites the entries it used by id.
+// bundled `cloud-logs` skill from the General folder, reading the code of the project the asked
+// services map to. It reads the range summary, the entries the filters picked and the conversation
+// so far on its stdin, may run read-only `mesa logs` queries of its own, and cites the entries it
+// used by id.
 
-/** An entry's message past this many characters is cut for the model. */
+/** An entry's first line past this many characters is cut for the model; its stack is folded. */
 const MESSAGE_LIMIT = 1000;
-/** The most entry text a run reads on its stdin; the oldest past it are left out. */
-const ENTRIES_LIMIT_BYTES = 60_000;
+/** The most text a run reads on its stdin about the logs: the summary, samples, then entries. */
+const LOGS_LIMIT_BYTES = 60_000;
+/** The share of what the summary leaves that samples may take; the page of entries gets the rest. */
+const SAMPLES_SHARE = 1 / 3;
 /** The most earlier turns a follow-up carries. */
 const TURNS_KEPT = 6;
 
-/** One entry a line, newest first, as much as ENTRIES_LIMIT_BYTES holds. */
-function entryLines(entries: readonly CloudLogEntry[]) {
-  const lines: string[] = [];
+/** As many of `lines` as `budget` bytes hold, in order. */
+function fitting(lines: readonly string[], budget: number) {
+  const out: string[] = [];
   let bytes = 0;
-  for (const entry of entries) {
-    const line = JSON.stringify({ ...entry, message: clip(entry.message, MESSAGE_LIMIT) });
-    bytes += line.length + 1;
-    if (bytes > ENTRIES_LIMIT_BYTES) break;
-    lines.push(line);
+  for (const line of lines) {
+    bytes += Buffer.byteLength(line) + 1;
+    if (bytes > budget) break;
+    out.push(line);
   }
-  return lines;
+  return out;
 }
 
+/** An entry as the model reads it: its message's first line cut, its stack folded. */
+export const modelEntry = (entry: CloudLogEntry): CloudLogEntry => ({
+  ...entry,
+  message: foldedMessage(entry.message, MESSAGE_LIMIT),
+});
+
 /**
- * The run's stdin: the conversation so far, the person's question, then the filter and the
- * entries, fenced as data.
+ * The registered project whose code an Ask reads: the one most of `refs` (`<project>/<service>`)
+ * map to in `fixProjects`, General left out; undefined when none maps.
  */
-export function askInput(
-  question: string,
-  filter: string,
-  entries: readonly CloudLogEntry[],
-  earlier: readonly AskTurn[] = [],
-) {
-  const lines = entryLines(entries);
+export function codeProject(fixProjects: Record<string, string>, refs: readonly string[]) {
+  const counts = new Map<string, number>();
+  for (const ref of refs) {
+    const project = Object.hasOwn(fixProjects, ref) ? fixProjects[ref] : undefined;
+    if (project && project !== GENERAL_PROJECT) counts.set(project, (counts.get(project) ?? 0) + 1);
+  }
+  return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0];
+}
+
+/** What an Ask reads: the filter and entries, and the range's summary when it was read. */
+export type AskRead = { filter: string; entries: readonly CloudLogEntry[]; range?: RangeFacts };
+
+/**
+ * The run's stdin: the conversation so far, the person's question, then, fenced as data, the range
+ * summary, a few samples per error group and the page of entries, within LOGS_LIMIT_BYTES.
+ */
+export function askInput(question: string, read: AskRead, earlier: readonly AskTurn[] = []) {
+  const summary = read.range ? rangeSummary(read.range) : '';
+  const allSamples =
+    read.range && !('failed' in read.range.errors) ? groupSamples(read.range.errors.groups) : [];
+  const left = LOGS_LIMIT_BYTES - Buffer.byteLength(summary);
+  const samples = fitting(allSamples, left * SAMPLES_SHARE);
+  const lines = fitting(
+    read.entries.map((entry) => JSON.stringify(modelEntry(entry))),
+    left - samples.reduce((bytes, line) => bytes + Buffer.byteLength(line) + 1, 0),
+  );
   const turns = earlier.slice(-TURNS_KEPT);
   return [
     ...(turns.length
@@ -58,10 +86,20 @@ export function askInput(
     'Question:',
     question.trim(),
     '',
+    ...(read.range
+      ? [
+          'The range, summarised over its whole span:',
+          dataFence('text', summary),
+          '',
+          `A few samples of each error group, deduplicated, one JSON object a line (${samples.length} of ${allSamples.length}):`,
+          dataFence('jsonl', samples.join('\n') || '(none)'),
+          '',
+        ]
+      : []),
     'The Cloud Logging filter the entries were read with, per GCP project:',
-    dataFence('text', filter),
+    dataFence('text', read.filter),
     '',
-    `The entries, newest first, one JSON object a line (${lines.length} of ${entries.length}):`,
+    `The entries, newest first, one JSON object a line (${lines.length} of ${read.entries.length}):`,
     dataFence('jsonl', lines.join('\n') || '(none)'),
   ].join('\n');
 }
@@ -86,24 +124,28 @@ export function runQueries(file: string): AskQuery[] {
 }
 
 /**
- * The answer a General `cloud-logs` run gives to `question` about `entries`, read with
- * `filter`, after the `earlier` turns, and the ids of the entries it cites.
+ * The answer a General `cloud-logs` run gives to `question` about what it `read`, after the
+ * `earlier` turns, and the ids of the entries it cites; with `code`, it reads that registered
+ * project's code, and `model` answers.
  */
 export async function askCloudLogs(
   runText: GitTextRunner,
   question: string,
-  read: { filter: string; entries: readonly CloudLogEntry[] },
+  read: AskRead,
   earlier: readonly AskTurn[] = [],
-): Promise<{ answer: string; cited: string[]; run: GitTextRunInfo }> {
+  how: { code?: string; model?: string } = {},
+): Promise<{ answer: string; cited: string[]; run: GitTextRunInfo & { model?: string } }> {
   if (!question.trim()) throw new MesaError('usage', 'ask a question about the logs');
   const { result } = await runText(CLOUD_LOGS, {
     project: GENERAL_PROJECT,
-    input: askInput(question, read.filter, read.entries, earlier),
+    input: askInput(question, read, earlier),
+    ...how,
   });
-  const run: GitTextRunInfo = {
+  const run = {
     session: result.session,
     durationMs: result.durationMs,
     ...(result.costUsd === undefined ? {} : { costUsd: result.costUsd }),
+    ...(how.model ? { model: how.model } : {}),
   };
   const answer = result.output.trim();
   if (!result.ok || !answer)

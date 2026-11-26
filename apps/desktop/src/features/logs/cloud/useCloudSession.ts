@@ -57,11 +57,16 @@ export function useCloudSession(env: string | undefined, onSession: (id: string)
       else setPicking({ group });
     },
     carry: (conversation: string) => setPicking({ conversation }),
+    /** Fix in session from an answer: in `code`, the project whose code it read, else one picked. */
+    fixAsk: (conversation: string, code?: string) => {
+      if (code) void start({ conversation }, code);
+      else setPicking({ conversation });
+    },
     pick: async (project: string, remember: boolean) => {
       const goal = picking;
       setPicking(undefined);
       if (!goal) return;
-      if (remember && 'group' in goal) await rememberFix(refOf(goal.group), project);
+      if (remember && 'group' in goal) await rememberFix([refOf(goal.group)], project);
       await start(goal, project);
     },
     cancel: () => setPicking(undefined),

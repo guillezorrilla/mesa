@@ -207,10 +207,17 @@ test('logs ask runs in General and cites entries; prod asks once per GCP project
     entries: [{ id: 'aa11' }, { id: 'bb22' }],
     run: { session: expect.any(String) },
   });
-  // A General run, in the profile's own folder with the skill linked there.
+  // A General run, in the profile's own folder with the skill linked there: read-only tools only,
+  // the profile's Ask model, its answer streamed; no service maps to a project, so it reads no code.
   const general = join(cli.paths.root, 'sessions', 'general-runs');
   expect(tmux.opened.at(-1)).toMatchObject({ project: '__mesa_general__' });
   expect(existsSync(join(general, '.claude', 'skills', 'cloud-logs'))).toBe(true);
+  const launch = tmux.opened.at(-1)?.launch ?? '';
+  expect(launch).toContain("--tools 'Bash,Read,Grep,Glob'");
+  expect(launch).toContain("--model 'claude-opus-5-5'");
+  expect(launch).toContain('--output-format stream-json --verbose --include-partial-messages');
+  expect(launch).not.toContain('--add-dir');
+  expect(beta.json.data.code).toBeUndefined();
 
   const prod = await mesa('logs', 'ask', 'what fails most?', '--env', 'prod', '--json');
   expect(prod.code).toBe(10);
@@ -257,7 +264,39 @@ test('logs ask runs in General and cites entries; prod asks once per GCP project
     query: { env: 'beta' },
     cited: ['aa11', 'bb22'],
     answer,
+    model: 'claude-opus-5-5',
+    durationMs: expect.any(Number),
+    entries: [{ id: 'aa11' }, { id: 'bb22' }],
   });
+});
+
+test('logs ask reads the code of the project the asked services map to, added read-only, and --code general reads none', async () => {
+  const tmux = cli.withTmux({ onOpen: finishesRun({ output: claudeAnswer('It fails [aa11].') }) });
+  const dir = await cli.withProject();
+  withGcloud((_, project) => JSON.stringify(project === 'tide-tables-123' ? ENTRIES : WEB));
+  await setUp();
+  await mesa('config', 'set', 'logs.fixProjects', '{"tide-tables-123/tide-api":"lantern-cove"}');
+  const asked = await mesa(
+    'logs',
+    'ask',
+    'why?',
+    '--env',
+    'beta',
+    '--service',
+    'tide-tables-123/tide-api',
+    '--json',
+  );
+  expect(asked.json.data.code).toBe('lantern-cove');
+  expect(tmux.opened.at(-1)).toMatchObject({ project: '__mesa_general__' });
+  expect(tmux.opened.at(-1)?.launch).toContain(`--add-dir '${dir}'`);
+  // With no service named, the entries read decide: most map to lantern-cove.
+  expect((await mesa('logs', 'ask', 'why?', '--env', 'beta', '--json')).json.data.code).toBe(
+    'lantern-cove',
+  );
+  const none = await mesa('logs', 'ask', 'why?', '--env', 'beta', '--code', 'general', '--json');
+  expect(none.json.data.code).toBeUndefined();
+  expect(tmux.opened.at(-1)?.launch).not.toContain('--add-dir');
+  expect((await mesa('logs', 'asking', '--json')).json.data).toEqual({ session: null, text: '' });
 });
 
 test('logs query turns a sentence into a checked Logging query from the field names, never their values', async () => {
@@ -281,7 +320,8 @@ test("Ask's tools match only reads, and an agent in a Mesa window cannot repoint
   const prefixes = (readOnlyTools('cloud-logs') ?? []).map(
     (rule) => /^Bash\(mesa (.+):\*\)$/.exec(rule)?.[1] ?? rule,
   );
-  expect(prefixes).toHaveLength(3);
+  // Three mesa logs reads, and reading code: no edit, write or other command.
+  expect(prefixes).toEqual(['logs gcp', 'logs errors', 'logs counts', 'Read', 'Grep', 'Glob']);
   for (const { name } of COMMANDS)
     if (prefixes.some((prefix) => name.startsWith(prefix))) expect(reads).toContain(name);
   await cli.withProject();

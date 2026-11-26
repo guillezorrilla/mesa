@@ -21,8 +21,14 @@ export type CloudVolume = {
   counted: boolean;
   why?: string;
   severities: { severity: string; count: number }[];
-  /** By service, when services are named by the labels Monitoring keeps. */
-  services?: { project: string; name: string; kind: string; count: number }[];
+  /** By service, when services are named by the labels Monitoring keeps, with its count per severity. */
+  services?: {
+    project: string;
+    name: string;
+    kind: string;
+    count: number;
+    severities: Record<string, number>;
+  }[];
   series: { start: string; count: number; errors: number }[];
   stepMs: number;
   warnings: CloudWarning[];
@@ -134,10 +140,7 @@ export async function cloudVolume(
   if (!done.length)
     return notCounted(warnings[0]?.message ?? 'Cloud Monitoring answered nothing', warnings);
   const bySeverity = new Map<string, number>();
-  const byService = new Map<
-    string,
-    { project: string; name: string; kind: string; count: number }
-  >();
+  const byService = new Map<string, NonNullable<CloudVolume['services']>[number]>();
   const byTime = new Map<string, { count: number; errors: number }>();
   for (const { project, value } of done)
     for (const series of value) {
@@ -152,8 +155,15 @@ export async function cloudVolume(
         bySeverity.set(severity, (bySeverity.get(severity) ?? 0) + count);
         if (kind && name) {
           const key = `${project}/${name}`;
-          const row = byService.get(key) ?? { project, name, kind: kind[2], count: 0 };
+          const row = byService.get(key) ?? {
+            project,
+            name,
+            kind: kind[2],
+            count: 0,
+            severities: {},
+          };
           row.count += count;
+          row.severities[severity] = (row.severities[severity] ?? 0) + count;
           byService.set(key, row);
         }
         const at = point.interval?.startTime ?? '';

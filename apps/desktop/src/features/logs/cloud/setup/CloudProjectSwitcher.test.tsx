@@ -47,6 +47,7 @@ const config = (logs: object = {}) => {
       prodAsk: [],
       mask: true,
       fixProjects: {},
+      askModel: 'claude-opus-5-5',
       recentProjects: ['tide-tables-123', 'quay-ops-7'],
       starredProjects: [],
       gcp: GCP,

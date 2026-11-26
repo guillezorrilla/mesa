@@ -22,7 +22,7 @@ export type GitPullRequestText = { title: string; body: string; run: GitTextRunI
 /** The skill run's owner (`mesa run`), as git text uses it: a project run with stdin given. */
 export type GitTextRunner = (
   skill: string,
-  opts: { project: string; input: string; agent?: string },
+  opts: { project: string; input: string; agent?: string; code?: string; model?: string },
 ) => Promise<{
   result: {
     session: string;

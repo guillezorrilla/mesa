@@ -2936,6 +2936,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
       prodAsk: [],
       mask: true,
       fixProjects: {},
+      askModel: 'claude-opus-5-5',
       recentProjects: [],
       starredProjects: [],
     },

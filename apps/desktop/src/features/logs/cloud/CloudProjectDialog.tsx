@@ -7,14 +7,16 @@ import { ProjectField } from '@/features/sessions/fields/ProjectField';
 import { useCommand } from '@/lib/useCommand';
 
 /**
- * Which registered project a session from the Logs tab starts in: General unless `initial`
- * names one. With `remember`, it offers to keep the choice for that service (Fix in session).
+ * Which registered project a session from the Logs tab starts in, or whose code Ask reads: General
+ * unless `initial` names one. With `remember`, it offers to keep the choice for that service.
  */
 export function CloudProjectDialog(props: {
   title: string;
   description: string;
   initial?: string;
   remember?: string;
+  /** The button's label: Start session unless told. */
+  submit?: string;
   onPick: (project: string, remember: boolean) => void;
   onCancel: () => void;
 }) {
@@ -26,7 +28,11 @@ export function CloudProjectDialog(props: {
       testId="cloud-project-dialog"
       title={props.title}
       description={props.description}
-      submit={{ label: 'Start session', testId: 'confirm-cloud-project', disabled: false }}
+      submit={{
+        label: props.submit ?? 'Start session',
+        testId: 'confirm-cloud-project',
+        disabled: false,
+      }}
       onSubmit={() => props.onPick(project, Boolean(props.remember) && remember)}
       onCancel={props.onCancel}
     >

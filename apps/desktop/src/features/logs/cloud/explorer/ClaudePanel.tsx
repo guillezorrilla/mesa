@@ -1,23 +1,29 @@
-import type { AskOwn, CloudAsk } from '@mesa/core';
+import type { AskOwn, CloudAsk, CloudLogEntry } from '@mesa/core';
 import { PanelRightClose, SquareArrowOutUpRight, SquarePen } from 'lucide-react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
 import type { CloudAsked, CloudFilters } from '@/lib/client/logs';
+import { CloudProjectDialog } from '../CloudProjectDialog';
 import { ProdAskDialog } from '../ProdAskDialog';
 import { useLogAsk } from '../useLogAsk';
 import { AskComposerField } from './AskComposerField';
+import { AskPendingTurn } from './AskPendingTurn';
 import { AskTurnPanel } from './AskTurnPanel';
+import { askInvestigations } from './askInvestigations';
 
 /**
  * Claude beside the Explorer (CONTEXT.md, Ask (logs)): a kept conversation whose context is the
- * query, its results and the selected entries; answers cite entries that highlight in the results,
- * a suggested query has Apply query; Open in a session carries the conversation on in a project the
- * person picks; masking and the first prod Ask's confirmation stay.
+ * query's whole range, its results and the selected entries, the answer streaming in; answers cite
+ * entries that highlight in the results, a suggested query has Apply query, and each shows its
+ * model, time and cost with Fix in session; Open in a session carries the conversation on in a
+ * project the person picks; quick investigations; masking and the first prod Ask's confirmation stay.
  */
 export function ClaudePanel(props: {
   filters: CloudFilters;
   conversation: CloudAsk | undefined;
   selected: readonly string[];
+  /** The selected entry the company or user investigation reads its field from. */
+  entry?: CloudLogEntry;
   draft?: string;
   onAsked: (asked: CloudAsked) => void;
   onNew: () => void;
@@ -26,6 +32,8 @@ export function ClaudePanel(props: {
   onRunOwn: (own: AskOwn) => void;
   onSaveView: (own: AskOwn) => void;
   onCarry: (conversation: string) => void;
+  /** Fix in session from an answer: in the project whose code it read, else one the person picks. */
+  onFix: (conversation: string, code?: string) => void;
   onClose: () => void;
 }) {
   const ask = useLogAsk(props.filters, props.conversation?.id, props.onAsked);
@@ -72,9 +80,11 @@ export function ClaudePanel(props: {
             onApply={props.onApply}
             onRunOwn={props.onRunOwn}
             onSaveView={props.onSaveView}
+            onFix={() => props.conversation && props.onFix(props.conversation.id, turn.code)}
           />
         ))}
-        {!turns.length && (
+        {ask.asking && <AskPendingTurn question={ask.asking.question} text={ask.asking.text} />}
+        {!turns.length && !ask.asking && (
           <Muted size="xs">
             Ask about the entries shown: Claude reads the query, its results and the entries you
             select.
@@ -85,8 +95,19 @@ export function ClaudePanel(props: {
         busy={ask.busy}
         selected={props.selected.length}
         draft={props.draft}
+        investigations={askInvestigations(props.filters, props.entry)}
+        onInvestigate={(investigation) => void ask.ask(investigation.question, investigation.over)}
         onAsk={(question) => ask.ask(withSelection(question))}
       />
+      {ask.picking && (
+        <CloudProjectDialog
+          title="Read code from which project?"
+          description={`Claude reads this project's code, read-only, to follow the stacks of ${ask.picking.join(', ')}. Asked once: Fix in session uses it too.`}
+          submit="Ask"
+          onPick={(project) => void ask.pick(project)}
+          onCancel={ask.cancelPick}
+        />
+      )}
       {ask.confirming && (
         <ProdAskDialog
           projects={ask.confirming}

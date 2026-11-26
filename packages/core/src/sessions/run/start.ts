@@ -7,10 +7,12 @@ import type { IdSource } from '../../lib/ids.js';
 import type { LockDeps } from '../../lib/lock-file.js';
 import { shellWord } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
+import { findProject } from '../../projects/projects.js';
 import {
   claudeRunProfile,
   isPipelineSkill,
   isTextOnlySkill,
+  READ_ONLY_RUN_TOOLS,
   readOnlyTools,
 } from '../../skills/library.js';
 import type { SkillRow } from '../../skills/sync.js';
@@ -52,6 +54,13 @@ export type RunInput = {
   args?: readonly string[];
   automation?: SessionRecord['automation'];
   timeoutSeconds?: number;
+  /**
+   * A registered project whose checkout a read-only run reads (an Ask's code), added as a folder
+   * it may read while it runs where it would anyway, so that project's own settings never apply.
+   */
+  code?: string;
+  /** The model of one of Mesa's own Claude runs, in place of its run profile's (logs.askModel). */
+  model?: string;
 };
 
 type RunDeps = LaunchDeps & {
@@ -121,9 +130,14 @@ export async function startRun(deps: RunDeps, input: RunInput) {
   const given = input.input ?? (about && aboutInput(deps, about));
   const prompt = runPrompt(spec.headless.skillPrefix, input.skill, input.args);
   const agentSessionId = newSessionId(agent, deps.newUuid);
-  const lean = claudeRunProfile(input.skill);
+  const profiled = claudeRunProfile(input.skill);
+  // A model the person chose runs at its own default effort.
+  const lean = profiled && input.model ? { model: input.model, vault: profiled.vault } : profiled;
   const textOnly = isTextOnlySkill(input.skill);
   const readTools = readOnlyTools(input.skill);
+  if (input.code !== undefined && !readTools)
+    throw new MesaError('usage', `only a read-only run reads a project's code, not ${input.skill}`);
+  const code = input.code === undefined ? undefined : findProject(deps.profile, input.code);
   const may = {
     // A text-only run reads a recipe and patch anyone could have written: it gets none of the
     // profile's allowed tools, and nothing that edits a file or runs a command (agents.ts); a
@@ -131,7 +145,14 @@ export async function startRun(deps: RunDeps, input: RunInput) {
     ...(textOnly
       ? { permissionMode: 'default', allowedTools: [] }
       : readTools
-        ? { permissionMode: 'default', allowedTools: [...readTools] }
+        ? {
+            permissionMode: 'default',
+            allowedTools: [...readTools],
+            // Its tools are these alone, and it streams its answer (an Ask's).
+            tools: READ_ONLY_RUN_TOOLS,
+            stream: true,
+            ...(code ? { dirs: [code.path] } : {}),
+          }
         : deps.profile.config.run),
     // A pipeline skill's output is landed by core (ADR-0006), so its run gets no vault writes.
     readOnlyVault: isPipelineSkill(input.skill),

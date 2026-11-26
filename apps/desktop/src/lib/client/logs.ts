@@ -52,7 +52,9 @@ export type CloudAsked = Omit<CloudRead, 'envs'> & {
   answer: string;
   cited: string[];
   queries: { project?: string; filter: string }[];
-  run: { session: string; durationMs: number; costUsd?: number };
+  run: { session: string; durationMs: number; costUsd?: number; model?: string };
+  /** The registered project whose code the run read. */
+  code?: string;
 };
 
 /** `mesa logs gcp`'s, `errors`'s and `ask`'s flags for `filters`; `=` so a value starting with - stays one. */
@@ -226,6 +228,10 @@ export const logsCommands = {
     question,
   ]),
   'logs.asks': command<{ asks: CloudAsk[] }>('logs', 'asks'),
+  /** What the Ask running now has answered so far (`mesa logs asking`), as it streams. */
+  'logs.asking': commandWith<{ since: string }, { session: string | null; text: string }>(
+    ({ since }) => ['logs', 'asking', `--since=${since}`],
+  ),
   /** Signs gcloud in (`mesa logs login`): gcloud opens the browser; the call ends when the person finishes. */
   'logs.login': command<{ signedIn: true }>('logs', 'login'),
   /** Turns on the Error Reporting API in a configured GCP project (`mesa logs enable`). */

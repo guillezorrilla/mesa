@@ -2,8 +2,9 @@ import { z } from 'zod';
 import type { AgentResult } from '../result.js';
 
 // What a headless claude prints: `claude -p --output-format json` writes one result object on
-// stdout when it is done (fixtures/results/, from Claude Code 2.1.283). Only these fields are
-// read; the rest of the object is claude's own.
+// stdout when it is done (fixtures/results/, from Claude Code 2.1.283); with `stream-json` (an
+// Ask's run, which streams its answer) one JSON event a line, the result last. Only these fields
+// are read; the rest of the object is claude's own.
 
 const ResultSchema = z.object({
   type: z.literal('result'),
@@ -17,13 +18,29 @@ const ResultSchema = z.object({
   duration_ms: z.number().nonnegative(),
 });
 
-/** Reads claude's JSON result from a headless run's stdout; never throws. */
+/** One line of JSON, or undefined when it does not read. */
+const jsonLine = (line: string): unknown => {
+  try {
+    return JSON.parse(line);
+  } catch {
+    return undefined;
+  }
+};
+
+/** Reads claude's JSON result from a headless run's stdout, one object or a stream's last; never throws. */
 export function readClaudeResult(stdout: string): AgentResult {
   const text = stdout.trim();
   if (!text) return { read: false, reason: 'claude printed no result' };
   let raw: unknown;
   try {
-    raw = JSON.parse(text);
+    raw =
+      jsonLine(text) ??
+      text
+        .split('\n')
+        .map(jsonLine)
+        .reverse()
+        .find((event) => (event as { type?: unknown } | undefined)?.type === 'result');
+    if (raw === undefined) throw new Error('no result');
   } catch {
     return { read: false, reason: 'claude printed something other than its JSON result' };
   }
@@ -43,4 +60,31 @@ export function readClaudeResult(stdout: string): AgentResult {
     durationMs: r.duration_ms,
     ...(ok ? {} : { reason }),
   };
+}
+
+type StreamEvent = {
+  type?: string;
+  parent_tool_use_id?: string | null;
+  event?: { type?: string; delta?: { type?: string; text?: string } };
+};
+
+/**
+ * The text of the newest assistant message a `stream-json` run has written so far (its
+ * `--include-partial-messages` deltas): what an Ask's answer shows while it comes. Each new
+ * message starts it again, so the text before a tool call gives way to the next; a subagent's
+ * events are not the run's answer. Empty when nothing reads.
+ */
+export function readClaudeStream(stdout: string) {
+  let text = '';
+  for (const line of stdout.split('\n')) {
+    const event = jsonLine(line) as StreamEvent | undefined;
+    if (event?.type !== 'stream_event' || event.parent_tool_use_id) continue;
+    if (event.event?.type === 'message_start') text = '';
+    else if (
+      event.event?.type === 'content_block_delta' &&
+      event.event.delta?.type === 'text_delta'
+    )
+      text += event.event.delta.text ?? '';
+  }
+  return text;
 }

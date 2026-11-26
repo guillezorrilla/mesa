@@ -138,6 +138,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
       prodAsk: [],
       mask: true,
       fixProjects: {},
+      askModel: 'claude-opus-5-5',
       recentProjects: [],
       starredProjects: [],
     },

@@ -4,11 +4,16 @@ import { QUERY_FLAGS, queryOf } from '../../input/cloud-flags.js';
 export const logsAsk = defineCommand({
   name: 'logs ask',
   summary:
-    'Answer a question about the Cloud Logs entries with an agent in General that may run read-only queries and cites entries by id; --conversation follows up; an env named prod asks once per GCP project first',
+    "Answer a question about the Cloud Logs entries with an agent that reads the range's summary, the entries and the code of the project the services map to (read-only), may run read-only queries and cites entries by id; --conversation follows up; an env named prod asks once per GCP project first",
   args: ['question'],
   flags: {
     ...QUERY_FLAGS,
     conversation: { type: 'string', description: 'The conversation to follow up (mesa logs asks)' },
+    code: {
+      type: 'string',
+      description:
+        'The registered project whose code it reads, or general for none; else the one the services map to (logs.fixProjects)',
+    },
     'allow-prod': {
       type: 'boolean',
       description: 'Confirm, once for these GCP projects, that Ask sends prod entries to the model',
@@ -19,9 +24,27 @@ export const logsAsk = defineCommand({
     const asked = await mesa.logs.ask(args.question, {
       ...queryOf(flags),
       conversation: flags.conversation,
+      code: flags.code,
       allowProd: flags['allow-prod'],
     });
     return { data: asked, text: asked.answer };
+  },
+});
+
+export const logsAsking = defineCommand({
+  name: 'logs asking',
+  summary:
+    'What the Ask running now has answered so far, as it streams; --since leaves out runs started before it; nothing when no Ask runs',
+  flags: {
+    since: {
+      type: 'string',
+      description: 'Only an Ask whose run started at or after this ISO time',
+    },
+  },
+  example: 'mesa logs asking --json',
+  run: ({ mesa, flags }) => {
+    const live = mesa.logs.asking(flags.since);
+    return { data: live, text: live.text || 'no Ask is running' };
   },
 });
 

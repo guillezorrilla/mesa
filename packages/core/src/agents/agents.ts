@@ -89,6 +89,12 @@ type HeadlessPermissions = {
   lean?: ClaudeRunProfile;
   /** It answers from its stdin alone (git-text): no tool that changes a file or runs a command. */
   textOnly?: boolean;
+  /** The only built-in tools it has (a read-only run's): `--tools`, so nothing else exists for it. */
+  tools?: readonly string[];
+  /** Folders it may read besides its own (`--add-dir`): the code an Ask reads. */
+  dirs?: readonly string[];
+  /** It streams its answer as it writes it (`stream-json` with partial messages), an Ask's run. */
+  stream?: boolean;
 };
 
 /**
@@ -209,8 +215,11 @@ export const AGENTS = {
         return [
           `${readOnlyEnv(may)}claude -p`,
           shellWord(prompt),
-          `--session-id ${sessionId} --output-format json`,
+          `--session-id ${sessionId} --output-format ${may.stream ? 'stream-json --verbose --include-partial-messages' : 'json'}`,
           ...(may.lean ? claudeLeanRun(may.lean) : []),
+          ...(may.tools ? [`--tools ${shellWord(may.tools.join(','))}`] : []),
+          // Variadic, so a flag always follows it: --permission-mode.
+          ...(may.dirs?.length ? ['--add-dir', ...may.dirs.map(shellWord)] : []),
           `--permission-mode ${shellWord(may.permissionMode)}`,
           ...(may.readOnlyVault || may.textOnly
             ? [

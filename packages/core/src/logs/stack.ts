@@ -1,3 +1,5 @@
+import { clip } from '../lib/clip.js';
+
 // A log entry's stack trace as the Logs panel folds it (CONTEXT.md, Logs panel): the exception and
 // the project's own first frame shown, the rest behind "+N frames", framework frames marked. Pure,
 // so the app bundles it (`@mesa/core/browser`).
@@ -85,6 +87,42 @@ export function ownFrame(stack: string | null) {
   return own ? location(own.text) : undefined;
 }
 
+/** Java's elision lines (`... 23 more`, `... 5 common frames omitted`): frames already shown. */
+const ELIDED = /^\s*\.\.\. \d+ (?:more|common frames omitted)\s*$/;
+
+/**
+ * `stack` folded for the model (Ask (logs)): the exception line and the project's own frames under
+ * it, and each `Caused by:` with its first own frame. Framework frames go, each run of dropped
+ * frames one `... N frames` line, and nothing is cut from the end, so the root cause stays.
+ */
+export function foldStack(stack: string) {
+  const out: string[] = [];
+  let dropped = 0;
+  // Inside a `Caused by:` section, and whether its first own frame is kept already.
+  let cause = false;
+  let causeFrame = false;
+  const flush = () => {
+    if (dropped) out.push(`    ... ${dropped} frame${dropped === 1 ? '' : 's'}`);
+    dropped = 0;
+  };
+  for (const line of stackLines(stack)) {
+    if (ELIDED.test(line.text)) continue;
+    if (!line.frame) {
+      flush();
+      out.push(line.text);
+      cause = line.text.trimStart().startsWith('Caused by:');
+      causeFrame = false;
+    } else if (line.framework || (cause && causeFrame)) dropped++;
+    else {
+      flush();
+      out.push(line.text);
+      causeFrame = cause;
+    }
+  }
+  flush();
+  return out.join('\n');
+}
+
 /**
  * `stack` for an agent: its exceptions and the project's own frames, each run of framework frames
  * one `... N framework frames` line.
@@ -105,4 +143,15 @@ export function stackSummary(stack: string) {
   }
   flush();
   return out.join('\n');
+}
+
+/**
+ * A log message as the model reads it (Ask (logs)): its first line cut at `headLimit`, and a stack
+ * it carries folded (foldStack), never cut; a message with no frame is cut whole at `headLimit`.
+ */
+export function foldedMessage(message: string, headLimit: number) {
+  const at = message.indexOf('\n');
+  const stack = at < 0 ? '' : message.slice(at + 1);
+  if (!stackLines(stack).some((line) => line.frame)) return clip(message, headLimit);
+  return `${clip(message.slice(0, at), headLimit)}\n${foldStack(stack)}`;
 }
