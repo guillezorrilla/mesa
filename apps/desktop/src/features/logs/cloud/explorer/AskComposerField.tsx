@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import type { Investigation } from './askInvestigations';
 
 const PROMPTS = [
   'Explain this',
@@ -10,13 +11,16 @@ const PROMPTS = [
 ];
 
 /**
- * Where the person asks Claude about the logs: quick prompts, a question (Cmd+Enter asks), and how
- * many selected entries go with it. `draft` starts the question when it changes (Ask about this).
+ * Where the person asks Claude about the logs: quick investigations, quick prompts, a question
+ * (Cmd+Enter asks), and how many selected entries go with it. `draft` starts the question when it
+ * changes (Ask about this).
  */
 export function AskComposerField(props: {
   busy: boolean;
   selected: number;
   draft?: string;
+  investigations: readonly Investigation[];
+  onInvestigate: (investigation: Investigation) => void;
   onAsk: (question: string) => Promise<boolean>;
 }) {
   const [question, setQuestion] = useState(props.draft ?? '');
@@ -36,6 +40,24 @@ export function AskComposerField(props: {
         void ask(question);
       }}
     >
+      <fieldset className="grid gap-1" aria-label="Quick investigations">
+        {props.investigations.map((investigation) => {
+          const Icon = investigation.icon;
+          return (
+            <button
+              key={investigation.label}
+              type="button"
+              disabled={props.busy || Boolean(investigation.off)}
+              title={investigation.off ?? investigation.question}
+              className="flex items-center gap-2 rounded-md border bg-background px-2 py-1 text-left text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-background"
+              onClick={() => props.onInvestigate(investigation)}
+            >
+              <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="truncate">{investigation.label}</span>
+            </button>
+          );
+        })}
+      </fieldset>
       <div className="flex flex-wrap gap-1">
         {PROMPTS.map((prompt) => (
           <button

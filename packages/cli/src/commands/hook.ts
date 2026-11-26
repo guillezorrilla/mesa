@@ -1,4 +1,26 @@
+import { askCommandAllowed, hookCommand, MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
+
+/**
+ * Run by an Ask's run as its Bash PreToolUse hook, never by hand: lets through one read-only
+ * `mesa logs` call and refuses anything else (logs/ask-guard.ts) with exit 2, which Claude Code
+ * reads as a block, its message shown to the model.
+ */
+export const hookAskGuard = defineCommand({
+  name: 'hook ask-guard',
+  summary:
+    "Refuse any command but one read-only mesa logs read (the Bash hook of an Ask's run), from a PreToolUse payload on stdin",
+  example: 'mesa hook ask-guard < payload.json',
+  run: async ({ stdin }) => {
+    const command = hookCommand(await stdin());
+    if (!askCommandAllowed(command))
+      throw new MesaError(
+        'usage',
+        'an Ask may run only one mesa logs gcp, errors or counts read, with nothing chained, substituted or redirected',
+      );
+    return { data: { allowed: true }, text: '' };
+  },
+});
 
 /**
  * Run by tmux's pane-died hook, never by hand: the agent in a Mesa window exited, so what was

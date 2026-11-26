@@ -1,3 +1,4 @@
+import { z } from 'zod';
 // The agents Mesa runs, by name and as a person reads each. Pure, so the app bundles it
 // (@mesa/core/browser) for its New session dialog; what each one runs and reads is AGENTS
 // (agents.ts).
@@ -139,3 +140,11 @@ export const CODEX_APPROVAL_POLICIES = ['on-request', 'never'] as const;
 export const CODEX_SANDBOXES = ['read-only', 'workspace-write', 'danger-full-access'] as const;
 /** The execution modes `agy --mode` takes (Antigravity CLI 1.2.14). */
 export const ANTIGRAVITY_MODES = ['accept-edits', 'plan'] as const;
+
+/** A Claude model one of Mesa's own runs may take (logs.askModel): an alias or a model id, one shell-safe word. */
+export const CLAUDE_MODEL = z
+  .string()
+  .regex(
+    /^(?:opus|sonnet|haiku|claude-[a-z0-9-]+)$/,
+    'a Claude model: opus, sonnet, haiku or claude-<id>',
+  );

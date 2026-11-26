@@ -1,17 +1,22 @@
 import { mkdirSync, rmSync } from 'node:fs';
 import { AGENTS, newSessionId } from '../../agents/agents.js';
 import { antigravityLog, prepareAntigravityLog } from '../../agents/antigravity/log.js';
+import { CLAUDE_MODEL } from '../../agents/names.js';
 import type { Guarded, Override } from '../../decisions/guardrail.js';
 import { writeFileAtomic } from '../../lib/atomic-file.js';
 import type { IdSource } from '../../lib/ids.js';
 import type { LockDeps } from '../../lib/lock-file.js';
 import { shellWord } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
+import { parseWith } from '../../lib/schema.js';
+import type { RegistryEntry } from '../../projects/registry.js';
 import {
   claudeRunProfile,
   isPipelineSkill,
   isTextOnlySkill,
+  READ_ONLY_RUN_TOOLS,
   readOnlyTools,
+  secretDenies,
 } from '../../skills/library.js';
 import type { SkillRow } from '../../skills/sync.js';
 import { GENERAL_PROJECT } from '../record/general.js';
@@ -39,6 +44,9 @@ const runPrompt = (prefix: string, skill: string, args: readonly string[] = []) 
 /** The skill a run's record ran, from its goal (runPrompt). */
 export const skillOfRun = (run: SessionRecord) => run.goal?.match(/^[/$](\S+)/)?.[1];
 
+/** A registered project's name and checkout, as a read-only run reads its code. */
+export type CodeFolder = Pick<RegistryEntry, 'name' | 'path'>;
+
 export type RunInput = {
   skill: string;
   /** The project to run on; the session's own when it is about one. */
@@ -52,6 +60,14 @@ export type RunInput = {
   args?: readonly string[];
   automation?: SessionRecord['automation'];
   timeoutSeconds?: number;
+  /**
+   * A registered project whose checkout a read-only run reads (an Ask's code, as its caller found
+   * it), added as a folder it may read while it runs where it would anyway, so that project's own
+   * settings never apply.
+   */
+  code?: CodeFolder;
+  /** The model of one of Mesa's own Claude runs, in place of its run profile's (logs.askModel). */
+  model?: string;
 };
 
 type RunDeps = LaunchDeps & {
@@ -121,9 +137,20 @@ export async function startRun(deps: RunDeps, input: RunInput) {
   const given = input.input ?? (about && aboutInput(deps, about));
   const prompt = runPrompt(spec.headless.skillPrefix, input.skill, input.args);
   const agentSessionId = newSessionId(agent, deps.newUuid);
-  const lean = claudeRunProfile(input.skill);
+  const profiled = claudeRunProfile(input.skill);
+  // A chosen model keeps the run profile's vault access and effort.
+  const lean = profiled && input.model ? { ...profiled, model: input.model } : profiled;
   const textOnly = isTextOnlySkill(input.skill);
   const readTools = readOnlyTools(input.skill);
+  if (input.model !== undefined) parseWith(CLAUDE_MODEL, input.model, 'model');
+  if (input.model !== undefined && !profiled)
+    throw new MesaError(
+      'usage',
+      `only one of Mesa's own Claude runs takes a model, not ${input.skill}`,
+    );
+  if (input.code !== undefined && !readTools)
+    throw new MesaError('usage', `only a read-only run reads a project's code, not ${input.skill}`);
+  const { code } = input;
   const may = {
     // A text-only run reads a recipe and patch anyone could have written: it gets none of the
     // profile's allowed tools, and nothing that edits a file or runs a command (agents.ts); a
@@ -131,7 +158,17 @@ export async function startRun(deps: RunDeps, input: RunInput) {
     ...(textOnly
       ? { permissionMode: 'default', allowedTools: [] }
       : readTools
-        ? { permissionMode: 'default', allowedTools: [...readTools] }
+        ? {
+            permissionMode: 'default',
+            allowedTools: [...readTools],
+            // Its tools are these alone, and it streams its answer (an Ask's).
+            tools: READ_ONLY_RUN_TOOLS,
+            stream: true,
+            // Claude Code runs read-only commands (grep, cat) unasked in the folders it reads,
+            // past any deny rule: its every Bash call passes the guard, which lets one read through.
+            bashGuard: `${deps.self.map(shellWord).join(' ')} hook ask-guard`,
+            ...(code ? { dirs: [code.path], denied: secretDenies(code.path) } : {}),
+          }
         : deps.profile.config.run),
     // A pipeline skill's output is landed by core (ADR-0006), so its run gets no vault writes.
     readOnlyVault: isPipelineSkill(input.skill),

@@ -142,6 +142,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
         prodAsk: [],
         mask: true,
         fixProjects: {},
+        askModel: 'claude-opus-5-5',
         recentProjects: [],
         starredProjects: [],
       },

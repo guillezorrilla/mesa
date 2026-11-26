@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type Runner, readOnlyTools } from '@mesa/core';
 import { claudeAnswer, finishesRun } from '@mesa/core/testing';
@@ -207,10 +207,17 @@ test('logs ask runs in General and cites entries; prod asks once per GCP project
     entries: [{ id: 'aa11' }, { id: 'bb22' }],
     run: { session: expect.any(String) },
   });
-  // A General run, in the profile's own folder with the skill linked there.
+  // A General run, in the profile's own folder with the skill linked there: read-only tools only,
+  // the profile's Ask model, its answer streamed; no service maps to a project, so it reads no code.
   const general = join(cli.paths.root, 'sessions', 'general-runs');
   expect(tmux.opened.at(-1)).toMatchObject({ project: '__mesa_general__' });
   expect(existsSync(join(general, '.claude', 'skills', 'cloud-logs'))).toBe(true);
+  const launch = tmux.opened.at(-1)?.launch ?? '';
+  expect(launch).toContain("--tools 'Bash,Read,Grep,Glob'");
+  expect(launch).toContain("--model 'claude-opus-5-5'");
+  expect(launch).toContain('--output-format stream-json --verbose --include-partial-messages');
+  expect(launch).not.toContain('--add-dir');
+  expect(beta.json.data.code).toBeUndefined();
 
   const prod = await mesa('logs', 'ask', 'what fails most?', '--env', 'prod', '--json');
   expect(prod.code).toBe(10);
@@ -257,7 +264,95 @@ test('logs ask runs in General and cites entries; prod asks once per GCP project
     query: { env: 'beta' },
     cited: ['aa11', 'bb22'],
     answer,
+    model: 'claude-opus-5-5',
+    durationMs: expect.any(Number),
+    entries: [{ id: 'aa11' }, { id: 'bb22' }],
   });
+});
+
+test('logs ask reads the code of the project the asked services map to, added read-only, and --code general reads none', async () => {
+  const tmux = cli.withTmux({ onOpen: finishesRun({ output: claudeAnswer('It fails [aa11].') }) });
+  const dir = await cli.withProject();
+  const calls = withGcloud((_, project) =>
+    JSON.stringify(project === 'tide-tables-123' ? ENTRIES : WEB),
+  );
+  await setUp();
+  await mesa('config', 'set', 'logs.fixProjects', '{"tide-tables-123/tide-api":"lantern-cove"}');
+  const asked = await mesa(
+    'logs',
+    'ask',
+    'why?',
+    '--env',
+    'beta',
+    '--service',
+    'tide-tables-123/tide-api',
+    '--json',
+  );
+  expect(asked.json.data.code).toBe('lantern-cove');
+  // Its range summary reads the range's deploys (cloudDeploys): App Engine's versions among them.
+  expect(calls.some((args) => args[0] === 'app' && args[1] === 'versions')).toBe(true);
+  expect(tmux.opened.at(-1)).toMatchObject({ project: '__mesa_general__' });
+  const launch = tmux.opened.at(-1)?.launch ?? '';
+  expect(launch).toContain(`--add-dir '${dir}'`);
+  // Its secrets stay unread: deny rules on the code folder, and every Bash call passes the guard.
+  expect(launch).toContain(`'Read(/${dir}/**/.env*)'`);
+  expect(launch).toContain(`'Grep(/${dir}/**/*.pem)'`);
+  expect(launch).toContain(`'Glob(/${dir}/**/secrets/**)'`);
+  expect(launch).toContain('hook ask-guard');
+  // With no service named, the entries read decide: most map to lantern-cove.
+  expect((await mesa('logs', 'ask', 'why?', '--env', 'beta', '--json')).json.data.code).toBe(
+    'lantern-cove',
+  );
+  const none = await mesa('logs', 'ask', 'why?', '--env', 'beta', '--code', 'general', '--json');
+  expect(none.json.data.code).toBeUndefined();
+  expect(tmux.opened.at(-1)?.launch).not.toContain('--add-dir');
+  expect((await mesa('logs', 'asking', 'ask-token-1', '--json')).json.data).toEqual({
+    session: null,
+    text: '',
+  });
+  // Once an Ask with that token names its run, asking reads that run's stream and no other's.
+  const runs = join(cli.paths.root, 'sessions', 'runs');
+  writeFileSync(join(runs, 'ask-token-2.ask'), 'runaaaa1');
+  writeFileSync(
+    join(runs, 'runaaaa1.json'),
+    [
+      { type: 'stream_event', event: { type: 'message_start' } },
+      {
+        type: 'stream_event',
+        event: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Berth 7 ' } },
+      },
+    ]
+      .map((e) => JSON.stringify(e))
+      .join('\n'),
+  );
+  expect((await mesa('logs', 'asking', 'ask-token-2', '--json')).json.data).toEqual({
+    session: 'runaaaa1',
+    text: 'Berth 7 ',
+  });
+  // A second Ask at once keeps its own text, and a token another Ask holds is refused.
+  writeFileSync(join(runs, 'ask-token-3.ask'), 'runbbbb2');
+  writeFileSync(
+    join(runs, 'runbbbb2.json'),
+    JSON.stringify({
+      type: 'stream_event',
+      event: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Quay 3' } },
+    }),
+  );
+  expect((await mesa('logs', 'asking', 'ask-token-3', '--json')).json.data.text).toBe('Quay 3');
+  expect((await mesa('logs', 'asking', 'ask-token-2', '--json')).json.data.text).toBe('Berth 7 ');
+  const busy = await mesa(
+    'logs',
+    'ask',
+    'why?',
+    '--env',
+    'beta',
+    '--stream',
+    'ask-token-2',
+    '--json',
+  );
+  expect(busy.code).toBe(2);
+  expect(busy.json.error.message).toBe('stream token ask-token-2 is in use by another Ask');
+  expect(await mesa('logs', 'asking', 'x;y', '--json')).toMatchObject({ code: 4 });
 });
 
 test('logs query turns a sentence into a checked Logging query from the field names, never their values', async () => {
@@ -281,7 +376,8 @@ test("Ask's tools match only reads, and an agent in a Mesa window cannot repoint
   const prefixes = (readOnlyTools('cloud-logs') ?? []).map(
     (rule) => /^Bash\(mesa (.+):\*\)$/.exec(rule)?.[1] ?? rule,
   );
-  expect(prefixes).toHaveLength(3);
+  // Three mesa logs reads and nothing else: code is read in its folders without a rule.
+  expect(prefixes).toEqual(['logs gcp', 'logs errors', 'logs counts']);
   for (const { name } of COMMANDS)
     if (prefixes.some((prefix) => name.startsWith(prefix))) expect(reads).toContain(name);
   await cli.withProject();

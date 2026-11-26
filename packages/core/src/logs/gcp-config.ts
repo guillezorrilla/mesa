@@ -23,14 +23,17 @@ export const PROD_ENV = 'prod';
 export const PROD_WORD = /(^|[^a-z0-9])prod(uction)?($|[^a-z])/i;
 /** What that person confirms. */
 export const PROD_ASK = 'Entries Ask reads are sent to the model';
-/** The Cloud Logs settings only a person changes: the projects read, masking, the prod confirmation. */
 /** The env value that reads every env: no env filter (`--env '*'`, the toolbar's All envs). */
 export const ALL_ENVS = '*';
 
-export const PERSON_ONLY_LOGS = ['gcp', 'mask', 'prodAsk'] as const;
+/**
+ * The Cloud Logs settings only a person changes: the projects read, masking, the prod confirmation,
+ * which repo's code each service's Ask reads (fixProjects) and the model it pays for (askModel).
+ */
+export const PERSON_ONLY_LOGS = ['gcp', 'mask', 'prodAsk', 'fixProjects', 'askModel'] as const;
 /** Why an agent in a Mesa window cannot change them, as for a project's scripts (ADR-0013). */
 export const CLOUD_LOGS_FROM_SESSION =
-  "Cloud Logs' projects, masking and prod confirmation can only be changed from the Mesa app or a terminal outside a Mesa session";
+  "Cloud Logs' projects, masking, prod confirmation, the code each service's Ask reads and Ask's model can only be changed from the Mesa app or a terminal outside a Mesa session";
 
 const ENV_NAME = /^[A-Za-z0-9][\w-]*$/;
 

@@ -1,5 +1,5 @@
 import type { CloudErrorGroup, GuardrailCheck } from '@mesa/core';
-import { serviceRefOf } from '@mesa/core/browser';
+import { mappedProject, serviceRefOf } from '@mesa/core/browser';
 import { useState } from 'react';
 import { useToast } from '@/components/Toast';
 import { guardrailOf } from '@/features/sessions/dialogs/GuardrailDialog';
@@ -52,16 +52,21 @@ export function useCloudSession(env: string | undefined, onSession: (id: string)
     pickingRef: picking && 'group' in picking ? refOf(picking.group) : undefined,
     asking,
     fix: (group: CloudErrorGroup) => {
-      const mapped = fixProjects[refOf(group)];
+      const mapped = mappedProject(fixProjects, refOf(group));
       if (mapped) void start({ group }, mapped);
       else setPicking({ group });
     },
     carry: (conversation: string) => setPicking({ conversation }),
+    /** Fix in session from an answer: in `code`, the project whose code it read, else one picked. */
+    fixAsk: (conversation: string, code?: string) => {
+      if (code) void start({ conversation }, code);
+      else setPicking({ conversation });
+    },
     pick: async (project: string, remember: boolean) => {
       const goal = picking;
       setPicking(undefined);
       if (!goal) return;
-      if (remember && 'group' in goal) await rememberFix(refOf(goal.group), project);
+      if (remember && 'group' in goal) await rememberFix([refOf(goal.group)], project);
       await start(goal, project);
     },
     cancel: () => setPicking(undefined),

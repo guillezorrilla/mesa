@@ -39,14 +39,44 @@ export const isPipelineSkill = (skill: string) => PIPELINE_SKILLS.includes(skill
 export const isTextOnlySkill = (skill: string) => skill === GIT_TEXT;
 
 /**
- * The only tools a skill's run may use, when it is one of Mesa's read-only runs: cloud-logs, whose
+ * The commands a skill's run may run, when it is one of Mesa's read-only runs: cloud-logs, whose
  * stdin holds log entries anyone could have made a service print, may run Cloud Logs reads and
- * nothing else.
+ * nothing else. Its Read, Grep and Glob need no rule: they read its own folder and an Ask's code
+ * folder (`--add-dir`) unasked, and are refused anywhere else.
  */
 export const readOnlyTools = (skill: string): readonly string[] | undefined =>
   skill === CLOUD_LOGS
     ? ['Bash(mesa logs gcp:*)', 'Bash(mesa logs errors:*)', 'Bash(mesa logs counts:*)']
     : undefined;
+
+/** The built-in tools a read-only run has at all: no edit, write, web or subagent tool exists for it. */
+export const READ_ONLY_RUN_TOOLS: readonly string[] = ['Bash', 'Read', 'Grep', 'Glob'];
+
+/** Files of a project a read-only run never reads, however its code folder is read: its secrets. */
+const SECRET_FILES = [
+  '.env*',
+  '*.pem',
+  '*.key',
+  '*.p12',
+  '*.pfx',
+  '*.keystore',
+  '*.jks',
+  'id_rsa*',
+  'id_ed25519*',
+  '*credentials*',
+  'secrets/**',
+  '.git/config',
+  '.npmrc',
+  '.netrc',
+  '.pgpass',
+];
+
+/** The deny rules that keep a read-only run's file tools off the secrets under `folder`. */
+export const secretDenies = (folder: string) =>
+  ['Read', 'Grep', 'Glob'].flatMap((tool) =>
+    // `//` starts an absolute path in a Claude Code rule.
+    SECRET_FILES.map((file) => `${tool}(/${folder}/**/${file})`),
+  );
 
 /** The skill whose run summarises a session's output log (skills/session-summary). */
 export const SESSION_SUMMARY = 'session-summary';
@@ -60,7 +90,7 @@ export const SESSION_SUMMARY = 'session-summary';
  * settings, plugins or hooks; and `effort`, low where it only writes short text. Any other skill runs as
  * the person's sessions do.
  */
-export type ClaudeRunProfile = { model: 'haiku' | 'sonnet'; vault: boolean; effort?: 'low' };
+export type ClaudeRunProfile = { model: string; vault: boolean; effort?: 'low' };
 const RUN_PROFILES: Readonly<Record<string, ClaudeRunProfile>> = {
   [VAULT_CAPTURE]: { model: 'haiku', vault: true },
   [GIT_TEXT]: { model: 'haiku', vault: false, effort: 'low' },

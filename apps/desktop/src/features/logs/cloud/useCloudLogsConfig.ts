@@ -7,7 +7,7 @@ import { useCall, useCommand, useRun } from '@/lib/useCommand';
 /**
  * The Logs tab's side of the profile config (CONTEXT.md, Cloud Logs), the one place its components
  * change it: the projects and envs, the stars, the saved views (save, remove, export and import as
- * YAML), and the project a service's Fix in session starts in. Each change is read again by every reader.
+ * YAML), and the project a service's Fix in session starts in and Ask reads the code of. Each change is read again by every reader.
  */
 export function useCloudLogsConfig() {
   const config = useCommand('config.get');
@@ -88,7 +88,11 @@ export function useCloudLogsConfig() {
       if (!(await run('logs.star', { project, on }))) await config.refresh();
     },
     fixProjects: logs?.fixProjects ?? {},
-    rememberFix: (ref: string, project: string) =>
-      set('logs.fixProjects', { ...(logs?.fixProjects ?? {}), [ref]: project }),
+    /** Keeps `project` as the one each service of `refs` fixes in, and whose code Ask reads. */
+    rememberFix: (refs: readonly string[], project: string) =>
+      set('logs.fixProjects', {
+        ...(logs?.fixProjects ?? {}),
+        ...Object.fromEntries(refs.map((ref) => [ref, project])),
+      }),
   };
 }

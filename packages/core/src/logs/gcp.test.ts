@@ -523,7 +523,7 @@ test('Ask runs cloud-logs with the question, the filter and the entries fenced a
     {
       skill: 'cloud-logs',
       project: '__mesa_general__',
-      input: askInput('what fails most?', 'severity>=ERROR', entries),
+      input: askInput('what fails most?', { filter: 'severity>=ERROR', entries }),
     },
   ]);
   expect(asked[0]?.input).toMatch(/^Question:\nwhat fails most\?\n/);

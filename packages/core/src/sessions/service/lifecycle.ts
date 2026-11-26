@@ -18,7 +18,7 @@ import { heldWorktrees } from '../record/holders.js';
 import { recordAgent } from '../record/record.js';
 import { markEnded, recordStart, startedOutputs } from '../record/session-receipt.js';
 import { endRun } from '../run/end.js';
-import { runSkill } from '../run/index.js';
+import { type RunWatch, runSkill } from '../run/index.js';
 import type { RunInput } from '../run/start.js';
 import { readGoal } from '../start/goal.js';
 import { openSession } from '../start/open.js';
@@ -257,7 +257,7 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
     worker: (project: string | undefined, task: string, flags: WorkerFlags = {}) =>
       actions.open(project, workerOpen(task, flags)),
     /** Runs a skill headlessly and waits for its result (CONTEXT.md, Skill run; runSkill). */
-    run: (skill: string, opts: Omit<RunInput, 'skill'> & Overrides) =>
+    run: (skill: string, opts: Omit<RunInput, 'skill'> & Overrides & RunWatch) =>
       runSkill(ctx, { faro, caller, start: deps.runDeps, stopped: ends.stopped }, skill, opts),
     /**
      * Removes a session's record, hook log, output log, and a run's output, and with the flags

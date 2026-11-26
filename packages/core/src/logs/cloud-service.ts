@@ -4,10 +4,20 @@ import type { MesaContext } from '../context.js';
 import type { GitTextRunner } from '../git/message.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
+import { findProject } from '../projects/projects.js';
 import { GENERAL_PROJECT } from '../sessions/record/general.js';
 import { callerOf } from '../sessions/window/caller.js';
-import { askCloudLogs, keepQuery, queryFromWords, runQueries } from './ask.js';
+import {
+  askCloudLogs,
+  codeProject,
+  keepQuery,
+  modelEntry,
+  queryFromWords,
+  runQueries,
+} from './ask.js';
 import { keepTurn, readAsks } from './ask-history.js';
+import { claimStream, streamedAnswer } from './ask-stream.js';
+import { serviceRefOf } from './cloud-entry.js';
 import { cloudDeploys, type DeployQuery } from './deploys.js';
 import { type CloudErrorGroup, cloudErrors, errorSamples } from './errors.js';
 import { askSessionGoal, errorFixGoal } from './fix-goal.js';
@@ -29,6 +39,7 @@ import { cloudServices } from './gcp-services.js';
 import { maskEntry, maskErrors, maskText } from './mask.js';
 import { metricCounts, metricViews } from './metrics.js';
 import { ownOf } from './own-filters.js';
+import { readRange } from './range-read.js';
 import { exportViews, importViews, mergeViews } from './views.js';
 import { cloudVolume } from './volume.js';
 
@@ -305,11 +316,16 @@ export function cloudLogsService(
      */
     ask: async (
       question: string,
-      query: CloudQuery & { allowProd?: boolean; conversation?: string } = {},
+      query: CloudQuery & {
+        allowProd?: boolean;
+        conversation?: string;
+        code?: string;
+        stream?: string;
+      } = {},
     ) => {
       const config = gcpConfig();
       const env = envOf(config, query.env);
-      const { mask } = ctx.open().config.logs;
+      const { mask, fixProjects, askModel } = ctx.open().config.logs;
       // Prod is what the Ask reads: the env named prod, or filters that name prod, in the projects
       // its services and projects pick; only those projects are confirmed.
       await prodGate(
@@ -317,16 +333,49 @@ export function cloudLogsService(
         readsProd(config, env),
         query.allowProd,
       );
-      const { allowProd: _, conversation, limit: __, ...kept } = query;
+      const { allowProd: _, conversation, limit: __, code: named, stream, ...kept } = query;
+      const streamed = stream === undefined ? undefined : claimStream(ctx.paths.runs, stream);
+      // Which repo's code Ask reads is a person's call, as logs.fixProjects is.
+      if (named !== undefined) personOnly('Naming the code an Ask reads (--code)');
       const earlier = readAsks(ctx.paths.cloudAsks).find((a) => a.id === conversation)?.turns ?? [];
       // Read afresh rather than trust entries a caller sends: the model sees only what gcloud gave.
-      const read = await cloudLogs(cloudDeps(), config, { ...query, env: env ?? ALL_ENVS });
+      const [read, range] = await Promise.all([
+        cloudLogs(cloudDeps(), config, { ...query, env: env ?? ALL_ENVS }),
+        readRange(
+          errorDeps(),
+          config,
+          { ...kept, env: env ?? ALL_ENVS },
+          { mask, deployCache: { file: ctx.paths.cloudDeploys, lock: ctx } },
+        ),
+      ]);
+      // The code it reads (codeProject): the one named, else the asked services', else the entries'.
+      const code = codeProject(
+        fixProjects,
+        kept.services?.length ? kept.services : read.entries.map(serviceRefOf),
+        named,
+      );
       // What the person typed in a filter (an email in --text) is masked like the entries.
       const filter = Object.entries(read.filters)
         .map(([project, each]) => `${project}: ${mask ? maskText(each) : each}`)
         .join('\n');
       const entries = mask ? read.entries.map(maskEntry) : read.entries;
-      const asked = await askCloudLogs(deps.runText, question, { filter, entries }, earlier);
+      // The project's one lookup: its folder goes to the run and on its stdin; not_found when unregistered.
+      const codeEntry = code ? findProject(ctx.open(), code) : undefined;
+      const asked = await askCloudLogs(
+        deps.runText,
+        question,
+        {
+          filter,
+          entries,
+          range,
+          ...(codeEntry ? { code: { name: codeEntry.name, path: codeEntry.path } } : {}),
+        },
+        earlier,
+        {
+          model: askModel,
+          ...(streamed ? { onStart: streamed.started } : {}),
+        },
+      ).finally(() => streamed?.done());
       const queries = [
         ...Object.entries(read.filters).map(([project, each]) => ({
           project,
@@ -343,6 +392,11 @@ export function cloudLogsService(
         cited: asked.cited,
         queries,
         session: asked.run.session,
+        ...(code ? { code } : {}),
+        model: askModel,
+        durationMs: asked.run.durationMs,
+        ...(asked.run.costUsd === undefined ? {} : { costUsd: asked.run.costUsd }),
+        entries: entries.filter((e) => asked.cited.includes(e.id)).map(modelEntry),
       };
       const ask = keepTurn(ctx.paths.cloudAsks, conversation ?? asked.run.session, turn, ctx);
       return {
@@ -353,8 +407,14 @@ export function cloudLogsService(
         entries: forAgent() ? read.entries.map(maskEntry) : read.entries,
         ...asked,
         queries,
+        ...(code ? { code } : {}),
       };
     },
+    /**
+     * What an Ask's run started at or after `since` has answered so far, while it runs: the text
+     * its stream holds (liveRunText); none when no Ask runs.
+     */
+    asking: (stream: string) => streamedAnswer(ctx.paths.runs, stream),
     /**
      * A Logging query for `sentence` (queryFromWords), from the query shown and the context fields
      * of the entries `query` picks (their names only).

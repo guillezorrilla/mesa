@@ -28,6 +28,18 @@ const QuerySchema = z.object({
 export type AskQuery = z.infer<typeof QuerySchema>;
 export type AskOwn = NonNullable<AskQuery['own']>;
 
+/** A cited entry, kept with its turn (masked, its stack folded) so a handoff carries it. */
+const EntrySchema = z.object({
+  project: z.string(),
+  id: z.string(),
+  time: z.string(),
+  severity: z.string(),
+  service: z.string().nullable(),
+  message: z.string(),
+  trace: z.string().nullable(),
+  fields: z.record(z.string(), z.string()),
+});
+
 const TurnSchema = z.object({
   at: z.string(),
   question: z.string(),
@@ -36,6 +48,14 @@ const TurnSchema = z.object({
   cited: z.array(z.string()),
   queries: z.array(QuerySchema),
   session: z.string(),
+  /** The registered project whose code the run read; none when it read none. */
+  code: z.string().optional(),
+  /** The model that answered, how long the run took and what it cost. */
+  model: z.string().optional(),
+  durationMs: z.number().optional(),
+  costUsd: z.number().optional(),
+  /** The entries it cited that it was given, as it read them. */
+  entries: z.array(EntrySchema).optional(),
 });
 export type AskTurn = z.infer<typeof TurnSchema>;
 

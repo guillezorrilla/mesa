@@ -172,3 +172,52 @@ test('a typed email in the filter Ask sends to the model is masked like the entr
   expect(inputs[0]).not.toContain('ops@harbour.example');
   expect(inputs[0]).toContain('<email>');
 });
+
+test("an Ask's own reads stay in the configured GCP projects; which code it reads and its model are a person's", async () => {
+  await setUp();
+  cli.env = { MESA_SESSION_ID: 'agentwin' };
+  // A read in a configured project comes back, masked.
+  const inside = await mesa(
+    'logs',
+    'gcp',
+    '--env',
+    'beta',
+    '--project',
+    'tide-tables-123',
+    '--json',
+  );
+  expect(inside.code).toBe(0);
+  expect(inside.stdout).toContain('aa11');
+  expect(inside.stdout).not.toContain('ops@harbour.example');
+  for (const argv of [
+    ['logs', 'gcp', '--env', 'beta', '--project', 'elsewhere-9'],
+    ['logs', 'errors', '--env', 'beta', '--project', 'elsewhere-9'],
+    ['logs', 'counts', '--project', 'elsewhere-9', '--metric', 'dock-errors'],
+    ['logs', 'errors', 'samples', 'elsewhere-9', 'g1'],
+  ]) {
+    const read = await mesa(...argv, '--json');
+    expect(read.code, argv.join(' ')).toBe(2);
+    expect(read.stdout).not.toContain('ops@harbour.example');
+  }
+  expect(
+    await mesa('config', 'set', 'logs.fixProjects', '{"tide-tables-123/tide-api":"lantern-cove"}'),
+  ).toMatchObject({ code: 2 });
+  expect(await mesa('config', 'set', 'logs.askModel', 'claude-haiku-5-5')).toMatchObject({
+    code: 2,
+  });
+  const named = await mesa(
+    'logs',
+    'ask',
+    'why?',
+    '--env',
+    'beta',
+    '--code',
+    'lantern-cove',
+    '--json',
+  );
+  expect(named.code).toBe(2);
+  expect(named.json.error.message).toContain("Naming the code an Ask reads (--code) is a person's");
+  cli.env = {};
+  expect(readFileSync(cli.paths.config, 'utf8')).not.toContain('claude-haiku-5-5');
+  expect(await mesa('config', 'set', 'logs.askModel', 'gpt; rm -rf')).toMatchObject({ code: 4 });
+});

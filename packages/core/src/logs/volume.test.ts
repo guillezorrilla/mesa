@@ -63,8 +63,20 @@ test("the range's entries by severity, service and minute come from log_entry_co
     { severity: 'INFO', count: 900 },
   ]);
   expect(volume.services).toEqual([
-    { project: 'tide-tables-123', name: 'tide-api', kind: 'GKE', count: 904 },
-    { project: 'harbour-web-456', name: 'harbour-web', kind: 'Cloud Run', count: 40 },
+    {
+      project: 'tide-tables-123',
+      name: 'tide-api',
+      kind: 'GKE',
+      count: 904,
+      severities: { ERROR: 4, INFO: 900 },
+    },
+    {
+      project: 'harbour-web-456',
+      name: 'harbour-web',
+      kind: 'Cloud Run',
+      count: 40,
+      severities: { WARNING: 40 },
+    },
   ]);
   expect(volume.stepMs).toBe(60_000);
   expect(volume.series).toEqual([

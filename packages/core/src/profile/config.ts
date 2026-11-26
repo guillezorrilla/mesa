@@ -5,7 +5,7 @@ import { parse } from 'yaml';
 import { z } from 'zod';
 import { AgentSchema } from '../agents/agents.js';
 import { LaunchDefaultsSchema } from '../agents/launch-flags.js';
-import { CLAUDE_PERMISSION_MODES, DEFAULT_AGENT } from '../agents/names.js';
+import { CLAUDE_MODEL, CLAUDE_PERMISSION_MODES, DEFAULT_AGENT } from '../agents/names.js';
 import { DecisionsModelSchema } from '../decisions/types.js';
 import { validExternalArgv } from '../files/external.js';
 import { DEFAULT_COMMIT_RECIPE, DEFAULT_PULL_REQUEST_RECIPE } from '../git/recipes.js';
@@ -360,8 +360,13 @@ const ConfigShape = z.strictObject({
       prodAsk: z.array(z.string()).default([]),
       /** Whether emails and IP addresses are masked in what Ask sends to the model (logs/mask.ts). */
       mask: z.boolean().default(true),
-      /** The registered project each service's Fix in session starts in, by `<project>/<name>`. */
+      /**
+       * The registered project each service's Fix in session starts in, and whose code Ask reads,
+       * by `<project>/<name>`.
+       */
       fixProjects: z.record(z.string(), z.string()).default({}),
+      /** The model Ask's run answers with (logs/ask.ts): a capable one, as it reads code and a range. */
+      askModel: CLAUDE_MODEL.default('claude-opus-5-5'),
       /** The GCP projects Cloud Logs read last, newest first (the project switcher's Recent). */
       recentProjects: z.array(z.string()).default([]),
       /** The GCP projects starred in the project switcher. */

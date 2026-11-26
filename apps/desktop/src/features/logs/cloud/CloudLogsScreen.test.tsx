@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { useState } from 'react';
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import type { CloudFilters } from '@/lib/client/logs';
 import {
   attached,
@@ -34,7 +34,7 @@ const entry = (id: string, minutesAgo: number, message: string, extra: object = 
   ...extra,
 });
 const GCP = { projects: ['tide-tables-123', 'harbour-web-456'], envs: { beta: 'x', prod: 'y' } };
-const config = (gcp?: object) => {
+const config = (gcp?: object, fixProjects: Record<string, string> = {}) => {
   const base = (HEALTHY.config as (args: string[]) => { data: object })([]).data;
   return envelope({
     ...base,
@@ -44,7 +44,8 @@ const config = (gcp?: object) => {
       views: [],
       prodAsk: [],
       mask: true,
-      fixProjects: {},
+      fixProjects,
+      askModel: 'claude-opus-5-5',
       recentProjects: [],
       starredProjects: [],
       ...(gcp ? { gcp } : {}),
@@ -518,6 +519,13 @@ test('Explorer: fields add or exclude clauses, Show matching narrows, repeats fo
   await fill(q<HTMLTextAreaElement>('[aria-label="Question about the logs"]'), 'why?');
   await click(button('Ask', q('[aria-label="Claude"]') ?? document));
   await attached();
+  // No service shown maps to a project yet: which code to read is asked once, and kept.
+  expect(q('[data-testid="cloud-project-dialog"]')?.textContent).toContain(
+    'Read code from which project?',
+  );
+  await click(q('[data-testid="confirm-cloud-project"]'));
+  await attached();
+  expect(calls.some((argv) => argv.join(' ').includes('logs.fixProjects'))).toBe(true);
   expect(q('[data-testid="prod-ask-dialog"]')?.textContent).toContain('tide-tables-123');
   await click(q('[data-testid="confirm-prod-ask"]'));
   await attached();
@@ -544,6 +552,10 @@ test("an Ask's answer copies its query, a query it ran runs its own filters over
       },
     ],
     session: 'r1',
+    code: 'lantern-cove',
+    model: 'claude-opus-5-5',
+    durationMs: 42_000,
+    costUsd: 0.31,
   };
   const { bridge, calls } = fakeBridge({
     config: () => config(GCP),
@@ -581,6 +593,73 @@ test("an Ask's answer copies its query, a query it ran runs its own filters over
   await attached();
   const open = calls.filter((argv) => argv[2] === 'session').at(-1);
   expect(open).toEqual(expect.arrayContaining(['--conversation=c1', '__mesa_general__']));
+  // Each answer says its model, time and cost, and the code it read; Fix in session starts there.
+  expect(claude.textContent).toContain('Opus 5.5 · 42s · $0.31 · read lantern-cove');
+  await click(button('Fix in session', claude));
+  await attached();
+  expect(calls.filter((argv) => argv[2] === 'session').at(-1)).toEqual(
+    expect.arrayContaining(['--conversation=c1', 'lantern-cove']),
+  );
+});
+
+test('a quick investigation asks with its own range, and the answer streams into the panel as it comes', async () => {
+  let finish: (value: unknown) => void = () => {};
+  const { bridge, calls } = fakeBridge({
+    config: () => config(GCP, { 'tide-tables-123/tide-api': 'lantern-cove' }),
+    'logs asks': () => envelope({ asks: [] }),
+    'logs gcp': (args) =>
+      args.includes('--services')
+        ? envelope({ env: 'beta', services: [], warnings: [] })
+        : envelope({
+            projects: GCP.projects,
+            env: 'beta',
+            envs: ['beta', 'prod'],
+            filters: {},
+            warnings: [],
+            entries: [entry('a1', 1, 'lookup failed for order 18240')],
+          }),
+    'logs asking': (args) =>
+      envelope({
+        session: 'r2',
+        text: args.at(-1)?.length === 36 ? 'Two groups are new since' : '',
+      }),
+    'logs ask': () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  });
+  await renderWithMesa(<Harness mode="explorer" />, bridge);
+  await attached();
+  const claude = q('[aria-label="Claude"]') ?? document;
+  expect(
+    (button('Errors for this company/user', claude) as HTMLButtonElement | null)?.disabled,
+  ).toBe(true);
+  await click(button('What is new since yesterday', claude));
+  await vi.waitFor(() => expect(claude.textContent).toContain('Two groups are new since'), {
+    timeout: 3000,
+  });
+  const asked = calls.filter((argv) => argv[2] === 'ask').at(-1) ?? [];
+  expect(asked).toContain('--since=1d');
+  // The panel reads the answer by the Ask's own stream token, never another Ask's.
+  const token = asked.find((arg) => arg.startsWith('--stream='))?.slice('--stream='.length);
+  expect(calls.some((argv) => argv[2] === 'asking' && argv.at(-1) === token)).toBe(true);
+  expect(calls.some((argv) => argv[2] === 'asking')).toBe(true);
+  finish(
+    envelope({
+      conversation: 'c2',
+      projects: [],
+      env: 'beta',
+      filters: {},
+      entries: [],
+      warnings: [],
+      answer: 'Two groups are new since yesterday [a1].',
+      cited: ['a1'],
+      queries: [],
+      run: { session: 'r2', durationMs: 1 },
+    }),
+  );
+  await attached();
+  expect(view().ask).toBe('c2');
 });
 
 test('the fields pane: app fields first, plumbing under More, ids only when searched; a pinned field is a column; every row has its badge; long messages fold; the histogram spans what was read', async () => {

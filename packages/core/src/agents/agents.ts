@@ -89,6 +89,16 @@ type HeadlessPermissions = {
   lean?: ClaudeRunProfile;
   /** It answers from its stdin alone (git-text): no tool that changes a file or runs a command. */
   textOnly?: boolean;
+  /** The only built-in tools it has (a read-only run's): `--tools`, so nothing else exists for it. */
+  tools?: readonly string[];
+  /** Folders it may read besides its own (`--add-dir`): the code an Ask reads. */
+  dirs?: readonly string[];
+  /** It streams its answer as it writes it (`stream-json` with partial messages), an Ask's run. */
+  stream?: boolean;
+  /** Rules it is denied besides its own (an Ask's code folder's secrets), which win over any allow. */
+  denied?: readonly string[];
+  /** The command its every Bash call passes first, as a PreToolUse hook (`mesa hook ask-guard`). */
+  bashGuard?: string;
 };
 
 /**
@@ -96,12 +106,23 @@ type HeadlessPermissions = {
  * person's MCP servers, user settings, plugins or hooks, while the project's settings and skills
  * still load (ADR-0012 amendment); no MCP server at all.
  */
-const claudeLeanRun = (lean: ClaudeRunProfile) => [
+const claudeLeanRun = (lean: ClaudeRunProfile, bashGuard?: string) => [
   `--model ${shellWord(lean.model)}`,
   ...(lean.effort ? [`--effort ${lean.effort}`] : []),
   '--strict-mcp-config',
   '--setting-sources project,local',
-  shellWord(`--settings=${JSON.stringify({ disableAllHooks: true })}`),
+  // No hook of the folder's runs, unless its Bash calls pass a guard: then that one alone.
+  shellWord(
+    `--settings=${JSON.stringify(
+      bashGuard
+        ? {
+            hooks: {
+              PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: bashGuard }] }],
+            },
+          }
+        : { disableAllHooks: true },
+    )}`,
+  ),
 ];
 
 /** The Claude Code tools a text-only run is denied: every one that writes a file or runs a command. */
@@ -209,15 +230,19 @@ export const AGENTS = {
         return [
           `${readOnlyEnv(may)}claude -p`,
           shellWord(prompt),
-          `--session-id ${sessionId} --output-format json`,
-          ...(may.lean ? claudeLeanRun(may.lean) : []),
+          `--session-id ${sessionId} --output-format ${may.stream ? 'stream-json --verbose --include-partial-messages' : 'json'}`,
+          ...(may.lean ? claudeLeanRun(may.lean, may.bashGuard) : []),
+          ...(may.tools ? [`--tools ${shellWord(may.tools.join(','))}`] : []),
+          // Variadic, so a flag always follows it: --permission-mode.
+          ...(may.dirs?.length ? ['--add-dir', ...may.dirs.map(shellWord)] : []),
           `--permission-mode ${shellWord(may.permissionMode)}`,
-          ...(may.readOnlyVault || may.textOnly
+          ...(may.readOnlyVault || may.textOnly || may.denied?.length
             ? [
                 '--disallowedTools',
                 ...[
                   ...(may.readOnlyVault ? CLAUDE_MESA_SAVES : []),
                   ...(may.textOnly ? CLAUDE_CHANGE_TOOLS : []),
+                  ...(may.denied ?? []),
                 ].map(shellWord),
               ]
             : []),

@@ -52,7 +52,9 @@ export type CloudAsked = Omit<CloudRead, 'envs'> & {
   answer: string;
   cited: string[];
   queries: { project?: string; filter: string }[];
-  run: { session: string; durationMs: number; costUsd?: number };
+  run: { session: string; durationMs: number; costUsd?: number; model?: string };
+  /** The registered project whose code the run read. */
+  code?: string;
 };
 
 /** `mesa logs gcp`'s, `errors`'s and `ask`'s flags for `filters`; `=` so a value starting with - stays one. */
@@ -214,18 +216,28 @@ export const logsCommands = {
     file,
   ]),
   'logs.ask': commandWith<
-    CloudFilters & { question: string; conversation?: string; allowProd?: boolean },
+    CloudFilters & {
+      question: string;
+      conversation?: string;
+      allowProd?: boolean;
+      stream?: string;
+    },
     CloudAsked
-  >(({ question, conversation, allowProd, metric: _, ...filters }) => [
+  >(({ question, conversation, allowProd, stream, metric: _, ...filters }) => [
     'logs',
     'ask',
     ...cloudFlags(filters),
     ...(conversation ? [`--conversation=${conversation}`] : []),
+    ...(stream ? [`--stream=${stream}`] : []),
     ...(allowProd ? ['--allow-prod'] : []),
     '--',
     question,
   ]),
   'logs.asks': command<{ asks: CloudAsk[] }>('logs', 'asks'),
+  /** What the Ask started with stream token `stream` has answered so far (`mesa logs asking`). */
+  'logs.asking': commandWith<{ stream: string }, { session: string | null; text: string }>(
+    ({ stream }) => ['logs', 'asking', '--', stream],
+  ),
   /** Signs gcloud in (`mesa logs login`): gcloud opens the browser; the call ends when the person finishes. */
   'logs.login': command<{ signedIn: true }>('logs', 'login'),
   /** Turns on the Error Reporting API in a configured GCP project (`mesa logs enable`). */

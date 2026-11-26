@@ -23,6 +23,7 @@ const config = () => {
       prodAsk: [],
       mask: true,
       fixProjects: {},
+      askModel: 'claude-opus-5-5',
       recentProjects: [],
       starredProjects: [],
     },
