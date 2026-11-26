@@ -75,7 +75,14 @@ export {
   entryConsoleUrl,
   groupQuery,
 } from './logs/cloud-copy.js';
-export { cloudLevel, serviceRefOf, splitMessage, traceIdOf } from './logs/cloud-entry.js';
+export {
+  cloudLevel,
+  serviceRefOf,
+  severityLabel,
+  severityRank,
+  splitMessage,
+  traceIdOf,
+} from './logs/cloud-entry.js';
 export { copyText, groupSummaryText } from './logs/copy.js';
 export { ENV_WORDS, envNameOf, joinEnvs } from './logs/env-names.js';
 export { groupKey } from './logs/error-merge.js';

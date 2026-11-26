@@ -468,7 +468,9 @@ test('the fields pane: app fields first, plumbing under More, ids only when sear
       i / 60,
       i === 0
         ? `{"action":"sync",\n"step":1,\n"of":4,\n"ok":false,\n"why":"late"}`
-        : `${['tide lookup', 'berth sync', 'mooring check', 'harbour scan'][i % 4]} ${i}`,
+        : i === 4
+          ? 'berth sync stalled\nstep 1 of 4\nstep 2 of 4\nstep 3 of 4\nwaiting on the registry'
+          : `${['tide lookup', 'berth sync', 'mooring check', 'harbour scan'][i % 4]} ${i}`,
       {
         severity: ['ERROR', 'NOTICE', 'DEFAULT', 'INFO'][i % 4],
         fields: {
@@ -517,7 +519,8 @@ test('the fields pane: app fields first, plumbing under More, ids only when sear
   // Every row has its badge, DEFAULT and NOTICE too; a 5-line message shows 3 with more.
   expect(q('[data-id="e1"] span[data-level]')?.textContent).toBe('NOTICE');
   expect(q('[data-id="e2"] span[data-level]')?.textContent).toBe('DEFAULT');
-  expect(button('more', q('[data-id="e0"]') ?? document)).toBeDefined();
+  expect(button('more', q('[data-id="e4"]') ?? document)).toBeDefined();
+  expect(q('[data-id="e0"] summary')?.textContent).toContain('sync');
   expect(q('[aria-label="Entries over time"]')?.textContent).toMatch(
     /24 entries read, .* per (1|2) s/,
   );

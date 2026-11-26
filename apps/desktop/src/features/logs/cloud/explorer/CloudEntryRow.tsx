@@ -1,5 +1,5 @@
 import type { CloudLogEntry } from '@mesa/core';
-import { cloudLevel, entryConsoleUrl, jsonObject } from '@mesa/core/browser';
+import { cloudLevel, entryConsoleUrl, jsonObject, severityLabel } from '@mesa/core/browser';
 import { ChevronDown, Eye, EyeOff, MessageSquareText, Wrench } from 'lucide-react';
 import { memo, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -9,10 +9,9 @@ import { CopyButton } from '../../shared/CopyButton';
 import { LevelBadge } from '../../shared/LevelBadge';
 import { LogRow } from '../../shared/LogRow';
 import { clockTime } from '../../shared/logLines';
-import { JsonTree } from '../JsonPayloadPanel';
+import { JsonTreePanel } from '../JsonTreePanel';
 import { MessagePanel } from '../MessagePanel';
 import type { EntryActions } from '../types';
-import { severityLabel } from './cloudColumns';
 
 /** A message as the payload tree shows it: a JSON one as its own tree, any other as its text. */
 const payloadOf = (message: string) => jsonObject(message) ?? message;
@@ -136,7 +135,7 @@ export const CloudEntryRow = memo(function CloudEntryRow(props: {
               data-payload
               className="mt-1 overflow-x-auto rounded-md border bg-muted/40 px-3 py-2"
             >
-              <JsonTree
+              <JsonTreePanel
                 json={{
                   project: entry.project,
                   insertId: entry.id,

@@ -1,6 +1,7 @@
 import { ChevronRight, Columns2 } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { cn } from '@/lib/utils';
+import type { ClauseState } from './explorerQuery';
 import { FieldValueRow } from './FieldValueRow';
 
 /** How many values a field shows before Show all. */
@@ -12,7 +13,7 @@ export type FieldValue = {
   count: number;
   clause: string;
   label: ReactNode;
-  state?: 'in' | 'out';
+  state?: ClauseState;
 };
 
 /**
@@ -28,13 +29,13 @@ export function FieldGroupPanel(props: {
   pinned?: boolean;
   onPin?: () => void;
   /** Puts `clause` in the query (`in`), excluded (`out`), or takes it out (undefined). */
-  onSet: (clause: string, state?: 'in' | 'out') => void;
+  onSet: (clause: string, state?: ClauseState) => void;
 }) {
   const [open, setOpen] = useState(props.open);
   const [all, setAll] = useState(false);
   const shown = all ? props.values : props.values.slice(0, TOP);
   // A click on a value in the query takes it out; + and - set it, or take it out when already so.
-  const set = (value: FieldValue, state: 'in' | 'out') =>
+  const set = (value: FieldValue, state: ClauseState) =>
     props.onSet(value.clause, value.state === state ? undefined : state);
   return (
     <section aria-label={props.name} className="grid">

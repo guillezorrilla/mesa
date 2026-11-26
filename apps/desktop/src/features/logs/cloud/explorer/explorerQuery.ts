@@ -24,11 +24,14 @@ export const withoutClause = (query: string, clause: string) =>
     .filter((line) => line !== clause && line !== `NOT ${clause}`)
     .join('\nAND ');
 
+/** A clause in the query (`in`) or excluded from it (`out`, NOT). */
+export type ClauseState = 'in' | 'out';
+
 /** Whether `query` holds `clause` on a line of its own: `in`, `out` (NOT), or undefined. */
-export function clauseState(query: string, clause: string) {
+export function clauseState(query: string, clause: string): ClauseState | undefined {
   for (const line of linesOf(query)) {
-    if (line === clause) return 'in' as const;
-    if (line === `NOT ${clause}`) return 'out' as const;
+    if (line === clause) return 'in';
+    if (line === `NOT ${clause}`) return 'out';
   }
 }
 

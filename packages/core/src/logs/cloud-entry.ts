@@ -4,7 +4,32 @@ import type { LogLevel } from './parse.js';
 // alike: its severity as a level, and its message split from the stack it carries. Pure, so the
 // app bundles it (`@mesa/core/browser`).
 
-const ERRORS = new Set(['ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY']);
+/** Cloud Logging's severities, the worst first. */
+const SEVERITIES = [
+  'EMERGENCY',
+  'ALERT',
+  'CRITICAL',
+  'ERROR',
+  'WARNING',
+  'NOTICE',
+  'INFO',
+  'DEBUG',
+  'DEFAULT',
+] as const;
+
+/** Where `severity` sorts, the worst first; an unknown one last. */
+export const severityRank = (severity: string) => {
+  const at = SEVERITIES.indexOf(severity as (typeof SEVERITIES)[number]);
+  return at < 0 ? SEVERITIES.length : at;
+};
+
+/** Severities whose names do not fit a level badge, shortened. */
+const SHORT: Record<string, string> = { EMERGENCY: 'EMERG', CRITICAL: 'CRIT', WARNING: 'WARN' };
+
+/** A severity as its badge says it: every one has one, DEFAULT and NOTICE too. */
+export const severityLabel = (severity: string) => SHORT[severity] ?? severity;
+
+const ERRORS = new Set<string>(SEVERITIES.slice(0, 4));
 const INFO = new Set(['INFO', 'NOTICE']);
 
 /** Cloud Logging's severity as a Logs panel level; DEFAULT is none. */

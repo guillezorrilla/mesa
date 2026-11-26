@@ -1,6 +1,7 @@
 import { Check, Minus, Plus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import type { ClauseState } from './explorerQuery';
 
 /**
  * One value of a field in the fields pane: a thin bar behind it for its share of the entries read,
@@ -13,7 +14,7 @@ export function FieldValueRow(props: {
   title: string;
   count: number;
   share: number;
-  state?: 'in' | 'out';
+  state?: ClauseState;
   onToggle: () => void;
   onInclude: () => void;
   onExclude: () => void;

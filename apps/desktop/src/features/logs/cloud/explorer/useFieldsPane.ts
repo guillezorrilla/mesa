@@ -1,6 +1,6 @@
 import { useKept } from '@/lib/keptValue';
 import { useKeptWidth, type WidthBounds } from '@/lib/useKeptWidth';
-import { toggledColumn } from './cloudColumns';
+import { toggledColumn } from './pinnedColumns';
 
 /** The fields pane's width bounds, in pixels. */
 const FIELDS_WIDTH: WidthBounds = { min: 180, max: 420, initial: 232, step: 16 };

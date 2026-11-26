@@ -37,12 +37,16 @@ function signInProblem(said: string) {
       message:
         'Google asks you to sign in to gcloud again, which a read in the background cannot answer: sign in to Google Cloud',
     };
-  if (/problem refreshing|invalid_grant|refresh.*token/i.test(said))
+  if (/problem refreshing|invalid_grant/i.test(said))
     return {
       reason: 'refresh_failed',
       message: `gcloud could not refresh its sign-in (${gcloudWords(said)}): sign in to Google Cloud again`,
     };
-  if (/active account|credentialed accounts|auth login|credentials/i.test(said))
+  if (
+    /active account|credentialed accounts|auth login|could not (load|find) (the default )?credentials/i.test(
+      said,
+    )
+  )
     return {
       reason: 'signed_out',
       message: 'gcloud has no signed-in account: sign in to Google Cloud',

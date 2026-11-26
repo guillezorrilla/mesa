@@ -16,7 +16,7 @@ import { useCloudSession } from '../useCloudSession';
 import { SaveViewDialog } from '../views/SaveViewDialog';
 import { ClaudePanel } from './ClaudePanel';
 import { ExplorerResultsPanel } from './ExplorerResultsPanel';
-import { matchingClause, withClause, withoutClause } from './explorerQuery';
+import { type ClauseState, matchingClause, withClause, withoutClause } from './explorerQuery';
 import { FieldsPanel } from './FieldsPanel';
 import { QueryField } from './QueryField';
 import { useFieldsPane } from './useFieldsPane';
@@ -67,9 +67,10 @@ export function CloudExplorerPanel(props: {
   };
   const run = (next: string) => apply({ ...props.filters, filter: next.trim() || undefined });
   const add = (clause: string, exclude = false) => run(withClause(query, clause, exclude));
-  // A clause the fields pane sets: in, excluded, or taken out, on its own line.
-  const setClause = (clause: string, state?: 'in' | 'out') => {
-    const rest = withoutClause(query, clause);
+  // A clause the fields pane sets: in, excluded, or taken out, on its own line of the query that
+  // ran (what the pane and the chips show), so an edit not run yet is not run with it.
+  const setClause = (clause: string, state?: ClauseState) => {
+    const rest = withoutClause(ran, clause);
     run(state ? withClause(rest, clause, state === 'out') : rest);
   };
   const edited = !written && query.trim() !== ran.trim();

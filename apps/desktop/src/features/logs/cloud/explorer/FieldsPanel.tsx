@@ -1,5 +1,12 @@
 import type { CloudLogEntry } from '@mesa/core';
-import { cloudLevel, fieldStats, serviceClause, servicePaths } from '@mesa/core/browser';
+import {
+  cloudLevel,
+  fieldStats,
+  serviceClause,
+  servicePaths,
+  severityLabel,
+  severityRank,
+} from '@mesa/core/browser';
 import { PanelLeftClose, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
@@ -9,23 +16,13 @@ import { useOptional } from '@/lib/useCommand';
 import { LevelBadge } from '../../shared/LevelBadge';
 import { ServiceDot } from '../../shared/ServiceDot';
 import { useCloudLogsConfig } from '../useCloudLogsConfig';
-import { severityLabel } from './cloudColumns';
-import { clauseState, fieldClause } from './explorerQuery';
+import { type ClauseState, clauseState, fieldClause } from './explorerQuery';
 import { FieldGroupPanel, type FieldValue } from './FieldGroupPanel';
 import { shortValue } from './fieldText';
 
-/** Severities by rank, the worst first. */
-const RANK = [
-  'EMERGENCY',
-  'ALERT',
-  'CRITICAL',
-  'ERROR',
-  'WARNING',
-  'NOTICE',
-  'INFO',
-  'DEBUG',
-  'DEFAULT',
-];
+/** A value row's room besides its text (bar padding, + and -, count), and one character's width, in pixels. */
+const ROW_CHROME_PX = 92;
+const CHAR_PX = 6.6;
 
 const counted = (values: readonly string[]) => {
   const counts = new Map<string, number>();
@@ -49,7 +46,7 @@ export function FieldsPanel(props: {
   /** The pane's width in pixels, for how much of a long value fits. */
   width: number;
   columns: readonly string[];
-  onSet: (clause: string, state?: 'in' | 'out') => void;
+  onSet: (clause: string, state?: ClauseState) => void;
   onPin: (key: string) => void;
   onHide: () => void;
 }) {
@@ -57,7 +54,7 @@ export function FieldsPanel(props: {
   const [search, setSearch] = useState('');
   const config = useCloudLogsConfig().gcp;
   const kinds = useOptional('logs.gcpServices', { env: props.env });
-  const fit = Math.max(10, Math.floor((props.width - 92) / 6.6));
+  const fit = Math.max(10, Math.floor((props.width - ROW_CHROME_PX) / CHAR_PX));
   const stats = useMemo(() => fieldStats(entries), [entries]);
   const groups = useMemo(() => {
     const kindOf = new Map(
@@ -95,7 +92,7 @@ export function FieldsPanel(props: {
     const severities: Group = {
       name: 'Severity',
       values: counted(entries.map((e) => e.severity))
-        .sort((a, b) => RANK.indexOf(a[0]) - RANK.indexOf(b[0]))
+        .sort((a, b) => severityRank(a[0]) - severityRank(b[0]))
         .map(([severity, count]) =>
           value(
             severity,

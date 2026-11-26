@@ -13,9 +13,16 @@ export type Facet = { key: string; values: { value: string; count: number }[] };
  */
 export type FieldStat = Facet & { present: number; tier: 'main' | 'more' | 'unique' };
 
-/** Keys that name where an entry came from rather than what it is about. */
-const PLUMBING =
-  /logger|thread|revision|version|host|pod|instance|class|caller|file|line|source|level|severity|context|process|pid/i;
+/** Words of a key that name where an entry came from rather than what it is about. */
+const PLUMBING = new Set(
+  'logger log thread revision version host hostname pod instance class caller file line level severity process pid'.split(
+    ' ',
+  ),
+);
+
+/** Whether `key` names plumbing: one of its words (split at dots, dashes, underscores and capitals) does. */
+const isPlumbing = (key: string) =>
+  key.split(/[._-]+|(?<=[a-z])(?=[A-Z])/).some((word) => PLUMBING.has(word.toLowerCase()));
 
 /** Each field `entries` carry, with every value's count. */
 function counted(entries: readonly Pick<CloudLogEntry, 'fields'>[]) {
@@ -57,7 +64,7 @@ export function fieldStats(entries: readonly Pick<CloudLogEntry, 'fields'>[]): F
       tier:
         field.values.length > 10 && field.values.length >= 0.9 * field.present
           ? ('unique' as const)
-          : PLUMBING.test(field.key)
+          : isPlumbing(field.key)
             ? ('more' as const)
             : ('main' as const),
     }))
