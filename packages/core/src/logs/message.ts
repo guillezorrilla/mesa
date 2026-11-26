@@ -78,11 +78,10 @@ export function logMessage(input: {
 export function requestMessage(input: {
   id: string;
   entries: readonly RequestEntry[];
-  label?: (source: string) => string;
-  time?: (entry: ServerLogEntry) => string | null;
+  label: (source: string) => string;
+  time: (entry: ServerLogEntry) => string | null;
 }) {
-  const label = input.label ?? ((source: string) => source);
-  const time = input.time ?? ((entry: ServerLogEntry) => entry.time);
+  const { label, time } = input;
   const sources = [...new Set(input.entries.map((entry) => label(entry.source)))];
   return [
     `Every line of request ${input.id} across the project's local log sources, in time order.`,

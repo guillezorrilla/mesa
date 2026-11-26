@@ -21,10 +21,10 @@ const LOGS: Record<string, string> = {
   ].join('\n'),
 };
 
-function deps() {
+function deps(logs: Record<string, string> = LOGS) {
   const home = tempDir();
   const paths = profilePaths(home, 'default');
-  const { run } = scriptedRunner({ sh: (args) => LOGS[args.at(-1) ?? ''] ?? '' });
+  const { run } = scriptedRunner({ sh: (args) => logs[args.at(-1) ?? ''] ?? '' });
   return {
     run,
     store: testStore(home),
@@ -73,20 +73,24 @@ test('a request across sources: only its own lines, merged by time, each with it
   );
 });
 
-test('an untimed line keeps its place after the line before it in its source', async () => {
-  const run = deps();
-  LOGS['harbour-cron'] = [
-    '2026-05-06T07:08:01.500Z INFO tick traceId=7f3a',
-    'retry traceId=7f3a',
-  ].join('\n');
+test('an untimed line keeps its place beside the line before it in its source, or its first', async () => {
+  const run = deps({
+    ...LOGS,
+    'harbour-cron': [
+      'retry traceId=7f3a',
+      '2026-05-06T07:08:01.500Z INFO tick traceId=7f3a',
+      'again traceId=7f3a',
+    ].join('\n'),
+  });
   const found = await requestLines(run, 'lantern-cove', '7f3a', [
     'docker:tide-gateway',
     'docker:harbour-cron',
   ]);
   expect(found.entries.map((entry) => entry.message)).toEqual([
     'GET /moorings/9 reqId=7f3a',
-    'tick traceId=7f3a',
     'retry traceId=7f3a',
+    'tick traceId=7f3a',
+    'again traceId=7f3a',
     'upstream 500 reqId=7f3a',
   ]);
 });

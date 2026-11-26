@@ -29,7 +29,7 @@ const loggedAt = (entry: ServerLogEntry) =>
 /**
  * Every entry of `sources` (ids) that names request `id` (namesRequest), from each one's last 2000,
  * merged by time: an entry with no time that reads keeps its place after the one before it in its
- * source, and entries of one time keep the order of `sources`. A `file:` source is `project`'s; a
+ * source (before its first, with that first), and entries of one time keep the order of `sources`. A `file:` source is `project`'s; a
  * source Mesa cannot read is listed in `failed`, not an error.
  */
 export async function requestLines(
@@ -52,7 +52,9 @@ export async function requestLines(
     }),
   );
   const timed = reads.flatMap((entries, at) => {
-    let last = Number.NEGATIVE_INFINITY;
+    // Lines before a source's first time that reads go with it.
+    let last =
+      entries.map(loggedAt).find((time) => !Number.isNaN(time)) ?? Number.NEGATIVE_INFINITY;
     return entries.map((entry) => {
       const time = loggedAt(entry);
       if (!Number.isNaN(time)) last = time;
