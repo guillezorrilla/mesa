@@ -18,7 +18,7 @@ const RANGE: RangeFacts = {
   since: '1h',
   errors: { groups: [] },
   volume: { failed: 'no token' },
-  deploys: [],
+  deploys: { deploys: [], notes: [] },
 };
 
 test("the run's stdin puts the range summary first, then samples, then the page of entries, all within one byte budget", () => {

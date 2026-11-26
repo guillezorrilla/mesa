@@ -43,20 +43,25 @@ test('the summary lists the range: error groups with counts, first and last seen
     since: '6h',
     errors: { groups: [group(), group({ id: 'g2', count: 3, badge: 'back', services: [] })] },
     volume: VOLUME,
-    deploys: [
-      {
-        project: 'tide-tables-123',
-        service: 'tide-api',
-        revision: 'tide-api-00212',
-        at: '2026-05-06T05:00:00Z',
-      },
-      {
-        project: 'tide-tables-123',
-        service: 'tide-api',
-        revision: 'tide-api-00213',
-        at: '2026-05-06T06:28:00Z',
-      },
-    ],
+    deploys: {
+      deploys: [
+        {
+          project: 'tide-tables-123',
+          service: 'tide-api',
+          revision: 'tide-api-00212',
+          at: '2026-05-06T05:00:00Z',
+          source: 'logs',
+        },
+        {
+          project: 'tide-tables-123',
+          service: 'tide-api',
+          revision: 'tide-api-00213',
+          at: '2026-05-06T06:28:00Z',
+          source: 'logs',
+        },
+      ],
+      notes: [{ project: 'harbour-web-456', message: 'Cloud Run is not enabled' }],
+    },
   };
   expect(rangeSummary(facts).split('\n')).toEqual([
     'Over the whole range (since 6h), not only the entries below:',
@@ -70,27 +75,28 @@ test('the summary lists the range: error groups with counts, first and last seen
     '- tide-tables-123/tide-api (GKE): ERROR 41, INFO 900',
     '',
     'Deploys in the range (2), newest first:',
-    '- 2026-05-06T06:28:00Z tide-tables-123/tide-api revision tide-api-00213',
-    '- 2026-05-06T05:00:00Z tide-tables-123/tide-api revision tide-api-00212',
+    '- 2026-05-06T06:28:00Z tide-tables-123/tide-api revision tide-api-00213 (logs)',
+    '- 2026-05-06T05:00:00Z tide-tables-123/tide-api revision tide-api-00212 (logs)',
+    'Deploys not read from harbour-web-456: Cloud Run is not enabled',
   ]);
 });
 
-test('a read that failed or could not be counted is a note, and no deploys say so', () => {
+test('a read that failed or could not be counted is a note', () => {
   const text = rangeSummary({
     since: '1h',
     errors: { failed: 'Error Reporting is off' },
     volume: { ...VOLUME, counted: false, why: 'the query searches text' },
-    deploys: [],
+    deploys: { failed: 'no token' },
   });
   expect(text).toContain('Error groups: not read (Error Reporting is off).');
+  expect(text).toContain('Deploys: not read (no token).');
   expect(text).toContain('Severity counts: not counted (the query searches text).');
-  expect(text).toContain('Deploys in the range: none known.');
   expect(
     rangeSummary({
       since: '1h',
       errors: { groups: [] },
       volume: { failed: 'no token' },
-      deploys: [],
+      deploys: { deploys: [], notes: [] },
     }),
   ).toContain('Severity counts: not read (no token).');
 });

@@ -273,7 +273,9 @@ test('logs ask runs in General and cites entries; prod asks once per GCP project
 test('logs ask reads the code of the project the asked services map to, added read-only, and --code general reads none', async () => {
   const tmux = cli.withTmux({ onOpen: finishesRun({ output: claudeAnswer('It fails [aa11].') }) });
   const dir = await cli.withProject();
-  withGcloud((_, project) => JSON.stringify(project === 'tide-tables-123' ? ENTRIES : WEB));
+  const calls = withGcloud((_, project) =>
+    JSON.stringify(project === 'tide-tables-123' ? ENTRIES : WEB),
+  );
   await setUp();
   await mesa('config', 'set', 'logs.fixProjects', '{"tide-tables-123/tide-api":"lantern-cove"}');
   const asked = await mesa(
@@ -287,6 +289,8 @@ test('logs ask reads the code of the project the asked services map to, added re
     '--json',
   );
   expect(asked.json.data.code).toBe('lantern-cove');
+  // Its range summary reads the range's deploys (cloudDeploys): App Engine's versions among them.
+  expect(calls.some((args) => args[0] === 'app' && args[1] === 'versions')).toBe(true);
   expect(tmux.opened.at(-1)).toMatchObject({ project: '__mesa_general__' });
   expect(tmux.opened.at(-1)?.launch).toContain(`--add-dir '${dir}'`);
   // With no service named, the entries read decide: most map to lantern-cove.

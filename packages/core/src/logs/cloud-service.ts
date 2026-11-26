@@ -40,7 +40,6 @@ import { cloudServices } from './gcp-services.js';
 import { maskEntry, maskErrors, maskText } from './mask.js';
 import { metricCounts, metricViews } from './metrics.js';
 import { ownOf } from './own-filters.js';
-import type { RangeDeploy } from './range-summary.js';
 import { exportViews, importViews, mergeViews } from './views.js';
 import { cloudVolume } from './volume.js';
 
@@ -337,16 +336,20 @@ export function cloudLogsService(
         failed: error instanceof Error ? error.message : String(error),
       });
       // Read afresh rather than trust entries a caller sends: the model sees only what gcloud gave.
-      const [read, errors, volume] = await Promise.all([
+      const [read, errors, volume, deploys] = await Promise.all([
         cloudLogs(cloudDeps(), config, { ...query, env: env ?? ALL_ENVS }),
         cloudErrors(errorDeps(), config, ranged).then(
           (found) => ({ groups: mask ? maskErrors(found).groups : found.groups }),
           failed,
         ),
         cloudVolume(errorDeps(), config, ranged).catch(failed),
+        cloudDeploys(
+          cloudDeps(),
+          config,
+          { env: ranged.env, projects: kept.projects, services: kept.services, since: kept.since },
+          { file: ctx.paths.cloudDeploys, lock: ctx },
+        ).catch(failed),
       ]);
-      // The deploy markers' cloudDeploys() (#1266) plugs in here once it lands; none until then.
-      const deploys: RangeDeploy[] = [];
       // The code it reads (codeProject): the one named, else the asked services', else the entries'.
       const code = codeProject(
         fixProjects,

@@ -1,4 +1,5 @@
 import { clip } from '../lib/clip.js';
+import type { CloudDeploys } from './deploys.js';
 import type { CloudErrorGroup } from './errors.js';
 import { strictNormalized } from './normalize.js';
 import { foldedMessage } from './stack.js';
@@ -8,9 +9,6 @@ import type { CloudVolume } from './volume.js';
 // groups over the range, the severity counts per service from Cloud Monitoring's log_entry_count,
 // the range's deploys when known, then a few deduplicated samples per group. Pure.
 
-/** A deploy in the range, as the deploy markers' cloudDeploys() (#1266) gives it; none until then. */
-export type RangeDeploy = { project: string; service: string; revision: string; at: string };
-
 /** A read that failed is a note in the summary, never the Ask's error. */
 type Read<T> = T | { failed: string };
 
@@ -18,7 +16,7 @@ export type RangeFacts = {
   since: string;
   errors: Read<{ groups: readonly CloudErrorGroup[] }>;
   volume: Read<CloudVolume>;
-  deploys: readonly RangeDeploy[];
+  deploys: Read<CloudDeploys>;
 };
 
 /** The most groups, services and deploys the summary lists, biggest or newest first. */
@@ -78,14 +76,19 @@ export function rangeSummary(facts: RangeFacts) {
     }
   }
   lines.push('');
-  if (facts.deploys.length) {
-    const deploys = [...facts.deploys].sort((a, b) => b.at.localeCompare(a.at));
-    lines.push(
-      `Deploys in the range (${shown(Math.min(LISTED, deploys.length), deploys.length)}), newest first:`,
-    );
-    for (const d of deploys.slice(0, LISTED))
-      lines.push(`- ${d.at} ${d.project}/${d.service} revision ${d.revision}`);
-  } else lines.push('Deploys in the range: none known.');
+  if (readFailed(facts.deploys)) lines.push(`Deploys: not read (${facts.deploys.failed}).`);
+  else {
+    const deploys = [...facts.deploys.deploys].sort((a, b) => b.at.localeCompare(a.at));
+    if (deploys.length) {
+      lines.push(
+        `Deploys in the range (${shown(Math.min(LISTED, deploys.length), deploys.length)}), newest first:`,
+      );
+      for (const d of deploys.slice(0, LISTED))
+        lines.push(`- ${d.at} ${d.project}/${d.service} revision ${d.revision} (${d.source})`);
+    } else lines.push('Deploys in the range: none found.');
+    for (const note of facts.deploys.notes)
+      lines.push(`Deploys not read from ${note.project}: ${note.message}`);
+  }
   return lines.join('\n');
 }
 
