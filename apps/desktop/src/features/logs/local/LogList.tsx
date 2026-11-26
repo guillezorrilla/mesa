@@ -1,4 +1,5 @@
 import type { ErrorGroup } from '@mesa/core';
+import { sourceLabel } from '@mesa/core/browser';
 import { ArrowDown, Plus } from 'lucide-react';
 import { CenteredState } from '@/components/CenteredState';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,8 @@ export function LogList(props: {
   onOpenGroup: (key: string) => void;
   actions: RowActions;
   onAddSource: () => void;
+  /** Picks a source when none is chosen yet: the panel asks rather than guess. */
+  onPickSource: (id: string) => void;
 }) {
   const { watch, shown, groups } = props;
   const follow = useFollowEnd(shown);
@@ -45,6 +48,32 @@ export function LogList(props: {
               <Button size="sm" variant="outline" onClick={props.onAddSource}>
                 <Plus aria-hidden /> Add a log source
               </Button>
+            }
+          />
+        ) : watch.sources && !watch.source ? (
+          <CenteredState
+            message="Pick the log source to show for this project."
+            action={
+              <div className="flex max-w-sm flex-col items-stretch gap-1.5 font-sans">
+                {watch.sources.map((each) => (
+                  <Button
+                    key={each.id}
+                    size="sm"
+                    variant="outline"
+                    className="justify-start"
+                    aria-label={`Show ${sourceLabel(each)}`}
+                    onClick={() => props.onPickSource(each.id)}
+                  >
+                    <span className="truncate">{sourceLabel(each)}</span>
+                    <span className="ml-auto truncate text-muted-foreground text-xs">
+                      {each.detail}
+                    </span>
+                  </Button>
+                ))}
+                <Button size="sm" variant="ghost" onClick={props.onAddSource}>
+                  <Plus aria-hidden /> Add a log source
+                </Button>
+              </div>
             }
           />
         ) : !watch.entries ? (

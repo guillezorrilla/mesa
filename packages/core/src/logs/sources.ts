@@ -80,14 +80,20 @@ async function containers(run: Runner, now: Date): Promise<LogSource[]> {
   );
 }
 
-/** `project`'s unended sessions with an Output log, plain terminals first. */
+/**
+ * `project`'s unended plain terminal sessions with an Output log. An agent session's log is its
+ * TUI's screen redraws, never a server's output, so it is no source.
+ */
 function sessions(deps: LogSourceDeps, project: string): LogSource[] {
   return deps.store
     .list()
     .filter(
-      (r) => r.project === project && !r.endedAt && existsSync(outputLog(deps.sessionLogs, r.id)),
+      (r) =>
+        r.project === project &&
+        r.agent === 'terminal' &&
+        !r.endedAt &&
+        existsSync(outputLog(deps.sessionLogs, r.id)),
     )
-    .sort((a, b) => Number(b.agent === 'terminal') - Number(a.agent === 'terminal'))
     .map((r) => {
       const lastLine = changedAt(outputLog(deps.sessionLogs, r.id));
       return {

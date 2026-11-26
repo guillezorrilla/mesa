@@ -172,6 +172,7 @@ export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
         onOpenGroup={toggleGroup}
         actions={actions}
         onAddSource={() => setAddingSource(true)}
+        onPickSource={pickSource}
       />
       {picked.size > 0 && (
         <LogsFooter
