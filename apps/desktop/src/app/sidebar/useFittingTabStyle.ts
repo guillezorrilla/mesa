@@ -1,5 +1,6 @@
 import { denserTabStyle, type SidebarTabStyle } from '@mesa/core/browser';
-import { type RefObject, useEffect, useLayoutEffect, useState } from 'react';
+import { type RefObject, useLayoutEffect, useState } from 'react';
+import { useElementWidth } from '@/lib/useElementWidth';
 
 /**
  * The style the tab bar in `bar` draws: `preferred`, or the next denser one while it overflows the
@@ -12,21 +13,15 @@ export function useFittingTabStyle(
   content: string,
 ): SidebarTabStyle {
   const [style, setStyle] = useState(preferred);
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    const element = bar.current;
-    if (!element || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(([seen]) => seen && setWidth(seen.contentRect.width));
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [bar]);
+  const width = useElementWidth(bar, 0);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new width or content starts over from the preferred style.
   useLayoutEffect(() => setStyle(preferred), [preferred, width, content]);
-  // Each render, before paint: one that overflows steps to the next denser style.
+  // Before paint: a style that overflows steps to the next denser one, until one fits.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: measured again only when what it draws changes.
   useLayoutEffect(() => {
     const element = bar.current;
     const denser = denserTabStyle(style);
     if (element && denser && element.scrollWidth > element.clientWidth) setStyle(denser);
-  });
+  }, [style, preferred, width, content]);
   return style;
 }

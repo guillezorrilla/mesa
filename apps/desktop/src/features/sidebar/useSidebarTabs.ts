@@ -1,4 +1,5 @@
 import {
+  DEFAULT_TAB_STYLE,
   type SidebarTabId,
   type SidebarTabStyle,
   sidebarTabs,
@@ -10,18 +11,15 @@ import { useCommand, useRun } from '@/lib/useCommand';
 export type SidebarTabsSettings = ReturnType<typeof useSidebarTabs>;
 
 /**
- * The sidebar's tab bar settings (`sidebar.tabs`, `sidebar.tabStyle`): every tab in bar order and
- * the style, and their changes, shown by this reader at once and then saved for every reader.
+ * The sidebar's tab bar settings (`sidebar.tabs`, `sidebar.tabStyle`): every tab in bar order,
+ * the shown ones, and the style, and their changes, shown by this reader at once and then saved
+ * for every reader. Until the config reads, the defaults.
  */
 export function useSidebarTabs() {
   const config = useCommand('config.get');
   const run = useRun();
-  // Until the config reads, every tab in the default order.
-  const tabs = sidebarTabs({
-    sidebar: config.data?.sidebar ?? {},
-    logs: { cloudTab: config.data?.logs?.cloudTab ?? true },
-  });
-  const style: SidebarTabStyle = config.data?.sidebar?.tabStyle ?? 'compact';
+  const tabs = sidebarTabs(config.data);
+  const style: SidebarTabStyle = config.data?.sidebar?.tabStyle ?? DEFAULT_TAB_STYLE;
   const save = async (key: 'tabs' | 'tabStyle', value: unknown) => {
     config.mutate((data) => ({ ...data, sidebar: { ...data.sidebar, [key]: value } }));
     if (await run('config.set', { path: `sidebar.${key}`, value }))
@@ -30,6 +28,7 @@ export function useSidebarTabs() {
   };
   return {
     tabs,
+    shown: tabs.filter((tab) => tab.shown),
     style,
     setShown: (id: SidebarTabId, shown: boolean) => save('tabs', withTabShown(tabs, id, shown)),
     /** Puts the optional tabs in `order`, their ids. */

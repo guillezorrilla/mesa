@@ -8,7 +8,7 @@ import {
   type LucideIcon,
   Map as MapIcon,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { ResizeHandle } from '@/components/ResizeHandle';
 import { Button } from '@/components/ui/button';
 import { usePendingRuns } from '@/features/automations/usePendingRuns';
@@ -25,7 +25,7 @@ import { sidebarGroups, sidebarOrder } from '@/features/sessions/sidebar/sidebar
 import { useUnfoldOnNewSession } from '@/features/sessions/sidebar/useUnfoldOnNewSession';
 import type { SessionLocation } from '@/features/sessions/start/useStartSession';
 import { SIDEBAR_TAB_ICONS } from '@/features/sidebar/sidebarTabIcons';
-import { useSidebarTabs } from '@/features/sidebar/useSidebarTabs';
+import type { SidebarTabsSettings } from '@/features/sidebar/useSidebarTabs';
 import type { PrRef } from '@/lib/client/prs';
 import { useKeptWidth } from '@/lib/useKeptWidth';
 import { cn } from '@/lib/utils';
@@ -73,6 +73,8 @@ export function WorkspaceSidebar(props: {
   onDependencySession?: (id: string) => void;
   /** Puts a project's session cards in a new order (useReorderSessions). */
   onReorderSessions?: (project: string, ids: string[]) => void;
+  /** The tab bar's settings (useSidebarTabs), read once by the app. */
+  tabBar: SidebarTabsSettings;
   /** Opens a tab from outside, hidden or not (Search, the Inbox); `at` makes each request new. */
   openTab?: { tab: SidebarTabId; at: number };
 }) {
@@ -80,8 +82,8 @@ export function WorkspaceSidebar(props: {
   const [closedProjects, setClosedProjects] = useState<string[]>([]);
   const [compactSessions, setCompactSessions] = useState<string[]>([]);
   const [tab, setTab] = useState<SidebarTabId>('sessions');
-  const tabBar = useSidebarTabs();
-  const shown = tabBar.tabs.filter((each) => each.shown);
+  const { tabBar } = props;
+  const { shown } = tabBar;
   // The app's one read of every project's PRs, so the tab can count them before it opens.
   const prs = useSharedPrs();
   const [width, setWidth] = useKeptWidth('mesa.sidebar.width', SIDEBAR_WIDTH);
@@ -201,7 +203,9 @@ export function WorkspaceSidebar(props: {
           <div className="space-y-1">
             {shown.map(({ id, label }) =>
               id === 'sessions' ? (
-                <div key={id}>{nav(label, COMMAND_ICONS.sessions, { kind: 'sessions' })}</div>
+                <Fragment key={id}>
+                  {nav(label, COMMAND_ICONS.sessions, { kind: 'sessions' })}
+                </Fragment>
               ) : (
                 <CollapsedTab
                   key={id}

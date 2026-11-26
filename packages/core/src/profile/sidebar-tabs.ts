@@ -19,6 +19,12 @@ export const SIDEBAR_TAB_LABELS: Record<SidebarTabId, string> = {
 export const SIDEBAR_TAB_STYLES = ['labels', 'compact', 'icons'] as const;
 export type SidebarTabStyle = (typeof SIDEBAR_TAB_STYLES)[number];
 
+export const DEFAULT_TAB_STYLE: SidebarTabStyle = 'compact';
+
+/** Whether a tab shows its label in `style`: always in Labels, only while active in Compact. */
+export const showsLabel = (style: SidebarTabStyle, active: boolean) =>
+  style === 'labels' || (style === 'compact' && active);
+
 /** The style after `style`, denser; none after icons. */
 export const denserTabStyle = (style: SidebarTabStyle): SidebarTabStyle | undefined =>
   SIDEBAR_TAB_STYLES[SIDEBAR_TAB_STYLES.indexOf(style) + 1];
@@ -31,16 +37,16 @@ export const SidebarSettingsSchema = z
   .strictObject({
     // Ids as strings: one a newer Mesa adds still loads here, and sidebarTabs drops it.
     tabs: z.array(StoredTabSchema).optional(),
-    tabStyle: z.enum(SIDEBAR_TAB_STYLES).default('compact'),
+    tabStyle: z.enum(SIDEBAR_TAB_STYLES).default(DEFAULT_TAB_STYLE),
   })
   .prefault({});
 
 export type SidebarTab = { id: SidebarTabId; label: string; shown: boolean; fixed: boolean };
 
-/** What sidebarTabs reads of a config. */
+/** What sidebarTabs reads of a config; none, or a part missing, reads as the defaults. */
 export type SidebarTabsConfig = {
-  sidebar: { tabs?: StoredSidebarTab[] };
-  logs: { cloudTab: boolean };
+  sidebar?: { tabs?: StoredSidebarTab[] };
+  logs?: { cloudTab?: boolean };
 };
 
 const isOptional = (id: string): id is SidebarTabId =>
@@ -51,13 +57,13 @@ const isOptional = (id: string): id is SidebarTabId =>
  * `sidebar.tabs`' order, an unknown or repeated id dropped and a missing one after them in the
  * default order. Logs, until `sidebar.tabs` names it, shows as the retired `logs.cloudTab` says.
  */
-export function sidebarTabs(config: SidebarTabsConfig): SidebarTab[] {
-  const stored = (config.sidebar.tabs ?? []).filter(
+export function sidebarTabs(config: SidebarTabsConfig | undefined): SidebarTab[] {
+  const listed = (config?.sidebar?.tabs ?? []).filter(
     (tab, at, all) => isOptional(tab.id) && all.findIndex((each) => each.id === tab.id) === at,
   );
   const missing = SIDEBAR_TABS.filter(
-    (id) => isOptional(id) && !stored.some((tab) => tab.id === id),
-  ).map((id) => ({ id, shown: id === 'logs' ? config.logs.cloudTab : true }));
+    (id) => isOptional(id) && !listed.some((tab) => tab.id === id),
+  ).map((id) => ({ id, shown: id === 'logs' ? (config?.logs?.cloudTab ?? true) : true }));
   const tab = (id: SidebarTabId, shown: boolean, fixed: boolean): SidebarTab => ({
     id,
     label: SIDEBAR_TAB_LABELS[id],
@@ -66,7 +72,7 @@ export function sidebarTabs(config: SidebarTabsConfig): SidebarTab[] {
   });
   return [
     ...FIXED_TABS.map((id) => tab(id, true, true)),
-    ...[...stored, ...missing].map((each) => tab(each.id as SidebarTabId, each.shown, false)),
+    ...[...listed, ...missing].map((each) => tab(each.id as SidebarTabId, each.shown, false)),
   ];
 }
 

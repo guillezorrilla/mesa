@@ -1,4 +1,9 @@
-import type { SidebarTab, SidebarTabId, SidebarTabStyle } from '@mesa/core/browser';
+import {
+  type SidebarTab,
+  type SidebarTabId,
+  type SidebarTabStyle,
+  showsLabel,
+} from '@mesa/core/browser';
 import { MoreHorizontal, SlidersHorizontal } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { CountPill } from '@/components/CountPill';
@@ -16,11 +21,14 @@ import type { SidebarTabsSettings } from '@/features/sidebar/useSidebarTabs';
 import { cn } from '@/lib/utils';
 import { useFittingTabStyle } from './useFittingTabStyle';
 
-/** Sessions' count in its muted pill, any other in the accent one. */
-const PILL = {
-  muted: 'rounded bg-muted px-1 text-foreground',
-  accent: 'rounded bg-state-working px-1 text-background',
+/** Sessions' count is muted, any other the accent. */
+const TONE = {
+  muted: 'bg-muted text-foreground',
+  accent: 'bg-state-working text-background',
 };
+/** Icons' count, a small badge on the icon's corner. */
+const BADGE =
+  'absolute top-0.5 right-0 min-w-3.5 rounded-full px-0.5 text-center text-[9px] leading-3.5 tabular-nums';
 
 /**
  * One tab in a style: Labels shows its label and count, Compact the label only while active,
@@ -37,10 +45,10 @@ function Tab(props: {
 }) {
   const { tab, style, on, count = 0, waiting = 0 } = props;
   const Icon = SIDEBAR_TAB_ICONS[tab.id];
-  const labelled = style === 'labels' || (style === 'compact' && on);
-  const tone = tab.id === 'sessions' ? 'muted' : 'accent';
-  // Sessions' count shows at 0 beside a label, as its list's size; a badge only for some.
-  const pill = style !== 'icons' && (count > 0 || tab.id === 'sessions');
+  const icons = style === 'icons';
+  const sessions = tab.id === 'sessions';
+  // Sessions' count shows at 0 beside its icon, as its list's size; a badge only for some.
+  const counted = count > 0 || (sessions && !icons);
   return (
     <button
       type="button"
@@ -54,16 +62,11 @@ function Tab(props: {
       onClick={props.onClick}
     >
       <Icon aria-hidden className="size-3.5 shrink-0" />
-      <span className={labelled ? undefined : 'sr-only'}>{tab.label}</span>
-      {pill && <CountPill count={count} className={PILL[tone]} />}
-      {style === 'icons' && count > 0 && (
+      <span className={showsLabel(style, on) ? undefined : 'sr-only'}>{tab.label}</span>
+      {counted && (
         <CountPill
           count={count}
-          className={cn(
-            'absolute top-0.5 right-0 min-w-3.5 px-0.5 text-center text-[9px] leading-3.5 tabular-nums',
-            PILL[tone],
-            'rounded-full',
-          )}
+          className={cn(icons ? BADGE : 'rounded px-1', TONE[sessions ? 'muted' : 'accent'])}
         />
       )}
       {waiting > 0 && (
@@ -73,7 +76,7 @@ function Tab(props: {
           aria-label={`${waiting} waiting for input`}
           className={cn(
             'inline-block size-2 rounded-full bg-state-waiting',
-            style === 'icons' && 'absolute bottom-1 right-0.5 size-1.5 ring-2 ring-card',
+            icons && 'absolute bottom-1 right-0.5 size-1.5 ring-2 ring-card',
           )}
         />
       )}
@@ -98,7 +101,7 @@ export function SidebarTabs(props: {
   const { settings, tab, counts } = props;
   const [customizing, setCustomizing] = useState(false);
   const bar = useRef<HTMLDivElement>(null);
-  const shown = settings.tabs.filter((each) => each.shown);
+  const { shown } = settings;
   const content = `${tab}|${shown.map((each) => `${each.id}:${counts[each.id] ?? 0}`).join()}`;
   const style = useFittingTabStyle(bar, settings.style, content);
   return (

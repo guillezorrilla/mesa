@@ -82,9 +82,10 @@ function AppShell() {
   const prompts = useCommand('prompts.list');
   const projects = useCommand('projects.list');
   const prs = usePrs();
+  const tabBar = useSidebarTabs();
   // A hidden tab's count reaches the Inbox instead.
-  const hiddenCounts = useSidebarTabs()
-    .tabs.filter((tab) => !tab.shown && tab.id === 'reviews' && prs.toAct > 0)
+  const hiddenCounts = tabBar.tabs
+    .filter((tab) => !tab.shown && tab.id === 'reviews' && prs.toAct > 0)
     .map((tab) => ({ id: tab.id, label: tab.label, count: prs.toAct }));
   const project =
     view.kind === 'project' ? projects.data?.find((p) => p.name === view.name) : undefined;
@@ -235,6 +236,7 @@ function AppShell() {
                 lastSession={workspace.lastSession}
                 lastProject={workspace.lastProject}
                 lastPr={workspace.lastPr}
+                tabBar={tabBar}
                 openTab={openTab}
                 onNewSession={(project, location, parent) =>
                   requestNewSession({

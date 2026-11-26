@@ -20,6 +20,8 @@ test('unset, the tabs are in the default order and all shown, Sessions and Proje
     'logs:on',
   ]);
   expect(sidebarTabs(config())[2]).toMatchObject({ label: 'Reviews' });
+  // A config not read yet reads as the defaults.
+  expect(sidebarTabs(undefined)).toEqual(sidebarTabs(config()));
 });
 
 test('the stored order wins; unknown, repeated and fixed ids drop, and a missing tab follows in default order', () => {

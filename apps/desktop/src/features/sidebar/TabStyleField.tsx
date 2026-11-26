@@ -1,4 +1,4 @@
-import { SIDEBAR_TAB_STYLES, type SidebarTabStyle } from '@mesa/core/browser';
+import { SIDEBAR_TAB_STYLES, type SidebarTabStyle, showsLabel } from '@mesa/core/browser';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { cn } from '@/lib/utils';
 import { SIDEBAR_TAB_ICONS } from './sidebarTabIcons';
@@ -21,7 +21,6 @@ function StylePreview(props: { style: SidebarTabStyle }) {
   return (
     <span aria-hidden className="flex h-5 w-full items-end gap-1 border-b border-border/70 px-0.5">
       {PREVIEW_TABS.map((Icon, at) => {
-        const labelled = props.style === 'labels' || (props.style === 'compact' && at === 0);
         return (
           <span
             // biome-ignore lint/suspicious/noArrayIndexKey: a fixed picture.
@@ -32,7 +31,9 @@ function StylePreview(props: { style: SidebarTabStyle }) {
             )}
           >
             <Icon className="size-2.5" />
-            {labelled && <span className="h-[3px] w-3 rounded-full bg-current opacity-70" />}
+            {showsLabel(props.style, at === 0) && (
+              <span className="h-[3px] w-3 rounded-full bg-current opacity-70" />
+            )}
             {props.style === 'icons' && at === 2 && (
               <span className="absolute -top-0.5 -right-1 size-1.5 rounded-full bg-state-working" />
             )}

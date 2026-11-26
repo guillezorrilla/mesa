@@ -34,35 +34,33 @@ const SMALL_SWITCH = 'h-5 w-9 [&>span]:size-4';
  */
 export function SidebarTabsField(props: { settings: SidebarTabsSettings }) {
   const { tabs, setShown, setOrder } = props.settings;
-  const optional = tabs.filter((tab) => !tab.fixed).map((tab) => tab.id);
+  const fixed = tabs.filter((tab) => tab.fixed);
+  const optional = tabs.filter((tab) => !tab.fixed);
+  const ids: string[] = optional.map((tab) => tab.id);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
   const drop = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return;
-    const from = optional.indexOf(active.id as never);
-    const to = optional.indexOf(over.id as never);
-    void setOrder(arrayMove(optional, from, to));
+    void setOrder(arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id))));
   };
   return (
     <ul aria-label="Sidebar tabs" className="grid gap-0.5">
-      {tabs
-        .filter((tab) => tab.fixed)
-        .map((tab) => (
-          <li key={tab.id} className={ROW}>
-            <span className="flex size-6 items-center justify-center text-muted-foreground/60">
-              <Lock aria-hidden className="size-3" />
-            </span>
-            <TabName tab={tab} />
-            <Switch
-              checked
-              disabled
-              aria-label={`${tab.label} always shows`}
-              className={cn(SMALL_SWITCH, 'ml-auto')}
-            />
-          </li>
-        ))}
+      {fixed.map((tab) => (
+        <li key={tab.id} className={ROW}>
+          <span className="flex size-6 items-center justify-center text-muted-foreground/60">
+            <Lock aria-hidden className="size-3" />
+          </span>
+          <TabName tab={tab} />
+          <Switch
+            checked
+            disabled
+            aria-label={`${tab.label} always shows`}
+            className={cn(SMALL_SWITCH, 'ml-auto')}
+          />
+        </li>
+      ))}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -70,19 +68,17 @@ export function SidebarTabsField(props: { settings: SidebarTabsSettings }) {
         onDragEnd={drop}
         accessibility={{ container: document.body }}
       >
-        <SortableContext items={optional} strategy={verticalListSortingStrategy}>
-          {tabs
-            .filter((tab) => !tab.fixed)
-            .map((tab) => (
-              <SortableRow key={tab.id} tab={tab}>
-                <Switch
-                  checked={tab.shown}
-                  onCheckedChange={(on) => void setShown(tab.id, on)}
-                  aria-label={`Show ${tab.label}`}
-                  className={cn(SMALL_SWITCH, 'ml-auto')}
-                />
-              </SortableRow>
-            ))}
+        <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+          {optional.map((tab) => (
+            <SortableRow key={tab.id} tab={tab}>
+              <Switch
+                checked={tab.shown}
+                onCheckedChange={(on) => void setShown(tab.id, on)}
+                aria-label={`Show ${tab.label}`}
+                className={cn(SMALL_SWITCH, 'ml-auto')}
+              />
+            </SortableRow>
+          ))}
         </SortableContext>
       </DndContext>
     </ul>
