@@ -61,7 +61,7 @@ function setUp(
   return { deps, calls, agent, shell };
 }
 
-test("sources: containers running or exited within the hour, the project's sessions with a log, terminals first, then its log files, each with its state", async () => {
+test("sources: containers running or exited within the hour, the project's terminal sessions with a log (never an agent's), then its log files, each with its state", async () => {
   const { deps, agent, shell, calls } = setUp({
     docker: [
       'echo-logs\talpine\tUp 3 minutes\trunning',
@@ -113,14 +113,6 @@ test("sources: containers running or exited within the hour, the project's sessi
       lastLine: ago(30).toISOString(),
     },
     {
-      id: `session:${agent.id}`,
-      kind: 'session',
-      name: 'fix the tides',
-      detail: `claude session ${agent.id}`,
-      state: 'quiet',
-      lastLine: ago(600).toISOString(),
-    },
-    {
       id: 'file:tide-api',
       kind: 'file',
       name: 'tide-api',
@@ -161,7 +153,6 @@ test('no containers, and no error, when docker is missing or its daemon is down'
   for (const opts of [{ missing: ['docker'] }, { failing: ['docker'] }]) {
     const { deps } = setUp({}, opts);
     expect((await logSources(deps, 'lantern-cove')).map((source) => source.kind)).toEqual([
-      'session',
       'session',
     ]);
   }

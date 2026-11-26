@@ -49,6 +49,12 @@ test("Logs opens beside a project's session; Send to agent fills its prompt fiel
     await click(logsButton() ?? undefined);
     await act(async () => vi.advanceTimersByTimeAsync(10));
     expect(document.querySelector('[aria-label="Logs"]')).not.toBeNull();
+    // No source picked for the project yet: the panel asks, and the person picks one.
+    await click(
+      document.querySelector<HTMLElement>('button[aria-label="Show Docker · harbour-api"]') ??
+        undefined,
+    );
+    await act(async () => vi.advanceTimersByTimeAsync(10));
     await click(
       document.querySelector<HTMLElement>('[role="option"][data-level="error"]') ?? undefined,
     );

@@ -16,7 +16,7 @@ const TAIL = 500;
  * The Logs panel's stream for the selected session's project (CONTEXT.md, Logs panel): its sources,
  * the source picked (kept per project), that source's entries read every 2 s, the level filter, and
  * the red dot. It reads while the window has focus: with the panel open while Live is on, and every
- * 10 s with it closed, the kept source or else the first, so an error that comes in lights the dot. An error new since
+ * 10 s with it closed, the kept source (none until the person picks one), so an error that comes in lights the dot. An error new since
  * the last read lights it unless the panel shows Errors; showing Errors clears it.
  */
 export function useLogWatch(project: string | undefined, open: boolean) {
@@ -41,9 +41,8 @@ export function useLogWatch(project: string | undefined, open: boolean) {
   const watchingRef = useRef(watchingErrors);
   watchingRef.current = watchingErrors;
   const listed = sources?.project === project ? sources?.list : undefined;
-  // The kept choice while it is listed (or before the list is read), else the first source.
-  const source =
-    kept && (!listed || listed.some((each) => each.id === kept)) ? kept : listed?.[0]?.id;
+  // The kept choice while it is listed (or before the list is read); none until the person picks one.
+  const source = kept && (!listed || listed.some((each) => each.id === kept)) ? kept : undefined;
 
   const refreshSources = useCallback(async () => {
     if (!project) return;

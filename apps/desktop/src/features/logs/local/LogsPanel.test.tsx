@@ -1,10 +1,13 @@
 // @vitest-environment happy-dom
 import type { LogSource } from '@mesa/core';
 import { act, useState } from 'react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { click, envelope, fakeBridge, fill, renderWithMesa } from '@/lib/testing';
 import { LogsPanel } from './LogsPanel';
 import { CLOSED_POLL_MS, LOGS_POLL_MS, useLogWatch } from './useLogWatch';
+
+// The source the person picked for the project; tests of the picker clear it.
+beforeEach(() => localStorage.setItem('mesa.logs.source.lantern-cove', 'docker:harbour-api'));
 
 afterEach(() => {
   vi.useRealTimers();
@@ -211,7 +214,7 @@ test('a new error while the panel is closed lights the dot; showing Errors clear
   expect(byTestId('dot')).toHaveLength(0);
 });
 
-test('before the panel was ever opened, the dot watches the first source', async () => {
+test('before the panel was ever opened, the dot watches the picked source', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   let entries = [entry('2026-05-06T07:08:10Z', 'error', 'old boom')];
   const { bridge, calls } = bridgeWith(() => entries);
@@ -221,6 +224,23 @@ test('before the panel was ever opened, the dot watches the first source', async
   entries = [...entries, entry('2026-05-06T07:08:20Z', 'error', 'new boom')];
   await tick(CLOSED_POLL_MS);
   expect(byTestId('dot')).toHaveLength(1);
+});
+
+test('with no source picked, the panel lists the sources and asks, reading nothing until one is picked', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  localStorage.clear();
+  const { bridge, calls } = bridgeWith(() => [entry('2026-05-06T07:08:10Z', 'error', 'boom')]);
+  await renderWithMesa(<Harness send={() => true} />, bridge);
+  await tick();
+  expect(document.body.textContent).toContain('Pick the log source to show for this project.');
+  expect(calls.some((args) => args.includes('docker:harbour-api'))).toBe(false);
+  await click(
+    document.querySelector<HTMLElement>('button[aria-label="Show Docker · harbour-api"]') ??
+      undefined,
+  );
+  await tick();
+  expect(localStorage.getItem('mesa.logs.source.lantern-cove')).toBe('docker:harbour-api');
+  expect(calls.at(-1)?.at(-1)).toBe('docker:harbour-api');
 });
 
 test('a failed sources read says so, not that there are none', async () => {

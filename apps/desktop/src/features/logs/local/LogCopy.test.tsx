@@ -1,9 +1,12 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { click, envelope, fakeBridge, fakePlatform, renderWithMesa } from '@/lib/testing';
 import { LogsPanel } from './LogsPanel';
 import { useLogWatch } from './useLogWatch';
+
+// The source the person picked for the project; tests of the picker clear it.
+beforeEach(() => localStorage.setItem('mesa.logs.source.lantern-cove', 'docker:harbour-api'));
 
 afterEach(() => {
   vi.useRealTimers();
