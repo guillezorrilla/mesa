@@ -163,11 +163,16 @@ test("logs request merges every line of one request across the project's sources
   ]);
   expect(found.failed).toEqual([]);
   expect((await mesa('logs', 'request', '7f3a', '--project', 'lantern-cove')).stdout).toBe(
-    'docker:tide-gateway 2026-05-06T07:08:09Z INFO GET /moorings reqId=7f3a\nfile:tide-api 2026-05-06T07:08:10Z 2026-05-06T07:08:10Z ERROR mooring failed reqId=7f3a\n',
+    'docker:tide-gateway 2026-05-06T07:08:09Z INFO GET /moorings reqId=7f3a\nfile:tide-api 2026-05-06T07:08:10Z ERROR mooring failed reqId=7f3a\n',
   );
   expect((await mesa('logs', 'request', 'none42', '--project', 'lantern-cove')).stdout).toBe(
     'no lines name request none42\n',
   );
+  // An id after -- is never read as a flag.
+  expect(await mesa('logs', 'request', '--project', 'lantern-cove', '--', '-7f3a')).toMatchObject({
+    code: 0,
+    stdout: 'no lines name request -7f3a\n',
+  });
 });
 
 test('logs modules lists the top-level folders with a build file', async () => {

@@ -13,10 +13,13 @@ export const logsRequest = defineCommand({
   run: async ({ mesa, args, flags }) => {
     const found = await mesa.logs.request(args.id, flags.project);
     const lines = found.entries.map((entry) => `${entry.source} ${entryText(entry)}`);
-    const failed = found.failed.map((each) => `could not read ${each.source}: ${each.message}`);
+    const notes = [
+      ...found.truncated.map((source) => `older lines of ${source} not searched`),
+      ...found.failed.map((each) => `could not read ${each.source}: ${each.message}`),
+    ];
     return {
       data: found,
-      text: [...(lines.length ? lines : [`no lines name request ${found.id}`]), ...failed].join(
+      text: [...(lines.length ? lines : [`no lines name request ${found.id}`]), ...notes].join(
         '\n',
       ),
     };

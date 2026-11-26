@@ -50,7 +50,7 @@ export const LogEntryRow = memo(function LogEntryRow(props: {
 }) {
   const { entry, actions } = props;
   const mute = muteKey(entry.message);
-  const request = requestIds(entry.message)[0];
+  const requests = [...new Set(requestIds(entry.message))];
   return (
     <LogRow
       level={entry.level}
@@ -67,9 +67,13 @@ export const LogEntryRow = memo(function LogEntryRow(props: {
             icon={SendHorizontal}
             onClick={() => actions.onSendOne(entry.key)}
           />
-          {request && (
-            <RequestMenu id={request} onShow={actions.onShowRequest} onSend={actions.onSendRequest}>
-              <Action label={`Request ${request}`} icon={Waypoints} />
+          {requests.length > 0 && (
+            <RequestMenu
+              ids={requests}
+              onShow={actions.onShowRequest}
+              onSend={actions.onSendRequest}
+            >
+              <Action label={`Request ${requests.join(', ')}`} icon={Waypoints} />
             </RequestMenu>
           )}
           <Action

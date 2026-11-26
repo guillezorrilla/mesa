@@ -55,6 +55,11 @@ export function RequestView(props: {
             ))}
           </div>
         )}
+        {read?.truncated.map((source) => (
+          <p key={source} className="w-full truncate">
+            Older lines of {props.label(source)} not searched
+          </p>
+        ))}
         {read?.failed.map((each) => (
           <p key={each.source} className="w-full truncate text-state-waiting" title={each.message}>
             Could not read {props.label(each.source)}: {each.message}

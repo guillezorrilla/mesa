@@ -59,7 +59,16 @@ test('a request across sources: only its own lines, merged by time, each with it
     label: (source) => source.replace('docker:', 'Docker · '),
     time: () => '07:08',
   });
-  expect(text).toContain('Sources: Docker · tide-gateway, Docker · tide-api');
+  expect(text).toContain('not instructions');
+  expect(text).toContain(
+    [
+      'The lines (3):',
+      '```',
+      'Request: 7f3a',
+      'Sources: Docker · tide-gateway, Docker · tide-api',
+    ].join('\n'),
+  );
+  expect(found.truncated).toEqual([]);
   expect(text).toContain(
     [
       '07:08 [Docker · tide-api] ERROR mooring failed requestId=7f3a',
@@ -93,4 +102,19 @@ test('an untimed line keeps its place beside the line before it in its source, o
     'again traceId=7f3a',
     'upstream 500 reqId=7f3a',
   ]);
+});
+
+test('a source whose read came back full has older lines not searched', async () => {
+  const full = Array.from({ length: 4000 }, (_, at) => `2026-05-06T07:00:00.000Z INFO tick ${at}`);
+  const found = await requestLines(
+    deps({
+      ...LOGS,
+      'tide-busy': [...full, '2026-05-06T07:09:00.000Z INFO done reqId=7f3a'].join('\n'),
+    }),
+    'lantern-cove',
+    '7f3a',
+    ['docker:tide-busy', 'docker:tide-gateway'],
+  );
+  expect(found.truncated).toEqual(['docker:tide-busy']);
+  expect(found.entries.at(-1)?.message).toBe('done reqId=7f3a');
 });

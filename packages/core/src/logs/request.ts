@@ -1,6 +1,6 @@
 import { MesaError } from '../lib/result.js';
 import type { ServerLogEntry } from './parse.js';
-import { type ReadDeps, readLog } from './read.js';
+import { type ReadDeps, readEntries } from './read.js';
 import { namesRequest } from './tokens.js';
 
 // A whole request across a project's log sources (CONTEXT.md, Logs panel): every entry naming its
@@ -18,6 +18,8 @@ export type RequestLines = {
   sources: string[];
   /** The entries naming the request, oldest first. */
   entries: RequestEntry[];
+  /** The sources with older lines than the 2000 entries searched, which may name it too. */
+  truncated: string[];
   /** The sources that could not be read, and why: a container gone, a file removed. */
   failed: { source: string; message: string }[];
 };
@@ -30,7 +32,8 @@ const loggedAt = (entry: ServerLogEntry) =>
  * Every entry of `sources` (ids) that names request `id` (namesRequest), from each one's last 2000,
  * merged by time: an entry with no time that reads keeps its place after the one before it in its
  * source (before its first, with that first), and entries of one time keep the order of `sources`. A `file:` source is `project`'s; a
- * source Mesa cannot read is listed in `failed`, not an error.
+ * source Mesa cannot read is listed in `failed`, not an error, and one with older lines than those
+ * searched in `truncated`.
  */
 export async function requestLines(
   deps: ReadDeps,
@@ -39,10 +42,12 @@ export async function requestLines(
   sources: readonly string[],
 ): Promise<RequestLines> {
   const failed: RequestLines['failed'] = [];
+  const truncated: string[] = [];
   const reads = await Promise.all(
     sources.map(async (source) => {
       try {
-        const read = await readLog(deps, source, { tail: LOOK, project: () => project });
+        const read = await readEntries(deps, source, { tail: LOOK, project: () => project });
+        if (read.truncated) truncated.push(source);
         return read.entries.filter((entry) => namesRequest(entry.message, id));
       } catch (error) {
         if (!(error instanceof MesaError)) throw error;
@@ -63,5 +68,5 @@ export async function requestLines(
   });
   // Array sort is stable, so ties keep each source's order and the order of `sources`.
   timed.sort((a, b) => a.time - b.time);
-  return { id, sources: [...sources], entries: timed.map(({ entry }) => entry), failed };
+  return { id, sources: [...sources], entries: timed.map(({ entry }) => entry), truncated, failed };
 }

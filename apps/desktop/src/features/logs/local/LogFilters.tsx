@@ -49,7 +49,7 @@ export function LogFilters(props: {
         {props.request && (
           <FilterChip removeLabel="Show every request" onRemove={props.onClearRequest}>
             <RequestMenu
-              id={props.request}
+              ids={[props.request]}
               onShow={props.onShowRequest}
               onSend={props.onSendRequest}
             >
