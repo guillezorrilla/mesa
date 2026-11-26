@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 import type { MesaContext } from '../context.js';
 import { REDACTED, redactWhole } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
+import { CLOUD_LOGS_FROM_SESSION, PERSON_ONLY_LOGS } from '../logs/gcp-config.js';
 import { APPROVAL_FROM_SESSION, WORKTREE_SCRIPTS } from '../projects/trust.js';
 import { callerOf } from '../sessions/window/caller.js';
 import { scriptHints } from '../worktrees/script-hint.js';
@@ -21,6 +22,18 @@ export function profileService(ctx: MesaContext) {
       for (const script of WORKTREE_SCRIPTS)
         if (!isDeepStrictEqual(next.worktrees[script], before[script]))
           throw new MesaError('usage', APPROVAL_FROM_SESSION);
+    };
+  };
+  // Which GCP projects Cloud Logs reads, whether Ask masks what it sends, and letting Ask send prod
+  // entries to the model are a person's calls (logs/ask.ts), as for scripts (ADR-0013).
+  const cloudLogsGuard = () => {
+    if (!callerOf({ store: ctx.store, env: ctx.env, profileName: profile }).inMesaWindow)
+      return undefined;
+    const before = ctx.configIfAny()?.logs;
+    return (next: Config) => {
+      for (const key of PERSON_ONLY_LOGS)
+        if (!isDeepStrictEqual(next.logs[key], before?.[key]))
+          throw new MesaError('usage', CLOUD_LOGS_FROM_SESSION);
     };
   };
   // The decision model is chosen with `mesa decisions use`, which checks it has a key.
@@ -73,7 +86,7 @@ export function profileService(ctx: MesaContext) {
                 : undefined,
           },
           () => {
-            const guards = [scriptGuard(), modelGuard()];
+            const guards = [scriptGuard(), modelGuard(), cloudLogsGuard()];
             return setConfigValue(paths.config, dotted, value, ctx, (next) => {
               for (const guard of guards) guard?.(next);
             });

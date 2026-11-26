@@ -1,15 +1,53 @@
+import {
+  FolderGit2,
+  GitPullRequest,
+  type LucideIcon,
+  ScrollText,
+  SquareTerminal,
+} from 'lucide-react';
+import type { ReactNode } from 'react';
 import { CountPill } from '@/components/CountPill';
 import { cn } from '@/lib/utils';
 
 /** The sidebar's tabs. */
-export type SidebarTab = 'sessions' | 'projects' | 'reviews';
-
-const TAB = 'flex-1 border-b-2 border-transparent py-2 text-xs font-semibold text-muted-foreground';
-const ON = 'border-ring text-foreground';
+export type SidebarTab = 'sessions' | 'projects' | 'reviews' | 'logs';
 
 /**
- * The sidebar's Sessions, Projects and Reviews tabs; Sessions counts its sessions and dots while
- * any wait, Reviews counts the PRs that ask something of me.
+ * One tab: its icon and label, the label hidden (still its name) on the inactive tabs while the
+ * sidebar is too narrow for all four.
+ */
+function Tab(props: {
+  on: boolean;
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+  children?: ReactNode;
+}) {
+  const Icon = props.icon;
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={props.on}
+      title={props.label}
+      className={cn(
+        'flex items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-2 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground',
+        props.on && 'border-ring text-foreground',
+      )}
+      onClick={props.onClick}
+    >
+      <Icon aria-hidden className="size-3.5 shrink-0" />
+      <span className={props.on ? undefined : 'sr-only @min-[21rem]:not-sr-only'}>
+        {props.label}
+      </span>
+      {props.children}
+    </button>
+  );
+}
+
+/**
+ * The sidebar's Sessions, Projects, Reviews and Logs tabs; Sessions counts its sessions and dots
+ * while any wait, Reviews counts the PRs that ask something of me.
  */
 export function SidebarTabs(props: {
   tab: SidebarTab;
@@ -22,51 +60,40 @@ export function SidebarTabs(props: {
   onSessions: () => void;
   onProjects: () => void;
   onReviews: () => void;
+  /** The Logs tab (CONTEXT.md, Cloud Logs), unless logs.cloudTab hides it. */
+  onLogs?: () => void;
 }) {
   const { tab, waiting } = props;
   return (
-    <div role="tablist" aria-label="Workspace" className="flex min-w-0 flex-1">
-      <button
-        type="button"
-        role="tab"
-        aria-selected={tab === 'sessions'}
-        className={cn(TAB, tab === 'sessions' && ON)}
+    <div role="tablist" aria-label="Workspace" className="@container flex min-w-0 flex-1 gap-0.5">
+      <Tab
+        on={tab === 'sessions'}
+        icon={SquareTerminal}
+        label="Sessions"
         onClick={props.onSessions}
       >
-        Sessions <span className="rounded bg-muted px-1">{props.sessionCount}</span>
+        <span className="rounded bg-muted px-1">{props.sessionCount}</span>
         {waiting > 0 && (
           <span
             data-testid="sessions-waiting"
             role="img"
             aria-label={`${waiting} waiting for input`}
-            className="ml-1 inline-block size-2 rounded-full bg-state-waiting align-middle"
+            className="inline-block size-2 rounded-full bg-state-waiting"
           />
         )}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={tab === 'projects'}
-        className={cn(TAB, tab === 'projects' && ON)}
-        onClick={props.onProjects}
-      >
-        Projects
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={tab === 'reviews'}
-        className={cn(TAB, tab === 'reviews' && ON)}
-        onClick={props.onReviews}
-      >
-        Reviews
+      </Tab>
+      <Tab on={tab === 'projects'} icon={FolderGit2} label="Projects" onClick={props.onProjects} />
+      <Tab on={tab === 'reviews'} icon={GitPullRequest} label="Reviews" onClick={props.onReviews}>
         {props.reviewCount > 0 && (
           <CountPill
             count={props.reviewCount}
-            className="ml-1 rounded bg-state-working px-1 text-background"
+            className="rounded bg-state-working px-1 text-background"
           />
         )}
-      </button>
+      </Tab>
+      {props.onLogs && (
+        <Tab on={tab === 'logs'} icon={ScrollText} label="Logs" onClick={props.onLogs} />
+      )}
     </div>
   );
 }

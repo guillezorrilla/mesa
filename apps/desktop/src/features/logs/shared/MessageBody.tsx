@@ -55,7 +55,7 @@ export function MessageBody(props: {
   const parts = useMemo(() => messageParts(props.message), [props.message]);
   return (
     <div className="min-w-0">
-      <span className="whitespace-pre-wrap break-words">
+      <span className="whitespace-pre-wrap [overflow-wrap:anywhere]">
         {parts.map((part, at) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: a message's parts are fixed.
           <Part key={at} part={part} onRequest={props.onRequest} />

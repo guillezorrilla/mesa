@@ -32,3 +32,7 @@ What remains is mostly children: the Claude listing runs on every look over idle
 - A command that blocks its event loop delays the calls beside it; core's runner and file reads are asynchronous or short.
 - A crash in one call's code that takes down the process fails the calls in flight with it; the next call starts a new server.
 - After an update the server is the old executable until the app restarts, as every child of the app already was.
+
+## Addendum, 2026-11-25: a stale server hands calls back
+
+Evidence: testing the Cloud Logs setup in the dev app, `mesa logs projects` from a shell listed about 1600 projects while the app listed none and did not know `mesa logs envs`: its `mesa serve`, started before `pnpm build` rewrote the CLI and core, still ran the code it had loaded. The server now compares the build on disk (version.ts `currentBuild`, the same stamp the Command socket checks, ADR-0032) with the one it loaded before each call; once they differ it answers `{"id","here":true}` without running it, and the app spawns the call and starts a fresh server for the next one. A released app never differs, as its CLI ships inside it.

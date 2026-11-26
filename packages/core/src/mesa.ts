@@ -17,6 +17,7 @@ import { gitService } from './git/service.js';
 import { impactService } from './impact/service.js';
 import { installsService } from './installs/service.js';
 import { instructionsService } from './instructions/service.js';
+import { cloudLogsService } from './logs/cloud-service.js';
 import { logsService } from './logs/service.js';
 import { mapService } from './map/service.js';
 import { backgroundDelivery } from './notifications/background.js';
@@ -34,6 +35,7 @@ import { receiptsService } from './receipts/service.js';
 import { whatsNew } from './release/notes.js';
 import { reportsService } from './reports/report-delivery.js';
 import { journalFile } from './sessions/host/journal.js';
+import { GENERAL_PROJECT } from './sessions/record/general.js';
 import { sessionsService } from './sessions/service/index.js';
 import { workingFolder } from './sessions/signals/readings.js';
 import { skillsService } from './skills/service.js';
@@ -217,7 +219,18 @@ export function createMesa(profile: string, deps: MesaDeps) {
     receipts: receiptsService(ctx),
     ...sessions,
     /** The Logs panel's sources and entries (CONTEXT.md, Logs panel). */
-    logs: logsService(ctx),
+    logs: {
+      ...logsService(ctx),
+      ...cloudLogsService(ctx, {
+        runText: sessions.sessions.run,
+        setConfig: profileApi.config.set,
+        // Like a session a person starts from the phone: its goal passes the guardrail first.
+        openSession: (project, goal, yes) =>
+          project === GENERAL_PROJECT
+            ? sessions.sessions.open(undefined, { general: true, goal, guardrail: { yes } })
+            : sessions.sessions.open(project, { goal, guardrail: { yes } }),
+      }),
+    },
     prEvents,
     reports,
     /** Planned work and what each part waits on (CONTEXT.md, Task graph). */

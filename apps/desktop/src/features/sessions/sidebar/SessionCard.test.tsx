@@ -83,24 +83,22 @@ test("a card on a branch with a pull request shows its number in its state's col
       pr: { number: 123, state, url: 'https://github.example/lantern-cove/pull/123' },
     }) as TreeRow;
   const byTestId = await renderWithMesa(
-    <>
-      {(['open', 'draft', 'merged', 'closed'] as const).map((state) => (
-        <SessionCard
-          key={state}
-          session={withPr(state)}
-          selected={false}
-          chosen={false}
-          unread={false}
-          compact={false}
-          onToggleCompact={() => {}}
-          onSelect={(keys) => selected.push(keys)}
-          onStep={() => {}}
-          chosenCount={1}
-          onArchiveChosen={() => {}}
-          onMarkChosen={() => {}}
-        />
-      ))}
-    </>,
+    (['open', 'draft', 'merged', 'closed'] as const).map((state) => (
+      <SessionCard
+        key={state}
+        session={withPr(state)}
+        selected={false}
+        chosen={false}
+        unread={false}
+        compact={false}
+        onToggleCompact={() => {}}
+        onSelect={(keys) => selected.push(keys)}
+        onStep={() => {}}
+        chosenCount={1}
+        onArchiveChosen={() => {}}
+        onMarkChosen={() => {}}
+      />
+    )),
     bridge,
   );
   const badges = byTestId('session-pr');

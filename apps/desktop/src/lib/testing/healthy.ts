@@ -134,7 +134,16 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
         density: 'comfortable',
         colorVision: 'normal',
       },
-      logs: { panel: true },
+      logs: {
+        panel: true,
+        cloudTab: true,
+        views: [],
+        prodAsk: [],
+        mask: true,
+        fixProjects: {},
+        recentProjects: [],
+        starredProjects: [],
+      },
       terminal: { app: 'Terminal', ...DEFAULT_TERMINAL_PREFERENCES },
       editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
       worktrees: {

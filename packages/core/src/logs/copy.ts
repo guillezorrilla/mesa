@@ -103,12 +103,12 @@ export function copyText(
  */
 export function groupSummaryText(
   group: ErrorGroup<ServerLogEntry>,
-  context: CopyContext & { services?: readonly string[] },
+  context: CopyContext & { services?: readonly string[]; firstSeen?: string | null },
 ): string {
   const sample = group.entries.at(-1);
   return [
     `${group.title} (x${group.count})`,
-    `First seen: ${zonedTime(group.entries[0]?.time ?? null)}`,
+    `First seen: ${zonedTime(context.firstSeen ?? group.entries[0]?.time ?? null)}`,
     `Last seen: ${zonedTime(group.last)}`,
     `Services: ${(context.services ?? [context.source]).join(', ')}`,
     ...(sample ? ['', 'Newest:', copyText([sample], 'paste', context)] : []),

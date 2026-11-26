@@ -9,6 +9,7 @@ import { DoctorScreen } from '@/features/doctor/DoctorScreen';
 import { HelpScreen } from '@/features/help/HelpScreen';
 import { HooksUpdateCard } from '@/features/hooks/HooksUpdateCard';
 import { ImpactScreen } from '@/features/impact/ImpactScreen';
+import { CloudLogsKeptScreen } from '@/features/logs/cloud/CloudLogsKeptScreen';
 import { MapScreen } from '@/features/map/MapScreen';
 import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
@@ -70,12 +71,16 @@ export function WorkspaceMain(props: {
   );
   const sessionView = view.kind === 'session';
   const startView = view.kind === 'sessions';
+  // The Logs tab fills the area; its panes scroll on their own.
+  const logsView = view.kind === 'logs';
   return (
     <main
       className={
         sessionView
           ? 'min-w-0 flex-1 overflow-hidden'
-          : cn('min-w-0 flex-1 overflow-auto px-6 py-5', startView && 'flex flex-col gap-4')
+          : logsView
+            ? 'flex min-w-0 flex-1 flex-col overflow-hidden px-6 py-5'
+            : cn('min-w-0 flex-1 overflow-auto px-6 py-5', startView && 'flex flex-col gap-4')
       }
     >
       {startView && (
@@ -143,6 +148,12 @@ export function WorkspaceMain(props: {
           <Muted>Project unavailable. Choose another project from the sidebar.</Muted>
         ))}
       {view.kind === 'doctor' && <DoctorScreen doctor={props.doctor} />}
+      {/* The Logs tab stays mounted, hidden, once visited, so it is as left when shown again. */}
+      <CloudLogsKeptScreen
+        view={view.kind === 'logs' ? view : undefined}
+        onView={(next) => navigate({ kind: 'logs', ...next })}
+        onSession={(id) => navigate({ kind: 'session', id })}
+      />
       {view.kind === 'prs-setup' && (
         <PrSetupScreen
           key={view.project}

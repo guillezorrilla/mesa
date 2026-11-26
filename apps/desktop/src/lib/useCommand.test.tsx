@@ -110,3 +110,42 @@ test('a refreshing read alerts a failure once, and again only after it recovers'
   await refresh();
   expect(toastTexts(byTestId)).toEqual(['sessions: cannot read']);
 });
+
+test('refreshEverywhere in one reader reaches every reader of the same read; a plain refresh stays its own', async () => {
+  let names = ['tide'];
+  const { bridge } = fakeBridge({
+    projects: () => envelope(names.map((name) => ({ ...PROJECTS[0], name }))),
+  });
+  function Reader(props: { id: string; refreshes?: boolean }) {
+    const { data, refresh, refreshEverywhere } = useCommand('projects.list');
+    return (
+      <div>
+        <span data-testid={props.id}>{data?.map((p) => p.name).join(', ')}</span>
+        {props.refreshes && (
+          <>
+            <button type="button" data-testid="refresh" onClick={() => void refresh()}>
+              Refresh
+            </button>
+            <button type="button" data-testid="everywhere" onClick={() => void refreshEverywhere()}>
+              Everywhere
+            </button>
+          </>
+        )}
+      </div>
+    );
+  }
+  const byTestId = await renderWithMesa(
+    <>
+      <Reader id="screen" refreshes />
+      <Reader id="sidebar" />
+    </>,
+    bridge,
+  );
+  expect(byTestId('sidebar')[0]?.textContent).toBe('tide');
+  names = ['tide', 'harbour'];
+  await click(byTestId('refresh')[0]);
+  expect(byTestId('screen')[0]?.textContent).toBe('tide, harbour');
+  expect(byTestId('sidebar')[0]?.textContent).toBe('tide');
+  await click(byTestId('everywhere')[0]);
+  expect(byTestId('sidebar')[0]?.textContent).toBe('tide, harbour');
+});

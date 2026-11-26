@@ -8,11 +8,13 @@ import {
   Library,
   type LucideIcon,
   Map as MapIcon,
+  ScrollText,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ResizeHandle } from '@/components/ResizeHandle';
 import { Button } from '@/components/ui/button';
 import { usePendingRuns } from '@/features/automations/usePendingRuns';
+import { CloudLogsSection } from '@/features/logs/cloud/views/CloudLogsSection';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { ProjectsSection } from '@/features/projects/ProjectsSection';
 import { ReviewsSection } from '@/features/prs/ReviewsSection';
@@ -25,6 +27,7 @@ import { sidebarGroups, sidebarOrder } from '@/features/sessions/sidebar/sidebar
 import { useUnfoldOnNewSession } from '@/features/sessions/sidebar/useUnfoldOnNewSession';
 import type { SessionLocation } from '@/features/sessions/start/useStartSession';
 import type { PrRef } from '@/lib/client/prs';
+import { useCommand } from '@/lib/useCommand';
 import { useKeptWidth } from '@/lib/useKeptWidth';
 import { cn } from '@/lib/utils';
 import type { WorkspaceView } from '@/lib/workspaceView';
@@ -83,6 +86,7 @@ export function WorkspaceSidebar(props: {
     if (view.kind === 'project') setTab('projects');
     if (view.kind === 'session' || view.kind === 'sessions') setTab('sessions');
     if (view.kind === 'prs-setup' || view.kind === 'pr') setTab('reviews');
+    if (view.kind === 'logs') setTab('logs');
   }, [view.kind]);
   const groups = sidebarGroups(props.projects, props.sessions);
   const { visible, active, stranded } = groups;
@@ -113,6 +117,12 @@ export function WorkspaceSidebar(props: {
     if (last && listed && view.kind !== 'pr') onView({ kind: 'pr', ...last });
   };
   const pendingRuns = usePendingRuns();
+  const logsTab = useCommand('config.get').data?.logs?.cloudTab ?? true;
+  /** The Logs tab, back on the Logs view as it was left (CloudLogsKeptScreen keeps it). */
+  const openLogs = () => {
+    setTab('logs');
+    if (view.kind !== 'logs') onView({ kind: 'logs' });
+  };
   const nav = (label: string, icon: LucideIcon, target: WorkspaceView, count = 0) => (
     <SidebarNavButton
       label={label}
@@ -151,6 +161,7 @@ export function WorkspaceSidebar(props: {
             onSessions={openSessions}
             onProjects={openProjects}
             onReviews={openReviews}
+            onLogs={logsTab ? openLogs : undefined}
           />
         )}
         <Button
@@ -162,7 +173,10 @@ export function WorkspaceSidebar(props: {
           {collapsed ? <ChevronRight aria-hidden /> : <ChevronLeft aria-hidden />}
         </Button>
       </div>
-      <nav aria-label="Workspace" className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
+      <nav
+        aria-label="Workspace"
+        className="min-h-0 flex-1 overflow-y-auto px-2 py-3 [scrollbar-gutter:stable]"
+      >
         {collapsed ? (
           <div className="space-y-1">
             {nav('Sessions', COMMAND_ICONS.sessions, { kind: 'sessions' })}
@@ -190,7 +204,23 @@ export function WorkspaceSidebar(props: {
             >
               <GitPullRequest aria-hidden className="size-4" />
             </Button>
+            {logsTab && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Logs"
+                title="Logs"
+                onClick={() => {
+                  openLogs();
+                  props.onCollapse();
+                }}
+              >
+                <ScrollText aria-hidden className="size-4" />
+              </Button>
+            )}
           </div>
+        ) : tab === 'logs' && logsTab ? (
+          <CloudLogsSection view={view} onView={onView} />
         ) : tab === 'reviews' ? (
           prs && (
             <ReviewsSection
