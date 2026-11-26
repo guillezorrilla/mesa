@@ -85,7 +85,8 @@ test('logs sources lists containers, sessions with a log and log files; a source
     'echo-logs\talpine\tUp 1 minute\trunning\n',
     '2026-05-06T07:08:09Z ERROR boom\n2026-05-06T07:08:10Z INFO fine\n2026-05-06T07:08:11Z ERROR boom\n',
   );
-  const id = (await mesa('open', 'lantern-cove')).stdout.split('\n')[0] ?? '';
+  // A plain terminal session: an agent's session is no log source.
+  const id = (await mesa('open', 'lantern-cove', '--terminal')).stdout.split('\n')[0] ?? '';
   plantOutputLog(cli.home, id, 'WARN tide rising\r\n');
   const named = (
     await mesa('logs', 'file', 'tide-api', '--project', 'lantern-cove', '--path-only', '--json')
