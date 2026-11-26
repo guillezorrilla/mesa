@@ -72,6 +72,9 @@ test('the code an Ask reads is the project most of the services map to, never Ge
   ).toBe('tide-pool');
   expect(codeProject(map, ['harbour-web-456/harbour-web', 'harbour-web-456/-'])).toBeUndefined();
   expect(codeProject(map, ['constructor', '__proto__'])).toBeUndefined();
+  // One named wins, general for none.
+  expect(codeProject(map, ['tide-tables-123/tide-api'], 'tide-pool')).toBe('tide-pool');
+  expect(codeProject(map, ['tide-tables-123/tide-api'], 'general')).toBeUndefined();
 });
 
 test('Ask runs cloud-logs in General with the project whose code it reads and the model the profile names', async () => {

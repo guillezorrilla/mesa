@@ -12,7 +12,6 @@ import {
   claudeRunProfile,
   isPipelineSkill,
   isTextOnlySkill,
-  READ_ONLY_RUN_TOOLS,
   readOnlyTools,
 } from '../../skills/library.js';
 import type { SkillRow } from '../../skills/sync.js';
@@ -149,7 +148,8 @@ export async function startRun(deps: RunDeps, input: RunInput) {
             permissionMode: 'default',
             allowedTools: [...readTools],
             // Its tools are these alone, and it streams its answer (an Ask's).
-            tools: READ_ONLY_RUN_TOOLS,
+            // Each rule's tool (`Bash(mesa logs gcp:*)` is Bash), so nothing else exists for it.
+            tools: [...new Set(readTools.map((rule) => rule.split('(')[0] ?? rule))],
             stream: true,
             ...(code ? { dirs: [code.path] } : {}),
           }

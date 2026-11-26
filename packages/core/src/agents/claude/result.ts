@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { AgentResult } from '../result.js';
+import { parseStreamLine } from './stream/events.js';
 
 // What a headless claude prints: `claude -p --output-format json` writes one result object on
 // stdout when it is done (fixtures/results/, from Claude Code 2.1.283); with `stream-json` (an
@@ -31,17 +32,15 @@ const jsonLine = (line: string): unknown => {
 export function readClaudeResult(stdout: string): AgentResult {
   const text = stdout.trim();
   if (!text) return { read: false, reason: 'claude printed no result' };
-  let raw: unknown;
-  try {
-    raw =
-      jsonLine(text) ??
-      text
-        .split('\n')
-        .map(jsonLine)
-        .reverse()
-        .find((event) => (event as { type?: unknown } | undefined)?.type === 'result');
-    if (raw === undefined) throw new Error('no result');
-  } catch {
+  let raw: unknown = jsonLine(text);
+  // A stream's result is its last line: read from the end, stopping at the first result.
+  for (const line of raw === undefined ? text.split('\n').reverse() : []) {
+    if (parseStreamLine(line).type === 'result') {
+      raw = jsonLine(line);
+      break;
+    }
+  }
+  if (raw === undefined) {
     return { read: false, reason: 'claude printed something other than its JSON result' };
   }
   const parsed = ResultSchema.safeParse(raw);
@@ -62,29 +61,19 @@ export function readClaudeResult(stdout: string): AgentResult {
   };
 }
 
-type StreamEvent = {
-  type?: string;
-  parent_tool_use_id?: string | null;
-  event?: { type?: string; delta?: { type?: string; text?: string } };
-};
-
 /**
  * The text of the newest assistant message a `stream-json` run has written so far (its
- * `--include-partial-messages` deltas): what an Ask's answer shows while it comes. Each new
- * message starts it again, so the text before a tool call gives way to the next; a subagent's
- * events are not the run's answer. Empty when nothing reads.
+ * `--include-partial-messages` deltas, read by parseStreamLine): what an Ask's answer shows while
+ * it comes. Each new message starts it again, so the text before a tool call gives way to the
+ * next; a subagent's text is not the run's answer. Empty when nothing reads.
  */
 export function readClaudeStream(stdout: string) {
   let text = '';
   for (const line of stdout.split('\n')) {
-    const event = jsonLine(line) as StreamEvent | undefined;
-    if (event?.type !== 'stream_event' || event.parent_tool_use_id) continue;
-    if (event.event?.type === 'message_start') text = '';
-    else if (
-      event.event?.type === 'content_block_delta' &&
-      event.event.delta?.type === 'text_delta'
-    )
-      text += event.event.delta.text ?? '';
+    const event = parseStreamLine(line);
+    if (event.type === 'stream' && event.event === 'message_start') text = '';
+    else if (event.type === 'delta' && event.kind === 'text' && !event.sidechain)
+      text += event.text;
   }
   return text;
 }

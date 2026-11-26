@@ -77,6 +77,7 @@ export {
 } from './logs/cloud-copy.js';
 export {
   cloudLevel,
+  mappedProject,
   serviceRefOf,
   severityLabel,
   severityRank,

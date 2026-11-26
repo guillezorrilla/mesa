@@ -349,17 +349,12 @@ export function cloudLogsService(
       ]);
       // The deploy markers' deploys() plugs in here once it lands; none are known until then.
       const deploys: RangeDeploy[] = [];
-      // The code it reads: the one named (general for none), else the project the asked services
-      // map to (logs.fixProjects), else the one most of the entries read map to.
-      const code =
-        named === undefined
-          ? codeProject(
-              fixProjects,
-              kept.services?.length ? kept.services : read.entries.map(serviceRefOf),
-            )
-          : named === 'general' || named === GENERAL_PROJECT
-            ? undefined
-            : named;
+      // The code it reads (codeProject): the one named, else the asked services', else the entries'.
+      const code = codeProject(
+        fixProjects,
+        kept.services?.length ? kept.services : read.entries.map(serviceRefOf),
+        named,
+      );
       // What the person typed in a filter (an email in --text) is masked like the entries.
       const filter = Object.entries(read.filters)
         .map(([project, each]) => `${project}: ${mask ? maskText(each) : each}`)

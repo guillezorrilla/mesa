@@ -54,10 +54,6 @@ export const readOnlyTools = (skill: string): readonly string[] | undefined =>
         'Glob',
       ]
     : undefined;
-
-/** The built-in tools a read-only run has at all: no edit, write, web or subagent tool exists for it. */
-export const READ_ONLY_RUN_TOOLS: readonly string[] = ['Bash', 'Read', 'Grep', 'Glob'];
-
 /** The skill whose run summarises a session's output log (skills/session-summary). */
 export const SESSION_SUMMARY = 'session-summary';
 

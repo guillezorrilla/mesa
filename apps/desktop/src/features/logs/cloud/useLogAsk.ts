@@ -1,10 +1,11 @@
+import { mappedProject } from '@mesa/core/browser';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/components/Toast';
 import type { CloudAsked, CloudFilters } from '@/lib/client/logs';
 import { useCall } from '@/lib/useCommand';
 import { useCloudLogsConfig } from './useCloudLogsConfig';
 
-/** How often the answer is read while it streams. */
+/** How often the answer is read while it streams: faster than the Logs panel's poll, so it reads as typing. */
 const STREAM_MS = 700;
 
 /** A question about to be asked, with the filters it changes (a quick investigation's). */
@@ -30,10 +31,16 @@ export function useLogAsk(
   const since = asking?.since;
   useEffect(() => {
     if (!since) return;
+    // One read at a time: a slow read is not overlapped by the next tick.
+    let reading = false;
     const timer = window.setInterval(async () => {
+      if (reading) return;
+      reading = true;
       const live = await call('logs.asking', { since });
-      if (live.ok && live.data.text)
-        setAsking((now) => (now?.since === since ? { ...now, text: live.data.text } : now));
+      reading = false;
+      const text = live.ok ? live.data.text : '';
+      if (text)
+        setAsking((now) => (now?.since === since && now.text !== text ? { ...now, text } : now));
     }, STREAM_MS);
     return () => window.clearInterval(timer);
   }, [since, call]);
@@ -60,7 +67,7 @@ export function useLogAsk(
   const ask = async (question: string, over?: CloudFilters) => {
     if (!question.trim()) return false;
     const unmapped = (over?.services ?? filters.services ?? []).filter(
-      (ref) => !Object.hasOwn(fixProjects, ref),
+      (ref) => !mappedProject(fixProjects, ref),
     );
     if (unmapped.length) {
       setPicking({ question, over, refs: unmapped });

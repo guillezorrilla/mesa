@@ -1,11 +1,7 @@
-import { Sparkles, TrendingUp, UserSearch } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import type { Investigation } from './askInvestigations';
-
-/** Each quick investigation's icon, in askInvestigations' order. */
-const ICONS = [TrendingUp, UserSearch, Sparkles];
 
 const PROMPTS = [
   'Explain this',
@@ -45,8 +41,7 @@ export function AskComposerField(props: {
       }}
     >
       <fieldset className="grid gap-1" aria-label="Quick investigations">
-        {props.investigations.map((investigation, i) => {
-          const Icon = ICONS[i] ?? Sparkles;
+        {props.investigations.map(({ icon: Icon, ...investigation }) => {
           return (
             <button
               key={investigation.label}
@@ -54,7 +49,7 @@ export function AskComposerField(props: {
               disabled={props.busy || Boolean(investigation.off)}
               title={investigation.off ?? investigation.question}
               className="flex items-center gap-2 rounded-md border bg-background px-2 py-1 text-left text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-background"
-              onClick={() => props.onInvestigate(investigation)}
+              onClick={() => props.onInvestigate({ ...investigation, icon: Icon })}
             >
               <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="truncate">{investigation.label}</span>

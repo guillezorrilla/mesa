@@ -6,6 +6,7 @@ import { GENERAL_PROJECT } from '../sessions/record/general.js';
 import { CLOUD_LOGS } from '../skills/library.js';
 import { answerParts } from './answer.js';
 import type { AskQuery, AskTurn } from './ask-history.js';
+import { mappedProject } from './cloud-entry.js';
 import type { CloudLogEntry } from './gcp.js';
 import { filterProblem } from './gcp-config.js';
 import { groupSamples, type RangeFacts, rangeSummary } from './range-summary.js';
@@ -26,16 +27,17 @@ const SAMPLES_SHARE = 1 / 3;
 /** The most earlier turns a follow-up carries. */
 const TURNS_KEPT = 6;
 
-/** As many of `lines` as `budget` bytes hold, in order. */
+/** As many of `lines` as `budget` bytes hold, in order, and the bytes they take. */
 function fitting(lines: readonly string[], budget: number) {
   const out: string[] = [];
   let bytes = 0;
   for (const line of lines) {
-    bytes += Buffer.byteLength(line) + 1;
-    if (bytes > budget) break;
+    const next = bytes + Buffer.byteLength(line) + 1;
+    if (next > budget) break;
+    bytes = next;
     out.push(line);
   }
-  return out;
+  return { lines: out, bytes };
 }
 
 /** An entry as the model reads it: its message's first line cut, its stack folded. */
@@ -45,13 +47,19 @@ export const modelEntry = (entry: CloudLogEntry): CloudLogEntry => ({
 });
 
 /**
- * The registered project whose code an Ask reads: the one most of `refs` (`<project>/<service>`)
- * map to in `fixProjects`, General left out; undefined when none maps.
+ * The registered project whose code an Ask reads: `named` (general for none), else the one most
+ * of `refs` (`<project>/<service>`) map to in `fixProjects`, General left out; undefined for none.
  */
-export function codeProject(fixProjects: Record<string, string>, refs: readonly string[]) {
+export function codeProject(
+  fixProjects: Record<string, string>,
+  refs: readonly string[],
+  named?: string,
+) {
+  if (named !== undefined)
+    return named === 'general' || named === GENERAL_PROJECT ? undefined : named;
   const counts = new Map<string, number>();
   for (const ref of refs) {
-    const project = Object.hasOwn(fixProjects, ref) ? fixProjects[ref] : undefined;
+    const project = mappedProject(fixProjects, ref);
     if (project && project !== GENERAL_PROJECT) counts.set(project, (counts.get(project) ?? 0) + 1);
   }
   return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0];
@@ -70,9 +78,9 @@ export function askInput(question: string, read: AskRead, earlier: readonly AskT
     read.range && !('failed' in read.range.errors) ? groupSamples(read.range.errors.groups) : [];
   const left = LOGS_LIMIT_BYTES - Buffer.byteLength(summary);
   const samples = fitting(allSamples, left * SAMPLES_SHARE);
-  const lines = fitting(
+  const { lines } = fitting(
     read.entries.map((entry) => JSON.stringify(modelEntry(entry))),
-    left - samples.reduce((bytes, line) => bytes + Buffer.byteLength(line) + 1, 0),
+    left - samples.bytes,
   );
   const turns = earlier.slice(-TURNS_KEPT);
   return [
@@ -91,8 +99,8 @@ export function askInput(question: string, read: AskRead, earlier: readonly AskT
           'The range, summarised over its whole span:',
           dataFence('text', summary),
           '',
-          `A few samples of each error group, deduplicated, one JSON object a line (${samples.length} of ${allSamples.length}):`,
-          dataFence('jsonl', samples.join('\n') || '(none)'),
+          `A few samples of each error group, deduplicated, one JSON object a line (${samples.lines.length} of ${allSamples.length}):`,
+          dataFence('jsonl', samples.lines.join('\n') || '(none)'),
           '',
         ]
       : []),

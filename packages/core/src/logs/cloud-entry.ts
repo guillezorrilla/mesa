@@ -47,6 +47,13 @@ export const traceIdOf = (trace: string) => trace.split('/').at(-1) ?? trace;
 export const serviceRefOf = (entry: { project: string; service: string | null }) =>
   `${entry.project}/${entry.service ?? '-'}`;
 
+/**
+ * The registered project service `ref` (`<project>/<service>`) fixes in and Ask reads the code of,
+ * from logs.fixProjects; undefined when it maps to none.
+ */
+export const mappedProject = (fixProjects: Record<string, string>, ref: string) =>
+  Object.hasOwn(fixProjects, ref) ? fixProjects[ref] : undefined;
+
 /** A message's first line, and the stack (the rest) it carries, null when none. */
 export function splitMessage(message: string): { head: string; stack: string | null } {
   const at = message.indexOf('\n');

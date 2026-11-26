@@ -17,7 +17,7 @@ test("the company or user investigation filters by the selected entry's field, i
     { fields: { env: 'beta' } },
     entry({ companyId: 'c-77', uri: '/docks' }),
   );
-  expect(who).toEqual({
+  expect(who).toMatchObject({
     label: 'Errors for this companyId',
     question: 'What errors did the companyId in the field filter hit in this range, and why?',
     over: { severity: 'error', fields: { env: 'beta', companyId: 'c-77' } },

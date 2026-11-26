@@ -620,7 +620,9 @@ test('a quick investigation asks with its own range, and the answer streams into
   await renderWithMesa(<Harness mode="explorer" />, bridge);
   await attached();
   const claude = q('[aria-label="Claude"]') ?? document;
-  expect(button('Errors for this company/user', claude)?.disabled).toBe(true);
+  expect(
+    (button('Errors for this company/user', claude) as HTMLButtonElement | null)?.disabled,
+  ).toBe(true);
   await click(button('What is new since yesterday', claude));
   await vi.waitFor(() => expect(claude.textContent).toContain('Two groups are new since'), {
     timeout: 3000,
