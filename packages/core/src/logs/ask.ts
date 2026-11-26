@@ -3,6 +3,7 @@ import type { GitTextRunInfo, GitTextRunner } from '../git/message.js';
 import { dataFence } from '../git/recipes.js';
 import { MesaError } from '../lib/result.js';
 import { GENERAL_PROJECT } from '../sessions/record/general.js';
+import type { CodeFolder } from '../sessions/run/start.js';
 import { CLOUD_LOGS } from '../skills/library.js';
 import { answerParts } from './answer.js';
 import type { AskQuery, AskTurn } from './ask-history.js';
@@ -73,7 +74,7 @@ export type AskRead = {
   entries: readonly CloudLogEntry[];
   range?: RangeFacts;
   /** The registered project whose code the run may read, and its checkout's folder. */
-  code?: { name: string; path: string };
+  code?: CodeFolder;
 };
 
 /**
@@ -81,12 +82,7 @@ export type AskRead = {
  * summary, a few samples per error group and the page of entries, within LOGS_LIMIT_BYTES.
  */
 export function askInput(question: string, read: AskRead, earlier: readonly AskTurn[] = []) {
-  const lines = read.range ? rangeSummary(read.range).split('\n') : [];
-  const kept = fitting(lines, LOGS_LIMIT_BYTES * SUMMARY_SHARE).lines;
-  const summary = [
-    ...kept,
-    ...(kept.length < lines.length ? ['... (the summary was cut here)'] : []),
-  ].join('\n');
+  const summary = read.range ? rangeSummary(read.range, LOGS_LIMIT_BYTES * SUMMARY_SHARE) : '';
   const allSamples =
     read.range && !readFailed(read.range.errors) ? groupSamples(read.range.errors.groups) : [];
   const left = LOGS_LIMIT_BYTES - Buffer.byteLength(summary);

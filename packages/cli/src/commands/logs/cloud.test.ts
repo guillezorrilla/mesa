@@ -297,6 +297,7 @@ test('logs ask reads the code of the project the asked services map to, added re
   // Its secrets stay unread: deny rules on the code folder, and every Bash call passes the guard.
   expect(launch).toContain(`'Read(/${dir}/**/.env*)'`);
   expect(launch).toContain(`'Grep(/${dir}/**/*.pem)'`);
+  expect(launch).toContain(`'Glob(/${dir}/**/secrets/**)'`);
   expect(launch).toContain('hook ask-guard');
   // With no service named, the entries read decide: most map to lantern-cove.
   expect((await mesa('logs', 'ask', 'why?', '--env', 'beta', '--json')).json.data.code).toBe(
@@ -328,6 +329,29 @@ test('logs ask reads the code of the project the asked services map to, added re
     session: 'runaaaa1',
     text: 'Berth 7 ',
   });
+  // A second Ask at once keeps its own text, and a token another Ask holds is refused.
+  writeFileSync(join(runs, 'ask-token-3.ask'), 'runbbbb2');
+  writeFileSync(
+    join(runs, 'runbbbb2.json'),
+    JSON.stringify({
+      type: 'stream_event',
+      event: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Quay 3' } },
+    }),
+  );
+  expect((await mesa('logs', 'asking', 'ask-token-3', '--json')).json.data.text).toBe('Quay 3');
+  expect((await mesa('logs', 'asking', 'ask-token-2', '--json')).json.data.text).toBe('Berth 7 ');
+  const busy = await mesa(
+    'logs',
+    'ask',
+    'why?',
+    '--env',
+    'beta',
+    '--stream',
+    'ask-token-2',
+    '--json',
+  );
+  expect(busy.code).toBe(2);
+  expect(busy.json.error.message).toBe('stream token ask-token-2 is in use by another Ask');
   expect(await mesa('logs', 'asking', 'x;y', '--json')).toMatchObject({ code: 4 });
 });
 

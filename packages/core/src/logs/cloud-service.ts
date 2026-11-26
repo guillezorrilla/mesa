@@ -1,14 +1,11 @@
-import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { MesaContext } from '../context.js';
 import type { GitTextRunner } from '../git/message.js';
-import { writeFileAtomic } from '../lib/atomic-file.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { findProject } from '../projects/projects.js';
 import { GENERAL_PROJECT } from '../sessions/record/general.js';
-import { streamedText } from '../sessions/run/live.js';
 import { callerOf } from '../sessions/window/caller.js';
 import {
   askCloudLogs,
@@ -19,6 +16,7 @@ import {
   runQueries,
 } from './ask.js';
 import { keepTurn, readAsks } from './ask-history.js';
+import { claimStream, streamedAnswer } from './ask-stream.js';
 import { serviceRefOf } from './cloud-entry.js';
 import { cloudDeploys, type DeployQuery } from './deploys.js';
 import { type CloudErrorGroup, cloudErrors, errorSamples } from './errors.js';
@@ -61,11 +59,6 @@ const FixGroupSchema = z.object({
   badge: z.enum(['new', 'back']).nullable(),
   source: z.enum(['error-reporting', 'logs']),
 });
-
-/** A caller's token for one Ask's streamed answer. */
-const STREAM_TOKEN = z
-  .string()
-  .regex(/^[\w-]{8,64}$/, 'a token of 8 to 64 letters, digits, _ or -');
 
 /** How many GCP projects the switcher's Recent keeps. */
 const RECENT = 12;
@@ -157,12 +150,6 @@ export function cloudLogsService(
       readsProd(config, env),
     );
   };
-  /**
-   * Where an Ask started with stream token `stream` (one its caller made) names its run once it has
-   * started, so asking reads that run's answer and no other Ask's.
-   */
-  const streamFile = (stream: string) =>
-    join(ctx.paths.runs, `${parseWith(STREAM_TOKEN, stream, '--stream')}.ask`);
   /** Where an Ask's run keeps the queries it ran, one JSON line each (ask.ts, runQueries). */
   const queriesFile = (session: string) => join(ctx.paths.runs, `${session}.queries.jsonl`);
   const keepQueries = (filters: Record<string, string>, query: CloudQuery) => {
@@ -347,7 +334,7 @@ export function cloudLogsService(
         query.allowProd,
       );
       const { allowProd: _, conversation, limit: __, code: named, stream, ...kept } = query;
-      const streamed = stream === undefined ? undefined : streamFile(stream);
+      const streamed = stream === undefined ? undefined : claimStream(ctx.paths.runs, stream);
       // Which repo's code Ask reads is a person's call, as logs.fixProjects is.
       if (named !== undefined) personOnly('Naming the code an Ask reads (--code)');
       const earlier = readAsks(ctx.paths.cloudAsks).find((a) => a.id === conversation)?.turns ?? [];
@@ -386,9 +373,9 @@ export function cloudLogsService(
         earlier,
         {
           model: askModel,
-          ...(streamed ? { onStart: (session) => writeFileAtomic(streamed, session, 0o600) } : {}),
+          ...(streamed ? { onStart: streamed.started } : {}),
         },
-      ).finally(() => streamed && rmSync(streamed, { force: true }));
+      ).finally(() => streamed?.done());
       const queries = [
         ...Object.entries(read.filters).map(([project, each]) => ({
           project,
@@ -427,15 +414,7 @@ export function cloudLogsService(
      * What an Ask's run started at or after `since` has answered so far, while it runs: the text
      * its stream holds (liveRunText); none when no Ask runs.
      */
-    // shortcut: the newest live cloud-logs run is taken as the Ask's; two Asks at once in one
-    // profile would show one's text in both until they end. Key runs by a caller token if that bites.
-    asking: (stream: string) => {
-      const file = streamFile(stream);
-      const session = existsSync(file) ? readFileSync(file, 'utf8').trim() : '';
-      return session
-        ? { session, text: streamedText(ctx.paths.runs, session) }
-        : { session: null, text: '' };
-    },
+    asking: (stream: string) => streamedAnswer(ctx.paths.runs, stream),
     /**
      * A Logging query for `sentence` (queryFromWords), from the query shown and the context fields
      * of the entries `query` picks (their names only).

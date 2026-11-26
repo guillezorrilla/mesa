@@ -1,12 +1,15 @@
 import { mkdirSync, rmSync } from 'node:fs';
 import { AGENTS, newSessionId } from '../../agents/agents.js';
 import { antigravityLog, prepareAntigravityLog } from '../../agents/antigravity/log.js';
+import { CLAUDE_MODEL } from '../../agents/names.js';
 import type { Guarded, Override } from '../../decisions/guardrail.js';
 import { writeFileAtomic } from '../../lib/atomic-file.js';
 import type { IdSource } from '../../lib/ids.js';
 import type { LockDeps } from '../../lib/lock-file.js';
 import { shellWord } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
+import { parseWith } from '../../lib/schema.js';
+import type { RegistryEntry } from '../../projects/registry.js';
 import {
   claudeRunProfile,
   isPipelineSkill,
@@ -41,6 +44,9 @@ const runPrompt = (prefix: string, skill: string, args: readonly string[] = []) 
 /** The skill a run's record ran, from its goal (runPrompt). */
 export const skillOfRun = (run: SessionRecord) => run.goal?.match(/^[/$](\S+)/)?.[1];
 
+/** A registered project's name and checkout, as a read-only run reads its code. */
+export type CodeFolder = Pick<RegistryEntry, 'name' | 'path'>;
+
 export type RunInput = {
   skill: string;
   /** The project to run on; the session's own when it is about one. */
@@ -59,7 +65,7 @@ export type RunInput = {
    * it), added as a folder it may read while it runs where it would anyway, so that project's own
    * settings never apply.
    */
-  code?: { name: string; path: string };
+  code?: CodeFolder;
   /** The model of one of Mesa's own Claude runs, in place of its run profile's (logs.askModel). */
   model?: string;
 };
@@ -132,9 +138,11 @@ export async function startRun(deps: RunDeps, input: RunInput) {
   const prompt = runPrompt(spec.headless.skillPrefix, input.skill, input.args);
   const agentSessionId = newSessionId(agent, deps.newUuid);
   const profiled = claudeRunProfile(input.skill);
-  const lean = profiled && input.model ? { model: input.model, vault: profiled.vault } : profiled;
+  // A chosen model keeps the run profile's vault access and effort.
+  const lean = profiled && input.model ? { ...profiled, model: input.model } : profiled;
   const textOnly = isTextOnlySkill(input.skill);
   const readTools = readOnlyTools(input.skill);
+  if (input.model !== undefined) parseWith(CLAUDE_MODEL, input.model, 'model');
   if (input.model !== undefined && !profiled)
     throw new MesaError(
       'usage',

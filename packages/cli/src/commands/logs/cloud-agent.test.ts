@@ -176,6 +176,19 @@ test('a typed email in the filter Ask sends to the model is masked like the entr
 test("an Ask's own reads stay in the configured GCP projects; which code it reads and its model are a person's", async () => {
   await setUp();
   cli.env = { MESA_SESSION_ID: 'agentwin' };
+  // A read in a configured project comes back, masked.
+  const inside = await mesa(
+    'logs',
+    'gcp',
+    '--env',
+    'beta',
+    '--project',
+    'tide-tables-123',
+    '--json',
+  );
+  expect(inside.code).toBe(0);
+  expect(inside.stdout).toContain('aa11');
+  expect(inside.stdout).not.toContain('ops@harbour.example');
   for (const argv of [
     ['logs', 'gcp', '--env', 'beta', '--project', 'elsewhere-9'],
     ['logs', 'errors', '--env', 'beta', '--project', 'elsewhere-9'],

@@ -38,8 +38,11 @@ export const readFailed = <T extends object>(read: Read<T>): read is { failed: s
 const shown = (count: number, total: number) =>
   count < total ? `${count} of ${total}` : `${total}`;
 
-/** The summary's text: the range's error groups, its counts per service, its deploys. */
-export function rangeSummary(facts: RangeFacts) {
+/**
+ * The summary's text: the range's error groups, its counts per service, its deploys; cut by lines
+ * to `maxBytes` when given, saying so.
+ */
+export function rangeSummary(facts: RangeFacts, maxBytes = Number.POSITIVE_INFINITY) {
   const lines = [`Over the whole range (since ${facts.since}), not only the entries below:`, ''];
   if (readFailed(facts.errors)) lines.push(`Error groups: not read (${facts.errors.failed}).`);
   else {
@@ -89,7 +92,17 @@ export function rangeSummary(facts: RangeFacts) {
     for (const note of facts.deploys.notes)
       lines.push(`Deploys not read from ${note.project}: ${note.message}`);
   }
-  return lines.join('\n');
+  const kept: string[] = [];
+  let bytes = 0;
+  for (const line of lines) {
+    bytes += Buffer.byteLength(line) + 1;
+    if (bytes > maxBytes) {
+      kept.push('... (the summary was cut here)');
+      break;
+    }
+    kept.push(line);
+  }
+  return kept.join('\n');
 }
 
 /**

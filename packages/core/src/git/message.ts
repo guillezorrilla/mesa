@@ -4,6 +4,7 @@ import type { Profile } from '../profile/profile.js';
 import { resolveCheckout } from '../projects/checkout.js';
 import { readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
+import type { CodeFolder } from '../sessions/run/start.js';
 import { GIT_TEXT } from '../skills/library.js';
 import { readBranchDiff } from './branch-diff.js';
 import { gitCommand, mustGit } from './command.js';
@@ -26,7 +27,7 @@ export type GitTextRunner = (
     project: string;
     input: string;
     agent?: string;
-    code?: { name: string; path: string };
+    code?: CodeFolder;
     model?: string;
     onStart?: (session: string) => void;
   },

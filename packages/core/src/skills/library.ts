@@ -73,8 +73,7 @@ const SECRET_FILES = [
 
 /** The deny rules that keep a read-only run's file tools off the secrets under `folder`. */
 export const secretDenies = (folder: string) =>
-  // Glob only lists names; Read and Grep would show what the files hold.
-  ['Read', 'Grep'].flatMap((tool) =>
+  ['Read', 'Grep', 'Glob'].flatMap((tool) =>
     // `//` starts an absolute path in a Claude Code rule.
     SECRET_FILES.map((file) => `${tool}(/${folder}/**/${file})`),
   );
