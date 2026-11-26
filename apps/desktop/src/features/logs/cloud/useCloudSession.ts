@@ -13,6 +13,9 @@ export type CloudSessionGoal = { group: CloudErrorGroup } | { conversation: stri
 const refOf = (group: CloudErrorGroup) =>
   serviceRefOf({ project: group.project, service: group.services[0] ?? null });
 
+/** The person's answers a retry carries: prod confirmed, the guardrail's ask passed. */
+type Answers = { allowProd?: boolean; yes?: boolean };
+
 /** What the person is asked before the session starts: a prod group's projects, or the guardrail's ask. */
 type Asking = { projects?: string[]; check?: GuardrailCheck; retry: () => Promise<void> };
 
@@ -21,21 +24,26 @@ type Asking = { projects?: string[]; check?: GuardrailCheck; retry: () => Promis
  * group's service is remembered for, else after the person picks one (`picking`, General by
  * default). A prod group asks first, and the goal passes the guardrail, whose ask the person answers.
  */
+export type CloudSession = ReturnType<typeof useCloudSession>;
+
 export function useCloudSession(env: string | undefined, onSession: (id: string) => void) {
   const { fixProjects, rememberFix } = useCloudLogsConfig();
   const call = useCall();
   const toast = useToast();
   const [picking, setPicking] = useState<CloudSessionGoal>();
   const [asking, setAsking] = useState<Asking>();
-  const start = async (goal: CloudSessionGoal, project: string, allowProd = false, yes = false) => {
-    const opened = await call('logs.session', { ...goal, project, env, allowProd, yes });
+  const start = async (goal: CloudSessionGoal, project: string, answers: Answers = {}) => {
+    const opened = await call('logs.session', { ...goal, project, env, ...answers });
     if (opened.ok) return onSession(opened.data.session.id);
     const details = opened.error.details as { reason?: string; projects?: string[] } | undefined;
     const check = guardrailOf(opened.error);
     if (opened.error.code === 'needs_approval' && details?.reason === 'prod_ask')
-      setAsking({ projects: details.projects ?? [], retry: () => start(goal, project, true, yes) });
+      setAsking({
+        projects: details.projects ?? [],
+        retry: () => start(goal, project, { ...answers, allowProd: true }),
+      });
     else if (check?.verdict === 'ask')
-      setAsking({ check, retry: () => start(goal, project, allowProd, true) });
+      setAsking({ check, retry: () => start(goal, project, { ...answers, yes: true }) });
     else toast(opened.error.message);
   };
   return {

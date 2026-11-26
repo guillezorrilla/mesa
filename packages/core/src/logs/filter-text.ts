@@ -1,6 +1,11 @@
 // The Logging query language's pieces Cloud Logs writes (CONTEXT.md, Cloud Logs): quoted values and
 // the label paths a service is named by. Pure, so the app writes its clauses with the same rules.
 
+import type { GcpLogs } from './gcp-config.js';
+
+/** What of logs.gcp names services: its label path, when set. */
+export type ServiceConfig = Pick<GcpLogs, 'service'>;
+
 /** `value` inside a Logging filter's double quotes. */
 export const quoted = (value: string) =>
   `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
@@ -13,7 +18,7 @@ export const SERVICE_LABELS = [
 ] as const;
 
 /** The label paths an entry's service is read from: logs.gcp.service when set, else each kind's. */
-export const servicePaths = (config: { service?: string }) =>
+export const servicePaths = (config: ServiceConfig = {}) =>
   config.service ? [config.service] : SERVICE_LABELS.map(([path]) => path);
 
 /** The clause matching service `name` under any of `paths` (servicePaths). */

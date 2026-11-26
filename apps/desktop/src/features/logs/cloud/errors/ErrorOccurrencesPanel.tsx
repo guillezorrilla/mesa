@@ -1,5 +1,5 @@
 import type { CloudErrorGroup, CloudLogEntry } from '@mesa/core';
-import { groupQuery, occurrenceRuns } from '@mesa/core/browser';
+import { groupQuery, occurrenceRuns, type ServiceConfig } from '@mesa/core/browser';
 import { ScanSearch } from 'lucide-react';
 import { useMemo } from 'react';
 import { Muted } from '@/components/Muted';
@@ -22,7 +22,7 @@ const PAGE = 50;
 function occurrenceFilters(
   group: CloudErrorGroup,
   filters: CloudFilters,
-  config: { service?: string } | undefined,
+  config: ServiceConfig | undefined,
 ): CloudFilters {
   // The range, env and noise switch stay; the group's own query replaces every other filter.
   return {

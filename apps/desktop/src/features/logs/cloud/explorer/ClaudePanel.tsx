@@ -1,4 +1,4 @@
-import type { CloudAsk } from '@mesa/core';
+import type { AskOwn, CloudAsk } from '@mesa/core';
 import { PanelRightClose, SquareArrowOutUpRight, SquarePen } from 'lucide-react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
@@ -7,8 +7,6 @@ import { ProdAskDialog } from '../ProdAskDialog';
 import { useLogAsk } from '../useLogAsk';
 import { AskComposerField } from './AskComposerField';
 import { AskTurnPanel } from './AskTurnPanel';
-
-type TurnProps = Parameters<typeof AskTurnPanel>[0];
 
 /**
  * Claude beside the Explorer (CONTEXT.md, Ask (logs)): a kept conversation whose context is the
@@ -25,8 +23,8 @@ export function ClaudePanel(props: {
   onNew: () => void;
   onCite: (id: string) => void;
   onApply: (query: string) => void;
-  onRunOwn: TurnProps['onRunOwn'];
-  onSaveView: TurnProps['onSaveView'];
+  onRunOwn: (own: AskOwn) => void;
+  onSaveView: (own: AskOwn) => void;
   onCarry: (conversation: string) => void;
   onClose: () => void;
 }) {

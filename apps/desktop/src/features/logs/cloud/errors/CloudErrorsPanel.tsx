@@ -48,7 +48,7 @@ export function CloudErrorsPanel(props: {
   const [selected, setSelected] = useState<string>();
   const [summary, setSummary] = useState<CloudAsked>();
   const [cancelled, setCancelled] = useState<string>();
-  const fixing = useCloudSession(props.filters.env, props.onSession);
+  const cloudSession = useCloudSession(props.filters.env, props.onSession);
   const summarise = useLogAsk({ ...props.filters, severity: 'error' }, undefined, setSummary);
   // The last result stays shown, dimmed, while another reads (or after Cancel).
   const readKey = JSON.stringify(props.filters);
@@ -179,7 +179,7 @@ export function CloudErrorsPanel(props: {
               filters={props.filters}
               onSelect={setSelected}
               onAsk={props.onAsk}
-              onFix={fixing.fix}
+              onFix={cloudSession.fix}
               onExplore={props.onExplore}
             />
           ) : waiting && !shown ? (
@@ -191,7 +191,7 @@ export function CloudErrorsPanel(props: {
           )}
         </div>
       </div>
-      <CloudSessionDialogs session={fixing} />
+      <CloudSessionDialogs session={cloudSession} />
       {summarise.confirming && (
         <ProdAskDialog
           projects={summarise.confirming}

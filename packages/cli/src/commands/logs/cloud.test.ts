@@ -220,9 +220,10 @@ test('logs ask runs in General and cites entries; prod asks once per GCP project
     details: { reason: 'prod_ask', projects: ['tide-tables-123', 'harbour-web-456'] },
   });
   cli.env = { MESA_SESSION_ID: 'agentwin' };
+  // From a Mesa window, --allow-prod is no answer: the prod check still asks for a person.
   expect(
     await mesa('logs', 'ask', 'why?', '--env', 'prod', '--allow-prod', '--json'),
-  ).toMatchObject({ code: 2 });
+  ).toMatchObject({ code: 10 });
   expect(readFileSync(cli.paths.config, 'utf8')).not.toMatch(/prodAsk:\s*\n\s*- tide-tables-123/);
   cli.env = {};
   expect((await mesa('logs', 'ask', 'why?', '--env', 'prod', '--allow-prod', '--json')).code).toBe(

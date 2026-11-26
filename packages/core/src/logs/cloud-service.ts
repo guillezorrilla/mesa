@@ -26,22 +26,22 @@ import { cloudProjects } from './gcp-projects.js';
 import { cloudServices } from './gcp-services.js';
 import { maskEntry, maskErrors, maskText } from './mask.js';
 import { metricCounts, metricViews } from './metrics.js';
+import { ownOf } from './own-filters.js';
 import { exportViews, importViews, mergeViews } from './views.js';
 
-/**
- * The Logs tab's side of Mesa (CONTEXT.md, Cloud Logs; Ask (logs)): the profile's GCP projects'
- * entries, error groups and metric counts, its setup and saved views, and Ask.
- */
+/** Ids and service names, the only words of a group its goal puts outside the log fence. */
+const NAME = z.string().regex(/^[\w.:@/-]{1,200}$/);
+
 /** An error group as Fix in session takes it: what its goal reads. */
 const FixGroupSchema = z.object({
   project: GCP_PROJECT,
-  id: z.string(),
+  id: NAME,
   message: z.string(),
   sample: z.string(),
   count: z.number(),
   firstSeen: z.string(),
   lastSeen: z.string(),
-  services: z.array(z.string()),
+  services: z.array(NAME),
   badge: z.enum(['new', 'back']).nullable(),
   source: z.enum(['error-reporting', 'logs']),
 });
@@ -49,6 +49,10 @@ const FixGroupSchema = z.object({
 /** How many GCP projects the switcher's Recent keeps. */
 const RECENT = 12;
 
+/**
+ * The Logs tab's side of Mesa (CONTEXT.md, Cloud Logs; Ask (logs)): the profile's GCP projects'
+ * entries, error groups and metric counts, its setup and saved views, and Ask.
+ */
 export function cloudLogsService(
   ctx: MesaContext,
   deps: {
@@ -98,7 +102,8 @@ export function cloudLogsService(
     const prod = prodEnv || Object.values(filters).some((f) => PROD_WORD.test(f));
     const unasked = Object.keys(filters).filter((project) => !prodAsk.includes(project));
     if (!prod || !unasked.length) return;
-    if (!allowProd)
+    // Only a person confirms: an agent's --allow-prod is no answer.
+    if (!allowProd || caller().inMesaWindow)
       throw new MesaError(
         'needs_approval',
         `${PROD_ASK}: confirm once for ${unasked.join(', ')} with --allow-prod`,
@@ -109,26 +114,17 @@ export function cloudLogsService(
       );
     await deps.setConfig('logs.prodAsk', JSON.stringify([...prodAsk, ...unasked]));
   };
+  /** Whether a read in `env` reads prod: the prod env, or every env when one is prod. */
+  const readsProd = (config: GcpLogs, env: string | undefined) =>
+    env === PROD_ENV || ((env ?? ALL_ENVS) === ALL_ENVS && PROD_ENV in config.envs);
   /** An agent's read of prod passes prodGate first, as Ask's does; a person's read needs none. */
   const agentProdGate = async (config: GcpLogs, query: CloudQuery, env: string | undefined) => {
     if (!caller().inMesaWindow) return;
     await prodGate(
       cloudFilters(config, { ...query, env: env ?? ALL_ENVS }, ctx.clock()),
-      env === PROD_ENV,
+      readsProd(config, env),
     );
   };
-  /** What a query asked for itself, which an Ask's Run applies: no env, noise or time bounds. */
-  const ownOf = (query: CloudQuery) =>
-    Object.fromEntries(
-      Object.entries({
-        filter: query.filter,
-        severity: query.severity,
-        text: query.text,
-        fields: query.fields,
-        services: query.services,
-        trace: query.trace,
-      }).filter(([, v]) => v !== undefined),
-    );
   /** Where an Ask's run keeps the queries it ran, one JSON line each (ask.ts, runQueries). */
   const queriesFile = (session: string) => join(ctx.paths.runs, `${session}.queries.jsonl`);
   const keepQueries = (filters: Record<string, string>, query: CloudQuery) => {
@@ -217,6 +213,9 @@ export function cloudLogsService(
     /** A few recent events of Error Reporting group `id` in GCP `project` (errorSamples). */
     errorSamples: async (project: string, id: string, since?: string) => {
       configuredProjects([project]);
+      // Error Reporting keeps every env's events, so an agent's read passes the prod gate.
+      if (caller().inMesaWindow)
+        await prodGate({ [project]: project }, readsProd(gcpConfig(), ALL_ENVS));
       const events = await errorSamples(errorDeps(), project, id, since);
       return {
         events: forAgent() ? events.map((e) => ({ ...e, message: maskText(e.message) })) : events,
@@ -265,7 +264,7 @@ export function cloudLogsService(
       // its services and projects pick; only those projects are confirmed.
       await prodGate(
         cloudFilters(config, { ...query, env: env ?? ALL_ENVS }, ctx.clock()),
-        env === PROD_ENV,
+        readsProd(config, env),
         query.allowProd,
       );
       const { allowProd: _, conversation, limit: __, ...kept } = query;
@@ -345,7 +344,7 @@ export function cloudLogsService(
         const env = envOf(config, opts.env);
         await prodGate(
           cloudFilters(config, { env: env ?? ALL_ENVS, projects: [group.project] }, ctx.clock()),
-          env === PROD_ENV,
+          readsProd(config, env),
           opts.allowProd,
         );
         goal = errorFixGoal(group, mask);

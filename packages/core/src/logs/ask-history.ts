@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { changeJson, readCache } from '../lib/json-file.js';
 import type { LockDeps } from '../lib/lock-file.js';
 import { CloudViewSchema } from './gcp-config.js';
+import { OWN_FILTERS } from './own-filters.js';
 
 // Ask conversations (CONTEXT.md, Ask (logs)), kept per profile so a follow-up keeps context and the
 // Logs tab's sidebar lists them: each turn's question, filters, answer, citations and the queries
@@ -10,27 +11,27 @@ import { CloudViewSchema } from './gcp-config.js';
 /** How many conversations are kept, newest first. */
 const KEPT = 20;
 
+/** The filters a turn was asked with, as a saved view holds them, without a name. */
+const FiltersSchema = CloudViewSchema.omit({ name: true }).extend({
+  since: z.string().optional(),
+  trace: z.string().optional(),
+  all: z.boolean().optional(),
+});
+
 /** A Logging query an Ask ran: the filter, and the project when it read one only. */
 const QuerySchema = z.object({
   project: z.string().optional(),
   filter: z.string(),
-  /** What the run asked for itself (no env, noise or time bounds): what Run applies. */
-  own: CloudViewSchema.omit({ name: true })
-    .extend({ trace: z.string().optional() })
-    .partial()
-    .optional(),
+  /** What the run asked for itself (own-filters.ts): what Run and Save as view apply. */
+  own: FiltersSchema.pick(OWN_FILTERS).partial().optional(),
 });
 export type AskQuery = z.infer<typeof QuerySchema>;
+export type AskOwn = NonNullable<AskQuery['own']>;
 
 const TurnSchema = z.object({
   at: z.string(),
   question: z.string(),
-  /** The filters it was asked with, as a saved view holds them, without a name. */
-  query: CloudViewSchema.omit({ name: true }).extend({
-    since: z.string().optional(),
-    trace: z.string().optional(),
-    all: z.boolean().optional(),
-  }),
+  query: FiltersSchema,
   answer: z.string(),
   cited: z.array(z.string()),
   queries: z.array(QuerySchema),

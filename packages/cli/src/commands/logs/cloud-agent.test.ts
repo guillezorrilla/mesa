@@ -90,6 +90,10 @@ test("an agent's read of prod, its errors or a prod metric's counts needs a pers
       projects: ['tide-tables-123'],
     });
   }
+  // An agent's own --allow-prod is no answer, and a read of every env reads prod too.
+  const pass = await mesa('logs', 'gcp', '--env', 'prod', '--allow-prod', '--json');
+  expect(pass.code).not.toBe(0);
+  expect((await mesa('logs', 'gcp', '--env', '*', '--json')).code).toBe(10);
   cli.env = {};
   expect((await mesa('logs', 'gcp', '--env', 'prod', '--json')).code).toBe(0);
 });
@@ -113,6 +117,18 @@ test('a fix session from a prod group asks first; its goal fences the log text, 
   cli.stdin = JSON.stringify(group);
   const asked = await mesa('logs', 'session', 'general', '--env', 'prod', '--json');
   expect(asked.code).toBe(10);
+  cli.env = { MESA_SESSION_ID: 'agentwin' };
+  const agentAllowed = await mesa(
+    'logs',
+    'session',
+    'general',
+    '--env',
+    'prod',
+    '--allow-prod',
+    '--json',
+  );
+  expect(agentAllowed.code).toBe(10);
+  cli.env = {};
   const opened = await mesa(
     'logs',
     'session',

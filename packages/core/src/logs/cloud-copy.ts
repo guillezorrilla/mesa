@@ -1,7 +1,7 @@
 import { cloudLevel, serviceRefOf, splitMessage, traceIdOf } from './cloud-entry.js';
 import { type CopyFormat, copyText, groupSummaryText } from './copy.js';
 import type { CloudErrorGroup } from './errors.js';
-import { quoted, serviceClause, servicePaths } from './filter-text.js';
+import { quoted, type ServiceConfig, serviceClause, servicePaths } from './filter-text.js';
 import type { CloudLogEntry } from './gcp.js';
 import { groupTerms } from './occurrences.js';
 import type { ServerLogEntry } from './parse.js';
@@ -41,7 +41,7 @@ export function consoleUrl(
  */
 export function groupQuery(
   group: Pick<CloudErrorGroup, 'message' | 'sample' | 'services'>,
-  config: { service?: string } = {},
+  config: ServiceConfig = {},
 ) {
   // A real message, not the title ("X at File.java" is in no message as one phrase).
   const terms = groupTerms(group.sample || group.message);
@@ -58,7 +58,7 @@ export function groupQuery(
 
 /** One entry's own link: its insert id at its time, in its project. */
 export const entryConsoleUrl = (entry: CloudLogEntry) =>
-  consoleUrl(entry.project, `insertId="${entry.id}"`, { at: entry.time, since: '1d' });
+  consoleUrl(entry.project, `insertId=${quoted(entry.id)}`, { at: entry.time, since: '1d' });
 
 /** A Cloud entry in the shared copy's terms, and the fields that go beside it. */
 const asLogEntry = (entry: CloudLogEntry): ServerLogEntry => {

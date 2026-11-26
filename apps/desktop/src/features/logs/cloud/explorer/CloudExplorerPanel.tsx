@@ -1,5 +1,5 @@
-import type { AskTurn, CloudAsk, CloudLogEntry } from '@mesa/core';
-import { entryGroup, facetsOf } from '@mesa/core/browser';
+import type { CloudAsk, CloudLogEntry } from '@mesa/core';
+import { entryGroup, facetsOf, withOwn } from '@mesa/core/browser';
 import { PanelRightOpen } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { ReadingBar } from '@/components/ReadingBar';
@@ -21,9 +21,6 @@ import { FieldsPanel } from './FieldsPanel';
 import { QueryField } from './QueryField';
 import { ViewFilterChips } from './ViewFilterChips';
 
-/** The filters of a query an Ask ran, as a person would set them. */
-type Own = NonNullable<AskTurn['queries'][number]['own']>;
-
 /**
  * The Explorer (CONTEXT.md, Cloud Logs), shaped like the Cloud Console's Logs Explorer with Claude
  * beside it: the query bar, the fields the entries carry, the results, and the Claude panel, whose
@@ -42,7 +39,7 @@ export function CloudExplorerPanel(props: {
   const call = useCall();
   const toast = useToast();
   const { copy, copyText } = useCloudCopy();
-  const fixing = useCloudSession(props.filters.env, props.onSession);
+  const cloudSession = useCloudSession(props.filters.env, props.onSession);
   const [query, setQuery] = useState(props.filters.filter ?? '');
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [focus, setFocus] = useState<string>();
@@ -56,29 +53,19 @@ export function CloudExplorerPanel(props: {
   if (read.data) last.current = read.data.entries;
   const entries = read.data?.entries ?? last.current;
   const facets = useMemo(() => facetsOf(entries ?? [], 20, 8), [entries]);
-  const run = (next: string) => {
-    setQuery(next);
+  const apply = (filters: CloudFilters) => {
+    setQuery(filters.filter ?? '');
     setWritten(false);
-    props.onFilters({ ...props.filters, filter: next.trim() || undefined });
+    props.onFilters(filters);
   };
+  const run = (next: string) => apply({ ...props.filters, filter: next.trim() || undefined });
   const add = (clause: string, exclude = false) => run(withClause(query, clause, exclude));
-  // A query an Ask ran, as the person would set it: its own filters over this view, not its compiled env and range.
-  const withOwn = (own: Own): CloudFilters => ({
-    ...props.filters,
-    filter: undefined,
-    severity: undefined,
-    text: undefined,
-    fields: undefined,
-    services: undefined,
-    trace: undefined,
-    ...own,
-  });
   const lastCited = props.conversation?.turns.at(-1)?.cited;
   const cited = useMemo(() => new Set(lastCited ?? []), [lastCited]);
   const picked = useMemo(() => [...selected], [selected]);
   // The rows keep one actions object; what it calls is read from here at the time of the click.
-  const latest = useRef({ add, fix: fixing.fix, copy, copyText });
-  latest.current = { add, fix: fixing.fix, copy, copyText };
+  const latest = useRef({ add, fix: cloudSession.fix, copy, copyText });
+  latest.current = { add, fix: cloudSession.fix, copy, copyText };
   const actions = useMemo<EntryActions>(
     () => ({
       onSelect: (entry) =>
@@ -168,20 +155,15 @@ export function CloudExplorerPanel(props: {
               onNew={props.onNewConversation}
               onCite={setFocus}
               onApply={run}
-              onRunOwn={(own) => {
-                const next = withOwn(own);
-                setQuery(next.filter ?? '');
-                setWritten(false);
-                props.onFilters(next);
-              }}
-              onSaveView={(own) => setSaving(withOwn(own))}
-              onCarry={(id) => fixing.carry(id)}
+              onRunOwn={(own) => apply(withOwn(props.filters, own))}
+              onSaveView={(own) => setSaving(withOwn(props.filters, own))}
+              onCarry={cloudSession.carry}
               onClose={() => setClaude(false)}
             />
           </div>
         )}
       </div>
-      <CloudSessionDialogs session={fixing} />
+      <CloudSessionDialogs session={cloudSession} />
       {saving !== undefined && (
         <SaveViewDialog filters={saving} onDone={() => setSaving(undefined)} />
       )}

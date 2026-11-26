@@ -1,4 +1,5 @@
 import { dataFence } from '../git/recipes.js';
+import type { AskTurn } from './ask-history.js';
 import { splitMessage } from './cloud-entry.js';
 import type { CloudErrorGroup } from './errors.js';
 import type { CloudLogEntry } from './gcp.js';
@@ -54,14 +55,10 @@ export function errorFixGoal(group: CloudErrorGroup, mask: (text: string) => str
  * data (answers can quote log lines), then the queries it ran.
  */
 export function askSessionGoal(
-  turns: readonly {
-    question: string;
-    answer: string;
-    queries: readonly { project?: string; filter: string }[];
-  }[],
+  turns: readonly Pick<AskTurn, 'question' | 'answer' | 'queries'>[],
   mask: (text: string) => string = (t) => t,
 ) {
-  const talk = turns.map((t) => `Q: ${t.question}\nA: ${mask(t.answer)}`).join('\n\n');
+  const talk = turns.map((t) => `Q: ${mask(t.question)}\nA: ${mask(t.answer)}`).join('\n\n');
   const queries = turns.at(-1)?.queries ?? [];
   return [
     'Look into what this Cloud Logs conversation found, and fix it if it calls for a change.',

@@ -1,9 +1,7 @@
-import type { AskTurn as Turn } from '@mesa/core';
+import type { AskOwn, AskTurn as Turn } from '@mesa/core';
 import { BookmarkPlus, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AskAnswerPanel } from '../AskAnswerPanel';
-
-type Own = NonNullable<Turn['queries'][number]['own']>;
 
 /**
  * One turn of a conversation: the question, the answer with its citations, and the queries it ran;
@@ -14,8 +12,8 @@ export function AskTurnPanel(props: {
   onCite: (id: string) => void;
   onApply: (query: string) => void;
   /** Sets the filters a query ran with, as the person would (its own part, not its compiled env and range). */
-  onRunOwn: (own: Own) => void;
-  onSaveView: (own: Own) => void;
+  onRunOwn: (own: AskOwn) => void;
+  onSaveView: (own: AskOwn) => void;
 }) {
   const { turn } = props;
   return (

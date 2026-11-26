@@ -97,7 +97,7 @@ export * from './lib/result.js';
 export { keychainStore, type SecretStore } from './lib/secret-store.js';
 export { envSpawner, type Spawner } from './lib/spawn.js';
 export { localClock, localDay, obsidianDateTime } from './lib/time.js';
-export type { AskTurn, CloudAsk } from './logs/ask-history.js';
+export type { AskOwn, AskTurn, CloudAsk } from './logs/ask-history.js';
 export type { CopyContext, CopyFormat } from './logs/copy.js';
 export type { CloudErrorGroup } from './logs/errors.js';
 export {

@@ -1,10 +1,10 @@
 import { GuardrailDialog } from '@/features/sessions/dialogs/GuardrailDialog';
 import { CloudProjectDialog } from './CloudProjectDialog';
 import { ProdAskDialog } from './ProdAskDialog';
-import type { useCloudSession } from './useCloudSession';
+import type { CloudSession } from './useCloudSession';
 
 /** The questions before a session from Cloud Logs starts: which project, prod, and the guardrail. */
-export function CloudSessionDialogs(props: { session: ReturnType<typeof useCloudSession> }) {
+export function CloudSessionDialogs(props: { session: CloudSession }) {
   const { session } = props;
   const { picking, asking } = session;
   return (

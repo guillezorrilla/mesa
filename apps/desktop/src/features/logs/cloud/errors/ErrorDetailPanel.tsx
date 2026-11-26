@@ -52,7 +52,8 @@ export function ErrorDetailPanel(props: {
 }) {
   const { group } = props;
   const { copy, copySummary, copyText } = useCloudCopy();
-  const query = groupQuery(group, useCloudLogsConfig().gcp);
+  const { gcp } = useCloudLogsConfig();
+  const query = groupQuery(group, gcp);
   const url = consoleUrl(group.project, query, { since: props.filters.since });
   const samples = group.samples ?? [];
   const raw = group.sample || samples[0]?.message || group.message;

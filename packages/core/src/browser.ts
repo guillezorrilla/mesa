@@ -80,7 +80,12 @@ export { copyText, groupSummaryText } from './logs/copy.js';
 export { ENV_WORDS, envNameOf, joinEnvs } from './logs/env-names.js';
 export { groupKey } from './logs/error-merge.js';
 export { type Facet, facetsOf } from './logs/facets.js';
-export { quoted, serviceClause, servicePaths } from './logs/filter-text.js';
+export {
+  quoted,
+  type ServiceConfig,
+  serviceClause,
+  servicePaths,
+} from './logs/filter-text.js';
 export { entryGroup } from './logs/fix-goal.js';
 export { ALL_ENVS } from './logs/gcp-config.js';
 export { errorGroups, isMuted, muteKey } from './logs/groups.js';
@@ -96,6 +101,7 @@ export { jsonObject } from './logs/json-message.js';
 export { CONTEXT_LINES, logMessage } from './logs/message.js';
 export { normalizedMessage } from './logs/normalize.js';
 export { groupTerms, occurrenceRuns, plainTitle, type Run } from './logs/occurrences.js';
+export { withOwn } from './logs/own-filters.js';
 export { entryText, LEVEL_NAMES } from './logs/parse.js';
 export { NO_ORGANIZATION, type ProjectRow, projectRows } from './logs/project-rows.js';
 export { sourceId, sourceLabel, sourceStateText } from './logs/source-id.js';
