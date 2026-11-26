@@ -19,7 +19,7 @@ export function RequestView(props: {
   label: (source: string) => string;
   /** A source's own name, for the narrow column beside each line. */
   name: (source: string) => string;
-  onSend: () => void;
+  onSend: (id: string) => void;
   onClose: () => void;
 }) {
   const { id, read, failure } = props.request;
@@ -42,7 +42,7 @@ export function RequestView(props: {
             size="xs"
             variant="outline"
             disabled={!read?.entries.length}
-            onClick={props.onSend}
+            onClick={() => props.onSend(id)}
           >
             <SendHorizontal aria-hidden /> Send this request
           </Button>
@@ -78,8 +78,6 @@ export function RequestView(props: {
               // biome-ignore lint/suspicious/noArrayIndexKey: a read request's lines are fixed.
               key={at}
               level={entry.level}
-              selected={false}
-              onSelect={() => {}}
               time={clockTime(entry.time)}
               badge={<LevelBadge level={entry.level} />}
               logger={<ServiceDot service={props.name(entry.source)} colorKey={entry.source} />}

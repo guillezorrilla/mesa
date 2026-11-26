@@ -181,7 +181,7 @@ export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
           request={whole.shown}
           label={whole.label}
           name={whole.name}
-          onSend={() => whole.shown && void whole.send(whole.shown.id)}
+          onSend={(id) => void whole.send(id)}
           onClose={whole.close}
         />
       ) : (

@@ -10,7 +10,8 @@ export type ShownRequest = { id: string; read?: RequestLines; failure?: string }
 
 /**
  * A whole request across the project's sources (CONTEXT.md, Logs panel): Show reads it into the
- * merged view, Send reads it and hands its message (requestMessage) to `deliver`.
+ * merged view, Send hands its message (requestMessage) to `deliver`, from the shown read when it
+ * is that request's, else from a new one. Another project shows none.
  */
 export function useWholeRequest(props: {
   project?: string;
@@ -19,7 +20,9 @@ export function useWholeRequest(props: {
 }) {
   const call = useCall();
   const toast = useToast();
-  const [shown, setShown] = useState<ShownRequest>();
+  const [kept, setKept] = useState<ShownRequest & { project: string }>();
+  const { project } = props;
+  const shown = kept?.project === project ? kept : undefined;
   const listed = (id: string) => props.sources?.find((each) => each.id === id);
   /** A source as the panel names it ("Docker · harbour-api"), its id when not listed. */
   const label = (id: string) => {
@@ -28,34 +31,31 @@ export function useWholeRequest(props: {
   };
   /** A source's own name ("harbour-api"), its id when not listed. */
   const name = (id: string) => listed(id)?.name ?? id;
-  const read = (id: string, project: string) => call('logs.request', { id, project });
+  const read = (id: string, from: string) => call('logs.request', { id, project: from });
   const show = async (id: string) => {
-    const { project } = props;
     if (!project) return;
-    setShown({ id });
+    setKept({ id, project });
     const result = await read(id, project);
-    setShown((now) =>
-      now?.id !== id
+    setKept((now) =>
+      now?.id !== id || now.project !== project
         ? now
         : result.ok
-          ? { id, read: result.data }
-          : { id, failure: result.error.message },
+          ? { id, project, read: result.data }
+          : { id, project, failure: result.error.message },
     );
   };
   const send = async (id: string) => {
-    const { project } = props;
     if (!project) return;
-    const result = await read(id, project);
-    if (!result.ok) return toast(result.error.message);
-    if (!result.data.entries.length) return toast(`No lines name request ${id}`);
+    let lines = shown?.id === id ? shown.read : undefined;
+    if (!lines) {
+      const result = await read(id, project);
+      if (!result.ok) return toast(result.error.message);
+      lines = result.data;
+    }
+    if (!lines.entries.length) return toast(`No lines name request ${id}`);
     props.deliver(
-      requestMessage({
-        id,
-        entries: result.data.entries,
-        label,
-        time: (entry) => clockTime(entry.time),
-      }),
+      requestMessage({ id, entries: lines.entries, label, time: (entry) => clockTime(entry.time) }),
     );
   };
-  return { shown, show, send, close: () => setShown(undefined), label, name };
+  return { shown, show, send, close: () => setKept(undefined), label, name };
 }
