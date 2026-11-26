@@ -139,7 +139,8 @@ test('Labels shows every tab in the default sidebar, its option with no note', a
 test('Labels gives way in the minimum sidebar, and its option says it needs a wider one', async () => {
   barOf(123);
   await renderWithMesa(<Bar />, bridgeWith({ tabStyle: 'labels' }).bridge);
-  expect(bar()?.dataset.style).not.toBe('labels');
+  // Labels gives way to Compact, which does not fit 123px either (205px), so Icons.
+  expect(bar()?.dataset.style).toBe('icons');
   await openPopover();
   expect(radio('Labels')?.textContent).toBe('LabelsNeeds a wider sidebar');
   expect(radio('Compact')?.textContent).toBe('Compact');
