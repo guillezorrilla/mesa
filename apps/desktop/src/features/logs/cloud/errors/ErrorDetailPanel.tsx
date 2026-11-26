@@ -1,13 +1,16 @@
-import type { CloudErrorGroup, IncidentLink } from '@mesa/core';
+import type { CloudDeploy, CloudErrorGroup, IncidentLink } from '@mesa/core';
 import {
   consoleUrl,
+  deploysOf,
   groupQuery,
   jsonObject,
   linkReason,
   plainTitle,
+  sinceTime,
   splitMessage,
+  startedAfter,
 } from '@mesa/core/browser';
-import { ExternalLink, MessageSquareText, Wrench } from 'lucide-react';
+import { ExternalLink, MessageSquareText, Rocket, Wrench } from 'lucide-react';
 import { CountPill } from '@/components/CountPill';
 import { ExternalLink as Link } from '@/components/ExternalLink';
 import { Sparkline } from '@/components/Sparkline';
@@ -17,6 +20,7 @@ import type { CloudFilters } from '@/lib/client/logs';
 import { CopyButton } from '../../shared/CopyButton';
 import { dayTime } from '../../shared/logLines';
 import { ServiceDot } from '../../shared/ServiceDot';
+import { DeployMarkers } from '../DeployMarkers';
 import { fieldClause } from '../explorer/explorerQuery';
 import { MessagePanel } from '../MessagePanel';
 import { useCloudCopy } from '../useCloudCopy';
@@ -36,7 +40,8 @@ function Section(props: { title: string; children: React.ReactNode }) {
 }
 
 /**
- * The Errors pane for one group (CONTEXT.md, Cloud Logs): its count over the range, its stack
+ * The Errors pane for one group (CONTEXT.md, Cloud Logs): its count over the range with the range's
+ * deploys marked, the deploy it started soon after when there is one, its stack
  * folded, its top message variants, its context fields' facets, the groups linked to it and why,
  * its occurrences, and Ask about this, Fix in session, Copy (with its summary, query and link) and
  * Open in Cloud Console.
@@ -45,6 +50,8 @@ export function ErrorDetailPanel(props: {
   group: CloudErrorGroup;
   related: { links: IncidentLink[]; other: CloudErrorGroup; key: string }[];
   filters: CloudFilters;
+  /** The range's deploys (useDeploys). */
+  deploys: readonly CloudDeploy[];
   onSelect: (key: string) => void;
   onAsk: (group: CloudErrorGroup) => void;
   onFix: (group: CloudErrorGroup) => void;
@@ -58,6 +65,10 @@ export function ErrorDetailPanel(props: {
   const samples = group.samples ?? [];
   const raw = group.sample || samples[0]?.message || group.message;
   const json = jsonObject(splitMessage(raw).head);
+  const afterDeploy = startedAfter(group, props.deploys);
+  // The range the chart spans, as core counts it: `since` back from now.
+  const to = Date.now();
+  const from = Date.parse(sinceTime(props.filters.since ?? '1h', new Date(to)));
   const explore = (extra?: string) =>
     props.onExplore({
       ...props.filters,
@@ -88,6 +99,11 @@ export function ErrorDetailPanel(props: {
           <span>last {dayTime(group.lastSeen)}</span>
           {group.reported && (
             <span>{group.reported.count.toLocaleString()} in all envs (Error Reporting)</span>
+          )}
+          {afterDeploy && (
+            <span className="inline-flex items-center gap-1 font-medium text-state-waiting">
+              <Rocket aria-hidden className="size-3" /> {afterDeploy}
+            </span>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -125,11 +141,14 @@ export function ErrorDetailPanel(props: {
       </header>
       {group.spark && (
         <Section title="Over the range">
-          <Sparkline
-            counts={group.spark}
-            className="h-12 gap-0.5 [&>span]:w-2"
-            label={`${group.count} errors over the range`}
-          />
+          <div className="relative w-fit">
+            <Sparkline
+              counts={group.spark}
+              className="h-12 gap-0.5 [&>span]:w-2"
+              label={`${group.count} errors over the range`}
+            />
+            <DeployMarkers deploys={deploysOf(group, props.deploys)} from={from} to={to} />
+          </div>
         </Section>
       )}
       <Section title={json ? 'Payload' : 'Stack'}>

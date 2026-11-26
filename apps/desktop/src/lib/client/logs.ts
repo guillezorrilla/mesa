@@ -1,5 +1,6 @@
 import type {
   CloudAsk,
+  CloudDeploys,
   CloudErrorGroup,
   CloudLogEntry,
   CloudProject,
@@ -165,6 +166,11 @@ export const logsCommands = {
     'volume',
     ...cloudFlags(filters),
   ]),
+  /** Each deploy of the services shown over the range (`mesa logs deploys`). */
+  'logs.deploys': commandWith<
+    Pick<CloudFilters, 'env' | 'services' | 'projects' | 'since'>,
+    CloudDeploys
+  >((filters) => ['logs', 'deploys', ...cloudFlags(filters)]),
   'logs.errorSamples': commandWith<
     { project: string; id: string; since?: string },
     { events: { time: string; service: string | null; message: string }[] }

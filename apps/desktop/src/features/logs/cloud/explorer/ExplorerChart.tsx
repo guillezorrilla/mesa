@@ -1,6 +1,7 @@
-import type { CloudLogEntry, CloudVolume } from '@mesa/core';
+import type { CloudDeploy, CloudLogEntry, CloudVolume } from '@mesa/core';
 import type { CloudFilters } from '@/lib/client/logs';
 import { useOptional } from '@/lib/useCommand';
+import { useDeploys } from '../useDeploys';
 import { CloudLogsChart } from './CloudLogsChart';
 
 /** The chart from a log-based metric's counts (Cloud Monitoring), summed across the view's projects. */
@@ -9,19 +10,22 @@ function MeteredChart(props: {
   projects: string[];
   metric: string;
   since?: string;
+  deploys?: readonly CloudDeploy[];
 }) {
   const counts = useOptional('logs.counts', {
     projects: props.projects,
     metric: props.metric,
     since: props.since,
   });
-  return <CloudLogsChart entries={props.entries} counts={counts.data?.counts} />;
+  return (
+    <CloudLogsChart entries={props.entries} counts={counts.data?.counts} deploys={props.deploys} />
+  );
 }
 
 /**
  * The Explorer's histogram: a view's metric counts over the range when it maps to one, else the
  * range's log entry counts from Cloud Monitoring when the query allows them (`volume`), else the
- * entries read over the span they cover, with Load older (`onOlder`).
+ * entries read over the span they cover, with Load older (`onOlder`); each with the range's deploys.
  */
 export function ExplorerChart(props: {
   entries: readonly CloudLogEntry[];
@@ -31,16 +35,29 @@ export function ExplorerChart(props: {
   volume?: CloudVolume;
 }) {
   const { metric, projects, since } = props.filters;
+  const deploys = useDeploys(props.filters);
   return metric && projects?.length ? (
-    <MeteredChart entries={props.entries} projects={projects} metric={metric} since={since} />
+    <MeteredChart
+      entries={props.entries}
+      projects={projects}
+      metric={metric}
+      since={since}
+      deploys={deploys}
+    />
   ) : props.volume?.counted && props.volume.series.length ? (
     <CloudLogsChart
       entries={props.entries}
       counts={props.volume.series}
       stepMs={props.volume.stepMs}
       counter="volume"
+      deploys={deploys}
     />
   ) : (
-    <CloudLogsChart entries={props.entries} onOlder={props.onOlder} olderBusy={props.olderBusy} />
+    <CloudLogsChart
+      entries={props.entries}
+      onOlder={props.onOlder}
+      olderBusy={props.olderBusy}
+      deploys={deploys}
+    />
   );
 }

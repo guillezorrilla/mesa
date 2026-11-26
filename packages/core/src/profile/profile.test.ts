@@ -33,6 +33,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     serverLogs: '/h/.mesa/work/logs',
     checks: '/h/.mesa/work/checks',
     cloudAsks: '/h/.mesa/work/cloud-asks.json',
+    cloudDeploys: '/h/.mesa/work/cloud-deploys.json',
     costs: '/h/.mesa/work/sessions/costs',
     decisions: '/h/.mesa/work/sessions/decisions',
     decisionLog: '/h/.mesa/work/decision-log',

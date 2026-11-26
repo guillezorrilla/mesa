@@ -39,6 +39,8 @@ export type ProfilePaths = {
   generalRuns: string;
   /** The newest Cloud Logs Asks, their questions and answers (logs/ask-history.ts). */
   cloudAsks: string;
+  /** Each Cloud Logs range's deploys, reused for two minutes (logs/deploys.ts). */
+  cloudDeploys: string;
   /** `mesa check` output logs, whole, private to the profile (CONTEXT.md, Check). */
   checks: string;
   /** Each Claude session's running estimated cost for its status line, `<session id>.json` each. */
@@ -143,6 +145,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     runs: join(root, 'sessions', 'runs'),
     generalRuns: join(root, 'sessions', 'general-runs'),
     cloudAsks: join(root, 'cloud-asks.json'),
+    cloudDeploys: join(root, 'cloud-deploys.json'),
     checks: join(root, 'checks'),
     costs: join(root, 'sessions', 'costs'),
     decisions: join(root, 'sessions', 'decisions'),

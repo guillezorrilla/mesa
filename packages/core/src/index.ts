@@ -99,6 +99,12 @@ export { envSpawner, type Spawner } from './lib/spawn.js';
 export { localClock, localDay, obsidianDateTime } from './lib/time.js';
 export type { AskOwn, AskTurn, CloudAsk } from './logs/ask-history.js';
 export type { CopyContext, CopyFormat } from './logs/copy.js';
+export {
+  type CloudDeploy,
+  type CloudDeploys,
+  cloudDeploys,
+  type DeployQuery,
+} from './logs/deploys.js';
 export type { CloudErrorGroup } from './logs/errors.js';
 export type { GcloudAction } from './logs/gcloud-actions.js';
 export {

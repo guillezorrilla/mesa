@@ -1,5 +1,5 @@
 import type { CloudAsk, CloudLogEntry } from '@mesa/core';
-import { entryGroup, facetsOf, withOwn } from '@mesa/core/browser';
+import { entryGroup, queryFields, withOwn } from '@mesa/core/browser';
 import { PanelLeftOpen, PanelRightOpen } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { ReadingBar } from '@/components/ReadingBar';
@@ -12,6 +12,7 @@ import { CloudReadAlert } from '../CloudReadAlert';
 import { CloudSessionDialogs } from '../CloudSessionDialogs';
 import type { EntryActions } from '../types';
 import { useCloudCopy } from '../useCloudCopy';
+import { useCloudLogsConfig } from '../useCloudLogsConfig';
 import { useCloudSession } from '../useCloudSession';
 import { useLogsKept } from '../useLogsKept';
 import { useOlderEntries } from '../useOlderEntries';
@@ -22,6 +23,7 @@ import { type ClauseState, matchingClause, withClause, withoutClause } from './e
 import { FieldsPanel } from './FieldsPanel';
 import { QueryField } from './QueryField';
 import { useFieldsPane } from './useFieldsPane';
+import { useServiceKinds } from './useServiceKinds';
 import { ViewFilterChips } from './ViewFilterChips';
 
 /**
@@ -66,11 +68,16 @@ export function CloudExplorerPanel(props: {
   const last = useRef<CloudLogEntry[]>(undefined);
   if (read.data) last.current = read.data.entries;
   const entries = read.data?.entries ?? last.current;
-  const facets = useMemo(() => facetsOf(entries ?? [], 20, 8), [entries]);
   // The pages read, which the results list and the fields pane's context counts share.
   const older = useOlderEntries(entries, props.filters);
   // The range's counts by severity, service and time, from Cloud Monitoring where the query allows.
   const volume = useOptional('logs.volume', props.filters);
+  const kinds = useServiceKinds(props.filters.env, volume.data);
+  const service = useCloudLogsConfig().gcp?.service;
+  const fields = useMemo(
+    () => queryFields(older.entries, (ref) => kinds.get(ref) ?? undefined, { service }),
+    [older.entries, kinds, service],
+  );
   const apply = (filters: CloudFilters) => {
     setQuery(filters.filter ?? '');
     setWritten(false);
@@ -116,7 +123,7 @@ export function CloudExplorerPanel(props: {
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
       <QueryField
         query={query}
-        facets={facets}
+        fields={fields}
         busy={read.busy}
         written={written}
         edited={edited}

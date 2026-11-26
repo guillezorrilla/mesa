@@ -1,6 +1,7 @@
 import type { Command } from '../../command.js';
 import { logsAsk, logsAsks, logsQuery } from './ask.js';
 import { logsEnvs, logsGcp, logsProjects, logsSetup, logsStar } from './cloud.js';
+import { logsDeploys } from './deploys.js';
 import { logsCounts, logsErrorSamples, logsErrors, logsVolume } from './errors.js';
 import { logsAdd, logsFiles, logsRemove } from './files.js';
 import { logs } from './read.js';
@@ -33,6 +34,7 @@ export const LOGS_COMMANDS: Command[] = [
   logsErrorSamples,
   logsCounts,
   logsVolume,
+  logsDeploys,
   logsViewsImportMetrics,
   logsViewsExport,
   logsViewsImport,

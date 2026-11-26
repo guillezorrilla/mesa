@@ -12,7 +12,6 @@ import { useMemo, useRef, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
 import { Input } from '@/components/ui/input';
-import { useOptional } from '@/lib/useCommand';
 import { useElementWidth } from '@/lib/useElementWidth';
 import { LevelBadge } from '../../shared/LevelBadge';
 import { ServiceDot } from '../../shared/ServiceDot';
@@ -21,6 +20,7 @@ import { useCloudLogsConfig } from '../useCloudLogsConfig';
 import { type ClauseState, clauseState, fieldClause } from './explorerQuery';
 import { FieldGroupPanel, type FieldValue } from './FieldGroupPanel';
 import { shortValue } from './fieldText';
+import { useServiceKinds } from './useServiceKinds';
 
 /** A value row's room besides its text (bar padding, + and -, count), and one character's width, in pixels. */
 const ROW_CHROME_PX = 92;
@@ -80,17 +80,11 @@ export function FieldsPanel(props: {
   const nav = useRef<HTMLElement>(null);
   const drawn = useElementWidth(nav, props.width);
   const config = useCloudLogsConfig().gcp;
-  const kinds = useOptional('logs.gcpServices', { env: props.env });
+  const kindOf = useServiceKinds(props.env, props.volume);
   const fit = Math.max(10, Math.floor((Math.min(drawn, props.width) - ROW_CHROME_PX) / CHAR_PX));
   const stats = useMemo(() => fieldStats(entries), [entries]);
   const groups = useMemo(() => {
     const range = props.volume?.counted ? props.volume : undefined;
-    const kindOf = new Map(
-      [...(kinds.data?.services ?? []), ...(range?.services ?? [])].map((s) => [
-        `${s.project}/${s.name}`,
-        s.kind,
-      ]),
-    );
     const shown = `in the ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'} shown`;
     const label = CLOUD_RANGES[(props.since ?? '1h') as CloudRange]?.[0].toLowerCase();
     const rangeNote = range ? (label ?? 'over the range') : shown;
@@ -160,7 +154,7 @@ export function FieldsPanel(props: {
       } as Group,
     }));
     return { services, severities, fields };
-  }, [entries, stats, query, fit, kinds.data, config?.service, props.volume, props.since]);
+  }, [entries, stats, query, fit, kindOf, config?.service, props.volume, props.since]);
   const needle = search.trim().toLowerCase();
   // Searching keeps a field whose name matches whole, else only its values that match.
   const matched = (group: Group): Group | undefined => {

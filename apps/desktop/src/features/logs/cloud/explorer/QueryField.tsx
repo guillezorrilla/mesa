@@ -1,42 +1,49 @@
-import type { Facet } from '@mesa/core/browser';
+import { type QueryField as Field, quoted } from '@mesa/core/browser';
 import { Play, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { fieldClause } from './explorerQuery';
 
 /** The last word being typed in `query` (what a suggestion completes). */
 const lastWord = (query: string) => /[^\s()]*$/.exec(query)?.[0] ?? '';
 
-/** Suggestions for `word`: `jsonPayload.<key>` while naming a field, its values after the `=`. */
-function suggestionsFor(word: string, facets: readonly Facet[]) {
+/** A field's last name, which typing it suggests it by: `status` of `jsonPayload.status`. */
+const leafOf = (field: string) => field.split('.').at(-1)?.replace(/"/g, '') ?? field;
+
+/**
+ * Suggestions for `word`: a field by its real name while naming one (typed whole or by its last
+ * name, `jsonPayload.` or not), its most common values after the `=`.
+ */
+function suggestionsFor(word: string, fields: readonly Field[]) {
   if (word.length < 2) return [];
-  const eq = /^jsonPayload\.([\w.-]+)=(.*)$/.exec(word);
-  if (eq) {
-    const values = facets.find((f) => f.key === eq[1])?.values ?? [];
-    return values
-      .map((v) => fieldClause(eq[1] ?? '', v.value))
-      .filter((s) => s.startsWith(word))
+  const named = fields.find((f) => word.startsWith(`${f.field}=`));
+  if (named)
+    return named.values
+      .map((value) => `${named.field}=${quoted(value)}`)
+      .filter((s) => s.startsWith(word) && s !== word)
       .slice(0, 8);
-  }
-  const typed = word.replace(/^jsonPayload\./, '').toLowerCase();
-  return facets
-    .filter((f) => f.key.toLowerCase().startsWith(typed))
-    .map((f) => `jsonPayload.${f.key}=`)
+  const typed = word.toLowerCase();
+  const bare = typed.replace(/^jsonpayload\./, '');
+  return fields
+    .filter(
+      (f) =>
+        f.field.toLowerCase().startsWith(typed) || leafOf(f.field).toLowerCase().startsWith(bare),
+    )
+    .map((f) => `${f.field}=`)
     .slice(0, 8);
 }
 
 /**
  * The Explorer's query (CONTEXT.md, Cloud Logs) in the Logging query language, with field and value
- * suggestions from the entries read; Run (Cmd+Enter, "/" to focus), and Ask in words, which turns a
+ * suggestions from the entries read (each field by its real name, its most common values first); Run (Cmd+Enter, "/" to focus), and Ask in words, which turns a
  * sentence into a query through the agent and puts it in the bar, highlighted (`written`), for the
  * person to read and Run.
  */
 export function QueryField(props: {
   query: string;
-  facets: readonly Facet[];
+  fields: readonly Field[];
   busy: boolean;
   written?: boolean;
   /** Edited since it last ran: the results are still the last query's. */
@@ -48,7 +55,7 @@ export function QueryField(props: {
   const box = useRef<HTMLTextAreaElement>(null);
   const [words, setWords] = useState('');
   const [asking, setAsking] = useState(false);
-  const suggestions = suggestionsFor(lastWord(props.query), props.facets);
+  const suggestions = suggestionsFor(lastWord(props.query), props.fields);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;

@@ -1,7 +1,8 @@
-import type { CloudLogEntry } from '@mesa/core';
+import type { CloudDeploy, CloudLogEntry } from '@mesa/core';
 import { History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BUCKET_MS, type CloudBucket, spanBuckets } from '../cloudLines';
+import { DeployMarkers } from '../DeployMarkers';
 
 /** A time on the chart's axis: with seconds when its bars are under a minute. */
 const clock = (ms: number, seconds: boolean) =>
@@ -19,7 +20,7 @@ const width = (ms: number) =>
  * The Explorer's bar chart, errors in red at the foot: a log-based metric's counts from Cloud
  * Monitoring per 5 minutes over the range when a view maps to one, or the range's log entry counts
  * (`counter: volume`), else the entries read over the span they cover (spanBuckets), labelled with
- * that span, and Load older to reach further back.
+ * that span, and Load older to reach further back; the deploys in its span marked over it.
  */
 export function CloudLogsChart(props: {
   entries: readonly CloudLogEntry[];
@@ -31,6 +32,7 @@ export function CloudLogsChart(props: {
   /** Reads the page before the oldest entry, when there is one. */
   onOlder?: () => void;
   olderBusy?: boolean;
+  deploys?: readonly CloudDeploy[];
 }) {
   const span = spanBuckets(props.entries);
   const metered = props.counts?.map((c) => ({
@@ -48,7 +50,7 @@ export function CloudLogsChart(props: {
   const read = props.entries.length;
   return (
     <figure aria-label="Entries over time" className="rounded-lg border bg-card px-3 pt-3 pb-2">
-      <div className="flex h-20 items-end gap-px">
+      <div className="relative flex h-20 items-end gap-px">
         {buckets.map((bucket) => (
           <div
             key={bucket.start}
@@ -65,6 +67,9 @@ export function CloudLogsChart(props: {
             />
           </div>
         ))}
+        {buckets.length > 0 && props.deploys && (
+          <DeployMarkers deploys={props.deploys} from={first} to={last} />
+        )}
       </div>
       <figcaption className="mt-1.5 flex min-w-0 items-center justify-between gap-3 text-[11px] text-muted-foreground tabular-nums">
         <span className="shrink-0">{buckets.length ? clock(first, seconds) : ''}</span>

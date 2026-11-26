@@ -17,6 +17,13 @@ export const SERVICE_LABELS = [
   ['resource.labels.module_id', 'gae_app', 'App Engine'],
 ] as const;
 
+/** Each kind of resource's revision label (an entry's `revision` field), as a filter names it. */
+export const REVISION_LABELS: Record<string, string> = {
+  GKE: 'labels."k8s-pod/pod-template-hash"',
+  'Cloud Run': 'resource.labels.revision_name',
+  'App Engine': 'resource.labels.version_id',
+};
+
 /** The label paths an entry's service is read from: logs.gcp.service when set, else each kind's. */
 export const servicePaths = (config: ServiceConfig = {}) =>
   config.service ? [config.service] : SERVICE_LABELS.map(([path]) => path);
