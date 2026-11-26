@@ -2,6 +2,14 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.8.0 - 2026-11-26
+
+### Added
+
+- Cloud Logs: a Logs tab in the sidebar reads Google Cloud Logging for all your GCP projects with your own `gcloud` sign-in. It opens on Error Reporting's error groups, leaves load balancer and system noise out, lets you explore entries by service, field and trace, and answers questions in a conversation that cites the entries it used and can start a session to fix an error; set it up in the tab, picking projects from a list filtered as you type and envs suggested from your GKE clusters and Cloud Run services, or with `mesa logs setup`. When gcloud needs you to sign in again, the tab's Sign in to Google Cloud button runs `gcloud auth login` for you and reads again once you finish in the browser. Explorer's fields pane lists your app's own fields first, with search, value bars, include and exclude, and up to two fields pinned as columns. (#1259)
+- Logs panel: a session with a project gets a Logs button that shows its local servers' output live, however they run (Docker containers, server sessions, a JetBrains IDE's console, any terminal through `mesa logs run`, or a log file anywhere), folds stack traces to your own code, filters to one request from its id, groups identical errors, mutes noisy lines, copies an error with its full stack ready to paste in Slack, Jira or a pull request, and sends the lines you pick to the agent to explain or fix, or starts a session with them; it can take the whole session area, and a project can hide it. (#1258)
+- Customize the sidebar's tabs: right-click the tab bar to hide Reviews or Logs, drag tabs into your own order, and pick Labels, Compact or Icons; Settings and `mesa sidebar tabs` do the same, and a hidden tab still opens from Search and shows its count in Notifications. (#1262)
+
 ## 0.7.1 - 2026-11-25
 
 ### Added
