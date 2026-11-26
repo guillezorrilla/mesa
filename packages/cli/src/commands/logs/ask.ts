@@ -41,7 +41,7 @@ export const logsAsking = defineCommand({
       description: 'Only an Ask whose run started at or after this ISO time',
     },
   },
-  example: 'mesa logs asking --json',
+  example: 'mesa logs asking',
   run: ({ mesa, flags }) => {
     const live = mesa.logs.asking(flags.since);
     return { data: live, text: live.text || 'no Ask is running' };
