@@ -287,6 +287,82 @@ test('Maximize covers the session area and is kept per project; Esc returns', as
   expect(panel()?.dataset.maximized).toBe('true');
 });
 
+test("a request's menu, on a row or the request chip, shows it across sources in time order and sends it", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const request = {
+    id: '7f3a',
+    sources: ['docker:harbour-api', 'session:a1b2c3d4'],
+    entries: [
+      {
+        ...entry('2026-05-06T07:08:01Z', 'info', 'GET /moorings reqId=7f3a'),
+        source: 'session:a1b2c3d4',
+      },
+      {
+        ...entry(
+          '2026-05-06T07:08:03Z',
+          'error',
+          'POST /moorings 500 reqId=7f3a',
+          `${NPE}\nCaused by: java.sql.SQLException: lock timeout`,
+        ),
+        source: 'docker:harbour-api',
+      },
+      {
+        ...entry('2026-05-06T07:08:04Z', 'warn', 'mooring retried reqId=7f3a'),
+        source: 'session:a1b2c3d4',
+      },
+    ],
+    failed: [],
+  };
+  const { bridge, calls } = bridgeWith(
+    () => [entry('2026-05-06T07:08:03Z', 'error', 'POST /moorings 500 reqId=7f3a', NPE)],
+    { 'logs request': () => envelope(request) },
+  );
+  const send = vi.fn(() => true);
+  await renderWithMesa(<Harness send={send} />, bridge);
+  await tick();
+  await click(rows()[0]?.querySelector<HTMLElement>('[aria-label="Request 7f3a"]') ?? undefined);
+  await click(menuItem('Show this request'));
+  await tick();
+  expect(calls).toContainEqual([
+    '--json',
+    'logs',
+    'request',
+    '--project',
+    'lantern-cove',
+    '--',
+    '7f3a',
+  ]);
+  const view = document.querySelector<HTMLElement>('section[aria-label="Request 7f3a"]');
+  expect(view?.textContent).toContain('3 lines across 2 sources');
+  const merged = [...(view?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])];
+  expect(merged.map((row) => row.dataset.level)).toEqual(['info', 'error', 'warn']);
+  expect(view?.textContent).toContain('Session · tide server');
+  expect(merged[0]?.textContent).toContain('tide server');
+  expect(merged[1]?.textContent).toContain('harbour-api');
+
+  await click(button('Send this request'));
+  const sent = String(send.mock.calls[0]?.at(0));
+  expect(sent).toContain('Request: 7f3a');
+  expect(sent).toContain('Sources: Session · tide server, Docker · harbour-api');
+  expect(sent).toContain('[Docker · harbour-api] ERROR POST /moorings 500 reqId=7f3a');
+  expect(sent).toContain('Caused by: java.sql.SQLException: lock timeout');
+  expect(sent.indexOf('GET /moorings')).toBeLessThan(sent.indexOf('mooring retried'));
+
+  await click(
+    document.querySelector<HTMLElement>('[aria-label="Close this request"]') ?? undefined,
+  );
+  expect(document.querySelector('section[aria-label="Request 7f3a"]')).toBeNull();
+  await click(button('reqId=7f3a'));
+  const chip = [...document.querySelectorAll<HTMLElement>('[aria-label="Request 7f3a"]')].find(
+    (each) => !each.closest('[role="option"]'),
+  );
+  await click(chip);
+  await click(menuItem('Send this request'));
+  await tick();
+  expect(send).toHaveBeenCalledTimes(2);
+  expect(String(send.mock.calls[1]?.at(0))).toContain('The lines (3):');
+});
+
 test("a row's hover actions copy it, send it alone, and mute lines like it", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   const { bridge } = bridgeWith(() => [

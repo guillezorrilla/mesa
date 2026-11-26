@@ -4,6 +4,7 @@ import { logsEnvs, logsGcp, logsProjects, logsSetup, logsStar } from './cloud.js
 import { logsCounts, logsErrorSamples, logsErrors, logsVolume } from './errors.js';
 import { logsAdd, logsFiles, logsRemove } from './files.js';
 import { logs } from './read.js';
+import { logsRequest } from './request.js';
 import { logsRun } from './run.js';
 import { logsSession } from './session.js';
 import { logsEnable, logsLogin } from './signin.js';
@@ -14,6 +15,7 @@ import { logsViewsExport, logsViewsImport, logsViewsImportMetrics } from './view
 export const LOGS_COMMANDS: Command[] = [
   logs,
   logsSources,
+  logsRequest,
   logsModules,
   logsFile,
   logsRun,

@@ -12,7 +12,8 @@ export function LogRow(props: {
   onSelect: () => void;
   time: ReactNode;
   badge: ReactNode;
-  logger?: string | null;
+  /** The logger, or any node in its column (a source's dot and name). */
+  logger?: ReactNode;
   /** Show the logger column at any width (Cloud Logs' service), so every row has the same columns. */
   loggerAlways?: boolean;
   children: ReactNode;
@@ -45,7 +46,7 @@ export function LogRow(props: {
           'hidden truncate text-muted-foreground/70 @min-[40rem]:block',
           props.loggerAlways && 'block',
         )}
-        title={props.logger ?? undefined}
+        title={typeof props.logger === 'string' ? props.logger : undefined}
       >
         {props.logger}
       </span>

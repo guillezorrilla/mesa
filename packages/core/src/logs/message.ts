@@ -1,9 +1,11 @@
 import { entryText, type ServerLogEntry } from './parse.js';
+import type { RequestEntry } from './request.js';
 import { stackSummary } from './stack.js';
 import { requestIds } from './tokens.js';
 
 // What the Logs panel puts in a prompt (CONTEXT.md, Logs panel): the ask, the source, the request,
-// the lines before the first error, and the picked lines. Pure, so the app bundles it.
+// the lines before the first error, and the picked lines; or a whole request across sources. Pure,
+// so the app bundles it.
 
 /** What the person asks of the agent about the picked lines. */
 export type LogAsk =
@@ -22,7 +24,7 @@ const ASKS: Record<Exclude<LogAsk['kind'], 'ask'>, string> = {
 };
 
 /** Entries as text for an agent, each stack summarized (stackSummary), in a fenced block. */
-function block(entries: readonly ServerLogEntry[], time: (entry: ServerLogEntry) => string | null) {
+function block<E extends ServerLogEntry>(entries: readonly E[], time: (entry: E) => string | null) {
   const body = entries
     .map((entry) =>
       entryText({ ...entry, stack: entry.stack && stackSummary(entry.stack) }, time(entry)),
@@ -64,6 +66,34 @@ export function logMessage(input: {
     '',
     `The lines (${lines.length}):`,
     block(lines, time),
+    '',
+  ].join('\n');
+}
+
+/**
+ * The prompt for a whole request (requestLines): its id, the sources its lines came from (`label`
+ * names a source id), and its lines in time order, each with its source and its stack summarized
+ * (stackSummary keeps the exceptions and their `Caused by:` chain).
+ */
+export function requestMessage(input: {
+  id: string;
+  entries: readonly RequestEntry[];
+  label?: (source: string) => string;
+  time?: (entry: ServerLogEntry) => string | null;
+}) {
+  const label = input.label ?? ((source: string) => source);
+  const time = input.time ?? ((entry: ServerLogEntry) => entry.time);
+  const sources = [...new Set(input.entries.map((entry) => label(entry.source)))];
+  return [
+    `Every line of request ${input.id} across the project's local log sources, in time order.`,
+    '',
+    `Request: ${input.id}`,
+    `Sources: ${sources.join(', ')}`,
+    '',
+    `The lines (${input.entries.length}):`,
+    block(input.entries, (entry) =>
+      [time(entry), `[${label(entry.source)}]`].filter(Boolean).join(' '),
+    ),
     '',
   ].join('\n');
 }
