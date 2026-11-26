@@ -84,6 +84,19 @@ function readersOf(client: Client, key: string) {
 }
 /** Cached reads belong to the folder they read, even when their command arguments stay the same. */
 export const CommandScope = createContext<string | undefined>(undefined);
+/**
+ * How long, in ms, a reply counts as fresh for the reads under it: a reader mounted or shown again
+ * (a screen kept under Activity) within that time shows the reply it has without reading again.
+ * 0, the default, reads on every mount.
+ */
+export const FreshFor = createContext(0);
+/** When each cached reply arrived, per client, for FreshFor. */
+const repliedAt = new WeakMap<Client, Map<string, number>>();
+function repliedAtOf(client: Client) {
+  const found = repliedAt.get(client) ?? new Map<string, number>();
+  repliedAt.set(client, found);
+  return found;
+}
 function repliesOf(client: Client) {
   let found = replies.get(client);
   if (!found) {
@@ -144,6 +157,7 @@ function useRead<K extends CommandName>(
   const cached = repliesOf(client);
   // By value: a caller passes a fresh object each render.
   const key = JSON.stringify([name, args, useContext(CommandScope)]);
+  const freshFor = useContext(FreshFor);
   const currentKey = useRef(key);
   useLayoutEffect(() => {
     currentKey.current = key;
@@ -193,6 +207,7 @@ function useRead<K extends CommandName>(
       if (id !== request.current || key !== currentKey.current) return;
       if (result.ok) {
         cached.set(key, result.data);
+        repliedAtOf(client).set(key, Date.now());
         setState({ key, data: result.data, busy: false });
         if (share) tell(result.data);
         alertNew(undefined);
@@ -201,7 +216,7 @@ function useRead<K extends CommandName>(
         if (toastMissing || result.error.code !== 'not_found') alertNew(result.error);
       }
     },
-    [call, alertNew, cached, name, key, toastMissing, tell],
+    [call, alertNew, cached, client, name, key, toastMissing, tell],
   );
   const refresh = useCallback(() => load(false), [load]);
   const refreshEverywhere = useCallback(() => load(true), [load]);
@@ -221,11 +236,13 @@ function useRead<K extends CommandName>(
   );
 
   useEffect(() => {
-    void refresh();
+    const at = repliedAtOf(client).get(key);
+    const fresh = freshFor > 0 && at !== undefined && Date.now() - at < freshFor;
+    if (!fresh) void refresh();
     return () => {
       request.current++;
     };
-  }, [refresh]);
+  }, [refresh, client, key, freshFor]);
 
   return {
     data: state.key === key ? state.data : (cached.get(key) as DataOf<K> | undefined),

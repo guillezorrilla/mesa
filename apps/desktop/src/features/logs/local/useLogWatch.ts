@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useKept } from '@/lib/keptValue';
 import { useCall } from '@/lib/useCommand';
 import { useWindowFocused } from '@/lib/useWindowFocused';
-import { type KeyedEntry, keyed, type LevelFilter } from '../shared/logLines';
+import { type KeyedEntry, keyed, LEVEL_FILTERS, type LevelFilter } from '../shared/logLines';
 
 /** How often the open panel reads its source while Live. */
 export const LOGS_POLL_MS = 2_000;
@@ -29,7 +29,10 @@ export function useLogWatch(project: string | undefined, open: boolean) {
   const shown = useRef<{ source: string; entries: KeyedEntry[] }>(undefined);
   const [failure, setFailure] = useState<{ source: string; message: string }>();
   const [sourcesFailure, setSourcesFailure] = useState<string>();
-  const [level, setLevel] = useState<LevelFilter>('all');
+  // The level filter is kept per project, as the source is, across sessions and restarts.
+  const [keptLevel, keepLevel] = useKept(project && `mesa.logs.level.${project}`);
+  const level: LevelFilter = LEVEL_FILTERS.find((l) => l === keptLevel) ?? 'all';
+  const setLevel = (next: LevelFilter) => keepLevel(next === 'all' ? undefined : next);
   const [live, setLive] = useState(true);
   const [dot, setDot] = useState(false);
   /** The error keys the source read last had; another source's starts anew, lighting nothing. */

@@ -17,11 +17,12 @@ import { CloudSessionDialogs } from '../CloudSessionDialogs';
 import { ProdAskDialog } from '../ProdAskDialog';
 import { useCloudSession } from '../useCloudSession';
 import { useLogAsk } from '../useLogAsk';
+import { useLogsKept } from '../useLogsKept';
 import { CloudErrorGroupRow } from './CloudErrorGroupRow';
 import { ErrorDetailPanel } from './ErrorDetailPanel';
 import { ErrorsSkeleton } from './ErrorsSkeleton';
 import { ErrorsStatus } from './ErrorsStatus';
-import { type ErrorSort, errorItems, relatedOf } from './errorOrder';
+import { ERROR_SORTS, type ErrorSort, errorItems, relatedOf } from './errorOrder';
 import { IncidentPanel } from './IncidentPanel';
 
 const SUMMARISE =
@@ -43,9 +44,11 @@ export function CloudErrorsPanel(props: {
   onSession: (id: string) => void;
 }) {
   const errors = useOptional('logs.errors', props.filters);
-  const [sort, setSort] = useState<ErrorSort>('count');
-  const [newOnly, setNewOnly] = useState(false);
-  const [selected, setSelected] = useState<string>();
+  // Kept per profile: the sort, New only and the group open come back after a restart.
+  const [keptSort, setSort] = useLogsKept<ErrorSort>('errors.sort', 'count');
+  const sort: ErrorSort = ERROR_SORTS.includes(keptSort) ? keptSort : 'count';
+  const [newOnly, setNewOnly] = useLogsKept('errors.newOnly', false);
+  const [selected, setSelected] = useLogsKept<string | undefined>('errors.selected', undefined);
   const [summary, setSummary] = useState<CloudAsked>();
   const [cancelled, setCancelled] = useState<string>();
   const cloudSession = useCloudSession(props.filters.env, props.onSession);

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { useState } from 'react';
-import { expect, test } from 'vitest';
+import { afterEach, expect, test } from 'vitest';
 import type { CloudFilters } from '@/lib/client/logs';
 import {
   attached,
@@ -13,7 +13,8 @@ import {
 } from '@/lib/testing';
 import { HEALTHY } from '@/lib/testing/healthy';
 import { guardrailStopped } from '@/lib/testing/replies';
-import type { CloudMode } from '@/lib/workspaceView';
+import type { CloudMode, WorkspaceView } from '@/lib/workspaceView';
+import { CloudLogsKeptScreen } from './CloudLogsKeptScreen';
 import { CloudLogsScreen } from './CloudLogsScreen';
 import type { CloudLogsView } from './types';
 
@@ -78,6 +79,121 @@ function Harness(props: { mode: CloudMode; query?: CloudFilters; ask?: string })
     </>
   );
 }
+afterEach(() => localStorage.clear());
+
+/** The Logs tab as the workspace mounts it, with Away and Back for another screen and the Logs tab again. */
+function KeptHarness() {
+  const [view, setView] = useState<Extract<WorkspaceView, { kind: 'logs' }> | undefined>({
+    kind: 'logs',
+  });
+  return (
+    <>
+      <button type="button" onClick={() => setView(undefined)}>
+        Away
+      </button>
+      <button type="button" onClick={() => setView({ kind: 'logs' })}>
+        Back
+      </button>
+      <CloudLogsKeptScreen
+        view={view}
+        onView={(next) => setView({ kind: 'logs', ...next })}
+        onSession={() => {}}
+      />
+    </>
+  );
+}
+
+/** Errors and Explorer reads over invented groups and entries, every call kept. */
+const keptBridge = () =>
+  fakeBridge({
+    config: () => config(GCP),
+    'logs asks': () => envelope({ asks: [] }),
+    'logs errors': () => envelope({ env: 'beta', warnings: [], groups: GROUPS, incidents: [] }),
+    'logs gcp': (args) =>
+      args.includes('--services')
+        ? envelope({ env: 'beta', services: [], warnings: [] })
+        : envelope({
+            projects: GCP.projects,
+            env: 'beta',
+            envs: ['beta', 'prod'],
+            filters: {},
+            warnings: [],
+            entries: [entry('k1', 1, 'tide lookup failed')],
+          }),
+  });
+const reads = (calls: string[][], command: string) =>
+  calls.filter((argv) => argv[2] === command && !argv.includes('--services')).length;
+
+test('leaving the Logs tab and coming back keeps it as left, with no new read: the view, the env, the group picked, the sort and the query being edited', async () => {
+  const { bridge, calls } = keptBridge();
+  await renderWithMesa(<KeptHarness />, bridge);
+  await attached();
+  const groups = () => [...document.querySelectorAll<HTMLElement>('[data-group]')];
+  await click(groups().at(-1));
+  const picked = groups().at(-1)?.getAttribute('data-group');
+  const sort = q<HTMLSelectElement>('[aria-label="Sort errors"]');
+  if (sort) {
+    sort.value = 'newest';
+    sort.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  await click(q('[role="radio"][value="explorer"]') ?? button('Explorer'));
+  await attached();
+  await fill(q<HTMLTextAreaElement>('[aria-label="Query"]'), 'severity>=ERROR');
+  const before = { errors: reads(calls, 'errors'), gcp: reads(calls, 'gcp') };
+  await click(button('Away'));
+  // Hidden, not unmounted: Activity keeps its DOM and state.
+  expect(q('[aria-label="Cloud Logs"]')?.style.display).toBe('none');
+  await click(button('Back'));
+  await attached();
+  expect(q<HTMLTextAreaElement>('[aria-label="Query"]')?.value).toBe('severity>=ERROR');
+  expect(reads(calls, 'gcp')).toBe(before.gcp);
+  await click(q('[role="radio"][value="errors"]') ?? button('Errors'));
+  await attached();
+  expect(reads(calls, 'errors')).toBe(before.errors);
+  expect(q<HTMLSelectElement>('[aria-label="Sort errors"]')?.value).toBe('newest');
+  expect(document.querySelector(`[data-group="${picked}"]`)?.getAttribute('aria-pressed')).toBe(
+    'true',
+  );
+});
+
+test('a restart restores the choices kept for the profile: the view, its filters, the sort and the group', async () => {
+  localStorage.setItem(
+    'mesa.logs.default.view',
+    JSON.stringify({ mode: 'explorer', query: { env: 'prod', severity: 'warning' } }),
+  );
+  localStorage.setItem('mesa.logs.default.errors.sort', '"newest"');
+  localStorage.setItem('mesa.logs.default.explorer.claude', 'false');
+  const { bridge, calls } = keptBridge();
+  await renderWithMesa(<KeptHarness />, bridge);
+  await attached();
+  await attached();
+  expect(lastRead(calls)).toEqual(expect.arrayContaining(['--env=prod', '--severity=warning']));
+  expect(q('[aria-label="Claude"]')).toBeUndefined();
+  await click(q('[role="radio"][value="errors"]') ?? button('Errors'));
+  await attached();
+  expect(q<HTMLSelectElement>('[aria-label="Sort errors"]')?.value).toBe('newest');
+});
+
+test('a kept choice that no longer exists falls back with a note: a removed env and project', async () => {
+  localStorage.setItem(
+    'mesa.logs.default.view',
+    JSON.stringify({
+      mode: 'explorer',
+      query: { env: 'staging', projects: ['gone-project-9', 'tide-tables-123'] },
+    }),
+  );
+  const { bridge, calls } = keptBridge();
+  await renderWithMesa(<KeptHarness />, bridge);
+  await attached();
+  await attached();
+  const note = q('[aria-label="Cloud Logs"] [role="status"]')?.textContent ?? '';
+  expect(note).toContain('The env staging is no longer set up: showing beta.');
+  expect(note).toContain('gone-project-9 is no longer in your projects: left out.');
+  const read = lastRead(calls) ?? [];
+  expect(read).toContain('--env=beta');
+  expect(read.join(' ')).not.toContain('gone-project-9');
+});
+
 const view = () => JSON.parse(q('[data-testid="view"]')?.textContent ?? '{}') as CloudLogsView;
 
 test('without logs.gcp the tab is the setup; with setup it changes projects and envs, Cancel going back', async () => {
@@ -515,7 +631,7 @@ test('the fields pane: app fields first, plumbing under More, ids only when sear
   await fill(q<HTMLInputElement>('[aria-label="Search fields"]'), '');
   await click(q('[aria-label="Show company as column"]'));
   expect(q('[data-id="e1"] [data-column="company"]')?.textContent).toBe('Lantern Cove');
-  expect(localStorage.getItem('mesa.logs.fields.columns')).toBe('company');
+  expect(localStorage.getItem('mesa.logs.default.fields.columns')).toBe('["company"]');
   // Every row has its badge, DEFAULT and NOTICE too; a 5-line message shows 3 with more.
   expect(q('[data-id="e1"] span[data-level]')?.textContent).toBe('NOTICE');
   expect(q('[data-id="e2"] span[data-level]')?.textContent).toBe('DEFAULT');
@@ -534,7 +650,7 @@ test('the fields pane: app fields first, plumbing under More, ids only when sear
   const reads = entryReads();
   await click(q('[aria-label="Hide fields"]'));
   expect(q('[aria-label="Fields"]')).toBeUndefined();
-  expect(localStorage.getItem('mesa.logs.fields.hidden')).toBe('1');
+  expect(localStorage.getItem('mesa.logs.default.fields.hidden')).toBe('true');
   await click(button('Fields'));
   expect(q('[aria-label="Fields"]')).toBeDefined();
   expect(entryReads()).toBe(reads);

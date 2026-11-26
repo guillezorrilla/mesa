@@ -1,7 +1,7 @@
 import type { CloudAsk, CloudLogEntry } from '@mesa/core';
 import { entryGroup, facetsOf, withOwn } from '@mesa/core/browser';
 import { PanelLeftOpen, PanelRightOpen } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ReadingBar } from '@/components/ReadingBar';
 import { ResizeHandle } from '@/components/ResizeHandle';
 import { useToast } from '@/components/Toast';
@@ -13,6 +13,7 @@ import { CloudSessionDialogs } from '../CloudSessionDialogs';
 import type { EntryActions } from '../types';
 import { useCloudCopy } from '../useCloudCopy';
 import { useCloudSession } from '../useCloudSession';
+import { useLogsKept } from '../useLogsKept';
 import { SaveViewDialog } from '../views/SaveViewDialog';
 import { ClaudePanel } from './ClaudePanel';
 import { ExplorerResultsPanel } from './ExplorerResultsPanel';
@@ -45,12 +46,17 @@ export function CloudExplorerPanel(props: {
   const cloudSession = useCloudSession(props.filters.env, props.onSession);
   const [query, setQuery] = useState(props.filters.filter ?? '');
   const ran = props.filters.filter ?? '';
-  // A query set from outside (a view, a chip, Ask about this) shows in the bar.
-  useEffect(() => setQuery(ran), [ran]);
+  // A query set from outside (a view, a chip, Ask about this) shows in the bar; only a change does,
+  // so an edit not run yet survives the tab being hidden and shown again (Activity).
+  const [shownRan, setShownRan] = useState(ran);
+  if (ran !== shownRan) {
+    setShownRan(ran);
+    setQuery(ran);
+  }
   const pane = useFieldsPane();
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [focus, setFocus] = useState<string>();
-  const [claude, setClaude] = useState(true);
+  const [claude, setClaude] = useLogsKept('explorer.claude', true);
   const [draft, setDraft] = useState(props.draft);
   const [saving, setSaving] = useState<CloudFilters>();
   // A query written from the person's words waits in the bar, highlighted, until they run it.
@@ -78,8 +84,8 @@ export function CloudExplorerPanel(props: {
   const cited = useMemo(() => new Set(lastCited ?? []), [lastCited]);
   const picked = useMemo(() => [...selected], [selected]);
   // The rows keep one actions object; what it calls is read from here at the time of the click.
-  const latest = useRef({ add, fix: cloudSession.fix, copy, copyText });
-  latest.current = { add, fix: cloudSession.fix, copy, copyText };
+  const latest = useRef({ add, fix: cloudSession.fix, copy, copyText, setClaude });
+  latest.current = { add, fix: cloudSession.fix, copy, copyText, setClaude };
   const actions = useMemo<EntryActions>(
     () => ({
       onSelect: (entry) =>
@@ -92,7 +98,7 @@ export function CloudExplorerPanel(props: {
       onHide: (entry) => latest.current.add(matchingClause(entry), true),
       onAsk: (entry) => {
         setSelected(new Set([entry.id]));
-        setClaude(true);
+        latest.current.setClaude(true);
         setDraft(`Explain this entry [${entry.id}]`);
       },
       onFix: (entry) => latest.current.fix(entryGroup(entry)),
@@ -150,6 +156,8 @@ export function CloudExplorerPanel(props: {
               columns={pane.columns}
               onSet={setClause}
               onPin={pane.pin}
+              isOpen={pane.isOpen}
+              onOpen={pane.setOpen}
               onHide={() => pane.setHidden(true)}
             />
             <ResizeHandle

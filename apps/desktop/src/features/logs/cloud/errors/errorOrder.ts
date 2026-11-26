@@ -1,7 +1,8 @@
 import type { CloudErrorGroup, Incident, IncidentLink } from '@mesa/core';
 
 /** How the Errors list sorts: by count, newest last seen, or biggest rise over the range. */
-export type ErrorSort = 'count' | 'newest' | 'rise';
+export const ERROR_SORTS = ['count', 'newest', 'rise'] as const;
+export type ErrorSort = (typeof ERROR_SORTS)[number];
 
 /** How much a group's counts rose: its last quarter against the rest, per bucket. */
 export function rise(group: CloudErrorGroup) {

@@ -118,10 +118,10 @@ export function WorkspaceSidebar(props: {
   };
   const pendingRuns = usePendingRuns();
   const logsTab = useCommand('config.get').data?.logs?.cloudTab ?? true;
-  /** The Logs tab, back on the Logs view when it is already shown. */
+  /** The Logs tab, back on the Logs view as it was left (CloudLogsKeptScreen keeps it). */
   const openLogs = () => {
     setTab('logs');
-    if (view.kind !== 'logs') onView({ kind: 'logs', mode: 'errors' });
+    if (view.kind !== 'logs') onView({ kind: 'logs' });
   };
   const nav = (label: string, icon: LucideIcon, target: WorkspaceView, count = 0) => (
     <SidebarNavButton

@@ -1,26 +1,31 @@
-import { useKept } from '@/lib/keptValue';
-import { useKeptWidth, type WidthBounds } from '@/lib/useKeptWidth';
+import type { WidthBounds } from '@/lib/useKeptWidth';
+import { useLogsKept } from '../useLogsKept';
 import { toggledColumn } from './pinnedColumns';
 
 /** The fields pane's width bounds, in pixels. */
 const FIELDS_WIDTH: WidthBounds = { min: 180, max: 420, initial: 232, step: 16 };
 
 /**
- * The Explorer's fields pane as the person left it, kept on this machine: its width, whether it is
- * hidden, and the context fields pinned as columns beside each row (cloudColumns).
+ * The Explorer's fields pane as the person left it, kept per profile (useLogsKept): its width,
+ * whether it is hidden, which field sections are open, and the fields pinned as columns beside each
+ * row (pinnedColumns).
  */
 export function useFieldsPane() {
-  const [width, setWidth] = useKeptWidth('mesa.logs.fields.width', FIELDS_WIDTH);
-  const [hidden, keepHidden] = useKept('mesa.logs.fields.hidden');
-  const [kept, keepColumns] = useKept('mesa.logs.fields.columns');
-  const columns = kept ? kept.split('\n').filter(Boolean) : [];
+  const [kept, keepWidth] = useLogsKept('fields.width', FIELDS_WIDTH.initial);
+  const [hidden, setHidden] = useLogsKept('fields.hidden', false);
+  const [columns, keepColumns] = useLogsKept<string[]>('fields.columns', []);
+  const [sections, keepSections] = useLogsKept<Record<string, boolean>>('fields.sections', {});
   return {
-    width,
-    setWidth,
+    width: Math.min(FIELDS_WIDTH.max, Math.max(FIELDS_WIDTH.min, kept)),
+    setWidth: (next: number) =>
+      keepWidth(Math.min(FIELDS_WIDTH.max, Math.max(FIELDS_WIDTH.min, Math.round(next)))),
     bounds: FIELDS_WIDTH,
-    hidden: hidden === '1',
-    setHidden: (next: boolean) => keepHidden(next ? '1' : undefined),
+    hidden,
+    setHidden,
     columns,
-    pin: (key: string) => keepColumns(toggledColumn(columns, key).join('\n') || undefined),
+    pin: (key: string) => keepColumns(toggledColumn(columns, key)),
+    /** Whether field `name`'s section is open: as the person left it, else `initial`. */
+    isOpen: (name: string, initial: boolean) => sections[name] ?? initial,
+    setOpen: (name: string, open: boolean) => keepSections({ ...sections, [name]: open }),
   };
 }

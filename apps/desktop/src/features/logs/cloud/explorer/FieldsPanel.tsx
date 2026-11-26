@@ -24,6 +24,9 @@ import { shortValue } from './fieldText';
 const ROW_CHROME_PX = 92;
 const CHAR_PX = 6.6;
 
+/** The More fields group's name among the kept sections. */
+const MORE = 'More fields';
+
 const counted = (values: readonly string[]) => {
   const counts = new Map<string, number>();
   for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
@@ -48,6 +51,9 @@ export function FieldsPanel(props: {
   columns: readonly string[];
   onSet: (clause: string, state?: ClauseState) => void;
   onPin: (key: string) => void;
+  /** Whether a field's section is open, as kept, else `initial`; and its setter. */
+  isOpen: (name: string, initial: boolean) => boolean;
+  onOpen: (name: string, open: boolean) => void;
   onHide: () => void;
 }) {
   const { entries, query } = props;
@@ -124,11 +130,12 @@ export function FieldsPanel(props: {
   const section = (group: Group | undefined, open = true) =>
     group?.values.length ? (
       <FieldGroupPanel
-        key={`${group.name} ${needle}`}
+        key={group.name}
         name={group.name}
         values={group.values}
         total={entries.length}
-        open={open || Boolean(needle)}
+        open={Boolean(needle) || props.isOpen(group.name, open)}
+        onOpen={(next) => props.onOpen(group.name, next)}
         pinned={props.columns.includes(group.name)}
         onPin={group.pin ? () => props.onPin(group.name) : undefined}
         onSet={props.onSet}
@@ -168,7 +175,13 @@ export function FieldsPanel(props: {
           {section(matched(groups.severities))}
           {main.map((group) => section(group))}
           {more.length > 0 && (
-            <details open={Boolean(needle)} className="group/more">
+            <details
+              open={Boolean(needle) || props.isOpen(MORE, false)}
+              onToggle={(event) => {
+                if (!needle) props.onOpen(MORE, event.currentTarget.open);
+              }}
+              className="group/more"
+            >
               <summary className="flex h-7 cursor-pointer items-center gap-1 px-1 text-[10.5px] font-semibold tracking-wide text-muted-foreground uppercase">
                 More fields
                 <span className="tabular-nums">{more.length}</span>

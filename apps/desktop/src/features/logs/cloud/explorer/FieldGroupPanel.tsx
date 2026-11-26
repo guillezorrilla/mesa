@@ -18,7 +18,7 @@ export type FieldValue = {
 
 /**
  * A field in the fields pane: its name and how many distinct values it has, collapsible; its top
- * five values (FieldValueRow), then Show all; with `onPin`, Show as column puts it beside each row.
+ * five values (FieldValueRow), then Show all; open or closed as the pane keeps it; with `onPin`, Show as column puts it beside each row.
  */
 export function FieldGroupPanel(props: {
   name: string;
@@ -26,12 +26,13 @@ export function FieldGroupPanel(props: {
   /** The entries read, for each value's share. */
   total: number;
   open: boolean;
+  onOpen: (open: boolean) => void;
   pinned?: boolean;
   onPin?: () => void;
   /** Puts `clause` in the query (`in`), excluded (`out`), or takes it out (undefined). */
   onSet: (clause: string, state?: ClauseState) => void;
 }) {
-  const [open, setOpen] = useState(props.open);
+  const { open } = props;
   const [all, setAll] = useState(false);
   const shown = all ? props.values : props.values.slice(0, TOP);
   // A click on a value in the query takes it out; + and - set it, or take it out when already so.
@@ -44,7 +45,7 @@ export function FieldGroupPanel(props: {
           type="button"
           aria-expanded={open}
           className="flex min-w-0 flex-1 items-center gap-1 text-left text-xs font-medium"
-          onClick={() => setOpen(!open)}
+          onClick={() => props.onOpen(!open)}
         >
           <ChevronRight
             aria-hidden

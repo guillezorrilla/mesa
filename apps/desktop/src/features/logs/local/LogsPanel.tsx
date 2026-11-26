@@ -2,6 +2,7 @@ import type { LogAsk } from '@mesa/core';
 import { errorGroups, isMuted, logMessage, sourceLabel } from '@mesa/core/browser';
 import { useMemo, useState } from 'react';
 import { ResizeHandle } from '@/components/ResizeHandle';
+import { useKept } from '@/lib/keptValue';
 import { pressed } from '@/lib/shortcutKeys';
 import { useToggleSet } from '@/lib/useToggleSet';
 import { cn } from '@/lib/utils';
@@ -30,7 +31,10 @@ export function LogsPanel(props: { logs: LogsActions; onClose: () => void }) {
   const { watch } = props.logs;
   const layout = useLogsLayout(watch.project);
   const mutes = useMutes(watch.project);
-  const [text, setText] = useState('');
+  // The text filter is kept per project too, so it is there after a restart.
+  const [keptText, keepText] = useKept(watch.project && `mesa.logs.text.${watch.project}`);
+  const text = keptText ?? '';
+  const setText = (next: string) => keepText(next || undefined);
   const [request, setRequest] = useState<string>();
   const [picked, , setPicked] = useToggleSet();
   const [openGroups, toggleGroup] = useToggleSet();

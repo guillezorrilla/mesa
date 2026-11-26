@@ -2,7 +2,8 @@ import type { ServerLogEntry } from '@mesa/core';
 import { namesRequest } from '@mesa/core/browser';
 
 /** Which entries the panel shows by level: every one, errors, or warnings. */
-export type LevelFilter = 'all' | 'error' | 'warn';
+export const LEVEL_FILTERS = ['all', 'error', 'warn'] as const;
+export type LevelFilter = (typeof LEVEL_FILTERS)[number];
 
 /** An entry with a key that stays its own across polls, for selection and for spotting new errors. */
 export type KeyedEntry = ServerLogEntry & { key: string };

@@ -1,7 +1,7 @@
 import type { CloudErrorGroup } from '@mesa/core';
 import { ALL_ENVS, groupQuery, plainTitle } from '@mesa/core/browser';
 import { BookmarkPlus } from 'lucide-react';
-import { useState } from 'react';
+import { Activity, useState } from 'react';
 import { CenteredState } from '@/components/CenteredState';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { CloudFilterBar } from './CloudFilterBar';
 import { projectsLabel } from './cloudLines';
 import { CloudErrorsPanel } from './errors/CloudErrorsPanel';
 import { CloudExplorerPanel } from './explorer/CloudExplorerPanel';
+import { restoredFilters } from './restoredFilters';
 import { CloudSetupPanel } from './setup/CloudSetupPanel';
 import type { CloudLogsView } from './types';
 import { useCloudLogsConfig } from './useCloudLogsConfig';
@@ -34,6 +35,9 @@ export function CloudLogsScreen(props: {
   const asks = useCommand('logs.asks');
   const [saving, setSaving] = useState(false);
   const { mode } = props;
+  // Each view stays mounted once shown, hidden while the other is (Activity), so switching keeps it.
+  const [seenModes, setSeenModes] = useState<ReadonlySet<CloudMode>>(() => new Set([mode]));
+  if (!seenModes.has(mode)) setSeenModes(new Set([...seenModes, mode]));
   if (!loaded) return <CenteredState message="Loading" />;
   if (!gcp)
     return (
@@ -41,16 +45,18 @@ export function CloudLogsScreen(props: {
         <CloudSetupPanel onSaved={() => void refresh()} />
       </div>
     );
-  const env = props.filters.env ?? Object.keys(gcp.envs)[0];
+  // Kept filters a setup change made stale (a removed env or project) fall back, with a note.
+  const restored = restoredFilters(props.filters, gcp);
+  const env = restored.filters.env ?? Object.keys(gcp.envs)[0];
   // The env is resolved once, so both views and the bar agree on it.
-  const filters = { ...props.filters, env };
+  const filters = { ...restored.filters, env };
   const go = (next: Partial<CloudLogsView>) =>
-    props.onView({ mode, query: props.filters, ask: props.ask, ...next });
+    props.onView({ mode, query: restored.filters, ask: props.ask, ...next });
   const askAbout = (group: CloudErrorGroup) =>
     go({
       mode: 'explorer',
       query: {
-        ...props.filters,
+        ...restored.filters,
         projects: [group.project],
         services: undefined,
         filter: groupQuery(group, gcp),
@@ -63,7 +69,7 @@ export function CloudLogsScreen(props: {
       <CloudFilterBar
         gcp={gcp}
         mode={mode}
-        filters={props.filters}
+        filters={restored.filters}
         env={env}
         onMode={(next) => go({ mode: next })}
         onFilters={(query) => go({ query })}
@@ -75,36 +81,46 @@ export function CloudLogsScreen(props: {
           )
         }
       />
+      {restored.notes.length > 0 && (
+        <Muted size="xs" role="status" className="-mt-2 text-state-waiting">
+          {restored.notes.join(' ')}
+        </Muted>
+      )}
       {mode === 'errors' && env !== undefined && env !== ALL_ENVS && (
         <Muted size="xs" className="-mt-2">
           Errors in {env}, grouped from its logs; New, Back again and all-env counts from Error
           Reporting.
         </Muted>
       )}
-      {mode === 'errors' ? (
-        <CloudErrorsPanel
-          filters={filters}
-          reading={`${projectsLabel(gcp.projects)}${env && env !== ALL_ENVS ? ` ${env}` : ''}`}
-          onAsk={askAbout}
-          onExplore={(query) => go({ mode: 'explorer', query, ask: undefined })}
-          onSession={props.onSession}
-        />
-      ) : (
-        <CloudExplorerPanel
-          key={props.ask ?? 'new'}
-          filters={filters}
-          conversation={asks.data?.asks.find((a) => a.id === props.ask)}
-          draft={props.prompt}
-          onFilters={(query) => go({ query })}
-          onAsked={(asked) => {
-            void asks.refreshEverywhere();
-            go({ ask: asked.conversation, prompt: undefined });
-          }}
-          onNewConversation={() => go({ ask: undefined, prompt: undefined })}
-          onSession={props.onSession}
-        />
+      {seenModes.has('errors') && (
+        <Activity mode={mode === 'errors' ? 'visible' : 'hidden'}>
+          <CloudErrorsPanel
+            filters={filters}
+            reading={`${projectsLabel(gcp.projects)}${env && env !== ALL_ENVS ? ` ${env}` : ''}`}
+            onAsk={askAbout}
+            onExplore={(query) => go({ mode: 'explorer', query, ask: undefined })}
+            onSession={props.onSession}
+          />
+        </Activity>
       )}
-      {saving && <SaveViewDialog filters={props.filters} onDone={() => setSaving(false)} />}
+      {seenModes.has('explorer') && (
+        <Activity mode={mode === 'explorer' ? 'visible' : 'hidden'}>
+          <CloudExplorerPanel
+            key={props.ask ?? 'new'}
+            filters={filters}
+            conversation={asks.data?.asks.find((a) => a.id === props.ask)}
+            draft={props.prompt}
+            onFilters={(query) => go({ query })}
+            onAsked={(asked) => {
+              void asks.refreshEverywhere();
+              go({ ask: asked.conversation, prompt: undefined });
+            }}
+            onNewConversation={() => go({ ask: undefined, prompt: undefined })}
+            onSession={props.onSession}
+          />
+        </Activity>
+      )}
+      {saving && <SaveViewDialog filters={restored.filters} onDone={() => setSaving(false)} />}
     </section>
   );
 }

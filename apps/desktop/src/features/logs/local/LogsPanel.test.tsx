@@ -2,7 +2,7 @@
 import type { LogSource } from '@mesa/core';
 import { act, useState } from 'react';
 import { afterEach, expect, test, vi } from 'vitest';
-import { click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
+import { click, envelope, fakeBridge, fill, renderWithMesa } from '@/lib/testing';
 import { LogsPanel } from './LogsPanel';
 import { CLOSED_POLL_MS, LOGS_POLL_MS, useLogWatch } from './useLogWatch';
 
@@ -279,4 +279,36 @@ test("a row's hover actions copy it, send it alone, and mute lines like it", asy
   expect(String(send.mock.calls[0]?.at(0))).toContain('The lines (1):');
   expect(rows()[0]?.getAttribute('aria-selected')).toBe('false');
   expect(document.querySelector('footer')).toBeNull();
+});
+
+test('the level and text filters are kept per project: closing the panel, or a restart, brings them back', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const { bridge } = bridgeWith(() => [
+    entry('2026-05-06T07:08:03Z', 'info', 'GET /tides 200'),
+    entry('2026-05-06T07:08:04Z', 'error', 'berth is null', NPE),
+  ]);
+  await renderWithMesa(<Harness send={() => true} />, bridge);
+  await tick();
+  await click(
+    [...document.querySelectorAll<HTMLElement>('[role="radio"]')].find((r) =>
+      r.textContent?.includes('Errors'),
+    ),
+  );
+  await fill(
+    document.querySelector<HTMLInputElement>('[aria-label="Filter lines"]') ?? undefined,
+    'berth',
+  );
+  expect(localStorage.getItem('mesa.logs.level.lantern-cove')).toBe('error');
+  expect(localStorage.getItem('mesa.logs.text.lantern-cove')).toBe('berth');
+  // A fresh render, as after a restart: only what was kept comes back.
+  await renderWithMesa(<Harness send={() => true} />, bridge);
+  await tick();
+  expect(document.querySelector<HTMLInputElement>('[aria-label="Filter lines"]')?.value).toBe(
+    'berth',
+  );
+  expect(
+    [...document.querySelectorAll<HTMLElement>('[role="radio"]')]
+      .find((r) => r.textContent?.includes('Errors'))
+      ?.getAttribute('aria-checked'),
+  ).toBe('true');
 });
