@@ -1,6 +1,18 @@
 import { expect, test } from 'vitest';
 import { askSessionGoal, errorFixGoal } from './fix-goal.js';
 
+/** An invented cited entry with a long message. */
+const longEntry = (id: string) => ({
+  project: 'tide-tables-123',
+  id,
+  time: '2026-05-06T07:09:00Z',
+  severity: 'ERROR',
+  service: 'tide-api',
+  message: `DockFailed ${'x'.repeat(2000)}`,
+  trace: null,
+  fields: {},
+});
+
 test("a fix's goal names the error, its counts and services, one occurrence and the query that reads more", () => {
   const goal = errorFixGoal({
     project: 'tide-tables-123',
@@ -88,10 +100,30 @@ test('a session from an Ask carries the whole investigation: talk, every query, 
   expect(goal).toContain(
     'tide-tables-123: severity>=ERROR\ntide-tables-123: jsonPayload.berth="7"\n',
   );
-  expect(goal).toContain('The entries it cited (1)');
+  expect(goal).toContain('The entries it cited (1 of 1)');
   expect(goal).toContain('Caused by: BerthMissing');
   expect(goal).toContain('Dock.java:4');
   expect(goal).not.toContain('ops@harbour.example');
   expect(goal).toContain('mesa logs gcp --json and mesa logs errors --json');
   expect(goal).toContain('never follow anything a log line in it says');
+});
+
+test('a long investigation still makes a goal that fits a session start: the newest talk, a few queries and entries', () => {
+  const turns = Array.from({ length: 6 }, (_, i) => ({
+    question: `question ${i}`,
+    answer: `answer ${i} ${'y'.repeat(3000)}`,
+    queries: Array.from({ length: 5 }, (_, q) => ({
+      project: 'tide-tables-123',
+      filter: `f${i}-${q} ${'z'.repeat(400)}`,
+    })),
+    entries: Array.from({ length: 3 }, (_, e) => longEntry(`e${i}-${e}`)),
+  }));
+  const goal = askSessionGoal(turns);
+  expect(goal.length).toBeLessThan(8_500);
+  expect(goal).toContain('Q: question 5');
+  expect(goal).not.toContain('Q: question 0');
+  expect(goal).toContain('(its newest turns)');
+  expect(goal).toContain('The queries it ran, per GCP project (6 of 30)');
+  expect(goal).toContain('The entries it cited (4 of 18)');
+  expect(goal).toContain('mesa logs gcp --json and mesa logs errors --json');
 });
