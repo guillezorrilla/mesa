@@ -1,14 +1,12 @@
-import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { readClaudeStream } from '../agents/claude/result.js';
 import type { MesaContext } from '../context.js';
 import type { GitTextRunner } from '../git/message.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
+import { findProject } from '../projects/projects.js';
 import { GENERAL_PROJECT } from '../sessions/record/general.js';
-import { runOutput } from '../sessions/run/files.js';
-import { skillOfRun } from '../sessions/run/start.js';
+import { liveRunText } from '../sessions/run/live.js';
 import { callerOf } from '../sessions/window/caller.js';
 import { CLOUD_LOGS } from '../skills/library.js';
 import {
@@ -347,7 +345,7 @@ export function cloudLogsService(
         ),
         cloudVolume(errorDeps(), config, ranged).catch(failed),
       ]);
-      // The deploy markers' deploys() plugs in here once it lands; none are known until then.
+      // The deploy markers' cloudDeploys() (#1266) plugs in here once it lands; none until then.
       const deploys: RangeDeploy[] = [];
       // The code it reads (codeProject): the one named, else the asked services', else the entries'.
       const code = codeProject(
@@ -363,7 +361,13 @@ export function cloudLogsService(
       const asked = await askCloudLogs(
         deps.runText,
         question,
-        { filter, entries, range: { since: query.since ?? '1h', errors, volume, deploys } },
+        {
+          filter,
+          entries,
+          range: { since: query.since ?? '1h', errors, volume, deploys },
+          // Where its code is, so it can open the frames a stack names; not_found when unregistered.
+          ...(code ? { code: { project: code, path: findProject(ctx.open(), code).path } } : {}),
+        },
         earlier,
         { ...(code ? { code } : {}), model: askModel },
       );
@@ -403,28 +407,11 @@ export function cloudLogsService(
     },
     /**
      * What an Ask's run started at or after `since` has answered so far, while it runs: the text
-     * its stream holds (readClaudeStream); none when no Ask runs.
+     * its stream holds (liveRunText); none when no Ask runs.
      */
     // shortcut: the newest live cloud-logs run is taken as the Ask's; two Asks at once in one
     // profile would show one's text in both until they end. Key runs by a caller token if that bites.
-    asking: (since?: string) => {
-      const run = ctx.store
-        .list()
-        .filter(
-          (r) =>
-            r.kind === 'run' &&
-            !r.endedAt &&
-            skillOfRun(r) === CLOUD_LOGS &&
-            (!since || r.startedAt >= since),
-        )
-        .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
-      if (!run) return { session: null, text: '' };
-      const file = runOutput(ctx.paths.runs, run.id);
-      return {
-        session: run.id,
-        text: existsSync(file) ? readClaudeStream(readFileSync(file, 'utf8')) : '',
-      };
-    },
+    asking: (since?: string) => liveRunText(ctx.store.list(), ctx.paths.runs, CLOUD_LOGS, since),
     /**
      * A Logging query for `sentence` (queryFromWords), from the query shown and the context fields
      * of the entries `query` picks (their names only).

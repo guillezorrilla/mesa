@@ -320,8 +320,8 @@ test("Ask's tools match only reads, and an agent in a Mesa window cannot repoint
   const prefixes = (readOnlyTools('cloud-logs') ?? []).map(
     (rule) => /^Bash\(mesa (.+):\*\)$/.exec(rule)?.[1] ?? rule,
   );
-  // Three mesa logs reads, and reading code: no edit, write or other command.
-  expect(prefixes).toEqual(['logs gcp', 'logs errors', 'logs counts', 'Read', 'Grep', 'Glob']);
+  // Three mesa logs reads and nothing else: code is read in its folders without a rule.
+  expect(prefixes).toEqual(['logs gcp', 'logs errors', 'logs counts']);
   for (const { name } of COMMANDS)
     if (prefixes.some((prefix) => name.startsWith(prefix))) expect(reads).toContain(name);
   await cli.withProject();

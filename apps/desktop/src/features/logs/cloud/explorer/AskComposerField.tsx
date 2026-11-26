@@ -41,7 +41,8 @@ export function AskComposerField(props: {
       }}
     >
       <fieldset className="grid gap-1" aria-label="Quick investigations">
-        {props.investigations.map(({ icon: Icon, ...investigation }) => {
+        {props.investigations.map((investigation) => {
+          const Icon = investigation.icon;
           return (
             <button
               key={investigation.label}
@@ -49,7 +50,7 @@ export function AskComposerField(props: {
               disabled={props.busy || Boolean(investigation.off)}
               title={investigation.off ?? investigation.question}
               className="flex items-center gap-2 rounded-md border bg-background px-2 py-1 text-left text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-background"
-              onClick={() => props.onInvestigate({ ...investigation, icon: Icon })}
+              onClick={() => props.onInvestigate(investigation)}
             >
               <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="truncate">{investigation.label}</span>

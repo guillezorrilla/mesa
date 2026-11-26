@@ -39,6 +39,18 @@ test("the run's stdin puts the range summary first, then samples, then the page 
   expect(input).toContain('"id":"e0"');
 });
 
+test('the run is told which folder holds the code it may read', () => {
+  const input = askInput('why?', {
+    filter: '',
+    entries: [],
+    code: { project: 'lantern-cove', path: '/src/lantern-cove' },
+  });
+  expect(input).toContain(
+    'The code of lantern-cove, the project behind these services, is in /src/lantern-cove',
+  );
+  expect(askInput('why?', { filter: '', entries: [] })).not.toContain('The code of');
+});
+
 test('an entry the model reads keeps its root cause: its stack is folded, never cut at the tail', () => {
   const frames = Array.from(
     { length: 200 },

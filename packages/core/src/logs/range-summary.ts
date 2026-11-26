@@ -8,7 +8,7 @@ import type { CloudVolume } from './volume.js';
 // groups over the range, the severity counts per service from Cloud Monitoring's log_entry_count,
 // the range's deploys when known, then a few deduplicated samples per group. Pure.
 
-/** A deploy in the range, as the deploy markers' deploys() gives it; none until that lands. */
+/** A deploy in the range, as the deploy markers' cloudDeploys() (#1266) gives it; none until then. */
 export type RangeDeploy = { project: string; service: string; revision: string; at: string };
 
 /** A read that failed is a note in the summary, never the Ask's error. */
@@ -32,7 +32,9 @@ const SAMPLE_HEAD = 1000;
 
 const BADGES = { new: 'New', back: 'Back again' } as const;
 
-const failed = <T extends object>(read: Read<T>): read is { failed: string } => 'failed' in read;
+/** Whether a read of the range failed, leaving only why. */
+export const readFailed = <T extends object>(read: Read<T>): read is { failed: string } =>
+  'failed' in read;
 
 /** `count` of `total` when a list is cut, else the count alone. */
 const shown = (count: number, total: number) =>
@@ -41,7 +43,7 @@ const shown = (count: number, total: number) =>
 /** The summary's text: the range's error groups, its counts per service, its deploys. */
 export function rangeSummary(facts: RangeFacts) {
   const lines = [`Over the whole range (since ${facts.since}), not only the entries below:`, ''];
-  if (failed(facts.errors)) lines.push(`Error groups: not read (${facts.errors.failed}).`);
+  if (readFailed(facts.errors)) lines.push(`Error groups: not read (${facts.errors.failed}).`);
   else {
     const { groups } = facts.errors;
     lines.push(
@@ -58,7 +60,7 @@ export function rangeSummary(facts: RangeFacts) {
   }
   lines.push('');
   const volume = facts.volume;
-  if (failed(volume)) lines.push(`Severity counts: not read (${volume.failed}).`);
+  if (readFailed(volume)) lines.push(`Severity counts: not read (${volume.failed}).`);
   else if (!volume.counted) lines.push(`Severity counts: not counted (${volume.why}).`);
   else {
     const severities = (counts: Record<string, number>) =>

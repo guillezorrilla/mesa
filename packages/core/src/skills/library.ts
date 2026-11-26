@@ -39,21 +39,19 @@ export const isPipelineSkill = (skill: string) => PIPELINE_SKILLS.includes(skill
 export const isTextOnlySkill = (skill: string) => skill === GIT_TEXT;
 
 /**
- * The only tools a skill's run may use, when it is one of Mesa's read-only runs: cloud-logs, whose
+ * The commands a skill's run may run, when it is one of Mesa's read-only runs: cloud-logs, whose
  * stdin holds log entries anyone could have made a service print, may run Cloud Logs reads and
- * read code (an Ask's project, added as a read-only folder), and nothing else.
+ * nothing else. Its Read, Grep and Glob need no rule: they read its own folder and an Ask's code
+ * folder (`--add-dir`) unasked, and are refused anywhere else.
  */
 export const readOnlyTools = (skill: string): readonly string[] | undefined =>
   skill === CLOUD_LOGS
-    ? [
-        'Bash(mesa logs gcp:*)',
-        'Bash(mesa logs errors:*)',
-        'Bash(mesa logs counts:*)',
-        'Read',
-        'Grep',
-        'Glob',
-      ]
+    ? ['Bash(mesa logs gcp:*)', 'Bash(mesa logs errors:*)', 'Bash(mesa logs counts:*)']
     : undefined;
+
+/** The built-in tools a read-only run has at all: no edit, write, web or subagent tool exists for it. */
+export const READ_ONLY_RUN_TOOLS: readonly string[] = ['Bash', 'Read', 'Grep', 'Glob'];
+
 /** The skill whose run summarises a session's output log (skills/session-summary). */
 export const SESSION_SUMMARY = 'session-summary';
 

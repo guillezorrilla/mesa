@@ -9,7 +9,7 @@ import type { AskQuery, AskTurn } from './ask-history.js';
 import { mappedProject } from './cloud-entry.js';
 import type { CloudLogEntry } from './gcp.js';
 import { filterProblem } from './gcp-config.js';
-import { groupSamples, type RangeFacts, rangeSummary } from './range-summary.js';
+import { groupSamples, type RangeFacts, rangeSummary, readFailed } from './range-summary.js';
 import { foldedMessage } from './stack.js';
 
 // Ask (logs) (CONTEXT.md): a question about Cloud Logs entries, answered by a headless run of the
@@ -66,7 +66,13 @@ export function codeProject(
 }
 
 /** What an Ask reads: the filter and entries, and the range's summary when it was read. */
-export type AskRead = { filter: string; entries: readonly CloudLogEntry[]; range?: RangeFacts };
+export type AskRead = {
+  filter: string;
+  entries: readonly CloudLogEntry[];
+  range?: RangeFacts;
+  /** The registered project whose code the run may read, and its checkout's folder. */
+  code?: { project: string; path: string };
+};
 
 /**
  * The run's stdin: the conversation so far, the person's question, then, fenced as data, the range
@@ -75,7 +81,7 @@ export type AskRead = { filter: string; entries: readonly CloudLogEntry[]; range
 export function askInput(question: string, read: AskRead, earlier: readonly AskTurn[] = []) {
   const summary = read.range ? rangeSummary(read.range) : '';
   const allSamples =
-    read.range && !('failed' in read.range.errors) ? groupSamples(read.range.errors.groups) : [];
+    read.range && !readFailed(read.range.errors) ? groupSamples(read.range.errors.groups) : [];
   const left = LOGS_LIMIT_BYTES - Buffer.byteLength(summary);
   const samples = fitting(allSamples, left * SAMPLES_SHARE);
   const { lines } = fitting(
@@ -94,6 +100,12 @@ export function askInput(question: string, read: AskRead, earlier: readonly AskT
     'Question:',
     question.trim(),
     '',
+    ...(read.code
+      ? [
+          `The code of ${read.code.project}, the project behind these services, is in ${read.code.path}: read it there with Read, Grep and Glob (pass that folder as the path).`,
+          '',
+        ]
+      : []),
     ...(read.range
       ? [
           'The range, summarised over its whole span:',

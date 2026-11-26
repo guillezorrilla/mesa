@@ -85,9 +85,8 @@ export function askSessionGoal(
     `The entries it cited (${cited.length}), stacks folded, one JSON object a line:`,
     dataFence(
       'jsonl',
-      cited
-        .map((e) => mask(JSON.stringify({ ...e, message: foldedMessage(e.message, 2000) })))
-        .join('\n') || '(none)',
+      // Kept folded as the run read them (modelEntry).
+      cited.map((e) => mask(JSON.stringify(e))).join('\n') || '(none)',
     ),
     '',
     VERIFY,

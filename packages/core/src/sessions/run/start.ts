@@ -12,6 +12,7 @@ import {
   claudeRunProfile,
   isPipelineSkill,
   isTextOnlySkill,
+  READ_ONLY_RUN_TOOLS,
   readOnlyTools,
 } from '../../skills/library.js';
 import type { SkillRow } from '../../skills/sync.js';
@@ -134,6 +135,11 @@ export async function startRun(deps: RunDeps, input: RunInput) {
   const lean = profiled && input.model ? { model: input.model, vault: profiled.vault } : profiled;
   const textOnly = isTextOnlySkill(input.skill);
   const readTools = readOnlyTools(input.skill);
+  if (input.model !== undefined && !profiled)
+    throw new MesaError(
+      'usage',
+      `only one of Mesa's own Claude runs takes a model, not ${input.skill}`,
+    );
   if (input.code !== undefined && !readTools)
     throw new MesaError('usage', `only a read-only run reads a project's code, not ${input.skill}`);
   const code = input.code === undefined ? undefined : findProject(deps.profile, input.code);
@@ -148,8 +154,7 @@ export async function startRun(deps: RunDeps, input: RunInput) {
             permissionMode: 'default',
             allowedTools: [...readTools],
             // Its tools are these alone, and it streams its answer (an Ask's).
-            // Each rule's tool (`Bash(mesa logs gcp:*)` is Bash), so nothing else exists for it.
-            tools: [...new Set(readTools.map((rule) => rule.split('(')[0] ?? rule))],
+            tools: READ_ONLY_RUN_TOOLS,
             stream: true,
             ...(code ? { dirs: [code.path] } : {}),
           }
