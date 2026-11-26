@@ -10,6 +10,10 @@ const FRESH_MS = 60_000;
 
 type LogsView = Extract<WorkspaceView, { kind: 'logs' }>;
 
+/** The view `view` chose, when it has a mode: what is kept and shown. */
+const chosenView = (view: LogsView | undefined): CloudLogsView | undefined =>
+  view?.mode ? { mode: view.mode, query: view.query ?? {}, ask: view.ask } : undefined;
+
 /**
  * The Logs tab as the person left it (CONTEXT.md, Cloud Logs): mounted from its first visit and
  * kept, hidden, while another tab or screen shows (Activity), so its scroll, selection, open rows,
@@ -24,21 +28,22 @@ export function CloudLogsKeptScreen(props: {
   onSession: (id: string) => void;
 }) {
   const { view } = props;
-  const [kept, keep] = useLogsKept<CloudLogsView | undefined>('view', undefined);
+  const [kept, keep, ready] = useLogsKept<CloudLogsView | undefined>('view', undefined);
   // The setter of this render, so keeping a view waits on the view alone.
   const keepRef = useRef(keep);
   keepRef.current = keep;
   const [seen, setSeen] = useState(Boolean(view));
   if (view && !seen) setSeen(true);
-  // A view with a mode is a choice (a filter, a saved view, Ask about this): kept, without the
-  // one-off question an error hands to Claude.
+  const chosen = chosenView(view);
+  // A view with a mode is a choice (a filter, a saved view, Ask about this): kept with its
+  // conversation, not the one-off question an error hands to Claude.
   useEffect(() => {
-    if (view?.mode) keepRef.current({ mode: view.mode, query: view.query ?? {}, ask: view.ask });
+    const next = chosenView(view);
+    if (next) keepRef.current(next);
   }, [view]);
-  if (!seen) return null;
-  const shown: CloudLogsView = view?.mode
-    ? { mode: view.mode, query: view.query ?? {}, ask: view.ask }
-    : (kept ?? { mode: 'errors', query: {} });
+  // Until the profile is known the kept view cannot be read: wait, rather than read the defaults.
+  if (!seen || (!chosen && !ready)) return null;
+  const shown: CloudLogsView = chosen ?? kept ?? { mode: 'errors', query: {} };
   return (
     <Activity mode={view ? 'visible' : 'hidden'}>
       <FreshFor.Provider value={FRESH_MS}>

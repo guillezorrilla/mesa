@@ -1,7 +1,7 @@
 import type { CloudErrorGroup } from '@mesa/core';
 import { ALL_ENVS, groupQuery, plainTitle } from '@mesa/core/browser';
 import { BookmarkPlus } from 'lucide-react';
-import { Activity, useState } from 'react';
+import { Activity, useEffect, useRef, useState } from 'react';
 import { CenteredState } from '@/components/CenteredState';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,20 @@ export function CloudLogsScreen(props: {
   // Each view stays mounted once shown, hidden while the other is (Activity), so switching keeps it.
   const [seenModes, setSeenModes] = useState<ReadonlySet<CloudMode>>(() => new Set([mode]));
   if (!seenModes.has(mode)) setSeenModes(new Set([...seenModes, mode]));
+  // Kept filters a setup change made stale (a removed env or project) fall back: the view is
+  // rewritten once with what is left, and a note says what changed until the next choice.
+  const restored = gcp
+    ? restoredFilters(props.filters, gcp)
+    : { filters: props.filters, notes: [] as string[] };
+  const [notes, setNotes] = useState<string[]>([]);
+  const rewrite = useRef(() => {});
+  rewrite.current = () => props.onView({ mode, query: restored.filters, ask: props.ask });
+  const stale = restored.notes.join('\n');
+  useEffect(() => {
+    if (!stale) return;
+    setNotes(stale.split('\n'));
+    rewrite.current();
+  }, [stale]);
   if (!loaded) return <CenteredState message="Loading" />;
   if (!gcp)
     return (
@@ -45,13 +59,13 @@ export function CloudLogsScreen(props: {
         <CloudSetupPanel onSaved={() => void refresh()} />
       </div>
     );
-  // Kept filters a setup change made stale (a removed env or project) fall back, with a note.
-  const restored = restoredFilters(props.filters, gcp);
   const env = restored.filters.env ?? Object.keys(gcp.envs)[0];
   // The env is resolved once, so both views and the bar agree on it.
   const filters = { ...restored.filters, env };
-  const go = (next: Partial<CloudLogsView>) =>
+  const go = (next: Partial<CloudLogsView>) => {
+    setNotes([]);
     props.onView({ mode, query: restored.filters, ask: props.ask, ...next });
+  };
   const askAbout = (group: CloudErrorGroup) =>
     go({
       mode: 'explorer',
@@ -81,9 +95,9 @@ export function CloudLogsScreen(props: {
           )
         }
       />
-      {restored.notes.length > 0 && (
+      {notes.length > 0 && (
         <Muted size="xs" role="status" className="-mt-2 text-state-waiting">
-          {restored.notes.join(' ')}
+          {notes.join(' ')}
         </Muted>
       )}
       {mode === 'errors' && env !== undefined && env !== ALL_ENVS && (

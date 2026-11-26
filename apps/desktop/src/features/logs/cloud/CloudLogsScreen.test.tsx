@@ -139,6 +139,7 @@ test('leaving the Logs tab and coming back keeps it as left, with no new read: t
   await click(q('[role="radio"][value="explorer"]') ?? button('Explorer'));
   await attached();
   await fill(q<HTMLTextAreaElement>('[aria-label="Query"]'), 'severity>=ERROR');
+  await fill(q<HTMLTextAreaElement>('[aria-label="Question about the logs"]'), 'why now?');
   const before = { errors: reads(calls, 'errors'), gcp: reads(calls, 'gcp') };
   await click(button('Away'));
   // Hidden, not unmounted: Activity keeps its DOM and state.
@@ -146,6 +147,7 @@ test('leaving the Logs tab and coming back keeps it as left, with no new read: t
   await click(button('Back'));
   await attached();
   expect(q<HTMLTextAreaElement>('[aria-label="Query"]')?.value).toBe('severity>=ERROR');
+  expect(q<HTMLTextAreaElement>('[aria-label="Question about the logs"]')?.value).toBe('why now?');
   expect(reads(calls, 'gcp')).toBe(before.gcp);
   await click(q('[role="radio"][value="errors"]') ?? button('Errors'));
   await attached();
@@ -192,6 +194,10 @@ test('a kept choice that no longer exists falls back with a note: a removed env 
   const read = lastRead(calls) ?? [];
   expect(read).toContain('--env=beta');
   expect(read.join(' ')).not.toContain('gone-project-9');
+  // The kept view is rewritten with what is left, so the next start has no stale choice.
+  expect(JSON.parse(localStorage.getItem('mesa.logs.default.view') ?? '{}')).toMatchObject({
+    query: { projects: ['tide-tables-123'] },
+  });
 });
 
 const view = () => JSON.parse(q('[data-testid="view"]')?.textContent ?? '{}') as CloudLogsView;

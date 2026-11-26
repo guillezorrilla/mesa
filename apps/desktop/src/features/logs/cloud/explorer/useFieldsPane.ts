@@ -1,4 +1,4 @@
-import type { WidthBounds } from '@/lib/useKeptWidth';
+import { clampWidth, type WidthBounds } from '@/lib/useKeptWidth';
 import { useLogsKept } from '../useLogsKept';
 import { toggledColumn } from './pinnedColumns';
 
@@ -16,9 +16,8 @@ export function useFieldsPane() {
   const [columns, keepColumns] = useLogsKept<string[]>('fields.columns', []);
   const [sections, keepSections] = useLogsKept<Record<string, boolean>>('fields.sections', {});
   return {
-    width: Math.min(FIELDS_WIDTH.max, Math.max(FIELDS_WIDTH.min, kept)),
-    setWidth: (next: number) =>
-      keepWidth(Math.min(FIELDS_WIDTH.max, Math.max(FIELDS_WIDTH.min, Math.round(next)))),
+    width: clampWidth(FIELDS_WIDTH, kept),
+    setWidth: (next: number) => keepWidth(clampWidth(FIELDS_WIDTH, next)),
     bounds: FIELDS_WIDTH,
     hidden,
     setHidden,
