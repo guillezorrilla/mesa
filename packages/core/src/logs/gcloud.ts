@@ -105,6 +105,19 @@ export function jsonList(out: string): Record<string, unknown>[] {
   return raw;
 }
 
+/** `project`'s failure `error` as a warning, with its fix when one is known. */
+export function warningOf(project: string, error: unknown): CloudWarning {
+  const details = (error as MesaError).details as
+    | { fix?: string; action?: GcloudAction }
+    | undefined;
+  return {
+    project,
+    message: error instanceof Error ? error.message : String(error),
+    ...(details?.fix ? { fix: details.fix } : {}),
+    ...(details?.action ? { action: details.action } : {}),
+  };
+}
+
 /**
  * `read` in each of `projects` at once: what each gave, and a warning, with its fix, for each that
  * failed; the first failure itself when every one did.
@@ -119,18 +132,7 @@ export async function eachProject<T>(
   settled.forEach((result, i) => {
     const project = projects[i] as string;
     if (result.status === 'fulfilled') done.push({ project, value: result.value });
-    else {
-      const error = result.reason;
-      const details = (error as MesaError).details as
-        | { fix?: string; action?: GcloudAction }
-        | undefined;
-      warnings.push({
-        project,
-        message: error instanceof Error ? error.message : String(error),
-        ...(details?.fix ? { fix: details.fix } : {}),
-        ...(details?.action ? { action: details.action } : {}),
-      });
-    }
+    else warnings.push(warningOf(project, result.reason));
   });
   if (!done.length && settled[0]?.status === 'rejected') throw settled[0].reason;
   return { done, warnings };

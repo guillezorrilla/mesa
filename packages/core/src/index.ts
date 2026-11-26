@@ -104,7 +104,6 @@ export {
   type CloudDeploys,
   cloudDeploys,
   type DeployQuery,
-  entryDeploys,
 } from './logs/deploys.js';
 export type { CloudErrorGroup } from './logs/errors.js';
 export type { GcloudAction } from './logs/gcloud-actions.js';
