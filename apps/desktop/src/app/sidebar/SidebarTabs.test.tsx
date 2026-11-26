@@ -60,9 +60,10 @@ const shownLabels = () =>
 const bar = () => document.querySelector<HTMLElement>('[role="tablist"]');
 const byLabel = (label: string) =>
   document.querySelector<HTMLElement>(`[aria-label="${label}"]`) ?? undefined;
+/** A style's option, by its name (a note may follow it). */
 const radio = (name: string) =>
-  [...document.querySelectorAll<HTMLElement>('[role="radio"]')].find(
-    (item) => item.textContent === name,
+  [...document.querySelectorAll<HTMLElement>('[role="radio"]')].find((item) =>
+    item.textContent?.startsWith(name),
   );
 const openPopover = async () => {
   await click(byLabel('Tab bar menu'));
@@ -77,6 +78,24 @@ afterEach(() => {
   for (const key of ['scrollWidth', 'clientWidth'])
     delete (HTMLElement.prototype as unknown as Record<string, number>)[key];
 });
+
+// Widths measured in Chromium with two counts: the bar is 187px in the default 264px sidebar and
+// 123px in the 200px minimum; Labels needs 176px (each tab's label cut to 3 characters), Compact
+// 205px, Icons 126px.
+const NEED: Record<string, number> = { labels: 176, compact: 205, icons: 126 };
+/** Lays the bar out `client` px wide, each style needing its `need`. */
+function barOf(client: number, need = NEED) {
+  Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
+    configurable: true,
+    get(this: HTMLElement) {
+      return need[this.dataset.style ?? ''] ?? 0;
+    },
+  });
+  Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+    configurable: true,
+    get: () => client,
+  });
+}
 
 test('Labels labels every tab, Compact only the active one, Icons none with counts as badges', async () => {
   const { bridge } = bridgeWith({ tabStyle: 'labels' });
@@ -97,16 +116,7 @@ test('Labels labels every tab, Compact only the active one, Icons none with coun
 test('a style too wide for the bar falls back to the next denser one by itself', async () => {
   // The test DOM lays nothing out: Labels needs 400px, Compact 260px, Icons 120px, of 200px.
   const need: Record<string, number> = { labels: 400, compact: 260, icons: 120 };
-  Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
-    configurable: true,
-    get(this: HTMLElement) {
-      return need[this.dataset.style ?? ''] ?? 0;
-    },
-  });
-  Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
-    configurable: true,
-    get: () => 200,
-  });
+  barOf(200, need);
   const { bridge } = bridgeWith({ tabStyle: 'labels' });
   await renderWithMesa(<Bar />, bridge);
   expect(bar()?.dataset.style).toBe('icons');
@@ -115,6 +125,25 @@ test('a style too wide for the bar falls back to the next denser one by itself',
   document.body.innerHTML = '';
   await renderWithMesa(<Bar />, other);
   expect(bar()?.dataset.style).toBe('compact');
+});
+
+test('Labels shows every tab in the default sidebar, its option with no note', async () => {
+  barOf(187);
+  await renderWithMesa(<Bar />, bridgeWith({ tabStyle: 'labels' }).bridge);
+  expect(bar()?.dataset.style).toBe('labels');
+  expect(shownLabels()).toEqual(['Sessions', 'Projects', 'Reviews', 'Logs']);
+  await openPopover();
+  expect(radio('Labels')?.textContent).toBe('Labels');
+});
+
+test('Labels gives way in the minimum sidebar, and its option says it needs a wider one', async () => {
+  barOf(123);
+  await renderWithMesa(<Bar />, bridgeWith({ tabStyle: 'labels' }).bridge);
+  // Labels gives way to Compact, which does not fit 123px either (205px), so Icons.
+  expect(bar()?.dataset.style).toBe('icons');
+  await openPopover();
+  expect(radio('Labels')?.textContent).toBe('LabelsNeeds a wider sidebar');
+  expect(radio('Compact')?.textContent).toBe('Compact');
 });
 
 test('right-click opens the controls: Sessions and Projects locked, a switch hides Reviews at once and saves it', async () => {

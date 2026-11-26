@@ -44,8 +44,17 @@ function StylePreview(props: { style: SidebarTabStyle }) {
   );
 }
 
-/** The tab bar's three styles, each with a small preview. */
-export function TabStyleField(props: { settings: SidebarTabsSettings }) {
+/**
+ * The tab bar's three styles, each with a small preview. The chosen one the bar cannot fit (it
+ * draws `shown`, a denser one) says so under its name.
+ */
+export function TabStyleField(props: {
+  settings: SidebarTabsSettings;
+  /** The style the tab bar draws, when it is beside it. */
+  shown?: SidebarTabStyle;
+}) {
+  const { shown } = props;
+  const tooNarrow = shown !== undefined && shown !== props.settings.style;
   return (
     <SegmentedControl
       label="Tab style"
@@ -56,6 +65,11 @@ export function TabStyleField(props: { settings: SidebarTabsSettings }) {
         <span key={style} className="grid justify-items-center gap-1.5">
           <StylePreview style={style} />
           {NAMES[style]}
+          {tooNarrow && style === props.settings.style && (
+            <span className="text-[10px] leading-tight font-normal text-muted-foreground">
+              Needs a wider sidebar
+            </span>
+          )}
         </span>,
       ])}
       className="grid grid-cols-3 gap-0.5 [&>button]:px-2 [&>button]:py-2"

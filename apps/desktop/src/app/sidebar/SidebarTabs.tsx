@@ -26,13 +26,26 @@ const TONE = {
   muted: 'bg-muted text-foreground',
   accent: 'bg-state-working text-background',
 };
-/** Icons' count, a small badge on the icon's corner. */
-const BADGE =
-  'absolute top-0.5 right-0 min-w-3.5 rounded-full px-0.5 text-center text-[9px] leading-3.5 tabular-nums';
+/** A count or dot on the icon's corner, taking no width. */
+const CORNER = 'absolute rounded-full px-0.5 text-center text-[9px] tabular-nums';
+/** Each style's count: Labels' and Icons' a small badge on the icon's corner, Compact's a pill. */
+const BADGE: Record<SidebarTabStyle, string> = {
+  labels: cn(CORNER, '-top-1.5 -right-1.5 min-w-3 leading-3'),
+  compact: 'rounded px-1',
+  icons: cn(CORNER, 'top-0.5 right-0 min-w-3.5 leading-3.5'),
+};
+/** Each style's waiting dot: beside the count in Compact, on the icon's corner otherwise. */
+const DOT: Record<SidebarTabStyle, string> = {
+  labels: 'absolute -right-1 -bottom-0.5 size-1.5 ring-2 ring-card',
+  compact: '',
+  icons: 'absolute bottom-1 right-0.5 size-1.5 ring-2 ring-card',
+};
 
 /**
- * One tab in a style: Labels shows its label and count, Compact the label only while active,
- * Icons its count as a small badge on the icon. A hidden label is still its name.
+ * One tab in a style: Labels shows its label and count on an equal share of the bar, the label
+ * cut to an ellipsis down to about 3 characters (narrower, the bar overflows and falls back);
+ * Compact the label only while active; Icons its count as a small badge on the icon. A hidden
+ * label is still its name, and the tooltip shows it whole.
  */
 function Tab(props: {
   tab: SidebarTab;
@@ -46,27 +59,16 @@ function Tab(props: {
   const { tab, style, on, count = 0, waiting = 0 } = props;
   const Icon = SIDEBAR_TAB_ICONS[tab.id];
   const icons = style === 'icons';
+  const labels = style === 'labels';
   const sessions = tab.id === 'sessions';
   // Sessions' count shows at 0 beside its icon, as its list's size; a badge only for some.
   const counted = count > 0 || (sessions && !icons);
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={on}
-      title={tab.label}
-      className={cn(
-        'relative flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-2 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground',
-        on && 'border-ring text-foreground',
-      )}
-      onClick={props.onClick}
-    >
-      <Icon aria-hidden className="size-3.5 shrink-0" />
-      <span className={showsLabel(style, on) ? undefined : 'sr-only'}>{tab.label}</span>
+  const marks = (
+    <>
       {counted && (
         <CountPill
           count={count}
-          className={cn(icons ? BADGE : 'rounded px-1', TONE[sessions ? 'muted' : 'accent'])}
+          className={cn(BADGE[style], TONE[sessions ? 'muted' : 'accent'])}
         />
       )}
       {waiting > 0 && (
@@ -74,12 +76,39 @@ function Tab(props: {
           data-testid="sessions-waiting"
           role="img"
           aria-label={`${waiting} waiting for input`}
-          className={cn(
-            'inline-block size-2 rounded-full bg-state-waiting',
-            icons && 'absolute bottom-1 right-0.5 size-1.5 ring-2 ring-card',
-          )}
+          className={cn('inline-block size-2 rounded-full bg-state-waiting', DOT[style])}
         />
       )}
+    </>
+  );
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={on}
+      title={tab.label}
+      className={cn(
+        'relative flex items-center whitespace-nowrap border-b-2 border-transparent py-2 text-xs font-semibold text-muted-foreground hover:text-foreground',
+        labels ? 'flex-1 basis-0 justify-center gap-0.5 px-0.5' : 'shrink-0 gap-1.5 px-2',
+        on && 'border-ring text-foreground',
+      )}
+      onClick={props.onClick}
+    >
+      {/* Labels' count and dot sit on the icon's corner, so a tab is as narrow with them as without. */}
+      <span className={cn('flex shrink-0', labels && 'relative', labels && counted && 'mr-1')}>
+        <Icon aria-hidden className="size-3.5" />
+        {labels && marks}
+      </span>
+      <span
+        className={cn(
+          !showsLabel(style, on) && 'sr-only',
+          // Its minimum is the tab's: a bar too narrow for every tab at 3 characters overflows.
+          labels && 'w-0 min-w-[3ch] max-w-fit grow truncate',
+        )}
+      >
+        {tab.label}
+      </span>
+      {!labels && marks}
     </button>
   );
 }
@@ -113,7 +142,7 @@ export function SidebarTabs(props: {
             role="tablist"
             aria-label="Workspace"
             data-style={style}
-            className="flex min-w-0 flex-1 gap-0.5 overflow-hidden"
+            className={cn('flex min-w-0 flex-1 overflow-hidden', style !== 'labels' && 'gap-0.5')}
             onContextMenu={(event) => {
               event.preventDefault();
               setCustomizing(true);
@@ -149,7 +178,7 @@ export function SidebarTabs(props: {
         data-testid="customize-tabs"
         className="w-72 p-3"
       >
-        <SidebarTabsPanel settings={settings} />
+        <SidebarTabsPanel settings={settings} shown={style} />
       </PopoverContent>
     </Popover>
   );
