@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { useSessionLogs } from '@/features/logs/local/useSessionLogs';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
+import { useRun } from '@/lib/useCommand';
 import { PromptCard } from './answer/PromptCard';
 import { ChatPanel } from './chat/ChatPanel';
 import { SwitchViewDialog } from './chat/SwitchViewDialog';
