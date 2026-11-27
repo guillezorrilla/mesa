@@ -2,6 +2,7 @@ import type { AgentProcess } from '../../agents/listing.js';
 import type { ChildReport } from '../../reports/reports.js';
 import type { TakenOver } from '../record/holders.js';
 import type { foreignId, SessionRecord } from '../record/record.js';
+import type { Activity, Subagent } from '../signals/activity.js';
 import type { Supervision } from '../signals/placements.js';
 import type { Placement } from '../signals/state.js';
 import type { LineCounts } from './line-counts.js';
@@ -63,6 +64,10 @@ export type ManagedRow = { hasOutputLog?: boolean } & SessionRecord &
     setupFailed?: true;
     /** A phone holds its window at the phone's size (holdWindow), until the app takes it back. */
     held?: true;
+    /** While it works: what its main agent last did this turn (sessionActivity). */
+    activity?: Activity;
+    /** Until it ends: the subagents it has running (openSubagents); none without any. */
+    subagents?: Subagent[];
   };
 
 /**

@@ -12,6 +12,7 @@ import { quitting, type SessionRecord } from '../record/record.js';
 import { FINAL_STATES, isAgentState } from '../record/states.js';
 import type { SessionStore } from '../record/store.js';
 import { unreadOn } from '../record/unread.js';
+import { openSubagents, sessionActivity } from '../signals/activity.js';
 import type { HookEvent } from '../signals/hook-events.js';
 import { type PlacementStore, supervisionOf, type Want } from '../signals/placements.js';
 import {
@@ -218,6 +219,8 @@ export async function managedRow(
     changed || agentSessionId || agentName ? saveLook(deps.store, found, learned) : found;
   // An ended session stops the clock when it ended, or when it was seen to; one that never
   // ran has none.
+  const activity = classified.lastState.state === 'working' ? sessionActivity(events) : undefined;
+  const subagents = openSubagents(events);
   const end =
     record.endedAt ??
     (FINAL_STATES.has(classified.lastState.state) ? classified.lastState.at : undefined);
@@ -236,6 +239,8 @@ export async function managedRow(
     // The whole log: a conversation before a sleep is still the session's.
     ...(hasConversation(record, logged) ? { conversation: true as const } : {}),
     ...(window?.held ? { held: true as const } : {}),
+    ...(activity ? { activity } : {}),
+    ...(subagents.length ? { subagents } : {}),
     supervision: supervisionOf(classified.lastState, reply, want !== undefined && !reply),
   };
 }

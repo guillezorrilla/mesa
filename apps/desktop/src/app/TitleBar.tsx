@@ -85,6 +85,7 @@ export function TitleBar(props: {
           [
             ['Impact', COMMAND_ICONS.impact, 'impact', 'impact'],
             ['Cost', DollarSign, 'usage', 'cost'],
+            ['Office', COMMAND_ICONS.office, 'office', 'office'],
           ] as const
         ).map(([label, Icon, kind, id]) => (
           <Button
