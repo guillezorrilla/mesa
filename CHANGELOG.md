@@ -2,6 +2,29 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.8.1 - 2026-11-26
+
+0.8.1 also carries everything listed under 0.8.0 (Cloud Logs, the Logs panel and sidebar tabs), which was tagged but never published on its own.
+
+### Added
+
+- Deploys in Cloud Logs: the Explorer's histogram and an error's chart mark each Cloud Run, App Engine or GKE deploy in its service's colour, an error that started soon after a deploy says which one, and `mesa logs deploys` lists them. The query bar now suggests real field names and their most common values. (#1269)
+- Ask in Cloud Logs now investigates like a backend developer: it reads a summary of the whole range (error groups, counts per service, deploys), keeps each stack's Caused by chain, opens the code a stack names in the project its services map to, streams its answer with the model, time and cost under it, and Fix in session hands the whole investigation, queries and cited entries to the new session. (#1270)
+- Whole requests in the Logs panel: a request id's menu, on the request chip or a line that names one, shows every line of that request across the project's containers, terminal sessions and log files in time order, or sends them all to the agent with their sources named. (#1268)
+
+### Fixed
+
+- The Logs panel no longer shows an agent session's own screen as a server log: only plain terminal sessions, containers and log files are sources, and with no source picked for a project the panel lists them and asks which to show. (#1264)
+- Labels in the sidebar tab bar now shows at the sidebar's usual widths: each tab gets an equal share, long names end in an ellipsis with the full name in a tooltip, and counts sit as small badges on the icons. When the sidebar is too narrow even for that, the tab style picker says "Needs a wider sidebar" under the style it could not fit. (#1272)
+
+## 0.8.0 - 2026-11-26
+
+### Added
+
+- Cloud Logs: a Logs tab in the sidebar reads Google Cloud Logging for all your GCP projects with your own `gcloud` sign-in. It opens on Error Reporting's error groups, leaves load balancer and system noise out, lets you explore entries by service, field and trace, and answers questions in a conversation that cites the entries it used and can start a session to fix an error; set it up in the tab, picking projects from a list filtered as you type and envs suggested from your GKE clusters and Cloud Run services, or with `mesa logs setup`. When gcloud needs you to sign in again, the tab's Sign in to Google Cloud button runs `gcloud auth login` for you and reads again once you finish in the browser. Explorer's fields pane lists your app's own fields first, with search, value bars, include and exclude, and up to two fields pinned as columns. (#1259)
+- Logs panel: a session with a project gets a Logs button that shows its local servers' output live, however they run (Docker containers, server sessions, a JetBrains IDE's console, any terminal through `mesa logs run`, or a log file anywhere), folds stack traces to your own code, filters to one request from its id, groups identical errors, mutes noisy lines, copies an error with its full stack ready to paste in Slack, Jira or a pull request, and sends the lines you pick to the agent to explain or fix, or starts a session with them; it can take the whole session area, and a project can hide it. (#1258)
+- Customize the sidebar's tabs: right-click the tab bar to hide Reviews or Logs, drag tabs into your own order, and pick Labels, Compact or Icons; Settings and `mesa sidebar tabs` do the same, and a hidden tab still opens from Search and shows its count in Notifications. (#1262)
+
 ## 0.7.1 - 2026-11-25
 
 ### Added

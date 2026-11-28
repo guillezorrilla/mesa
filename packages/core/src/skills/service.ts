@@ -124,7 +124,7 @@ export function skillsService(ctx: MesaContext) {
      * or an adopted session's own), without a receipt of its own: every start of a session runs
      * it (launch.ts). A Skill run of `run` gets its skill linked too when it is a pipeline skill.
      */
-    linkInto: (project: string, folder: string, run?: string) =>
+    linkInto: (project: string | undefined, folder: string, run?: string) =>
       syncSkills({
         library: readLibrary(libraryDir),
         libraryDir,

@@ -29,7 +29,11 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     hosts: '/h/.mesa/work/hosts',
     commandSocket: '/h/.mesa/work/run/serve.sock',
     runs: '/h/.mesa/work/sessions/runs',
+    generalRuns: '/h/.mesa/work/sessions/general-runs',
+    serverLogs: '/h/.mesa/work/logs',
     checks: '/h/.mesa/work/checks',
+    cloudAsks: '/h/.mesa/work/cloud-asks.json',
+    cloudDeploys: '/h/.mesa/work/cloud-deploys.json',
     costs: '/h/.mesa/work/sessions/costs',
     decisions: '/h/.mesa/work/sessions/decisions',
     decisionLog: '/h/.mesa/work/decision-log',
@@ -116,6 +120,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
       deleteBranch: false,
     },
     shortcuts: DEFAULT_SHORTCUTS,
+    sidebar: { tabStyle: 'compact' },
     projects: { sort: 'name' },
     grid: { groups: [] },
     run: { permissionMode: 'acceptEdits', allowedTools: [] },
@@ -126,6 +131,17 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
     },
     update: {},
     keys: {},
+    logs: {
+      panel: true,
+      cloudTab: true,
+      views: [],
+      prodAsk: [],
+      mask: true,
+      fixProjects: {},
+      askModel: 'claude-opus-5-5',
+      recentProjects: [],
+      starredProjects: [],
+    },
   });
 });
 

@@ -33,6 +33,7 @@ const FIXED: (readonly [string, string])[] = [
   ['Keyboard shortcuts', FIXED_SHORTCUTS.keyboardShortcuts],
   ['Send feedback', FIXED_SHORTCUTS.sendFeedback],
   ['Switch session between Terminal and Chat (beta)', FIXED_SHORTCUTS.toggleChat],
+  ['Maximize the Logs panel, and back', FIXED_SHORTCUTS.maximizeLogs],
   ...PROJECT,
 ];
 
@@ -93,6 +94,10 @@ export function KeyboardShortcutsDialog(props: {
             <ShortcutRow
               label="Switch session between Terminal and Chat (beta)"
               shortcut={FIXED_SHORTCUTS.toggleChat}
+            />
+            <ShortcutRow
+              label="Maximize the Logs panel, and back"
+              shortcut={FIXED_SHORTCUTS.maximizeLogs}
             />
           </section>
           <section aria-label="Project view">

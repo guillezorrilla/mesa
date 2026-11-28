@@ -1,0 +1,160 @@
+import { type QueryField as Field, quoted } from '@mesa/core/browser';
+import { Play, Sparkles } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
+
+/** The last word being typed in `query` (what a suggestion completes). */
+const lastWord = (query: string) => /[^\s()]*$/.exec(query)?.[0] ?? '';
+
+/** A field's last name, which typing it suggests it by: `status` of `jsonPayload.status`. */
+const leafOf = (field: string) => field.split('.').at(-1)?.replace(/"/g, '') ?? field;
+
+/**
+ * Suggestions for `word`: a field by its real name while naming one (typed whole or by its last
+ * name, `jsonPayload.` or not), its most common values after the `=`.
+ */
+function suggestionsFor(word: string, fields: readonly Field[]) {
+  if (word.length < 2) return [];
+  const named = fields.find((f) => word.startsWith(`${f.field}=`));
+  if (named)
+    return named.values
+      .map((value) => `${named.field}=${quoted(value)}`)
+      .filter((s) => s.startsWith(word) && s !== word)
+      .slice(0, 8);
+  const typed = word.toLowerCase();
+  const bare = typed.replace(/^jsonpayload\./, '');
+  return fields
+    .filter(
+      (f) =>
+        f.field.toLowerCase().startsWith(typed) || leafOf(f.field).toLowerCase().startsWith(bare),
+    )
+    .map((f) => `${f.field}=`)
+    .slice(0, 8);
+}
+
+/**
+ * The Explorer's query (CONTEXT.md, Cloud Logs) in the Logging query language, with field and value
+ * suggestions from the entries read (each field by its real name, its most common values first); Run (Cmd+Enter, "/" to focus), and Ask in words, which turns a
+ * sentence into a query through the agent and puts it in the bar, highlighted (`written`), for the
+ * person to read and Run.
+ */
+export function QueryField(props: {
+  query: string;
+  fields: readonly Field[];
+  busy: boolean;
+  written?: boolean;
+  /** Edited since it last ran: the results are still the last query's. */
+  edited?: boolean;
+  onChange: (query: string) => void;
+  onRun: (query: string) => void;
+  onWords: (sentence: string) => Promise<void>;
+}) {
+  const box = useRef<HTMLTextAreaElement>(null);
+  const [words, setWords] = useState('');
+  const [asking, setAsking] = useState(false);
+  const suggestions = suggestionsFor(lastWord(props.query), props.fields);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (event.key !== '/' || target?.closest('input, textarea, [contenteditable="true"]')) return;
+      event.preventDefault();
+      box.current?.focus();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  const complete = (suggestion: string) => {
+    const word = lastWord(props.query);
+    props.onChange(props.query.slice(0, props.query.length - word.length) + suggestion);
+    box.current?.focus();
+  };
+  return (
+    <div className="grid min-w-0 gap-2">
+      <div className="relative">
+        <Textarea
+          ref={box}
+          aria-label="Query"
+          spellCheck={false}
+          placeholder="Logging query, for example severity>=WARNING"
+          className={cn(
+            'min-h-16 resize-y pr-28 font-mono text-[12px] leading-5 placeholder:font-sans placeholder:text-muted-foreground/60 placeholder:italic',
+            props.written && 'ring-2 ring-state-working/60',
+          )}
+          value={props.query}
+          onChange={(event) => props.onChange(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault();
+              props.onRun(props.query);
+            }
+          }}
+        />
+        <Button
+          size="sm"
+          title="Run (Cmd+Enter)"
+          className="absolute right-2 bottom-2 h-7"
+          disabled={props.busy}
+          onClick={() => props.onRun(props.query)}
+        >
+          <Play aria-hidden /> Run
+        </Button>
+      </div>
+      {props.edited && (
+        <p className="text-[11px] text-muted-foreground">
+          Edited, not run yet: the entries below are the last query's. Run to read with this one.
+        </p>
+      )}
+      {props.written && (
+        <p className="text-[11px] text-state-working">
+          Written from your words: read it, then Run to read the entries.
+        </p>
+      )}
+      {suggestions.length > 0 && (
+        <ul aria-label="Suggestions" className="flex flex-wrap gap-1">
+          {suggestions.map((suggestion) => (
+            <li key={suggestion}>
+              <button
+                type="button"
+                className="rounded border bg-card px-1.5 font-mono text-[11px] hover:bg-accent"
+                onClick={() => complete(suggestion)}
+              >
+                {suggestion}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form
+        className="flex min-w-0 items-center gap-2"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          if (!words.trim()) return;
+          setAsking(true);
+          await props.onWords(words.trim());
+          setAsking(false);
+        }}
+      >
+        <Sparkles aria-hidden className="size-3.5 shrink-0 text-state-working" />
+        <Input
+          aria-label="Ask in words"
+          placeholder="Ask in words, for example: errors for one customer since the last deploy"
+          className="min-w-0 h-8 text-xs"
+          value={words}
+          onChange={(event) => setWords(event.currentTarget.value)}
+        />
+        <Button
+          type="submit"
+          size="sm"
+          variant="outline"
+          className="h-8"
+          disabled={asking || !words.trim()}
+        >
+          {asking ? 'Writing the query' : 'Write query'}
+        </Button>
+      </form>
+    </div>
+  );
+}

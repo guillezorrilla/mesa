@@ -41,6 +41,8 @@ export type ProjectRow = {
   overrides: ProjectOverrides;
   /** Its session terminals' theme: the project's override, else the profile's. */
   terminalTheme: Config['terminal']['theme'] | null;
+  /** Whether its sessions show the Logs button: the project's override, else the profile's. */
+  logsPanel: boolean;
   /** Its mesa.yaml's setup, teardown and check this profile has not approved, which will not run. */
   unapproved: PendingScripts;
   /** False when the directory or its mesa.yaml is gone; the other fields are then unknown. */
@@ -52,7 +54,7 @@ export type ProjectRow = {
 };
 
 /** The profile settings a project's mesa.yaml overrides, as written there. */
-export type ProjectOverrides = Pick<Project, 'worktrees' | 'git' | 'terminal' | 'check'>;
+export type ProjectOverrides = Pick<Project, 'worktrees' | 'git' | 'terminal' | 'logs' | 'check'>;
 
 export type ProjectUpdate = {
   label?: string;
@@ -110,6 +112,7 @@ export function listProjects(profile: Profile): ProjectRow[] {
         skills: [],
         overrides: {},
         terminalTheme: null,
+        logsPanel: profile.config.logs.panel,
         unapproved: {},
         exists: false,
       };
@@ -125,9 +128,11 @@ export function listProjects(profile: Profile): ProjectRow[] {
         ...(p.worktrees ? { worktrees: p.worktrees } : {}),
         ...(p.git ? { git: p.git } : {}),
         ...(p.terminal ? { terminal: p.terminal } : {}),
+        ...(p.logs ? { logs: p.logs } : {}),
         ...(p.check ? { check: p.check } : {}),
       },
       terminalTheme: p.terminal?.theme ?? profile.config.terminal.theme,
+      logsPanel: p.logs?.panel ?? profile.config.logs.panel,
       unapproved: unapprovedScripts(p, entry),
       exists: true,
     };

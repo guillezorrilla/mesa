@@ -19,6 +19,7 @@ const PALETTE_DESTINATIONS = [
   'shortcuts',
   'impact',
   'office',
+  'logs',
 ] as const;
 
 /**

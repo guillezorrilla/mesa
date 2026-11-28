@@ -2936,6 +2936,18 @@ test('shortcut settings validate conflicts and update the active profile key', a
       keepAwake: 'off',
     },
     usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
+    sidebar: { tabStyle: 'compact' },
+    logs: {
+      panel: true,
+      cloudTab: true,
+      views: [],
+      prodAsk: [],
+      mask: true,
+      fixProjects: {},
+      askModel: 'claude-opus-5-5',
+      recentProjects: [],
+      starredProjects: [],
+    },
     notifications: {
       quiet: false,
       visualAlert: true,

@@ -1,18 +1,18 @@
 import type { ProjectRow, ProjectSort, TreeRow } from '@mesa/core';
+import type { SidebarTabId } from '@mesa/core/browser';
 import {
   ChevronLeft,
   ChevronRight,
   Clock3,
-  Folder,
-  GitPullRequest,
   Library,
   type LucideIcon,
   Map as MapIcon,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { ResizeHandle } from '@/components/ResizeHandle';
 import { Button } from '@/components/ui/button';
 import { usePendingRuns } from '@/features/automations/usePendingRuns';
+import { CloudLogsSection } from '@/features/logs/cloud/views/CloudLogsSection';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { ProjectsSection } from '@/features/projects/ProjectsSection';
 import { ReviewsSection } from '@/features/prs/ReviewsSection';
@@ -24,12 +24,14 @@ import { SessionsSection } from '@/features/sessions/sidebar/SessionsSection';
 import { sidebarGroups, sidebarOrder } from '@/features/sessions/sidebar/sidebarGroups';
 import { useUnfoldOnNewSession } from '@/features/sessions/sidebar/useUnfoldOnNewSession';
 import type { SessionLocation } from '@/features/sessions/start/useStartSession';
+import { SIDEBAR_TAB_ICONS } from '@/features/sidebar/sidebarTabIcons';
+import type { SidebarTabsSettings } from '@/features/sidebar/useSidebarTabs';
 import type { PrRef } from '@/lib/client/prs';
 import { useKeptWidth } from '@/lib/useKeptWidth';
 import { cn } from '@/lib/utils';
 import type { WorkspaceView } from '@/lib/workspaceView';
 import { SidebarNavButton } from './SidebarNavButton';
-import { type SidebarTab, SidebarTabs } from './SidebarTabs';
+import { SidebarTabs } from './SidebarTabs';
 
 /** The expanded sidebar's width bounds, default, and arrow-key step, in pixels. */
 const SIDEBAR_WIDTH = { min: 200, max: 480, initial: 264, step: 16 };
@@ -71,11 +73,17 @@ export function WorkspaceSidebar(props: {
   onDependencySession?: (id: string) => void;
   /** Puts a project's session cards in a new order (useReorderSessions). */
   onReorderSessions?: (project: string, ids: string[]) => void;
+  /** The tab bar's settings (useSidebarTabs), read once by the app. */
+  tabBar: SidebarTabsSettings;
+  /** Opens a tab from outside, hidden or not (Search, the Inbox); `at` makes each request new. */
+  openTab?: { tab: SidebarTabId; at: number };
 }) {
   const { view, onView, collapsed } = props;
   const [closedProjects, setClosedProjects] = useState<string[]>([]);
   const [compactSessions, setCompactSessions] = useState<string[]>([]);
-  const [tab, setTab] = useState<SidebarTab>('sessions');
+  const [tab, setTab] = useState<SidebarTabId>('sessions');
+  const { tabBar } = props;
+  const { shown } = tabBar;
   // The app's one read of every project's PRs, so the tab can count them before it opens.
   const prs = useSharedPrs();
   const [width, setWidth] = useKeptWidth('mesa.sidebar.width', SIDEBAR_WIDTH);
@@ -83,6 +91,7 @@ export function WorkspaceSidebar(props: {
     if (view.kind === 'project') setTab('projects');
     if (view.kind === 'session' || view.kind === 'sessions') setTab('sessions');
     if (view.kind === 'prs-setup' || view.kind === 'pr') setTab('reviews');
+    if (view.kind === 'logs') setTab('logs');
   }, [view.kind]);
   const groups = sidebarGroups(props.projects, props.sessions);
   const { visible, active, stranded } = groups;
@@ -113,6 +122,32 @@ export function WorkspaceSidebar(props: {
     if (last && listed && view.kind !== 'pr') onView({ kind: 'pr', ...last });
   };
   const pendingRuns = usePendingRuns();
+  /** The Logs tab, back on the Logs view as it was left (CloudLogsKeptScreen keeps it). */
+  const openLogs = () => {
+    setTab('logs');
+    if (view.kind !== 'logs') onView({ kind: 'logs' });
+  };
+  const open: Record<SidebarTabId, () => void> = {
+    sessions: openSessions,
+    projects: openProjects,
+    reviews: openReviews,
+    logs: openLogs,
+  };
+  // biome-ignore lint/correctness/useExhaustiveDependencies: each request opens its tab once.
+  useEffect(() => {
+    if (!props.openTab) return;
+    open[props.openTab.tab]();
+    if (collapsed) props.onCollapse();
+  }, [props.openTab]);
+  // Hiding the open tab moves to Sessions; one opened while hidden (openTab) stays.
+  const shownKey = shown.map((each) => each.id).join();
+  const shownBefore = useRef(shownKey);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only a change in the shown tabs moves.
+  useEffect(() => {
+    const was = shownBefore.current.split(',');
+    shownBefore.current = shownKey;
+    if (was.includes(tab) && !shownKey.split(',').includes(tab)) openSessions();
+  }, [shownKey]);
   const nav = (label: string, icon: LucideIcon, target: WorkspaceView, count = 0) => (
     <SidebarNavButton
       label={label}
@@ -144,13 +179,11 @@ export function WorkspaceSidebar(props: {
       <div className="flex h-12 items-center border-b px-2">
         {!collapsed && (
           <SidebarTabs
+            settings={tabBar}
             tab={tab}
-            sessionCount={active.length + stranded.length}
+            counts={{ sessions: active.length + stranded.length, reviews: prs?.toAct ?? 0 }}
             waiting={props.waiting}
-            reviewCount={prs?.toAct ?? 0}
-            onSessions={openSessions}
-            onProjects={openProjects}
-            onReviews={openReviews}
+            onTab={(id) => open[id]()}
           />
         )}
         <Button
@@ -162,35 +195,32 @@ export function WorkspaceSidebar(props: {
           {collapsed ? <ChevronRight aria-hidden /> : <ChevronLeft aria-hidden />}
         </Button>
       </div>
-      <nav aria-label="Workspace" className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
+      <nav
+        aria-label="Workspace"
+        className="min-h-0 flex-1 overflow-y-auto px-2 py-3 [scrollbar-gutter:stable]"
+      >
         {collapsed ? (
           <div className="space-y-1">
-            {nav('Sessions', COMMAND_ICONS.sessions, { kind: 'sessions' })}
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Projects"
-              title="Projects"
-              onClick={() => {
-                openProjects();
-                props.onCollapse();
-              }}
-            >
-              <Folder aria-hidden className="size-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Reviews"
-              title="Reviews"
-              onClick={() => {
-                openReviews();
-                props.onCollapse();
-              }}
-            >
-              <GitPullRequest aria-hidden className="size-4" />
-            </Button>
+            {shown.map(({ id, label }) =>
+              id === 'sessions' ? (
+                <Fragment key={id}>
+                  {nav(label, COMMAND_ICONS.sessions, { kind: 'sessions' })}
+                </Fragment>
+              ) : (
+                <CollapsedTab
+                  key={id}
+                  label={label}
+                  icon={SIDEBAR_TAB_ICONS[id]}
+                  onClick={() => {
+                    open[id]();
+                    props.onCollapse();
+                  }}
+                />
+              ),
+            )}
           </div>
+        ) : tab === 'logs' ? (
+          <CloudLogsSection view={view} onView={onView} />
         ) : tab === 'reviews' ? (
           prs && (
             <ReviewsSection
@@ -247,5 +277,21 @@ export function WorkspaceSidebar(props: {
         {nav('Shortcuts', COMMAND_ICONS.shortcuts, { kind: 'shortcuts' })}
       </div>
     </aside>
+  );
+}
+
+/** A tab's button in the collapsed sidebar: it opens the tab and expands the sidebar. */
+function CollapsedTab(props: { label: string; icon: LucideIcon; onClick: () => void }) {
+  const Icon = props.icon;
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label={props.label}
+      title={props.label}
+      onClick={props.onClick}
+    >
+      <Icon aria-hidden className="size-4" />
+    </Button>
   );
 }

@@ -67,6 +67,58 @@ export {
 export { relativeAgo, shortAgo, timeAgo } from './lib/ago.js';
 export * from './lib/format.js';
 export { localClock, localDay, validLocalDay } from './lib/time.js';
+export { answerParts } from './logs/answer.js';
+export {
+  cloudCopyText,
+  cloudGroupSummary,
+  consoleUrl,
+  entryConsoleUrl,
+  groupQuery,
+} from './logs/cloud-copy.js';
+export {
+  cloudLevel,
+  mappedProject,
+  serviceRefOf,
+  severityLabel,
+  severityRank,
+  splitMessage,
+  traceIdOf,
+} from './logs/cloud-entry.js';
+export { copyText, groupSummaryText } from './logs/copy.js';
+export { deployName, deploysOf, startedAfter } from './logs/deploy-marks.js';
+export { ENV_WORDS, envNameOf, joinEnvs } from './logs/env-names.js';
+export { groupKey } from './logs/error-merge.js';
+export { type FieldStat, fieldStats } from './logs/facets.js';
+export {
+  quoted,
+  type ServiceConfig,
+  serviceClause,
+  servicePaths,
+} from './logs/filter-text.js';
+export { entryGroup } from './logs/fix-goal.js';
+export { LOGIN_COMMAND } from './logs/gcloud-actions.js';
+export { ALL_ENVS } from './logs/gcp-config.js';
+export { errorGroups, isMuted, muteKey } from './logs/groups.js';
+export {
+  groupStats,
+  type Incident,
+  type IncidentLink,
+  incidentReasons,
+  incidentsOf,
+  linkReason,
+} from './logs/incidents.js';
+export { jsonObject } from './logs/json-message.js';
+export { CONTEXT_LINES, logMessage, requestMessage } from './logs/message.js';
+export { normalizedMessage } from './logs/normalize.js';
+export { groupTerms, occurrenceRuns, plainTitle, type Run } from './logs/occurrences.js';
+export { withOwn } from './logs/own-filters.js';
+export { entryText, LEVEL_NAMES } from './logs/parse.js';
+export { NO_ORGANIZATION, type ProjectRow, projectRows } from './logs/project-rows.js';
+export { type QueryField, queryFields } from './logs/query-fields.js';
+export { sinceTime } from './logs/since.js';
+export { sourceId, sourceLabel, sourceStateText } from './logs/source-id.js';
+export { ownFrame, stackSummary, stackView } from './logs/stack.js';
+export { messageParts, namesRequest, requestIds } from './logs/tokens.js';
 export { mapSession } from './map/map.js';
 export { FINISHED_HOLD_MS } from './notifications/finished-hold.js';
 export { PHONE_PUSH_LABELS, PHONE_PUSH_MODES, type PhonePushMode } from './phone/away.js';
@@ -91,6 +143,19 @@ export {
   shortcutFromKeys,
   validShortcut,
 } from './profile/shortcuts.js';
+export {
+  DEFAULT_TAB_STYLE,
+  denserTabStyle,
+  SIDEBAR_TAB_STYLES,
+  SIDEBAR_TABS,
+  type SidebarTab,
+  type SidebarTabId,
+  type SidebarTabStyle,
+  showsLabel,
+  sidebarTabs,
+  withTabOrder,
+  withTabShown,
+} from './profile/sidebar-tabs.js';
 export {
   currentTerminalTheme,
   TERMINAL_COLOR_GROUPS,

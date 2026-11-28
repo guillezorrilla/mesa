@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { AGENTS } from '../../agents/agents.js';
+import { parseStreamLine } from '../../agents/claude/stream/events.js';
+import { writeFileAtomic } from '../../lib/atomic-file.js';
 import type { LockDeps } from '../../lib/lock-file.js';
 import { MesaError } from '../../lib/result.js';
 import type { SessionRecord } from '../record/record.js';
@@ -78,4 +80,18 @@ export function runResult(
       .filter(Boolean)
       .join('; '),
   };
+}
+
+/**
+ * A streamed run's output cut to its result line once the run has ended (endRun), so the tool
+ * results its stream carried (code it read, log lines) are not kept in runs/. Output that is no
+ * stream, or holds no result, stays as it is.
+ */
+export function compactRunOutput(runs: string, id: string) {
+  const file = runOutput(runs, id);
+  if (!existsSync(file)) return;
+  const lines = readFileSync(file, 'utf8').trim().split('\n');
+  if (lines.length < 2) return;
+  const result = lines.reverse().find((line) => parseStreamLine(line).type === 'result');
+  if (result) writeFileAtomic(file, `${result}\n`, 0o600);
 }

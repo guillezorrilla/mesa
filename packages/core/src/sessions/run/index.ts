@@ -15,6 +15,9 @@ import { type RunInput, startRun } from './start.js';
 // first, the wait in `mesa run` or tmux's pane-died hook, ends it the same way (endRun, end.ts):
 // its record and where its output lands (land.ts).
 
+/** Who waits on a run and wants its session id once it has started (an Ask, to stream its answer). */
+export type RunWatch = { onStart?: (session: string) => void };
+
 /**
  * Runs a skill headlessly on a project (CONTEXT.md, Skill run), or about a session, whose
  * output log its agent reads, once the guardrail lets its prompt through (`yes`, `force`,
@@ -38,10 +41,10 @@ export async function runSkill(
     stopped: (id: string, outcome: StopOutcome) => Promise<{ warning?: string } | undefined>;
   },
   skill: string,
-  opts: Omit<RunInput, 'skill'> & Overrides,
+  opts: Omit<RunInput, 'skill'> & Overrides & RunWatch,
 ) {
   const { store, secrets, open } = ctx;
-  const { force, yes, confirm, ...input } = opts;
+  const { force, yes, confirm, onStart, ...input } = opts;
   const { project, session, agent, args = [] } = input;
   const on = project ? ` on ${project}` : session ? ` about session ${session}` : '';
   const about = session ? store.find(session) : undefined;
@@ -80,6 +83,7 @@ export async function runSkill(
     },
   );
   const run = store.get(started.result.record.id);
+  onStart?.(run.id);
   // A fast hook may finish before record() writes a guardrail override receipt. Complete
   // the run from its persisted record without depending on another tmux look.
   let finished: RunEnd;

@@ -22,6 +22,8 @@ export type ProfilePaths = {
   fetches: string;
   /** Sessions' output logs, one `<session id>.log` each: local only, never in the vault. */
   logs: string;
+  /** Each project's server log files, `<project>/<name>.log` (an IDE's saved console; CONTEXT.md, Logs panel). */
+  serverLogs: string;
   /** Structured sessions' journals, one `<session id>.jsonl` each: every event its host read or sent. */
   journals: string;
   /** Each running host's socket, `<session id>.sock` (ADR-0029); short, as a unix socket path is capped. */
@@ -33,6 +35,12 @@ export type ProfilePaths = {
   commandSocket: string;
   /** What each headless run's agent printed, `<session id>.json` each (CONTEXT.md, Skill run). */
   runs: string;
+  /** Where a General Skill run's agent runs, with only its own skill linked (sessions/run/start.ts). */
+  generalRuns: string;
+  /** The newest Cloud Logs Asks, their questions and answers (logs/ask-history.ts). */
+  cloudAsks: string;
+  /** Each Cloud Logs range's deploys, reused for two minutes (logs/deploys.ts). */
+  cloudDeploys: string;
   /** `mesa check` output logs, whole, private to the profile (CONTEXT.md, Check). */
   checks: string;
   /** Each Claude session's running estimated cost for its status line, `<session id>.json` each. */
@@ -130,10 +138,14 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     lineCounts: join(root, 'sessions', 'line-counts.json'),
     fetches: join(root, 'sessions', 'fetches.json'),
     logs: join(root, 'sessions', 'logs'),
+    serverLogs: join(root, 'logs'),
     journals: join(root, 'sessions', 'journals'),
     hosts: join(root, 'hosts'),
     commandSocket: join(root, 'run', 'serve.sock'),
     runs: join(root, 'sessions', 'runs'),
+    generalRuns: join(root, 'sessions', 'general-runs'),
+    cloudAsks: join(root, 'cloud-asks.json'),
+    cloudDeploys: join(root, 'cloud-deploys.json'),
     checks: join(root, 'checks'),
     costs: join(root, 'sessions', 'costs'),
     decisions: join(root, 'sessions', 'decisions'),

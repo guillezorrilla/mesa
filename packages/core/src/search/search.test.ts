@@ -10,6 +10,7 @@ const project = (name: string, label: string): ProjectRow => ({
   path: `/src/${name}`,
   agent: 'claude',
   priority: 0.5,
+  logsPanel: true,
   skills: [],
   overrides: {},
   terminalTheme: 'follow',
@@ -231,4 +232,14 @@ test('Impact is a destination; typed text adds the Impact of each matching proje
     ['project:lantern-cove', 'Impact: Lantern Cove'],
     ['session:a1b2c3d4', 'Impact: tide-check'],
   ]);
+});
+
+test('the sidebar tabs that can hide, Reviews and Logs, are destinations', () => {
+  const navigation = searchWorkspace(projects, [], 'logs').filter(
+    (hit) => hit.kind === 'navigation',
+  );
+  expect(navigation.map((hit) => hit.id)).toContain('logs');
+  expect(
+    searchWorkspace(projects, [], 'reviews').find((hit) => hit.id === 'reviews'),
+  ).toMatchObject({ kind: 'navigation', label: 'Reviews' });
 });

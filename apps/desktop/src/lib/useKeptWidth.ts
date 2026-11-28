@@ -4,6 +4,10 @@ import { readKept, writeKept } from '@/lib/keptValue';
 /** A resizable panel's width bounds, default, and arrow-key step, in pixels. */
 export type WidthBounds = { min: number; max: number; initial: number; step: number };
 
+/** `width` rounded and held within `bounds`. */
+export const clampWidth = (bounds: WidthBounds, width: number) =>
+  Math.min(bounds.max, Math.max(bounds.min, Math.round(width)));
+
 /**
  * A resizable panel's width kept under `key` and its setter, which clamps to `bounds`. A kept width
  * that is missing, out of bounds, or unreadable reads as the default, and follows `bounds.initial`
@@ -15,7 +19,7 @@ export function useKeptWidth(key: string, bounds: WidthBounds) {
     return value >= bounds.min && value <= bounds.max ? value : undefined;
   });
   const setWidth = (next: number) => {
-    const clamped = Math.min(bounds.max, Math.max(bounds.min, Math.round(next)));
+    const clamped = clampWidth(bounds, next);
     setKept(clamped);
     // ponytail: written on every drag move; a write per pointerup if storage ever shows in a profile.
     writeKept(key, String(clamped));

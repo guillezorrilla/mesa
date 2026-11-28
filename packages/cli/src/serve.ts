@@ -59,9 +59,15 @@ function parseRequest(line: string): Request {
  * the call ends, so calls overlap and answer in any order; the caller keeps ids unique. A line
  * that is no request is refused under its id, or id null when it has none; a command that serves
  * its own stdio is refused before it runs (runCli, Command.serves), since stdout is the replies'.
- * Ends when stdin ends and every call has answered.
+ * Once `stale` says the code on disk is no longer the code loaded (a dev rebuild), each request
+ * is handed back unrun, `{"id","here":true}` as the Command socket does (ADR-0032), so the caller
+ * runs it itself and starts a fresh server. Ends when stdin ends and every call has answered.
  */
-export async function serveCommands(io: Stdio, runOne: RunOne): Promise<void> {
+export async function serveCommands(
+  io: Stdio,
+  runOne: RunOne,
+  stale: () => boolean = () => false,
+): Promise<void> {
   const reply = (id: number | null, out: Pick<Reply, 'code' | 'stdout' | 'stderr'>) =>
     io.write(`${JSON.stringify({ id, code: out.code, stdout: out.stdout, stderr: out.stderr })}\n`);
   const calls = new Set<Promise<void>>();
@@ -70,6 +76,10 @@ export async function serveCommands(io: Stdio, runOne: RunOne): Promise<void> {
     const { id, args, stdin } = parseRequest(line);
     if (id === null || !args) {
       reply(id, refused('mesa serve: not a request line'));
+      continue;
+    }
+    if (stale()) {
+      io.write(`${JSON.stringify({ id, here: true, code: 0, stdout: '', stderr: '' })}\n`);
       continue;
     }
     const call = runOne(args, stdin).then(

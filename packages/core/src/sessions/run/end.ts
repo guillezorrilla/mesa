@@ -5,7 +5,7 @@ import type { SessionRecord } from '../record/record.js';
 import { killIfThere, type TmuxBackend } from '../tmux/backend.js';
 import { paneExit, type TmuxWindow } from '../tmux/format.js';
 import { windowOf } from '../window/window-name.js';
-import { type Exit, type HeadlessResult, runInput, runResult } from './files.js';
+import { compactRunOutput, type Exit, type HeadlessResult, runInput, runResult } from './files.js';
 import { finishRun } from './land.js';
 import { RUN_TIMEOUT_SECONDS } from './start.js';
 
@@ -81,7 +81,7 @@ export async function awaitRun(
  * hook, which ends it when that wait is gone. Its result is read from its files and how it exited
  * (the dead `pane`, else the exit its record keeps), not ok with `killed` as the reason when Mesa
  * killed it (a timeout); its window closed, and the session ended, `done` when the result is ok
- * and `failed` otherwise, with its exit recorded; its input removed; then its end recorded
+ * and `failed` otherwise, with its exit recorded; its input removed, and a streamed output cut to its result line (compactRunOutput); then its end recorded
  * (finishRun). A session already ended keeps its end, and the same result is read, and recorded,
  * again.
  */
@@ -114,6 +114,7 @@ export async function endRun(
   const final = ended.runFailure
     ? { ...finalRead, ok: false, reason: ended.runFailure }
     : finalRead;
+  if (run.agent === 'claude') compactRunOutput(ctx.paths.runs, run.id);
   return finishRun(ctx, ended, final);
 }
 

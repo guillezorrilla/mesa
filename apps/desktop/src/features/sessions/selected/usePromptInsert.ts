@@ -17,16 +17,28 @@ export function usePromptInsert(
     field.setRangeText(text, field.selectionStart, field.selectionEnd, 'end');
     field.focus();
   }, []);
+  /** Inserts text without opening the menu; false when the session shows no prompt field. */
+  const putPrompt = useCallback(
+    (text: string) => {
+      if (!promptField.current) return false;
+      insertPrompt(text);
+      return true;
+    },
+    [insertPrompt],
+  );
+  /** Opens the Session actions menu the field sits in. */
+  const showPrompt = useCallback(() => {
+    if (actionsMenu.current) actionsMenu.current.open = true;
+  }, []);
   useEffect(() => {
     if (!request || request === handledPromptInsert.current || request.session !== selectedId)
       return;
-    if (!promptField.current) return;
-    // The field sits in the Session actions menu: open it, so the inserted text shows.
-    if (actionsMenu.current) actionsMenu.current.open = true;
-    insertPrompt(request.text);
+    // A request the app sends shows the field, so the inserted text shows.
+    if (!putPrompt(request.text)) return;
+    showPrompt();
     handledPromptInsert.current = request;
-  }, [request, selectedId, insertPrompt]);
-  return { promptField, actionsMenu, insertPrompt };
+  }, [request, selectedId, putPrompt, showPrompt]);
+  return { promptField, actionsMenu, insertPrompt, putPrompt, showPrompt };
 }
 
 /** What `usePromptInsert` returns. */

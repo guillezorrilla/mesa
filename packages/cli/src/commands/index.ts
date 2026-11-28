@@ -39,7 +39,7 @@ import { guardrailCheck } from './guardrail.js';
 import { handoff } from './handoff.js';
 import { help } from './help.js';
 import { history, historySearch } from './history.js';
-import { hook, hookTmux } from './hook.js';
+import { hook, hookAskGuard, hookTmux } from './hook.js';
 import { hooksInstall, hooksStatus, hooksUninstall } from './hooks.js';
 import { host } from './host.js';
 import { imagePreview, imageSend } from './image.js';
@@ -51,7 +51,7 @@ import { instructionsList, instructionsRead, instructionsWrite } from './instruc
 import { interrupt } from './interrupt.js';
 import { keys } from './keys.js';
 import { log } from './log.js';
-import { logs } from './logs.js';
+import { LOGS_COMMANDS } from './logs/index.js';
 import { map } from './map.js';
 import { merge } from './merge.js';
 import {
@@ -123,6 +123,7 @@ import {
   sessionsView,
 } from './sessions.js';
 import { show } from './show.js';
+import { sidebarTabsCommand } from './sidebar.js';
 import { skillsList, skillsRead, skillsSet, skillsSync, skillsWrite } from './skills.js';
 import { sleep } from './sleep.js';
 import { sourcesBrowse, sourcesConnect, sourcesDisconnect, sourcesList } from './sources.js';
@@ -213,6 +214,7 @@ export const COMMANDS: Command[] = [
   help,
   hook,
   hookTmux,
+  hookAskGuard,
   host,
   hooksInstall,
   hooksStatus,
@@ -229,7 +231,7 @@ export const COMMANDS: Command[] = [
   instructionsRead,
   instructionsWrite,
   log,
-  logs,
+  ...LOGS_COMMANDS,
   map,
   notifications,
   notificationsRead,
@@ -301,6 +303,7 @@ export const COMMANDS: Command[] = [
   panel,
   sessions,
   sessionsView,
+  sidebarTabsCommand,
   sessionsControls,
   sessionsConfig,
   sessionsModel,

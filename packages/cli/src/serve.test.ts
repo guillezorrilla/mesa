@@ -103,3 +103,27 @@ test('a call written the moment mesa serve starts is answered, while its socket 
   stdin.end();
   await served;
 });
+
+test('once the code on disk is not the code loaded, mesa serve hands each request back unrun', async () => {
+  let rebuilt = false;
+  const ran: string[][] = [];
+  const written: string[] = [];
+  async function* lines() {
+    yield '{"id":1,"args":["--json","logs","projects"]}';
+    rebuilt = true;
+    yield '{"id":2,"args":["--json","logs","envs"]}';
+  }
+  await serveCommands(
+    { lines: lines(), write: (text) => written.push(text), log: () => {} },
+    async (argv) => {
+      ran.push(argv);
+      return { code: 0, stdout: '{"ok":true}\n', stderr: '' };
+    },
+    () => rebuilt,
+  );
+  expect(ran).toEqual([['--json', 'logs', 'projects']]);
+  expect(replies(written).sort((a, b) => a.id - b.id)).toEqual([
+    { id: 1, code: 0, stdout: '{"ok":true}\n', stderr: '' },
+    { id: 2, here: true, code: 0, stdout: '', stderr: '' },
+  ]);
+});

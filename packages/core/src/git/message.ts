@@ -4,6 +4,7 @@ import type { Profile } from '../profile/profile.js';
 import { resolveCheckout } from '../projects/checkout.js';
 import { readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
+import type { CodeFolder } from '../sessions/run/start.js';
 import { GIT_TEXT } from '../skills/library.js';
 import { readBranchDiff } from './branch-diff.js';
 import { gitCommand, mustGit } from './command.js';
@@ -22,7 +23,14 @@ export type GitPullRequestText = { title: string; body: string; run: GitTextRunI
 /** The skill run's owner (`mesa run`), as git text uses it: a project run with stdin given. */
 export type GitTextRunner = (
   skill: string,
-  opts: { project: string; input: string; agent?: string },
+  opts: {
+    project: string;
+    input: string;
+    agent?: string;
+    code?: CodeFolder;
+    model?: string;
+    onStart?: (session: string) => void;
+  },
 ) => Promise<{
   result: {
     session: string;

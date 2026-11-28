@@ -1,4 +1,5 @@
 import { RadioGroup } from 'radix-ui';
+import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -8,7 +9,7 @@ import { cn } from '@/lib/utils';
  */
 export function SegmentedControl<T extends string | number>(props: {
   label: string;
-  options: readonly (readonly [T, string])[];
+  options: readonly (readonly [T, ReactNode])[];
   value?: T;
   defaultValue?: T;
   onChange?: (value: T) => void;

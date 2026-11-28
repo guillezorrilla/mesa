@@ -3,6 +3,7 @@ import {
   BookMarked,
   CircleDollarSign,
   Coffee,
+  EyeOff,
   GraduationCap,
   Hourglass,
   Moon,
@@ -147,6 +148,28 @@ export function SessionSettingsPanel(props: { onSavedPrompts: () => void }) {
               checked={config.sessions.statusLineCost}
             />
           }
+        />
+      </SettingSection>
+      <SettingSection
+        id="logs"
+        title="Logs"
+        description="The output of a project's local servers beside its sessions, and Google Cloud logs in the sidebar"
+      >
+        <SettingRow
+          icon={ScrollText}
+          title="Logs panel"
+          description="Show the Logs button on sessions with a project: running Docker containers, server sessions and IntelliJ log files. A project can override it in Settings > Projects."
+          htmlFor="logs-panel"
+          keywords="logs docker server intellij panel errors"
+          control={<ToggleField id="logs-panel" path="logs.panel" checked={config.logs.panel} />}
+        />
+        <SettingRow
+          icon={EyeOff}
+          title="Mask emails and IPs for Ask"
+          description="Replace emails and IP addresses in the log entries Ask sends to the model."
+          htmlFor="logs-mask"
+          keywords="logs ask mask privacy email ip personal data"
+          control={<ToggleField id="logs-mask" path="logs.mask" checked={config.logs.mask} />}
         />
       </SettingSection>
       <SettingSection

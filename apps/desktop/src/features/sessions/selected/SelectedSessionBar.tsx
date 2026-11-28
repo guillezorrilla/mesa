@@ -7,7 +7,14 @@ import {
   reviewable,
   sessionTitle,
 } from '@mesa/core/browser';
-import { Archive, GitCompareArrows, Globe, MessageSquareQuote, Users } from 'lucide-react';
+import {
+  Archive,
+  GitCompareArrows,
+  Globe,
+  MessageSquareQuote,
+  ScrollText,
+  Users,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Button } from '@/components/ui/button';
@@ -27,7 +34,8 @@ const VIEWS = [
 
 /**
  * The selected session's bar: its project and title, details, Terminal | Chat (with a transcript
- * to show), agent, the Replies, Browser, Diff and Crew (with children or tasks) toggles, Archive,
+ * to show), agent, the Replies, Browser, Diff, Crew (with children or tasks) and Logs (with a
+ * project that shows it) toggles, Archive,
  * and then `children` (its Session actions menu).
  */
 export function SelectedSessionBar({
@@ -44,6 +52,7 @@ export function SelectedSessionBar({
   view,
   switching,
   onView,
+  logs,
   children,
 }: {
   sessionId: string;
@@ -62,6 +71,8 @@ export function SelectedSessionBar({
   /** A view switch runs (ADR-0029): the control shows where it goes, and waits. */
   switching?: boolean;
   onView: (view: ShownView) => void;
+  /** The Logs toggle, and whether an error came in unseen (its red dot); none hides it. */
+  logs?: { dot: boolean };
   children?: ReactNode;
 }) {
   // A session that coordinates tasks has a Crew too, before it has any worker; read again as its
@@ -164,6 +175,26 @@ export function SelectedSessionBar({
           onClick={() => onTogglePanel('crew')}
         >
           <Users aria-hidden /> Crew
+        </Button>
+      )}
+      {logs && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="relative"
+          aria-label={logs.dot ? 'Show logs, a new error' : 'Show logs'}
+          aria-pressed={panel === 'logs'}
+          title="The output of this project's local servers"
+          onClick={() => onTogglePanel('logs')}
+        >
+          <ScrollText aria-hidden /> Logs
+          {logs.dot && (
+            <span
+              data-testid="logs-dot"
+              aria-hidden
+              className="absolute top-1 right-1 size-1.5 rounded-full bg-state-failed"
+            />
+          )}
         </Button>
       )}
       {row && recoverable(row) && (

@@ -97,6 +97,50 @@ export * from './lib/result.js';
 export { keychainStore, type SecretStore } from './lib/secret-store.js';
 export { envSpawner, type Spawner } from './lib/spawn.js';
 export { localClock, localDay, obsidianDateTime } from './lib/time.js';
+export { askCommandAllowed, hookCommand } from './logs/ask-guard.js';
+export type { AskOwn, AskTurn, CloudAsk } from './logs/ask-history.js';
+export type { CopyContext, CopyFormat } from './logs/copy.js';
+export {
+  type CloudDeploy,
+  type CloudDeploys,
+  cloudDeploys,
+  type DeployQuery,
+} from './logs/deploys.js';
+export type { CloudErrorGroup } from './logs/errors.js';
+export type { GcloudAction } from './logs/gcloud-actions.js';
+export {
+  CLOUD_MAX_LIMIT,
+  type CloudLogEntry,
+  type CloudWarning,
+} from './logs/gcp.js';
+export {
+  CLOUD_SEVERITIES,
+  type CloudSeverity,
+  type CloudView,
+  type GcpLogs,
+} from './logs/gcp-config.js';
+export type { EnvSuggestion } from './logs/gcp-envs.js';
+export type { CloudProject, CloudProjectGroup } from './logs/gcp-projects.js';
+export type { CloudService } from './logs/gcp-services.js';
+export type { ErrorGroup } from './logs/groups.js';
+export type { Incident, IncidentLink } from './logs/incidents.js';
+export type { LogAsk } from './logs/message.js';
+export {
+  entryText,
+  LOG_LEVELS,
+  type LogLevel,
+  type ServerLogEntry,
+} from './logs/parse.js';
+export type { RequestEntry, RequestLines } from './logs/request.js';
+export {
+  type LogSource,
+  type LogSourceKind,
+  type LogSourceState,
+  parseSourceId,
+} from './logs/source-id.js';
+export type { StackLine, StackView } from './logs/stack.js';
+export type { MessagePart } from './logs/tokens.js';
+export type { CloudVolume } from './logs/volume.js';
 export type { MapSaved } from './map/service.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
 export type { NotificationDelivery } from './notifications/background.js';
@@ -124,6 +168,12 @@ export {
   shortcutFromKeys,
   validShortcut,
 } from './profile/shortcuts.js';
+export {
+  type SidebarTab,
+  sidebarTabs,
+  withTabOrder,
+  withTabShown,
+} from './profile/sidebar-tabs.js';
 export type { Checkout } from './projects/checkout.js';
 export type { DiscoveredProject } from './projects/discover.js';
 export type { Project } from './projects/project-file.js';
@@ -266,6 +316,7 @@ export type { SessionLog } from './sessions/window/output-log.js';
 export { plainText } from './sessions/window/terminal-text.js';
 export type { Viewed } from './sessions/window/view.js';
 export type { SkillInventoryRow } from './skills/inventory.js';
+export { readOnlyTools } from './skills/library.js';
 export type { SkillRow, SkillSync } from './skills/sync.js';
 export { type BrowseChild, type BrowseResult, DESCENDANTS_CAP } from './sources/browse.js';
 export { type CallbackListen, loopbackListener } from './sources/callback-listener.js';

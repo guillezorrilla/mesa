@@ -5,7 +5,7 @@ import { parse } from 'yaml';
 import { z } from 'zod';
 import { AgentSchema } from '../agents/agents.js';
 import { LaunchDefaultsSchema } from '../agents/launch-flags.js';
-import { CLAUDE_PERMISSION_MODES, DEFAULT_AGENT } from '../agents/names.js';
+import { CLAUDE_MODEL, CLAUDE_PERMISSION_MODES, DEFAULT_AGENT } from '../agents/names.js';
 import { DecisionsModelSchema } from '../decisions/types.js';
 import { validExternalArgv } from '../files/external.js';
 import { DEFAULT_COMMIT_RECIPE, DEFAULT_PULL_REQUEST_RECIPE } from '../git/recipes.js';
@@ -15,6 +15,7 @@ import { REDACTED } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { readKnownYaml, setYamlPath, valueAt } from '../lib/yaml-file.js';
+import { CloudViewSchema, GcpLogsSchema } from '../logs/gcp-config.js';
 import { PHONE_PUSH_FIELDS } from '../phone/away.js';
 import {
   GIT_OVERRIDE_FIELDS,
@@ -36,6 +37,7 @@ import {
   WEB_LINK_TARGETS,
 } from './preferences.js';
 import { DEFAULT_SHORTCUTS, unbindTakenDefaults, validBinding } from './shortcuts.js';
+import { SidebarSettingsSchema } from './sidebar-tabs.js';
 import { TERMINAL_COLOR, TERMINAL_COLOR_KEYS, TERMINAL_THEMES } from './terminal-palettes.js';
 
 /** The terminal apps `mesa attach --app` can open. */
@@ -304,6 +306,8 @@ const ConfigShape = z.strictObject({
         }, 'shortcuts must be unique'),
     )
     .prefault({}),
+  /** The sidebar's tab bar: its optional tabs, their order and its style (sidebar-tabs.ts). */
+  sidebar: SidebarSettingsSchema,
   // The sidebar's project order, and `mesa projects` without --sort.
   projects: z.strictObject({ sort: z.enum(PROJECT_SORTS).default('name') }).prefault({}),
   grid: z
@@ -338,6 +342,35 @@ const ConfigShape = z.strictObject({
     .strictObject({
       commitMessageRecipe: GIT_OVERRIDE_FIELDS.commitMessageRecipe.default(DEFAULT_COMMIT_RECIPE),
       pullRequestRecipe: GIT_OVERRIDE_FIELDS.pullRequestRecipe.default(DEFAULT_PULL_REQUEST_RECIPE),
+    })
+    .prefault({}),
+  logs: z
+    .strictObject({
+      /** Whether a session with a project shows the Logs panel's button; a project's mesa.yaml overrides it. */
+      panel: z.boolean().default(true),
+      /**
+       * Retired for `sidebar.tabs`: read as the Logs tab's shown only until `sidebar.tabs` names
+       * it (sidebarTabs), and accepted and ignored after (ADR-0013's deprecation).
+       */
+      cloudTab: z.boolean().default(true),
+      /** Where Cloud Logs reads; unset, the Logs tab shows its setup. */
+      gcp: GcpLogsSchema.optional(),
+      views: z.array(CloudViewSchema).default([]),
+      /** The GCP projects whose prod entries a person let Ask send to the model (logs/ask.ts). */
+      prodAsk: z.array(z.string()).default([]),
+      /** Whether emails and IP addresses are masked in what Ask sends to the model (logs/mask.ts). */
+      mask: z.boolean().default(true),
+      /**
+       * The registered project each service's Fix in session starts in, and whose code Ask reads,
+       * by `<project>/<name>`.
+       */
+      fixProjects: z.record(z.string(), z.string()).default({}),
+      /** The model Ask's run answers with (logs/ask.ts): a capable one, as it reads code and a range. */
+      askModel: CLAUDE_MODEL.default('claude-opus-5-5'),
+      /** The GCP projects Cloud Logs read last, newest first (the project switcher's Recent). */
+      recentProjects: z.array(z.string()).default([]),
+      /** The GCP projects starred in the project switcher. */
+      starredProjects: z.array(z.string()).default([]),
     })
     .prefault({}),
   /** Which releases Mesa updates to (ADR-0018); unset follows the running version's channel. */
