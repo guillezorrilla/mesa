@@ -303,6 +303,7 @@ export type { SessionState } from './sessions/record/states.js';
 export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/record/workflow-status.js';
 export type { HeadlessResult } from './sessions/run/files.js';
 export type { SessionMerge } from './sessions/service/merge.js';
+export type { Activity, ActivityKind, Subagent } from './sessions/signals/activity.js';
 export type { Supervision } from './sessions/signals/placements.js';
 export type { DiscoveredAdoption, DiscoveryAdoption } from './sessions/start/discovery-adopt.js';
 export type { Worktree } from './sessions/start/worktree.js';

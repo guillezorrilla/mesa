@@ -19,6 +19,7 @@ export type WorkspaceView =
         | 'automations'
         | 'onboarding'
         | 'map'
+        | 'office'
         | 'usage'
         | 'inbox';
     }

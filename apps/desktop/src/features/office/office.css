@@ -1,0 +1,16 @@
+/* The Office's speech bubbles; its rooms and characters are drawn on a canvas. */
+.office-bubble {
+  box-shadow: 0 3px 0 0 color-mix(in oklab, currentColor 30%, transparent);
+}
+
+/* A class outranks style.css's reduced-motion rule, so movement is asked for only here. */
+@media (prefers-reduced-motion: no-preference) {
+  .office-emote {
+    animation: office-step 1.2s steps(2, jump-none) infinite;
+  }
+}
+@keyframes office-step {
+  to {
+    transform: translateY(-3px);
+  }
+}

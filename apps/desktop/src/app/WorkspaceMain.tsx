@@ -11,6 +11,7 @@ import { HooksUpdateCard } from '@/features/hooks/HooksUpdateCard';
 import { ImpactScreen } from '@/features/impact/ImpactScreen';
 import { CloudLogsKeptScreen } from '@/features/logs/cloud/CloudLogsKeptScreen';
 import { MapScreen } from '@/features/map/MapScreen';
+import { OfficeScreen } from '@/features/office/OfficeScreen';
 import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { ProjectScreen, type ProjectTab } from '@/features/projects/ProjectScreen';
@@ -176,6 +177,13 @@ export function WorkspaceMain(props: {
         <MapScreen
           onSession={(id) => navigate({ kind: 'session', id })}
           onVaultItem={(path) => navigate({ kind: 'vault', path })}
+        />
+      )}
+      {view.kind === 'office' && (
+        <OfficeScreen
+          sessions={props.sessions}
+          projects={projects.data}
+          onSession={(id) => navigate({ kind: 'session', id })}
         />
       )}
       {view.kind === 'daily' && (

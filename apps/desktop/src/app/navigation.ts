@@ -18,6 +18,7 @@ const PALETTE_DESTINATIONS = [
   'automations',
   'shortcuts',
   'impact',
+  'office',
   'logs',
 ] as const;
 

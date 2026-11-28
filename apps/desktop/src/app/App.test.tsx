@@ -321,6 +321,14 @@ test('sidebar opens Map without creating a missing saved map', async () => {
   expect(calls.some((args) => args[1] === 'map')).toBe(false);
 });
 
+test('the title bar opens the Office, where the board sessions sit', async () => {
+  const { bridge } = fakeBridge({});
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-office')[0]);
+  expect(byTestId('office-screen')).toHaveLength(1);
+  expect(byTestId('nav-office')[0]?.getAttribute('aria-current')).toBe('page');
+});
+
 test('the title bar opens Impact from its first shortcut, before Cost; the sidebar has none', async () => {
   const { bridge, calls } = fakeBridge({
     impact: () => envelope(impactReport()),

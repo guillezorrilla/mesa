@@ -30,6 +30,7 @@ export type CommandId =
   | 'grid'
   | 'automations'
   | 'impact'
+  | 'office'
   | 'doctor'
   | 'help'
   | 'new-session'
@@ -82,6 +83,12 @@ function commands(shortcuts: Shortcuts, canStart: boolean): SearchHit[] {
       id: 'impact',
       label: 'Impact',
       detail: 'What Mesa decided and kept for you',
+    },
+    {
+      kind: 'navigation',
+      id: 'office',
+      label: 'Office',
+      detail: 'Watch your agents at their desks',
     },
     { kind: 'navigation', id: 'doctor', label: 'Doctor', detail: "Check Mesa's health" },
     { kind: 'navigation', id: 'help', label: 'Help', detail: 'Read commands and guidance' },
